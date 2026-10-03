@@ -245,17 +245,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
-        int stairThird = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
-                : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
-                : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
-        if (stairThird >= 0) {
-            // A flight is three squares, each a third of a level, rising towards -x (W) or -y (N).
-            float top = (stairThird + 1) / 3f;
-            if (type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW) {
-                geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f);
-            } else {
-                geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
-            }
+        if (addStair(mesh, type, x, y, z)) {
             return;
         }
 
@@ -269,22 +259,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             west = !north;
         } else {
             boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE);
-            west = both || properties.has(IsoFlagType.collideW) || properties.has(IsoFlagType.WallW)
-                    || properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.DoorWallW)
-                    || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.windowW)
-                    || properties.has(IsoFlagType.doorW) || properties.has(IsoFlagType.cutW)
-                    || properties.has(IsoFlagType.HoppableW) || properties.has(IsoFlagType.TallHoppableW)
-                    || properties.has(IsoFlagType.attachedW)
-                    || type == IsoObjectType.doorFrW || type == IsoObjectType.doorW
-                    || type == IsoObjectType.windowFW || type == IsoObjectType.curtainW;
-            north = both || properties.has(IsoFlagType.collideN) || properties.has(IsoFlagType.WallN)
-                    || properties.has(IsoFlagType.WallNTrans) || properties.has(IsoFlagType.DoorWallN)
-                    || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.windowN)
-                    || properties.has(IsoFlagType.doorN) || properties.has(IsoFlagType.cutN)
-                    || properties.has(IsoFlagType.HoppableN) || properties.has(IsoFlagType.TallHoppableN)
-                    || properties.has(IsoFlagType.attachedN)
-                    || type == IsoObjectType.doorFrN || type == IsoObjectType.doorN
-                    || type == IsoObjectType.windowFN || type == IsoObjectType.curtainN;
+            west = both || standsOnWestEdge(properties, type);
+            north = both || standsOnNorthEdge(properties, type);
         }
         if (west) {
             geometry.addFace(mesh, frame, x, y, z, lift, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
@@ -304,6 +280,48 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, rightX, rightY);
+    }
+
+    /**
+     * A flight is three squares, each a third of a level, rising towards -x (W) or -y (N).
+     * Returns false, adding nothing, for a sprite that is not a stair.
+     */
+    private boolean addStair(SpriteGeometry.Mesh mesh, IsoObjectType type, int x, int y, int z) {
+        int third = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
+                : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
+                : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
+        if (third < 0) {
+            return false;
+        }
+        float top = (third + 1) / 3f;
+        if (type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW) {
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f);
+        } else {
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
+        }
+        return true;
+    }
+
+    private static boolean standsOnWestEdge(PropertyContainer properties, IsoObjectType type) {
+        return properties.has(IsoFlagType.collideW) || properties.has(IsoFlagType.WallW)
+                || properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.DoorWallW)
+                || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.windowW)
+                || properties.has(IsoFlagType.doorW) || properties.has(IsoFlagType.cutW)
+                || properties.has(IsoFlagType.HoppableW) || properties.has(IsoFlagType.TallHoppableW)
+                || properties.has(IsoFlagType.attachedW)
+                || type == IsoObjectType.doorFrW || type == IsoObjectType.doorW
+                || type == IsoObjectType.windowFW || type == IsoObjectType.curtainW;
+    }
+
+    private static boolean standsOnNorthEdge(PropertyContainer properties, IsoObjectType type) {
+        return properties.has(IsoFlagType.collideN) || properties.has(IsoFlagType.WallN)
+                || properties.has(IsoFlagType.WallNTrans) || properties.has(IsoFlagType.DoorWallN)
+                || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.windowN)
+                || properties.has(IsoFlagType.doorN) || properties.has(IsoFlagType.cutN)
+                || properties.has(IsoFlagType.HoppableN) || properties.has(IsoFlagType.TallHoppableN)
+                || properties.has(IsoFlagType.attachedN)
+                || type == IsoObjectType.doorFrN || type == IsoObjectType.doorN
+                || type == IsoObjectType.windowFN || type == IsoObjectType.curtainN;
     }
 
     private SpriteGeometry.Mesh meshFor(int texture) {
@@ -340,6 +358,25 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         GL11.glPushMatrix();
         GL11.glLoadMatrixf(ViewCamera.view(eyeX, eyeY, eyeUp, yaw, pitch));
         GL20.glUseProgram(0);
+        clearToSkyAndSetDrawState();
+        drawMeshes();
+
+        GL20.glUseProgram(program);
+        GL11.glMatrixMode(GL_PROJECTION);
+        GL11.glPopMatrix();
+        GL11.glMatrixMode(GL_MODELVIEW);
+        GL11.glPopMatrix();
+        GL11.glPopAttrib();
+
+        int error = GL11.glGetError();
+        if (error != 0) {
+            throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " drawing the first-person view");
+        }
+        lastDrawMillis = (System.nanoTime() - start) / 1e6f;
+    }
+
+    /** The fixed-function state the meshes are drawn with. render() saves the game's and puts it back. */
+    private void clearToSkyAndSetDrawState() {
         // The game leaves its other texture units switched on for its own shaders. With no shader
         // bound they would multiply into every pixel, so only the first unit stays on.
         for (int unit = TEXTURE_UNITS - 1; unit >= 0; unit--) {
@@ -364,7 +401,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         GL11.glEnable(GL_ALPHA_TEST);
         GL11.glAlphaFunc(GL_GREATER, 0.5f);
         GL11.glEnable(GL_TEXTURE_2D);
+    }
 
+    private void drawMeshes() {
         for (int i = 0; i < meshes.size(); i++) {
             SpriteGeometry.Mesh mesh = meshes.get(i);
             if (mesh.floats == 0) {
@@ -386,18 +425,5 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
             GL11.glEnd();
         }
-
-        GL20.glUseProgram(program);
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glPopMatrix();
-        GL11.glPopAttrib();
-
-        int error = GL11.glGetError();
-        if (error != 0) {
-            throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " drawing the first-person view");
-        }
-        lastDrawMillis = (System.nanoTime() - start) / 1e6f;
     }
 }

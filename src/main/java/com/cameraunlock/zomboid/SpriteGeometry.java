@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * Turns one of the game's isometric sprites into textured triangles in the
  * world.
@@ -19,11 +21,18 @@ final class SpriteGeometry {
     /** Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue. */
     static final int VERTEX_FLOATS = 8;
 
-    /** Tiles per frame pixel across the screen at tile scale 1: a tile's diagonal is 64 pixels. */
-    private static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / 64.0);
-    /** Tiles of height per frame pixel at tile scale 1: a level is 96 pixels. */
-    private static final float TILES_PER_PIXEL_UP = ViewCamera.LEVEL_HEIGHT / 96f;
+    /** The game's projection at tile scale 1: a tile along x or y is this many frame pixels across and down. */
+    private static final float PIXELS_ACROSS_PER_TILE = 32f;
+    private static final float PIXELS_DOWN_PER_TILE = 16f;
+    /** Frame pixels a level rises by at tile scale 1. */
+    private static final float PIXELS_PER_LEVEL = 96f;
 
+    /** Tiles per frame pixel across the screen at tile scale 1: a tile's diagonal is 64 pixels. */
+    private static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / (2.0 * PIXELS_ACROSS_PER_TILE));
+    /** Tiles of height per frame pixel at tile scale 1. */
+    private static final float TILES_PER_PIXEL_UP = ViewCamera.LEVEL_HEIGHT / PIXELS_PER_LEVEL;
+
+    /** A face that covers less of the frame than this, in square pixels, only touches the sprite's edge. */
     private static final float MIN_FRAME_PIXELS = 0.5f;
     /**
      * A sprite's edge is a staircase of pixels, half of them empty, and two tiles that meet
@@ -31,8 +40,13 @@ final class SpriteGeometry {
      */
     private static final float EDGE_INSET_PIXELS = 2f;
     private static final float EDGE_SLACK_PIXELS = 2f;
+    /** A texel is taken no nearer the trimmed rectangle's edge than the centre of its outermost pixel. */
+    private static final float HALF_PIXEL = 0.5f;
     private static final int MAX_CORNERS = 12;
+    /** Floats per corner of a face being clipped: a, b, h on the tile, then the frame pixel u, v. */
     private static final int CORNER_FLOATS = 5;
+    private static final int CORNER_U = 3;
+    private static final int CORNER_V = 4;
 
     /** Triangles that share one OpenGL texture. */
     static final class Mesh {
@@ -49,7 +63,7 @@ final class SpriteGeometry {
 
         private void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
             if (floats + VERTEX_FLOATS > vertices.length) {
-                vertices = java.util.Arrays.copyOf(vertices, vertices.length * 2);
+                vertices = Arrays.copyOf(vertices, vertices.length * 2);
             }
             vertices[floats++] = x;
             vertices[floats++] = y;
@@ -83,12 +97,12 @@ final class SpriteGeometry {
 
     /** Frame pixel across of a point on the tile. */
     static float frameU(Frame frame, float a, float b) {
-        return (a - b) * 32f * frame.scale + frame.originU;
+        return (a - b) * PIXELS_ACROSS_PER_TILE * frame.scale + frame.originU;
     }
 
     /** Frame pixel down of a point on the tile. */
     static float frameV(Frame frame, float a, float b, float h) {
-        return ((a + b) * 16f - h * 96f) * frame.scale + frame.originV;
+        return ((a + b) * PIXELS_DOWN_PER_TILE - h * PIXELS_PER_LEVEL) * frame.scale + frame.originV;
     }
 
     /**
@@ -103,8 +117,8 @@ final class SpriteGeometry {
         setCorner(frame, 1, a + da1, b + db1, h + dh1);
         setCorner(frame, 2, a + da1 + da2, b + db1 + db2, h + dh1 + dh2);
         setCorner(frame, 3, a + da2, b + db2, h + dh2);
-        centreU = (corners[3] + corners[CORNER_FLOATS * 2 + 3]) / 2f;
-        centreV = (corners[4] + corners[CORNER_FLOATS * 2 + 4]) / 2f;
+        centreU = (corners[CORNER_U] + corners[CORNER_FLOATS * 2 + CORNER_U]) / 2f;
+        centreV = (corners[CORNER_V] + corners[CORNER_FLOATS * 2 + CORNER_V]) / 2f;
 
         // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
         // pixel or two short of its edge; cutting the face there would leave a slit between two
@@ -130,7 +144,7 @@ final class SpriteGeometry {
         float[] to = spare;
         int count = 4;
         for (int edge = 0; edge < 4 && count > 0; edge++) {
-            int axis = edge < 2 ? 3 : 4;
+            int axis = edge < 2 ? CORNER_U : CORNER_V;
             boolean keepAbove = (edge & 1) == 0;
             float limit = switch (edge) {
                 case 0 -> frame.left - slack;
@@ -183,8 +197,8 @@ final class SpriteGeometry {
         corners[at] = a;
         corners[at + 1] = b;
         corners[at + 2] = h;
-        corners[at + 3] = frameU(frame, a, b);
-        corners[at + 4] = frameV(frame, a, b, h);
+        corners[at + CORNER_U] = frameU(frame, a, b);
+        corners[at + CORNER_V] = frameV(frame, a, b, h);
     }
 
     /** The area of the frame a clipped face covers. A face that only touches the sprite's edge covers none. */
@@ -193,7 +207,8 @@ final class SpriteGeometry {
         for (int i = 0; i < count; i++) {
             int current = i * CORNER_FLOATS;
             int next = ((i + 1) % count) * CORNER_FLOATS;
-            twice += polygon[current + 3] * polygon[next + 4] - polygon[next + 3] * polygon[current + 4];
+            twice += polygon[current + CORNER_U] * polygon[next + CORNER_V]
+                    - polygon[next + CORNER_U] * polygon[current + CORNER_V];
         }
         return Math.abs(twice) / 2f;
     }
@@ -226,8 +241,8 @@ final class SpriteGeometry {
 
     private void emit(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int index) {
         int at = index * CORNER_FLOATS;
-        float pixelU = polygon[at + 3];
-        float pixelV = polygon[at + 4];
+        float pixelU = polygon[at + CORNER_U];
+        float pixelV = polygon[at + CORNER_V];
         float toCentreU = centreU - pixelU;
         float toCentreV = centreV - pixelV;
         float distance = (float) Math.sqrt(toCentreU * toCentreU + toCentreV * toCentreV);
@@ -235,8 +250,8 @@ final class SpriteGeometry {
             pixelU += toCentreU / distance * EDGE_INSET_PIXELS;
             pixelV += toCentreV / distance * EDGE_INSET_PIXELS;
         }
-        pixelU = Math.clamp(pixelU, frame.left + 0.5f, frame.left + frame.width - 0.5f);
-        pixelV = Math.clamp(pixelV, frame.top + 0.5f, frame.top + frame.height - 0.5f);
+        pixelU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
         mesh.add(tileX + polygon[at], tileY + polygon[at + 1], (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT,

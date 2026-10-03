@@ -183,7 +183,7 @@ public final class Tests {
                 "the frame's bottom right is below the anchor by the rows under it");
     }
 
-    private static final ClassDesc TESTS =ClassDesc.of("com.cameraunlock.zomboid.Tests");
+    private static final ClassDesc TESTS = ClassDesc.of("com.cameraunlock.zomboid.Tests");
     private static final CallSite.Method RUN = new CallSite.Method("com/cameraunlock/zomboid/Subject", "run", "()V");
     private static final CallSite.Method TARGET = new CallSite.Method("com/cameraunlock/zomboid/Tests", "target", "()V");
     private static final CallSite.Method HOOK = new CallSite.Method("com/cameraunlock/zomboid/Tests", "hook", "()V");

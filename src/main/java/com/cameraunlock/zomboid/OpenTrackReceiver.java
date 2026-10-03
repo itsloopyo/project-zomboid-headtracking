@@ -9,6 +9,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Locale;
 
 /**
  * Listens for OpenTrack UDP datagrams on a thread of its own: six little-endian
@@ -19,7 +20,12 @@ final class OpenTrackReceiver {
     static final int DEFAULT_PORT = 4242;
     static final int PACKET_BYTES = 48;
 
-    private static final long FRESH_NANOS = 500_000_000L;
+    /** A tracker is quiet once this long has passed without a packet. */
+    private static final int FRESH_MILLIS = 500;
+    private static final long FRESH_NANOS = FRESH_MILLIS * 1_000_000L;
+    /** Room for the pose and for whatever a tracker appends to it. */
+    private static final int RECEIVE_BUFFER_BYTES = 256;
+    private static final int POSE_VALUES = PACKET_BYTES / Double.BYTES;
     private static final int BIND_RETRY_MILLIS = 500;
     private static final float METRES_PER_CENTIMETRE = 0.01f;
 
@@ -65,8 +71,8 @@ final class OpenTrackReceiver {
 
     private void run() {
         try (DatagramSocket socket = bind()) {
-            socket.setSoTimeout((int) (FRESH_NANOS / 1_000_000L));
-            byte[] buffer = new byte[256];
+            socket.setSoTimeout(FRESH_MILLIS);
+            byte[] buffer = new byte[RECEIVE_BUFFER_BYTES];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             while (true) {
                 packet.setLength(buffer.length);
@@ -94,8 +100,9 @@ final class OpenTrackReceiver {
                 return socket;
             } catch (SocketException failure) {
                 socket.close();
-                if (!String.valueOf(failure.getMessage()).equals(lastMessage)) {
-                    lastMessage = String.valueOf(failure.getMessage());
+                String message = String.valueOf(failure.getMessage());
+                if (!message.equals(lastMessage)) {
+                    lastMessage = message;
                     Log.info("head tracking cannot open UDP port " + port + " (" + lastMessage
                             + "), trying again every " + BIND_RETRY_MILLIS + " ms");
                 }
@@ -119,15 +126,7 @@ final class OpenTrackReceiver {
         }
         remote = !sender.isLoopbackAddress();
         Sample previous = latest;
-        if (!receiving) {
-            receiving = true;
-            Log.info(previous == null
-                    ? String.format(java.util.Locale.ROOT,
-                            "first tracking packet from %s: x %.3f y %.3f z %.3f m, yaw %.2f pitch %.2f roll %.2f",
-                            sender.getHostAddress(), sample.x, sample.y, sample.z, sample.yaw, sample.pitch, sample.roll)
-                    : String.format(java.util.Locale.ROOT, "tracking packets again from %s after %.1f s without one",
-                            sender.getHostAddress(), (nanos - lastPacketNanos) / 1e9));
-        }
+        noteReceiving(sample, previous == null, sender);
         // A tracker's relay repeats the last pose faster than the tracker measures one. Only a
         // pose that differs is a new sample, or the interpolator would take the relay's rate for
         // the tracker's and have nothing to interpolate between.
@@ -141,8 +140,22 @@ final class OpenTrackReceiver {
     void noteSilence(long nanos) {
         if (receiving && nanos - lastPacketNanos >= FRESH_NANOS) {
             receiving = false;
-            Log.info("no tracking packet for " + FRESH_NANOS / 1_000_000L + " ms, the view keeps the last pose");
+            Log.info("no tracking packet for " + FRESH_MILLIS + " ms, the view keeps the last pose");
         }
+    }
+
+    /** Logs the tracker's first packet, and its first after going quiet. */
+    private void noteReceiving(Sample sample, boolean first, InetAddress sender) {
+        if (receiving) {
+            return;
+        }
+        receiving = true;
+        Log.info(first
+                ? String.format(Locale.ROOT,
+                        "first tracking packet from %s: x %.3f y %.3f z %.3f m, yaw %.2f pitch %.2f roll %.2f",
+                        sender.getHostAddress(), sample.x, sample.y, sample.z, sample.yaw, sample.pitch, sample.roll)
+                : String.format(Locale.ROOT, "tracking packets again from %s after %.1f s without one",
+                        sender.getHostAddress(), (sample.nanos - lastPacketNanos) / 1e9));
     }
 
     /** Null for a datagram that is too short or carries a value that is not a finite float. */
@@ -151,7 +164,7 @@ final class OpenTrackReceiver {
             return null;
         }
         ByteBuffer buffer = ByteBuffer.wrap(data, 0, length).order(ByteOrder.LITTLE_ENDIAN);
-        float[] values = new float[6];
+        float[] values = new float[POSE_VALUES];
         for (int i = 0; i < values.length; i++) {
             values[i] = (float) buffer.getDouble(i * Double.BYTES);
             if (!Float.isFinite(values[i])) {
