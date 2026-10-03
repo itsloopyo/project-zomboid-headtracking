@@ -4,3 +4,25 @@ AGENTS.md
 CLAUDE.md
 .mcp.json
 .lab/
+
+# Build output
+bin/
+obj/
+build/
+target/
+dist/
+release/
+*.class
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Tooling
+.pixi/
+
+# Installer state
+.headtracking-state.json
