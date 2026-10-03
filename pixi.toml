@@ -15,6 +15,7 @@ openjdk = ">=25,<26"
 [tasks]
 update-submodule = "git submodule update --remote cameraunlock-core && powershell -NoProfile -ExecutionPolicy Bypass -File cameraunlock-core/scripts/update-submodule.ps1"
 sync = "git submodule update --remote cameraunlock-core"
+update-deps = "powershell -NoProfile -Command \"Write-Host 'No vendored dependencies to update (shim-only mod).'\""
 
 build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test-unit = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
