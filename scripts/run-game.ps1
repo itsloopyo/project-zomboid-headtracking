@@ -2,8 +2,6 @@
 # stops it and prints the agent's log. Development only: nothing is written to
 # the install except the log the agent itself creates.
 param(
-    # Directory for the render check captures. Leave empty to run without it.
-    [string]$RenderCheck = '',
     [int]$Seconds = 90
 )
 
@@ -18,7 +16,6 @@ $gamePaths = @(Find-AllGamePaths -GameId 'project-zomboid')
 if ($gamePaths.Count -eq 0) { throw 'no installed copy of Project Zomboid was found' }
 
 $options = "-javaagent:$jar"
-if ($RenderCheck) { $options += " -Dcameraunlock.zomboid.renderCheck=$RenderCheck" }
 
 foreach ($game in $gamePaths) {
     Write-Host "== $game"
