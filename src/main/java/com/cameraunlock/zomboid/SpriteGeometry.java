@@ -77,6 +77,8 @@ final class SpriteGeometry {
 
     private final float[] corners = new float[MAX_CORNERS * CORNER_FLOATS];
     private final float[] clipped = new float[MAX_CORNERS * CORNER_FLOATS];
+    private final float[] spare = new float[MAX_CORNERS * CORNER_FLOATS];
+    private float[] result;
     private float centreU, centreV;
 
     /** Frame pixel across of a point on the tile. */
@@ -104,11 +106,28 @@ final class SpriteGeometry {
         centreU = (corners[3] + corners[CORNER_FLOATS * 2 + 3]) / 2f;
         centreV = (corners[4] + corners[CORNER_FLOATS * 2 + 4]) / 2f;
 
-        // A sprite often stops a pixel or two short of the edge of the face it covers. Cutting the
-        // face there would leave a slit between two walls, so the last texels are stretched over it.
-        float slack = EDGE_SLACK_PIXELS * frame.scale;
-        float[] from = corners;
-        float[] to = clipped;
+        // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
+        // pixel or two short of its edge; cutting the face there would leave a slit between two
+        // walls, so the face is allowed to run that far past the sprite and takes the last texels.
+        int covered = clipToFrame(frame, 0f);
+        if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
+            return 0;
+        }
+        int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
+        float[] from = result;
+        for (int i = 1; i < count - 1; i++) {
+            emit(mesh, frame, tileX, tileY, tileZ, from, 0);
+            emit(mesh, frame, tileX, tileY, tileZ, from, i);
+            emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
+        }
+        return count - 2;
+    }
+
+    /** Clips the face in corners to the trimmed sprite grown by slack, into result. Returns its corner count. */
+    private int clipToFrame(Frame frame, float slack) {
+        System.arraycopy(corners, 0, clipped, 0, 4 * CORNER_FLOATS);
+        float[] from = clipped;
+        float[] to = spare;
         int count = 4;
         for (int edge = 0; edge < 4 && count > 0; edge++) {
             int axis = edge < 2 ? 3 : 4;
@@ -124,15 +143,8 @@ final class SpriteGeometry {
             from = to;
             to = swap;
         }
-        if (count < 3 || framePixels(from, count) < MIN_FRAME_PIXELS) {
-            return 0;
-        }
-        for (int i = 1; i < count - 1; i++) {
-            emit(mesh, frame, tileX, tileY, tileZ, from, 0);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
-        }
-        return count - 2;
+        result = from;
+        return count;
     }
 
     /**
