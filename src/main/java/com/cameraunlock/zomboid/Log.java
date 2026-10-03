@@ -17,6 +17,10 @@ final class Log {
     private Log() {}
 
     static synchronized void open(Path directory) throws IOException {
+        if (out == null) {
+            // A log that ends without this line is a game that was killed or crashed.
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> info("game process ending"), "CameraUnlock-Log"));
+        }
         out = new PrintWriter(Files.newBufferedWriter(directory.resolve(FILE_NAME), StandardCharsets.UTF_8), true);
     }
 

@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -34,6 +35,8 @@ final class OpenTrackReceiver {
     private volatile Sample latest;
     private volatile boolean remote;
     private volatile long lastPacketNanos;
+    private boolean receiving;
+    private boolean rejectionLogged;
 
     OpenTrackReceiver(int port) {
         this.port = port;
@@ -62,11 +65,17 @@ final class OpenTrackReceiver {
 
     private void run() {
         try (DatagramSocket socket = bind()) {
+            socket.setSoTimeout((int) (FRESH_NANOS / 1_000_000L));
             byte[] buffer = new byte[256];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             while (true) {
                 packet.setLength(buffer.length);
-                socket.receive(packet);
+                try {
+                    socket.receive(packet);
+                } catch (SocketTimeoutException quiet) {
+                    noteSilence(System.nanoTime());
+                    continue;
+                }
                 accept(buffer, packet.getLength(), packet.getAddress(), System.nanoTime());
             }
         } catch (IOException | InterruptedException failure) {
@@ -99,14 +108,25 @@ final class OpenTrackReceiver {
     void accept(byte[] data, int length, InetAddress sender, long nanos) {
         Sample sample = parse(data, length, nanos);
         if (sample == null) {
+            if (!rejectionLogged) {
+                rejectionLogged = true;
+                Log.info("ignored a " + length + " byte datagram from " + sender.getHostAddress()
+                        + ": an OpenTrack pose is " + PACKET_BYTES + " bytes of six finite doubles."
+                        + " Later ones are ignored without a line here");
+            }
+            noteSilence(nanos);
             return;
         }
         remote = !sender.isLoopbackAddress();
         Sample previous = latest;
-        if (previous == null) {
-            Log.info(String.format(java.util.Locale.ROOT,
-                    "first tracking packet from %s: x %.3f y %.3f z %.3f m, yaw %.2f pitch %.2f roll %.2f",
-                    sender.getHostAddress(), sample.x, sample.y, sample.z, sample.yaw, sample.pitch, sample.roll));
+        if (!receiving) {
+            receiving = true;
+            Log.info(previous == null
+                    ? String.format(java.util.Locale.ROOT,
+                            "first tracking packet from %s: x %.3f y %.3f z %.3f m, yaw %.2f pitch %.2f roll %.2f",
+                            sender.getHostAddress(), sample.x, sample.y, sample.z, sample.yaw, sample.pitch, sample.roll)
+                    : String.format(java.util.Locale.ROOT, "tracking packets again from %s after %.1f s without one",
+                            sender.getHostAddress(), (nanos - lastPacketNanos) / 1e9));
         }
         // A tracker's relay repeats the last pose faster than the tracker measures one. Only a
         // pose that differs is a new sample, or the interpolator would take the relay's rate for
@@ -115,6 +135,14 @@ final class OpenTrackReceiver {
             latest = sample;
         }
         lastPacketNanos = nanos;
+    }
+
+    /** Logs the tracker going quiet, once each time it does. Package-private for the same reason. */
+    void noteSilence(long nanos) {
+        if (receiving && nanos - lastPacketNanos >= FRESH_NANOS) {
+            receiving = false;
+            Log.info("no tracking packet for " + FRESH_NANOS / 1_000_000L + " ms, the view keeps the last pose");
+        }
     }
 
     /** Null for a datagram that is too short or carries a value that is not a finite float. */
