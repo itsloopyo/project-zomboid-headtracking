@@ -14,7 +14,7 @@ compile classpath only and are never packed into the jar.
 
 ## cameraunlock-core
 
-- **Version:** commit d43b109c9e5d5f4cebdb05b26e3a8c81a4085d6e
+- **Version:** commit ea5278dc50f83823749d8493c4b4a6c6e84e3613
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
 - **Usage:** `install.cmd` and `uninstall.cmd` run the installer script bodies it provides; none of its code is compiled into the jar.
