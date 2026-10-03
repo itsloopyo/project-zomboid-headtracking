@@ -50,6 +50,8 @@ final class SpriteGeometry {
 
     /** Triangles that share one OpenGL texture. */
     static final class Mesh {
+        /** The OpenGL name of the texture, set by whoever keeps meshes by texture. */
+        int texture;
         float[] vertices = new float[VERTEX_FLOATS * 3 * 256];
         int floats;
 

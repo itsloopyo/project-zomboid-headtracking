@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -85,9 +84,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static volatile int depthBits = -1;
     private static boolean depthChecked;
 
-    private final HashMap<Integer, SpriteGeometry.Mesh> meshByTexture = new HashMap<>();
+    /**
+     * The meshes by texture name, open addressing with a power of two length, at most half full.
+     * A lookup runs for every sprite of every frame, and a map keyed by Integer would box each one.
+     */
+    private SpriteGeometry.Mesh[] meshByTexture = new SpriteGeometry.Mesh[64];
     private final ArrayList<SpriteGeometry.Mesh> meshes = new ArrayList<>();
-    private final ArrayList<Integer> meshTextures = new ArrayList<>();
     private final SpriteGeometry geometry = new SpriteGeometry();
     private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
@@ -325,12 +327,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private SpriteGeometry.Mesh meshFor(int texture) {
-        SpriteGeometry.Mesh mesh = meshByTexture.get(texture);
-        if (mesh == null) {
-            mesh = new SpriteGeometry.Mesh();
-            meshByTexture.put(texture, mesh);
-            meshes.add(mesh);
-            meshTextures.add(texture);
+        int slot = slotFor(meshByTexture, texture);
+        SpriteGeometry.Mesh mesh = meshByTexture[slot];
+        if (mesh != null) {
+            return mesh;
+        }
+        mesh = new SpriteGeometry.Mesh();
+        mesh.texture = texture;
+        meshes.add(mesh);
+        if (meshes.size() * 2 > meshByTexture.length) {
+            meshByTexture = new SpriteGeometry.Mesh[meshByTexture.length * 2];
+            for (int i = 0; i < meshes.size(); i++) {
+                SpriteGeometry.Mesh moved = meshes.get(i);
+                meshByTexture[slotFor(meshByTexture, moved.texture)] = moved;
+            }
+        } else {
+            meshByTexture[slot] = mesh;
         }
         return mesh;
     }
@@ -375,6 +387,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         lastDrawMillis = (System.nanoTime() - start) / 1e6f;
     }
 
+    /** The slot holding the texture's mesh, or the empty one it belongs in. */
+    private static int slotFor(SpriteGeometry.Mesh[] table, int texture) {
+        int mask = table.length - 1;
+        int slot = texture & mask;
+        while (table[slot] != null && table[slot].texture != texture) {
+            slot = (slot + 1) & mask;
+        }
+        return slot;
+    }
+
     /** The fixed-function state the meshes are drawn with. render() saves the game's and puts it back. */
     private void clearToSkyAndSetDrawState() {
         // The game leaves its other texture units switched on for its own shaders. With no shader
@@ -409,12 +431,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             if (mesh.floats == 0) {
                 continue;
             }
-            int texture = meshTextures.get(i);
-            if (texture == PLAIN) {
+            if (mesh.texture == PLAIN) {
                 GL11.glDisable(GL_TEXTURE_2D);
             } else {
                 GL11.glEnable(GL_TEXTURE_2D);
-                GL11.glBindTexture(GL_TEXTURE_2D, texture);
+                GL11.glBindTexture(GL_TEXTURE_2D, mesh.texture);
             }
             float[] v = mesh.vertices;
             GL11.glBegin(GL_TRIANGLES);
