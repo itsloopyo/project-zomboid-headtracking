@@ -21,6 +21,7 @@ public final class Tests {
         cameraPutsHigherPointsHigher();
         cameraPitchLooksUp();
         cameraTurnsRightWithPositiveYaw();
+        windowIsCentredInItsWorkArea();
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
         insertAfterRejectsTwoCalls();
@@ -89,7 +90,14 @@ public final class Tests {
         check(project(view, 10f, 0f, 1.6f)[0] < 0f, "turning right moves what was ahead to the left");
     }
 
-    private static final ClassDesc TESTS = ClassDesc.of("com.cameraunlock.zomboid.Tests");
+    private static void windowIsCentredInItsWorkArea() {
+        check(WindowPlacement.centredOrigin(0, 5120, 1936) == 1592, "a window is centred across a work area at the origin");
+        check(WindowPlacement.centredOrigin(0, 1392, 1119) == 136, "a window is centred down a work area a taskbar shortens");
+        check(WindowPlacement.centredOrigin(-1920, 1920, 1296) == -1608, "a monitor left of the primary has a negative origin");
+        check(WindowPlacement.centredOrigin(40, 1040, 759) == 180, "a work area below a top taskbar starts below it");
+    }
+
+    private static final ClassDesc TESTS =ClassDesc.of("com.cameraunlock.zomboid.Tests");
     private static final CallSite.Method RUN = new CallSite.Method("com/cameraunlock/zomboid/Subject", "run", "()V");
     private static final CallSite.Method TARGET = new CallSite.Method("com/cameraunlock/zomboid/Tests", "target", "()V");
     private static final CallSite.Method HOOK = new CallSite.Method("com/cameraunlock/zomboid/Tests", "hook", "()V");
