@@ -1,6 +1,3 @@
-# Thin shim: reads the version and hands over to the shared publisher in
-# cameraunlock-core/powershell/NightlyRelease.psm1.
-
 [CmdletBinding()]
 param([switch]$AllowDirty)
 
