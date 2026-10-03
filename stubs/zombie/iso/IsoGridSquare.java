@@ -10,4 +10,6 @@ public final class IsoGridSquare {
     public boolean isCouldSee(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isCanSee(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public ColorInfo getLightInfo(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public java.util.ArrayList<IsoMovingObject> getMovingObjects() { throw new UnsupportedOperationException("reference stub"); }
+    public java.util.ArrayList<IsoMovingObject> getStaticMovingObjects() { throw new UnsupportedOperationException("reference stub"); }
 }

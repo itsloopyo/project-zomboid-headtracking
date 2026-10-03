@@ -230,4 +230,31 @@ final class SpriteGeometry {
         mesh.add(tileX + polygon[at], tileY + polygon[at + 1], (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT,
                 u, v, frame.red, frame.green, frame.blue);
     }
+
+    /**
+     * Adds an untextured upright rectangle centred on (x, y), from bottom to top above baseUp, with
+     * (rightX, rightY) along its width. For things the game draws with a model and has no sprite for.
+     */
+    static void addPlainUpright(Mesh mesh, float x, float y, float baseUp, float rightX, float rightY,
+            float halfWidth, float bottom, float top, float red, float green, float blue) {
+        float x0 = x - rightX * halfWidth, y0 = y - rightY * halfWidth;
+        float x1 = x + rightX * halfWidth, y1 = y + rightY * halfWidth;
+        mesh.add(x0, y0, baseUp + bottom, 0f, 0f, red, green, blue);
+        mesh.add(x1, y1, baseUp + bottom, 0f, 0f, red, green, blue);
+        mesh.add(x1, y1, baseUp + top, 0f, 0f, red, green, blue);
+        mesh.add(x0, y0, baseUp + bottom, 0f, 0f, red, green, blue);
+        mesh.add(x1, y1, baseUp + top, 0f, 0f, red, green, blue);
+        mesh.add(x0, y0, baseUp + top, 0f, 0f, red, green, blue);
+    }
+
+    /** Adds an untextured rectangle lying flat at height up, centred on (x, y). */
+    static void addPlainFlat(Mesh mesh, float x, float y, float up, float halfX, float halfY,
+            float red, float green, float blue) {
+        mesh.add(x - halfX, y - halfY, up, 0f, 0f, red, green, blue);
+        mesh.add(x + halfX, y - halfY, up, 0f, 0f, red, green, blue);
+        mesh.add(x + halfX, y + halfY, up, 0f, 0f, red, green, blue);
+        mesh.add(x - halfX, y - halfY, up, 0f, 0f, red, green, blue);
+        mesh.add(x + halfX, y + halfY, up, 0f, 0f, red, green, blue);
+        mesh.add(x - halfX, y + halfY, up, 0f, 0f, red, green, blue);
+    }
 }

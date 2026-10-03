@@ -6,7 +6,10 @@ import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
+import zombie.GameTime;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.core.Core;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.ColorInfo;
@@ -14,6 +17,7 @@ import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
@@ -43,6 +47,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far a sprite hung on a wall or laid on a floor stands off it, so the two do not fight for depth. */
     private static final float STAND_OFF = 0.01f;
 
+    /** The mesh of things drawn without a texture. No texture has this name. */
+    private static final int PLAIN = 0;
+    /** A character the game has faded out of the view is not drawn. */
+    private static final float CHARACTER_SHOWN_ALPHA = 0.5f;
+
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_LEQUAL = 0x0203;
     private static final int GL_GREATER = 0x0204;
@@ -64,6 +73,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int GL_DEPTH_BITS = 0x0D56;
     private static final int GL_CURRENT_PROGRAM = 0x8B8D;
     private static final int GL_TEXTURE0 = 0x84C0;
+    private static final int GL_TEXTURE_ENV = 0x2300;
+    private static final int GL_TEXTURE_ENV_MODE = 0x2200;
+    private static final int GL_MODULATE = 0x2100;
+    private static final int TEXTURE_UNITS = 8;
 
     private static final WorldScene[] scenes = {new WorldScene(), new WorldScene(), new WorldScene(), new WorldScene()};
     private static int nextScene;
@@ -80,6 +93,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     private float eyeX, eyeY, eyeUp, yaw, pitch;
     private float rightX, rightY;
+    private float skyRed, skyGreen, skyBlue;
+    private IsoPlayer viewer;
     private int squaresLoaded, squaresSeen, sprites, triangles;
     private float buildMillis;
 
@@ -112,6 +127,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         sprites = 0;
         triangles = 0;
 
+        viewer = player;
+        float daylight = GameTime.getInstance().getAmbient();
+        skyRed = 0.45f * daylight;
+        skyGreen = 0.62f * daylight;
+        skyBlue = 0.85f * daylight;
         int playerIndex = player.getIndex();
         IsoCell cell = IsoWorld.instance.currentCell;
         int centreX = (int) Math.floor(eyeX);
@@ -175,6 +195,42 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             sprites++;
             addSprite(meshFor(texture.getID()), object, sprite, object == floor, x, y, z, i);
         }
+
+        ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
+        for (int i = 0; i < bodies.size(); i++) {
+            IsoMovingObject body = bodies.get(i);
+            SpriteGeometry.addPlainFlat(meshFor(PLAIN), body.getX(), body.getY(), body.getZ() * ViewCamera.LEVEL_HEIGHT + 0.08f,
+                    0.85f, 0.3f, 0.35f * light.r, 0.2f * light.g, 0.18f * light.b);
+        }
+        ArrayList<IsoMovingObject> movers = square.getMovingObjects();
+        for (int i = 0; i < movers.size(); i++) {
+            if (movers.get(i) instanceof IsoGameCharacter character && character != viewer
+                    && character.getAlpha(playerIndex) > CHARACTER_SHOWN_ALPHA && !character.isInvisible()) {
+                addCharacter(character, light);
+            }
+        }
+    }
+
+    /**
+     * A character has no sprite: the game draws it with a model. Until the view draws that model,
+     * a plain figure of the right size stands where the character is, a zombie in a different
+     * colour from the living, lying down when the character is.
+     */
+    private void addCharacter(IsoGameCharacter character, ColorInfo light) {
+        SpriteGeometry.Mesh mesh = meshFor(PLAIN);
+        boolean zombie = character instanceof IsoZombie;
+        float bodyRed = zombie ? 0.38f : 0.25f, bodyGreen = zombie ? 0.45f : 0.35f, bodyBlue = zombie ? 0.3f : 0.6f;
+        float headRed = zombie ? 0.55f : 0.85f, headGreen = zombie ? 0.6f : 0.68f, headBlue = zombie ? 0.45f : 0.55f;
+        float x = character.getX(), y = character.getY();
+        float base = character.getZ() * ViewCamera.LEVEL_HEIGHT;
+        if (character.isKnockedDown() || character instanceof IsoZombie crawler && crawler.isCrawling()) {
+            SpriteGeometry.addPlainFlat(mesh, x, y, base + 0.2f, 0.8f, 0.3f, bodyRed * light.r, bodyGreen * light.g, bodyBlue * light.b);
+            return;
+        }
+        SpriteGeometry.addPlainUpright(mesh, x, y, base, rightX, rightY, 0.25f, 0f, 1.45f,
+                bodyRed * light.r, bodyGreen * light.g, bodyBlue * light.b);
+        SpriteGeometry.addPlainUpright(mesh, x, y, base, rightX, rightY, 0.13f, 1.45f, 1.75f,
+                headRed * light.r, headGreen * light.g, headBlue * light.b);
     }
 
     private void addSprite(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, boolean isFloor,
@@ -186,6 +242,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
                 || properties.has(IsoFlagType.attachedFloor)) {
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, lift / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
+            return;
+        }
+
+        int stairThird = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
+                : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
+                : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
+        if (stairThird >= 0) {
+            // A flight is three squares, each a third of a level, rising towards -x (W) or -y (N).
+            float top = (stairThird + 1) / 3f;
+            if (type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW) {
+                geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f);
+            } else {
+                geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
+            }
             return;
         }
 
@@ -270,7 +340,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         GL11.glPushMatrix();
         GL11.glLoadMatrixf(ViewCamera.view(eyeX, eyeY, eyeUp, yaw, pitch));
         GL20.glUseProgram(0);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        // The game leaves its other texture units switched on for its own shaders. With no shader
+        // bound they would multiply into every pixel, so only the first unit stays on.
+        for (int unit = TEXTURE_UNITS - 1; unit >= 0; unit--) {
+            GL13.glActiveTexture(GL_TEXTURE0 + unit);
+            GL11.glDisable(GL_TEXTURE_2D);
+        }
+        GL11.glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
         GL11.glDisable(GL_SCISSOR_TEST);
         GL11.glDisable(GL_STENCIL_TEST);
@@ -280,7 +356,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         GL11.glDisable(GL_FOG);
         GL11.glColorMask(true, true, true, true);
         GL11.glDepthMask(true);
-        GL11.glClearColor(0f, 0f, 0f, 1f);
+        GL11.glClearColor(skyRed, skyGreen, skyBlue, 1f);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         GL11.glEnable(GL_DEPTH_TEST);
@@ -294,7 +370,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             if (mesh.floats == 0) {
                 continue;
             }
-            GL11.glBindTexture(GL_TEXTURE_2D, meshTextures.get(i));
+            int texture = meshTextures.get(i);
+            if (texture == PLAIN) {
+                GL11.glDisable(GL_TEXTURE_2D);
+            } else {
+                GL11.glEnable(GL_TEXTURE_2D);
+                GL11.glBindTexture(GL_TEXTURE_2D, texture);
+            }
             float[] v = mesh.vertices;
             GL11.glBegin(GL_TRIANGLES);
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {

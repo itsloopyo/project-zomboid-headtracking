@@ -14,6 +14,7 @@ public final class GL11 {
     public static void glBindTexture(int target, int texture) { throw stub(); }
     public static void glColor3f(float r, float g, float b) { throw stub(); }
     public static void glTexCoord2f(float u, float v) { throw stub(); }
+    public static void glTexEnvi(int target, int pname, int param) { throw stub(); }
     public static void glClear(int mask) { throw stub(); }
     public static void glClearColor(float r, float g, float b, float a) { throw stub(); }
     public static void glClearDepth(double depth) { throw stub(); }

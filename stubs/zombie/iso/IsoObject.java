@@ -8,4 +8,5 @@ public class IsoObject {
 
     public IsoSprite getSprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoDirections getDir() { throw new UnsupportedOperationException("reference stub"); }
+    public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
 }
