@@ -196,7 +196,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Credits
 
-- [The Indie Stone](https://theindiestone.com) - developer and publisher of Project Zomboid
+- [The Indie Stone](https://theindiestone.com) - developer and publisher of Project Zomboid. Thanks to The Indie Stone for creating [Project Zomboid](https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
 - [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - shared installer scripts
