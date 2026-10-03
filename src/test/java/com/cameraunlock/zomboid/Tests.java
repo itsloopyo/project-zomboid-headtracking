@@ -21,6 +21,7 @@ public final class Tests {
         cameraPutsHigherPointsHigher();
         cameraPitchLooksUp();
         cameraTurnsRightWithPositiveYaw();
+        receiverRefusesAPoseNoTrackerSendsAndABadPort();
         windowIsCentredInItsWorkArea();
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
@@ -96,6 +97,49 @@ public final class Tests {
     private static void cameraTurnsRightWithPositiveYaw() {
         float[] view = ViewCamera.view(0f, 0f, 1.6f, (float) Math.toRadians(20), 0f);
         check(project(view, 10f, 0f, 1.6f)[0] < 0f, "turning right moves what was ahead to the left");
+    }
+
+    private static void receiverRefusesAPoseNoTrackerSendsAndABadPort() throws Exception {
+        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        java.nio.ByteBuffer wire = java.nio.ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        double limit = OpenTrackReceiver.MAX_MAGNITUDE;
+        for (int channel = 0; channel < OpenTrackReceiver.PACKET_BYTES / Double.BYTES; channel++) {
+            for (double sign : new double[] {1, -1}) {
+                wire.putDouble(channel * Double.BYTES, sign * limit);
+                check(OpenTrackReceiver.parse(wire.array(), OpenTrackReceiver.PACKET_BYTES, 1L) != null,
+                        "value " + channel + " is taken at the limit");
+                // Finite as floats, and two of them a float's range apart overflow the step between them.
+                for (double tooFar : new double[] {limit * 1.01, 3e38}) {
+                    wire.putDouble(channel * Double.BYTES, sign * tooFar);
+                    check(OpenTrackReceiver.parse(wire.array(), OpenTrackReceiver.PACKET_BYTES, 1L) == null,
+                            "value " + channel + " is dropped at " + sign * tooFar);
+                }
+            }
+            wire.putDouble(channel * Double.BYTES, 0);
+        }
+
+        OpenTrackReceiver receiver = new OpenTrackReceiver(0);
+        int pitch = 4 * Double.BYTES;
+        wire.putDouble(pitch, 5);
+        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("127.0.0.1"), System.nanoTime());
+        OpenTrackReceiver.Sample kept = receiver.latest();
+        check(kept != null && kept.pitch() == 5f, "a pose a tracker sends is taken");
+        wire.putDouble(pitch, -3e38);
+        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("192.168.1.20"), System.nanoTime());
+        check(receiver.latest() == kept && !receiver.isRemote(), "a pose out of range changes neither the pose nor the connection's locality");
+
+        check(OpenTrackReceiver.parsePort(null) == OpenTrackReceiver.DEFAULT_PORT, "no setting is the default port");
+        check(OpenTrackReceiver.parsePort(" 5555 ") == 5555, "a setting is the port");
+        for (String bad : new String[] {"tracker", "", "4242.5", "0", "-1", "65536", "99999999999"}) {
+            boolean refused = false;
+            try {
+                OpenTrackReceiver.parsePort(bad);
+            } catch (IllegalArgumentException expected) {
+                refused = true;
+            }
+            check(refused, "a port of \"" + bad + "\" is refused");
+        }
     }
 
     private static void windowIsCentredInItsWorkArea() {

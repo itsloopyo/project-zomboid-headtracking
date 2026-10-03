@@ -15,7 +15,8 @@ if (-not (Test-Path $jar)) { throw "$jar is missing, run 'pixi run build'" }
 $gamePaths = @(Find-AllGamePaths -GameId 'project-zomboid')
 if ($gamePaths.Count -eq 0) { throw 'no installed copy of Project Zomboid was found' }
 
-$options = "-javaagent:$jar"
+# JAVA_TOOL_OPTIONS is split on spaces, so a checkout under a path with one needs the quotes.
+$options = "-javaagent:`"$jar`""
 
 foreach ($game in $gamePaths) {
     Write-Host "== $game"

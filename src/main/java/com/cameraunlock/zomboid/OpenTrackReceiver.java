@@ -17,8 +17,16 @@ import java.util.Locale;
  * tracker appends past those 48 bytes is ignored.
  */
 final class OpenTrackReceiver {
+    static final String PORT_PROPERTY = "cameraunlock.zomboid.port";
     static final int DEFAULT_PORT = 4242;
     static final int PACKET_BYTES = 48;
+    /**
+     * The largest value a pose may carry, in the wire's degrees or centimetres. No tracker
+     * measures one near it, and two poses of a float's full range apart overflow the
+     * interpolation between them, which leaves the view on a NaN that no later pose clears.
+     */
+    static final float MAX_MAGNITUDE = 1e6f;
+    private static final int MAX_PORT = 65535;
 
     /** A tracker is quiet once this long has passed without a packet. */
     private static final int FRESH_MILLIS = 500;
@@ -46,6 +54,23 @@ final class OpenTrackReceiver {
 
     OpenTrackReceiver(int port) {
         this.port = port;
+    }
+
+    /** @param text the port to listen on, or null for the default */
+    static int parsePort(String text) {
+        if (text == null) {
+            return DEFAULT_PORT;
+        }
+        int value;
+        try {
+            value = Integer.parseInt(text.strip());
+        } catch (NumberFormatException notANumber) {
+            throw new IllegalArgumentException(PORT_PROPERTY + " is \"" + text + "\", which is not a port number");
+        }
+        if (value < 1 || value > MAX_PORT) {
+            throw new IllegalArgumentException(PORT_PROPERTY + " is " + value + ", outside 1 to " + MAX_PORT);
+        }
+        return value;
     }
 
     void start() {
@@ -84,7 +109,9 @@ final class OpenTrackReceiver {
                 }
                 accept(buffer, packet.getLength(), packet.getAddress(), System.nanoTime());
             }
-        } catch (IOException | InterruptedException failure) {
+        } catch (IOException | InterruptedException | RuntimeException failure) {
+            // Nothing is above this on the thread: left uncaught, the reason goes to the
+            // game's console and this log never says why tracking stopped.
             Log.error("head tracking stopped listening on UDP port " + port, failure);
         }
     }
@@ -118,7 +145,8 @@ final class OpenTrackReceiver {
             if (!rejectionLogged) {
                 rejectionLogged = true;
                 Log.info("ignored a " + length + " byte datagram from " + sender.getHostAddress()
-                        + ": an OpenTrack pose is " + PACKET_BYTES + " bytes of six finite doubles."
+                        + ": an OpenTrack pose is " + PACKET_BYTES + " bytes of six doubles, none past "
+                        + MAX_MAGNITUDE + " either way."
                         + " Later ones are ignored without a line here");
             }
             noteSilence(nanos);
@@ -158,7 +186,7 @@ final class OpenTrackReceiver {
                         sender.getHostAddress(), (sample.nanos - lastPacketNanos) / 1e9));
     }
 
-    /** Null for a datagram that is too short or carries a value that is not a finite float. */
+    /** Null for a datagram that is too short or carries a value that is not a number within MAX_MAGNITUDE. */
     static Sample parse(byte[] data, int length, long nanos) {
         if (length < PACKET_BYTES) {
             return null;
@@ -167,7 +195,7 @@ final class OpenTrackReceiver {
         float[] values = new float[POSE_VALUES];
         for (int i = 0; i < values.length; i++) {
             values[i] = (float) buffer.getDouble(i * Double.BYTES);
-            if (!Float.isFinite(values[i])) {
+            if (!(Math.abs(values[i]) <= MAX_MAGNITUDE)) {
                 return null;
             }
         }
