@@ -1,0 +1,26 @@
+name: Release
+run-name: "Release ${{ github.ref_name }}"
+
+# Everything this release does lives in cameraunlock-core's release-mod.yml.
+# Only the values below are this mod's. Pinned to a commit SHA, never a branch:
+# that workflow runs with contents:write, the Discord webhook and the Lopari PAT.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    uses: itsloopyo/cameraunlock-core/.github/workflows/release-mod.yml@1ddc16dd8b8bd34e6d07ed84688599db4c0ebc38
+    with:
+      project-name: 'Head Tracking for Project Zomboid'
+      # pixi.toml's [workspace] version is the one scripts/build.ps1 stamps into
+      # the jar's manifest.
+      version-source: pixi
+      version-path: 'pixi.toml'
+      artifact-paths: 'src/ scripts/ pixi.toml cameraunlock-core'
+      # No .NET or MSBuild: the JDK comes from the pixi environment.
+    permissions:
+      contents: write
+    secrets: inherit

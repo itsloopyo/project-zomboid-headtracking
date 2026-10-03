@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and Validate
+    runs-on: windows-latest
+    # release.ps1's version commit is built by the tag's release workflow.
+    if: ${{ !startsWith(github.event.head_commit.message, 'Release v') }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          submodules: recursive
+
+      # The JDK comes from the pixi environment, so there is no setup-java step.
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11 # v0.9.6
+
+      - name: Build, test and package
+        shell: pwsh
+        run: |
+          pixi run package
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::pixi run package failed"
+            exit 1
+          }
+
+      - name: Verify installer was produced
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem release/*-installer.zip -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $zip) {
+            Write-Host "::error::No installer ZIP was produced by 'pixi run package'"
+            exit 1
+          }
