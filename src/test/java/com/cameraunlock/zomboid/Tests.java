@@ -25,6 +25,10 @@ public final class Tests {
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
         insertAfterRejectsTwoCalls();
+        staticIntFieldIsRequiredAsDeclared();
+        transformerHasNoGapOnceEveryPatchIsIn();
+        transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
+        transformerNamesAClassTheGameDoesNotHave();
         floorFaceShowsTheSpritesDiamond();
         wallFaceIsClippedToTheTrimmedSprite();
         faceOutsideTheTrimmedSpriteAddsNothing();
@@ -219,5 +223,93 @@ public final class Tests {
             return;
         }
         throw new AssertionError("a method with the call twice is rejected");
+    }
+
+    private static byte[] subjectWithField(String name, ClassDesc type, int flags) {
+        return ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.Subject"), subject ->
+                subject.withFlags(ClassFile.ACC_PUBLIC).withField(name, type, flags));
+    }
+
+    private static boolean staticIntAccepted(byte[] classBytes, String field) {
+        try {
+            CallSite.requireStaticInt(classBytes, field);
+            return true;
+        } catch (IllegalStateException rejected) {
+            return false;
+        }
+    }
+
+    private static void staticIntFieldIsRequiredAsDeclared() {
+        int publicStatic = ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC;
+        if (!staticIntAccepted(subjectWithField("x", ConstantDescs.CD_int, publicStatic), "x")) {
+            throw new AssertionError("a static int field is accepted");
+        }
+        if (staticIntAccepted(subjectWithField("column", ConstantDescs.CD_int, publicStatic), "x")) {
+            throw new AssertionError("a class without the field is rejected");
+        }
+        if (staticIntAccepted(subjectWithField("x", ConstantDescs.CD_float, publicStatic), "x")) {
+            throw new AssertionError("a field of another type is rejected");
+        }
+        if (staticIntAccepted(subjectWithField("x", ConstantDescs.CD_int, ClassFile.ACC_PUBLIC), "x")) {
+            throw new AssertionError("an instance field is rejected");
+        }
+        if (staticIntAccepted(subjectWithField("x", ConstantDescs.CD_int, publicStatic | ClassFile.ACC_FINAL), "x")) {
+            throw new AssertionError("a final field is rejected");
+        }
+    }
+
+    private static Agent.Patch hookAfterTarget(String owner) {
+        return new Agent.Patch(owner, "run after target", classBytes -> CallSite.insertAfter(classBytes, RUN, TARGET, HOOK));
+    }
+
+    private static void transformerHasNoGapOnceEveryPatchIsIn() throws Throwable {
+        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(java.util.List.of(hookAfterTarget(RUN.owner())));
+        if (transformer.transform(null, "com/cameraunlock/zomboid/Other", null, null, subjectCallingTarget(1)) != null) {
+            throw new AssertionError("a class no patch names is left alone");
+        }
+        byte[] hooked = transformer.transform(null, RUN.owner(), null, null, subjectCallingTarget(1));
+        if (hooked == null) {
+            throw new AssertionError("the class a patch names is rewritten");
+        }
+        if (transformer.gap() != null) {
+            throw new AssertionError("no gap once the one patch is in, got: " + transformer.gap());
+        }
+    }
+
+    private static void transformerLeavesAClassItCannotPatchAloneAndNamesTheGap() throws Throwable {
+        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        // Two patches on a class that is really loaded, so the gap is not "no class". The first
+        // fits and the second does not: nothing that went in before makes up for the one missing.
+        String loaded = "com/cameraunlock/zomboid/Tests";
+        Agent.Patch fits = hookAfterTarget(loaded);
+        Agent.Patch doesNotFit = new Agent.Patch(loaded, "missing after target", classBytes ->
+                CallSite.insertAfter(classBytes, new CallSite.Method(RUN.owner(), "missing", "()V"), TARGET, HOOK));
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(java.util.List.of(fits, doesNotFit));
+        byte[] hooked = transformer.transform(null, loaded, null, null, subjectCallingTarget(1));
+        if (hooked == null) {
+            throw new AssertionError("the patch that fits still goes in");
+        }
+        String gap = transformer.gap();
+        if (gap == null || !gap.contains("missing after target")) {
+            throw new AssertionError("the gap names the patch that is not in, got: " + gap);
+        }
+
+        Agent.PatchTransformer alone = new Agent.PatchTransformer(java.util.List.of(hookAfterTarget(loaded)));
+        if (alone.transform(null, loaded, null, null, subjectCallingTarget(2)) != null) {
+            throw new AssertionError("a class whose only patch does not fit is loaded unchanged");
+        }
+        if (alone.gap() == null) {
+            throw new AssertionError("a patch that did not fit is a gap");
+        }
+    }
+
+    private static void transformerNamesAClassTheGameDoesNotHave() {
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(
+                java.util.List.of(hookAfterTarget("com/cameraunlock/zomboid/NoSuchClass")));
+        String gap = transformer.gap();
+        if (gap == null || !gap.contains("no class com/cameraunlock/zomboid/NoSuchClass")) {
+            throw new AssertionError("a class that cannot be found is a gap, got: " + gap);
+        }
     }
 }

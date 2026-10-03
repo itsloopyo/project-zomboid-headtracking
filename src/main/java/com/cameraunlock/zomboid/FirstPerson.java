@@ -104,7 +104,7 @@ public final class FirstPerson {
         if (IsoPlayer.numPlayers != 1) {
             return "split screen";
         }
-        return null;
+        return Agent.firstPersonGap();
     }
 
     /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */

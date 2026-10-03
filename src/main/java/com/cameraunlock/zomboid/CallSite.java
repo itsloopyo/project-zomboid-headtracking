@@ -5,11 +5,13 @@ import java.lang.classfile.ClassModel;
 import java.lang.classfile.ClassTransform;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeTransform;
+import java.lang.classfile.FieldModel;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
+import java.lang.reflect.AccessFlag;
 import java.util.function.Consumer;
 
 final class CallSite {
@@ -56,6 +58,29 @@ final class CallSite {
             throw new IllegalStateException("found no return in " + within);
         }
         return transformed;
+    }
+
+    /**
+     * Throws unless the class declares {@code field} as a static int that can
+     * be written, which is what filterStaticInt reads and writes. The JVM only
+     * looks a field up when the instruction first runs, so without this a build
+     * of the game that renamed or retyped the field would take the patch and
+     * then throw from inside the game's own method on every call.
+     */
+    static void requireStaticInt(byte[] classBytes, String field) {
+        ClassModel model = ClassFile.of().parse(classBytes);
+        for (FieldModel candidate : model.fields()) {
+            if (candidate.fieldName().equalsString(field)) {
+                if (!candidate.fieldType().equalsString("I") || !candidate.flags().has(AccessFlag.STATIC)
+                        || candidate.flags().has(AccessFlag.FINAL)) {
+                    throw new IllegalStateException(model.thisClass().asInternalName() + "." + field
+                            + " is " + candidate.flags().flags() + " " + candidate.fieldType().stringValue()
+                            + ", expected a static int that is not final");
+                }
+                return;
+            }
+        }
+        throw new IllegalStateException("no field " + field + " in " + model.thisClass().asInternalName());
     }
 
     /**
