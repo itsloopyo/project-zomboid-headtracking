@@ -19,12 +19,12 @@
 :: --- CONFIG BLOCK ---
 set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
-set "MOD_DLLS=winmm.dll"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "STATE_FILE=.headtracking-state.json"
 :: BepInEx | MelonLoader | MonoCecil | ASILoader | REFramework | UE4SS | xNVSE
-:: | BeamNGUserMods | None
-set "FRAMEWORK_TYPE=None"
+:: | BeamNGUserMods | JavaAgent | None
+set "FRAMEWORK_TYPE=JavaAgent"
 :: DLL names shipped by older versions of this mod, removed too so an upgrade
 :: does not leave a second copy for the loader to bind.
 set "LEGACY_DLLS="
@@ -63,7 +63,7 @@ set "MANAGED_EXTRAS="
 :: the mod's own DLL from the user's original, so a <name>.backup that an older
 :: installer captured by comparing bytes is discarded rather than restored into
 :: the game folder. MUST match install.cmd's value.
-set "SHIM_MARKER=ProjectZomboidHeadTracking"
+set "SHIM_MARKER="
 :: Optional companion identity; MUST match install.cmd when set.
 set "SHIM_MARKER_ALT="
 :: ASILoader: filename the ASI DLL was renamed to. Defaults to winmm.dll.
