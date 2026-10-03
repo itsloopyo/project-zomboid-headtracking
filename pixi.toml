@@ -1,0 +1,26 @@
+[workspace]
+name = "project-zomboid-headtracking"
+version = "0.0.0"
+description = "Head tracking mod for Project Zomboid"
+license = "MIT"
+channels = ["conda-forge"]
+platforms = ["win-64"]
+
+[dependencies]
+# The game runs on a bundled Java 25 runtime, and the agent uses the
+# java.lang.classfile API that became final in Java 24, so the build needs the
+# same major version and no bytecode library.
+openjdk = ">=25,<26"
+
+[tasks]
+update-submodule = "git submodule update --remote cameraunlock-core && powershell -NoProfile -ExecutionPolicy Bypass -File cameraunlock-core/scripts/update-submodule.ps1"
+sync = "git submodule update --remote cameraunlock-core"
+
+build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
+test-unit = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
+test = { depends-on = ["test-unit"] }
+clean = "powershell -NoProfile -Command \"if (Test-Path build) { Remove-Item -Recurse -Force build }\""
+
+# Launches every installed copy's game with the built agent loaded, for
+# development. Arguments after the task name are passed to the script.
+run-game = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-game.ps1", depends-on = ["build"] }
