@@ -25,6 +25,10 @@ public final class Tests {
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
         insertAfterRejectsTwoCalls();
+        floorFaceShowsTheSpritesDiamond();
+        wallFaceIsClippedToTheTrimmedSprite();
+        faceOutsideTheTrimmedSpriteAddsNothing();
+        uprightSpriteStandsOnItsAnchor();
         System.out.println("all tests passed");
     }
 
@@ -95,6 +99,84 @@ public final class Tests {
         check(WindowPlacement.centredOrigin(0, 1392, 1119) == 136, "a window is centred down a work area a taskbar shortens");
         check(WindowPlacement.centredOrigin(-1920, 1920, 1296) == -1608, "a monitor left of the primary has a negative origin");
         check(WindowPlacement.centredOrigin(40, 1040, 759) == 180, "a work area below a top taskbar starts below it");
+    }
+
+    /** A 128x256 frame at tile scale 2 held whole in a texture, as the game's doubled tiles are. */
+    private static SpriteGeometry.Frame wholeFrame() {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.left = 0f;
+        frame.top = 0f;
+        frame.width = 128f;
+        frame.height = 256f;
+        frame.uStart = 0f;
+        frame.vStart = 0f;
+        frame.uEnd = 1f;
+        frame.vEnd = 1f;
+        return frame;
+    }
+
+    /** A face takes its texels from a little inside its edge, so a corner is near its texel, not on it. */
+    private static final float TEXEL_SLACK = 0.03f;
+
+    private static boolean hasVertex(SpriteGeometry.Mesh mesh, float x, float y, float up, float u, float v) {
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float[] f = mesh.vertices;
+            if (near(f[at], x) && near(f[at + 1], y) && near(f[at + 2], up)
+                    && Math.abs(f[at + 3] - u) < TEXEL_SLACK && Math.abs(f[at + 4] - v) < TEXEL_SLACK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void floorFaceShowsTheSpritesDiamond() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        int triangles = new SpriteGeometry().addFace(mesh, wholeFrame(), 10, 20, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        check(triangles == 2, "a floor inside the frame is two triangles");
+        check(hasVertex(mesh, 10f, 20f, 0f, 0.5f, 0.75f), "the tile's own corner is the top of the diamond");
+        check(hasVertex(mesh, 11f, 20f, 0f, 1f, 0.875f), "the +x corner is the right of the diamond");
+        check(hasVertex(mesh, 11f, 21f, 0f, 0.5f, 1f), "the far corner is the bottom of the diamond");
+        check(hasVertex(mesh, 10f, 21f, 0f, 0f, 0.875f), "the +y corner is the left of the diamond");
+    }
+
+    private static void wallFaceIsClippedToTheTrimmedSprite() {
+        SpriteGeometry.Frame frame = wholeFrame();
+        frame.top = 128f;
+        frame.height = 128f;
+        frame.vStart = 0.5f;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        new SpriteGeometry().addFace(mesh, frame, 0, 0, 1, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+        check(mesh.triangles() > 0, "a wall that overlaps the trimmed sprite is drawn");
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            check(mesh.vertices[at + 4] >= 0.5f - 1e-4f, "no vertex reaches above the trimmed sprite");
+            check(near(mesh.vertices[at], 0f), "a west wall stays on the tile's west edge");
+        }
+        check(hasVertex(mesh, 0f, 0f, ViewCamera.LEVEL_HEIGHT * (1f + 68f / 192f), 0.5f, 0.5f),
+                "the cut runs four pixels past the sprite's top row, which is stretched over them");
+    }
+
+    private static void faceOutsideTheTrimmedSpriteAddsNothing() {
+        SpriteGeometry.Frame frame = wholeFrame();
+        frame.left = 64f;
+        frame.width = 64f;
+        frame.uStart = 0.5f;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        int triangles = new SpriteGeometry().addFace(mesh, frame, 0, 0, 0, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+        check(triangles == 0 && mesh.floats == 0, "a west wall draws nothing from a sprite that only has a right half");
+    }
+
+    private static void uprightSpriteStandsOnItsAnchor() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        new SpriteGeometry().addUpright(mesh, wholeFrame(), 4, 6, 0, 0.5f, 0.5f, 0f, 0f, 1f);
+        check(mesh.triangles() == 2, "an upright sprite is two triangles");
+        float halfWidth = (float) (Math.sqrt(2.0) / 2.0);
+        check(hasVertex(mesh, 4.5f, 6.5f - halfWidth, ViewCamera.LEVEL_HEIGHT * 224f / 192f, 0f, 0f),
+                "the frame's top left is half a tile diagonal to the left and 224 pixels up");
+        check(hasVertex(mesh, 4.5f, 6.5f + halfWidth, -ViewCamera.LEVEL_HEIGHT * 32f / 192f, 1f, 1f),
+                "the frame's bottom right is below the anchor by the rows under it");
     }
 
     private static final ClassDesc TESTS =ClassDesc.of("com.cameraunlock.zomboid.Tests");

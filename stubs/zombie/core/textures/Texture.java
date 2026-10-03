@@ -1,0 +1,13 @@
+package zombie.core.textures;
+
+public class Texture {
+    public int getID() { throw new UnsupportedOperationException("reference stub"); }
+    public int getWidth() { throw new UnsupportedOperationException("reference stub"); }
+    public int getHeight() { throw new UnsupportedOperationException("reference stub"); }
+    public float getOffsetX() { throw new UnsupportedOperationException("reference stub"); }
+    public float getOffsetY() { throw new UnsupportedOperationException("reference stub"); }
+    public float getXStart() { throw new UnsupportedOperationException("reference stub"); }
+    public float getXEnd() { throw new UnsupportedOperationException("reference stub"); }
+    public float getYStart() { throw new UnsupportedOperationException("reference stub"); }
+    public float getYEnd() { throw new UnsupportedOperationException("reference stub"); }
+}

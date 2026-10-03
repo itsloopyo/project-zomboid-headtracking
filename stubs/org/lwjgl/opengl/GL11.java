@@ -13,6 +13,14 @@ public final class GL11 {
     public static void glEnd() { throw stub(); }
     public static void glBindTexture(int target, int texture) { throw stub(); }
     public static void glColor3f(float r, float g, float b) { throw stub(); }
+    public static void glTexCoord2f(float u, float v) { throw stub(); }
+    public static void glClear(int mask) { throw stub(); }
+    public static void glClearColor(float r, float g, float b, float a) { throw stub(); }
+    public static void glClearDepth(double depth) { throw stub(); }
+    public static void glColorMask(boolean r, boolean g, boolean b, boolean a) { throw stub(); }
+    public static void glDepthMask(boolean flag) { throw stub(); }
+    public static void glDepthFunc(int func) { throw stub(); }
+    public static void glAlphaFunc(int func, float ref) { throw stub(); }
     public static void glVertex3f(float x, float y, float z) { throw stub(); }
     public static int glGetInteger(int pname) { throw stub(); }
     public static void glGetIntegerv(int pname, int[] params) { throw stub(); }

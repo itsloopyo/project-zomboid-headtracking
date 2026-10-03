@@ -5,17 +5,19 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 public final class Agent {
-    private static final String MAIN_SCREEN_STATE = "zombie/gameStates/MainScreenState";
     private static final String DISPLAY = "org/lwjglx/opengl/Display";
     private static final String GLFW = "org/lwjgl/glfw/GLFW";
     private static final String WINDOW_PLACEMENT = "com/cameraunlock/zomboid/WindowPlacement";
+    private static final String FIRST_PERSON = "com/cameraunlock/zomboid/FirstPerson";
+    private static final String GAME_MOUSE = "zombie/input/Mouse";
+    private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
 
-    /** A call to {@code hook} to insert after the one call to {@code call} inside {@code within}. */
-    private record Hook(CallSite.Method within, CallSite.Method call, CallSite.Method hook) {}
+    /** A rewrite of one method of one game class. */
+    private record Patch(String owner, String what, UnaryOperator<byte[]> rewrite) {}
 
     private Agent() {}
 
@@ -25,54 +27,60 @@ public final class Agent {
         Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
 
-        List<Hook> hooks = new ArrayList<>(List.of(
-                new Hook(new CallSite.Method(DISPLAY, "create", "()V"),
+        CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
+        instrumentation.addTransformer(new PatchTransformer(List.of(
+                after(new CallSite.Method(DISPLAY, "create", "()V"),
                         new CallSite.Method(GLFW, "glfwSetWindowPos", "(JII)V"),
                         new CallSite.Method(WINDOW_PLACEMENT, "centreNewWindow", "()V")),
-                new Hook(new CallSite.Method(DISPLAY, "setDisplayModeAndFullscreenInternal", "(Lorg/lwjglx/opengl/DisplayMode;Z)V"),
+                after(new CallSite.Method(DISPLAY, "setDisplayModeAndFullscreenInternal", "(Lorg/lwjglx/opengl/DisplayMode;Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowMonitor", "(JJIIIII)V"),
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
-                new Hook(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
+                after(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowAttrib", "(JII)V"),
-                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V"))));
-
-        String renderCheckDirectory = System.getProperty(RenderCheck.PROPERTY);
-        if (renderCheckDirectory != null) {
-            RenderCheck.outputDirectory = Path.of(renderCheckDirectory);
-            hooks.add(new Hook(new CallSite.Method(MAIN_SCREEN_STATE, "render", "()V"),
-                    new CallSite.Method(MAIN_SCREEN_STATE, "renderBackground", "()V"),
-                    new CallSite.Method("com/cameraunlock/zomboid/RenderCheck", "queue", "()V")));
-            Log.info("render check on, captures go to " + RenderCheck.outputDirectory);
-        }
-        instrumentation.addTransformer(new HookTransformer(hooks));
+                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
+                after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
+                        new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
+                        new CallSite.Method(FIRST_PERSON, "afterWorldRender", "()V")),
+                after(new CallSite.Method("zombie/characters/IsoPlayer", "getInputMoveVector", VECTOR2_FILTER),
+                        new CallSite.Method("zombie/characters/IsoLivingCharacter", "getInputMoveVector", VECTOR2_FILTER),
+                        new CallSite.Method(FIRST_PERSON, "moveVector", VECTOR2_FILTER)),
+                new Patch(GAME_MOUSE, "update before its returns", classBytes ->
+                        CallSite.insertBeforeReturns(classBytes, mouseUpdate, code -> {
+                            CallSite.filterStaticInt(code, GAME_MOUSE, "x", new CallSite.Method(FIRST_PERSON, "cursorX", "(I)I"));
+                            CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(FIRST_PERSON, "cursorY", "(I)I"));
+                        })))));
     }
 
-    private static final class HookTransformer implements ClassFileTransformer {
-        private final List<Hook> hooks;
+    private static Patch after(CallSite.Method within, CallSite.Method call, CallSite.Method hook) {
+        return new Patch(within.owner(), within.name() + " after " + call.name(),
+                classBytes -> CallSite.insertAfter(classBytes, within, call, hook));
+    }
 
-        HookTransformer(List<Hook> hooks) {
-            this.hooks = hooks;
+    private static final class PatchTransformer implements ClassFileTransformer {
+        private final List<Patch> patches;
+
+        PatchTransformer(List<Patch> patches) {
+            this.patches = patches;
         }
 
         @Override
         public byte[] transform(ClassLoader loader, String className, Class<?> redefined,
                 ProtectionDomain domain, byte[] classBytes) {
-            byte[] hooked = null;
-            for (Hook hook : hooks) {
-                if (!hook.within().owner().equals(className)) {
+            byte[] patched = null;
+            for (Patch patch : patches) {
+                if (!patch.owner().equals(className)) {
                     continue;
                 }
                 // The JVM discards whatever a transformer throws and loads the class
                 // unchanged, so this is the only place the failure can be reported.
                 try {
-                    hooked = CallSite.insertAfter(hooked == null ? classBytes : hooked, hook.within(), hook.call(), hook.hook());
-                    Log.info("hooked " + className + "." + hook.within().name() + " after " + hook.call().name());
+                    patched = patch.rewrite().apply(patched == null ? classBytes : patched);
+                    Log.info("patched " + className + "." + patch.what());
                 } catch (Throwable failure) {
-                    Log.error("could not hook " + className + "." + hook.within().name()
-                            + ", the method runs unchanged", failure);
+                    Log.error("could not patch " + className + "." + patch.what() + ", the method runs unchanged", failure);
                 }
             }
-            return hooked;
+            return patched;
         }
     }
 }
