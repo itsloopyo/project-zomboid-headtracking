@@ -4,6 +4,8 @@ AGENTS.md
 CLAUDE.md
 .mcp.json
 .lab/
+NEXUS_MODS.md
+/skills/
 
 # Build output
 bin/
