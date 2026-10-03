@@ -1,6 +1,7 @@
 package org.lwjgl.opengl;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 public final class GL11 {
     private static RuntimeException stub() {
@@ -36,4 +37,27 @@ public final class GL11 {
     public static void glPixelStorei(int pname, int param) { throw stub(); }
     public static void glReadPixels(int x, int y, int width, int height, int format, int type, ByteBuffer pixels) { throw stub(); }
     public static void glViewport(int x, int y, int w, int h) { throw stub(); }
+    public static void glFogi(int pname, int param) { throw stub(); }
+    public static void glFinish() { throw stub(); }
+    public static void glDrawArrays(int mode, int first, int count) { throw stub(); }
+    public static void glEnableClientState(int array) { throw stub(); }
+    public static void glDisableClientState(int array) { throw stub(); }
+    public static void glVertexPointer(int size, int type, int stride, FloatBuffer pointer) { throw stub(); }
+    public static void glTexCoordPointer(int size, int type, int stride, FloatBuffer pointer) { throw stub(); }
+    public static void glColorPointer(int size, int type, int stride, FloatBuffer pointer) { throw stub(); }
+    public static void glNormalPointer(int type, int stride, FloatBuffer pointer) { throw stub(); }
+    public static void glPolygonOffset(float factor, float units) { throw stub(); }
+    public static void glDrawBuffer(int buffer) { throw stub(); }
+    public static void glReadBuffer(int buffer) { throw stub(); }
+    public static void glTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
+            int type, ByteBuffer pixels) { throw stub(); }
+    public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) { throw stub(); }
+    public static int glGenTextures() { throw stub(); }
+    public static void glTexParameteri(int target, int pname, int param) { throw stub(); }
+    public static void glBlendFunc(int source, int destination) { throw stub(); }
+    public static void glVertex2f(float x, float y) { throw stub(); }
+    public static void glPushClientAttrib(int mask) { throw stub(); }
+    public static void glPopClientAttrib() { throw stub(); }
+    public static void glFogf(int pname, float param) { throw stub(); }
+    public static void glFogfv(int pname, float[] params) { throw stub(); }
 }

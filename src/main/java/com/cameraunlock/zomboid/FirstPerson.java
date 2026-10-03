@@ -7,6 +7,7 @@ import zombie.core.SpriteRenderer;
 import zombie.input.GameKeyboard;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoUtils;
+import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.network.GameClient;
 
@@ -20,7 +21,9 @@ import zombie.network.GameClient;
  * picture is drawn over the result. The mouse turns the view; the game's cursor
  * is held on the ground ahead of the character along the view, so the game's
  * own aim, which runs from the character to the cursor, is the view direction.
- * The movement keys are turned so that forward is where the view faces.
+ * The movement keys are turned so that forward is where the view faces. Head
+ * tracking turns and moves the picture alone, and the game's reticle is drawn
+ * where the aim meets the world in that picture.
  *
  * Everything here runs on the game's logic thread.
  */
@@ -51,6 +54,16 @@ public final class FirstPerson {
     private static int lastRawX, lastRawY;
     private static int cursorX, cursorY;
 
+    /** Where the reticle is drawn when the aim point is not in the picture: off the screen. */
+    private static final int RETICLE_HIDDEN = -100_000;
+
+    private static final ViewCamera.Pose cleanView = new ViewCamera.Pose();
+    private static final ViewCamera.Pose trackedView = new ViewCamera.Pose();
+    private static final WorldQuery world = new WorldQuery();
+    private static final float[] ndc = new float[2];
+    private static int reticleX, reticleY;
+    private static float shotDistance;
+
     private static final Vector2 forward = new Vector2();
     private static final Vector2 traceAim = new Vector2();
     private static float traceMoveX, traceMoveY;
@@ -72,7 +85,9 @@ public final class FirstPerson {
     }
 
     static void setLook(float newYaw, float newPitch) {
-        yaw = newYaw;
+        // Turning one way all session would otherwise grow the yaw until a float no longer
+        // holds a pixel's worth of turn.
+        yaw = (float) Math.IEEEremainder(newYaw, 2 * Math.PI);
         pitch = Math.clamp(newPitch, -PITCH_LIMIT, PITCH_LIMIT);
     }
 
@@ -104,7 +119,8 @@ public final class FirstPerson {
         if (IsoPlayer.numPlayers != 1) {
             return "split screen";
         }
-        return Agent.firstPersonGap();
+        String gap = Agent.firstPersonGap();
+        return gap != null ? gap : Pipeline.failure();
     }
 
     /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */
@@ -112,14 +128,17 @@ public final class FirstPerson {
         if (GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
             toggle();
         }
+        HeadTracking.pollHotkeys();
         IsoPlayer player = IsoPlayer.getInstance();
         if (on && !allowed(player)) {
             on = false;
             Log.info("first person off: " + whyNot(player));
         }
         lookCaptured = on && !GameTime.isGamePaused() && !player.isDead();
+        Characters.wanted = on;
         MouseGrab.wanted = lookCaptured;
         if (!on) {
+            HeadTracking.rest();
             if (MouseGrab.applied) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
@@ -137,14 +156,63 @@ public final class FirstPerson {
         cursorX = Math.round(IsoUtils.XToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
         cursorY = Math.round(IsoUtils.YToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
 
-        float eyeUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + eyeHeight(player);
+        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT;
+        ViewCamera.clean(cleanView, player.getX(), player.getY(), floorUp + eyeHeight(player), yaw, pitch);
+        world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        HeadTracking.view(lookCaptured, cleanView, yaw, world, trackedView);
         WorldScene scene = WorldScene.next();
-        scene.build(player, player.getX(), player.getY(), eyeUp, yaw, pitch);
+        scene.build(player, trackedView, FieldOfView.tanHalfVertical());
         SpriteRenderer.instance.drawGeneric(scene);
+        placeReticle(scene, floorUp);
 
         if (TRACE) {
             trace(player, scene, zoom);
         }
+    }
+
+    /**
+     * The reticle marks a point, not a direction: where the clean aim, from the eye the mouse
+     * turns, first meets the world this frame. With the head leaned the picture is drawn from
+     * another eye, and that point is no longer straight ahead of it. With nothing in reach the
+     * aim is at infinity and only its direction is left to project.
+     */
+    private static void placeReticle(WorldScene scene, float floorUp) {
+        float aspect = WorldScene.drawnAspect();
+        if (aspect == 0f) {
+            // No frame has been drawn yet, so the shape of the picture is not known.
+            reticleX = RETICLE_HIDDEN;
+            reticleY = RETICLE_HIDDEN;
+            return;
+        }
+        shotDistance = world.shotDistance(cleanView, floorUp, WorldScene.REACH,
+                scene.characterX, scene.characterY, scene.characterBase, scene.characters);
+        float along = shotDistance;
+        ViewCamera.Pose from = cleanView;
+        if (along == Float.POSITIVE_INFINITY) {
+            along = 1f;
+            from = trackedView;
+        }
+        boolean inFront = ViewCamera.project(trackedView, scene.tanHalfFieldOfView(), aspect,
+                from.eyeX + cleanView.forwardX * along, from.eyeY + cleanView.forwardY * along,
+                from.eyeUp + cleanView.forwardUp * along, ndc);
+        if (!inFront) {
+            reticleX = RETICLE_HIDDEN;
+            reticleY = RETICLE_HIDDEN;
+            return;
+        }
+        int index = IsoPlayer.getInstance().getIndex();
+        reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
+        reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
+    }
+
+    /** Called where the game's reticle and aim cursor read the screen column to draw at. */
+    public static int reticleX(int stock) {
+        return on ? reticleX : stock;
+    }
+
+    /** Called where the game's reticle and aim cursor read the screen row to draw at, counted from the top. */
+    public static int reticleY(int stock) {
+        return on ? reticleY : stock;
     }
 
     private static float eyeHeight(IsoPlayer player) {
@@ -220,9 +288,12 @@ public final class FirstPerson {
         player.getAimVector(traceAim);
         Log.info(String.format(java.util.Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
-                        + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b | %s",
+                        + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
+                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
-                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, scene.describe()));
+                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, HeadTracking.describe(),
+                reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
+                scene.describe()));
     }
 }

@@ -18,8 +18,15 @@ import java.util.Arrays;
  * clipped to that rectangle before it is written.
  */
 final class SpriteGeometry {
-    /** Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue. */
-    static final int VERTEX_FLOATS = 8;
+    /**
+     * Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue, how open to the sky the
+     * vertex's square is, then the unit vector its face looks along.
+     */
+    static final int VERTEX_FLOATS = 12;
+    /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
+    static final float CARD = 2f;
+    /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
+    private static final float SWAY_PER_TILE = 0.4f;
 
     /** The game's projection at tile scale 1: a tile along x or y is this many frame pixels across and down. */
     private static final float PIXELS_ACROSS_PER_TILE = 32f;
@@ -36,9 +43,10 @@ final class SpriteGeometry {
     private static final float MIN_FRAME_PIXELS = 0.5f;
     /**
      * A sprite's edge is a staircase of pixels, half of them empty, and two tiles that meet
-     * along it would show a dotted gap. Each vertex takes its texel from this far inside the face.
+     * along it would show a dotted gap. Each vertex takes its texel from this far inside the
+     * face, in frame pixels at tile scale 1.
      */
-    private static final float EDGE_INSET_PIXELS = 2f;
+    private static final float EDGE_INSET_PIXELS = 1.5f;
     private static final float EDGE_SLACK_PIXELS = 2f;
     /** A texel is taken no nearer the trimmed rectangle's edge than the centre of its outermost pixel. */
     private static final float HALF_PIXEL = 0.5f;
@@ -52,8 +60,29 @@ final class SpriteGeometry {
     static final class Mesh {
         /** The OpenGL name of the texture, set by whoever keeps meshes by texture. */
         int texture;
-        float[] vertices = new float[VERTEX_FLOATS * 3 * 256];
+        /**
+         * Starts small and doubles. A scene keeps a mesh for every texture it has ever drawn,
+         * and most of them only ever hold a few sprites.
+         */
+        float[] vertices = new float[VERTEX_FLOATS * 3 * 8];
         int floats;
+        /** What the vertices added next carry: 1 out of doors, 0 under a roof. */
+        float open;
+        /** Which way the face the vertices added next belong to looks. Either side will do: it is one sheet. */
+        private float normalX, normalY, normalUp = 1f;
+        /**
+         * How far the vertices added next move with the wind, 0 for none. It rides on the
+         * normal's length, which is 1 plus this: the shader takes the length off before it
+         * uses the direction.
+         */
+        private float sway;
+
+        void face(float x, float y, float up) {
+            float length = (float) Math.sqrt(x * x + y * y + up * up);
+            normalX = x / length;
+            normalY = y / length;
+            normalUp = up / length;
+        }
 
         void clear() {
             floats = 0;
@@ -75,6 +104,65 @@ final class SpriteGeometry {
             vertices[floats++] = red;
             vertices[floats++] = green;
             vertices[floats++] = blue;
+            vertices[floats++] = open;
+            vertices[floats++] = normalX * (1f + sway);
+            vertices[floats++] = normalY * (1f + sway);
+            vertices[floats++] = normalUp * (1f + sway);
+        }
+    }
+
+    /**
+     * Meshes by texture name: open addressing with a power of two length, at most half full.
+     * A lookup runs for every sprite of every frame, and a map keyed by Integer would box each one.
+     */
+    static final class MeshSet {
+        private Mesh[] byTexture = new Mesh[64];
+        final java.util.ArrayList<Mesh> all = new java.util.ArrayList<>();
+
+        Mesh get(int texture) {
+            int slot = slotFor(byTexture, texture);
+            Mesh mesh = byTexture[slot];
+            if (mesh != null) {
+                return mesh;
+            }
+            mesh = new Mesh();
+            mesh.texture = texture;
+            all.add(mesh);
+            if (all.size() * 2 > byTexture.length) {
+                byTexture = new Mesh[byTexture.length * 2];
+                for (int i = 0; i < all.size(); i++) {
+                    Mesh moved = all.get(i);
+                    byTexture[slotFor(byTexture, moved.texture)] = moved;
+                }
+            } else {
+                byTexture[slot] = mesh;
+            }
+            return mesh;
+        }
+
+        /** Empties every mesh and keeps them: a scene draws much the same textures every frame. */
+        void clear() {
+            for (int i = 0; i < all.size(); i++) {
+                all.get(i).clear();
+            }
+        }
+
+        int triangles() {
+            int triangles = 0;
+            for (int i = 0; i < all.size(); i++) {
+                triangles += all.get(i).triangles();
+            }
+            return triangles;
+        }
+
+        /** The slot holding the texture's mesh, or the empty one it belongs in. */
+        private static int slotFor(Mesh[] table, int texture) {
+            int mask = table.length - 1;
+            int slot = texture & mask;
+            while (table[slot] != null && table[slot].texture != texture) {
+                slot = (slot + 1) & mask;
+            }
+            return slot;
         }
     }
 
@@ -89,6 +177,24 @@ final class SpriteGeometry {
         /** The same rectangle in texture coordinates. */
         float uStart, vStart, uEnd, vEnd;
         float red, green, blue;
+        /** 1 for a square out of doors, 0 for one under a roof. */
+        float open;
+        /**
+         * The light at the square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1). A face
+         * takes its light from these by where on the square each of its vertices is, so the
+         * light runs smoothly from one square into the next.
+         */
+        final float[] cornerRed = new float[4], cornerGreen = new float[4], cornerBlue = new float[4];
+
+        /** One light for the whole square. */
+        void light(float r, float g, float b) {
+            red = r;
+            green = g;
+            blue = b;
+            java.util.Arrays.fill(cornerRed, r);
+            java.util.Arrays.fill(cornerGreen, g);
+            java.util.Arrays.fill(cornerBlue, b);
+        }
     }
 
     private final float[] corners = new float[MAX_CORNERS * CORNER_FLOATS];
@@ -105,6 +211,11 @@ final class SpriteGeometry {
     /** Frame pixel down of a point on the tile. */
     static float frameV(Frame frame, float a, float b, float h) {
         return ((a + b) * PIXELS_DOWN_PER_TILE - h * PIXELS_PER_LEVEL) * frame.scale + frame.originV;
+    }
+
+    /** The height, in levels, at which the point (a, b) of the tile is drawn on frame row v. */
+    static float heightDrawnAt(Frame frame, float a, float b, float v) {
+        return ((a + b) * PIXELS_DOWN_PER_TILE - (v - frame.originV) / frame.scale) / PIXELS_PER_LEVEL;
     }
 
     /**
@@ -130,6 +241,9 @@ final class SpriteGeometry {
             return 0;
         }
         int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
+        float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
+        mesh.open = frame.open;
+        mesh.face(db1 * up2 - up1 * db2, up1 * da2 - da1 * up2, da1 * db2 - db1 * da2);
         float[] from = result;
         for (int i = 1; i < count - 1; i++) {
             emit(mesh, frame, tileX, tileY, tileZ, from, 0);
@@ -169,7 +283,7 @@ final class SpriteGeometry {
      * on that point, turned so that (rightX, rightY) runs along its width.
      */
     void addUpright(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ,
-            float a, float b, float h, float rightX, float rightY) {
+            float a, float b, float h, float rightX, float rightY, boolean sways) {
         float anchorU = frameU(frame, a, b);
         float anchorV = frameV(frame, a, b, h);
         float across = TILES_PER_PIXEL_ACROSS / frame.scale;
@@ -186,12 +300,24 @@ final class SpriteGeometry {
         float x0 = baseX + rightX * leftOffset, y0 = baseY + rightY * leftOffset;
         float x1 = baseX + rightX * rightOffset, y1 = baseY + rightY * rightOffset;
 
+        // A flat card stands in for something round, a bush or a chair, so it is lit as if it
+        // leaned back: partly from the side it faces and partly from above.
+        mesh.open = frame.open + CARD;
+        mesh.face(rightY, -rightX, 0.9f);
+        // What grows moves with the wind, the more the higher it stands above its root.
+        float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
+        float high = sways ? Math.clamp(topHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
+        mesh.sway = low;
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
         mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, frame.vEnd, frame.red, frame.green, frame.blue);
+        mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, frame.vStart, frame.red, frame.green, frame.blue);
+        mesh.sway = low;
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
+        mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, frame.vStart, frame.red, frame.green, frame.blue);
         mesh.add(x0, y0, baseUp + topHeight, frame.uStart, frame.vStart, frame.red, frame.green, frame.blue);
+        mesh.sway = 0f;
     }
 
     private void setCorner(Frame frame, int index, float a, float b, float h) {
@@ -245,19 +371,21 @@ final class SpriteGeometry {
         int at = index * CORNER_FLOATS;
         float pixelU = polygon[at + CORNER_U];
         float pixelV = polygon[at + CORNER_V];
-        float toCentreU = centreU - pixelU;
-        float toCentreV = centreV - pixelV;
-        float distance = (float) Math.sqrt(toCentreU * toCentreU + toCentreV * toCentreV);
-        if (distance > EDGE_INSET_PIXELS) {
-            pixelU += toCentreU / distance * EDGE_INSET_PIXELS;
-            pixelV += toCentreV / distance * EDGE_INSET_PIXELS;
-        }
+        // Across and down separately: a wall's side edges are upright, and an inset towards the
+        // face's centre would run along them without leaving the sprite's empty edge columns.
+        float inset = EDGE_INSET_PIXELS * frame.scale;
+        pixelU += Math.clamp(centreU - pixelU, -inset, inset);
+        pixelV += Math.clamp(centreV - pixelV, -inset, inset);
         pixelU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
         pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
-        mesh.add(tileX + polygon[at], tileY + polygon[at + 1], (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT,
-                u, v, frame.red, frame.green, frame.blue);
+        float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
+        float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
+        mesh.add(tileX + polygon[at], tileY + polygon[at + 1], (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT, u, v,
+                frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
+                frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
+                frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
     }
 
     /**
@@ -268,6 +396,7 @@ final class SpriteGeometry {
             float halfWidth, float bottom, float top, float red, float green, float blue) {
         float x0 = x - rightX * halfWidth, y0 = y - rightY * halfWidth;
         float x1 = x + rightX * halfWidth, y1 = y + rightY * halfWidth;
+        mesh.face(rightY, -rightX, 0.9f);
         mesh.add(x0, y0, baseUp + bottom, 0f, 0f, red, green, blue);
         mesh.add(x1, y1, baseUp + bottom, 0f, 0f, red, green, blue);
         mesh.add(x1, y1, baseUp + top, 0f, 0f, red, green, blue);
@@ -279,6 +408,7 @@ final class SpriteGeometry {
     /** Adds an untextured rectangle lying flat at height up, centred on (x, y). */
     static void addPlainFlat(Mesh mesh, float x, float y, float up, float halfX, float halfY,
             float red, float green, float blue) {
+        mesh.face(0f, 0f, 1f);
         mesh.add(x - halfX, y - halfY, up, 0f, 0f, red, green, blue);
         mesh.add(x + halfX, y - halfY, up, 0f, 0f, red, green, blue);
         mesh.add(x + halfX, y + halfY, up, 0f, 0f, red, green, blue);

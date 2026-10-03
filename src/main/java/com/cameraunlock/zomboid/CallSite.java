@@ -96,6 +96,12 @@ final class CallSite {
         code.putstatic(ownerDesc, field, intDesc);
     }
 
+    /** Calls the static method {@code hook} with the object the method being rewritten belongs to. */
+    static void passThis(CodeBuilder code, Method hook) {
+        code.aload(0);
+        invokeStatic(code, hook);
+    }
+
     private static void invokeStatic(CodeBuilder code, Method method) {
         code.invoke(Opcode.INVOKESTATIC, ClassDesc.ofInternalName(method.owner()), method.name(),
                 MethodTypeDesc.ofDescriptor(method.descriptor()), false);

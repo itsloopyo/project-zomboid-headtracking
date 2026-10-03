@@ -16,6 +16,10 @@ public final class Agent {
     private static final String WINDOW_PLACEMENT = "com/cameraunlock/zomboid/WindowPlacement";
     private static final String FIRST_PERSON = "com/cameraunlock/zomboid/FirstPerson";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
+    private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
+    private static final String RETICLE = "zombie/input/AimingReticle";
+    private static final String CHARACTER_DRAW = "zombie/core/skinnedmodel/model/ModelSlotRenderData";
+    private static final String INT_FILTER = "(I)I";
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
 
     /** A rewrite of one method of one game class. */
@@ -61,6 +65,9 @@ public final class Agent {
         Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
 
+        Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
+        HeadTracking.start();
+
         CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
         instrumentation.addTransformer(new PatchTransformer(List.of(
                 after(new CallSite.Method(DISPLAY, "create", "()V"),
@@ -71,7 +78,10 @@ public final class Agent {
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
                 after(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowAttrib", "(JII)V"),
-                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")))));
+                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
+                after(new CallSite.Method(TORCH, "set", "(Lzombie/characters/IsoPlayer;Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
+                        new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
+                        new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction", VECTOR2_FILTER)))));
         firstPerson = new PatchTransformer(List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
@@ -79,6 +89,14 @@ public final class Agent {
                 after(new CallSite.Method("zombie/characters/IsoPlayer", "getInputMoveVector", VECTOR2_FILTER),
                         new CallSite.Method("zombie/characters/IsoLivingCharacter", "getInputMoveVector", VECTOR2_FILTER),
                         new CallSite.Method(FIRST_PERSON, "moveVector", VECTOR2_FILTER)),
+                new Patch(CHARACTER_DRAW, "render before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(CHARACTER_DRAW, "render", "()V"),
+                        code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Characters", "drawn",
+                                "(L" + CHARACTER_DRAW + ";)V")))),
+                reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getXA", "reticleX"),
+                reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getYA", "reticleY"),
+                reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getXA", "reticleX"),
+                reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getYA", "reticleY"),
                 new Patch(GAME_MOUSE, "update before its returns", classBytes -> {
                     CallSite.requireStaticInt(classBytes, "x");
                     CallSite.requireStaticInt(classBytes, "y");
@@ -88,6 +106,12 @@ public final class Agent {
                     });
                 })));
         instrumentation.addTransformer(firstPerson);
+    }
+
+    /** The game's reticle and aim cursor each read the screen position to draw at from one call. */
+    private static Patch reticle(String owner, String render, String descriptor, String read, String filter) {
+        return after(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER),
+                new CallSite.Method(FIRST_PERSON, filter, INT_FILTER));
     }
 
     private static Patch after(CallSite.Method within, CallSite.Method call, CallSite.Method hook) {
