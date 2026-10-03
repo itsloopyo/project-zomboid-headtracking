@@ -53,7 +53,10 @@ Mod managers do not deploy this mod: it needs a launch settings file built from 
 
 1. Copy `plugins\ProjectZomboidHeadTracking.jar` from the installer ZIP into the game folder, next to `ProjectZomboid64.exe`.
 2. In the same folder, copy `ProjectZomboid64.json` to a new file named `ProjectZomboid64.site.json`. The game's launcher reads the site file in place of the stock one when it is there.
-3. Open `ProjectZomboid64.site.json` and add `"-javaagent:ProjectZomboidHeadTracking.jar"` as the first entry of its `vmArgs` list.
+3. Open `ProjectZomboid64.site.json` and make three changes:
+   - Note the value of `mainClass`, then change it to `"com/cameraunlock/zomboid/Boot"`.
+   - Add `"ProjectZomboidHeadTracking.jar"` as the last entry of the `classpath` list.
+   - Add `"-Dcameraunlock.mainClass=zombie/gameStates/MainScreenState"` and `"-XX:+EnableDynamicAgentLoading"` as the first two entries of the `vmArgs` list. The part after `=` is the `mainClass` value you noted.
 
 There is no mod loader to install. The mod is a Java agent that the game's own Java runtime loads. It does not use or need any other first person mod; those are alternatives to this one.
 
@@ -142,8 +145,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 **Mod not loading**
 
 - If there is no log after a launch, the Java agent was not loaded. Check that `ProjectZomboidHeadTracking.jar` and `ProjectZomboid64.site.json` are both next to the exe, and run `install.cmd` again if either is missing.
-- If the game closes within a second of launching and reports `Could not find agent library instrument on the library path`, the Java runtime could not load its own agent support. Add the game's `jre64\bin` folder to the front of your `PATH` and launch again.
-- If `install.cmd` stops because a `ProjectZomboid64.site.json` that does not load this mod is already there, that file belongs to you or to another mod and the installer will not overwrite it. Add the `-javaagent` entry to it by hand (see [Manual Installation](#manual-installation)).
+- If `install.cmd` stops because a `ProjectZomboid64.site.json` that does not load this mod is already there, that file belongs to you or to another mod and the installer will not overwrite it. Make the three changes to it by hand (see [Manual Installation](#manual-installation)).
 - If `F8` does nothing, the log says why on a `first person stays off:` line.
 
 **No tracking response**

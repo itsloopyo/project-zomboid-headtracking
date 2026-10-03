@@ -25,4 +25,5 @@ $null = Invoke-DevDeployJavaAgent `
     -GameDisplayName 'Project Zomboid' `
     -BuildOutputPath (Join-Path $projectRoot 'build') `
     -AgentJars @('ProjectZomboidHeadTracking.jar') `
+    -MainClass 'com/cameraunlock/zomboid/Boot' `
     -GivenPath $GamePath

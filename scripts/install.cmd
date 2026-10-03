@@ -18,20 +18,26 @@
 :: arguments from <Exe>.json next to the exe, and from <Exe>.site.json instead
 :: when that is there. The mod is a jar the JVM loads as a Java agent, so
 :: there is no loader, which is why FRAMEWORK_TYPE is JavaAgent. The jar goes
-:: next to the exe and the body writes the site config from the stock one.
+:: next to the exe and the body writes the site config from the stock one,
+:: with the mod's boot class as the main class.
 :: ============================================
 
 :: --- CONFIG BLOCK ---
 set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
 :: Copied from plugins\ to the exe's folder on every install. Each .jar named
-:: here is loaded as a Java agent: the site config gets a -javaagent argument
-:: for it.
+:: here is added to the classpath in the site config.
 set "MOD_DLLS=ProjectZomboidHeadTracking.jar"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "MOD_VERSION=0.0.0"
 set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=JavaAgent"
+:: The class in the jar the site config names as mainClass, written as the
+:: game's stock config writes its own. Its main loads the jar into the running
+:: JVM as a Java agent, then calls the main of the class named by the
+:: cameraunlock.mainClass system property, which the site config sets to the
+:: game's own.
+set "JVM_MAIN_CLASS=com/cameraunlock/zomboid/Boot"
 :: Files copied only when they are not already there, so an upgrade keeps
 :: whatever the user tuned. A config never goes in MOD_DLLS, which is copied
 :: unconditionally and would reset every key on every update.

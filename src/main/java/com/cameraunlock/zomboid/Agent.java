@@ -42,7 +42,20 @@ public final class Agent {
         return gap;
     }
 
+    private static volatile boolean loaded;
+
+    static boolean loaded() {
+        return loaded;
+    }
+
+    /** Called by the JVM when Boot loads the agent into it, which is how an installed copy starts. */
+    public static void agentmain(String arguments, Instrumentation instrumentation) throws IOException {
+        premain(arguments, instrumentation);
+    }
+
+    /** Called by the JVM for -javaagent, which is how the development run starts. */
     public static void premain(String arguments, Instrumentation instrumentation) throws IOException {
+        loaded = true;
         Path gameDirectory = Path.of("").toAbsolutePath();
         Log.open(gameDirectory);
         Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()

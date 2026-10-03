@@ -26,6 +26,7 @@ Invoke-Tool javac ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes'
 
 @(
     'Premain-Class: com.cameraunlock.zomboid.Agent'
+    'Agent-Class: com.cameraunlock.zomboid.Agent'
     'Implementation-Title: Project Zomboid Head Tracking'
     "Implementation-Version: $version"
 ) | Set-Content -Encoding ascii build/MANIFEST.MF
