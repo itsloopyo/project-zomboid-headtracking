@@ -17,10 +17,30 @@ update-submodule = "git submodule update --remote cameraunlock-core && powershel
 sync = "git submodule update --remote cameraunlock-core"
 update-deps = "powershell -NoProfile -Command \"Write-Host 'No vendored dependencies to update (shim-only mod).'\""
 
+# Nothing to prepare: javac compiles against the signature stubs in stubs/, so
+# the build needs no file from a game install and no downloaded reference.
+setup = "powershell -NoProfile -Command \"Write-Host 'Nothing to set up: the build compiles against the stubs in stubs/.'\""
+
 build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
-test-unit = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
-test = { depends-on = ["test-unit"] }
-clean = "powershell -NoProfile -Command \"if (Test-Path build) { Remove-Item -Recurse -Force build }\""
+test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
+clean = "powershell -NoProfile -Command \"if (Test-Path build) { Remove-Item -Recurse -Force build }; if (Test-Path release) { Remove-Item -Recurse -Force release }\""
+
+# Installer ZIP only, in release/. package-release.ps1 says why there is no
+# Nexus ZIP.
+package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build", "test"] }
+
+# Both read what is already there, so neither depends on package.
+validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
+validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
+
+# Deploys the built jar and the site JVM config to every installed copy of the
+# game. A path after the task name deploys to that one folder instead.
+install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
+# /y keeps it prompt-free: pixi gives a task no console to read from.
+uninstall = "cmd /c scripts\\uninstall.cmd /y"
+
+release = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
+release-nightly = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-nightly.ps1"
 
 # Launches every installed copy's game with the built agent loaded, for
 # development. Arguments after the task name are passed to the script.
