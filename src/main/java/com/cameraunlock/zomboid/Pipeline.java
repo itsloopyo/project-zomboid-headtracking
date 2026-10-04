@@ -133,9 +133,9 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 20;
+    private static final int UNITS = 24;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
-    private static final int BEAM_UNIT = 16;
+    private static final int BEAM_UNIT = 20;
 
     /** The headlights that are on, for every shader they light: the world, the figures, the air and the rain. */
     private static final String BEAMS = """
@@ -1247,6 +1247,7 @@ final class Pipeline {
             uniform vec3 uWheelAxis;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
+            uniform sampler2D uDials;
             uniform vec2 uCabinGain;
             uniform vec3 uOwnAmbient;
             uniform float uFigureAmbient;
@@ -1283,15 +1284,15 @@ final class Pipeline {
                 vec3 q = p - uWheel.xyz;
                 float deep = dot(q, uWheelAxis);
                 float outward = length(q - uWheelAxis * deep);
-                float rim = length(vec2(outward - uWheel.w, deep)) - 0.036;
+                float rim = length(vec2(outward - uWheel.w, deep)) - 0.019;
                 vec3 up = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 // The spokes dish in from the rim to the hub.
                 float sunk = deep - 0.03 * (1.0 - outward / uWheel.w);
                 float across = q.y, along = dot(q, up);
-                float thin = abs(sunk) - 0.011;
-                float bar = max(max(abs(along) - 0.024, thin), abs(across) - uWheel.w) - 0.006;
-                float down = max(max(abs(across) - 0.024, thin), max(along, -along - uWheel.w)) - 0.006;
-                float hub = max(outward - 0.062, abs(deep - 0.03) - 0.028) - 0.012;
+                float thin = abs(sunk) - 0.008;
+                float bar = max(max(abs(along) - 0.017, thin), abs(across) - uWheel.w) - 0.005;
+                float down = max(max(abs(across) - 0.017, thin), max(along, -along - uWheel.w)) - 0.005;
+                float hub = max(outward - 0.05, abs(deep - 0.03) - 0.022) - 0.01;
                 return min(min(rim, hub), min(bar, down));
             }
 
@@ -1311,7 +1312,7 @@ final class Pipeline {
                     dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * exp(-pow((nearest - 0.53) / 0.012, 2.0)) + 0.45 * (1.0 - inside);
                     dirt = clamp(dirt, 0.0, 1.0);
                 }
-                float glancing = 0.04 + 0.96 * pow(1.0 - abs(dot(n, view)), 5.0);
+                float glancing = 0.04 + 0.96 * pow(clamp(1.0 - abs(dot(n, view)), 0.0, 1.0), 5.0);
                 vec3 thrown = reflect(-view, n);
                 // Glass seen from inside mirrors the inside: where the mirrored ray goes down it
                 // is the sunlit top of the dashboard, pale on the screen above it.
@@ -1442,6 +1443,35 @@ final class Pipeline {
                         wheelFar = t;
                     }
                 }
+                // Behind the wheel, two round instruments in the dash, seen through its rim.
+                bool dial = false;
+                vec2 dialAt = vec2(0.0);
+                float dialFar = 0.0;
+                if (!wheel && uInside > 0.5 && uWheel.w > 0.0 && figure.a > 0.5) {
+                    vec3 d = normalize(ray);
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
+                    vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
+                    vec3 middle = uWheel.xyz + uWheelAxis * 0.24 + rise * 0.105;
+                    float towards = dot(line, uWheelAxis);
+                    if (towards > 0.05) {
+                        float t = dot(middle, uWheelAxis) / towards;
+                        vec3 q = line * t - middle;
+                        vec2 on = vec2(q.y, dot(q, rise));
+                        // Two faces, side by side.
+                        vec2 face = vec2(abs(on.x) - 0.075, on.y) / 0.068;
+                        float z0 = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                        float behind = 2.0 * uNear * uFar / (uFar + uNear - z0 * (uFar - uNear)) * length(ray);
+                        if (dot(face, face) < 1.0 && t < behind + 0.12) {
+                            if (uGlassPass > 0.5) {
+                                discard;
+                            }
+                            dial = true;
+                            dialAt = face * vec2(on.x < 0.0 ? -0.47 : 0.47, 0.47) + 0.5;
+                            dialFar = t;
+                        }
+                    }
+                }
                 if (figure.a < 0.5 && !wheel) {
                     // From a seat the vehicle is all round the eye, so where the game drew
                     // none of it above the sills there is an opening with a pane in it.
@@ -1465,6 +1495,9 @@ final class Pipeline {
                 if (wheel) {
                     ahead = wheelFar / length(ray);
                 }
+                if (dial) {
+                    ahead = dialFar / length(ray);
+                }
                 vec3 at = uEye + ray * ahead;
 
                 // The game's models are few flat faces and the game lights them all alike, so
@@ -1482,10 +1515,28 @@ final class Pipeline {
                 float close = uInside * step(ahead * length(ray), 3.2);
                 vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
-                if (wheel) {
+                bool ghost = false;
+                if (dial) {
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    n = -vec3(uAhead * uWheelAxis.x + side * uWheelAxis.y, uWheelAxis.z);
+                    close = 1.0;
+                    figure = vec4(texture2D(uDials, vec2(dialAt.x, 1.0 - dialAt.y)).rgb, 1.0);
+                } else if (wheel) {
                     n = wheelFaces;
                     close = 1.0;
                     figure = vec4(0.21, 0.2, 0.195, 1.0);
+                } else if (close > 0.5 && uWheel.w > 0.0) {
+                    // The game's own six-sided wheel is still in its model, wider than the
+                    // round one drawn over it. Where it shows it is painted out as the dark
+                    // of the footwell behind it.
+                    vec3 to = at - uEye;
+                    vec3 q = vec3(dot(to.xy, uAhead), dot(to.xy, vec2(-uAhead.y, uAhead.x)), to.z) - uWheel.xyz;
+                    float deep = dot(q, uWheelAxis);
+                    float outward = length(q - uWheelAxis * deep);
+                    ghost = abs(deep) < 0.07 && outward > uWheel.w - 0.07 && outward < uWheel.w + 0.07;
+                    if (ghost) {
+                        n = view;
+                    }
                 }
                 // The models' skins are flat paint. Their light and dark say where the cloth
                 // folds and the flesh is torn, and the surface is lit as raised where it is
@@ -1504,8 +1555,11 @@ final class Pipeline {
                         vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
                         sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
                     }
-                    if (sum.a > 6.0 && !wheel) {
+                    if (sum.a > 6.0 && !wheel && !dial) {
                         figure = vec4(sum.rgb / sum.a, 1.0);
+                    }
+                    if (ghost) {
+                        figure = vec4(0.085, 0.09, 0.105, 1.0);
                     }
                     // The game paints a cabin in flat colours. What it is made of is laid over
                     // them, fixed to the vehicle: grained vinyl on the dash, the doors and the
@@ -1519,7 +1573,9 @@ final class Pipeline {
                     float woven = smoothstep(0.2, 0.35, (most - least) / max(most, 0.001)) * step(0.2, most);
                     vec3 grain = mix(texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x, texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y, woven);
                     // Pale parts are painted metal, the pillars and the door tops, and have no grain.
-                    figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * (1.0 - smoothstep(0.4, 0.65, most)), 0.45, woven));
+                    if (!dial) {
+                        figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * (1.0 - smoothstep(0.4, 0.65, most)), 0.45, woven));
+                    }
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
@@ -1556,7 +1612,7 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && at.z > uEye.z - 0.35 && !wheel) {
+                if (cabin > 0.5 && at.z > uEye.z - 0.35 && !wheel && !dial) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -1605,14 +1661,14 @@ final class Pipeline {
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) * mix(pow(uFigureAmbient, 2.2) * 1.7 * skyGives, 1.0, cabin) + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
-                float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
+                float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
                 if (uPainted < 0.5 && cabin < 0.5) {
                     // Skin and cloth let a little light through at the edge of the shade: the
                     // line between lit and unlit on a cheek or a shoulder is warm, not grey.
                     float edge = smoothstep(0.0, 0.25, facing) * (1.0 - smoothstep(0.25, 0.6, facing));
                     color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * sunLight * vec3(0.55, 0.16, 0.08) * (edge * sun);
                     // And the nap of cloth and the down on skin catch the sky all round the outline.
-                    color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * fromSky * (0.9 * pow(1.0 - max(dot(n, view), 0.0), 4.0));
+                    color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * fromSky * (0.9 * pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 4.0));
                 }
                 // Paint under lacquer mirrors the sky all over, more at a glance, and throws
                 // the sun back as a small hard light. Cloth and skin only catch the sky at
@@ -1620,6 +1676,11 @@ final class Pipeline {
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
                 color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
+                if (dial && uInstruments > 0.0) {
+                    // Lit from behind when the engine runs: the numerals and needles glow.
+                    vec3 face = pow(figure.rgb, vec3(2.2));
+                    color += face * vec3(0.55, 1.0, 0.8) * (3.5 * uInstruments * smoothstep(0.15, 0.6, max(face.r, max(face.g, face.b))));
+                }
                 if (cabin > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
                     // green light is on the wheel, the dash round them and the driver's knees.
@@ -2022,7 +2083,7 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "dials"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
@@ -3058,6 +3119,7 @@ final class Pipeline {
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
+            figureLight.set("uDials", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
             figureLight.set("uOwnAmbient", Characters.ownAmbient[0], Characters.ownAmbient[1], Characters.ownAmbient[2]);
             GL11.glEnable(GL_DEPTH_TEST);
