@@ -1311,6 +1311,10 @@ final class Pipeline {
     private static final ViewCamera.Pose before = new ViewCamera.Pose();
     /** How much of the last frame's picture goes into this one. */
     private static final float KEPT = 0.86f;
+    /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
+    private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
+    private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
+    private static int jitterAt;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
@@ -1850,8 +1854,16 @@ final class Pipeline {
         GL11.glClearColor(0f, 0f, 0f, 1f);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Each frame the world is drawn a fraction of a pixel to one side of the last, a
+        // different way each time round a short cycle. The steadying pass mixes the frames,
+        // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
+        // and with more detail than one frame's pixels hold.
+        float[] projection = ViewCamera.projection(tanHalfFieldOfView, aspect, near, far).clone();
+        jitterAt = (jitterAt + 1) % JITTER_X.length;
+        projection[8] += JITTER_X[jitterAt] / width;
+        projection[9] += JITTER_Y[jitterAt] / height;
         GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glLoadMatrixf(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far));
+        GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(ViewCamera.view(camera));
 
