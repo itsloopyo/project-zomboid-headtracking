@@ -15,6 +15,26 @@ final class ShapeTests {
         depthFarAcrossTheMapKeepsItsOrderFromTheEye();
         lampProudOfItsWallIsFoundWhereItIsFixed();
         newModelsAreInTheJar();
+        footOfAPostIsItsCornerNearestTheView();
+    }
+
+    private static void footOfAPostIsItsCornerNearestTheView() {
+        // A post a sixth of a square thick against the middle of the west edge, taller than a level.
+        SpriteGeometry.Frame frame = frame();
+        SpriteShape.Painted post = box(frame, 0f, 0.42f, 0f, 0.16f, 0.58f, 1.1f);
+        float[] foot = new float[3];
+        check(SpriteShape.foot(post, frame, foot), "a post has a foot");
+        check(near(foot[0], 0.16f, 0.06f) && near(foot[1], 0.58f, 0.06f), "it is the post's south-east corner on the floor: " + foot[0] + ", " + foot[1]);
+        check(foot[2] < 0.3f, "and is as narrow as the post: " + foot[2]);
+        frame = frame();
+        SpriteShape.Painted north = box(frame, 0.42f, 0f, 0f, 0.58f, 0.16f, 1.1f);
+        check(SpriteShape.foot(north, frame, foot) && near(foot[0], 0.58f, 0.06f) && near(foot[1], 0.16f, 0.06f), "a post against the north edge has its foot there");
+        frame = frame();
+        frame.left = 10f;
+        frame.top = 10f;
+        frame.width = 20f;
+        frame.height = 20f;
+        check(!SpriteShape.foot((u, v) -> false, frame, foot), "a sprite with nothing painted has none");
     }
 
     private static void newModelsAreInTheJar() {

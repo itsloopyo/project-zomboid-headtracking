@@ -89,6 +89,46 @@ final class SpriteShape {
         this.h1 = h1;
     }
 
+    /** How many rows up from a sprite's lowest painted one its foot is looked for, in frame pixels at tile scale 1. */
+    private static final int FOOT_ROWS = 2;
+
+    /**
+     * Where a sprite's foot is: into out the point (a, b) of the square's floor that the
+     * middle of its lowest painted rows is drawn at, then how wide those rows are, in tiles
+     * along a line of the grid. The game's view looks down from the south-east, so the lowest
+     * thing a standing object paints is the corner of its foot nearest that view. False for a
+     * sprite with nothing painted.
+     */
+    static boolean foot(Painted painted, SpriteGeometry.Frame frame, float[] out) {
+        int left = Math.round(frame.left), top = Math.round(frame.top), width = Math.round(frame.width), height = Math.round(frame.height);
+        int rows = Math.round(FOOT_ROWS * frame.scale);
+        for (int row = height - 1; row >= 0; row--) {
+            int first = -1, last = -1;
+            for (int up = 0; up < rows && row - up >= 0; up++) {
+                for (int column = 0; column < width; column++) {
+                    if (painted.at(left + column, top + row - up)) {
+                        first = first < 0 ? column : Math.min(first, column);
+                        last = Math.max(last, column);
+                    }
+                }
+                if (up == 0 && first < 0) {
+                    break;
+                }
+            }
+            if (first < 0) {
+                continue;
+            }
+            float across = 32f * frame.scale, down = 16f * frame.scale;
+            float difference = (left + (first + last + 1) / 2f - frame.originU) / across;
+            float sum = (top + row + 1 - frame.originV) / down;
+            out[0] = (sum + difference) / 2f;
+            out[1] = (sum - difference) / 2f;
+            out[2] = (last - first + 1) / across;
+            return true;
+        }
+        return false;
+    }
+
     /**
      * Reads the shape of the sprite whose painted pixels fill the rectangle of the frame
      * from (left, top), width across and height down, in whole pixels.

@@ -59,3 +59,8 @@
 - Street lamps in first person are a post with a lit head: a cone, a globe or a lantern. A road lamp's arm reaches out over the road with its lens underneath. Lamps on a wall, indoors and out, stand out from it on a bracket, a basin on a wall has its taps and trap, and a canteen's serving counter is steel under a sloping glass.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.
+- Rooms in first person have ceilings. A room under a roof was open to the rafters, and to the sky wherever the game's map has no roof tile, which is every slope that faces north or west.
+- Roofs in first person have their north and west slopes. The game's map holds only the slopes its own view sees, so from the north or the west a house stood open at the top; the far side of each ridge is now laid to match the near one, with its eave and gutter, and a roof with a level top has slopes on all four sides.
+- The outside of a building's north and west walls shows the same brick, boards or siding as its south and east walls. It was a flat colour ruled with lines that shimmered at a distance.
+- Boarded walls in first person are made of boards about 15 cm wide with the grain of sawn timber. Up close they showed a few streaks of grain as long as an arm.
+- A braced post in the line of a wall or a fence stands in that line. It stood in the middle of its square and turned to face you as you passed.

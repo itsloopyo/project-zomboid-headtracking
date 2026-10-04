@@ -19,6 +19,91 @@ final class BuildingTests {
         unclearTileWhereTwoSlopesMeetIsLeftAlone();
         pipeAlongAWallMeetsAcrossTwoSprites();
         wallTopTakesItsTexelsFromBelowTheSeal();
+        farSlopeIsTheNearOneOverTheRidge();
+        farSlopeStartsPastARoofsLevelTop();
+        farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey();
+        roofWithBothItsSlopesGetsNoMore();
+    }
+
+    /** A site with the building under squares from one x to another, a floor at one level over a run of x, and rooms at a level from an x on. */
+    private static RoofFit.Site site(int builtFrom, int builtTo, int floorLevel, int floorFrom, int floorTo, int roomLevel, int roomTo) {
+        return new RoofFit.Site() {
+            @Override
+            public boolean built(int x, int y) {
+                return x >= builtFrom && x <= builtTo;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return z == floorLevel && x >= floorFrom && x <= floorTo;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z) {
+                return z == roomLevel && x <= roomTo || floored(x, y, z) || floored(x, y, z + 1);
+            }
+        };
+    }
+
+    /** A slope falling east from height top at the west edge of square x, a third of a level a tile, deep tiles deep, on rows 0 and 1. */
+    private static List<RoofFit.Tile> eastSlope(int x, float top, int deep) {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y < 2; y++) {
+            for (int i = 0; i < deep; i++) {
+                float high = top - i * RoofFit.PITCH;
+                tile(roof, x + i, y, (int) Math.floor(high - RoofFit.PITCH + 0.01f), RoofFit.ALONG_X, true, high, high - RoofFit.PITCH);
+            }
+        }
+        RoofFit.fit(roof);
+        return roof;
+    }
+
+    private static RoofFit.Tile at(List<RoofFit.Tile> tiles, int x, int y) {
+        for (RoofFit.Tile tile : tiles) {
+            if (tile.x == x && tile.y == y) {
+                return tile;
+            }
+        }
+        return null;
+    }
+
+    private static void farSlopeIsTheNearOneOverTheRidge() {
+        // The map's half of a gable roof: three tiles falling east from a ridge at 2 along x = 3.
+        List<RoofFit.Tile> backs = RoofFit.backs(eastSlope(3, 2f, 3), site(0, 5, -1, 0, 0, -1, 0));
+        check(backs.size() == 6, "each row of the slope is carried over the ridge, three tiles a row: " + backs.size());
+        RoofFit.Tile first = at(backs, 2, 0), last = at(backs, 0, 1);
+        check(first != null && near(first.fitHigh, 2f) && near(first.fitLow, 2f - RoofFit.PITCH) && first.fitAxis == RoofFit.ALONG_X,
+                "the far slope starts at the ridge and falls away from it");
+        check(last != null && near(last.fitLow, 1f) && near(last.fitHigh, 1f + RoofFit.PITCH) && last.z == 1,
+                "and comes down to the height the near slope's foot is at, on the same level");
+        check(first.z == 1 && first.fitted, "its tiles are laid as fitted ones are");
+    }
+
+    private static void farSlopeStartsPastARoofsLevelTop() {
+        // Two tiles of slope up to a level top that is the floor of level 2 from x = 4 to 9.
+        List<RoofFit.Tile> backs = RoofFit.backs(eastSlope(10, 2f, 2), site(2, 11, 2, 4, 9, -1, 0));
+        check(backs.size() == 4 && at(backs, 9, 0) == null && at(backs, 4, 0) == null, "nothing is laid over the level top: " + backs.size());
+        RoofFit.Tile first = at(backs, 3, 0), last = at(backs, 2, 0);
+        check(first != null && near(first.fitHigh, 2f) && near(first.fitLow, 2f - RoofFit.PITCH), "the far slope falls from the far edge of the top");
+        check(last != null && near(last.fitLow, 2f - 2f * RoofFit.PITCH), "as far down as the near one");
+    }
+
+    private static void farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey() {
+        List<RoofFit.Tile> backs = RoofFit.backs(eastSlope(3, 2f, 3), site(2, 5, -1, 0, 0, -1, 0));
+        check(backs.size() == 2 && at(backs, 2, 0) != null && at(backs, 1, 0) == null, "no roof is laid past the building's wall: " + backs.size());
+        // A lean-to against a house a storey higher: the rooms of level 1 are where its far slope would be.
+        backs = RoofFit.backs(eastSlope(3, 2f, 3), site(0, 5, -1, 0, 0, 1, 2));
+        check(backs.isEmpty(), "no roof is laid through an upper storey: " + backs.size());
+    }
+
+    private static void roofWithBothItsSlopesGetsNoMore() {
+        List<RoofFit.Tile> roof = eastSlope(3, 2f, 3);
+        for (int y = 0; y < 2; y++) {
+            for (int i = 0; i < 3; i++) {
+                tile(roof, i, y, 1, RoofFit.ALONG_X, true, 1f + i * RoofFit.PITCH, 1f + (i + 1) * RoofFit.PITCH);
+            }
+        }
+        check(RoofFit.backs(roof, site(0, 5, -1, 0, 0, -1, 0)).isEmpty(), "a roof the map has both sides of is left as it is");
     }
 
     private static void check(boolean condition, String what) {

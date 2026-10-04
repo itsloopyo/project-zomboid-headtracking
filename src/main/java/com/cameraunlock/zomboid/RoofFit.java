@@ -162,6 +162,101 @@ final class RoofFit {
         }
     }
 
+    /** What stands round a roof, for the slopes the map leaves out. */
+    interface Site {
+        /** Whether the roof's building stands under the square. */
+        boolean built(int x, int y);
+
+        /** Whether a floor lies on the square at that level. */
+        boolean floored(int x, int y, int z);
+
+        /** Whether the square at that level is a room or has a floor, or something roofs it from above. */
+        boolean taken(int x, int y, int z);
+    }
+
+    /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
+    static final int WIDEST_TOP = 64;
+    /** A tile that climbs less than this, in levels, has no slope to carry over a ridge. */
+    private static final float LEAST_RISE = 0.05f;
+
+    /**
+     * The slopes of a fitted roof that the map does not hold. The game shows every roof from
+     * the south-east, and its maps have tiles only for the slopes that view sees, those that
+     * fall to the south and to the east: the far side of a ridge has no tile at all, and seen
+     * from the north or the west the house stands open. A roof is the same both sides of its
+     * ridge. So from the top tile of each row of each slope the roof is carried on: over the
+     * ridge, or across the level top of a roof that has one, and down the far side at the
+     * same pitch for as many tiles as the row climbed, as long as the building is still
+     * underneath and nothing else is in the way.
+     */
+    static List<Tile> backs(List<Tile> tiles, Site site) {
+        HashMap<Long, Tile> at = new HashMap<>();
+        HashMap<Long, Boolean> roofed = new HashMap<>();
+        for (Tile tile : tiles) {
+            at.put(key(tile.x, tile.y, tile.z), tile);
+            roofed.put(key(tile.x, tile.y, 0), Boolean.TRUE);
+        }
+        ArrayList<Tile> made = new ArrayList<>();
+        for (Tile top : tiles) {
+            float rise = Math.abs(top.fitHigh - top.fitLow);
+            if (top.fitAxis == LEVEL || !(top.fitted || top.sure) || rise < LEAST_RISE) {
+                continue;
+            }
+            boolean alongX = top.fitAxis == ALONG_X;
+            int up = top.fitLow > top.fitHigh ? -1 : 1;
+            int dx = alongX ? up : 0, dy = alongX ? 0 : up;
+            if (slopesOn(at, top, dx, dy, up)) {
+                continue;
+            }
+            int climbed = 1;
+            for (Tile lower = top; (lower = below(at, lower, dx, dy, up)) != null; ) {
+                climbed++;
+            }
+            float ridge = Math.max(top.fitLow, top.fitHigh);
+            int whole = Math.round(ridge);
+            boolean level = Math.abs(ridge - whole) < LEAST_RISE;
+            int x = top.x + dx, y = top.y + dy;
+            for (int crossed = 0; crossed < WIDEST_TOP && (roofed.containsKey(key(x, y, 0)) || level && site.floored(x, y, whole)); crossed++) {
+                x += dx;
+                y += dy;
+            }
+            for (int step = 0; step < climbed; step++, x += dx, y += dy) {
+                float high = ridge - step * rise, low = high - rise;
+                int z = (int) Math.floor(low + LEAST_RISE);
+                if (roofed.containsKey(key(x, y, 0)) || !site.built(x, y) || site.taken(x, y, z)) {
+                    break;
+                }
+                Tile back = new Tile(x, y, z, top.fitAxis, true, up < 0 ? low : high, up < 0 ? high : low);
+                back.fitted = true;
+                made.add(back);
+                roofed.put(key(x, y, 0), Boolean.TRUE);
+            }
+        }
+        return made;
+    }
+
+    /** Whether a slope goes on climbing past the tile: a tile sloping the same way stands at its high edge. */
+    private static boolean slopesOn(HashMap<Long, Tile> at, Tile tile, int dx, int dy, int up) {
+        for (int dz = 0; dz <= 1; dz++) {
+            Tile next = at.get(key(tile.x + dx, tile.y + dy, tile.z + dz));
+            if (next != null && next.fitAxis == tile.fitAxis && (next.fitLow > next.fitHigh ? -1 : 1) == up) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The tile of the same slope at the tile's low edge, or null. */
+    private static Tile below(HashMap<Long, Tile> at, Tile tile, int dx, int dy, int up) {
+        for (int dz = 0; dz >= -1; dz--) {
+            Tile next = at.get(key(tile.x - dx, tile.y - dy, tile.z + dz));
+            if (next != null && next.fitAxis == tile.fitAxis && next.fitAxis != LEVEL && (next.fitLow > next.fitHigh ? -1 : 1) == up) {
+                return next;
+            }
+        }
+        return null;
+    }
+
     /**
      * A tile whose sprite does not say clearly how it lies takes the plane of the tile beside
      * it in the same row of a fitted slope. Where slopes of both ways lie beside it, it is

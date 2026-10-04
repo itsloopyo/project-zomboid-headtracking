@@ -45,7 +45,7 @@ final class Roofs {
     /** One tile of a roof as the fit left it. */
     static final class Laid {
         final RoofFit.Tile tile;
-        /** The sprite the tile was read from. */
+        /** The sprite the tile was read from, or null for a tile of a slope the map leaves out. */
         final Texture texture;
         final Roof roof;
 
@@ -57,6 +57,16 @@ final class Roofs {
     }
 
     private static final HashMap<Long, Laid> laid = new HashMap<>();
+    /**
+     * The tiles of the slopes the map leaves out, by square and by chunk. A chunk that holds
+     * nothing else of its roof still has to find them, so they outlive laid, and each goes when
+     * its roof has not been read again for this many frames.
+     */
+    private static final HashMap<Long, Laid> made = new HashMap<>();
+    private static final HashMap<Long, ArrayList<Laid>> madeByChunk = new HashMap<>();
+    private static final int MADE_KEPT = 3 * KEPT;
+    /** How many levels over a place are looked through for what roofs it. */
+    private static final int LOOKED_ABOVE = 3;
     private static int cleared;
     private static final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
     private static final ArrayList<Laid> reading = new ArrayList<>();
@@ -118,6 +128,97 @@ final class Roofs {
         for (Laid one : reading) {
             laid.put(RoofFit.key(one.tile.x, one.tile.y, one.tile.z), one);
         }
+        // A roof read before all of it was loaded is short of rows, and what would be carried
+        // over its ridge then is not the roof's far side.
+        if (roof.whole) {
+            int highest = 0;
+            for (RoofFit.Tile tile : tiles) {
+                highest = Math.max(highest, tile.z);
+            }
+            for (RoofFit.Tile back : RoofFit.backs(tiles, site(cell, highest))) {
+                keep(new Laid(back, null, roof));
+            }
+        }
+    }
+
+    private static void keep(Laid back) {
+        long key = RoofFit.key(back.tile.x, back.tile.y, back.tile.z);
+        long chunk = RoofFit.key(Math.floorDiv(back.tile.x, WorldScene.CHUNK_TILES), Math.floorDiv(back.tile.y, WorldScene.CHUNK_TILES), 0);
+        ArrayList<Laid> held = madeByChunk.computeIfAbsent(chunk, unused -> new ArrayList<>());
+        Laid was = made.put(key, back);
+        if (was != null) {
+            held.remove(was);
+        }
+        held.add(back);
+    }
+
+    /** The tile of a slope the map leaves out that lies on the square, or null. */
+    static Laid madeAt(int x, int y, int z, int now) {
+        Laid back = made.get(RoofFit.key(x, y, z));
+        return back == null || now - back.roof.stamp > MADE_KEPT ? null : back;
+    }
+
+    /** The tiles of the slopes the map leaves out that lie in a chunk, or null for a chunk with none. */
+    static ArrayList<Laid> madeIn(int chunkX, int chunkY, int now) {
+        ArrayList<Laid> held = madeByChunk.get(RoofFit.key(chunkX, chunkY, 0));
+        if (held == null) {
+            return null;
+        }
+        for (int i = held.size() - 1; i >= 0; i--) {
+            Laid back = held.get(i);
+            if (now - back.roof.stamp > MADE_KEPT) {
+                held.remove(i);
+                made.remove(RoofFit.key(back.tile.x, back.tile.y, back.tile.z), back);
+            }
+        }
+        return held;
+    }
+
+    private static RoofFit.Site site(IsoCell cell, int highest) {
+        return new RoofFit.Site() {
+            @Override
+            public boolean built(int x, int y) {
+                for (int z = 0; z <= highest; z++) {
+                    IsoGridSquare square = cell.getGridSquare(x, y, z);
+                    if (square != null && square.getBuilding() != null) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                return square != null && (square.getFloor() != null || roofing(square));
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                if (square != null && (square.getRoomID() != -1L || square.getFloor() != null || roofing(square))) {
+                    return true;
+                }
+                for (int above = 1; above <= LOOKED_ABOVE; above++) {
+                    if (floored(x, y, z + above)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+    }
+
+    /** Whether any of the game's roofing lies on the square: a tile of a roof, or one of its caps and edgings. */
+    static boolean roofing(IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void take(IsoCell cell, int x, int y, int z, Roof roof, HashMap<Long, Boolean> seen) {

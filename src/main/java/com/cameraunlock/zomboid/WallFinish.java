@@ -11,13 +11,17 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.sprite.IsoSprite;
 
 /**
  * What a building is finished in outside, and each of its rooms inside.
  *
  * A building has one finish outside. The walls that show it are those on its south and east
  * faces, which stand on the squares just outside it and are painted for the side out of doors:
- * the sprite most of them show is the building's. A room's finish is the sprite most of the
+ * the sprite most of them show is the building's. Of the plain walls among them, the one most
+ * of the south face shows and the one most of the east face shows are kept as well: those are
+ * what the far side of a wall on the north or the west of the building is drawn with, a
+ * north face with the south face's sprite and a west face with the east's. A room's finish is the sprite most of the
  * walls on its own squares show, which are painted for the room. Both are read once for a
  * level of a building and kept, since every wall of it asks each time its chunk is built, and
  * read again every so often, since walls are built and knocked down.
@@ -34,7 +38,19 @@ final class WallFinish {
         int stamp;
         boolean whole = true;
         Texture outside;
+        Facing south, east;
         final HashMap<Long, Texture> rooms = new HashMap<>();
+    }
+
+    /** A plain wall of a building's outside: its sprite, for what it is made of, and the picture of it. */
+    static final class Facing {
+        final IsoSprite sprite;
+        final Texture texture;
+
+        Facing(IsoSprite sprite, Texture texture) {
+            this.sprite = sprite;
+            this.texture = texture;
+        }
     }
 
     /** What the walls of one place show: the plain ones, and all of them for a place with no plain wall. */
@@ -44,6 +60,7 @@ final class WallFinish {
 
     private static final IdentityHashMap<IsoBuilding, Level[]> known = new IdentityHashMap<>();
     private static final ArrayList<Texture> shown = new ArrayList<>();
+    private static final ArrayList<IsoSprite> shownBy = new ArrayList<>();
 
     private WallFinish() {}
 
@@ -51,6 +68,15 @@ final class WallFinish {
     static Texture outside(IsoCell cell, IsoBuilding building, int z, int frame) {
         Texture finish = of(cell, building, z, frame).outside;
         return finish == null && z != 0 ? of(cell, building, 0, frame).outside : finish;
+    }
+
+    /**
+     * The plain wall most of the building's south face shows on that level, for a wall on a
+     * north edge, or most of its east face, for one on a west edge. Null if that face has none.
+     */
+    static Facing facing(IsoCell cell, IsoBuilding building, int z, boolean north, int frame) {
+        Level level = of(cell, building, z, frame);
+        return north ? level.south : level.east;
     }
 
     /** The sprite the room's walls show, or null. */
@@ -80,7 +106,8 @@ final class WallFinish {
             return level;
         }
         shown.clear();
-        Tally outside = new Tally();
+        shownBy.clear();
+        Tally outside = new Tally(), southFace = new Tally(), eastFace = new Tally();
         HashMap<Long, Tally> rooms = new HashMap<>();
         for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
             for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
@@ -100,13 +127,17 @@ final class WallFinish {
                 level.whole &= z != 0 || south != null && east != null;
                 if (south != null && south.getRoomID() == -1L) {
                     vote(outside, south, true);
+                    vote(southFace, south, true);
                 }
                 if (east != null && east.getRoomID() == -1L) {
                     vote(outside, east, false);
+                    vote(eastFace, east, false);
                 }
             }
         }
         level.outside = commonest(outside);
+        level.south = plainest(southFace);
+        level.east = plainest(eastFace);
         for (var room : rooms.entrySet()) {
             Texture finish = commonest(room.getValue());
             if (finish != null) {
@@ -126,6 +157,7 @@ final class WallFinish {
         if (index < 0) {
             index = shown.size();
             shown.add(texture);
+            shownBy.add(wall.getSprite());
         }
         tally.any.add(index);
         PropertyContainer properties = wall.getSprite().getProperties();
@@ -134,6 +166,11 @@ final class WallFinish {
                 && !properties.has(IsoFlagType.WindowN) && !properties.has(IsoFlagType.WindowW)) {
             tally.plain.add(index);
         }
+    }
+
+    private static Facing plainest(Tally tally) {
+        int index = tally.plain.commonest();
+        return index < 0 ? null : new Facing(shownBy.get(index), shown.get(index));
     }
 
     private static Texture commonest(Tally tally) {

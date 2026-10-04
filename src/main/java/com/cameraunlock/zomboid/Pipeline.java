@@ -306,7 +306,8 @@ final class Pipeline {
             }
             """;
 
-    private static final String WORLD_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + """
+    /** In two parts joined when the class loads: as one constant the shader is longer than a class file can hold. */
+    private static final String WORLD_FRAGMENT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -358,6 +359,8 @@ final class Pipeline {
             }
 
             const float RELIEF = 0.05;
+            // How wide a board of a boarded wall is, in tiles: about 15 cm.
+            const float BOARD_WIDE = 0.15;
 
             // How much of the sun a surface throws at the eye: the microfacet model every
             // modern renderer uses (GGX facets, Schlick's Fresnel, Smith's shadowing). rough
@@ -482,6 +485,9 @@ final class Pipeline {
                 return vec2(ring, splash);
             }
 
+            """;
+
+    private static final String WORLD_FRAGMENT_MAIN = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
                 // A wall's sprite is drawn on the slant, each column of its dots a step below the
@@ -558,6 +564,41 @@ final class Pipeline {
                         float lapped = (0.62 + 0.38 * smoothstep(0.0, 0.14, 1.0 - up)) * (1.04 - 0.1 * up);
                         texel.rgb *= mix(lapped, 0.94, smoothstep(0.35, 0.9, fwidth(board)));
                     }
+                }
+                // A wall of upright boards. The game paints one with four boards to a square
+                // and a few long strokes of grain, and from a pace away each stroke is a
+                // streak as long as an arm. The sprite gives the wood its colour, taken from
+                // well round the place so the strokes are gone, and the boards are made here:
+                // a hand and a half wide, each a little lighter or darker than the next, a
+                // dark joint between them, and the grain of a picture of sawn boards. Only
+                // where the sprite is wood: a window's frame and its glass stay as painted.
+                // Far off, where a board is under a pixel wide, the joints would crawl as the
+                // eye moves, and the wall is their mean.
+                if (vMaterial > 51.5 && vMaterial < 52.5 && uTint.a < 0.5 && uTexel.x > 0.0) {
+                    vec3 tone = vec3(0.299, 0.587, 0.114);
+                    vec3 round = texel.rgb;
+                    float found = 1.0;
+                    for (int i = 0; i < 6; i++) {
+                        vec2 off = (i == 0 ? vec2(2.5, 0.0) : i == 1 ? vec2(-2.5, 0.0) : i == 2 ? vec2(5.0, 0.0) : i == 3 ? vec2(-5.0, 0.0)
+                                : i == 4 ? vec2(0.0, 4.0) : vec2(0.0, -4.0)) * uTexel;
+                        vec4 beside = texture2D(uTexture, vUv + off);
+                        float counts = step(0.5, beside.a);
+                        round += beside.rgb * counts;
+                        found += counts;
+                    }
+                    round /= found;
+                    float wooden = step(0.03, round.r - round.b) * step(round.b, round.g + 0.02)
+                            * (1.0 - smoothstep(0.1, 0.2, abs(dot(texel.rgb - round, tone))));
+                    vec3 facing = normalize(vNormal);
+                    float run = dot(vWorld.xy, vec2(facing.y, -facing.x));
+                    float board = run / BOARD_WIDE;
+                    float which = floor(board), part = fract(board);
+                    float wide = fwidth(board);
+                    float joint = 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.05 + wide, min(part, 1.0 - part)));
+                    float shade = 0.92 + 0.16 * grain(vec2(which, 3.0));
+                    float fine = dot(texture2D(uPlanks, vec2(run * 0.7 + which * 0.37, vWorld.z * 0.7)).rgb, tone) * uTimberGain.y;
+                    vec3 boarded = round * mix(joint * shade, 0.97, smoothstep(0.35, 0.9, wide)) * mix(1.0, fine, 0.45);
+                    texel.rgb = mix(texel.rgb, boarded, wooden);
                 }
                 bool grass = vKind > 7.5;
                 // The game draws its furniture with a dark line round every part, which is what
@@ -1342,6 +1383,8 @@ final class Pipeline {
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
+
+    private static final String WORLD_FRAGMENT = WORLD_FRAGMENT_PARTS.concat(WORLD_FRAGMENT_MAIN);
 
     private static final String SHADOW_VERTEX = """
             #version 120
