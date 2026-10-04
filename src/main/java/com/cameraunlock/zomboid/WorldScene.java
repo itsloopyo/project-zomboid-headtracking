@@ -1071,6 +1071,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // are leaves in front of leaves and they pass each other as the eye moves. Which
             // way the fan is turned comes from where the plant stands, so no two are alike.
             int cards = type == IsoObjectType.tree ? 5 : 3;
+            // A bush is leaves all over, as a tree's crown is.
+            String grown = sprite.getName();
+            if (grown != null && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage"))) {
+                frame.material = LEAVES;
+            }
             double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
             for (int card = 0; card < cards; card++) {
                 double angle = turn + card * Math.PI / cards;
