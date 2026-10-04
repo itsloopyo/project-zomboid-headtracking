@@ -447,6 +447,11 @@ final class Pipeline {
                 // wall is and where its boards and windows are; a picture of the stuff itself,
                 // laid over it by where the surface is in the world, gives it the grain of
                 // shingle, of old paint, of floorboards. Its light and dark only.
+                // A sheet with no sprite that is marked as shingle is the mod's own roofing: it
+                // is the grey of shingle, in sun as in shade.
+                if (vMaterial > 0.5 && vMaterial < 1.5 && min(texel.r, min(texel.g, texel.b)) > 0.99) {
+                    texel.rgb = vec3(0.3, 0.3, 0.32);
+                }
                 if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
                     float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x

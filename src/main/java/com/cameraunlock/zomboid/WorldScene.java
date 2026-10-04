@@ -1243,8 +1243,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
         if (Math.abs(northWest - southEast) < FLAT_ROOF) {
             roofsFlat++;
-            underRoof(x, y, z, (northWest + southEast) / 2f, 0f, 0f);
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f);
+            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f) > 0) {
+                underRoof(x, y, z, (northWest + southEast) / 2f, 0f, 0f);
+            }
             return;
         }
         int alongY = 0, alongX = 0;
@@ -1264,17 +1265,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (alongX > alongY) {
             roofsWestEast++;
-            underRoof(x, y, z, northWest, southEast - northWest, 0f);
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f);
+            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f) > 0) {
+                underRoof(x, y, z, northWest, southEast - northWest, 0f);
+            }
             return;
         }
-        if (alongY > alongX) {
+        boolean sure = alongY > alongX;
+        if (sure) {
             roofsNorthSouth++;
         } else {
             roofsUnclear++;
         }
-        underRoof(x, y, z, northWest, 0f, southEast - northWest);
-        geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
+        // Only where the tile's slope is sure: a sheet under a tile whose slope was guessed
+        // stands up out of the roof as a slab.
+        if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest) > 0 && sure) {
+            underRoof(x, y, z, northWest, 0f, southEast - northWest);
+        }
     }
 
     /**
@@ -1289,7 +1295,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float[] lift = geometry.lift;
         SpriteGeometry.addPlainOver(plain, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
                 under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
-                0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
+                frame.red, frame.green, frame.blue);
         addEave(plain, x, y, z, atOrigin, alongX, alongY);
     }
 
@@ -1326,7 +1332,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             set(c, 2, x + 1f, y + edge + out, far);
             set(c, 3, x + 1f, y + edge, high);
         }
-        SpriteGeometry.addPlainQuad(plain, c, 0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
         // The board along the eave's end.
         plain.open = frame.open;
         set(c, 0, c[3], c[4], far);
