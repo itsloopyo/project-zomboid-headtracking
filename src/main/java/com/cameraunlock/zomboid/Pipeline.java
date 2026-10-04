@@ -1248,6 +1248,10 @@ final class Pipeline {
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
             uniform sampler2D uDials;
+            uniform sampler2D uJersey;
+            uniform vec2 uWearGain;
+            uniform vec4 uRoot[16];
+            uniform float uRoots;
             uniform vec2 uCabinGain;
             uniform vec3 uOwnAmbient;
             uniform float uFigureAmbient;
@@ -1581,6 +1585,43 @@ final class Pipeline {
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
                     slope *= min(1.0, 0.25 / max(length(slope), 0.001));
                     n = normalize(n - (uRight * slope.x + uUp * slope.y) * 2.2);
+                }
+                if (uPainted < 0.5 && cabin < 0.5 && uRoots > 0.5) {
+                    // The game's skins are a few dozen dots across a whole shirt. What a shirt
+                    // or a forearm is made of is laid over them: woven cloth, and skin with its
+                    // pores, fixed to the body they are on so that they move as it moves.
+                    vec3 rel = at;
+                    float turned = 0.0, nearest = 0.8;
+                    for (int i = 0; i < 16; i++) {
+                        if (float(i) < uRoots) {
+                            float off = distance(at.xy, uRoot[i].xy);
+                            if (off < nearest) {
+                                nearest = off;
+                                rel = at - vec3(uRoot[i].xy, 0.0);
+                                turned = uRoot[i].w;
+                            }
+                        }
+                    }
+                    float c = cos(turned), s = sin(turned);
+                    vec3 local = vec3(rel.x * c + rel.y * s, rel.y * c - rel.x * s, rel.z);
+                    vec3 faces = abs(vec3(n.x * c + n.y * s, n.y * c - n.x * s, n.z));
+                    vec2 lie = faces.z > faces.x && faces.z > faces.y ? local.xy : faces.x > faces.y ? local.yz : local.xz;
+                    vec3 paint = figure.rgb / max(figure.a, 0.001);
+                    float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
+                    // Skin, living or dead, is redder than it is blue and not strongly coloured.
+                    float flesh = step(paint.b, paint.g + 0.02) * step(paint.g, paint.r + 0.02) * smoothstep(0.25, 0.4, most)
+                            * (1.0 - smoothstep(0.35, 0.6, (most - least) / max(most, 0.001)));
+                    vec2 fine = lie * mix(13.0, 9.0, flesh);
+                    float e = 1.5 / 1024.0;
+                    float here = mix(texture2D(uJersey, fine).g * uWearGain.x, texture2D(uVinyl, fine).g * uWearGain.y, flesh);
+                    float east = mix(texture2D(uJersey, fine + vec2(e, 0.0)).g * uWearGain.x, texture2D(uVinyl, fine + vec2(e, 0.0)).g * uWearGain.y, flesh);
+                    float north = mix(texture2D(uJersey, fine + vec2(0.0, e)).g * uWearGain.x, texture2D(uVinyl, fine + vec2(0.0, e)).g * uWearGain.y, flesh);
+                    // Close by it is all there, and it thins out with distance, where it would
+                    // only be noise.
+                    float shown = 1.0 - smoothstep(4.0, 11.0, ahead * length(ray));
+                    figure.rgb *= mix(1.0, here, 0.55 * shown);
+                    vec3 slope = uRight * (east - here) + uUp * (north - here);
+                    n = normalize(n - slope * (5.0 * shown));
                 }
                 if (dot(n, view) < 0.0) {
                     n = -n;
@@ -2083,7 +2124,7 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "dials"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "dials", "jersey"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
@@ -3063,6 +3104,13 @@ final class Pipeline {
             figureLight.set("uInside", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", Characters.ambient);
+            figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 14);
+            figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
+            figureLight.set("uWearGain", materialGain[14], materialGain[11]);
+            figureLight.set("uRoots", pass == 0 ? (float) Characters.rootsFound : 0f);
+            for (int root = 0; root < Characters.rootsFound && pass == 0; root++) {
+                figureLight.set("uRoot[" + root + "]", Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
+            }
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
             quad();

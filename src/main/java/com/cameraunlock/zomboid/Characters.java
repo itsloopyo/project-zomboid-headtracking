@@ -153,9 +153,14 @@ public final class Characters {
         projection[8] += asideX;
         projection[9] += asideY;
         only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
+        notingRoots = !vehicles;
+        if (notingRoots) {
+            rootsFound = 0;
+        }
         int drawn = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
+        notingRoots = false;
     }
 
     /** The frame has drawn the models it was given. */
@@ -235,7 +240,17 @@ public final class Characters {
         only = ONLY_CHARACTERS;
         draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
         only = ALL;
+        notingRoots = false;
     }
+
+    /**
+     * Where each person drawn into the view stands and the way they are turned, so that the
+     * picture can lay cloth and skin on them that moves as they do.
+     */
+    static final int ROOTS = 16;
+    static final float[] roots = new float[ROOTS * 4];
+    static int rootsFound;
+    private static boolean notingRoots;
 
     /** The light the game gave the models last drawn, averaged over them. */
     static float ambient = 1f;
@@ -287,6 +302,13 @@ public final class Characters {
             data.ambientR = 1f;
             data.ambientG = 1f;
             data.ambientB = 1f;
+            if (data.character != null && !data.inVehicle && rootsFound < ROOTS && notingRoots) {
+                int at = rootsFound++ * 4;
+                roots[at] = data.x;
+                roots[at + 1] = data.y;
+                roots[at + 2] = data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z);
+                roots[at + 3] = data.animPlayerAngle;
+            }
             if (data.character == null) {
                 vehicle(data, i * 4, view);
             } else if (data.inVehicle) {
