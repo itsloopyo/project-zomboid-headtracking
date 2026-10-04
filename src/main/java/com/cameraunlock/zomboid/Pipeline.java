@@ -333,8 +333,9 @@ final class Pipeline {
                     // game's own colour stays; the picture gives it its grain.
                     float green = (1.0 - stony) * smoothstep(-0.06, 0.04, (texel.g - texel.r) / max(most, 0.001));
                     float dark = stony * (1.0 - smoothstep(0.38, 0.56, most));
-                    vec2 one = p * 0.41;
-                    vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.17 + 0.37;
+                    // A picture is about a pace and a half of ground: its stones come out the size of gravel.
+                    vec2 one = p * 0.83;
+                    vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
                             + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
@@ -796,6 +797,25 @@ final class Pipeline {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
+            vec3 placeAt(vec2 uv) {
+                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                vec2 ndc = uv * 2.0 - 1.0;
+                return uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
+            }
+
+            // Which way the surface at uv faces, from where its neighbours a few pixels off are.
+            // Of the two neighbours along each line the nearer in depth is used: the other may
+            // be past the figure's edge, on the wall behind it.
+            vec3 normalAt(vec2 uv, vec3 at, float pixels) {
+                vec2 step = pixels / uSize;
+                vec3 east = placeAt(uv + vec2(step.x, 0.0)) - at, west = at - placeAt(uv - vec2(step.x, 0.0));
+                vec3 north = placeAt(uv + vec2(0.0, step.y)) - at, south = at - placeAt(uv - vec2(0.0, step.y));
+                vec3 across = dot(east, east) < dot(west, west) ? east : west;
+                vec3 up = dot(north, north) < dot(south, south) ? north : south;
+                return normalize(cross(across, up));
+            }
+
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec4 figure = texture2D(uFigure, uv);
@@ -807,6 +827,18 @@ final class Pipeline {
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
                 vec3 at = uEye + ray * ahead;
+
+                // The game's models are few flat faces and the game lights them all alike, so
+                // a body is a cut-out and a car a toy. Which way the surface faces is read
+                // back off the picture's depth, close by for the fine shape and from further
+                // off for the round of a limb or a wing, and the two together are smooth where
+                // the model has edges. With that the sun lights one side and the sky the
+                // other, the edge of a figure catches the sky, and paint and wet skin shine.
+                vec3 n = normalize(normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0));
+                vec3 view = normalize(uEye - at);
+                if (dot(n, view) < 0.0) {
+                    n = -n;
+                }
 
                 // Stepped a little towards the light: the character is in the shadow map itself,
                 // and its lit side must not be shaded by its own skin.
@@ -821,8 +853,14 @@ final class Pipeline {
                         sun = shadow2D(uShadowFar, c).r;
                     }
                 }
-                vec3 lightHere = vec3(0.72, 0.78, 0.90) + pow(uLightColor, vec3(2.2)) * (1.5 * sun);
+                vec3 sunLight = pow(uLightColor, vec3(2.2));
+                float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
+                vec3 fromSky = mix(vec3(0.42, 0.40, 0.36), vec3(0.72, 0.80, 0.95), 0.5 + 0.5 * n.z);
+                vec3 lightHere = fromSky + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
+                float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
+                color += atmosphere(reflect(-view, n) * vec3(1.0, 1.0, sign(reflect(-view, n).z))) * (0.22 * glance);
+                color += sunLight * (pow(max(dot(reflect(-view, n), uLight), 0.0), 48.0) * 0.45 * sun);
 
                 float range = ahead * length(ray);
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
