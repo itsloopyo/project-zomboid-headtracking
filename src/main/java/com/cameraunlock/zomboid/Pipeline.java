@@ -3043,6 +3043,13 @@ final class Pipeline {
                                 return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
                             }
                         } else {
+                            // Near by, a ray that goes deep behind something has been stopped
+                            // by it, and what it would have shown is not in the picture: the
+                            // mirror keeps what the world gave it. Sent on to the sky, a puddle
+                            // showed a house with squares of sky cut out of it.
+                            if (p.z < 40.0) {
+                                last = uv;
+                            }
                             break;
                         }
                     }
