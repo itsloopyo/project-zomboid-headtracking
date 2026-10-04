@@ -218,7 +218,7 @@ public final class ViewModel {
      * up, and its grip ahead. At the hip, and with the sights up, where the barrel is under the
      * middle of the picture by about the height of the sights above it.
      */
-    private static final float HIP_X = 0.17f, HIP_Y = -0.16f, HIP_AHEAD = 0.42f;
+    private static final float HIP_X = 0.13f, HIP_Y = -0.14f, HIP_AHEAD = 0.27f;
     private static final float AIMED_X = 0f, AIMED_Y = -0.06f, AIMED_AHEAD = 0.36f;
     /** At the hip a firearm is tipped over towards the middle and points a little across it. */
     private static final float HIP_CANT = (float) Math.toRadians(8), HIP_INWARD = (float) Math.toRadians(-3);

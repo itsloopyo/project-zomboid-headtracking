@@ -301,7 +301,7 @@ public final class Characters {
      * How much wider than the model's own the arm is drawn: at the wrist it closes over the
      * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
      */
-    private static final float CUFF = 1.12f, AT_ELBOW = 0.85f, AT_SHOULDER = 1.1f;
+    private static final float CUFF = 0.62f, AT_ELBOW = 0.52f, AT_SHOULDER = 1.2f;
     /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
     private static final float ON_WEAPON = 0.5f;
 
