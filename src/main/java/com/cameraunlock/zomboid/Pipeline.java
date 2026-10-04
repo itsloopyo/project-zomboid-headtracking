@@ -132,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 8;
+    private static final int UNITS = 12;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -141,6 +141,8 @@ final class Pipeline {
             varying vec3 vNormal;
             varying vec3 vWorld;
             varying float vCover;
+            varying float vKind;
+            varying float vMaterial;
             uniform vec3 uWind;
             uniform float uLaid;
 
@@ -162,7 +164,11 @@ final class Pipeline {
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
-                bool still = uLaid > 0.5 && gl_Color.a < 7.5 || gl_Color.a > 3.5 && gl_Color.a < 7.5;
+                // The colour's alpha carries what kind of thing the vertex is, and in the
+                // thirty-twos above that what it is made of.
+                vMaterial = floor((gl_Color.a + 0.5) / 32.0);
+                vKind = gl_Color.a - 32.0 * vMaterial;
+                bool still = uLaid > 0.5 && vKind < 7.5 || vKind > 3.5 && vKind < 7.5;
                 vec4 at = still ? gl_Vertex : blown(gl_Vertex, gl_Normal);
                 vCover = 2.0 - length(gl_Normal);
                 vWorld = at.xyz;
@@ -192,6 +198,8 @@ final class Pipeline {
             varying vec3 vNormal;
             varying vec3 vWorld;
             varying float vCover;
+            varying float vKind;
+            varying float vMaterial;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
                 // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
@@ -235,6 +243,10 @@ final class Pipeline {
             uniform sampler2D uSoil;
             uniform sampler2D uLawn;
             uniform vec4 uMaterialGain;
+            uniform sampler2D uShingles;
+            uniform sampler2D uPaint;
+            uniform sampler2D uWood;
+            uniform vec3 uSurfaceGain;
 
 
             float grain(vec2 p) {
@@ -298,7 +310,7 @@ final class Pipeline {
                     float solid = a.a + b.a + c.a + d.a;
                     texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
                 }
-                bool grass = vColor.a > 7.5;
+                bool grass = vKind > 7.5;
                 if (grass) {
                     // A card of grass: blades side by side along it, each its own height, lean
                     // and shade, narrowing to a point. Further off they are shorter, and at the
@@ -311,7 +323,7 @@ final class Pipeline {
                     float kind = grain(vec2(blade, 7.0));
                     // Lawn dies away with distance and is gone where it stops being grown. Long grass,
                     // which is grown as far as the eye sees, only thins.
-                    float tall = (0.25 + 0.75 * kind * kind) * (vColor.a > 15.5 ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
+                    float tall = (0.25 + 0.75 * kind * kind) * (vKind > 15.5 ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
                     // A blade bows over further the higher up it, to one side or the other.
                     float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
                     float reach = up / max(tall, 0.001);
@@ -335,7 +347,7 @@ final class Pipeline {
                 // A wire or an aerial painted one texel wide never covers more than half of two
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
-                bool upright = vColor.a > 1.5 && vColor.a < 3.5;
+                bool upright = vKind > 1.5 && vKind < 3.5;
                 if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
@@ -354,7 +366,7 @@ final class Pipeline {
                 // to it is made of stones and grit that the sun catches. Both are worked out
                 // from where the ground is on the map, so they never repeat and they stay put.
                 float grit = 0.0;
-                if (vColor.a < 1.5 && vColor.a > 0.5 && n.z > 0.8) {
+                if (vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
                     texel.rgb *= 0.78 + 0.44 * wide;
@@ -391,9 +403,21 @@ final class Pipeline {
                     }
                 }
 
+                // What a building is made of. The game's sprite says what colour a roof or a
+                // wall is and where its boards and windows are; a picture of the stuff itself,
+                // laid over it by where the surface is in the world, gives it the grain of
+                // shingle, of old paint, of floorboards. Its light and dark only.
+                if (vMaterial > 0.5) {
+                    vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
+                    float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
+                            : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
+                            : dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z;
+                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.6 : 0.7);
+                }
+
                 // A card stands in for something with depth and leaves, a bush or a tree, which
                 // the sun gets into from any side: it is lit whichever way the card faces.
-                bool water = vColor.a > 3.5 && !grass;
+                bool water = vKind > 3.5 && !grass;
                 float foam = 0.0;
                 if (water) {
                     // Water is made here, not painted. It runs the way the land under it falls,
@@ -431,7 +455,7 @@ final class Pipeline {
                         n = normalize(n - slope * (relief * min(1.0, 0.7 / max(steep, 1e-4))));
                     }
                 }
-                bool card = !water && vColor.a > 1.5;
+                bool card = !water && vKind > 1.5;
                 if (card && !grass && length(vNormal.xy) > 0.1 * length(vNormal)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
@@ -440,7 +464,7 @@ final class Pipeline {
                         discard;
                     }
                 }
-                float open = grass ? vColor.a - (vColor.a > 15.5 ? 16.0 : 8.0) : water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
+                float open = grass ? vKind - (vKind > 15.5 ? 16.0 : 8.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (card) {
                     facing = 0.5 + 0.4 * facing;
@@ -1195,7 +1219,7 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood"};
     private static final int MATERIAL_SIZE = 1024;
     private static final int FIRST_MATERIAL_UNIT = 3;
     private static final int[] materialTexture = new int[MATERIALS.length];
@@ -1690,6 +1714,10 @@ final class Pipeline {
         world.set("uSoil", FIRST_MATERIAL_UNIT + 2);
         world.set("uLawn", FIRST_MATERIAL_UNIT + 3);
         world.set("uMaterialGain", materialGain[0], materialGain[1], materialGain[2], materialGain[3]);
+        world.set("uShingles", FIRST_MATERIAL_UNIT + 4);
+        world.set("uPaint", FIRST_MATERIAL_UNIT + 5);
+        world.set("uWood", FIRST_MATERIAL_UNIT + 6);
+        world.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);

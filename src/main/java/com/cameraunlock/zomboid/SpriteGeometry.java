@@ -190,6 +190,8 @@ final class SpriteGeometry {
         float open;
         /** What the next face is, added to its openness: 0 for an ordinary surface, WATER for water. */
         float kind;
+        /** What the next face is made of: 0 nothing in particular, or one of the pictures of materials the picture lays over it. */
+        float material;
         /**
          * The light at the square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1). A face
          * takes its light from these by where on the square each of its vertices is, so the
@@ -281,7 +283,7 @@ final class SpriteGeometry {
         }
         int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
         float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
-        mesh.open = frame.open + frame.kind;
+        mesh.open = frame.open + frame.kind + 32f * frame.material;
         if (up1 == 0f && up2 == 0f) {
             // A face lying on the ground tilts with it, and is lit as tilted.
             float turn = Math.signum(da1 * db2 - db1 * da2);

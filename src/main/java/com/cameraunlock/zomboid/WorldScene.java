@@ -762,6 +762,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f;
+
+    /** What a sprite's surface is made of, by the sheet it comes from. */
+    private static float materialOf(String name, boolean isFloor) {
+        if (name == null) {
+            return 0f;
+        }
+        if (name.startsWith("roofs_")) {
+            return SHINGLES;
+        }
+        if (name.startsWith("walls_")) {
+            return PAINT;
+        }
+        return isFloor && name.contains("wood") ? WOOD : 0f;
+    }
+
     private boolean overPole(int x, int y) {
         IsoGridSquare ground = cell.getGridSquare(x, y, 0);
         if (ground == null) {
@@ -818,6 +834,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 continue;
             }
             frameOf(object, texture);
+            frame.material = materialOf(sprite.getName(), object == floor);
             sprites++;
             overLayer = 0;
             geometry.nudgeX = geometry.nudgeY = 0f;
@@ -840,6 +857,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
             geometry.nudgeX = geometry.nudgeY = 0f;
         }
+        frame.material = 0f;
         if (z == 0) {
             addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
