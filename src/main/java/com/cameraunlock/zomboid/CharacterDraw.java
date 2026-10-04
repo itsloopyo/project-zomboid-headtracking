@@ -232,6 +232,7 @@ final class CharacterDraw {
      */
     private static final String FRAGMENT = """
             uniform sampler2D uTexture;
+            uniform vec2 uTexSize;
             uniform float uAlpha;
             uniform float uHue;
             uniform vec3 uTint;
@@ -264,7 +265,28 @@ final class CharacterDraw {
             }
 
             void main() {
-                vec4 texel = TEXEL(uTexture, vUv);
+                // The game's skins are a few hundred dots across a whole person. Read through
+                // a curve over the four nearest dots each way, and not a straight blend of
+                // two, the edge of a sleeve or a wound is a clean line and not a blur; the
+                // colour is then drawn a little away from the mean of what is round it.
+                vec2 size = uTexSize;
+                vec2 at = vUv * size - 0.5;
+                vec2 whole = floor(at), part = at - whole;
+                vec2 w0 = part * (-0.5 + part * (1.0 - 0.5 * part));
+                vec2 w1 = 1.0 + part * part * (-2.5 + 1.5 * part);
+                vec2 w2 = part * (0.5 + part * (2.0 - 1.5 * part));
+                vec2 w3 = part * part * (-0.5 + 0.5 * part);
+                vec2 w12 = w1 + w2;
+                vec2 t0 = (whole - 0.5) / size, t3 = (whole + 2.5) / size, t12 = (whole + 0.5 + w2 / w12) / size;
+                vec4 texel = TEXEL(uTexture, vec2(t12.x, t0.y)) * (w12.x * w0.y) + TEXEL(uTexture, vec2(t0.x, t12.y)) * (w0.x * w12.y)
+                        + TEXEL(uTexture, t12) * (w12.x * w12.y) + TEXEL(uTexture, vec2(t3.x, t12.y)) * (w3.x * w12.y)
+                        + TEXEL(uTexture, vec2(t12.x, t3.y)) * (w12.x * w3.y);
+                texel /= w12.x * w0.y + w0.x * w12.y + w12.x * w12.y + w3.x * w12.y + w12.x * w3.y;
+                vec4 plain = TEXEL(uTexture, vUv);
+                // Where the skin is cut away the plain reading decides, so that nothing of
+                // the body shows through what is worn over it that did not before.
+                texel.a = plain.a;
+                texel.rgb = clamp(texel.rgb + (texel.rgb - plain.rgb) * 0.6, 0.0, 1.0);
                 float alpha = uAlpha * texel.a;
                 if (texel.a < 0.01 || alpha <= 0.01) {
                     discard;
@@ -450,6 +472,7 @@ final class CharacterDraw {
         texture.bind();
         texture.getUVScale(uvScale);
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
+        GL20.glUniform2f(GL20.glGetUniformLocation(skin.id, "uTexSize"), texture.getWidth() / uvScale.x, texture.getHeight() / uvScale.y);
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, copy.vertices);
         for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {

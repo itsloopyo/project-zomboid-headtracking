@@ -391,6 +391,32 @@ final class Pipeline {
 
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                if (uTexel.x > 0.0) {
+                    // The game's sprites are drawn for a screen seen from far above, and from
+                    // the ground each of their dots is a hand across. Read through a curve
+                    // over the four nearest dots each way, and drawn a little away from the
+                    // plain blend, a leaf or a plank has an edge and not a smear. Where a sprite
+                    // is cut away the plain reading decides, so its outline is as it was.
+                    vec2 size = 1.0 / uTexel;
+                    vec2 spot = vUv * size - 0.5;
+                    vec2 whole = floor(spot), part = spot - whole;
+                    vec2 w0 = part * (-0.5 + part * (1.0 - 0.5 * part));
+                    vec2 w1 = 1.0 + part * part * (-2.5 + 1.5 * part);
+                    vec2 w2 = part * (0.5 + part * (2.0 - 1.5 * part));
+                    vec2 w3 = part * part * (-0.5 + 0.5 * part);
+                    vec2 w12 = w1 + w2;
+                    vec2 t0 = (whole - 0.5) * uTexel, t3 = (whole + 2.5) * uTexel, t12 = (whole + 0.5 + w2 / w12) * uTexel;
+                    vec4 a = texture2D(uTexture, vec2(t12.x, t0.y)), b = texture2D(uTexture, vec2(t0.x, t12.y)), c = texture2D(uTexture, t12);
+                    vec4 d = texture2D(uTexture, vec2(t3.x, t12.y)), e = texture2D(uTexture, vec2(t12.x, t3.y));
+                    // Only what is painted counts: a dot past the sprite's edge has no colour to give.
+                    vec4 weights = vec4(w12.x * w0.y * a.a, w0.x * w12.y * b.a, w3.x * w12.y * d.a, w12.x * w3.y * e.a);
+                    float middle = w12.x * w12.y * c.a;
+                    float total = weights.x + weights.y + weights.z + weights.w + middle;
+                    if (total > 0.2 && texel.a > 0.5) {
+                        vec3 curved = (a.rgb * weights.x + b.rgb * weights.y + d.rgb * weights.z + e.rgb * weights.w + c.rgb * middle) / total;
+                        texel.rgb = clamp(curved + (curved - texel.rgb) * 0.7, 0.0, 1.0);
+                    }
+                }
                 // The game's sprites have no smaller copies of themselves for when they are far
                 // off, and a pixel of the picture then lands on one texel of several, a
                 // different one each frame as the eye moves: leaves and fences sparkle. So a
@@ -476,7 +502,7 @@ final class Pipeline {
                     float up = 1.0 - vCover;
                     // Blades are counted along the card, whichever way it is turned.
                     vec2 run = normalize(vec2(-vNormal.y, vNormal.x));
-                    float along = dot(vWorld.xy, run) * 46.0;
+                    float along = dot(vWorld.xy, run) * 78.0;
                     float blade = floor(along);
                     float kind = grain(vec2(blade, 7.0));
                     // Lawn dies away with distance and is gone where it stops being grown. Long grass,
@@ -492,7 +518,11 @@ final class Pipeline {
                     // gets to them, and here and there a blade gone to straw.
                     float dry = smoothstep(0.82, 1.0, grain(vec2(blade, 11.0)));
                     texel.rgb = mix(texel.rgb, vec3(0.62, 0.55, 0.3), dry * 0.6);
-                    texel.rgb *= (0.6 + 0.7 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
+                    // A lawn is one green with every blade a little its own, not a quilt of the
+                    // greens the game happened to paint each square.
+                    float lit = dot(texel.rgb, vec3(0.3, 0.55, 0.15));
+                    texel.rgb = mix(texel.rgb, vec3(0.36, 0.5, 0.17) * (lit / 0.38), 0.55);
+                    texel.rgb *= (0.5 + 0.85 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
                     texel.a = 1.0;
                 }
                 // The sprites were drawn for a view in which every level line runs two pixels
