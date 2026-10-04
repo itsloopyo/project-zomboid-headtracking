@@ -147,6 +147,20 @@ final class ViewCamera {
     }
 
     /**
+     * The view with the eye at the origin: what view does to a point that has had the eye's
+     * place taken off it already. Taken off by the matrix, after the point has been multiplied
+     * through, the last digits of both are lost: see the world's vertex program.
+     */
+    static float[] turned(Pose pose) {
+        return new float[] {
+            pose.rightX, pose.upX, -pose.forwardX, 0f,
+            pose.rightY, pose.upY, -pose.forwardY, 0f,
+            pose.rightUp, pose.upUp, -pose.forwardUp, 0f,
+            0f, 0f, 0f, 1f,
+        };
+    }
+
+    /**
      * Where a world point falls in the view, in normalised device coordinates
      * (x to the right, y up, the screen edges at -1 and 1). Returns false for a
      * point that is not in front of the eye, where the divide has no meaning.

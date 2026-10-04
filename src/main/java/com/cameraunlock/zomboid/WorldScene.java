@@ -1560,6 +1560,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
         // way the eye looks at the tree.
         boolean grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
+        // What the game says nothing about at all, and whose outline is a sheet on the grid's
+        // line or a beam along it: the slab over a shop front, a sill, a pipe, a billboard.
+        if (!grows && overLayer == 0 && addShaped(mesh, object, sprite, texture, x, y, z)) {
+            return;
+        }
         // What the game counts as filling its square, or as something to sit or lie on, is
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
@@ -1687,6 +1692,84 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+    }
+
+    /** What each sprite the game gives no placing to has been read as: see SpriteShape. */
+    private static final java.util.IdentityHashMap<IsoSprite, SpriteShape> shapes = new java.util.IdentityHashMap<>();
+    private final SpriteGeometry.Frame shapeFrame = new SpriteGeometry.Frame();
+
+    /** The shape of an object's sprite, read the first time the sprite is met. */
+    private SpriteShape shapeOf(IsoObject object, IsoSprite sprite, Texture texture) {
+        SpriteShape shape = shapes.get(sprite);
+        if (shape == null) {
+            shapeFrame.scale = frame.scale;
+            frameOf(shapeFrame, object, texture);
+            shape = SpriteShape.read(texture::isMaskSet, shapeFrame);
+            shapes.put(sprite, shape);
+        }
+        return shape;
+    }
+
+    /**
+     * Stands a sprite as the panel or lays it as the beam its outline is, and says whether
+     * the sprite is thereby dealt with. False for any other outline, for a length of panel
+     * with no whole one beside it to say where it stands, and for a beam the game calls
+     * furniture: a bench is as long and as low as a rafter, and is no box.
+     */
+    private boolean addShaped(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        SpriteShape shape = shapeOf(object, sprite, texture);
+        if (shape.kind == SpriteShape.CARD) {
+            return false;
+        }
+        if (shape.kind == SpriteShape.BEAM) {
+            PropertyContainer properties = sprite.getProperties();
+            if (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed)
+                    || properties.isTable() || properties.getSurface() > 0) {
+                return false;
+            }
+            geometry.addBeam(mesh, frame, x, y, z, shape);
+            boxes++;
+            return true;
+        }
+        if (!shape.whole) {
+            shape = besideWhole(shape, x, y, z);
+            if (shape == null) {
+                return false;
+            }
+        }
+        geometry.addPanel(mesh, frame, x, y, z, shape);
+        return true;
+    }
+
+    /**
+     * A length of panel too short to say where on its square it stands, put in the plane of
+     * the whole panel on the next square along its run: the end sheet of a billboard. Null
+     * when neither of those squares has one.
+     */
+    private SpriteShape besideWhole(SpriteShape part, int x, int y, int z) {
+        for (int step = -1; step <= 1; step += 2) {
+            IsoGridSquare beside = cell.getGridSquare(part.alongX ? x + step : x, part.alongX ? y : y + step, z);
+            if (beside == null) {
+                continue;
+            }
+            PZArrayList<IsoObject> objects = beside.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoObject object = objects.get(i);
+                IsoSprite sprite = object.getSprite();
+                if (sprite == null) {
+                    continue;
+                }
+                Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                if (texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0) {
+                    continue;
+                }
+                SpriteShape whole = shapeOf(object, sprite, texture);
+                if (whole.kind == SpriteShape.PANEL && whole.whole && whole.alongX == part.alongX) {
+                    return part.at(part.alongX ? whole.b0 : whole.a0);
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -1819,6 +1902,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         int wall = WallHung.NONE;
         /** Whether what its frame holds is the picture its sprite paints, and not a mirror's glass. */
         boolean pictured;
+        /** See ownSize. */
+        boolean ownSize;
 
         Furniture(IsoSprite sprite, String model, int turns) {
             this.model = model == null ? null : Models.get(model);
@@ -1915,6 +2000,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             this.pictured = pictured;
             return this;
         }
+
+        /** For what hangs on a wall and stands out from it, a lamp: it is as big as its model, whatever its sprite's outline comes to. */
+        Furniture ownSize() {
+            ownSize = true;
+            return this;
+        }
     }
 
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
@@ -1942,6 +2033,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         PropertyContainer properties = sprite.getProperties();
         String called = properties.get("CustomName");
         IsoSpriteGrid grid = sprite.getSpriteGrid();
+        if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
+            return streetLamp(sprite, name);
+        }
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;
         }
@@ -1958,6 +2052,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
             if (called.equals("Clock") && grid == null) {
                 return new Furniture(sprite, "wall_clock", faces).hang(behind(facing), false);
+            }
+            // A lamp on a wall stands out from it, and laid in the wall's plane as its sprite is
+            // painted it is a bowl with nothing holding it up. It faces away from its wall.
+            if (called.equals("Wall Lamp") && group.endsWith("Half Sphere") && grid == null) {
+                return new Furniture(sprite, "wall_bowl", faces).hang(behind(facing), false).ownSize();
+            }
+            if (called.equals("Outdoor Lamp") && grid == null) {
+                String lamp = group.equals("Fancy") ? "wall_bowl" : group.equals("Modern") || group.equals("Oval") ? "bulkhead_light" : "wall_lantern";
+                return new Furniture(sprite, lamp, faces).hang(behind(facing), false).ownSize();
             }
             // One square of a mirror or a picture that is longer than a square has no frame of
             // its own, and each square's length of it meets the next.
@@ -2108,11 +2211,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 }
                 return counter.meet(surfaceUp, counter.model.height(), !corner);
             }
+            // A canteen's serving counter: steel, with pans in its top under a sloping glass. The
+            // game gives it no height, and wrapped on the box its outline makes the glass is a
+            // tilted blue slab.
+            if (low && surface == 0 && holds.equals("restaurantdisplay")) {
+                return new Furniture(sprite, "serving_counter", turns).meet(0f, 0f, true);
+            }
             if (properties.has("IsHigh") && surface == 0 && (holds.equals("counter") || holds.equals("overhead"))) {
                 return new Furniture(sprite, corner ? "wall_cupboard_corner" : "wall_cupboard", turns).dye(1 << Models.WOOD, WALL_CUPBOARD_DYE)
                         .meet(0f, 0f, !corner).raise(WALL_CUPBOARD_FOOT * ViewCamera.LEVEL_HEIGHT);
             }
             return null;
+        }
+        // A basin on a wall with nothing under it. The game gives the height of its rim.
+        if (called.equals("Sink") && !onTable && single && group.endsWith("Hanging") && surface > 0 && !blocks) {
+            Furniture sink = new Furniture(sprite, "wall_sink", turns).stand(0f, 0f, true);
+            return sink.raise(surfaceUp - SINK_RIM * sink.scaleUp);
         }
         // A basin let into a counter. The counter's model has it.
         if (called.equals("Sink") && onTable && single) {
@@ -2207,8 +2321,41 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return null;
     }
 
-    /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat. */
-    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, TV_CABINET_TOP = 0.78f, BENCH_SEAT = 0.455f;
+    /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
+    private static final String STREET_LAMPS = "lighting_outdoor_01_";
+    /** Where on its sprite a lamp's post gives its colour, in levels. */
+    private static final float POST_DYE = 0.5f, UPPER_POST_DYE = 0.25f;
+
+    /**
+     * The model of a street lamp, by which sprite of the game's sheet of them it is. The first
+     * four are whole lamps, a post with its light. A lamp taller than a storey is two sprites,
+     * and the upper one, on the level above, is the head: a lantern, or the arm of a road lamp,
+     * which reaches out north, east, south and west in that order on the sheet. Null for the
+     * rest of the sheet: bare posts, which stand well enough as they are, signals, and heads
+     * the mod has no model of.
+     */
+    private static Furniture streetLamp(IsoSprite sprite, String name) {
+        // The sheet has a copy of itself with the lamps lit, the same lamps in the same places.
+        String place = name.substring(STREET_LAMPS.length());
+        if (place.startsWith("on_")) {
+            place = place.substring(3);
+        }
+        if (place.isEmpty() || place.length() > 3 || !place.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        int which = Integer.parseInt(place);
+        return switch (which) {
+            case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
+            case 1 -> new Furniture(sprite, "globe_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
+            case 3 -> new Furniture(sprite, "lantern_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
+            case 5 -> new Furniture(sprite, "lantern_head", 0).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            case 8, 9, 10, 11 -> new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            default -> null;
+        };
+    }
+
+    /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat, a basin's rim. */
+    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, TV_CABINET_TOP = 0.78f, BENCH_SEAT = 0.455f, SINK_RIM = 0.44f;
     /** How far from the middle of its square, towards its back, a piece on the wall gives its colour. */
     private static final float BACK_DYE = 0.36f;
     /** How high above the floor the lowest part of a shower with no tray is, its taps, in tiles: its model starts there. */
@@ -2248,8 +2395,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float scale = wide / model.width(), scaleUp = high / model.height(), foot = hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
         if (piece.model != null && !piece.model.name.equals("canvas")) {
             // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
-            scale = scaleUp = Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
+            scale = scaleUp = piece.ownSize ? TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
             foot += (high - model.height() * scale) / 2f;
+        }
+        if (piece.ownSize) {
+            // A lamp stands out into its square, and is painted to one side of its fixing for it.
+            float proud = model.depth() * scale / 2f;
+            along = Math.clamp(along + WallHung.alongProud(piece.wall, proud), 0f, 1f);
+            foot += WallHung.upProud(piece.wall, proud) * ViewCamera.LEVEL_HEIGHT;
         }
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, hungWay);

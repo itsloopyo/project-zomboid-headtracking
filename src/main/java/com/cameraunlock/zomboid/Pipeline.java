@@ -232,6 +232,7 @@ final class Pipeline {
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
+            uniform vec3 uEye;
 
             // Whether the surface's bit is set in a whole number of them. The half is there for a
             // power of two worked out a hair too large, which would otherwise divide the
@@ -254,6 +255,8 @@ final class Pipeline {
             void main() {
                 vec4 stands = gl_Vertex;
                 vec3 looks = gl_Normal;
+                // Where a model's vertex is from the eye: see the end of main.
+                vec3 fromEye = vec3(0.0);
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
                 if (uModel > 0.5) {
@@ -264,6 +267,7 @@ final class Pipeline {
                     // marked with its surface, which a dyed one adds 18 more to.
                     vec3 on = over(gl_Vertex.xyz);
                     stands = vec4(uPlace.xy + on.xy, on.z, 1.0);
+                    fromEye = vec3((uPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
                     vec2 share = clamp(on.xy, 0.0, 1.0);
                     float surface = floor(gl_MultiTexCoord0.x + 0.5);
@@ -291,7 +295,14 @@ final class Pipeline {
                 vec4 at = still ? stands : blown(stands, looks);
                 vCover = 2.0 - length(looks);
                 vWorld = at.xyz;
-                gl_Position = gl_ModelViewProjectionMatrix * at;
+                // The map is thousands of tiles across and a number here holds seven digits, so
+                // a place on it is known to a millimetre and no finer. Multiplied as it stands
+                // by a matrix that takes the eye's own place off again, a vertex's depth came out
+                // wrong by centimetres a few paces off, differently at every vertex: a picture
+                // was drawn through the wall it hangs on in torn patches, and a clock's face
+                // through its hands. The eye's place is taken off first, which is exact, and the
+                // matrix only turns what is left. A model's vertex never is put on the map at all.
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(uModel > 0.5 ? fromEye : at.xyz - uEye, 1.0);
             }
             """;
 
@@ -2865,9 +2876,11 @@ final class Pipeline {
                 // The cabin is lit through its windows from every side, though its own roof
                 // keeps the sun off it.
                 // A cabin is lit through its windows by the sky there is: a great deal by day, next
-                // to nothing on a dark night.
+                // to nothing on a dark night. The game's own light for the seat is what it gives a
+                // closed room, and taken whole it left dark trim black at noon, so it counts for
+                // under half.
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
-                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), roofed) * mix(mix(pow(uFigureAmbient, 2.2) * 1.7, 0.8, bare) * skyGives, 1.0, roofed) + sunLight * (mix(2.1, 1.5, bare) * sun * facing);
+                vec3 lightHere = fromSky * mix(vec3(1.0), mix(pow(uOwnAmbient, vec3(2.2)), vec3(1.0), 0.55) * (2.6 * skyGives), roofed) * mix(mix(pow(uFigureAmbient, 2.2) * 1.7, 0.8, bare) * skyGives, 1.0, roofed) + sunLight * (mix(2.1, 1.5, bare) * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
                 if (uPainted < 0.5 && cabin < 0.5) {
@@ -2933,7 +2946,9 @@ final class Pipeline {
                 // shows least of the paint under it.
                 color *= 1.0 - 0.45 * glancing * bonnet;
                 color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * roofed) * (1.0 - 0.6 * bonnet);
-                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45, 3.0, lacquer) * sun);
+                // Cloth and skin scatter the sun and do not mirror it: with a hard glint a sleeve is a
+                // length of rubber hose.
+                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45 * (1.0 - 0.85 * bare), 3.0, lacquer) * sun);
                 // The sky lies along it, and the sun in it is a broad soft light round the
                 // small hard one.
                 color += bonnet * (skyBack * (0.3 * glancing) + sunLight * (pow(max(dot(back, uLight), 0.0), 22.0) * 0.5 * sun));
@@ -4170,7 +4185,8 @@ final class Pipeline {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(ViewCamera.view(camera));
+        // Only the turn: the world's vertex program takes the eye's place off each vertex itself.
+        GL11.glLoadMatrixf(ViewCamera.turned(camera));
 
         world.use();
         world.set("uTexture", 0);

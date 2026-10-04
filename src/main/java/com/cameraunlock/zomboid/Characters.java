@@ -309,6 +309,8 @@ public final class Characters {
     private static boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
+    /** How hard the game's own forearm pulls the elbow, against the drop of 1 that is down and out. */
+    private static final float OWN_FOREARM = 0.6f;
     /** In tiles, by the size the hand is drawn at: a sleeve is a little wider than the hand in it. */
     private static final float WIDEST_CUFF = 0.021f, WIDEST_ELBOW = 0.027f;
     /**
@@ -350,6 +352,14 @@ public final class Characters {
         float[] at = side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER;
         ViewModelMath.place(fromAim, at[0], at[1], at[2], shoulder);
         ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
+        // The hand keeps the turn the game gave it, which suits the game's own forearm. The
+        // elbow may swing anywhere on a ring round the line from shoulder to wrist, so it is
+        // swung towards where the game's forearm points as well as down and out: the forearm
+        // then leaves the hand as near as it can to the way the hand expects, and the wrist
+        // is not bent back on itself.
+        for (int axis = 0; axis < 3; axis++) {
+            pole[axis] += (rigid[axis] - wrist[axis]) / fore * OWN_FOREARM;
+        }
         if (!ViewModelMath.elbow(shoulder, wrist, fore * UPPER_ARM, fore, pole, elbow)) {
             return false;
         }

@@ -239,6 +239,8 @@ final class SpriteGeometry {
     private float halfAcross, halfDown;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
     float shownA, shownB;
+    /** The same up, in levels: the underside of a beam shows what its top does. */
+    float shownUp;
     /**
      * How many frame pixels in from the face's low and high edge across the sprite its texels
      * are taken, beyond the usual inset: see WorldScene.addWall.
@@ -364,6 +366,36 @@ final class SpriteGeometry {
         shownA = -sideA;
         addFace(mesh, frame, tileX, tileY, tileZ, a + halfA, b - halfB, 0f, 0f, sideB, 0f, 0f, 0f, height);
         shownA = 0f;
+    }
+
+    /**
+     * Adds a beam as the box SpriteShape read off its sprite: a slab over a shop front, a sill,
+     * a rafter, a pipe. Its top, its south side and its east end are what the sprite shows
+     * there. The three the game's view never saw are the same again: the underside is the
+     * top, and it is the underside that is seen from the street under an awning.
+     */
+    void addBeam(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, SpriteShape beam) {
+        float a = beam.a0, b = beam.b0, h = beam.h0, da = beam.a1 - beam.a0, db = beam.b1 - beam.b0, dh = beam.h1 - beam.h0;
+        addFace(mesh, frame, tileX, tileY, tileZ, a, b, h + dh, da, 0f, 0f, 0f, db, 0f);
+        addFace(mesh, frame, tileX, tileY, tileZ, a, b + db, h, da, 0f, 0f, 0f, 0f, dh);
+        addFace(mesh, frame, tileX, tileY, tileZ, a + da, b, h, 0f, db, 0f, 0f, 0f, dh);
+        shownUp = -dh;
+        addFace(mesh, frame, tileX, tileY, tileZ, a, b, h + dh, da, 0f, 0f, 0f, db, 0f);
+        shownUp = 0f;
+        shownB = -db;
+        addFace(mesh, frame, tileX, tileY, tileZ, a, b + db, h, da, 0f, 0f, 0f, 0f, dh);
+        shownB = 0f;
+        shownA = -da;
+        addFace(mesh, frame, tileX, tileY, tileZ, a + da, b, h, 0f, db, 0f, 0f, 0f, dh);
+        shownA = 0f;
+    }
+
+    /**
+     * Adds a panel where SpriteShape found it standing: a sheet of a billboard, a shop's sign.
+     * It is the upright rectangle its sprite paints, on the line of the map's grid it runs along.
+     */
+    void addPanel(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, SpriteShape panel) {
+        addFace(mesh, frame, tileX, tileY, tileZ, panel.a0, panel.b0, panel.h0, panel.a1 - panel.a0, panel.b1 - panel.b0, 0f, 0f, 0f, panel.h1 - panel.h0);
     }
 
     /**
@@ -632,7 +664,7 @@ final class SpriteGeometry {
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
-                (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
+                (tileZ + polygon[at + 2] + shownUp) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
                 frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                 frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);

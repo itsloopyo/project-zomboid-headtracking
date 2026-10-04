@@ -61,6 +61,24 @@ final class WallHung {
     }
 
     /**
+     * How much further along its wall, in tiles, something is that stands out tiles proud of
+     * the wall than its painting is found by painted, which takes it for flat on the wall. The
+     * game's view looks down the map's diagonal, so what stands out into the square is painted
+     * to one side of where it is fixed and a little lower or higher.
+     */
+    static float alongProud(int wall, float out) {
+        return wall == NORTH || wall == WEST ? out : -out;
+    }
+
+    /**
+     * As alongProud, how much higher it is, in levels. A tile towards the view is painted a
+     * sixth of a level down, and so is the tile along the wall it was found short by.
+     */
+    static float upProud(int wall, float out) {
+        return alongProud(wall, out) / 3f;
+    }
+
+    /**
      * Which of the three frames a picture hangs in, by how many times as wide as it is high it
      * is: 0 the one half as high again as it is wide, 1 the square one, 2 the one half as wide
      * again as it is high. The nearest in shape, so the frame is stretched the least.

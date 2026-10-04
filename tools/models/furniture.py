@@ -1915,6 +1915,175 @@ def cooler(name, width, top, doors):
     return model
 
 
+def post(bm, top, radius=0.05, foot=0.11):
+    """A lamp's post from the ground to top: a stepped foot, then a shaft that narrows a little."""
+    lathe(bm, [(0.0, 0.0), (foot, 0.0), (foot, 0.06), (foot * 0.72, 0.1), (foot * 0.72, 0.34), (radius * 1.15, 0.4), (radius, 0.46),
+               (radius * 0.86, top), (0.0, top)], segments=12)
+
+
+def street_lamp(name, head):
+    """A street lamp that is one sprite: a post about as high as a storey with its light on top.
+
+    The post is paint, which the mod dyes the black or the grey the game's sprite has; what gives the light is shade,
+    which the mod has glow after dark.
+    """
+    model = Model(name)
+    shaft = bmesh.new()
+    post(shaft, 2.32)
+    model.turned(shaft, "paint", sharp=40.0)
+    light, casing = bmesh.new(), bmesh.new()
+    if head == "cone":
+        # A reflector that opens upward from the post to a lid, the light in a band under the lid.
+        lathe(casing, [(0.0, 2.3), (0.06, 2.3), (0.075, 2.36), (0.2, 2.56), (0.205, 2.575), (0.0, 2.575)], segments=20)
+        lathe(light, [(0.0, 2.575), (0.215, 2.575), (0.235, 2.6), (0.235, 2.66), (0.0, 2.66)], segments=20)
+        lathe(casing, [(0.0, 2.66), (0.255, 2.66), (0.26, 2.685), (0.2, 2.73), (0.07, 2.76), (0.0, 2.765)], segments=20)
+    elif head == "globe":
+        lathe(casing, [(0.0, 2.3), (0.075, 2.3), (0.09, 2.33), (0.085, 2.37), (0.0, 2.37)], segments=16)
+        lathe(light, [(0.0, 2.36), (0.07, 2.37), (0.13, 2.42), (0.17, 2.5), (0.18, 2.57), (0.165, 2.65), (0.12, 2.72), (0.06, 2.755), (0.0, 2.765)],
+              segments=20)
+    else:
+        lantern(casing, light, 2.3)
+    model.turned(casing, "paint", sharp=40.0)
+    model.turned(light, "shade", sharp=50.0)
+    return model
+
+
+def lantern(casing, light, foot, size=1.0):
+    """A four-sided lantern standing on foot: glass that widens upward, under a cap with a finial."""
+    s = size
+    prism(casing, (0.0, 0.0, 0.16 * s, 0.16 * s, foot), (0.0, 0.0, 0.13 * s, 0.13 * s, foot + 0.04 * s))
+    prism(light, (0.0, 0.0, 0.13 * s, 0.13 * s, foot + 0.04 * s), (0.0, 0.0, 0.25 * s, 0.25 * s, foot + 0.34 * s))
+    prism(casing, (0.0, 0.0, 0.31 * s, 0.31 * s, foot + 0.34 * s), (0.0, 0.0, 0.3 * s, 0.3 * s, foot + 0.365 * s))
+    prism(casing, (0.0, 0.0, 0.3 * s, 0.3 * s, foot + 0.365 * s), (0.0, 0.0, 0.07 * s, 0.07 * s, foot + 0.5 * s))
+    lathe(casing, [(0.0, foot + 0.5 * s), (0.025 * s, foot + 0.5 * s), (0.035 * s, foot + 0.54 * s), (0.012 * s, foot + 0.58 * s), (0.0, foot + 0.6 * s)],
+          segments=8)
+
+
+def lantern_head():
+    """The upper length of a lamp post the game has in two sprites, one a level above the other: the top of the
+    post and the lantern on it. It stands on the floor of the upper level, over the post below."""
+    model = Model("lantern_head", centred=False)
+    shaft = bmesh.new()
+    lathe(shaft, [(0.0, 0.0), (0.043, 0.0), (0.04, 0.72), (0.06, 0.76), (0.06, 0.8), (0.0, 0.8)], segments=12)
+    model.turned(shaft, "paint", sharp=40.0)
+    casing, light = bmesh.new(), bmesh.new()
+    lantern(casing, light, 0.8, size=1.25)
+    model.turned(casing, "paint", sharp=40.0)
+    model.turned(light, "shade", sharp=50.0)
+    return model
+
+
+def cobra_head():
+    """The upper length of a road lamp the game has in two sprites: the top of the post, the arm out over the
+    road towards the front, and the head at its end with its lens underneath. The origin is the post's axis."""
+    model = Model("cobra_head", centred=False)
+    shaft = bmesh.new()
+    lathe(shaft, [(0.0, 0.0), (0.05, 0.0), (0.043, 2.2), (0.058, 2.22), (0.058, 2.38), (0.0, 2.4)], segments=12)
+    model.turned(shaft, "paint", sharp=40.0)
+    arm = bmesh.new()
+    # A stay from the post up to the arm, as these have, and the arm itself rising a little to the head.
+    prism_y(arm, (0.0, 2.33, 0.05, 0.05, -0.5), (0.0, 2.27, 0.06, 0.06, 0.0))
+    prism_y(arm, (0.0, 2.31, 0.03, 0.03, -0.3), (0.0, 2.02, 0.03, 0.03, -0.03))
+    model.hard(arm, "paint", bevel=0.008, segments=2)
+    head = bmesh.new()
+    lathe(head, [(0.0, 2.3), (0.13, 2.305), (0.2, 2.33), (0.2, 2.36), (0.15, 2.4), (0.06, 2.42), (0.0, 2.425)], cy=-0.74, segments=18, sx=0.72, sy=1.45)
+    model.turned(head, "paint", sharp=40.0)
+    lens = bmesh.new()
+    lathe(lens, [(0.0, 2.262), (0.08, 2.27), (0.13, 2.295), (0.14, 2.31), (0.0, 2.31)], cy=-0.8, segments=16, sx=0.75, sy=1.3)
+    model.turned(lens, "shade", sharp=50.0)
+    return model
+
+
+def wall_bowl():
+    """A lamp on a wall that throws its light at the ceiling: a shallow bowl on a short arm, its back at +Y."""
+    model = Model("wall_bowl")
+    bowl = bmesh.new()
+    lathe(bowl, [(0.0, 0.0), (0.07, 0.012), (0.12, 0.05), (0.15, 0.115), (0.14, 0.115), (0.11, 0.06), (0.06, 0.03), (0.0, 0.022)], segments=20)
+    model.turned(bowl, "shade", sharp=50.0)
+    fixing = bmesh.new()
+    cuboid(fixing, -0.035, 0.035, 0.15, 0.165, 0.0, 0.11)
+    prism_y(fixing, (0.0, 0.035, 0.03, 0.03, 0.1), (0.0, 0.055, 0.03, 0.03, 0.152))
+    model.hard(fixing, "metal", bevel=0.004, segments=1)
+    return model
+
+
+def wall_lantern():
+    """A lantern outside a door: a plate on the wall, an arm, and the lantern hung out from it. Its back is at +Y."""
+    model = Model("wall_lantern")
+    iron = bmesh.new()
+    cuboid(iron, -0.04, 0.04, 0.15, 0.165, 0.02, 0.2)
+    prism_y(iron, (0.0, 0.03, 0.022, 0.022, 0.0), (0.0, 0.1, 0.022, 0.022, 0.152))
+    model.hard(iron, "rubber", bevel=0.004, segments=1)
+    casing, light = bmesh.new(), bmesh.new()
+    lantern(casing, light, 0.02, size=0.62)
+    model.turned(casing, "rubber", sharp=40.0)
+    model.turned(light, "shade", sharp=50.0)
+    return model
+
+
+def bulkhead_light():
+    """A plain outdoor light flat on a wall: a domed glass in a rim. Its back is at +Y."""
+    model = Model("bulkhead_light")
+    rim = bmesh.new()
+    lathe(rim, [(0.0, 0.0), (0.105, 0.0), (0.105, 0.03), (0.09, 0.036), (0.0, 0.036)], segments=18, sx=0.72, to=along_y(0.0, 0.05, 0.14))
+    model.turned(rim, "metal", sharp=40.0)
+    glass = bmesh.new()
+    lathe(glass, [(0.0, 0.03), (0.088, 0.034), (0.075, 0.07), (0.04, 0.092), (0.0, 0.1)], segments=18, sx=0.72, to=along_y(0.0, 0.05, 0.14))
+    model.turned(glass, "shade", sharp=50.0)
+    return model
+
+
+def wall_sink():
+    """A basin hung on a wall with no cupboard under it: the bowl, the taps on its back edge and the trap below. Its
+    back is at +Y. The rim is 0.44 above the foot of the trap, which is the model's foot."""
+    model = Model("wall_sink")
+    bowl = bmesh.new()
+    lathe(bowl, [(0.0, 0.27), (0.11, 0.28), (0.21, 0.34), (0.25, 0.42), (0.26, 0.44), (0.235, 0.44), (0.2, 0.36), (0.1, 0.315), (0.0, 0.31)],
+          segments=22, sy=0.8)
+    cuboid(bowl, -0.25, 0.25, 0.14, 0.21, 0.36, 0.47)
+    model.turned(bowl, "ceramic", sharp=50.0)
+    plumbing = bmesh.new()
+    lathe(plumbing, [(0.0, 0.47), (0.018, 0.47), (0.018, 0.56), (0.0, 0.565)], cy=0.175, segments=10)
+    prism_y(plumbing, (0.0, 0.535, 0.022, 0.02, 0.05), (0.0, 0.55, 0.022, 0.02, 0.175))
+    for side in (-0.09, 0.09):
+        lathe(plumbing, [(0.0, 0.47), (0.02, 0.47), (0.024, 0.495), (0.0, 0.5)], cx=side, cy=0.175, segments=8)
+    lathe(plumbing, [(0.0, 0.0), (0.022, 0.0), (0.022, 0.275), (0.0, 0.275)], segments=10)
+    prism_y(plumbing, (0.0, 0.03, 0.04, 0.04, 0.0), (0.0, 0.03, 0.04, 0.04, 0.21))
+    model.turned(plumbing, "steel", sharp=40.0)
+    return model
+
+
+def serving_counter():
+    """A length of a canteen's serving counter: a steel body with a pan let into its top, and over it a sheet of
+    glass sloping down to the side the food is served to, the front, from a rail on two posts at the back. A metre
+    wide, so that the lengths of a run meet."""
+    model = Model("serving_counter")
+    half, front, back, top = 0.5, -0.31, 0.31, 0.9
+    body = bmesh.new()
+    cuboid(body, -half, half, front, back, 0.1, top - 0.1)
+    # The rim round the pan: four bars, so the pan lies below the counter's top.
+    cuboid(body, -half, half, front, front + 0.07, top - 0.1, top)
+    cuboid(body, -half, half, back - 0.07, back, top - 0.1, top)
+    cuboid(body, -half, -half + 0.07, front + 0.07, back - 0.07, top - 0.1, top)
+    cuboid(body, half - 0.07, half, front + 0.07, back - 0.07, top - 0.1, top)
+    model.hard(body, "steel", bevel=0.006, segments=2)
+    plinth = bmesh.new()
+    cuboid(plinth, -half, half, front + 0.04, back, 0.0, 0.1)
+    model.hard(plinth, "metal", bevel=0.003, segments=1)
+    pan = bmesh.new()
+    cuboid(pan, -half + 0.07, half - 0.07, front + 0.07, back - 0.07, top - 0.1, top - 0.085)
+    model.plain(pan, "metal")
+    rail = bmesh.new()
+    for side in (-1, 1):
+        cuboid(rail, side * (half - 0.05) - 0.018, side * (half - 0.05) + 0.018, back - 0.06, back - 0.024, top, top + 0.46)
+    cuboid(rail, -half, half, back - 0.075, back - 0.01, top + 0.46, top + 0.495)
+    model.hard(rail, "steel", bevel=0.004, segments=1)
+    glass = bmesh.new()
+    prism_y(glass, (0.0, top + 0.1, 2 * half - 0.02, 0.012, front), (0.0, top + 0.47, 2 * half - 0.02, 0.012, back - 0.07))
+    model.plain(glass, "pane")
+    return model
+
+
 def main():
     models = [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -1929,7 +2098,9 @@ def main():
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2),
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(), dumpster(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
-              kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2)]
+              kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
+              street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
+              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter()]
     data = [b"CUFM", struct.pack("<II", 2, len(models))]
     for model in models:
         model.finish()
