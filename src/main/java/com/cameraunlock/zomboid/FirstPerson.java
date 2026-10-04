@@ -44,7 +44,8 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SITTING = 0.9f;
     /** The eye of someone seated in a vehicle, above the ground the vehicle stands on, in tiles. Set by eye in Base.CarNormal. */
     private static final float EYE_HEIGHT_IN_VEHICLE = 1.48f;
-    private static final float HEAD_INBOARD = 0.5f;
+    /** How far in from the door the driver's head is: in line with the middle of the wheel. */
+    private static final float HEAD_INBOARD = 0.64f;
     private static final org.joml.Vector3f seatAt = new org.joml.Vector3f();
     private static int seatSaid;
     private static final org.joml.Vector3f facing = new org.joml.Vector3f();
@@ -289,7 +290,7 @@ public final class FirstPerson {
             haveRawX = false;
             return raw;
         }
-        if (haveRawX) {
+        if (haveRawX && !MouseGrab.ISOLATED) {
             setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL, pitch);
         }
         lastRawX = raw;
@@ -303,7 +304,7 @@ public final class FirstPerson {
             haveRawY = false;
             return raw;
         }
-        if (haveRawY) {
+        if (haveRawY && !MouseGrab.ISOLATED) {
             setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL);
         }
         lastRawY = raw;

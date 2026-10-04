@@ -1245,6 +1245,7 @@ final class Pipeline {
             uniform float uInstruments;
             uniform vec4 uWheel;
             uniform vec3 uWheelAxis;
+            uniform vec3 uMirror;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
             uniform sampler2D uDials;
@@ -1280,24 +1281,90 @@ final class Pipeline {
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
             // as the car moves. on is the place on the pane, in tiles.
-            // How far p is from the steering wheel: a round rim, a hub and three spokes, where
-            // the game's model has a six-sided ring. p is measured from the eye along the
-            // vehicle, across it and up. uWheel is the wheel's middle and its radius, and
-            // uWheelAxis the way its column runs, away from the driver.
-            float wheelAt(vec3 p) {
+            float block(vec3 v, vec3 half, float round) {
+                vec3 d = abs(v) - half;
+                return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0) - round;
+            }
+
+            float rod(vec3 v, vec3 a, vec3 b, float width) {
+                vec3 along = b - a;
+                return length(v - a - along * clamp(dot(v - a, along) / dot(along, along), 0.0, 1.0)) - width;
+            }
+
+            // The driver's end of a cabin, which the game's model has as a six-sided ring on
+            // a flat board: a wheel with a padded rim, a hub and three spokes, the stalks
+            // behind it, the shroud of its column, a hooded binnacle for the instruments and
+            // the mirror on the screen. p is measured from the eye along the vehicle, across
+            // it and up; uWheel is the wheel's middle and radius and uWheelAxis the way its
+            // column runs. Returns how far p is from the nearest of them, and in part which:
+            // 1 rim, 2 hub, 3 spoke, 4 stalk, 5 shroud, 6 binnacle, 7 mirror.
+            float cabinAt(vec3 p, out float part) {
                 vec3 q = p - uWheel.xyz;
-                float deep = dot(q, uWheelAxis);
-                float outward = length(q - uWheelAxis * deep);
-                float rim = length(vec2(outward - uWheel.w, deep)) - 0.019;
-                vec3 up = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
-                // The spokes dish in from the rim to the hub.
-                float sunk = deep - 0.03 * (1.0 - outward / uWheel.w);
-                float across = q.y, along = dot(q, up);
-                float thin = abs(sunk) - 0.008;
-                float bar = max(max(abs(along) - 0.017, thin), abs(across) - uWheel.w) - 0.005;
-                float down = max(max(abs(across) - 0.017, thin), max(along, -along - uWheel.w)) - 0.005;
-                float hub = max(outward - 0.05, abs(deep - 0.03) - 0.022) - 0.01;
-                return min(min(rim, hub), min(bar, down));
+                vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
+                vec3 w = vec3(q.y, dot(q, rise), dot(q, uWheelAxis));
+                float outward = length(w.xy);
+                // A rim deeper than it is wide, thicker where the hands hold it.
+                float bearing = atan(w.y, abs(w.x));
+                float held = 0.004 * smoothstep(0.35, 0.0, abs(bearing - 0.55));
+                float rim = length(vec2(outward - uWheel.w, w.z * 0.82)) - (0.021 + held);
+                float dish = 0.032 * (1.0 - min(outward / uWheel.w, 1.0));
+                float hub = block(vec3(w.x, w.y + 0.012, w.z - 0.02), vec3(0.066, 0.044, 0.012), 0.02);
+                float reach = clamp((abs(w.x) - 0.06) / (uWheel.w - 0.06), 0.0, 1.0);
+                float arms = block(vec3(abs(w.x) - 0.145, w.y + 0.012 - 0.012 * reach, w.z - dish), vec3(0.09, mix(0.036, 0.016, reach), 0.008), 0.006);
+                float leg = block(vec3(w.x, w.y + 0.14, w.z - dish), vec3(0.02, 0.092, 0.008), 0.006);
+                float spoke = min(arms, leg);
+                vec3 mirrored = vec3(abs(w.x), w.y, w.z);
+                float stalk = min(rod(mirrored, vec3(0.05, 0.004, 0.09), vec3(0.2, 0.034, 0.074), 0.008), length(mirrored - vec3(0.2, 0.034, 0.074)) - 0.013);
+                float shroud = max(length(vec2(w.x, w.y + 0.012)) - 0.058, abs(w.z - 0.14) - 0.1) - 0.006;
+                vec3 hood = w - vec3(0.0, 0.112, 0.2);
+                float binnacle = max(block(hood, vec3(0.185, 0.066, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(0.168, 0.05, 0.075), 0.012));
+                float mirror = block(p - uMirror, vec3(0.01, 0.078, 0.022), 0.008);
+                float nearest = rim;
+                part = 1.0;
+                if (hub < nearest) { nearest = hub; part = 2.0; }
+                if (spoke < nearest) { nearest = spoke; part = 3.0; }
+                if (stalk < nearest) { nearest = stalk; part = 4.0; }
+                if (shroud < nearest) { nearest = shroud; part = 5.0; }
+                if (binnacle < nearest) { nearest = binnacle; part = 6.0; }
+                if (mirror < nearest) { nearest = mirror; part = 7.0; }
+                return nearest;
+            }
+
+            float wheelAt(vec3 p) {
+                float part;
+                return cabinAt(p, part);
+            }
+
+            // What a part of the cabin is made of at p, as a colour for the picture to light.
+            vec3 cabinPaint(vec3 p, float part) {
+                vec3 q = p - uWheel.xyz;
+                vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
+                vec3 w = vec3(q.y, dot(q, rise), dot(q, uWheelAxis));
+                vec3 paint = vec3(0.2, 0.195, 0.19);
+                if (part < 1.5) {
+                    // Leather sewn round the rim: the seam runs round its inner side.
+                    float outward = length(w.xy);
+                    float round = atan(w.z, uWheel.w - outward);
+                    float seam = (1.0 - smoothstep(0.12, 0.2, abs(round))) * step(0.5, fract(atan(w.y, w.x) * uWheel.w / 0.011));
+                    paint = mix(vec3(0.19, 0.185, 0.18), vec3(0.5, 0.48, 0.44), seam);
+                } else if (part < 2.5) {
+                    // The pad over the horn, with the maker's badge pressed into it.
+                    float badge = abs(w.x) / 0.022 + abs(w.y + 0.012) / 0.015;
+                    paint = mix(vec3(0.17, 0.165, 0.16), vec3(0.42, 0.42, 0.44), step(0.78, badge) * step(badge, 1.0));
+                } else if (part < 3.5) {
+                    // Switches on the arms, and a bright strip along their lower edge.
+                    vec2 cell = fract(vec2(abs(w.x) - 0.078, w.y + 0.03) / 0.019) - 0.5;
+                    float keys = step(0.078, abs(w.x)) * step(abs(w.x), 0.135) * step(abs(w.y + 0.012), 0.028) * step(length(cell), 0.32);
+                    float strip = step(0.07, abs(w.x)) * smoothstep(-0.03, -0.036, w.y + 0.012 - 0.012 * clamp((abs(w.x) - 0.06) / (uWheel.w - 0.06), 0.0, 1.0)) * step(w.y, 0.0);
+                    paint = mix(mix(vec3(0.13, 0.13, 0.135), vec3(0.34, 0.34, 0.35), keys), vec3(0.72, 0.72, 0.74), strip * step(abs(w.x), 0.2));
+                } else if (part < 5.5) {
+                    paint = vec3(0.11, 0.11, 0.115);
+                } else if (part < 6.5) {
+                    paint = vec3(0.14, 0.14, 0.145);
+                } else {
+                    paint = vec3(0.07, 0.07, 0.075);
+                }
+                return paint;
             }
 
             float hash21(vec2 p) {
@@ -1416,16 +1483,42 @@ final class Pipeline {
                 vec4 figure = texture2D(uFigure, uv);
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
-                // The steering wheel is found by walking each line of sight up to it.
+                // Behind the wheel, two round instruments in the dash, seen through its rim.
                 bool wheel = false;
+                bool dial = false;
+                vec2 dialAt = vec2(0.0);
+                float dialFar = 0.0;
+                if (uInside > 0.5 && uWheel.w > 0.0) {
+                    vec3 d = normalize(ray);
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
+                    vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
+                    vec3 middle = uWheel.xyz + uWheelAxis * 0.25 + rise * 0.106;
+                    float towards = dot(line, uWheelAxis);
+                    if (towards > 0.05) {
+                        float t = dot(middle, uWheelAxis) / towards;
+                        vec3 q = line * t - middle;
+                        vec2 on = vec2(q.y, dot(q, rise));
+                        // Two faces, side by side.
+                        vec2 face = vec2(abs(on.x) - 0.085, on.y) / 0.046;
+                        if (dot(face, face) < 1.0) {
+                            dial = true;
+                            dialAt = face * vec2(on.x < 0.0 ? -0.47 : 0.47, 0.47) + 0.5;
+                            dialFar = t;
+                        }
+                    }
+                }
+                // The steering wheel is found by walking each line of sight up to it.
                 float wheelFar = 0.0;
+                float wheelPart = 0.0;
+                vec3 wheelPlace = vec3(0.0);
                 vec3 wheelFaces = vec3(0.0);
                 if (uInside > 0.5 && uWheel.w > 0.0) {
                     vec3 d = normalize(ray);
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
                     float t = 0.2;
-                    for (int i = 0; i < 48; i++) {
+                    for (int i = 0; i < 64; i++) {
                         float gap = wheelAt(line * t);
                         if (gap < 0.0012) {
                             wheel = true;
@@ -1436,44 +1529,22 @@ final class Pipeline {
                             break;
                         }
                     }
+                    if (wheel && dial && dialFar < t) {
+                        wheel = false;
+                    } else if (wheel) {
+                        dial = false;
+                    }
+                    if ((wheel || dial) && uGlassPass > 0.5) {
+                        discard;
+                    }
                     if (wheel) {
-                        if (uGlassPass > 0.5) {
-                            discard;
-                        }
                         vec3 p = line * t;
                         vec2 e = vec2(0.002, 0.0);
                         vec3 slope = normalize(vec3(wheelAt(p + e.xyy) - wheelAt(p - e.xyy), wheelAt(p + e.yxy) - wheelAt(p - e.yxy), wheelAt(p + e.yyx) - wheelAt(p - e.yyx)));
                         wheelFaces = vec3(uAhead * slope.x + side * slope.y, slope.z);
                         wheelFar = t;
-                    }
-                }
-                // Behind the wheel, two round instruments in the dash, seen through its rim.
-                bool dial = false;
-                vec2 dialAt = vec2(0.0);
-                float dialFar = 0.0;
-                if (!wheel && uInside > 0.5 && uWheel.w > 0.0 && figure.a > 0.5) {
-                    vec3 d = normalize(ray);
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
-                    vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
-                    vec3 middle = uWheel.xyz + uWheelAxis * 0.24 + rise * 0.105;
-                    float towards = dot(line, uWheelAxis);
-                    if (towards > 0.05) {
-                        float t = dot(middle, uWheelAxis) / towards;
-                        vec3 q = line * t - middle;
-                        vec2 on = vec2(q.y, dot(q, rise));
-                        // Two faces, side by side.
-                        vec2 face = vec2(abs(on.x) - 0.075, on.y) / 0.068;
-                        float z0 = texture2D(uDepth, uv).r * 2.0 - 1.0;
-                        float behind = 2.0 * uNear * uFar / (uFar + uNear - z0 * (uFar - uNear)) * length(ray);
-                        if (dot(face, face) < 1.0 && t < behind + 0.12) {
-                            if (uGlassPass > 0.5) {
-                                discard;
-                            }
-                            dial = true;
-                            dialAt = face * vec2(on.x < 0.0 ? -0.47 : 0.47, 0.47) + 0.5;
-                            dialFar = t;
-                        }
+                        wheelPlace = p;
+                        cabinAt(p, wheelPart);
                     }
                 }
                 if (figure.a < 0.5 && !wheel) {
@@ -1528,7 +1599,7 @@ final class Pipeline {
                 } else if (wheel) {
                     n = wheelFaces;
                     close = 1.0;
-                    figure = vec4(0.21, 0.2, 0.195, 1.0);
+                    figure = vec4(cabinPaint(wheelPlace, wheelPart), 1.0);
                 } else if (close > 0.5 && uWheel.w > 0.0) {
                     // The game's own six-sided wheel is still in its model, wider than the
                     // round one drawn over it. Where it shows it is painted out as the dark
@@ -1717,6 +1788,11 @@ final class Pipeline {
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
                 color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
+                if (wheel && wheelPart > 6.5 && abs(wheelPlace.y - uMirror.y) < 0.074 && abs(wheelPlace.z - uMirror.z) < 0.018 && wheelPlace.x < uMirror.x) {
+                    vec3 back = reflect(-view, n);
+                    vec3 seen = back.z > 0.0 ? atmosphere(back) : mix(vec3(0.05, 0.05, 0.052), atmosphere(vec3(back.xy, 0.02)) * 0.35, smoothstep(-0.25, 0.0, back.z));
+                    color = seen * 0.85;
+                }
                 if (dial && uInstruments > 0.0) {
                     // Lit from behind when the engine runs: the numerals and needles glow.
                     vec3 face = pow(figure.rgb, vec3(2.2));
@@ -3181,6 +3257,7 @@ final class Pipeline {
             } else {
                 figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
                 figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
+                figureLight.set("uMirror", wheel[7], wheel[8], wheel[9]);
             }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uTime", state.seconds);

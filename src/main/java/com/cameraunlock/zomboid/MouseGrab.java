@@ -11,6 +11,13 @@ import zombie.core.textures.TextureDraw;
 final class MouseGrab extends TextureDraw.GenericDrawer {
     static final MouseGrab DRAWER = new MouseGrab();
 
+    /**
+     * Set by a test that runs the game behind the windows of whoever is at the machine. The
+     * real mouse is theirs: the window never takes it, and the view is turned by the test's
+     * own commands only.
+     */
+    static final boolean ISOLATED = Boolean.getBoolean("cameraunlock.zomboid.isolated");
+
     /** What the logic thread wants. */
     static volatile boolean wanted;
     /** What the window was last told. */
@@ -21,7 +28,9 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
     static void sync() {
         boolean want = wanted;
         if (applied != want) {
-            Mouse.setGrabbed(want);
+            if (!ISOLATED) {
+                Mouse.setGrabbed(want);
+            }
             applied = want;
         }
     }
