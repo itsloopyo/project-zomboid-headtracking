@@ -231,6 +231,8 @@ final class SpriteGeometry {
     float[] cover;
     /** How far an upright card is moved from where it stands, in tiles: see WorldScene.addOver. */
     float nudgeX, nudgeY;
+    /** How much of an upright card is kept, from its foot up: 1 all of it. */
+    float keep = 1f;
 
     private float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
@@ -373,8 +375,9 @@ final class SpriteGeometry {
 
         float leftOffset = (frame.left - anchorU) * across;
         float rightOffset = (frame.left + frame.width - anchorU) * across;
-        float topHeight = (anchorV - frame.top) * up;
         float bottomHeight = (anchorV - frame.top - frame.height) * up;
+        float topHeight = bottomHeight + frame.height * up * keep;
+        float vTop = frame.vEnd + (frame.vStart - frame.vEnd) * keep;
 
         float baseX = tileX + a + nudgeX;
         float baseY = tileY + b + nudgeY;
@@ -393,12 +396,12 @@ final class SpriteGeometry {
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
         mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, frame.vEnd, frame.red, frame.green, frame.blue);
         mesh.sway = high;
-        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, frame.vStart, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = low;
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
         mesh.sway = high;
-        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, frame.vStart, frame.red, frame.green, frame.blue);
-        mesh.add(x0, y0, baseUp + topHeight, frame.uStart, frame.vStart, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + topHeight, frame.uStart, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
     }
 

@@ -180,6 +180,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
     private static final float CARD_LAYER = 0.035f;
+    /** How much of a tree's trunk sprite, from the ground up, is its bole. */
+    private static final float BOLE = 0.42f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
     private static final int TUFTS = 14;
@@ -763,7 +765,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             sprites++;
             overLayer = 0;
             geometry.nudgeX = geometry.nudgeY = 0f;
+            ArrayList<IsoSpriteInstance> leaves = object.getAttachedAnimSprite();
+            // A tree in leaf shows its bole and not the branches in its crown: they are
+            // inside the leaves. Drawn, they cross from one card of the fan through the leaves
+            // of the next. A bare tree is all branch and keeps them.
+            boolean inLeaf = sprite.getType() == IsoObjectType.tree && (leaves != null && !leaves.isEmpty() || object.getOverlaySprite() != null);
+            geometry.keep = inLeaf ? BOLE : 1f;
             addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+            geometry.keep = 1f;
             // What the game draws over an object with the object: the leaves on a tree, the
             // ivy and the stains on a wall. Each lies or stands as the object under it does.
             ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
