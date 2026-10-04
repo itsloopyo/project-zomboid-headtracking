@@ -72,6 +72,10 @@ public final class Tests {
         pieceStandsWhereTheModelTurnedScaledAndMovedIs();
         pieceCarriesTheLightOfItsSquaresCorners();
         pieceIsHeldByItsBall();
+        paintingOnAWallIsFoundWhereItHangs();
+        spriteDrawnForAnotherWallIsNoPainting();
+        pictureLiesOverItsFrameAsTheSpritePaintsIt();
+        frameIsChosenByThePicturesShape();
         jarHoldsEveryModelStoodOnTheFloor();
         heldWeaponPointsAheadWithItsBarrelOnTheLineAsked();
         heldWeaponKeepsItsShapeAndTheGamesMirror();
@@ -447,16 +451,127 @@ public final class Tests {
         }
     }
 
+    /**
+     * A sprite at twice the game's first size whose trimmed rectangle is what a rectangle on a
+     * wall of its square paints: from 0.2 to 0.7 along the wall, 0.3 to 0.6 of a level up.
+     */
+    private static SpriteGeometry.Frame paintedOn(int wall) {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        float left = Float.MAX_VALUE, right = -Float.MAX_VALUE, top = Float.MAX_VALUE, bottom = -Float.MAX_VALUE;
+        for (float along : new float[] {0.2f, 0.7f}) {
+            for (float high : new float[] {0.3f, 0.6f}) {
+                float u = SpriteGeometry.frameU(frame, WallHung.a(wall, along), WallHung.b(wall, along));
+                float v = SpriteGeometry.frameV(frame, WallHung.a(wall, along), WallHung.b(wall, along), high);
+                left = Math.min(left, u);
+                right = Math.max(right, u);
+                top = Math.min(top, v);
+                bottom = Math.max(bottom, v);
+            }
+        }
+        // The outermost half texel each way is the sprite's soft edge.
+        frame.left = left - 0.5f;
+        frame.top = top - 0.5f;
+        frame.width = right - left + 1f;
+        frame.height = bottom - top + 1f;
+        frame.uStart = 0.25f;
+        frame.uEnd = 0.5f;
+        frame.vStart = 0.5f;
+        frame.vEnd = 0.75f;
+        return frame;
+    }
+
+    private static void paintingOnAWallIsFoundWhereItHangs() {
+        float[] at = new float[4];
+        for (int wall : new int[] {WallHung.NORTH, WallHung.WEST, WallHung.SOUTH, WallHung.EAST}) {
+            check(WallHung.painted(paintedOn(wall), wall, at), "a rectangle painted on wall " + wall + " is something hung there");
+            check(near(at[WallHung.FROM], 0.2f) && near(at[WallHung.TO], 0.7f), "it is found where along wall " + wall + " it is, from "
+                    + at[WallHung.FROM] + " to " + at[WallHung.TO]);
+            check(near(at[WallHung.BOTTOM], 0.3f) && near(at[WallHung.TOP], 0.6f), "and how high up wall " + wall + ", from "
+                    + at[WallHung.BOTTOM] + " to " + at[WallHung.TOP]);
+        }
+        check(near(WallHung.a(WallHung.NORTH, 0.3f), 0.3f) && near(WallHung.b(WallHung.NORTH, 0.3f), 0f), "the north wall runs along the square's first edge");
+        check(near(WallHung.a(WallHung.EAST, 0.3f), 1f) && near(WallHung.b(WallHung.EAST, 0.3f), 0.3f), "the east wall runs down its far edge");
+    }
+
+    private static void spriteDrawnForAnotherWallIsNoPainting() {
+        float[] at = new float[4];
+        // The same painting, taken for one on the wall across the square: it comes out off that wall's end.
+        check(!WallHung.painted(paintedOn(WallHung.NORTH), WallHung.WEST, at), "a north wall's picture is not on the west wall");
+        check(!WallHung.painted(paintedOn(WallHung.WEST), WallHung.NORTH, at), "nor a west wall's on the north");
+        SpriteGeometry.Frame speck = paintedOn(WallHung.NORTH);
+        speck.width = 3f;
+        check(!WallHung.painted(speck, WallHung.NORTH, at), "a sliver of paint is nothing hung on a wall");
+    }
+
+    private static void pictureLiesOverItsFrameAsTheSpritePaintsIt() throws java.io.IOException {
+        for (int wall : new int[] {WallHung.NORTH, WallHung.WEST}) {
+            SpriteGeometry.Frame frame = paintedOn(wall);
+            float[] at = new float[4], shows = new float[6], way = new float[2];
+            check(WallHung.painted(frame, wall, at), "the picture is found");
+            // A model half a metre wide and a metre high, hung to fill what was found, facing into the square.
+            int turns = wall == WallHung.NORTH ? 2 : 1;
+            float along = (at[WallHung.FROM] + at[WallHung.TO]) / 2f, scale = (at[WallHung.TO] - at[WallHung.FROM]) / 0.5f;
+            float up = at[WallHung.TOP] - at[WallHung.BOTTOM];
+            Models.turn(turns, 1f, 0f, way);
+            WallHung.shows(frame, WallHung.a(wall, along), WallHung.b(wall, along), at[WallHung.BOTTOM], way[0] * scale, way[1] * scale, up, shows);
+            // Each corner of the model's face shows what the sprite paints at that corner of the rectangle on the wall.
+            for (float x : new float[] {-0.25f, 0.25f}) {
+                for (float z : new float[] {0f, 1f}) {
+                    float where = along + (way[0] + way[1]) * x * scale, high = at[WallHung.BOTTOM] + z * up;
+                    float u = SpriteGeometry.frameU(frame, WallHung.a(wall, where), WallHung.b(wall, where));
+                    float v = SpriteGeometry.frameV(frame, WallHung.a(wall, where), WallHung.b(wall, where), high);
+                    float wantU = frame.uStart + (u - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+                    float wantV = frame.vStart + (v - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+                    check(near(shows[0] + x * shows[2] + z * shows[4], wantU) && near(shows[1] + x * shows[3] + z * shows[5], wantV),
+                            "the corner " + x + ", " + z + " of a picture on wall " + wall + " shows the sprite's own corner");
+                    check(wantU >= frame.uStart && wantU <= frame.uEnd && wantV >= frame.vStart && wantV <= frame.vEnd, "which is inside the sprite");
+                }
+            }
+            // Seen from inside the square, what is on the right of the picture is on the right of the sprite, on either wall.
+            check(shows[2] > 0f, "the picture is not mirrored on wall " + wall);
+            check(shows[5] < 0f, "and its top is the sprite's top");
+        }
+        Models.Instances pieces = stoodWedge(wedge());
+        pieces.picture(new float[] {0.1f, 0.2f, 0.3f, 0.4f, 0f, 0.6f});
+        float[] f = pieces.floats;
+        check(near(f[Models.Instances.DYE], 0.1f) && near(f[Models.Instances.DYE + 1], 0.2f), "a picture's origin is where its piece's first colour was taken");
+        check(near(f[Models.Instances.PICTURE], 0.3f) && near(f[Models.Instances.PICTURE + 1], 0.4f) && near(f[Models.Instances.PICTURE + 2], 0f)
+                && near(f[Models.Instances.PICTURE + 3], 0.6f), "and how it lies over the model goes with the piece");
+        pieces.add(wedge(), new SpriteGeometry.Frame(), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        check(near(pieces.floats[Models.Instances.FLOATS + Models.Instances.PICTURE + 3], 0f), "a piece with no picture has none left over from another");
+    }
+
+    private static void frameIsChosenByThePicturesShape() {
+        check(WallHung.frameFor(0.6f / 0.9f) == 0 && WallHung.frameFor(1f) == 1 && WallHung.frameFor(0.9f / 0.6f) == 2, "each frame is chosen for a picture of its own shape");
+        check(WallHung.frameFor(0.3f) == 0 && WallHung.frameFor(4f) == 2, "and the nearest for one of no frame's shape");
+        Models.Model tall = Models.get("frame_tall"), wide = Models.get("frame_wide");
+        check(tall.height() > tall.width() && wide.width() > wide.height(), "the tall frame is the tall one");
+        check(tall.first[Models.PANE + 1] > tall.first[Models.PANE], "a frame holds a pane");
+    }
+
     private static void jarHoldsEveryModelStoodOnTheFloor() {
         String[] names = {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "armchair", "bedside_cabinet", "dresser", "desk",
                 "office_chair", "counter", "counter_sink", "counter_corner", "wall_cupboard", "wall_cupboard_corner", "fridge", "oven", "bookcase", "locker",
                 "tv", "tv_console", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
-                "picnic_table", "crate", "barrel"};
+                "picnic_table", "crate", "barrel", "frame_tall", "frame_square", "frame_wide", "canvas", "wall_clock", "table_2", "table_3", "table_4",
+                "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
+                "metal_rack", "store_shelves", "plastic_chair", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster",
+                "radio", "microwave", "dishwasher", "chest_freezer", "register", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
+                "mini_fridge", "large_fridge"};
         for (String name : names) {
             Models.Model model = Models.get(name);
-            check(model.triangles() > 100 && model.triangles() <= 6000, name + " is a model of a size to draw, at " + model.triangles() + " triangles");
+            // A length of canvas is a bare slab. Everything else has parts.
+            check((model.triangles() > 100 || name.equals("canvas")) && model.triangles() <= 6000,
+                    name + " is a model of a size to draw, at " + model.triangles() + " triangles");
             check(near(model.minZ, 0f), name + " stands on the floor");
-            if (name.endsWith("_corner")) {
+            if (name.startsWith("shower")) {
+                // Built on its square, the wall at its back.
+                check(model.minX >= -0.5f && model.maxX <= 0.5f && model.minY >= -0.5f && model.maxY <= 0.5f, name + " lies inside the square it stands on");
+                check(model.maxY > 0.4f, name + " reaches the wall behind it");
+            } else if (name.endsWith("_corner")) {
                 // The corner of a run fills a square and is built round the middle of that square.
                 check(model.minX >= -0.5f && model.maxX <= 0.5f && model.minY >= -0.5f && model.maxY <= 0.5f, name + " lies inside the square it fills");
                 check(near(model.maxX, 0.5f) && near(model.minY, -0.5f), name + " reaches the two edges of its square that the run goes on from");

@@ -231,6 +231,7 @@ final class Pipeline {
             uniform vec3 uLitAcross;
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
+            uniform vec4 uPicture;
 
             // Whether the surface's bit is set in a whole number of them. The half is there for a
             // power of two worked out a hair too large, which would otherwise divide the
@@ -260,7 +261,7 @@ final class Pipeline {
                     // how much light gets to it past the rest of the model where a sprite's
                     // carries a texel. It is made here into what a vertex of the frame's own
                     // arrays is: stood on the map, lit by where over its square it is, and
-                    // marked with its surface, which a dyed one adds 16 more to.
+                    // marked with its surface, which a dyed one adds 18 more to.
                     vec3 on = over(gl_Vertex.xyz);
                     stands = vec4(uPlace.xy + on.xy, on.z, 1.0);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
@@ -268,8 +269,13 @@ final class Pipeline {
                     float surface = floor(gl_MultiTexCoord0.x + 0.5);
                     bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
                     vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
+                    // What a frame holds shows the sprite itself, laid over the model's face: each
+                    // vertex looks at its own place on it.
+                    if (dyed && surface > 15.5 && surface < 16.5) {
+                        vUv += gl_Vertex.x * uPicture.xy + gl_Vertex.z * uPicture.zw;
+                    }
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
-                            uSurfaces.x + 32.0 * ((dyed || also ? 32.0 : 16.0) + surface));
+                            uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                 }
                 vNormal = looks;
                 // What is laid on the ground does not blow about: there the normal's length says
@@ -675,12 +681,16 @@ final class Pipeline {
                 // The mod's own furniture is a model and has no sprite. Its surface says what it
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
                 // cotton, bare metal, paint, the enamel of a fridge, steel, plastic, the glass
-                // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop.
+                // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop,
+                // what a frame holds, vinyl.
                 bool model = vMaterial > 15.5;
                 float surface = -1.0;
+                // How far a model's wood is painted over, and whether what its frame holds is a picture.
+                float painted = 0.0;
+                bool pictured = false;
                 if (model) {
-                    bool dyed = vMaterial > 31.5;
-                    surface = vMaterial - (dyed ? 32.0 : 16.0);
+                    bool dyed = vMaterial > 33.5;
+                    surface = vMaterial - (dyed ? 34.0 : 16.0);
                     vec3 own = vec3(0.66, 0.5, 0.32);
                     if (surface > 0.5) { own = vec3(0.33, 0.22, 0.15); }
                     if (surface > 1.5) { own = vec3(0.46, 0.48, 0.52); }
@@ -696,6 +706,8 @@ final class Pipeline {
                     if (surface > 12.5) { own = vec3(0.93, 0.88, 0.76); }
                     if (surface > 13.5) { own = vec3(0.07, 0.07, 0.075); }
                     if (surface > 14.5) { own = vec3(0.8, 0.76, 0.68); }
+                    if (surface > 15.5) { own = vec3(0.74, 0.79, 0.82); }
+                    if (surface > 16.5) { own = vec3(0.42, 0.13, 0.11); }
                     if (surface > 11.5 && surface < 12.5) {
                         // A shelf of books is a row of spines, each its own colour. Which book a
                         // place is on is told by how far along the shelf it is.
@@ -706,7 +718,13 @@ final class Pipeline {
                                 : which < 0.8 ? vec3(0.62, 0.5, 0.3) : vec3(0.75, 0.72, 0.66);
                         own *= 0.75 + 0.5 * grain(book + 7.0);
                     }
-                    if (dyed) {
+                    if (dyed && surface > 15.5 && surface < 16.5) {
+                        // A picture in its frame is the sprite's own painting of it. Where the
+                        // sprite has nothing painted, at its ragged edge, the pane is the board
+                        // behind a picture.
+                        pictured = true;
+                        own = texel.a > 0.5 ? texel.rgb : vec3(0.2, 0.17, 0.14);
+                    } else if (dyed) {
                         // Where the game's sprite of the piece is to say what colour it is, a green
                         // sofa or a blue fridge, the vertex looks at one place on that sprite and
                         // the colour is taken from nine texels round it: the mean of those that
@@ -733,6 +751,15 @@ final class Pipeline {
                                 pale += vec4(tap[i], 1.0) * step(mean, tone[i]);
                             }
                             own = pale.rgb / max(pale.a, 1.0);
+                        }
+                        if (surface < 0.5) {
+                            // Wood whose sprite is pale and has next to no colour is painted, not
+                            // bare: a white wardrobe. The sprite shades its white to a grey, and
+                            // taken as it is the piece is a grey one; the paint is as white as
+                            // paint is, keeping the cast the sprite gives it.
+                            float most = max(own.r, max(own.g, own.b)), least = min(own.r, min(own.g, own.b));
+                            painted = smoothstep(0.5, 0.65, most) * (1.0 - smoothstep(0.12, 0.25, (most - least) / max(most, 0.001)));
+                            own = mix(own, own * (0.92 / max(most, 0.001)), painted);
                         }
                     }
                     texel = vec4(own, 1.0);
@@ -831,7 +858,7 @@ final class Pipeline {
                     }
                     texel.rgb *= mix(1.0, fine, much);
                 }
-                if (model && (surface < 4.5 || surface > 14.5)) {
+                if (model && (surface < 4.5 || surface > 14.5 && surface < 15.5)) {
                     // Furniture is seen from nearer than a floor is, so its grain is finer: the
                     // wood's a hand across, the cloth's a weave. Linen and a pillow show less
                     // of it than a blanket does, and a worktop only a trace.
@@ -842,6 +869,8 @@ final class Pipeline {
                     if (surface < 1.5) {
                         much *= 1.0 - 0.75 * smoothstep(0.6, 0.85, min(texel.r, min(texel.g, texel.b)));
                     }
+                    // Paint fills the grain: under it the wood shows as a trace and no more.
+                    much *= 1.0 - 0.8 * painted;
                     texel.rgb *= mix(1.0, fine, much);
                 }
 
@@ -1018,8 +1047,11 @@ final class Pipeline {
                     if (model) {
                         rough = surface < 1.5 ? 0.38 : surface < 4.5 ? 0.9 : surface < 5.5 ? 0.3 : surface < 6.5 ? 0.5 : surface < 7.5 ? 0.22
                                 : surface < 8.5 ? 0.28 : surface < 9.5 ? 0.45 : surface < 10.5 ? 0.08 : surface < 11.5 ? 0.15 : surface < 12.5 ? 0.6
-                                : surface < 13.5 ? 0.85 : surface < 14.5 ? 0.75 : 0.3;
-                        mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06 : 0.04;
+                                : surface < 13.5 ? 0.85 : surface < 14.5 ? 0.75 : surface < 15.5 ? 0.3 : surface < 16.5 ? (pictured ? 0.6 : 0.05) : 0.36;
+                        // Gloss paint is smoother than waxed wood.
+                        rough = mix(rough, 0.3, painted);
+                        mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06
+                                : surface > 15.5 && surface < 16.5 && !pictured ? 0.9 : 0.04;
                     }
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
@@ -1083,7 +1115,9 @@ final class Pipeline {
                 // a chair.
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
-                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : surface > 9.5 && surface < 10.5 ? 0.4 : 0.0;
+                // So does a mirror in its frame, and more than either.
+                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : surface > 9.5 && surface < 10.5 ? 0.4
+                        : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
@@ -3208,6 +3242,8 @@ final class Pipeline {
                     program.set("uLitAcross", f[light + 9], f[light + 10], f[light + 11]);
                     program.set("uSurfaces", f[surfaces], f[surfaces + 1], f[surfaces + 2]);
                     program.set("uDye", f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                    int picture = at + Models.Instances.PICTURE;
+                    program.set("uPicture", f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
                     int texture = whole[ints + Models.Instances.TEXTURE] == 0 ? whiteTexture : whole[ints + Models.Instances.TEXTURE];
                     if (texture != bound) {
                         bound = texture;

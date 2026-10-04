@@ -34,14 +34,14 @@ import java.util.zip.GZIPInputStream;
  *     per vertex, three to a triangle:
  *       float32 x 3   position
  *       float32 x 3   unit normal
- *       uint8         surface: WOOD to WORKTOP below
+ *       uint8         surface: WOOD to VINYL below
  *       uint8         how much of the room's light reaches the vertex past the rest of the
  *                     model and the floor, 255 for all of it
  */
 final class Models {
     static final int WOOD = 0, DARK_WOOD = 1, CLOTH = 2, LINEN = 3, PILLOW = 4, METAL = 5, PAINT = 6, ENAMEL = 7, STEEL = 8, PLASTIC = 9,
-            SCREEN = 10, CERAMIC = 11, BOOKS = 12, SHADE = 13, RUBBER = 14, WORKTOP = 15;
-    static final int SURFACES = 16;
+            SCREEN = 10, CERAMIC = 11, BOOKS = 12, SHADE = 13, RUBBER = 14, WORKTOP = 15, PANE = 16, VINYL = 17;
+    static final int SURFACES = 18;
 
     /**
      * What a model's surface is made of, as the picture is told it: this plus the surface. The
@@ -53,7 +53,10 @@ final class Models {
     static final float FIRST_MATERIAL = 16f;
     /**
      * The same surfaces where the game's sprite of the piece says what colour they are: such
-     * a vertex is drawn with the sprite's texture and looks at one texel of it.
+     * a vertex is drawn with the sprite's texture and looks at one texel of it. What a frame
+     * holds, its pane, is the one surface that shows the sprite itself: dyed, it is the picture
+     * the sprite paints, each vertex looking at its own place on it, and plain it is a
+     * mirror's glass.
      */
     static final float FIRST_DYED_MATERIAL = FIRST_MATERIAL + SURFACES;
 
@@ -310,7 +313,13 @@ final class Models {
         static final int DYE = 26;
         /** The middle of a ball that holds the whole piece, on the map, and how far the ball reaches. */
         static final int BALL = 30;
-        static final int FLOATS = 34;
+        /**
+         * For a piece whose pane shows a picture: how far across the sprite's texture and down it
+         * a metre along the model's x goes, then a metre up it. The first place the colour is
+         * taken is then where the model's origin is on the picture.
+         */
+        static final int PICTURE = 34;
+        static final int FLOATS = 38;
         /** The model's first vertex in the buffer of every model, how many it has, and the texture that dyes the piece or 0. */
         static final int FIRST = 0, COUNT = 1, TEXTURE = 2;
         static final int INTS = 3;
@@ -367,6 +376,7 @@ final class Models {
             to[at + DYE + 1] = dyeV;
             to[at + DYE + 2] = alsoU;
             to[at + DYE + 3] = alsoV;
+            to[at + PICTURE] = to[at + PICTURE + 1] = to[at + PICTURE + 2] = to[at + PICTURE + 3] = 0f;
             ints[whole + FIRST] = model.start;
             ints[whole + COUNT] = model.surface.length;
             ints[whole + TEXTURE] = dyeTexture;
@@ -374,6 +384,18 @@ final class Models {
             float halfWide = model.width() * scale / 2f, halfDeep = model.depth() * scale / 2f, halfHigh = model.height() * scaleUp / 2f;
             to[at + BALL + 3] = (float) Math.sqrt(halfWide * halfWide + halfDeep * halfDeep + halfHigh * halfHigh);
             count++;
+        }
+
+        /**
+         * Has the pane of the piece last added show the sprite as a picture: mapping holds where
+         * on the texture the model's origin is, then what a metre along the model's x adds to
+         * that and what a metre up it adds, as WallHung.shows leaves them.
+         */
+        void picture(float[] mapping) {
+            int at = (count - 1) * FLOATS;
+            floats[at + DYE] = mapping[0];
+            floats[at + DYE + 1] = mapping[1];
+            System.arraycopy(mapping, 2, floats, at + PICTURE, 4);
         }
 
         /** The light at the first corner, and what is added to it along each edge and across, into every third float from at. */

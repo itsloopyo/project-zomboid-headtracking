@@ -670,7 +670,46 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float nearer = overLayer * (CARD_LAYER + 4f * standOff);
         geometry.nudgeX = toX / away * nearer;
         geometry.nudgeY = toY / away * nearer;
+        if (!isFloor && addHung(over, texture, x, y, z)) {
+            return;
+        }
+        // A poster or a notice the game has pinned to a wall is laid over the wall's own sprite,
+        // and stood as that sprite stands it goes onto both walls of a corner piece, on one of
+        // them slewed. It says which wall it was painted for, and goes on that one. Only what
+        // has a front: a stain or ivy has none and is the wall's own.
+        if (!isFloor && over.getProperties().has(IsoFlagType.WallOverlay) && over.getFacing() != null) {
+            int wall = wallOf(over);
+            if (wall == WallHung.NORTH || wall == WallHung.WEST) {
+                SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+                if (wall == WallHung.WEST) {
+                    addEdge(mesh, texture, false, x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
+                } else {
+                    addEdge(mesh, texture, false, x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
+                }
+                return;
+            }
+        }
         addSprite(solid.get(texture.getID()), object, under, texture, isFloor, x, y, z);
+    }
+
+    /**
+     * Which wall of its square a sprite laid over a wall was painted for: the one the game
+     * says it is attached to, or failing that the one behind it, facing the way it does.
+     * NONE for one that says neither.
+     */
+    private static int wallOf(IsoSprite over) {
+        PropertyContainer properties = over.getProperties();
+        boolean north = properties.has(IsoFlagType.attachedN), west = properties.has(IsoFlagType.attachedW);
+        if (north != west) {
+            return north ? WallHung.NORTH : WallHung.WEST;
+        }
+        return behind(over.getFacing());
+    }
+
+    /** The wall of its square that is behind something facing that way. */
+    private static int behind(IsoDirections facing) {
+        return facing == IsoDirections.S ? WallHung.NORTH : facing == IsoDirections.E ? WallHung.WEST
+                : facing == IsoDirections.N ? WallHung.SOUTH : facing == IsoDirections.W ? WallHung.EAST : WallHung.NONE;
     }
 
     private void frameOf(IsoObject object, Texture texture) {
@@ -1283,6 +1322,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
+        if (overLayer == 0 && addHung(sprite, texture, x, y, z)) {
+            return;
+        }
         if (addFurniture(object, sprite, x, y, z)) {
             return;
         }
@@ -1505,6 +1547,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float scale = TILES_PER_METRE, scaleUp = TILES_PER_METRE, raised;
         /** Where the model's origin is from the corner of the piece's first square. */
         float centreX, centreY;
+        /** For what hangs on a wall, which wall of its square: it is stood by addHung, where its sprite paints it. NONE for all else. */
+        int wall = WallHung.NONE;
+        /** Whether what its frame holds is the picture its sprite paints, and not a mirror's glass. */
+        boolean pictured;
 
         Furniture(IsoSprite sprite, String model, int turns) {
             this.model = model == null ? null : Models.get(model);
@@ -1588,6 +1634,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             raised = up;
             return this;
         }
+
+        /** As dye, from over the back of the piece's square: a shelf on a wall is nowhere near the square's middle. */
+        Furniture dyeAtBack(int surfaces, float high) {
+            float[] back = new float[2];
+            Models.turn(turns, 0f, 1f, back);
+            return dye(surfaces, 0.5f + back[0] * BACK_DYE, 0.5f + back[1] * BACK_DYE, high);
+        }
+
+        Furniture hang(int wall, boolean pictured) {
+            this.wall = wall;
+            this.pictured = pictured;
+            return this;
+        }
     }
 
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
@@ -1625,9 +1684,33 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean low = properties.has("IsLow"), onTable = properties.has("IsTableTop");
         boolean counterHigh = surface >= 30 && surface <= 40;
         IsoDirections facing = sprite.getFacing();
+        boolean blocks = properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans);
+        if (facing != null && !blocks && holds.isEmpty() && !onTable && surface == 0) {
+            // The game gives a facing as one of the four ways along the map's axes.
+            int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+            if (called.equals("Clock") && grid == null) {
+                return new Furniture(sprite, "wall_clock", faces).hang(behind(facing), false);
+            }
+            // One square of a mirror or a picture that is longer than a square has no frame of
+            // its own, and each square's length of it meets the next.
+            if (called.equals("Mirror") && name.startsWith("walls_decoration")) {
+                return new Furniture(sprite, grid == null ? null : "canvas", faces).hang(behind(facing), false);
+            }
+            // A picture's sprite shows its face only from the two sides the game's view sees.
+            if (FRAMED.contains(called) && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+                return new Furniture(sprite, grid == null ? null : "canvas", faces).hang(behind(facing), true);
+            }
+        }
         // A drum is round, and a crate the same from every side: the game gives most of them no front.
         if ((called.equals("Metal Drum") || called.equals("Barrel")) && grid == null) {
             return new Furniture(sprite, "barrel", 0).dye(1 << Models.PAINT, LOW_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Barbecue") && holds.equals("barbecue") && grid == null) {
+            return new Furniture(sprite, "kettle_barbecue", 0).dye(1 << Models.PAINT, KETTLE_LID).stand(0f, 0f, false);
+        }
+        if (called.equals("Stool") && grid == null && properties.has(IsoFlagType.bed) && !group.equals("Organs")) {
+            Furniture stool = new Furniture(sprite, "stool", 0).dye(1 << Models.WOOD, surface > 0 ? surfaceHigh : LOW_DYE);
+            return stool.stand(surfaceUp, stool.model.height(), false);
         }
         if (called.equals("Crate") && (holds.equals("crate") || holds.equals("militarycrate")) && !group.contains("Metal") && grid == null
                 && surface >= 25 && surface <= 40) {
@@ -1636,9 +1719,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (facing == null) {
             // A table for four has no front, and the game gives it none.
-            if (grid == null && name.startsWith("furniture_tables_high") && properties.isTable() && !called.contains("Round")
-                    && surface > 0 && surface <= TABLE_HIGHEST) {
-                Furniture table = new Furniture(sprite, "small_table", 0).dye(1 << Models.WOOD, surfaceHigh);
+            if (grid == null && name.startsWith("furniture_tables_high") && properties.isTable() && surface > 0 && surface <= TABLE_HIGHEST) {
+                Furniture table = new Furniture(sprite, called.contains("Round") ? "round_table" : "small_table", 0).dye(1 << Models.WOOD, surfaceHigh);
                 return table.stand(surfaceUp, table.model.height(), false);
             }
             return null;
@@ -1649,6 +1731,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         int along = alongY ? height : width, across = alongY ? width : height;
         boolean single = grid == null, pair = along == 1 && across == 2;
+        boolean tableHigh = properties.isTable() && surface > 0 && surface <= TABLE_HIGHEST;
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.
         if (name.startsWith("furniture_bedding") && called.equals("Bed") && along == 2 && across <= 2) {
@@ -1672,6 +1755,38 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (name.startsWith("furniture_seating_indoor") && called.equals("Couch") && surface > 0 && pair) {
             return new Furniture(sprite, "sofa", turns).dye(1 << Models.CLOTH, surfaceHigh).stand(0f, 0f, true);
         }
+        if (called.equals("Shelves") && single && properties.has("IsHigh") && !blocks && surface >= WALL_SHELF_LOWEST
+                && holds.equals("shelves")) {
+            // The game gives the height of the top board. Two boards where that leaves room for a second under it.
+            Furniture shelf = new Furniture(sprite, surface >= WALL_SHELVES_LOWEST ? "wall_shelves" : "wall_shelf", turns)
+                    .dyeAtBack(1 << Models.WOOD, surfaceHigh);
+            return shelf.stand(0f, 0f, true).raise(surfaceUp - shelf.model.height());
+        }
+        // Low open shelves in a run, each square of them meeting the next as counters do.
+        if (called.equals("Shelves") && single && low && properties.isTable() && counterHigh && holds.equals("shelves")
+                && name.startsWith("furniture_shelving")) {
+            Furniture shelves = new Furniture(sprite, "low_shelves", turns).dye(1 << Models.WOOD, surfaceHigh * 0.5f);
+            return shelves.meet(surfaceUp, shelves.model.height(), true);
+        }
+        // Shelving two squares long with no height given: a shop's, or steel racking.
+        if (called.equals("Shelves") && pair && surface == 0 && properties.has(IsoFlagType.solidtrans) && !low) {
+            if (holds.equals("metal_shelves")) {
+                return new Furniture(sprite, "metal_rack", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+            }
+            if (holds.equals("shelves")) {
+                return new Furniture(sprite, "store_shelves", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+            }
+            return null;
+        }
+        if (called.equals("Chair") && surface > 0 && single && "badBed".equals(properties.get("BedType"))
+                && (group.contains("Plastic") || group.equals("Folding"))) {
+            return group.equals("Folding") ? new Furniture(sprite, "folding_chair", turns).dye(1 << Models.VINYL, surfaceHigh).stand(0f, 0f, false)
+                    : new Furniture(sprite, "plastic_chair", turns).dye(1 << Models.PLASTIC, surfaceHigh).stand(0f, 0f, false);
+        }
+        // A diner's bench: the game marks it as something to rest on, two squares long.
+        if (called.equals("Seat") && pair && properties.has(IsoFlagType.bed)) {
+            return new Furniture(sprite, "booth", turns).dye(1 << Models.VINYL, BOOTH_SEAT).also(1 << Models.WOOD, BOOTH_BASE).stand(0f, 0f, true);
+        }
         if (name.startsWith("furniture_seating_indoor") && called.equals("Chair") && surface > 0 && single) {
             // What the game rates as fair to sleep in is an armchair. What it rates as bad is a hard chair.
             if ("averageBed".equals(properties.get("BedType")) && !group.startsWith("Rocking")) {
@@ -1692,8 +1807,31 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             Furniture desk = new Furniture(sprite, "desk", turns).dye(1 << Models.WOOD, surfaceHigh);
             return desk.stand(surfaceUp, desk.model.height(), false);
         }
+        if (called.equals("Desk") && tableHigh && along == 1 && across == 3) {
+            Furniture desk = new Furniture(sprite, "office_desk", turns).dye(1 << Models.WOOD, surfaceHigh);
+            return desk.stand(surfaceUp, desk.model.height(), false);
+        }
+        // A table lies across the way it faces, as a desk does. A pool table is no table to sit at.
+        if ((called.equals("Table") || called.equals("Low Table")) && tableHigh && !group.equals("Pool") && !group.contains("Glass")) {
+            boolean lowTable = surface <= LOW_TABLE_HIGHEST;
+            String model = pair ? lowTable ? "low_table_2" : "table_2" : along == 1 && across == 3 && !lowTable ? "table_3"
+                    : along == 2 && across == 2 && !lowTable ? "table_4" : single && lowTable && holds.isEmpty() ? "low_table"
+                    : single && !lowTable && group.startsWith("Long") ? "narrow_table" : null;
+            if (model == null) {
+                return null;
+            }
+            Furniture table = new Furniture(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh);
+            return table.stand(surfaceUp, table.model.height(), false);
+        }
         if (called.equals("Counter") && single) {
             boolean corner = group.contains("Corner");
+            // A shop's counter or a bar: a counter with no doors on the side it is seen from, at
+            // whatever height the game gives it.
+            if (low && properties.isTable() && surface >= 30 && surface <= TABLE_HIGHEST && (holds.isEmpty() || holds.equals("counter") && !counterHigh)) {
+                Furniture counter = new Furniture(sprite, corner ? "counter_corner" : "shop_counter", turns)
+                        .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
+                return counter.meet(surfaceUp, counter.model.height(), !corner);
+            }
             if (low && properties.isTable() && holds.equals("counter") && counterHigh) {
                 Furniture counter = new Furniture(sprite, corner ? "counter_corner" : "counter", turns)
                         .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
@@ -1714,9 +1852,51 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             basin.basin = true;
             return basin;
         }
-        if (called.equals("Fridge") && holds.equals("fridge") && single && surface >= 55) {
-            Furniture fridge = new Furniture(sprite, "fridge", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.8f);
+        if (called.equals("Fridge") && holds.equals("fridge") && (single || pair) && (surface >= 55 || single && counterHigh)) {
+            Furniture fridge = new Furniture(sprite, pair ? "large_fridge" : surface >= 55 ? "fridge" : "mini_fridge", turns)
+                    .dye(1 << Models.ENAMEL, surfaceHigh * 0.8f);
             return fridge.stand(surfaceUp, fridge.model.height(), true);
+        }
+        // A shop's freezer chest under glass, two squares long.
+        if (called.equals("Freezer") && pair && low && surface >= 25 && surface <= 40) {
+            Furniture freezer = new Furniture(sprite, "chest_freezer", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f);
+            return freezer.stand(surfaceUp, freezer.model.height(), false);
+        }
+        if (holds.equals("dishwasher") && single && counterHigh) {
+            Furniture washer = new Furniture(sprite, "dishwasher", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f);
+            return washer.stand(surfaceUp, washer.model.height(), true);
+        }
+        // What stands on a counter says how high the counter is.
+        if (onTable && single && surface > 0) {
+            if (holds.equals("microwave")) {
+                return new Furniture(sprite, "microwave", turns).stand(0f, 0f, false).raise(surfaceUp);
+            }
+            if (holds.equals("cashregister")) {
+                return new Furniture(sprite, "register", turns).stand(0f, 0f, false).raise(surfaceUp);
+            }
+            if (called.equals("Radio")) {
+                return new Furniture(sprite, "radio", turns).stand(0f, 0f, false).raise(surfaceUp);
+            }
+        }
+        if (called.equals("Machine") && single && surface == 0) {
+            if (holds.equals("vendingsnack") || holds.equals("vendingpop")) {
+                return new Furniture(sprite, "vending_machine", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+            }
+            if (group.endsWith("Arcade")) {
+                return new Furniture(sprite, "arcade_machine", turns).stand(0f, 0f, true);
+            }
+            return null;
+        }
+        if (called.equals("Dumpster") && holds.equals("dumpster") && pair) {
+            return new Furniture(sprite, "dumpster", turns).dye(1 << Models.PAINT, LOW_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Barbecue") && holds.equals("barbecuepropane") && single) {
+            return new Furniture(sprite, "gas_barbecue", turns).stand(0f, 0f, false);
+        }
+        // A shower is on the wall behind it. The model is built on its square, the wall at its back.
+        if (called.equals("Shower") && single && name.startsWith("fixtures_bathroom") && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+            return group.equals("Wall") ? new Furniture(sprite, "shower_head", turns).meet(0f, 0f, false).raise(SHOWER_TAPS)
+                    : new Furniture(sprite, "shower", turns).meet(0f, 0f, false);
         }
         if (called.equals("Oven") && holds.equals("stove") && single && counterHigh) {
             return new Furniture(sprite, "oven", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.45f).stand(surfaceUp, OVEN_HOB, true);
@@ -1761,6 +1941,64 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat. */
     private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, TV_CABINET_TOP = 0.78f, BENCH_SEAT = 0.455f;
+    /** How far from the middle of its square, towards its back, a piece on the wall gives its colour. */
+    private static final float BACK_DYE = 0.36f;
+    /** How high above the floor the lowest part of a shower with no tray is, its taps, in tiles: its model starts there. */
+    private static final float SHOWER_TAPS = 0.99f;
+    /** The height the game gives a shelf on a wall from which it is a shelf and no low cupboard, and from which there is room for a second board under the first. */
+    private static final int WALL_SHELF_LOWEST = 50, WALL_SHELVES_LOWEST = 60;
+    /** The highest a table's top is, as the game gives it, for the table to be one to sit on a sofa at. */
+    private static final int LOW_TABLE_HIGHEST = 22;
+    /** Where on its sprite a kettle grill's lid gives its colour, and a diner bench's seat and its base, in levels. */
+    private static final float KETTLE_LID = 0.36f, BOOTH_SEAT = 0.2f, BOOTH_BASE = 0.06f;
+    /** What the game calls the things that hang in a frame, or as a board, with a picture on their face. */
+    private static final java.util.Set<String> FRAMED = java.util.Set.of("Painting", "Paintings", "Certificate", "Whiteboard", "Noteboard", "Dartboard");
+    /** The frames a picture can hang in, from the tallest for its width to the widest. */
+    private static final String[] FRAMES = {"frame_tall", "frame_square", "frame_wide"};
+    /** The least and the most a clock is made of its model's size. */
+    private static final float CLOCK_SMALLEST = 0.8f, CLOCK_LARGEST = 1.6f;
+
+    private final float[] hungAt = new float[4], hungShows = new float[6], hungWay = new float[2];
+
+    /**
+     * Hangs the mod's model of a picture, a mirror or a clock on the wall the sprite was
+     * painted for, where on that wall the sprite paints it and as big, and says whether the
+     * sprite is thereby dealt with. A picture's frame holds what the sprite shows.
+     *
+     * False, which leaves the sprite to be drawn as it is, for a sprite that is no such thing
+     * and for one not painted where something on that wall would be.
+     */
+    private boolean addHung(IsoSprite sprite, Texture texture, int x, int y, int z) {
+        Furniture piece = known(sprite);
+        if (piece == null || piece.wall == WallHung.NONE || !WallHung.painted(frame, piece.wall, hungAt)) {
+            return false;
+        }
+        float wide = hungAt[WallHung.TO] - hungAt[WallHung.FROM];
+        float high = (hungAt[WallHung.TOP] - hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT;
+        float along = (hungAt[WallHung.FROM] + hungAt[WallHung.TO]) / 2f;
+        Models.Model model = piece.model != null ? piece.model : Models.get(FRAMES[WallHung.frameFor(wide / high)]);
+        float scale = wide / model.width(), scaleUp = high / model.height(), foot = hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
+        if (piece.model != null && !piece.model.name.equals("canvas")) {
+            // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
+            scale = scaleUp = Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
+            foot += (high - model.height() * scale) / 2f;
+        }
+        // Its back clear of the wall's skin, which stands that far inside the square's edge.
+        Models.turn(piece.turns, 0f, -1f, hungWay);
+        float out = WALL_HALF + HUNG_CLEAR + model.depth() * scale / 2f;
+        float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
+        float[] lift = geometry.lift;
+        placed.add(model, frame, x, y, x + a + hungWay[0] * out, y + b + hungWay[1] * out,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + foot, piece.turns, scale, scaleUp,
+                piece.pictured ? texture.getID() : PLAIN, piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
+        if (piece.pictured) {
+            Models.turn(piece.turns, 1f, 0f, hungWay);
+            WallHung.shows(frame, a, b, hungAt[WallHung.BOTTOM], hungWay[0] * scale, hungWay[1] * scale, scaleUp / ViewCamera.LEVEL_HEIGHT, hungShows);
+            placed.picture(hungShows);
+        }
+        furnished++;
+        return true;
+    }
 
     /**
      * Whether the piece the object is a square of can stand as its model: every square of it is
@@ -1841,7 +2079,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
         Furniture piece = known(sprite);
-        if (piece == null) {
+        // What hangs on a wall is addHung's: one it could not hang is drawn as it was.
+        if (piece == null || piece.wall != WallHung.NONE) {
             return false;
         }
         if (piece.basin) {
