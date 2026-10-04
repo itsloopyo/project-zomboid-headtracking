@@ -180,7 +180,19 @@ public final class Characters {
                 float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
                 if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                     System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+                    // Drawn in full light, whatever the hour: which of its pixels are glass is
+                    // told from their colour, and the picture lights the cabin itself, by the
+                    // light the game would have given it.
+                    ownAmbient[0] = data.ambientR;
+                    ownAmbient[1] = data.ambientG;
+                    ownAmbient[2] = data.ambientB;
+                    data.ambientR = 1f;
+                    data.ambientG = 1f;
+                    data.ambientB = 1f;
                     vehicle(data, i * 4, ViewCamera.view(camera));
+                    data.ambientR = ownAmbient[0];
+                    data.ambientG = ownAmbient[1];
+                    data.ambientB = ownAmbient[2];
                     return true;
                 }
             }
@@ -224,6 +236,9 @@ public final class Characters {
         draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
         only = ALL;
     }
+
+    /** The light the game gives the vehicle the viewer sits in. */
+    static final float[] ownAmbient = {1f, 1f, 1f};
 
     private static int draw(float[] view, boolean withViewer, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();

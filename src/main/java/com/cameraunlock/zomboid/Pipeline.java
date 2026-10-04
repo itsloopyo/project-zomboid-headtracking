@@ -1235,6 +1235,7 @@ final class Pipeline {
             uniform float uPainted;
             uniform float uGlassPass;
             uniform float uInstruments;
+            uniform vec3 uOwnAmbient;
             uniform float uRaining;
             uniform float uTime;
             """ + BEAMS + """
@@ -1509,7 +1510,10 @@ final class Pipeline {
                 vec3 fromSky = mix(vec3(0.42, 0.40, 0.36), vec3(0.72, 0.80, 0.95), 0.5 + 0.5 * n.z);
                 // The cabin is lit through its windows from every side, though its own roof
                 // keeps the sun off it.
-                vec3 lightHere = fromSky * (1.0 + 1.6 * cabin) + sunLight * (2.1 * sun * facing);
+                // A cabin is lit through its windows by the sky there is: a great deal by day, next
+                // to nothing on a dark night.
+                float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
+                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
                 // Paint under lacquer mirrors the sky all over, more at a glance, and throws
@@ -2896,6 +2900,7 @@ final class Pipeline {
             figureLight.set("uWriteNear", 0f);
             // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
             figureLight.set("uInside", 0f);
+            figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
             quad();
@@ -2950,6 +2955,7 @@ final class Pipeline {
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+            figureLight.set("uOwnAmbient", Characters.ownAmbient[0], Characters.ownAmbient[1], Characters.ownAmbient[2]);
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
