@@ -44,9 +44,10 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SITTING = 0.9f;
     /** The eye of someone seated in a vehicle, above the ground the vehicle stands on, in tiles. Set by eye in Base.CarNormal. */
     private static final float EYE_HEIGHT_IN_VEHICLE = 1.3f;
-    private static final float HEAD_INBOARD = 0.32f;
+    private static final float HEAD_INBOARD = 0.5f;
     private static final org.joml.Vector3f seatAt = new org.joml.Vector3f();
     private static int seatSaid;
+    private static final org.joml.Vector3f facing = new org.joml.Vector3f();
     /** Whether the viewer is in a vehicle. Set on the logic thread, read by the picture. */
     static volatile boolean seated;
     /** The way the viewer's vehicle faces, on the map. */
@@ -175,20 +176,22 @@ public final class FirstPerson {
             int seat = vehicle.getSeat(player);
             if (seat >= 0) {
                 vehicle.getPassengerWorldPos(seat, seatAt);
-                // The game's seat is where the character's feet go, by the door. The head is
-                // further in.
-                float inX = vehicle.getX() - seatAt.x, inY = vehicle.getY() - seatAt.y;
-                float in = Math.max((float) Math.hypot(inX, inY), 1e-3f);
-                // The way the vehicle faces: square to the line from the driver's seat to its
-                // middle, with the middle on the driver's right: the game's cars are driven from the left.
-                aheadX = inY / in;
-                aheadY = -inX / in;
-                eyeX = seatAt.x + inX / in * HEAD_INBOARD;
-                eyeY = seatAt.y + inY / in * HEAD_INBOARD;
+                // The game's seat is at the door. The head is further in, straight across
+                // the vehicle. Which way the vehicle faces the game gives with y as up.
+                vehicle.getForwardVector(facing);
+                float along = Math.max((float) Math.hypot(facing.x, facing.z), 1e-3f);
+                aheadX = facing.x / along;
+                aheadY = facing.z / along;
+                float outX = seatAt.x - vehicle.getX(), outY = seatAt.y - vehicle.getY();
+                float ahead = outX * aheadX + outY * aheadY;
+                float sideX = outX - ahead * aheadX, sideY = outY - ahead * aheadY;
+                float side = Math.max((float) Math.hypot(sideX, sideY), 1e-3f);
+                eyeX = seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
+                eyeY = seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
                 eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;
                 if (TRACE && (seatSaid++ & 127) == 0) {
-                    Log.info(String.format(java.util.Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) player (%.2f, %.2f, %.2f)", seat, seatAt.x, seatAt.y, seatAt.z,
-                            player.getX(), player.getY(), player.getZ()));
+                    Log.info(String.format(java.util.Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,
+                            seatAt.x, seatAt.y, seatAt.z, vehicle.getX(), vehicle.getY(), facing.x, facing.y, facing.z, eyeX, eyeY));
                 }
             }
         }
