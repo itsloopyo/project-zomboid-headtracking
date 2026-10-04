@@ -216,7 +216,7 @@ final class SpriteGeometry {
     private float[] result;
     private float centreU, centreV;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
-    private float shownA, shownB;
+    float shownA, shownB;
     /**
      * How many frame pixels in from the face's low and high edge across the sprite its texels
      * are taken, beyond the usual inset: see WorldScene.addWall.

@@ -177,6 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** Half the thickness of a wall, in tiles. */
+    private static final float WALL_HALF = 0.06f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
     private static final int LONG_TUFTS = 10;
@@ -1143,8 +1145,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, int x, int y, int z,
             float a, float b, float da, float db) {
+        // A wall is as thick as a wall: two skins, one each side of the square's edge, both
+        // showing what the sprite shows. Through a window or a doorway the far skin is seen
+        // behind the near one, which is the depth of the opening. What hangs on the wall
+        // hangs on the skin inside the square.
+        float inX = db * WALL_HALF, inY = da * WALL_HALF;
         if (!wall) {
+            geometry.shownA = inX;
+            geometry.shownB = inY;
             geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+            geometry.shownA = geometry.shownB = 0f;
             return;
         }
         float fromStart = unpainted(texture, a, b, da, db);
@@ -1152,7 +1162,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean startIsLow = SpriteGeometry.frameU(frame, a, b) < SpriteGeometry.frameU(frame, a + da, b + db);
         geometry.sealLow = startIsLow ? fromStart : fromEnd;
         geometry.sealHigh = startIsLow ? fromEnd : fromStart;
+        geometry.shownA = inX;
+        geometry.shownB = inY;
         geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        geometry.shownA = -inX;
+        geometry.shownB = -inY;
+        geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        geometry.shownA = geometry.shownB = 0f;
         geometry.sealLow = 0f;
         geometry.sealHigh = 0f;
     }
