@@ -165,6 +165,8 @@ final class Pipeline {
             uniform float uFogStart;
             uniform float uFogEnd;
             uniform float uCut;
+            uniform float uWet;
+            uniform float uSeconds;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
@@ -184,6 +186,19 @@ final class Pipeline {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
+            float grain(vec2 p) {
+                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // Smooth noise over the ground, for where the puddles lie.
+            float patches(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
+                        mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
                 if (texel.a < uCut) {
@@ -200,23 +215,25 @@ final class Pipeline {
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
                 // the sun gets into from any side: it is lit whichever way the card faces.
-                bool card = vColor.a > 1.5;
-                float open = card ? vColor.a - 2.0 : vColor.a;
+                bool water = vColor.a > 3.5;
+                bool card = !water && vColor.a > 1.5;
+                float open = water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (card) {
                     facing = 0.5 + 0.4 * facing;
                 }
                 float sun = 0.0;
+                float reached = 0.0;
                 if (facing > 0.0) {
                     vec4 from = vec4(vWorld + n * 0.07, 1.0);
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
-                        sun = shadowAt(uShadowNear, c);
+                        reached = shadowAt(uShadowNear, c);
                     } else {
                         c = (uFarMatrix * from).xyz * 0.5 + 0.5;
-                        sun = inside(c) ? shadowAt(uShadowFar, c) : 1.0;
+                        reached = inside(c) ? shadowAt(uShadowFar, c) : 1.0;
                     }
-                    sun *= facing;
+                    sun = reached * facing;
                 }
 
                 // The game's light for the square is the light that is there without the sun
@@ -225,6 +242,33 @@ final class Pipeline {
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
+
+                // Water, and ground that rain has wetted, show the sky: little of it looking
+                // straight down, nearly all of it at a glancing angle, and the sun as a streak
+                // of light. Wet ground is darker than dry, and holds the most water where it
+                // pools.
+                float shine = 0.0;
+                float ripple = 0.0;
+                if (water) {
+                    shine = 1.0;
+                    ripple = 0.05;
+                    color *= 0.55;
+                } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
+                    float pool = smoothstep(0.52, 0.7, patches(vWorld.xy * 0.45));
+                    shine = uWet * (0.22 + 0.78 * pool);
+                    ripple = 0.012 * pool;
+                    color *= 1.0 - 0.3 * uWet;
+                }
+                if (shine > 0.0) {
+                    vec2 wave = vec2(sin(vWorld.x * 3.1 + vWorld.y * 1.7 + uSeconds * 1.9) + sin(vWorld.x * 7.3 - vWorld.y * 5.9 + uSeconds * 2.7),
+                            sin(vWorld.y * 3.7 - vWorld.x * 1.3 + uSeconds * 2.2) + sin(vWorld.y * 6.7 + vWorld.x * 8.1 - uSeconds * 3.1));
+                    vec3 surface = normalize(vec3(n.xy + wave * ripple, n.z));
+                    vec3 mirrored = reflect(-view, surface);
+                    mirrored.z = abs(mirrored.z);
+                    float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
+                    color = mix(color, atmosphere(mirrored) * (0.35 + 0.65 * open), glance * shine);
+                    color += pow(uLightColor, vec3(2.2)) * (pow(max(dot(mirrored, uLight), 0.0), 220.0) * 6.0 * shine * reached);
+                }
 
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
                 color = mix(color, atmosphere(-view), haze);
@@ -530,12 +574,17 @@ final class Pipeline {
             uniform vec3 uRayColor;
             uniform float uAspect;
             uniform float uTime;
+            uniform float uRain;
 
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
 
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            float grainAt(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
 
             // What is left of the sun's glow along the line from this pixel to the sun: a pixel
@@ -557,6 +606,21 @@ final class Pipeline {
                     p += stride;
                 }
                 return uRayColor * (sum / float(RAY_SAMPLES) * reach);
+            }
+
+            // One sheet of falling rain: streaks in columns, each column with its own speed and
+            // its own gaps, leaning with the wind.
+            float sheet(vec2 uv, float columns, float speed, float seed) {
+                vec2 p = vec2(uv.x * uAspect * columns + uv.y * 4.0, uv.y * columns * 0.07 + uTime * speed);
+                float column = floor(p.x);
+                float along = p.y + grainAt(vec2(column, seed)) * 37.0;
+                float drop = grainAt(vec2(column, floor(along) + seed));
+                float streak = smoothstep(0.5, 0.0, abs(fract(p.x) - 0.5) * 2.2) * smoothstep(0.0, 0.25, fract(along)) * smoothstep(1.0, 0.55, fract(along));
+                return streak * step(0.55, drop);
+            }
+
+            float rainfall(vec2 uv) {
+                return sheet(uv, 90.0, 5.5, 1.0) * 0.5 + sheet(uv, 150.0, 4.2, 2.0) * 0.32 + sheet(uv, 260.0, 3.4, 3.0) * 0.2;
             }
 
             // What a lens does with the sun in front of it: faint copies of it strung along the
@@ -607,6 +671,9 @@ final class Pipeline {
                 c += texture2D(uVolume, uv).rgb;
                 c += flare(uv);
                 c += texture2D(uBloom, uv).rgb * 0.045;
+                if (uRain > 0.0) {
+                    c += vec3(0.55, 0.6, 0.68) * (rainfall(uv) * uRain / uExposure * 0.5);
+                }
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);
@@ -1125,6 +1192,8 @@ final class Pipeline {
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
         world.set("uWind", state.windX, state.windY, state.seconds);
+        world.set("uWet", state.wet);
+        world.set("uSeconds", state.seconds);
         atmosphere(world, state);
         world.set("uCut", 0.5f);
         drawRanges(0, solidRanges);
@@ -1338,6 +1407,7 @@ final class Pipeline {
         develop.set("uExposure", exposure);
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
+        develop.set("uRain", state.rain * state.outdoors);
         boolean sunAhead = ViewCamera.project(camera, tanHalfFieldOfView, aspect, camera.eyeX + state.sunX, camera.eyeY + state.sunY,
                 camera.eyeUp + state.sunUp, sunNdc);
         if (sunAhead) {

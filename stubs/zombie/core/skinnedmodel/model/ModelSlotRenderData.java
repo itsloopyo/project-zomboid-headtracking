@@ -10,4 +10,6 @@ public final class ModelSlotRenderData {
     public float y;
     public float z;
     public boolean inVehicle;
+    public float squareDepth;
+    public float centerOfMassY;
 }

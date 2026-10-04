@@ -25,6 +25,8 @@ final class SpriteGeometry {
     static final int VERTEX_FLOATS = 12;
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
     static final float CARD = 2f;
+    /** Added to a vertex's openness to mark it as the surface of water. */
+    static final float WATER = 4f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
 
@@ -179,6 +181,8 @@ final class SpriteGeometry {
         float red, green, blue;
         /** 1 for a square out of doors, 0 for one under a roof. */
         float open;
+        /** What the next face is, added to its openness: 0 for an ordinary surface, WATER for water. */
+        float kind;
         /**
          * The light at the square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1). A face
          * takes its light from these by where on the square each of its vertices is, so the
@@ -242,7 +246,7 @@ final class SpriteGeometry {
         }
         int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
         float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
-        mesh.open = frame.open;
+        mesh.open = frame.open + frame.kind;
         mesh.face(db1 * up2 - up1 * db2, up1 * da2 - da1 * up2, da1 * db2 - db1 * da2);
         float[] from = result;
         for (int i = 1; i < count - 1; i++) {

@@ -63,6 +63,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float FAR = 200f;
     private static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.8f;
+    private static final float EXPOSURE_MOST = 3.5f;
     /**
      * How far a sprite hung on a wall or laid on a floor stands off the one under it, so the two
      * do not fight for depth. The depth buffer tells two surfaces apart less well the further
@@ -234,6 +235,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         viewer = player;
         float daylight = GameTime.getInstance().getAmbient();
         sky.capture();
+        if (unseenRed < 0f) {
+            unseenRed = unseenGreen = unseenBlue = daylight;
+        }
         exposure = adaptEye(player);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
@@ -396,10 +400,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float elapsed = lastAdapt == 0 ? 1f : Math.min((now - lastAdapt) / 1e9f, 1f);
         lastAdapt = now;
         eyeOpen = eyeOpen < 0f ? target : eyeOpen + (target - eyeOpen) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
+        sky.outdoors = eyeOpen;
         float strongest = Math.max(sky.lightRed, Math.max(sky.lightGreen, sky.lightBlue));
-        // Sunlit ground comes out about as bright as the sprite was painted.
-        float outdoors = 1.4f / (0.8f + 1.83f * (float) Math.pow(strongest, 2.2));
-        return EXPOSURE_INDOORS + (outdoors - EXPOSURE_INDOORS) * eyeOpen;
+        // Out of doors by day, sunlit ground comes out about as bright as the sprite was painted.
+        // As the game's own light for the open ground falls, towards night, the eye opens up to
+        // it, though never so far that night stops being dark.
+        float ground = (float) Math.pow((unseenRed + unseenGreen + unseenBlue) / 3f, 2.2);
+        float outdoors = Math.min(1.4f / (0.8f * ground + 1.83f * (float) Math.pow(strongest, 2.2)), EXPOSURE_MOST);
+        float here = 1f;
+        if (under != null) {
+            ColorInfo light = under.lighting[player.getIndex()].lightInfo();
+            here = (float) Math.pow((light.r + light.g + light.b) / 3f, 2.2);
+        }
+        float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), EXPOSURE_MOST);
+        return indoors + (outdoors - indoors) * eyeOpen;
     }
 
     /**
@@ -566,7 +580,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 addCeiling(mesh, x, y, z);
             }
             SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
+            frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
             geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
+            frame.kind = 0f;
             return;
         }
 

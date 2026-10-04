@@ -45,13 +45,21 @@ final class SkyState {
     float windX, windY;
     /** How much there is in the air for light to catch: a little on a clear day, a lot in fog. */
     float mist;
+    /** How hard it is raining, 0 to 1. Snow is not rain. */
+    float rain;
+    /** How wet the ground is, 0 to 1: it takes a while to wet in rain and longer to dry after it. */
+    float wet;
+    /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene. */
+    float outdoors;
 
     private static float driftedX, driftedY;
+    private static float wetness;
+    private static final float SECONDS_TO_WET = 12f, SECONDS_TO_DRY = 180f;
     private static long lastNanos;
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(java.util.Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f)", sunUp, night, cover, mist, windX, windY);
+        return String.format(java.util.Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f", sunUp, night, cover, mist, windX, windY, rain, wet);
     }
 
     void capture() {
@@ -138,9 +146,11 @@ final class SkyState {
         windY = (float) Math.sin(windAngle) * windStrength;
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
 
+        this.rain = climate.isSnowing() ? 0f : rain;
         long now = System.nanoTime();
         if (lastNanos != 0 && !GameTime.isGamePaused()) {
             float elapsed = Math.min((now - lastNanos) / 1e9f, 0.25f);
+            wetness = Math.clamp(wetness + (this.rain > 0.05f ? elapsed / SECONDS_TO_WET : -elapsed / SECONDS_TO_DRY), 0f, 1f);
             float speed = DRIFT_STILL + DRIFT_PER_WIND * Math.clamp(climate.getWindIntensity(), 0f, 1f);
             float wind = climate.getWindAngleRadians();
             driftedX += (float) Math.cos(wind) * speed * elapsed;
@@ -150,6 +160,7 @@ final class SkyState {
             driftedY -= (float) Math.floor(driftedY);
         }
         lastNanos = now;
+        wet = wetness;
         driftX = driftedX;
         driftY = driftedY;
         seconds = (now - START_NANOS) / 1e9f % 3600f;
