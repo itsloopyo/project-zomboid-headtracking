@@ -458,6 +458,15 @@ final class Pipeline {
                     texel = vec4(0.03, 0.03, 0.035, 1.0);
                     cover = 1.0;
                 }
+                // Chain link is thin galvanised wire. The game paints it as heavy dark strokes,
+                // which up close are a black lattice: here the wire is half as thick and the
+                // grey of zinc.
+                if (vMaterial > 14.5) {
+                    if (cover < 0.72) {
+                        discard;
+                    }
+                    texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
+                }
                 if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
@@ -717,7 +726,7 @@ final class Pipeline {
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
                 // of their own, enough to bloom.
-                if (vMaterial > 13.5 && uDark > 0.0) {
+                if (vMaterial > 13.5 && vMaterial < 14.5 && uDark > 0.0) {
                     float lit = smoothstep(0.55, 0.95, max(vColor.r, max(vColor.g, vColor.b)));
                     float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
                     color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);

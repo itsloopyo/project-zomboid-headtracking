@@ -178,6 +178,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] box = new float[4];
     private int overLayer;
     private boolean wiredHere;
+    private final java.util.IdentityHashMap<IsoSprite, Boolean> meshes = new java.util.IdentityHashMap<>();
+    private static final float MESH_PAINTED_MOST = 0.45f;
     private boolean wallNorth, wallWest;
     private static final float SWITCH_WIDEST = 12f;
     private static final java.util.HashMap<Long, Integer> strung = new java.util.HashMap<>();
@@ -796,7 +798,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -946,6 +948,27 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return false;
     }
 
+    /**
+     * Whether a fence's sprite is mostly air: chain link or wire, not boards. Counted once for
+     * each sprite, over a grid of points across it.
+     */
+    private boolean isMesh(IsoSprite sprite, Texture texture) {
+        Boolean known = meshes.get(sprite);
+        if (known == null) {
+            int painted = 0;
+            for (int i = 0; i < 12; i++) {
+                for (int j = 0; j < 12; j++) {
+                    if (texture.isMaskSet((int) (frame.left + (i + 0.5f) * frame.width / 12f), (int) (frame.top + (j + 0.5f) * frame.height / 12f))) {
+                        painted++;
+                    }
+                }
+            }
+            known = painted < 144 * MESH_PAINTED_MOST;
+            meshes.put(sprite, known);
+        }
+        return known;
+    }
+
     private boolean overPole(int x, int y) {
         IsoGridSquare ground = cell.getGridSquare(x, y, 0);
         if (ground == null) {
@@ -1014,6 +1037,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
             frameOf(object, texture);
             frame.material = materialOf(sprite.getName(), object == floor);
+            if (frame.material == PLANKS && isMesh(sprite, texture)) {
+                frame.material = MESH;
+            }
             sprites++;
             overLayer = 0;
             geometry.nudgeX = geometry.nudgeY = 0f;
