@@ -189,7 +189,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float STEEPEST_ROOF = 0.55f;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
-    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f;
+    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
     private final float[] eave = new float[12];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
@@ -1639,6 +1639,21 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
         set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
         SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        // Where the eave ends, at the corner of the building, the gutter empties into a pipe
+        // down the wall to the ground.
+        if (!hasRoof(alongX != 0f ? x : x - 1, alongX != 0f ? y - 1 : y, z)) {
+            plain.open = frame.open + 32f * CONCRETE;
+            float px = x1 + ox * 0.5f - (alongX != 0f ? Math.signum(out) * EAVE : 0f), py = y1 + oy * 0.5f - (alongX != 0f ? 0f : Math.signum(out) * EAVE);
+            float foot = lift;
+            for (int turn = 0; turn < 2; turn++) {
+                float wx = turn == 0 ? PIPE : 0f, wy = turn == 0 ? 0f : PIPE;
+                set(c, 0, px - wx, py - wy, foot);
+                set(c, 1, px + wx, py + wy, foot);
+                set(c, 2, px + wx, py + wy, far - GUTTER);
+                set(c, 3, px - wx, py - wy, far - GUTTER);
+                SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+            }
+        }
     }
 
     private static void set(float[] c, int corner, float x, float y, float h) {
