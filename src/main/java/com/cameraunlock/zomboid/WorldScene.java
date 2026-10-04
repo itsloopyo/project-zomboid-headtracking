@@ -523,7 +523,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (under != null) {
             for (int dx = -3; dx <= 3; dx++) {
                 for (int dy = -3; dy <= 3; dy++) {
-                    IsoGridSquare near = cell.getGridSquare(under.getX() + dx, under.getY() + dy, under.getZ());
+                    IsoGridSquare near = IsoWorld.instance.currentCell.getGridSquare(under.getX() + dx, under.getY() + dy, under.getZ());
                     if (near != null && near.HasTree()) {
                         trees++;
                     }

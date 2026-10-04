@@ -14,4 +14,5 @@ public class Texture {
     public float getYStart() { throw new UnsupportedOperationException("reference stub"); }
     public float getYEnd() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isMaskSet(int x, int y) { throw new UnsupportedOperationException("reference stub"); }
+    public String getName() { throw new UnsupportedOperationException("reference stub"); }
 }
