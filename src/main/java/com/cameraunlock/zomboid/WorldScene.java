@@ -1073,7 +1073,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             int cards = type == IsoObjectType.tree ? 5 : 3;
             // A bush is leaves all over, as a tree's crown is.
             String grown = sprite.getName();
-            if (grown != null && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage"))) {
+            // So is every other plant the game paints with a dark line round each leaf: the
+            // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
+            if (grown != null && type != IsoObjectType.tree) {
                 frame.material = LEAVES;
             }
             double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
