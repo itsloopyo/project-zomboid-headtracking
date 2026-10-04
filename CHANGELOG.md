@@ -15,5 +15,7 @@
 - Rain falling through headlights shows as bright streaks, stands as drops on a vehicle's windows, and is cleared from the front screen by the wipers.
 - Night in first person is darker: the eye no longer opens up until the ground looks as it does by day.
 - Rooms in first person are shaded in their corners.
+- People and zombies in first person are lit by the sun and sky like the world round them, with smooth skins, soft shadow edges and a rim of sky light, and are dark at night outside a lamp's reach.
+- A vehicle's cabin has grained trim and woven seat cloth.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.

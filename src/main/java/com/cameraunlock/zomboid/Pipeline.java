@@ -133,9 +133,9 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 18;
+    private static final int UNITS = 20;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
-    private static final int BEAM_UNIT = 14;
+    private static final int BEAM_UNIT = 16;
 
     /** The headlights that are on, for every shader they light: the world, the figures, the air and the rain. */
     private static final String BEAMS = """
@@ -1243,7 +1243,11 @@ final class Pipeline {
             uniform float uPainted;
             uniform float uGlassPass;
             uniform float uInstruments;
+            uniform sampler2D uVinyl;
+            uniform sampler2D uCloth;
+            uniform vec2 uCabinGain;
             uniform vec3 uOwnAmbient;
+            uniform float uFigureAmbient;
             uniform float uRaining;
             uniform float uTime;
             """ + BEAMS + """
@@ -1442,6 +1446,18 @@ final class Pipeline {
                     if (sum.a > 6.0) {
                         figure = vec4(sum.rgb / sum.a, 1.0);
                     }
+                    // The game paints a cabin in flat colours. What it is made of is laid over
+                    // them, fixed to the vehicle: grained vinyl on the dash, the doors and the
+                    // wheel, woven cloth on the seats, which are the parts with colour in them.
+                    vec3 to = at - uEye;
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    vec3 local = vec3(dot(to.xy, uAhead), dot(to.xy, side), to.z);
+                    vec3 faces = abs(vec3(dot(n.xy, uAhead), dot(n.xy, side), n.z));
+                    vec2 lie = faces.z > faces.x && faces.z > faces.y ? local.xy : faces.x > faces.y ? local.yz : local.xz;
+                    float most = max(figure.r, max(figure.g, figure.b)), least = min(figure.r, min(figure.g, figure.b));
+                    float woven = smoothstep(0.2, 0.35, (most - least) / max(most, 0.001)) * step(0.2, most);
+                    vec3 grain = mix(texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x, texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y, woven);
+                    figure.rgb *= mix(vec3(1.0), grain, mix(0.9, 0.45, woven));
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
@@ -1458,7 +1474,11 @@ final class Pipeline {
                 vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                 float sun = 1.0;
                 if (inside(c)) {
-                    sun = shadow2D(uShadowNear, c).r;
+                    // Over a few places round the point: a shadow's edge across a face or a
+                    // sleeve is soft.
+                    float e = 2.0 / 4096.0;
+                    sun = 0.2 * (shadow2D(uShadowNear, c).r + shadow2D(uShadowNear, c + vec3(e, e, 0.0)).r + shadow2D(uShadowNear, c + vec3(-e, e, 0.0)).r
+                            + shadow2D(uShadowNear, c + vec3(e, -e, 0.0)).r + shadow2D(uShadowNear, c + vec3(-e, -e, 0.0)).r);
                 } else {
                     c = (uFarMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
@@ -1521,9 +1541,17 @@ final class Pipeline {
                 // A cabin is lit through its windows by the sky there is: a great deal by day, next
                 // to nothing on a dark night.
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
-                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) + sunLight * (2.1 * sun * facing);
+                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) * mix(pow(uFigureAmbient, 2.2) * 1.7 * skyGives, 1.0, cabin) + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
+                if (uPainted < 0.5 && cabin < 0.5) {
+                    // Skin and cloth let a little light through at the edge of the shade: the
+                    // line between lit and unlit on a cheek or a shoulder is warm, not grey.
+                    float edge = smoothstep(0.0, 0.25, facing) * (1.0 - smoothstep(0.25, 0.6, facing));
+                    color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * sunLight * vec3(0.55, 0.16, 0.08) * (edge * sun);
+                    // And the nap of cloth and the down on skin catch the sky all round the outline.
+                    color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * fromSky * (0.9 * pow(1.0 - max(dot(n, view), 0.0), 4.0));
+                }
                 // Paint under lacquer mirrors the sky all over, more at a glance, and throws
                 // the sun back as a small hard light. Cloth and skin only catch the sky at
                 // their edges.
@@ -1932,7 +1960,7 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
@@ -2865,7 +2893,9 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
             GL11.glDisable(GL_BLEND);
+            smoothSkins(true);
             Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1);
+            smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
             GL30.glBindVertexArray(0);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2909,6 +2939,7 @@ final class Pipeline {
             // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
             figureLight.set("uInside", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
+            figureLight.set("uFigureAmbient", Characters.ambient);
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
             quad();
@@ -2963,6 +2994,9 @@ final class Pipeline {
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+            figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
+            figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
+            figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
             figureLight.set("uOwnAmbient", Characters.ownAmbient[0], Characters.ownAmbient[1], Characters.ownAmbient[2]);
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_ALWAYS);
@@ -3263,7 +3297,7 @@ final class Pipeline {
 
     /** Reads a material's picture out of the jar and gives it to the graphics card. Null, or what went wrong. */
     private static String loadMaterial(int material) {
-        boolean cutout = material >= FIRST_CUTOUT;
+        boolean cutout = material == FIRST_CUTOUT;
         int each = cutout ? 4 : 3;
         String path = "/materials/" + MATERIALS[material] + (cutout ? ".rgba.gz" : ".rgb.gz");
         ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * each);

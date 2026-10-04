@@ -237,12 +237,16 @@ public final class Characters {
         only = ALL;
     }
 
+    /** The light the game gave the models last drawn, averaged over them. */
+    static float ambient = 1f;
+
     /** The light the game gives the vehicle the viewer sits in. */
     static final float[] ownAmbient = {1f, 1f, 1f};
 
     private static int draw(float[] view, boolean withViewer, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;
+        float ambientSum = 0f;
         if (!withViewer && TRACE) {
             StringBuilder said = new StringBuilder();
             for (int i = 0; i < noted.size(); i++) {
@@ -257,7 +261,7 @@ public final class Characters {
                         .append(" parts ").append(data.modelData.size()).append(" away ")
                         .append(String.format(java.util.Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
             }
-            described = said.toString();
+            described = said.append("ambient ").append(String.format(java.util.Locale.ROOT, "%.2f", ambient)).toString();
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
@@ -275,6 +279,14 @@ public final class Characters {
             if (!withViewer && FirstPerson.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                 continue;
             }
+            // Drawn in full light. The game dims a model by the light where it stands and the
+            // picture then lit it again, which left people dull and dark at noon; the game's
+            // light is kept as a figure and the picture does the lighting once.
+            float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+            ambientSum += (red + green + blue) / 3f;
+            data.ambientR = 1f;
+            data.ambientG = 1f;
+            data.ambientB = 1f;
             if (data.character == null) {
                 vehicle(data, i * 4, view);
             } else if (data.inVehicle) {
@@ -282,7 +294,13 @@ public final class Characters {
             } else {
                 character(data, view);
             }
+            data.ambientR = red;
+            data.ambientG = green;
+            data.ambientB = blue;
             drawn++;
+        }
+        if (drawn > 0) {
+            ambient = ambientSum / drawn;
         }
         return drawn;
     }
