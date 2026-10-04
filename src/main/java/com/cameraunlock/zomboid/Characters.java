@@ -50,6 +50,9 @@ public final class Characters {
     private static final float[] combined = new float[16];
     private static final float[] projection = new float[16];
     private static int drawnLast;
+    private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
+    /** With tracing on, what the models noted last frame were. */
+    static volatile String described = "";
 
     /**
      * What the game's vehicle draw asks for its matrices: it calls Begin and End on whatever
@@ -135,6 +138,16 @@ public final class Characters {
     private static int draw(float[] view, boolean withViewer, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;
+        if (!withViewer && TRACE) {
+            StringBuilder said = new StringBuilder();
+            for (int i = 0; i < noted.size(); i++) {
+                ModelSlotRenderData data = noted.get(i);
+                said.append(data.character == null ? "none" : data.character.getClass().getSimpleName()).append(data.character == viewer ? "(viewer)" : "")
+                        .append(" parts ").append(data.modelData.size()).append(" away ")
+                        .append(String.format(java.util.Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
+            }
+            described = said.toString();
+        }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             // A character in a vehicle is placed by its seat, which is not worked out here yet.

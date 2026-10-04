@@ -226,7 +226,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe());
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described;
     }
 
     static float drawnAspect() {
