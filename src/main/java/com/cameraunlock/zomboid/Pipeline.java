@@ -311,9 +311,10 @@ final class Pipeline {
                     vec2 flow = fall * 32.0;
                     float speed = length(flow);
                     vec2 p = vWorld.xy - flow * uSeconds;
-                    float churn = patches(p * 2.6) * 0.6 + patches(p * 7.3 + 3.0) * 0.4;
+                    float churn = patches(p * vec2(5.1, 5.1)) * 0.5 + patches(p * 13.7 + 3.0) * 0.3 + patches(p * 31.0 + 9.0) * 0.2;
                     float lap = smoothstep(0.72, 0.98, bank + 0.12 * sin(uSeconds * 1.4 + churn * 9.0) + 0.1 * churn);
-                    foam = clamp(smoothstep(0.56, 0.8, churn) * smoothstep(0.2, 0.7, speed) + lap * 0.8, 0.0, 1.0);
+                    // A broad river slides along without breaking. Only water on a real fall froths.
+                    foam = clamp(smoothstep(0.58, 0.78, churn) * smoothstep(0.9, 1.6, speed) + lap * 0.8, 0.0, 1.0);
                     vec3 body = mix(vec3(0.16, 0.3, 0.33), vec3(0.45, 0.5, 0.4), smoothstep(0.15, 1.0, bank));
                     texel.rgb = mix(body, vec3(0.95), foam) / 0.74;
                 }

@@ -23,7 +23,8 @@ import zombie.iso.sprite.IsoSprite;
  * its valley, and its banks fall to it.</li>
  * <li>A building stands on a level pad at the height the land has in the middle of it, and the
  * ground round it is graded to meet the pad.</li>
- * <li>Open ground is uneven underfoot. Made ground, a road or a yard, is smooth.</li>
+ * <li>Open ground has rises and hollows and is uneven underfoot. Made ground, a road or a
+ * yard, is cut level through it.</li>
  * </ul>
  *
  * Only the picture. The game's own positions, paths and collisions stay on the flat map, and
@@ -153,7 +154,7 @@ final class Terrain {
             return touchingPads / touching;
         }
         float land = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY)
-                + roll(x, y) * smooth(toMade / REACH) - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH));
+                + (knolls(x, y) + roll(x, y)) * smooth(toMade / REACH) - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH));
         if (nearWeight == 0f) {
             return land;
         }
@@ -312,6 +313,15 @@ final class Terrain {
         float ridge = (float) (Math.sin(x * 0.033 - y * 0.022 + 2.0) * Math.sin(y * 0.03 + x * 0.009 + 0.9));
         float up = Math.max(0f, 0.5f + 0.42f * broad + 0.16f * ridge);
         return 2.4f * up * up;
+    }
+
+    /**
+     * The rises and hollows of open country, a stone's throw across and a man's height or so
+     * from top to bottom. Made ground is cut level through them: a road runs between its banks.
+     */
+    private static float knolls(float x, float y) {
+        return 1.1f * (float) (Math.sin(x * 0.067 + 0.3) * Math.sin(y * 0.079 + 1.7))
+                + 0.7f * (float) (Math.sin((x + y * 0.6) * 0.045 + 3.1) * Math.sin((y - x * 0.4) * 0.057 + 0.8));
     }
 
     /** What is uneven underfoot on open ground, the same wherever and whenever it is asked. */
