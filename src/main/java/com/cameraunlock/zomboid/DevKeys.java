@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import zombie.GameTime;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
@@ -21,6 +22,9 @@ import zombie.vehicles.VehiclePart;
  * vehicles and driving without first finding one that runs.
  *
  * F6 makes the player invincible, and vulnerable again on the next press.
+ *
+ * F2 clears the loaded map of zombies and keeps it clear, and lets them back on the next
+ * press: for looking at the picture in peace.
  *
  * F3 moves the player to the next of a few places worth looking at: a lake shore, a wood, open
  * farmland, a town street.
@@ -40,6 +44,9 @@ final class DevKeys {
     /** F6. */
     private static final int INVINCIBLE_KEY = 64;
 
+    /** F2. */
+    private static final int CLEAR_KEY = 60;
+    private static boolean cleared;
     /** F3. */
     private static final int PLACE_KEY = 61;
     /** Tile x and y of each place, on the ground. */
@@ -71,7 +78,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F3 goes to the next view, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: F2 clears out the zombies, F3 goes to the next view, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
         if (!enabled) {
@@ -105,6 +112,18 @@ final class DevKeys {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
             wasInvincible = invincible;
+        }
+        if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
+            cleared = !cleared;
+            Log.info("F2: zombies cleared " + cleared);
+        }
+        if (cleared && IsoWorld.instance.currentCell != null) {
+            java.util.ArrayList<IsoZombie> zombies = IsoWorld.instance.currentCell.getZombieList();
+            for (int i = zombies.size() - 1; i >= 0; i--) {
+                IsoZombie zombie = zombies.get(i);
+                zombie.removeFromWorld();
+                zombie.removeFromSquare();
+            }
         }
         if (safe != null && safe.getVehicle() == null && GameKeyboard.isKeyPressed(PLACE_KEY)) {
             float[] to = PLACES[place++ % PLACES.length];
