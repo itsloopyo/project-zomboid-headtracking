@@ -450,12 +450,19 @@ final class Pipeline {
                 vec2 stepX = dFdx(vUv), stepY = dFdy(vUv);
                 bool small = uTexel.x > 0.0 && max(dot(stepX, stepX), dot(stepY, stepY)) > 1.3 * uTexel.x * uTexel.x;
                 if (small) {
-                    vec4 a = texture2D(uTexture, vUv + 0.125 * stepX + 0.375 * stepY);
-                    vec4 b = texture2D(uTexture, vUv - 0.375 * stepX + 0.125 * stepY);
-                    vec4 c = texture2D(uTexture, vUv + 0.375 * stepX - 0.125 * stepY);
-                    vec4 d = texture2D(uTexture, vUv - 0.125 * stepX - 0.375 * stepY);
-                    float solid = a.a + b.a + c.a + d.a;
-                    texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
+                    // Nine samples over what the pixel covers, each itself a blend of four
+                    // dots: enough for a house several streets off, where a pixel takes in
+                    // half a dozen dots of its sprite each way.
+                    vec3 sum = vec3(0.0);
+                    float solid = 0.0;
+                    for (int i = -1; i <= 1; i++) {
+                        for (int j = -1; j <= 1; j++) {
+                            vec4 s = texture2D(uTexture, vUv + (float(i) * stepX + float(j) * stepY) * 0.34);
+                            sum += s.rgb * s.a;
+                            solid += s.a;
+                        }
+                    }
+                    texel = vec4(sum / max(solid, 0.001), solid / 9.0);
                 }
                 // The skin of a wall that faces away from the side its sprite was painted for
                 // keeps the sprite's outline and its light and dark, each dot as much lighter or
@@ -542,7 +549,12 @@ final class Pipeline {
                     float up = 1.0 - vCover;
                     // Blades are counted along the card, whichever way it is turned.
                     vec2 run = normalize(vec2(-vNormal.y, vNormal.x));
-                    float along = dot(vWorld.xy, run) * 78.0;
+                    // Blades narrower than a pixel cannot be drawn: each would be there in one
+                    // frame and gone in the next. Further off, the same card is fewer and
+                    // broader blades, halving in number each time they would get too fine.
+                    float fine = fwidth(dot(vWorld.xy, run)) * 78.0;
+                    float fewer = exp2(-ceil(log2(max(fine / 0.4, 1.0))));
+                    float along = dot(vWorld.xy, run) * 78.0 * fewer;
                     float blade = floor(along);
                     float kind = grain(vec2(blade, 7.0));
                     // Lawn dies away with distance and is gone where it stops being grown. Long grass,
@@ -2557,7 +2569,7 @@ final class Pipeline {
     private static boolean keptAny;
     private static final ViewCamera.Pose before = new ViewCamera.Pose();
     /** How much of the last frame's picture goes into this one. */
-    private static final float KEPT = 0.86f;
+    private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
     private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
     private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};

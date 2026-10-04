@@ -40,6 +40,12 @@ final class SkyState {
     float glowRed, glowGreen, glowBlue;
     /** The light shafts' colour, already scaled by how much sun gets through the clouds. */
     float rayRed, rayGreen, rayBlue;
+    /**
+     * Set by a test that measures how much a picture of a still world changes from frame to
+     * frame: with it the wind does not blow and nothing moves by the clock, so whatever still
+     * changes is the picture's own unsteadiness.
+     */
+    private static final boolean STILL = Boolean.getBoolean("cameraunlock.zomboid.still");
     float night;
     float cover;
     float driftX, driftY;
@@ -169,6 +175,11 @@ final class SkyState {
         driftX = driftedX;
         driftY = driftedY;
         seconds = (now - START_NANOS) / 1e9f % 3600f;
+        if (STILL) {
+            windX = 0f;
+            windY = 0f;
+            seconds = 0f;
+        }
     }
 
     private static float mix(float from, float to, float amount) {
