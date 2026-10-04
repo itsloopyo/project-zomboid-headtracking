@@ -682,9 +682,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             if (wall == WallHung.NORTH || wall == WallHung.WEST) {
                 SpriteGeometry.Mesh mesh = solid.get(texture.getID());
                 if (wall == WallHung.WEST) {
-                    addEdge(mesh, texture, false, x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
+                    addEdge(mesh, texture, false, false, x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
                 } else {
-                    addEdge(mesh, texture, false, x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
+                    addEdge(mesh, texture, false, false, x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
                 }
                 return;
             }
@@ -938,6 +938,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
+    /** Above every surface a model has, which run from 16. */
+    private static final float GRAVEL = 60f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -1187,7 +1189,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 continue;
             }
             frameOf(object, texture);
-            frame.material = materialOf(sprite.getName(), object == floor);
+            frame.material = object == floor && "Gravel".equals(sprite.getProperties().get("FootstepMaterial")) ? GRAVEL : materialOf(sprite.getName(), object == floor);
             if (frame.material == PLANKS && isMesh(sprite, texture)) {
                 frame.material = MESH;
             }

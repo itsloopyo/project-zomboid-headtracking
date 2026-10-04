@@ -683,7 +683,7 @@ final class Pipeline {
                 // cotton, bare metal, paint, the enamel of a fridge, steel, plastic, the glass
                 // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop,
                 // what a frame holds, vinyl.
-                bool model = vMaterial > 15.5;
+                bool model = vMaterial > 15.5 && vMaterial < 59.5;
                 float surface = -1.0;
                 // How far a model's wood is painted over, and whether what its frame holds is a picture.
                 float painted = 0.0;
@@ -800,7 +800,10 @@ final class Pipeline {
                     // turned against each other, so that neither copy's repeat shows. The
                     // game's own colour stays; the picture gives it its grain.
                     float green = (1.0 - stony) * smoothstep(-0.06, 0.04, (texel.g - texel.r) / max(most, 0.001));
-                    float dark = stony * (1.0 - smoothstep(0.38, 0.56, most));
+                    // Gravel only where the game says the ground is gravel. Told from tarmac by
+                    // how light the ground is, every street in the sun was a bed of pebbles.
+                    float loose = vMaterial > 59.5 ? stony : 0.0;
+                    float dark = stony - loose;
                     // A picture is about a pace and a half of ground: its stones come out the size of gravel.
                     vec2 one = p * 0.83;
                     vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
@@ -808,7 +811,7 @@ final class Pipeline {
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
                             + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
                             // Earth only where the game says the ground is earth: what is brown may as well be planks.
-                            + (1.0 - stony - green) * (vMaterial > 3.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
+                            + (1.0 - stony - green) * (vMaterial > 3.5 && vMaterial < 59.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
                     // The picture's light and dark go over the game's colour everywhere. Where
                     // the ground is stone, which has no colour of its own to lose, the picture's
@@ -822,9 +825,10 @@ final class Pipeline {
                     if (near > 0.0) {
                         float e = 0.012;
                         float here = stones(p), east = stones(p + vec2(e, 0.0)), south = stones(p + vec2(0.0, e));
-                        float depth = (0.05 + 0.1 * stony) * near;
+                        // Tarmac and concrete are close to flat: only loose stone stands up in lumps.
+                        float depth = (0.05 - 0.035 * stony + 0.135 * loose) * near;
                         n = normalize(n - vec3(east - here, south - here, 0.0) * (depth / e));
-                        texel.rgb *= 1.0 + (here - 0.5) * (0.25 + 0.3 * stony) * near;
+                        texel.rgb *= 1.0 + (here - 0.5) * (0.25 - 0.18 * stony + 0.48 * loose) * near;
                         grit = stony * near * here;
                     }
                 }
