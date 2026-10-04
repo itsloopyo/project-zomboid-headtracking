@@ -228,6 +228,21 @@ final class Pipeline {
 
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                // The game's sprites have no smaller copies of themselves for when they are far
+                // off, and a pixel of the picture then lands on one texel of several, a
+                // different one each frame as the eye moves: leaves and fences sparkle. So a
+                // pixel that covers more than a texel takes four samples spread over what it
+                // covers, each weighed by how solid it is, and is as solid as their mean.
+                vec2 stepX = dFdx(vUv), stepY = dFdy(vUv);
+                bool small = uTexel.x > 0.0 && max(dot(stepX, stepX), dot(stepY, stepY)) > 1.3 * uTexel.x * uTexel.x;
+                if (small) {
+                    vec4 a = texture2D(uTexture, vUv + 0.125 * stepX + 0.375 * stepY);
+                    vec4 b = texture2D(uTexture, vUv - 0.375 * stepX + 0.125 * stepY);
+                    vec4 c = texture2D(uTexture, vUv + 0.375 * stepX - 0.125 * stepY);
+                    vec4 d = texture2D(uTexture, vUv - 0.125 * stepX - 0.375 * stepY);
+                    float solid = a.a + b.a + c.a + d.a;
+                    texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
+                }
                 bool grass = vColor.a > 7.5;
                 if (grass) {
                     // A card of grass: blades side by side along it, each its own height, lean
@@ -259,7 +274,7 @@ final class Pipeline {
                 // as the mean of two samples one texel apart across, each step is averaged with
                 // the next and the edge comes out straight.
                 vec2 half = vec2(0.5 * uTexel.x, 0.0);
-                float cover = uTexel.x > 0.0 ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
+                float cover = uTexel.x > 0.0 && !small ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
                 if (cover < uCut) {
                     discard;
                 }
