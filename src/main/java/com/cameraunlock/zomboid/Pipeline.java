@@ -1246,6 +1246,7 @@ final class Pipeline {
             uniform vec4 uWheel;
             uniform vec3 uWheelAxis;
             uniform vec3 uMirror;
+            uniform sampler2D uBehind;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
             uniform sampler2D uDials;
@@ -1318,7 +1319,7 @@ final class Pipeline {
                 float shroud = max(length(vec2(w.x, w.y + 0.012)) - 0.058, abs(w.z - 0.14) - 0.1) - 0.006;
                 vec3 hood = w - vec3(0.0, 0.112, 0.2);
                 float binnacle = max(block(hood, vec3(0.185, 0.066, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(0.168, 0.05, 0.075), 0.012));
-                float mirror = block(p - uMirror, vec3(0.01, 0.078, 0.022), 0.008);
+                float mirror = block(p - uMirror, vec3(0.01, 0.115, 0.032), 0.01);
                 float nearest = rim;
                 part = 1.0;
                 if (hub < nearest) { nearest = hub; part = 2.0; }
@@ -1788,10 +1789,16 @@ final class Pipeline {
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
                 color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
-                if (wheel && wheelPart > 6.5 && abs(wheelPlace.y - uMirror.y) < 0.074 && abs(wheelPlace.z - uMirror.z) < 0.018 && wheelPlace.x < uMirror.x) {
-                    vec3 back = reflect(-view, n);
-                    vec3 seen = back.z > 0.0 ? atmosphere(back) : mix(vec3(0.05, 0.05, 0.052), atmosphere(vec3(back.xy, 0.02)) * 0.35, smoothstep(-0.25, 0.0, back.z));
-                    color = seen * 0.85;
+                if (wheel && wheelPart > 6.5 && abs(wheelPlace.y - uMirror.y) < 0.112 && abs(wheelPlace.z - uMirror.z) < 0.029 && wheelPlace.x < uMirror.x) {
+                    // The glass shows the world behind, left for right, and the sky where the
+                    // world stops.
+                    vec2 on = vec2(0.5 - (wheelPlace.y - uMirror.y) / 0.224, 0.5 + (wheelPlace.z - uMirror.z) / 0.058);
+                    vec3 seen = texture2D(uBehind, on).rgb;
+                    if (seen.r < -0.5) {
+                        vec2 side = vec2(-uAhead.y, uAhead.x);
+                        seen = atmosphere(normalize(vec3(-uAhead + side * ((0.5 - on.x) * 0.6), (on.y - 0.5) * 0.17 + 0.02)));
+                    }
+                    color = seen * 0.82;
                 }
                 if (dial && uInstruments > 0.0) {
                     // Lit from behind when the engine runs: the numerals and needles glow.
@@ -2242,6 +2249,12 @@ final class Pipeline {
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private static final float[] beamMatrix = new float[16];
     private static int beamMap, beamTarget;
+    private static int mirrorColor, mirrorTarget;
+    private static boolean inMirror;
+    private static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180, MIRROR_UNIT = 21;
+    /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
+    private static final float MIRROR_TAN = 0.1f;
+    private static final ViewCamera.Pose behind = new ViewCamera.Pose();
     private static final ViewCamera.Pose lamp = new ViewCamera.Pose();
     /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */
     private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
@@ -2320,6 +2333,27 @@ final class Pipeline {
             glazed = false;
             drawShadows(state, camera, figures);
             stage(STAGE_SHADOWS);
+            float[] cabin = FirstPerson.seated ? Cabins.wheel(FirstPerson.seatedIn) : null;
+            if (cabin != null) {
+                // What the mirror on the screen shows: the world behind, from where the mirror
+                // hangs, drawn small.
+                float aheadX = FirstPerson.aheadX, aheadY = FirstPerson.aheadY;
+                behind.eyeX = camera.eyeX + aheadX * cabin[7] - aheadY * cabin[8];
+                behind.eyeY = camera.eyeY + aheadY * cabin[7] + aheadX * cabin[8];
+                behind.eyeUp = camera.eyeUp + cabin[9];
+                behind.forwardX = -aheadX;
+                behind.forwardY = -aheadY;
+                behind.forwardUp = 0f;
+                behind.rightX = -aheadY;
+                behind.rightY = aheadX;
+                behind.rightUp = 0f;
+                behind.upX = 0f;
+                behind.upY = 0f;
+                behind.upUp = 1f;
+                inMirror = true;
+                drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, 1.2f, far, fogStart, fogEnd);
+                inMirror = false;
+            }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
             if (figures) {
@@ -2789,9 +2823,21 @@ final class Pipeline {
 
     private static void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        GL11.glViewport(0, 0, width, height);
-        GL11.glClearColor(0f, 0f, 0f, 1f);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inMirror ? mirrorTarget : sceneTarget);
+        GL11.glViewport(0, 0, inMirror ? MIRROR_WIDTH : width, inMirror ? MIRROR_HEIGHT : height);
+        // In the mirror, where nothing is drawn is marked, and the sky is put there when the
+        // glass is drawn.
+        // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
+        // run twice in a frame: once for the mirror, once for the eye.
+        arrays();
+        GL33.glBindSampler(0, spriteSampler);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDisable(GL_BLEND);
+        // A clear only reaches what the masks let it write.
+        GL11.glDepthMask(true);
+        GL11.glColorMask(true, true, true, true);
+        GL11.glClearColor(inMirror ? -1f : 0f, 0f, 0f, 1f);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Each frame the world is drawn a fraction of a pixel to one side of the last, a
@@ -2799,10 +2845,12 @@ final class Pipeline {
         // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
         // and with more detail than one frame's pixels hold.
         float[] projection = ViewCamera.projection(tanHalfFieldOfView, aspect, near, far).clone();
-        jitterAt = (jitterAt + 1) % JITTER_X.length;
-        projection[8] += JITTER_X[jitterAt] / width;
-        projection[9] += JITTER_Y[jitterAt] / height;
-        Characters.aside(JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+        if (!inMirror) {
+            jitterAt = (jitterAt + 1) % JITTER_X.length;
+            projection[8] += JITTER_X[jitterAt] / width;
+            projection[9] += JITTER_Y[jitterAt] / height;
+            Characters.aside(JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+        }
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
@@ -3258,6 +3306,10 @@ final class Pipeline {
                 figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
                 figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
                 figureLight.set("uMirror", wheel[7], wheel[8], wheel[9]);
+                GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
+                GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
+                GL13.glActiveTexture(GL_TEXTURE0);
+                figureLight.set("uBehind", MIRROR_UNIT);
             }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uTime", state.seconds);
@@ -3420,6 +3472,15 @@ final class Pipeline {
         String beam = shadowMap(made);
         beamMap = made[0];
         beamTarget = made[1];
+        mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
+        int mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        mirrorTarget = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorTarget);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mirrorColor, 0);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
+        if (beam == null) {
+            beam = complete("mirror");
+        }
         if (near != null || far != null || roof != null || beam != null) {
             return near != null ? near : far != null ? far : roof != null ? roof : beam;
         }

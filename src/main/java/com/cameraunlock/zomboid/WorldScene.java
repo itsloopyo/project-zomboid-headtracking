@@ -463,6 +463,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (aspect == 0f || flat <= 1e-3f) {
             return -1f;
         }
+        // A driver with a mirror sees behind as well.
+        if (FirstPerson.seated && Cabins.wheel(FirstPerson.seatedIn) != null) {
+            return -1f;
+        }
         float widest = 0f;
         for (int i = 0; i < 4; i++) {
             float across = ((i & 1) == 0 ? -1f : 1f) * tanHalfFieldOfView * aspect;

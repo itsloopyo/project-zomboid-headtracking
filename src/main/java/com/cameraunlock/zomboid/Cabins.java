@@ -16,7 +16,7 @@ final class Cabins {
      * that is not here keeps the wheel the game gives it.
      */
     private static final Map<String, float[]> WHEELS = Map.of(
-            "Base.CarNormal", new float[] {0.531f, 0f, -0.447f, 0.231f, 0.943f, 0f, -0.332f, 0.5f, 0.42f, 0.04f});
+            "Base.CarNormal", new float[] {0.531f, 0f, -0.447f, 0.231f, 0.943f, 0f, -0.332f, 0.46f, 0.34f, 0.07f});
 
     /** The wheel of the vehicle with that script, or null where it has not been measured. */
     static float[] wheel(String script) {
