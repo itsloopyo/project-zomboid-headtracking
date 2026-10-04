@@ -611,27 +611,65 @@ final class Pipeline {
                 }
                 // The mod's own furniture is a model and has no sprite. Its surface says what it
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
-                // cotton, metal, paint. Where the game's sprite of the piece is to say what
-                // colour it is, a green sofa or a blue blanket, the vertex looks at one place on
-                // that sprite, taken broadly so that a line of the drawing does not dye the
-                // whole piece, and is solid whatever the sprite is there.
+                // cotton, bare metal, paint, the enamel of a fridge, steel, plastic, the glass
+                // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop.
                 bool model = vMaterial > 15.5;
                 float surface = -1.0;
                 if (model) {
-                    bool dyed = vMaterial > 23.5;
-                    surface = vMaterial - (dyed ? 24.0 : 16.0);
-                    vec3 own = surface < 0.5 ? vec3(0.66, 0.5, 0.32) : surface < 1.5 ? vec3(0.33, 0.22, 0.15) : surface < 2.5 ? vec3(0.46, 0.48, 0.52)
-                            : surface < 3.5 ? vec3(0.88, 0.86, 0.8) : surface < 4.5 ? vec3(0.95, 0.95, 0.93) : surface < 5.5 ? vec3(0.62, 0.6, 0.56)
-                            : vec3(0.9, 0.89, 0.86);
+                    bool dyed = vMaterial > 31.5;
+                    surface = vMaterial - (dyed ? 32.0 : 16.0);
+                    vec3 own = vec3(0.66, 0.5, 0.32);
+                    if (surface > 0.5) { own = vec3(0.33, 0.22, 0.15); }
+                    if (surface > 1.5) { own = vec3(0.46, 0.48, 0.52); }
+                    if (surface > 2.5) { own = vec3(0.88, 0.86, 0.8); }
+                    if (surface > 3.5) { own = vec3(0.95, 0.95, 0.93); }
+                    if (surface > 4.5) { own = vec3(0.62, 0.6, 0.56); }
+                    if (surface > 5.5) { own = vec3(0.9, 0.89, 0.86); }
+                    if (surface > 6.5) { own = vec3(0.93, 0.93, 0.9); }
+                    if (surface > 7.5) { own = vec3(0.66, 0.67, 0.68); }
+                    if (surface > 8.5) { own = vec3(0.3, 0.3, 0.31); }
+                    if (surface > 9.5) { own = vec3(0.035, 0.04, 0.045); }
+                    if (surface > 10.5) { own = vec3(0.94, 0.94, 0.92); }
+                    if (surface > 12.5) { own = vec3(0.93, 0.88, 0.76); }
+                    if (surface > 13.5) { own = vec3(0.07, 0.07, 0.075); }
+                    if (surface > 14.5) { own = vec3(0.8, 0.76, 0.68); }
+                    if (surface > 11.5 && surface < 12.5) {
+                        // A shelf of books is a row of spines, each its own colour. Which book a
+                        // place is on is told by how far along the shelf it is.
+                        float along = abs(vNormal.x) > abs(vNormal.y) ? vWorld.y : vWorld.x;
+                        vec2 book = vec2(floor(along * 30.0), floor(vWorld.z * 2.6));
+                        float which = grain(book);
+                        own = which < 0.2 ? vec3(0.45, 0.12, 0.1) : which < 0.4 ? vec3(0.12, 0.2, 0.36) : which < 0.6 ? vec3(0.16, 0.3, 0.18)
+                                : which < 0.8 ? vec3(0.62, 0.5, 0.3) : vec3(0.75, 0.72, 0.66);
+                        own *= 0.75 + 0.5 * grain(book + 7.0);
+                    }
                     if (dyed) {
-                        vec4 sum = vec4(0.0);
-                        for (int i = 0; i < 5; i++) {
-                            vec2 off = (i == 0 ? vec2(0.0) : i == 1 ? vec2(4.0, 0.0) : i == 2 ? vec2(-4.0, 0.0) : i == 3 ? vec2(0.0, 4.0) : vec2(0.0, -4.0)) * uTexel;
-                            vec4 near = texture2D(uTexture, vUv + off);
-                            sum += vec4(near.rgb * near.a, near.a);
+                        // Where the game's sprite of the piece is to say what colour it is, a green
+                        // sofa or a blue fridge, the vertex looks at one place on that sprite and
+                        // the colour is taken from nine texels round it: the mean of those that
+                        // are no darker than the nine are together. The game shades its sprites
+                        // and draws a dark line round every part, and one texel may be the line,
+                        // a handle or the dark side of a panel; the paler half of nine is the
+                        // stuff the piece is made of, in the light. The piece is solid whatever
+                        // the sprite is there.
+                        vec3 tap[9];
+                        float tone[9];
+                        float sum = 0.0, painted = 0.0;
+                        for (int i = 0; i < 9; i++) {
+                            int row = i / 3;
+                            vec4 near = texture2D(uTexture, vUv + vec2(float(i - 3 * row) - 1.0, float(row) - 1.0) * 6.0 * uTexel);
+                            tap[i] = near.rgb;
+                            tone[i] = near.a > 0.5 ? dot(near.rgb, vec3(0.299, 0.587, 0.114)) : -1.0;
+                            sum += max(tone[i], 0.0);
+                            painted += step(0.0, tone[i]);
                         }
-                        if (sum.a > 0.5) {
-                            own = sum.rgb / sum.a;
+                        if (painted > 0.5) {
+                            float mean = sum / painted - 0.002;
+                            vec4 pale = vec4(0.0);
+                            for (int i = 0; i < 9; i++) {
+                                pale += vec4(tap[i], 1.0) * step(mean, tone[i]);
+                            }
+                            own = pale.rgb / max(pale.a, 1.0);
                         }
                     }
                     texel = vec4(own, 1.0);
@@ -730,12 +768,18 @@ final class Pipeline {
                     }
                     texel.rgb *= mix(1.0, fine, much);
                 }
-                if (model && surface < 4.5) {
+                if (model && (surface < 4.5 || surface > 14.5)) {
                     // Furniture is seen from nearer than a floor is, so its grain is finer: the
                     // wood's a hand across, the cloth's a weave. Linen and a pillow show less
-                    // of it than a blanket does.
-                    float fine = surface < 1.5 ? wrapped(uWood, vWorld, n, 0.9) * uSurfaceGain.z : wrapped(uCloth, vWorld, n, 6.0) * uClothGain;
-                    texel.rgb *= mix(1.0, fine, surface < 1.5 ? 0.45 : surface < 2.5 ? 0.4 : surface < 3.5 ? 0.25 : 0.15);
+                    // of it than a blanket does, and a worktop only a trace.
+                    bool wooden = surface < 1.5 || surface > 14.5;
+                    float fine = wooden ? wrapped(uWood, vWorld, n, 0.9) * uSurfaceGain.z : wrapped(uCloth, vWorld, n, 6.0) * uClothGain;
+                    float much = surface < 1.5 ? 0.45 : surface < 2.5 ? 0.4 : surface < 3.5 ? 0.25 : surface < 4.5 ? 0.15 : 0.12;
+                    // What is painted white is paint over the wood: its grain barely shows.
+                    if (surface < 1.5) {
+                        much *= 1.0 - 0.75 * smoothstep(0.6, 0.85, min(texel.r, min(texel.g, texel.b)));
+                    }
+                    texel.rgb *= mix(1.0, fine, much);
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
@@ -903,12 +947,16 @@ final class Pipeline {
                     if (vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
                     }
-                    // Of the mod's own furniture the wood is planed and waxed, the cloth dull, and
-                    // a handle is bare metal, which mirrors far more than anything else does.
+                    // Of the mod's own furniture the wood is planed and waxed and the cloth dull.
+                    // Enamel and china are glazed, a screen is glass, a worktop is wiped smooth,
+                    // rubber and a lamp's shade are matt. A handle and a steel sink are bare
+                    // metal, which mirrors far more than anything else does.
                     float mirrors = 0.04;
                     if (model) {
-                        rough = surface < 1.5 ? 0.38 : surface < 4.5 ? 0.9 : surface < 5.5 ? 0.3 : 0.5;
-                        mirrors = surface > 4.5 && surface < 5.5 ? 0.55 : 0.04;
+                        rough = surface < 1.5 ? 0.38 : surface < 4.5 ? 0.9 : surface < 5.5 ? 0.3 : surface < 6.5 ? 0.5 : surface < 7.5 ? 0.22
+                                : surface < 8.5 ? 0.28 : surface < 9.5 ? 0.45 : surface < 10.5 ? 0.08 : surface < 11.5 ? 0.15 : surface < 12.5 ? 0.6
+                                : surface < 13.5 ? 0.85 : surface < 14.5 ? 0.75 : 0.3;
+                        mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06 : 0.04;
                     }
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
@@ -918,7 +966,8 @@ final class Pipeline {
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
                 // of their own, enough to bloom.
-                if (vMaterial > 13.5 && vMaterial < 14.5 && uDark > 0.0) {
+                // The shade of the mod's own lamp is such a pale part.
+                if ((vMaterial > 13.5 && vMaterial < 14.5 || surface > 12.5 && surface < 13.5) && uDark > 0.0) {
                     float lit = smoothstep(0.55, 0.95, max(vColor.r, max(vColor.g, vColor.b)));
                     float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
                     color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);
@@ -969,8 +1018,8 @@ final class Pipeline {
                 // A varnished floor mirrors a little too: the window across the room, the legs of
                 // a chair.
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
-                // A window pane mirrors whichever way it faces.
-                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : 0.0;
+                // A window pane mirrors whichever way it faces, and so does the glass of a screen.
+                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : surface > 9.5 && surface < 10.5 ? 0.4 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;

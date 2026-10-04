@@ -23,22 +23,23 @@ import java.util.zip.GZIPInputStream;
  * The file is gzip over this, all little-endian:
  *
  *   4 bytes   the ASCII letters CUFM
- *   uint32    format version, 1
+ *   uint32    format version, 2
  *   uint32    number of models
  *   per model:
  *     uint8     length of the name, then that many ASCII bytes
  *     float32   x 6: the least x, y, z and the greatest x, y, z
- *     uint32    number of triangles
+ *     uint32    number of triangles, in the order of their surfaces
  *     per vertex, three to a triangle:
  *       float32 x 3   position
  *       float32 x 3   unit normal
- *       uint8         surface: WOOD to PAINT below
+ *       uint8         surface: WOOD to WORKTOP below
  *       uint8         how much of the room's light reaches the vertex past the rest of the
  *                     model and the floor, 255 for all of it
  */
 final class Models {
-    static final int WOOD = 0, DARK_WOOD = 1, CLOTH = 2, LINEN = 3, PILLOW = 4, METAL = 5, PAINT = 6;
-    private static final int SURFACES = 7;
+    static final int WOOD = 0, DARK_WOOD = 1, CLOTH = 2, LINEN = 3, PILLOW = 4, METAL = 5, PAINT = 6, ENAMEL = 7, STEEL = 8, PLASTIC = 9,
+            SCREEN = 10, CERAMIC = 11, BOOKS = 12, SHADE = 13, RUBBER = 14, WORKTOP = 15;
+    static final int SURFACES = 16;
 
     /**
      * What a model's surface is made of, as the picture is told it: this plus the surface. The
@@ -52,11 +53,11 @@ final class Models {
      * The same surfaces where the game's sprite of the piece says what colour they are: such
      * a vertex is drawn with the sprite's texture and looks at one texel of it.
      */
-    static final float FIRST_DYED_MATERIAL = 24f;
+    static final float FIRST_DYED_MATERIAL = FIRST_MATERIAL + SURFACES;
 
     private static final String RESOURCE = "/models/furniture.bin.gz";
     private static final int MAGIC = 'C' | 'U' << 8 | 'F' << 16 | 'M' << 24;
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int VERTEX_BYTES = 6 * Float.BYTES + 2;
     /** Floats per vertex of a Model: its position, then the way it looks. */
     static final int VERTEX_FLOATS = 6;
@@ -66,7 +67,16 @@ final class Models {
         final float minX, minY, minZ, maxX, maxY, maxZ;
         /** VERTEX_FLOATS for each vertex, three vertices to a triangle. */
         final float[] vertices;
+        /** What each vertex is made of. They are in the order of their surfaces. */
         final byte[] surface;
+        /** The first vertex of each surface, and after the last surface the number of vertices. */
+        final int[] first = new int[SURFACES + 1];
+        /**
+         * The vertices as they stand on the map after each number of quarter turns, made the first
+         * time a piece is turned that way: turning five thousand vertices is the same sum for every
+         * bed that faces east, and a chunk near the eye is built again every frame.
+         */
+        private final float[][] turned = new float[4][];
         /** For each vertex, how much of the room's light reaches it, 0 to 1. */
         final float[] reached;
         /**
@@ -91,6 +101,33 @@ final class Models {
             for (int i = 0; i < reached.length; i++) {
                 dimmed[i] = (float) Math.pow(reached[i], 1.0 / 2.2);
             }
+            for (int i = 0; i < surface.length; i++) {
+                first[surface[i] + 1] = i + 1;
+            }
+            for (int i = 1; i <= SURFACES; i++) {
+                first[i] = Math.max(first[i], first[i - 1]);
+            }
+        }
+
+        /** Position then the way it looks, for each vertex, in the map's axes after that many quarter turns. */
+        float[] turned(int quarterTurns) {
+            int turns = quarterTurns & 3;
+            if (turned[turns] == null) {
+                float[] made = new float[vertices.length];
+                float[] to = new float[2];
+                for (int at = 0; at < vertices.length; at += VERTEX_FLOATS) {
+                    turn(turns, vertices[at], vertices[at + 1], to);
+                    made[at] = to[0];
+                    made[at + 1] = to[1];
+                    made[at + 2] = vertices[at + 2];
+                    turn(turns, vertices[at + 3], vertices[at + 4], to);
+                    made[at + 3] = to[0];
+                    made[at + 4] = to[1];
+                    made[at + 5] = vertices[at + 5];
+                }
+                turned[turns] = made;
+            }
+            return turned[turns];
         }
 
         int triangles() {
@@ -174,6 +211,9 @@ final class Models {
                     throw new IOException(name + " has a vertex of surface " + surface[vertex] + ", and there are " + SURFACES);
                 }
                 reached[vertex] = (in.get() & 0xff) / 255f;
+                if (vertex > 0 && surface[vertex] < surface[vertex - 1]) {
+                    throw new IOException(name + " has its vertices out of the order of their surfaces");
+                }
             }
             if (models.put(name, new Model(name, bounds, vertices, surface, reached)) != null) {
                 throw new IOException("two models are called " + name);
@@ -222,38 +262,56 @@ final class Models {
 
     /**
      * Adds a model standing with the centre of its footprint at (centreX, centreY) on the map
-     * and its foot at baseUp, turned by quarterTurns as turn says, one metre of it scale tiles.
+     * and its foot at baseUp, turned by quarterTurns as turn says, one metre of it scale tiles
+     * along the ground and scaleUp tiles up.
      *
      * The surfaces whose bit is set in dyedSurfaces go into dyed, which is the mesh of a
-     * sprite's texture, and all look at the texel (dyeU, dyeV) of it. The rest go into plain.
+     * sprite's texture, and all look at the texel (dyeU, dyeV) of it. Those whose bit is set
+     * in alsoDyed go into the mesh also, and look at (alsoU, alsoV). The rest go into plain.
      * Each vertex is lit as the square at (tileX, tileY) is, by where over that square it is:
      * light holds that square's light.
      */
     static void add(Model model, SpriteGeometry.Mesh plain, SpriteGeometry.Mesh dyed, int dyedSurfaces, float dyeU, float dyeV,
-            SpriteGeometry.Frame light, int tileX, int tileY, float centreX, float centreY, float baseUp, int quarterTurns, float scale) {
-        // What each of a model's axes is on the map: turn is linear, so two calls give its matrix.
-        float[] axis = new float[2];
-        turn(quarterTurns, 1f, 0f, axis);
-        float xToX = axis[0], xToY = axis[1];
-        turn(quarterTurns, 0f, 1f, axis);
-        float yToX = axis[0], yToY = axis[1];
-        float[] from = model.vertices;
-        for (int vertex = 0; vertex < model.surface.length; vertex++) {
-            int at = vertex * VERTEX_FLOATS;
-            int surface = model.surface[vertex];
-            boolean takesDye = (dyedSurfaces >> surface & 1) != 0;
-            SpriteGeometry.Mesh mesh = takesDye ? dyed : plain;
-            mesh.open = light.open + 32f * ((takesDye ? FIRST_DYED_MATERIAL : FIRST_MATERIAL) + surface);
-            float x = centreX + (from[at] * xToX + from[at + 1] * yToX) * scale;
-            float y = centreY + (from[at] * xToY + from[at + 1] * yToY) * scale;
-            float a = Math.clamp(x - tileX, 0f, 1f), b = Math.clamp(y - tileY, 0f, 1f);
-            float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
-            float dim = model.dimmed[vertex];
-            mesh.addRounded(x, y, baseUp + from[at + 2] * scale, takesDye ? dyeU : 0f, takesDye ? dyeV : 0f,
-                    dim * (light.cornerRed[0] * w0 + light.cornerRed[1] * w1 + light.cornerRed[2] * w2 + light.cornerRed[3] * w3),
-                    dim * (light.cornerGreen[0] * w0 + light.cornerGreen[1] * w1 + light.cornerGreen[2] * w2 + light.cornerGreen[3] * w3),
-                    dim * (light.cornerBlue[0] * w0 + light.cornerBlue[1] * w1 + light.cornerBlue[2] * w2 + light.cornerBlue[3] * w3),
-                    from[at + 3] * xToX + from[at + 4] * yToX, from[at + 3] * xToY + from[at + 4] * yToY, from[at + 5]);
+            SpriteGeometry.Mesh also, int alsoDyed, float alsoU, float alsoV,
+            SpriteGeometry.Frame light, int tileX, int tileY, float centreX, float centreY, float baseUp, int quarterTurns, float scale, float scaleUp) {
+        float[] from = model.turned(quarterTurns);
+        float[] dim = model.dimmed;
+        // The light at a place over the square is its first corner's, and what is added to that along each edge and across.
+        float red = light.cornerRed[0], redA = light.cornerRed[1] - red, redB = light.cornerRed[3] - red, redAB = light.cornerRed[2] - light.cornerRed[1] - redB;
+        float green = light.cornerGreen[0], greenA = light.cornerGreen[1] - green, greenB = light.cornerGreen[3] - green,
+                greenAB = light.cornerGreen[2] - light.cornerGreen[1] - greenB;
+        float blue = light.cornerBlue[0], blueA = light.cornerBlue[1] - blue, blueB = light.cornerBlue[3] - blue,
+                blueAB = light.cornerBlue[2] - light.cornerBlue[1] - blueB;
+        float originX = centreX - tileX, originY = centreY - tileY;
+        for (int surface = 0; surface < SURFACES; surface++) {
+            int start = model.first[surface], end = model.first[surface + 1];
+            if (start == end) {
+                continue;
+            }
+            boolean takesDye = (dyedSurfaces >> surface & 1) != 0, takesOther = !takesDye && (alsoDyed >> surface & 1) != 0;
+            SpriteGeometry.Mesh mesh = takesDye ? dyed : takesOther ? also : plain;
+            float u = takesDye ? dyeU : takesOther ? alsoU : 0f, v = takesDye ? dyeV : takesOther ? alsoV : 0f;
+            float open = light.open + 32f * ((takesDye || takesOther ? FIRST_DYED_MATERIAL : FIRST_MATERIAL) + surface);
+            float[] to = mesh.room((end - start) * SpriteGeometry.VERTEX_FLOATS);
+            int out = mesh.floats;
+            for (int vertex = start, at = start * VERTEX_FLOATS; vertex < end; vertex++, at += VERTEX_FLOATS) {
+                float overX = originX + from[at] * scale, overY = originY + from[at + 1] * scale;
+                float a = Math.min(Math.max(overX, 0f), 1f), b = Math.min(Math.max(overY, 0f), 1f), ab = a * b, dims = dim[vertex];
+                to[out] = tileX + overX;
+                to[out + 1] = tileY + overY;
+                to[out + 2] = baseUp + from[at + 2] * scaleUp;
+                to[out + 3] = u;
+                to[out + 4] = v;
+                to[out + 5] = dims * (red + a * redA + b * redB + ab * redAB);
+                to[out + 6] = dims * (green + a * greenA + b * greenB + ab * greenAB);
+                to[out + 7] = dims * (blue + a * blueA + b * blueB + ab * blueAB);
+                to[out + 8] = open;
+                to[out + 9] = from[at + 3];
+                to[out + 10] = from[at + 4];
+                to[out + 11] = from[at + 5];
+                out += SpriteGeometry.VERTEX_FLOATS;
+            }
+            mesh.floats = out;
         }
     }
 }

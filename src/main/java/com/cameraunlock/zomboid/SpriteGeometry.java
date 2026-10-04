@@ -122,26 +122,15 @@ final class SpriteGeometry {
         }
 
         /**
-         * Adds a vertex of a rounded thing, which looks its own way: (normalX, normalY, normalUp)
-         * is a unit vector. A sprite's face is flat and all its vertices share the way set by face.
+         * Makes room for that many floats more and returns the array they go in, from floats on.
+         * For whoever adds thousands of vertices at once, a model: it writes them straight in and
+         * then moves floats past them, where add would look at the array's length for each one.
          */
-        void addRounded(float x, float y, float up, float u, float v, float red, float green, float blue,
-                float normalX, float normalY, float normalUp) {
-            if (floats + VERTEX_FLOATS > vertices.length) {
-                vertices = Arrays.copyOf(vertices, vertices.length * 2);
+        float[] room(int more) {
+            if (floats + more > vertices.length) {
+                vertices = Arrays.copyOf(vertices, Math.max(vertices.length * 2, floats + more));
             }
-            vertices[floats++] = x;
-            vertices[floats++] = y;
-            vertices[floats++] = up;
-            vertices[floats++] = u;
-            vertices[floats++] = v;
-            vertices[floats++] = red;
-            vertices[floats++] = green;
-            vertices[floats++] = blue;
-            vertices[floats++] = open;
-            vertices[floats++] = normalX;
-            vertices[floats++] = normalY;
-            vertices[floats++] = normalUp;
+            return vertices;
         }
     }
 

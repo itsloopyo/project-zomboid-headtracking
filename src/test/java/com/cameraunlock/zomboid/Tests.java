@@ -68,6 +68,9 @@ public final class Tests {
         brokenModelFilesAreRefused();
         quarterTurnsCarryAModelsFrontRoundTheCompass();
         modelStandsWhereItIsPutAndTakesItsDye();
+        modelTakesASecondDyeAndItsOwnHeight();
+        modelIsLitByWhereOverItsSquareItIs();
+        turnedModelIsTheModelTurned();
         jarHoldsEveryModelStoodOnTheFloor();
         System.out.println("all tests passed");
     }
@@ -75,7 +78,7 @@ public final class Tests {
     /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */
     private static java.nio.ByteBuffer packedWedge() {
         java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(256).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(1).putInt(1);
+        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(2).putInt(1);
         out.put((byte) 5).put("wedge".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
         out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
         out.putInt(1);
@@ -106,6 +109,9 @@ public final class Tests {
         check(near(wedge.vertices[6], 0f) && near(wedge.vertices[7], 2f) && near(wedge.vertices[8], 1f), "the second vertex is where it was packed");
         check(near(wedge.vertices[11], 1f), "and looks up, as packed");
         check(wedge.surface[0] == Models.WOOD && wedge.surface[1] == Models.CLOTH && wedge.surface[2] == Models.METAL, "each vertex keeps its surface");
+        check(wedge.first[Models.WOOD] == 0 && wedge.first[Models.DARK_WOOD] == 1 && wedge.first[Models.CLOTH] == 1 && wedge.first[Models.LINEN] == 2
+                && wedge.first[Models.METAL] == 2 && wedge.first[Models.PAINT] == 3 && wedge.first[Models.SURFACES] == 3,
+                "each surface's vertices are a run, an empty one for a surface the model has none of");
         check(near(wedge.reached[0], 1f) && near(wedge.reached[1], 0.2f) && near(wedge.reached[2], 0f), "and how much light reaches it, as a share");
     }
 
@@ -114,14 +120,17 @@ public final class Tests {
         otherFile.put(0, (byte) 'X');
         refused(otherFile, "does not start with CUFM");
         java.nio.ByteBuffer laterFormat = packedWedge();
-        laterFormat.putInt(4, 2);
-        refused(laterFormat, "format 2");
+        laterFormat.putInt(4, 3);
+        refused(laterFormat, "format 3");
         java.nio.ByteBuffer cutShort = packedWedge();
         cutShort.limit(cutShort.limit() - 10);
         refused(cutShort, "the file ends before that many");
         java.nio.ByteBuffer unknownSurface = packedWedge();
-        unknownSurface.put(unknownSurface.limit() - 2, (byte) 7);
-        refused(unknownSurface, "surface 7");
+        unknownSurface.put(unknownSurface.limit() - 2, (byte) Models.SURFACES);
+        refused(unknownSurface, "surface " + Models.SURFACES);
+        java.nio.ByteBuffer shuffled = packedWedge();
+        shuffled.put(shuffled.limit() - 2, (byte) Models.WOOD);
+        refused(shuffled, "out of the order of their surfaces");
         java.nio.ByteBuffer trailing = packedWedge();
         trailing.limit(trailing.limit() + 3);
         refused(trailing, "3 bytes follow the last model");
@@ -163,7 +172,7 @@ public final class Tests {
         light.light(0.5f, 0.6f, 0.7f);
         light.open = 1f;
         // Facing east at half size, its middle at (10.5, 20.5), on a floor 2.5 up. The cloth is dyed.
-        Models.add(wedge, plain, dyed, 1 << Models.CLOTH, 0.25f, 0.75f, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f);
+        Models.add(wedge, plain, dyed, 1 << Models.CLOTH, 0.25f, 0.75f, dyed, 0, 0f, 0f, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f, 0.5f);
         check(plain.floats == 2 * SpriteGeometry.VERTEX_FLOATS && dyed.floats == SpriteGeometry.VERTEX_FLOATS, "the dyed surface alone goes to the sprite's mesh");
         float[] wood = plain.vertices;
         // The model's (-1, -2, 0) faces east: its -y is the map's +x, its +x the map's -y.
@@ -183,19 +192,99 @@ public final class Tests {
         check(near(cloth[11], 1f), "what looks up still looks up");
     }
 
+    private static void modelTakesASecondDyeAndItsOwnHeight() throws java.io.IOException {
+        Models.Model wedge = wedge();
+        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh(), dyed = new SpriteGeometry.Mesh(), also = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        light.light(1f, 1f, 1f);
+        // Facing north, a metre to a tile along the ground and two tiles to a metre up. The wood takes one colour of the sprite and the metal another.
+        Models.add(wedge, plain, dyed, 1 << Models.WOOD, 0.1f, 0.2f, also, 1 << Models.METAL, 0.3f, 0.4f, light, 4, 6, 4.5f, 6.5f, 1f, 0, 1f, 2f);
+        check(plain.floats == SpriteGeometry.VERTEX_FLOATS && dyed.floats == SpriteGeometry.VERTEX_FLOATS && also.floats == SpriteGeometry.VERTEX_FLOATS,
+                "each surface goes to the mesh of the colour it takes, and the rest to the plain one");
+        check(near(dyed.vertices[3], 0.1f) && near(dyed.vertices[4], 0.2f) && near(also.vertices[3], 0.3f) && near(also.vertices[4], 0.4f),
+                "each dyed surface looks at its own place on the sprite");
+        check(near(dyed.vertices[8], 32f * (Models.FIRST_DYED_MATERIAL + Models.WOOD)) && near(also.vertices[8], 32f * (Models.FIRST_DYED_MATERIAL + Models.METAL)),
+                "and both are marked as taking their colour from the sprite");
+        check(Models.FIRST_DYED_MATERIAL - Models.FIRST_MATERIAL >= Models.SURFACES, "the dyed surfaces are numbered clear of the plain ones");
+        // The cloth vertex is the model's (0, 2, 1): facing north its +y is the map's +y.
+        check(near(plain.vertices[0], 4.5f) && near(plain.vertices[1], 8.5f), "along the ground the model is the size it was made");
+        check(near(plain.vertices[2], 3f), "and up it is as high as it is told to be: a metre of it is two tiles above its foot");
+    }
+
+    private static void modelIsLitByWhereOverItsSquareItIs() throws java.io.IOException {
+        Models.Model wedge = wedge();
+        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        // The square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1), each a light of its own.
+        float[] red = {0.1f, 0.5f, 0.9f, 0.3f}, green = {0.2f, 0.4f, 0.6f, 0.8f}, blue = {1f, 0f, 0.5f, 0.25f};
+        System.arraycopy(red, 0, light.cornerRed, 0, 4);
+        System.arraycopy(green, 0, light.cornerGreen, 0, 4);
+        System.arraycopy(blue, 0, light.cornerBlue, 0, 4);
+        // At a fifth of its size about (0.5, 0.5) of the square: the wood vertex, the model's (-1, -2, 0), is at (0.7, 0.1).
+        Models.add(wedge, plain, plain, 0, 0f, 0f, plain, 0, 0f, 0f, light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f);
+        float a = 0.7f, b = 0.1f;
+        float[] weights = {(1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b};
+        float wantRed = 0f, wantGreen = 0f, wantBlue = 0f;
+        for (int corner = 0; corner < 4; corner++) {
+            wantRed += weights[corner] * red[corner];
+            wantGreen += weights[corner] * green[corner];
+            wantBlue += weights[corner] * blue[corner];
+        }
+        check(near(plain.vertices[0], a) && near(plain.vertices[1], b), "the vertex is where the sum puts it");
+        check(near(plain.vertices[5], wantRed) && near(plain.vertices[6], wantGreen) && near(plain.vertices[7], wantBlue),
+                "a vertex takes of each corner's light by how near that corner it is");
+        // The cloth vertex, the model's (0, 2, 1), is at (0.5, 0.9), and a fifth of its light gets past the model.
+        float fifth = (float) Math.pow(0.2, 1.0 / 2.2);
+        float clothRed = 0.5f * 0.1f * (0.1f + 0.5f) + 0.5f * 0.9f * (0.9f + 0.3f);
+        check(near(plain.vertices[SpriteGeometry.VERTEX_FLOATS + 5], fifth * clothRed), "and what the model lets through of it");
+        SpriteGeometry.Mesh outside = new SpriteGeometry.Mesh();
+        // Twice the size: the wood vertex is at (2.5, -3.5) from the square's corner, off the square, and is lit as the nearest place on it is.
+        Models.add(wedge, outside, outside, 0, 0f, 0f, outside, 0, 0f, 0f, light, 0, 0, 0.5f, 0.5f, 0f, 0, 2f, 2f);
+        check(near(outside.vertices[5], red[1]) && near(outside.vertices[6], green[1]) && near(outside.vertices[7], blue[1]),
+                "a vertex beyond the square takes the light of the square's nearest edge");
+    }
+
+    private static void turnedModelIsTheModelTurned() throws java.io.IOException {
+        Models.Model wedge = wedge();
+        float[] to = new float[2];
+        for (int turns = 0; turns < 4; turns++) {
+            float[] turned = wedge.turned(turns);
+            check(turned == wedge.turned(turns + 4), "a model is turned once for each way it can face, and kept");
+            for (int at = 0; at < wedge.vertices.length; at += Models.VERTEX_FLOATS) {
+                Models.turn(turns, wedge.vertices[at], wedge.vertices[at + 1], to);
+                check(near(turned[at], to[0]) && near(turned[at + 1], to[1]) && near(turned[at + 2], wedge.vertices[at + 2]), "a turned vertex is the vertex turned, at turn " + turns);
+                Models.turn(turns, wedge.vertices[at + 3], wedge.vertices[at + 4], to);
+                check(near(turned[at + 3], to[0]) && near(turned[at + 4], to[1]) && near(turned[at + 5], wedge.vertices[at + 5]), "and looks the way it looked, turned");
+            }
+        }
+    }
+
     private static void jarHoldsEveryModelStoodOnTheFloor() {
-        for (String name : new String[] {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "bedside_cabinet"}) {
+        String[] names = {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "armchair", "bedside_cabinet", "dresser", "desk",
+                "office_chair", "counter", "counter_sink", "counter_corner", "wall_cupboard", "wall_cupboard_corner", "fridge", "oven", "bookcase", "locker",
+                "tv", "tv_console", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
+                "picnic_table", "crate", "barrel"};
+        for (String name : names) {
             Models.Model model = Models.get(name);
             check(model.triangles() > 100 && model.triangles() <= 6000, name + " is a model of a size to draw, at " + model.triangles() + " triangles");
             check(near(model.minZ, 0f), name + " stands on the floor");
-            check(Math.abs(model.minX + model.maxX) < 1e-3f && Math.abs(model.minY + model.maxY) < 1e-3f, name + " has its origin at the middle of its footprint");
+            if (name.endsWith("_corner")) {
+                // The corner of a run fills a square and is built round the middle of that square.
+                check(model.minX >= -0.5f && model.maxX <= 0.5f && model.minY >= -0.5f && model.maxY <= 0.5f, name + " lies inside the square it fills");
+                check(near(model.maxX, 0.5f) && near(model.minY, -0.5f), name + " reaches the two edges of its square that the run goes on from");
+            } else {
+                check(Math.abs(model.minX + model.maxX) < 1e-3f && Math.abs(model.minY + model.maxY) < 1e-3f, name + " has its origin at the middle of its footprint");
+            }
+            float least = 1f;
             for (int at = 0; at < model.vertices.length; at += Models.VERTEX_FLOATS) {
                 float[] v = model.vertices;
                 float length = (float) Math.sqrt(v[at + 3] * v[at + 3] + v[at + 4] * v[at + 4] + v[at + 5] * v[at + 5]);
                 // The picture reads a longer normal as a plant that moves with the wind.
                 check(Math.abs(length - 1f) < 1e-3f, name + " has unit normals, and one is " + length);
                 check(v[at] >= model.minX - 1e-4f && v[at] <= model.maxX + 1e-4f && v[at + 2] <= model.maxZ + 1e-4f, name + " lies inside its bounds");
+                least = Math.min(least, model.reached[at / Models.VERTEX_FLOATS]);
             }
+            check(least >= 0.29f, name + " is nowhere left with less light than the darkest joint keeps, and has " + least);
         }
         wallTintSurvivesItsPacking();
         meshesAreKeptByTextureAndTint();
@@ -305,6 +394,11 @@ public final class Tests {
             pixels.put(i * 4 + 3, (byte) 0);
         }
         check(!WallSides.usualColour(pixels, width, 2, 1, 7, 5, colour), "nor has one with nothing painted");
+        // Pieces that stand side by side in a run are a tile wide, so that they meet.
+        for (String name : new String[] {"counter", "counter_sink", "wall_cupboard"}) {
+            check(near(Models.get(name).width(), 1f), name + " is a metre wide");
+        }
+        check(near(Models.get("counter").depth(), Models.get("counter_sink").depth()), "a counter with a basin is as deep as one without, and stands where it would");
     }
 
     private static void fineSkinFileIsNamedAfterTheGamesTexture() {

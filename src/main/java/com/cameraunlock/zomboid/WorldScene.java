@@ -1283,6 +1283,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
+        if (addFurniture(object, sprite, x, y, z)) {
+            return;
+        }
+
         boolean west;
         boolean north;
         if (object instanceof IsoDoor door) {
@@ -1347,9 +1351,6 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
         // way the eye looks at the tree.
         boolean grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
-        if (!grows && addFurniture(object, sprite, x, y, z)) {
-            return;
-        }
         // What the game counts as filling its square, or as something to sit or lie on, is
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
@@ -1470,6 +1471,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far the back of a piece that stands against a wall is from the edge of its square: clear of the wall's skin. */
     private static final float BACK_CLEAR = WALL_HALF + 0.02f;
 
+    /** How high the foot of a cupboard on the wall is, and where on its sprite its colour is taken, in levels. */
+    private static final float WALL_CUPBOARD_FOOT = 0.6f, WALL_CUPBOARD_DYE = 0.76f;
+    /** The height, in levels, at which the sprite of a thing with no height of its own gives its colour: a bin, a barrel, a locker. */
+    private static final float LOW_DYE = 0.2f, LOCKER_DYE = 0.35f;
+    /** How high a picnic table's top is, in levels, and where on its first square the top's colour is taken. */
+    private static final float PICNIC_TOP = 0.31f, PICNIC_DYE = 0.75f;
+    /** Where the sprite gives a piece's colour when it has none at the first place, as shares of that place's height. */
+    private static final float[] DYE_TRIES = {1f, 0.5f, 0.75f};
+
     /** A sprite the mod has a model for, and how the model stands on the squares the game gives the piece. */
     private static final class Furniture {
         final Models.Model model;
@@ -1480,53 +1490,124 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         final int width, height;
         /** Which of those squares this sprite is. */
         final int gridX, gridY;
-        /** The surfaces that take their colour from the game's sprite, a bit for each. */
-        final int dyed;
-        /** The square whose sprite gives that colour, and how high above the middle of that square, in levels. */
-        final int dyeX, dyeY;
-        final float dyeHigh;
-        final float scale;
-        /** Where the middle of the model's footprint is from the corner of the piece's first square. */
-        final float centreX, centreY;
+        /** The model in place of model when a basin stands on the piece, or null for a piece that takes none. */
+        Models.Model withBasin;
+        /** Whether this is a basin: part of the model of the counter it stands on, and nothing of its own. */
+        boolean basin;
+        /** The surfaces that take their colour from the game's sprite, a bit for each, and those that take it from a second place on it. */
+        int dyed, alsoDyed;
+        /** Where on its square the sprite gives the colour, and how high, in levels: the first place and the second. */
+        float dyeA = 0.5f, dyeB = 0.5f, dyeHigh, alsoHigh;
+        /** The square whose sprite gives the colour. */
+        int dyeX, dyeY;
+        /** Tiles to a metre of the model along the ground and up, and how far above the floor its foot is, in tiles. */
+        float scale = TILES_PER_METRE, scaleUp = TILES_PER_METRE, raised;
+        /** Where the model's origin is from the corner of the piece's first square. */
+        float centreX, centreY;
 
-        /**
-         * @param topUp        how high the game says the piece's top is, in tiles, for one made as high as that, or 0
-         * @param dyeAtFront   whether the colour is taken from the square at the piece's front and not its first
-         * @param againstBack  whether the piece stands with its back at the edge of its squares and not in the middle of them
-         */
-        Furniture(IsoSprite sprite, String model, int turns, int dyed, float dyeHigh, boolean dyeAtFront, float topUp, boolean againstBack) {
-            this.model = Models.get(model);
+        Furniture(IsoSprite sprite, String model, int turns) {
+            this.model = model == null ? null : Models.get(model);
             this.turns = turns;
-            this.dyed = dyed;
-            this.dyeHigh = dyeHigh;
             grid = sprite.getSpriteGrid();
             width = grid == null ? 1 : grid.getWidth();
             height = grid == null ? 1 : grid.getHeight();
             gridX = grid == null ? 0 : grid.getSpriteGridPosX(sprite);
             gridY = grid == null ? 0 : grid.getSpriteGridPosY(sprite);
-            boolean alongY = (turns & 1) == 0;
-            float along = alongY ? height : width, across = alongY ? width : height;
-            float fits = Math.min((along - 2f * FURNITURE_CLEAR) / this.model.depth(), (across - 2f * FURNITURE_CLEAR) / this.model.width());
-            scale = Math.min(topUp > 0f ? topUp / this.model.height() : TILES_PER_METRE, fits);
+            centreX = width / 2f;
+            centreY = height / 2f;
+        }
+
+        /** The surfaces that take the colour the sprite has over the middle of the piece's first square, high levels up. */
+        Furniture dye(int surfaces, float high) {
+            dyed = surfaces;
+            dyeHigh = high;
+            return this;
+        }
+
+        /** As dye, from (a, b) on the square. */
+        Furniture dye(int surfaces, float a, float b, float high) {
+            dyeA = a;
+            dyeB = b;
+            return dye(surfaces, high);
+        }
+
+        /** As dye, from the square at the piece's front: a bed's blanket is on the squares of its foot. */
+        Furniture dyeAtFront(int surfaces, float high) {
             float[] front = new float[2];
             Models.turn(turns, 0f, -1f, front);
-            dyeX = dyeAtFront && front[0] > 0f ? width - 1 : 0;
-            dyeY = dyeAtFront && front[1] > 0f ? height - 1 : 0;
-            float slack = againstBack ? Math.max((along - this.model.depth() * scale) / 2f - BACK_CLEAR, 0f) : 0f;
+            dyeX = front[0] > 0f ? width - 1 : 0;
+            dyeY = front[1] > 0f ? height - 1 : 0;
+            return dye(surfaces, high);
+        }
+
+        /** The surfaces that take the colour the sprite has at another height over the same place: a counter's top. */
+        Furniture also(int surfaces, float high) {
+            alsoDyed = surfaces;
+            alsoHigh = high;
+            return this;
+        }
+
+        /**
+         * Stands the piece inside its squares, no bigger than fits them.
+         *
+         * @param topUp        how high the game says the piece's top is, in tiles, for one made as high as that, or 0
+         * @param reference    how high the model's own top is, in metres, where topUp is given
+         * @param againstBack  whether the piece stands with its back at the edge of its squares and not in the middle of them
+         */
+        Furniture stand(float topUp, float reference, boolean againstBack) {
+            boolean alongY = (turns & 1) == 0;
+            float along = alongY ? height : width, across = alongY ? width : height;
+            float fits = Math.min((along - 2f * FURNITURE_CLEAR) / model.depth(), (across - 2f * FURNITURE_CLEAR) / model.width());
+            scale = scaleUp = Math.min(topUp > 0f ? topUp / reference : TILES_PER_METRE, fits);
+            back(againstBack ? Math.max((along - model.depth() * scale) / 2f - BACK_CLEAR, 0f) : 0f);
+            return this;
+        }
+
+        /**
+         * Stands a piece that meets the next one along: a metre of it is a tile along the ground
+         * whatever its height, so that a run of counters has no gaps in it.
+         *
+         * @param centred  whether the model is built round the middle of its own depth, to be stood at the back of its
+         *                 square, and not round the middle of the square it fills
+         */
+        Furniture meet(float topUp, float reference, boolean centred) {
+            scaleUp = topUp > 0f ? topUp / reference : TILES_PER_METRE;
+            back(centred ? (1f - model.depth()) / 2f - BACK_CLEAR : 0f);
+            return this;
+        }
+
+        private void back(float slack) {
+            float[] front = new float[2];
+            Models.turn(turns, 0f, -1f, front);
             centreX = width / 2f - front[0] * slack;
             centreY = height / 2f - front[1] * slack;
+        }
+
+        Furniture raise(float up) {
+            raised = up;
+            return this;
         }
     }
 
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
     private static final java.util.IdentityHashMap<IsoSprite, Furniture> furniture = new java.util.IdentityHashMap<>();
     private final SpriteGeometry.Frame dyeFrame = new SpriteGeometry.Frame();
+    /** Where the piece last found ready takes its colours, and the mesh of the sprite that gives them. */
+    private float dyeU, dyeV, alsoU, alsoV;
+    private SpriteGeometry.Mesh dyeMesh;
+
+    private static Furniture known(IsoSprite sprite) {
+        if (!furniture.containsKey(sprite)) {
+            furniture.put(sprite, recognise(sprite));
+        }
+        return furniture.get(sprite);
+    }
 
     /**
      * Which of the mod's models a sprite is a square of, by what the game says the sprite is:
-     * the name it gives the piece, which way the piece faces and the squares it lies on. Null
-     * for a piece of another shape than the models: an armchair is not the dining chair, a
-     * round table not the square one.
+     * the name it gives the piece and the kind of piece, what the piece holds, which way it
+     * faces, how high its top is and the squares it lies on. Null for a piece of another shape
+     * than the models: a rocking chair is not the armchair, a round table not the square one.
      */
     private static Furniture recognise(IsoSprite sprite) {
         String name = sprite.getName();
@@ -1536,14 +1617,28 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;
         }
+        String group = properties.get("GroupName") == null ? "" : properties.get("GroupName");
+        String holds = properties.get("container") == null ? "" : properties.get("container");
         int surface = properties.getSurface();
         float surfaceHigh = surface / SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
+        boolean low = properties.has("IsLow"), onTable = properties.has("IsTableTop");
+        boolean counterHigh = surface >= 30 && surface <= 40;
         IsoDirections facing = sprite.getFacing();
+        // A drum is round, and a crate the same from every side: the game gives most of them no front.
+        if ((called.equals("Metal Drum") || called.equals("Barrel")) && grid == null) {
+            return new Furniture(sprite, "barrel", 0).dye(1 << Models.PAINT, LOW_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Crate") && (holds.equals("crate") || holds.equals("militarycrate")) && !group.contains("Metal") && grid == null
+                && surface >= 25 && surface <= 40) {
+            Furniture crate = new Furniture(sprite, "crate", 0).dye(1 << Models.WOOD, surfaceHigh * 0.75f);
+            return crate.stand(surfaceUp, crate.model.height(), false);
+        }
         if (facing == null) {
             // A table for four has no front, and the game gives it none.
             if (grid == null && name.startsWith("furniture_tables_high") && properties.isTable() && !called.contains("Round")
                     && surface > 0 && surface <= TABLE_HIGHEST) {
-                return new Furniture(sprite, "small_table", 0, 1 << Models.WOOD, surfaceHigh, false, surfaceUp, false);
+                Furniture table = new Furniture(sprite, "small_table", 0).dye(1 << Models.WOOD, surfaceHigh);
+                return table.stand(surfaceUp, table.model.height(), false);
             }
             return null;
         }
@@ -1552,47 +1647,126 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean alongY = (turns & 1) == 0;
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         int along = alongY ? height : width, across = alongY ? width : height;
+        boolean single = grid == null, pair = along == 1 && across == 2;
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.
         if (name.startsWith("furniture_bedding") && called.equals("Bed") && along == 2 && across <= 2) {
-            return new Furniture(sprite, across == 2 ? "double_bed" : "single_bed", turns, 1 << Models.CLOTH,
-                    surface > 0 ? surfaceHigh : BED_HEIGHT, true, 0f, false);
+            return new Furniture(sprite, across == 2 ? "double_bed" : "single_bed", turns)
+                    .dyeAtFront(1 << Models.CLOTH, surface > 0 ? surfaceHigh : BED_HEIGHT).stand(0f, 0f, false);
         }
-        if (called.equals("Wardrobe") && properties.has(IsoFlagType.solid) && surface >= TALL_SURFACE && along == 1 && across == 2) {
-            return new Furniture(sprite, "wardrobe", turns, 1 << Models.WOOD, surfaceHigh / 2f, false, surfaceUp, true);
+        if (called.equals("Wardrobe") && holds.equals("wardrobe") && surface >= TALL_SURFACE && pair) {
+            Furniture wardrobe = new Furniture(sprite, "wardrobe", turns).dye(1 << Models.WOOD, surfaceHigh / 2f);
+            return wardrobe.stand(surfaceUp, wardrobe.model.height(), true);
         }
-        if (name.startsWith("furniture_seating_indoor") && called.equals("Couch") && surface > 0 && along == 1 && across == 2) {
-            return new Furniture(sprite, "sofa", turns, 1 << Models.CLOTH, surfaceHigh, false, 0f, true);
+        // A tall cupboard on one square: a steel locker, or shelves that stand on the floor.
+        if (called.equals("Locker") && single && !low && (holds.equals("locker") || holds.equals("militarylocker") || holds.equals("metal_shelves"))) {
+            Furniture locker = new Furniture(sprite, "locker", turns).dye(1 << Models.PAINT, LOCKER_DYE);
+            return locker.stand(surface >= TALL_SURFACE ? surfaceUp : 0f, locker.model.height(), true);
         }
-        // What the game rates as bad to sleep on is a hard chair. An armchair it rates better.
-        if (name.startsWith("furniture_seating_indoor") && called.equals("Chair") && surface > 0 && grid == null
-                && "badBed".equals(properties.get("BedType"))) {
-            return new Furniture(sprite, "dining_chair", turns, 1 << Models.CLOTH, surfaceHigh, false, 0f, false);
+        if (called.equals("Shelves") && holds.equals("shelves") && name.startsWith("furniture_shelving") && properties.has(IsoFlagType.solid)
+                && surface >= TALL_SURFACE && single) {
+            Furniture bookcase = new Furniture(sprite, "bookcase", turns).dye(1 << Models.WOOD, surfaceHigh / 2f);
+            return bookcase.stand(surfaceUp, bookcase.model.height(), true);
         }
-        if (called.equals("Drawers") && "sidetable".equals(properties.get("container")) && surface > 0 && grid == null) {
-            return new Furniture(sprite, "bedside_cabinet", turns, 1 << Models.WOOD, surfaceHigh, false, surfaceUp, true);
+        if (name.startsWith("furniture_seating_indoor") && called.equals("Couch") && surface > 0 && pair) {
+            return new Furniture(sprite, "sofa", turns).dye(1 << Models.CLOTH, surfaceHigh).stand(0f, 0f, true);
+        }
+        if (name.startsWith("furniture_seating_indoor") && called.equals("Chair") && surface > 0 && single) {
+            // What the game rates as fair to sleep in is an armchair. What it rates as bad is a hard chair.
+            if ("averageBed".equals(properties.get("BedType")) && !group.startsWith("Rocking")) {
+                return new Furniture(sprite, "armchair", turns).dye(1 << Models.CLOTH, surfaceHigh).stand(0f, 0f, false);
+            }
+            if ("badBed".equals(properties.get("BedType")) && !group.contains("Plastic") && !group.contains("Folding")) {
+                return new Furniture(sprite, group.contains("Office") ? "office_chair" : "dining_chair", turns).dye(1 << Models.CLOTH, surfaceHigh)
+                        .stand(0f, 0f, false);
+            }
+            return null;
+        }
+        if (called.equals("Drawers") && surface > 0 && single && (holds.equals("sidetable") || holds.equals("dresser") && !group.contains("Mirror"))) {
+            Furniture drawers = new Furniture(sprite, holds.equals("dresser") ? "dresser" : "bedside_cabinet", turns).dye(1 << Models.WOOD, surfaceHigh);
+            return drawers.stand(surfaceUp, drawers.model.height(), true);
+        }
+        // A desk faces whoever sits at it: its drawers are on that side.
+        if (called.equals("Desk") && surface > 0 && pair) {
+            Furniture desk = new Furniture(sprite, "desk", turns).dye(1 << Models.WOOD, surfaceHigh);
+            return desk.stand(surfaceUp, desk.model.height(), false);
+        }
+        if (called.equals("Counter") && single) {
+            boolean corner = group.contains("Corner");
+            if (low && properties.isTable() && holds.equals("counter") && counterHigh) {
+                Furniture counter = new Furniture(sprite, corner ? "counter_corner" : "counter", turns)
+                        .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
+                if (!corner) {
+                    counter.withBasin = Models.get("counter_sink");
+                }
+                return counter.meet(surfaceUp, counter.model.height(), !corner);
+            }
+            if (properties.has("IsHigh") && surface == 0 && (holds.equals("counter") || holds.equals("overhead"))) {
+                return new Furniture(sprite, corner ? "wall_cupboard_corner" : "wall_cupboard", turns).dye(1 << Models.WOOD, WALL_CUPBOARD_DYE)
+                        .meet(0f, 0f, !corner).raise(WALL_CUPBOARD_FOOT * ViewCamera.LEVEL_HEIGHT);
+            }
+            return null;
+        }
+        // A basin let into a counter. The counter's model has it.
+        if (called.equals("Sink") && onTable && single) {
+            Furniture basin = new Furniture(sprite, null, turns);
+            basin.basin = true;
+            return basin;
+        }
+        if (called.equals("Fridge") && holds.equals("fridge") && single && surface >= 55) {
+            Furniture fridge = new Furniture(sprite, "fridge", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.8f);
+            return fridge.stand(surfaceUp, fridge.model.height(), true);
+        }
+        if (called.equals("Oven") && holds.equals("stove") && single && counterHigh) {
+            return new Furniture(sprite, "oven", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.45f).stand(surfaceUp, OVEN_HOB, true);
+        }
+        if (holds.equals("clothingwasher") && single && counterHigh) {
+            return new Furniture(sprite, "washing_machine", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f).stand(surfaceUp, WASHER_TOP, true);
+        }
+        if (called.equals("Television") && single) {
+            // A set on a table says how high the table is. One in a cabinet of its own stands on the floor.
+            if (onTable) {
+                return new Furniture(sprite, "tv", turns).stand(0f, 0f, false).raise(surfaceUp);
+            }
+            if (surface >= 25 && surface <= 40) {
+                return new Furniture(sprite, "tv_console", turns).dye(1 << Models.WOOD, surfaceHigh * 0.25f).stand(surfaceUp, TV_CABINET_TOP, true);
+            }
+            return null;
+        }
+        if (called.equals("Lamp") && onTable && single && surface > 0) {
+            return new Furniture(sprite, "table_lamp", turns).stand(0f, 0f, false).raise(surfaceUp);
+        }
+        if (called.equals("Toilet") && single && name.startsWith("fixtures_bathroom_01")) {
+            return new Furniture(sprite, "toilet", turns).stand(0f, 0f, true);
+        }
+        if (called.equals("Bath") && pair) {
+            return new Furniture(sprite, "bath", turns).stand(0f, 0f, true);
+        }
+        if (called.equals("Bin") && holds.equals("bin") && single && (group.equals("Wheelie") || group.contains("Garbage"))) {
+            return new Furniture(sprite, group.equals("Wheelie") ? "wheelie_bin" : "litter_bin", turns).dye(1 << Models.PLASTIC, LOW_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Box") && holds.equals("postbox") && single) {
+            return group.equals("Mail") ? new Furniture(sprite, "mailbox", turns).stand(0f, 0f, false)
+                    : new Furniture(sprite, "postbox", turns).dye(1 << Models.PAINT, LOW_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Bench") && (group.equals("Park") || group.equals("Fancy Outdoors")) && surface > 0 && pair) {
+            return new Furniture(sprite, "park_bench", turns).dye(1 << Models.WOOD, surfaceHigh * 0.9f).stand(surfaceUp, BENCH_SEAT, false);
+        }
+        if ((called.equals("Picknic Table") || called.equals("Table") && group.equals("Picknic")) && width == 2 && height == 2) {
+            return new Furniture(sprite, "picnic_table", turns).dye(1 << Models.WOOD, PICNIC_DYE, PICNIC_DYE, PICNIC_TOP).stand(0f, 0f, false);
         }
         return null;
     }
 
+    /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat. */
+    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, TV_CABINET_TOP = 0.78f, BENCH_SEAT = 0.455f;
+
     /**
-     * Stands the mod's own model of a piece of furniture where the game has the sprites of
-     * one, and says whether this sprite is thereby dealt with. A piece on several squares is
-     * one model, added by the first of its squares, and its other squares add nothing.
-     *
-     * False, which leaves the sprite to be drawn as it is, when there is no model of the
-     * piece, when one of its squares is missing, and when the sprite that is to give it its
-     * colour has nothing painted where the colour is taken. Every square of a piece reaches
-     * the same answer, so none of it is drawn twice or left out.
+     * Whether the piece the object is a square of can stand as its model: every square of it is
+     * there, and the sprite that is to give it its colour is painted where the colour is
+     * taken. Leaves where the colour is taken in dyeU to alsoV and dyeMesh.
      */
-    private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
-        if (!furniture.containsKey(sprite)) {
-            furniture.put(sprite, recognise(sprite));
-        }
-        Furniture piece = furniture.get(sprite);
-        if (piece == null) {
-            return false;
-        }
+    private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
         int originX = x - piece.gridX, originY = y - piece.gridY;
         IsoObject dyer = object;
         if (piece.grid != null) {
@@ -1608,13 +1782,73 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 }
             }
         }
+        dyeMesh = solid.get(PLAIN);
+        if (piece.dyed == 0) {
+            return true;
+        }
         Texture dye = dyer.getSprite().getTextureForCurrentFrame(dyer.getDir());
         if (dye == null || dye.getID() <= 0 || dye.getWidth() <= 0 || dye.getHeight() <= 0) {
             return false;
         }
         dyeFrame.scale = frame.scale;
         frameOf(dyeFrame, dyer, dye);
-        if (!dye.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, 0.5f, 0.5f)), Math.round(SpriteGeometry.frameV(dyeFrame, 0.5f, 0.5f, piece.dyeHigh)))) {
+        dyeMesh = solid.get(dye.getID());
+        for (float share : DYE_TRIES) {
+            float high = piece.dyeHigh * share;
+            if (dye.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, piece.dyeA, piece.dyeB)),
+                    Math.round(SpriteGeometry.frameV(dyeFrame, piece.dyeA, piece.dyeB, high)))) {
+                dyeU = SpriteGeometry.textureU(dyeFrame, piece.dyeA, piece.dyeB);
+                dyeV = SpriteGeometry.textureV(dyeFrame, piece.dyeA, piece.dyeB, high);
+                if (piece.alsoDyed == 0) {
+                    return true;
+                }
+                alsoU = dyeU;
+                alsoV = SpriteGeometry.textureV(dyeFrame, piece.dyeA, piece.dyeB, piece.alsoHigh);
+                return dye.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, piece.dyeA, piece.dyeB)),
+                        Math.round(SpriteGeometry.frameV(dyeFrame, piece.dyeA, piece.dyeB, piece.alsoHigh)));
+            }
+        }
+        return false;
+    }
+
+    /** The object on the square that is a counter a basin can stand in, or a basin, or null. */
+    private IsoObject onSquare(int x, int y, int z, boolean basin) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            Furniture piece = sprite == null ? null : known(sprite);
+            if (piece != null && (basin ? piece.basin : piece.withBasin != null)) {
+                return objects.get(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Stands the mod's own model of a piece of furniture where the game has the sprites of
+     * one, and says whether this sprite is thereby dealt with. A piece on several squares is
+     * one model, added by the first of its squares, and its other squares add nothing.
+     *
+     * False, which leaves the sprite to be drawn as it is, when there is no model of the
+     * piece, when one of its squares is missing, and when the sprite that is to give it its
+     * colour has nothing painted where the colour is taken. Every square of a piece reaches
+     * the same answer, so none of it is drawn twice or left out.
+     */
+    private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
+        Furniture piece = known(sprite);
+        if (piece == null) {
+            return false;
+        }
+        if (piece.basin) {
+            // Dealt with when the counter under it is: the counter's model has the basin in it.
+            IsoObject counter = onSquare(x, y, z, false);
+            return counter != null && ready(counter, known(counter.getSprite()), x, y, z);
+        }
+        if (!ready(object, piece, x, y, z)) {
             return false;
         }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
@@ -1622,10 +1856,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return true;
         }
         float[] lift = geometry.lift;
-        Models.add(piece.model, solid.get(PLAIN), solid.get(dye.getID()), piece.dyed,
-                SpriteGeometry.textureU(dyeFrame, 0.5f, 0.5f), SpriteGeometry.textureV(dyeFrame, 0.5f, 0.5f, piece.dyeHigh),
-                frame, x, y, originX + piece.centreX, originY + piece.centreY,
-                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f, piece.turns, piece.scale);
+        Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
+        Models.add(model, solid.get(PLAIN), dyeMesh, piece.dyed, dyeU, dyeV, dyeMesh, piece.alsoDyed, alsoU, alsoV,
+                frame, x, y, x + piece.centreX, y + piece.centreY,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised, piece.turns, piece.scale, piece.scaleUp);
         furnished++;
         return true;
     }

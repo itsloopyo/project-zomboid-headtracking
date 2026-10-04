@@ -34,5 +34,7 @@
 - In first person the game is given the direction the view points as the aim, and the point the view is aimed at, at its own height, as the place to look for a shot's target.
 - In first person `Left Shift` sprints, `Left Alt` jogs, and `Left Ctrl` crouches as well as `C`. The aim is on the right mouse button. Saved key bindings are not changed, and the game's own view uses them as before.
 - A click in first person no longer opens a door, switch, container or right click menu of the game's own view.
+- More of what stands in a house or a street in first person is solid: armchairs, office chairs, kitchen counters with their sinks and corner pieces, wall cupboards, fridges, ovens, washing machines, bookcases with books, lockers, chests of drawers, desks, televisions, table lamps that glow when lit, toilets, baths, wheelie bins, litter bins, mailboxes, post boxes, park benches, picnic tables, crates and barrels.
+- Wardrobes in first person have doors over two drawers, evenly spaced, and no dark patches on their panels. Sofas have rolled arms and rounded, piped cushions. A white wardrobe stays white.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.
