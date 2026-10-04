@@ -178,6 +178,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] box = new float[4];
     private int overLayer;
     private boolean wiredHere;
+    private static final java.util.HashMap<Long, Integer> strung = new java.util.HashMap<>();
     private static final int WIRE_SPAN = 12;
     private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
     private float steepest;
@@ -835,9 +836,40 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * between them.
      */
     private void stringWires(int x, int y, int z) {
-        // Several wires run side by side, so the squares that hold wire are a band a few
-        // squares wide. The cable goes the way the band runs, which is the way along which
-        // the most of them lie, and not across it from wire to wire.
+        // Where the cable from this square goes is worked out once and kept: the lines do not
+        // move, and working it out looks at a hundred squares.
+        long key = ((long) x << 36) ^ ((long) y << 8) ^ z;
+        Integer kept = strung.get(key);
+        if (kept == null) {
+            kept = wireFrom(x, y, z);
+            // Kept only once the map is loaded as far as the search reaches: before that the
+            // answer may be short of the truth.
+            if (cell.getGridSquare(x - WIRE_SPAN, y - WIRE_SPAN, 0) != null && cell.getGridSquare(x + WIRE_SPAN, y + WIRE_SPAN, 0) != null
+                    && cell.getGridSquare(x - WIRE_SPAN, y + WIRE_SPAN, 0) != null && cell.getGridSquare(x + WIRE_SPAN, y - WIRE_SPAN, 0) != null) {
+                strung.put(key, kept);
+            }
+        }
+        if (kept == 0) {
+            return;
+        }
+        int way = kept >> 8, far = kept & 0xff;
+        int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
+        int toX = x + stepX * far, toY = y + stepY * far;
+        float fromUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x + 0.5f, y + 0.5f);
+        float toUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(toX + 0.5f, toY + 0.5f);
+        float midX = x + 0.5f + stepX * far / 2f, midY = y + 0.5f + stepY * far / 2f;
+        float midUp = (fromUp + toUp) / 2f - WIRE_SAG * far;
+        cable(x + 0.5f, y + 0.5f, fromUp, midX, midY, midUp);
+        cable(midX, midY, midUp, toX + 0.5f, toY + 0.5f, toUp);
+    }
+
+    /**
+     * Which way the cable from a square runs and how many squares on the next wire square is,
+     * as way * 256 + far, or 0 for none. Several wires run side by side, so the squares that
+     * hold wire are a band a few squares wide: the cable goes the way the band runs, which is
+     * the way along which the most of them lie, and not across it from wire to wire.
+     */
+    private int wireFrom(int x, int y, int z) {
         int most = 0, along = 0;
         for (int way = 0; way < 4; way++) {
             int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
@@ -852,22 +884,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 along = way;
             }
         }
-        for (int way = along; way == along && most > 0; way++) {
-            int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
-            for (int far = 1; far <= WIRE_SPAN; far++) {
-                int toX = x + stepX * far, toY = y + stepY * far;
-                if (!holdsWire(toX, toY, z)) {
-                    continue;
-                }
-                float fromUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x + 0.5f, y + 0.5f);
-                float toUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(toX + 0.5f, toY + 0.5f);
-                float midX = x + 0.5f + stepX * far / 2f, midY = y + 0.5f + stepY * far / 2f;
-                float midUp = (fromUp + toUp) / 2f - WIRE_SAG * far;
-                cable(x + 0.5f, y + 0.5f, fromUp, midX, midY, midUp);
-                cable(midX, midY, midUp, toX + 0.5f, toY + 0.5f, toUp);
-                break;
+        if (most == 0) {
+            return 0;
+        }
+        int stepX = along == 1 ? 0 : 1, stepY = along == 0 ? 0 : along == 3 ? -1 : 1;
+        for (int far = 1; far <= WIRE_SPAN; far++) {
+            if (holdsWire(x + stepX * far, y + stepY * far, z)) {
+                return along << 8 | far;
             }
         }
+        return 0;
     }
 
     private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
