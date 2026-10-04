@@ -38,7 +38,7 @@ set "MOD_SEED_FILES="
 set "PRESERVE_FILES="
 :: Config and log files the mod writes at runtime, removed from wherever the
 :: DLLs were deployed.
-set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log"
+set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log ProjectZomboidHeadTracking.dev"
 :: Files to remove from the game root. Only needed by a mod deployed BELOW the
 :: root (see ASI_SUBDIR) that still resolves its config and log from the exe's
 :: own directory.

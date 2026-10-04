@@ -27,3 +27,13 @@ $null = Invoke-DevDeployJavaAgent `
     -AgentJars @('ProjectZomboidHeadTracking.jar') `
     -MainClass 'com/cameraunlock/zomboid/Boot' `
     -GivenPath $GamePath
+
+# The mod's development keys are on only where this marker is. install.cmd, which is what a
+# player runs, does not write it.
+Import-Module (Join-Path $projectRoot 'cameraunlock-core\powershell\GamePathDetection.psm1') -Force
+$targets = if ($GamePath) { @($GamePath) } else { @(Find-AllGamePaths -GameId 'project-zomboid') }
+foreach ($target in $targets) {
+    $marker = Join-Path $target 'ProjectZomboidHeadTracking.dev'
+    Set-Content -Path $marker -Value 'development install' -Encoding ascii
+    Write-Host "Wrote $marker"
+}

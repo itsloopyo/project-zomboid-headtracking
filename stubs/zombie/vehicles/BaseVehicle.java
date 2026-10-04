@@ -9,4 +9,8 @@ public final class BaseVehicle {
     public Vector3f getForwardVector(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public int getSeat(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getPassengerWorldPos(int seat, Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
+    public void repair() { throw new UnsupportedOperationException("reference stub"); }
+    public void setHotwired(boolean hotwired) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean enter(int seat, IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public VehicleParts getParts() { throw new UnsupportedOperationException("reference stub"); }
 }

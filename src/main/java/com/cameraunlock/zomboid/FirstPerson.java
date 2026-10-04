@@ -140,6 +140,7 @@ public final class FirstPerson {
             toggle();
         }
         HeadTracking.pollHotkeys();
+        DevKeys.poll();
         IsoPlayer player = IsoPlayer.getInstance();
         if (on && !allowed(player)) {
             on = false;
