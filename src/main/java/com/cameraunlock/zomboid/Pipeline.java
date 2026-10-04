@@ -1544,6 +1544,7 @@ final class Pipeline {
             #version 120
             uniform sampler2D uDepth;
             uniform vec2 uSize;
+            uniform vec2 uFull;
             uniform vec2 uTan;
             uniform float uNear;
             uniform float uFar;
@@ -1558,10 +1559,25 @@ final class Pipeline {
             uniform vec3 uSunEye;
 
             // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
-            vec3 placeAt(vec2 uv) {
+            vec3 placeAt(vec2 at) {
+                // This pass is half the picture's size, so the middle of each of its pixels is
+                // the corner of four of the picture's, and which of the four a read there
+                // returns goes by the last digit of the sum. It went one way for some columns
+                // and the other for the next, and on ground that slopes across the picture
+                // each change was a step in the ground: a grid of lines of shade. The place is
+                // moved to the middle of the pixel it is in first.
+                vec2 uv = (floor(at * uFull) + 0.5) / uFull;
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
                 return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+            }
+
+            // Whether a place is in the picture. Read past its edge, the picture's depth comes
+            // round again from the far edge, and whatever is there is taken for something
+            // standing next to this point: with the head rolled, when the two edges are at
+            // different distances, the ground near every edge was ruled with lines of shade.
+            float shown(vec2 at) {
+                return step(0.0, at.x) * step(at.x, 1.0) * step(0.0, at.y) * step(at.y, 1.0);
             }
 
             void main() {
@@ -1584,7 +1600,7 @@ final class Pipeline {
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (along * reach);
                     vec3 v = placeAt(uv + off) - p;
                     float far2 = dot(v, v);
-                    blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0);
+                    blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0) * shown(uv + off);
                 }
                 float open = clamp(1.0 - blocked * (1.5 / float(SAMPLES)), 0.0, 1.0);
                 // The same again over the width of a room: the corner where two walls and a
@@ -1598,7 +1614,7 @@ final class Pipeline {
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * roomy);
                     vec3 v = placeAt(uv + off) - p;
                     float far2 = dot(v, v);
-                    broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * step(far2, ROOM_RADIUS * ROOM_RADIUS * 2.0);
+                    broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * step(far2, ROOM_RADIUS * ROOM_RADIUS * 2.0) * shown(uv + off);
                 }
                 open *= clamp(1.0 - broad * (2.0 / float(ROOM_SAMPLES)), 0.4, 1.0);
                 // Light does not stop at the first thing it falls on. A sunlit lawn throws
@@ -1613,7 +1629,7 @@ final class Pipeline {
                     vec2 at = uv + vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * wide);
                     vec3 v = placeAt(at) - p;
                     float far2 = dot(v, v);
-                    float faces = max(dot(v, n), 0.0) / sqrt(far2 + 0.0001);
+                    float faces = max(dot(v, n), 0.0) / sqrt(far2 + 0.0001) * shown(at);
                     lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * step(far2, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0) / (1.0 + far2));
                 }
                 lent *= 1.6 / float(BOUNCE_SAMPLES) * (1.0 - smoothstep(25.0, 50.0, p.z));
@@ -1628,7 +1644,7 @@ final class Pipeline {
                         vec3 q = p + n * 0.03 + uSunEye * (reach * (float(i) + begin) / 10.0);
                         vec2 at = q.xy / (q.z * uTan) * 0.5 + 0.5;
                         float behind = q.z - placeAt(at).z;
-                        if (behind > 0.02 && behind < 0.35) {
+                        if (behind > 0.02 && behind < 0.35 && shown(at) > 0.5) {
                             open *= 0.62;
                             break;
                         }
@@ -2978,6 +2994,7 @@ final class Pipeline {
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
+            uniform vec3 uWithout;
             uniform sampler2D uOcclusion;
             uniform sampler2D uVolume;
             uniform vec2 uSize;
@@ -3171,7 +3188,7 @@ final class Pipeline {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                vec4 around = texture2D(uOcclusion, uv);
+                vec4 around = mix(texture2D(uOcclusion, uv), vec4(1.0), uWithout.x);
                 vec4 here = texture2D(uScene, uv);
                 vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
                 // The light lent by what stands near, taken on by the surface in its own colour.
@@ -3181,9 +3198,9 @@ final class Pipeline {
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }
-                c += texture2D(uVolume, uv).rgb;
+                c += texture2D(uVolume, uv).rgb * (1.0 - uWithout.y);
                 c += flare(uv);
-                c += texture2D(uBloom, uv).rgb * 0.1;
+                c += texture2D(uBloom, uv).rgb * (0.1 * (1.0 - uWithout.z));
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.34);
@@ -3416,6 +3433,8 @@ final class Pipeline {
     private static int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
+    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow. */
+    private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
     private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
             STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10;
@@ -4071,7 +4090,7 @@ final class Pipeline {
         steady.set("uRightBefore", before.rightX, before.rightY, before.rightUp);
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
-        steady.set("uKept", keptAny ? KEPT : 0f);
+        steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
         steady.set("uOwnWithin", FirstPerson.seated ? 3.2f : 0f);
         quad();
         // The rest of the frame is made from the steadied picture.
@@ -4376,6 +4395,7 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
+        occlusion.set("uFull", (float) width, (float) height);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -4488,6 +4508,7 @@ final class Pipeline {
         develop.set("uBloom", 1);
         develop.set("uDepth", 2);
         develop.set("uOcclusion", 3);
+        develop.set("uWithout", WITHOUT.contains("occlusion") ? 1f : 0f, WITHOUT.contains("air") ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
         develop.set("uVolume", 4);
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
         GL11.glBindTexture(GL_TEXTURE_2D, softVolumeColor);
