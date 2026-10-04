@@ -729,13 +729,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     private void addEdge(byte beside, byte mine, float x, float y, float alongX, float alongY, float top) {
         SpriteGeometry.Mesh mesh = solid.get(PLAIN);
-        mesh.open = frame.open;
+        // The colour given is the light on it. What colour the thing is, the picture knows by
+        // what it is made of.
         if (beside == Terrain.STREET) {
-            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f,
-                    0.82f * frame.red, 0.82f * frame.green, 0.8f * frame.blue);
+            mesh.open = frame.open + 32f * CONCRETE;
+            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f, frame.red, frame.green, frame.blue);
         } else if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
-            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f,
-                    0.3f * frame.red, 0.26f * frame.green, 0.22f * frame.blue);
+            mesh.open = frame.open + 32f * QUAY;
+            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f, frame.red, frame.green, frame.blue);
         }
     }
 
@@ -770,7 +771,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {

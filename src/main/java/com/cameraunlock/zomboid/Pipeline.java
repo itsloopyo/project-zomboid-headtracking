@@ -452,7 +452,12 @@ final class Pipeline {
                 if (vMaterial > 0.5 && vMaterial < 1.5 && min(texel.r, min(texel.g, texel.b)) > 0.99) {
                     texel.rgb = vec3(0.3, 0.3, 0.32);
                 }
-                if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5) {
+                // So are the mod's own kerbs, of concrete, and the walls of its quays, of dark
+                // wet timber.
+                if (vMaterial > 8.5) {
+                    texel.rgb = vMaterial < 9.5 ? vec3(0.62, 0.62, 0.6) : vec3(0.2, 0.17, 0.14);
+                }
+                if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
                     float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
