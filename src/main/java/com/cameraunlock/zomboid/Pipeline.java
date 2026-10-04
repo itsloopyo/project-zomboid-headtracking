@@ -418,7 +418,13 @@ final class Pipeline {
                     float total = weights.x + weights.y + weights.z + weights.w + middle;
                     if (total > 0.2 && texel.a > 0.5) {
                         vec3 curved = (a.rgb * weights.x + b.rgb * weights.y + d.rgb * weights.z + e.rgb * weights.w + c.rgb * middle) / total;
-                        texel.rgb = clamp(curved + (curved - texel.rgb) * 0.7, 0.0, 1.0);
+                        // Only where a dot of the sprite is spread over several pixels. Further
+                        // off, where a pixel takes in a dot or more, drawing the colour out
+                        // would make every edge sparkle as the eye moves.
+                        vec2 footX = dFdx(vUv) * size, footY = dFdy(vUv) * size;
+                        float spread = sqrt(max(dot(footX, footX), dot(footY, footY)));
+                        float near = 1.0 - smoothstep(0.35, 0.8, spread);
+                        texel.rgb = mix(texel.rgb, clamp(curved + (curved - texel.rgb) * 0.7, 0.0, 1.0), near);
                     }
                 }
                 // The game's sprites have no smaller copies of themselves for when they are far
@@ -458,6 +464,9 @@ final class Pipeline {
                         texel.rgb = mix(texel.rgb, round / found * 0.78, 0.85);
                     }
                 }
+                // Where leaves and blades are thinned out, it is by a pattern fixed to the plant
+                // and not to the screen: the picture is shifted a little each frame to smooth it,
+                // and a pattern on the screen would leave out different leaves every frame.
                 if (vMaterial > 4.5 && vMaterial < 5.5) {
                     // The leaves of a tree. The game's sprite gives the tree its outline and the
                     // colour it is at this time of year, taken broadly so that the painted
@@ -480,11 +489,11 @@ final class Pipeline {
                     // thinning away first: the other cards of the fan are the tree from here.
                     // Nor is a leaf right against the eye drawn: standing in a tree, the leaves
                     // within reach thin away and the view is of the wood beyond them.
-                    if (length(uEye - vWorld) < 0.9 + 0.7 * grain(gl_FragCoord.xy)) {
+                    if (length(uEye - vWorld) < 0.9 + 0.7 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
                     vec2 spread = fwidth(along * 0.85);
-                    if (max(spread.x, spread.y) > 0.1 + 0.17 * grain(gl_FragCoord.xy)) {
+                    if (max(spread.x, spread.y) > 0.1 + 0.17 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
                     if (broad.a < 0.35 || leaf.a < 0.5) {
@@ -504,7 +513,7 @@ final class Pipeline {
                     // edge of where grass stands they are gone, so no line shows where it ends.
                     // A blade right against the eye is a green wall across the picture. Within
                     // arm's reach the grass thins away to nothing.
-                    if (length(uEye - vWorld) < 0.45 + 0.5 * grain(gl_FragCoord.xy)) {
+                    if (length(uEye - vWorld) < 0.45 + 0.5 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
                     float up = 1.0 - vCover;
