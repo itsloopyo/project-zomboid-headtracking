@@ -941,6 +941,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             boxes++;
             return;
         }
+        // A bin, a barrel, a hydrant: something compact that the game drew from above and to
+        // one side. Stood up as a flat picture it leans back at the angle it was drawn from,
+        // its lid tipped towards whoever looks. As a body with a top and sides it stands
+        // upright. Only what is painted through the middle of its top and both the sides it
+        // shows: a chair or a table has air there.
+        if (!grows && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
+            geometry.addBox(mesh, frame, x, y, z, box);
+            boxes++;
+            return;
+        }
         if (grows) {
             // A tree or a bush is not a picture of one that turns to face whoever looks at it.
             // It stands in the world: the sprite is set up several times through the plant's
@@ -1051,6 +1061,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return painted(texture, a, b, height) && painted(texture, a, b + half, height * 0.5f) && painted(texture, a + half, b, height * 0.5f)
                 && painted(texture, a, b + half, height * 0.2f) && painted(texture, a + half, b, height * 0.2f)
                 && painted(texture, a - half * 0.5f, b + half, height * 0.8f) && painted(texture, a + half, b - half * 0.5f, height * 0.8f);
+    }
+
+    private boolean fillsMiddle(Texture texture) {
+        float a = box[0], b = box[1], half = box[2], height = box[3];
+        return painted(texture, a, b, height) && painted(texture, a, b + half, height * 0.5f) && painted(texture, a + half, b, height * 0.5f)
+                && painted(texture, a, b + half, height * 0.15f) && painted(texture, a + half, b, height * 0.15f)
+                && painted(texture, a, b + half, height * 0.85f) && painted(texture, a + half, b, height * 0.85f);
     }
 
     private boolean painted(Texture texture, float a, float b, float h) {
