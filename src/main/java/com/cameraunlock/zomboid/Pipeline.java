@@ -213,6 +213,22 @@ final class Pipeline {
             }
 
             const float RELIEF = 0.05;
+
+            // How much of the sun a surface throws at the eye: the microfacet model every
+            // modern renderer uses (GGX facets, Schlick's Fresnel, Smith's shadowing). rough
+            // is how rough the surface is, 0 a mirror and 1 chalk; f0 is how much it mirrors
+            // seen square on, 0.04 for anything that is not metal.
+            float glossed(vec3 n, vec3 v, vec3 l, float rough, float f0) {
+                vec3 h = normalize(v + l);
+                float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001), nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
+                float a = rough * rough, a2 = a * a;
+                float d = nh * nh * (a2 - 1.0) + 1.0;
+                float facets = a2 / (3.14159265 * d * d);
+                float k = (rough + 1.0) * (rough + 1.0) / 8.0;
+                float seen = 1.0 / ((nv * (1.0 - k) + k) * (nl * (1.0 - k) + k));
+                float fresnel = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
+                return facets * seen * fresnel * 0.25 * nl;
+            }
             uniform float uRaining;
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
@@ -491,6 +507,14 @@ final class Pipeline {
                 if (uRaining > 0.0 && !card && open > 0.5 && n.z > 0.8 && range < 22.0) {
                     color += atmosphere(vec3(0.0, 0.0, 1.0)) * (landing(vWorld.xy).y * uRaining * 0.6);
                 }
+                if (!card && !water && reached > 0.0) {
+                    // Every surface has a gloss of its own: dull for earth and render, more for
+                    // paint and planed wood, and much more for anything with water lying on it.
+                    float pale = max(texel.r, max(texel.g, texel.b));
+                    float rough = mix(0.82, 0.5, smoothstep(0.55, 0.95, pale));
+                    rough = mix(rough, 0.18, shine);
+                    color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
+                }
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
                     vec3 back = reflect(-view, n);
@@ -508,7 +532,7 @@ final class Pipeline {
                     mirrored.z = abs(mirrored.z);
                     float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
                     color = mix(color, atmosphere(mirrored) * (0.35 + 0.65 * open), glance * shine);
-                    color += pow(uLightColor, vec3(2.2)) * (pow(max(dot(mirrored, uLight), 0.0), 220.0) * 6.0 * shine * reached);
+                    color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
                 }
 
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
