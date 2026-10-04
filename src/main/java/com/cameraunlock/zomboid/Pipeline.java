@@ -1479,7 +1479,7 @@ final class Pipeline {
                 // A low sun shines through far more air than a high one, and the air towards
                 // it glows broadly, with a hot heart.
                 float low = 1.0 - smoothstep(0.1, 0.75, uLight.z);
-                float towards = 0.3 + (1.2 + 2.6 * low) * pow(mu, 2.5) + (2.4 + 5.0 * low) * pow(mu, 9.0);
+                float towards = 0.3 * (1.0 - 0.6 * low) + (1.2 + 1.4 * low) * pow(mu, 2.5) + (2.4 + 3.0 * low) * pow(mu, 9.0);
                 vec3 caught = pow(uLightColor, vec3(2.2)) * (lit / float(STEPS) * ahead * along * uMist * towards);
                 // A beam shows in clear night air too, on the dust in it, and far more in mist.
                 caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0012 + 1.2 * uMist));

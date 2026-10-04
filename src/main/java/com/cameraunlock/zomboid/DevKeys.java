@@ -26,7 +26,8 @@ final class DevKeys {
     /** F6. */
     private static final int INVINCIBLE_KEY = 64;
 
-    private static boolean invincible;
+    private static boolean invincible, wasInvincible;
+    private static java.lang.reflect.Field cannotDie;
     private static boolean looked;
     private static boolean enabled;
 
@@ -55,8 +56,24 @@ final class DevKeys {
         }
         // The game's own god mode is refused outside its debug mode, so the player is made
         // whole again every frame instead: wounds, bites and infection are gone as they land.
-        if (invincible && safe != null && !safe.isDead()) {
-            safe.getBodyDamage().RestoreToFullHealth();
+        if (safe != null && (invincible || wasInvincible)) {
+            // Health put back each frame is not enough: a crowd pulls a player down and kills
+            // outright. The game's own switch for a character that cannot die is behind a
+            // role check, so the field is set directly.
+            try {
+                if (cannotDie == null) {
+                    cannotDie = zombie.characters.IsoGameCharacter.class.getDeclaredField("invincible");
+                    cannotDie.setAccessible(true);
+                }
+                cannotDie.setBoolean(safe, invincible);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("the game's character has no invincible field: " + e, e);
+            }
+            safe.setAvoidDamage(invincible);
+            if (invincible && !safe.isDead()) {
+                safe.getBodyDamage().RestoreToFullHealth();
+            }
+            wasInvincible = invincible;
         }
         if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;

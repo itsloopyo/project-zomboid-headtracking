@@ -155,7 +155,7 @@ final class SkyState {
         windY = (float) Math.sin(windAngle) * windStrength;
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
-        mist *= 1f + 2.2f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
+        mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
 
         this.rain = climate.isSnowing() ? 0f : rain;
         long now = System.nanoTime();
