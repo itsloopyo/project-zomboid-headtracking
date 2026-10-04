@@ -22,19 +22,24 @@ final class DevKeys {
     private static final int TAKE_VEHICLE_KEY = 65;
     private static final float TAKE_WITHIN = 5f;
 
+    private static boolean looked;
     private static boolean enabled;
 
     private DevKeys() {}
 
-    static void start(Path gameDirectory) {
-        enabled = Files.exists(gameDirectory.resolve(MARKER));
-        if (enabled) {
-            Log.info("development install: F7 takes the nearest vehicle");
-        }
-    }
-
-    /** Logic thread, once a frame. */
+    /**
+     * Logic thread, once a frame. The marker is looked for here and not as the agent starts:
+     * this class names the game's player class, and a class the agent loads before its patches
+     * are in place brings the game's classes in unpatched.
+     */
     static void poll() {
+        if (!looked) {
+            looked = true;
+            enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
+            if (enabled) {
+                Log.info("development install: F7 takes the nearest vehicle");
+            }
+        }
         if (!enabled || !GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;
         }

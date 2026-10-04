@@ -67,7 +67,6 @@ public final class Agent {
 
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         HeadTracking.start();
-        DevKeys.start(gameDirectory);
 
         CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
         instrumentation.addTransformer(new PatchTransformer(List.of(
