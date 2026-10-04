@@ -157,7 +157,7 @@ final class Pipeline {
                 vNormal = gl_Normal;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
-                vec4 at = uLaid > 0.5 ? gl_Vertex : blown(gl_Vertex, gl_Normal);
+                vec4 at = uLaid > 0.5 && gl_Color.a < 7.5 ? gl_Vertex : blown(gl_Vertex, gl_Normal);
                 vCover = 2.0 - length(gl_Normal);
                 vWorld = at.xyz;
                 gl_Position = gl_ModelViewProjectionMatrix * at;
@@ -218,6 +218,22 @@ final class Pipeline {
 
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                bool grass = vColor.a > 7.5;
+                if (grass) {
+                    // A card of grass: blades side by side along it, each its own height, lean
+                    // and shade, narrowing to a point. Further off they are shorter, and at the
+                    // edge of where grass stands they are gone, so no line shows where it ends.
+                    float up = 1.0 - vCover;
+                    float along = dot(vWorld.xy, vec2(19.0, 27.0));
+                    float blade = floor(along);
+                    float tall = (0.3 + 0.7 * grain(vec2(blade, 7.0))) * (1.0 - smoothstep(9.0, 15.5, length(uEye - vWorld)));
+                    float lean = (grain(vec2(blade, 3.0)) - 0.5) * 0.7 * up;
+                    if (up > tall || abs(fract(along) - 0.5 + lean) > 0.5 * (1.0 - up / tall)) {
+                        discard;
+                    }
+                    texel.rgb *= (0.62 + 0.75 * up) * (0.85 + 0.3 * grain(vec2(blade, 11.0)));
+                    texel.a = 1.0;
+                }
                 // The sprites were drawn for a view in which every level line runs two pixels
                 // across for one down, so the edge of a door or a wall is a staircase of
                 // two-pixel steps. Seen square on and close, the steps show as a saw edge. Taken
@@ -239,14 +255,14 @@ final class Pipeline {
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
                 // the sun gets into from any side: it is lit whichever way the card faces.
-                bool water = vColor.a > 3.5;
+                bool water = vColor.a > 3.5 && !grass;
                 // A sprite is paint on a flat sheet. Its light and dark say where the thing it
                 // shows stands proud and where it is sunk, the mortar between bricks, the gaps
                 // between boards, the blades of grass, so the sheet is lit as if it were
                 // raised where it is light. The sun then picks the surface out as it moves, and
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
-                float relief = water ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range));
+                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range));
                 if (relief > 0.0) {
                     float height = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     vec3 acrossX = dFdx(vWorld), acrossY = dFdy(vWorld);
@@ -260,7 +276,7 @@ final class Pipeline {
                     }
                 }
                 bool card = !water && vColor.a > 1.5;
-                float open = water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
+                float open = grass ? vColor.a - 8.0 : water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (card) {
                     facing = 0.5 + 0.4 * facing;
@@ -318,7 +334,7 @@ final class Pipeline {
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
                 float shown = 1.0;
-                if (uLaid > 0.5 && vCover < 0.999) {
+                if (uLaid > 0.5 && !grass && vCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
                 }
@@ -1258,11 +1274,10 @@ final class Pipeline {
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
         drawRanges(0, solidRanges, world);
-        // What is laid over the floors, mixed in by how see-through each pixel is. It writes no
-        // depth: it lies on a floor that already has.
+        // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
+        // that stands on them.
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDepthMask(false);
         world.set("uCut", 0.02f);
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);

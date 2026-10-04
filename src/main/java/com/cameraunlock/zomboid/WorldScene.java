@@ -175,6 +175,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
+    /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
+    private static final float GRASS_REACH = 16f;
+    private static final int TUFTS = 7;
     /** The ground of the chunk being built and of the ring of squares round it, laid out as the lights are. */
     private final byte[] groundKind = new byte[LIGHT_SPAN * LIGHT_SPAN];
     private final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
@@ -617,6 +620,30 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return known[0];
     }
 
+    /**
+     * Grass the game paints flat on the ground stands up near the eye: tufts of blades on every
+     * square of open grass, each the colour of the ground it stands on. Where each tuft stands
+     * and how it is turned comes from the square's own place on the map, so the same tufts are
+     * there every time the square is built.
+     */
+    private void growGrass(int x, int y, int localX, int localY) {
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        if (groundKind[own] != Terrain.NATURAL || lightOpen[own] != 1 || groundTexture[own] == null || (groundRank[own] - 1) % 64 < 33) {
+            return;
+        }
+        frameOf(groundObject[own], groundTexture[own]);
+        SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
+        for (int tuft = 0; tuft < TUFTS; tuft++) {
+            int hash = x * 73856093 ^ y * 19349663 ^ tuft * 83492791;
+            hash = (hash ^ hash >>> 13) * 0x5bd1e995;
+            hash ^= hash >>> 15;
+            float a = (hash & 0xff) / 255f, b = (hash >>> 8 & 0xff) / 255f;
+            double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
+            float height = 0.2f + 0.22f * (hash >>> 24 & 0xff) / 255f;
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.42f, height);
+        }
+    }
+
     private boolean spreads(int at, int own, int mine) {
         if (groundKind[at] != Terrain.NATURAL || lightOpen[at] != 1 || groundTexture[at] == null) {
             return false;
@@ -659,6 +686,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (z == 0) {
             spreadGround(x, y, localX, localY);
+            if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
+                growGrass(x, y, localX, localY);
+            }
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();

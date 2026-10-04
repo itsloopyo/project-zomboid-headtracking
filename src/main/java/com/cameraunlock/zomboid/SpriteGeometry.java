@@ -27,6 +27,8 @@ final class SpriteGeometry {
     static final float CARD = 2f;
     /** Added to a vertex's openness to mark it as the surface of water. */
     static final float WATER = 4f;
+    /** Added to a vertex's openness: a card of grass blades, cut out of it by the picture. */
+    static final float GRASS = 8f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
     /** A sprite whose outline gives a box narrower than twice this, in tiles, or lower than MIN_BOX_HEIGHT levels, is not a box. */
@@ -395,6 +397,35 @@ final class SpriteGeometry {
         mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, frame.vStart, frame.red, frame.green, frame.blue);
         mesh.add(x0, y0, baseUp + topHeight, frame.uStart, frame.vStart, frame.red, frame.green, frame.blue);
+        mesh.sway = 0f;
+    }
+
+    /**
+     * Adds a tuft of grass standing on the point (a, b) of the ground sprite in frame: an
+     * upright card halfWidth either side of the point along (rightX, rightY), the colour of the
+     * ground under it. The picture cuts the blades out of the card and bends them in the wind.
+     */
+    void addTuft(Mesh mesh, Frame frame, int tileX, int tileY, float a, float b, float rightX, float rightY,
+            float halfWidth, float height) {
+        float pixelU = Math.clamp(frameU(frame, a, b), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        float pixelV = Math.clamp(frameV(frame, a, b, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+        float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        float x0 = tileX + a - rightX * halfWidth, y0 = tileY + b - rightY * halfWidth;
+        float x1 = tileX + a + rightX * halfWidth, y1 = tileY + b + rightY * halfWidth;
+        float base = liftAt(a, b);
+        mesh.open = frame.open + GRASS;
+        mesh.face(rightY, -rightX, 0.9f);
+        mesh.sway = 0f;
+        mesh.add(x0, y0, base, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, base, u, v, frame.red, frame.green, frame.blue);
+        mesh.sway = 1f;
+        mesh.add(x1, y1, base + height, u, v, frame.red, frame.green, frame.blue);
+        mesh.sway = 0f;
+        mesh.add(x0, y0, base, u, v, frame.red, frame.green, frame.blue);
+        mesh.sway = 1f;
+        mesh.add(x1, y1, base + height, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, base + height, u, v, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
     }
 
