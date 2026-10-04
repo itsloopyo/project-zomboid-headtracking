@@ -927,7 +927,7 @@ final class Pipeline {
 
             void main() {
                 // The vehicle the viewer sits in has a roof the map of roofs knows nothing of.
-                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 1.3 && vWorld.z < uEye.z + 0.45) {
+                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
                     discard;
                 }
                 // The map of what is overhead, seen from straight above: a drop under a roof
@@ -1282,6 +1282,10 @@ final class Pipeline {
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
             // as the car moves. on is the place on the pane, in tiles.
+            // The driver's place is laid out at one and a half times the size a vehicle is
+            // drawn at, and is brought down to it where it is traced.
+            const float CABIN = 0.6667;
+
             float block(vec3 v, vec3 half, float round) {
                 vec3 d = abs(v) - half;
                 return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0) - round;
@@ -1553,8 +1557,8 @@ final class Pipeline {
                     vec3 middle = uWheel.xyz + uWheelAxis * 0.25 + rise * 0.106;
                     float towards = dot(line, uWheelAxis);
                     if (towards > 0.05) {
-                        float t = dot(middle, uWheelAxis) / towards;
-                        vec3 q = line * t - middle;
+                        float t = dot(middle, uWheelAxis) * CABIN / towards;
+                        vec3 q = line * t / CABIN - middle;
                         vec2 on = vec2(q.y, dot(q, rise));
                         // Two faces, side by side.
                         vec2 face = vec2(abs(on.x) - 0.085, on.y) / 0.046;
@@ -1576,10 +1580,10 @@ final class Pipeline {
                     vec3 d = normalize(ray);
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
-                    float t = 0.2;
+                    float t = 0.13;
                     for (int i = 0; i < 64; i++) {
-                        float gap = wheelAt(line * t);
-                        if (gap < 0.0012) {
+                        float gap = wheelAt(line * t / CABIN) * CABIN;
+                        if (gap < 0.0008) {
                             wheel = true;
                             break;
                         }
@@ -1597,7 +1601,7 @@ final class Pipeline {
                         discard;
                     }
                     if (wheel) {
-                        vec3 p = line * t;
+                        vec3 p = line * t / CABIN;
                         vec2 e = vec2(0.002, 0.0);
                         vec3 slope = normalize(vec3(wheelAt(p + e.xyy) - wheelAt(p - e.xyy), wheelAt(p + e.yxy) - wheelAt(p - e.yxy), wheelAt(p + e.yyx) - wheelAt(p - e.yyx)));
                         wheelFaces = vec3(uAhead * slope.x + side * slope.y, slope.z);
@@ -1646,7 +1650,7 @@ final class Pipeline {
                 // From the seat a panel is at arm's length and the depth it was drawn with
                 // comes in steps finer than a pixel is wide: read close by, the steps show as
                 // rings. Read from further off they do not.
-                float close = uInside * step(ahead * length(ray), 3.2);
+                float close = uInside * step(ahead * length(ray), 2.2);
                 vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 bool ghost = false;
@@ -1664,7 +1668,7 @@ final class Pipeline {
                     // round one drawn over it. Where it shows it is painted out as the dark
                     // of the footwell behind it.
                     vec3 to = at - uEye;
-                    vec3 q = vec3(dot(to.xy, uAhead), dot(to.xy, vec2(-uAhead.y, uAhead.x)), to.z) - uWheel.xyz;
+                    vec3 q = vec3(dot(to.xy, uAhead), dot(to.xy, vec2(-uAhead.y, uAhead.x)), to.z) / CABIN - uWheel.xyz;
                     float deep = dot(q, uWheelAxis);
                     float outward = length(q - uWheelAxis * deep);
                     ghost = abs(deep) < 0.07 && outward > uWheel.w - 0.07 && outward < uWheel.w + 0.07;
@@ -1698,7 +1702,7 @@ final class Pipeline {
                     // The game paints a cabin in flat colours. What it is made of is laid over
                     // them, fixed to the vehicle: grained vinyl on the dash, the doors and the
                     // wheel, woven cloth on the seats, which are the parts with colour in them.
-                    vec3 to = at - uEye;
+                    vec3 to = (at - uEye) / CABIN;
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 local = vec3(dot(to.xy, uAhead), dot(to.xy, side), to.z);
                     vec3 faces = abs(vec3(dot(n.xy, uAhead), dot(n.xy, side), n.z));
@@ -1783,7 +1787,7 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && at.z > uEye.z - 0.35 && !wheel && !dial) {
+                if (cabin > 0.5 && at.z > uEye.z - 0.23 && !wheel && !dial) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -1792,7 +1796,7 @@ final class Pipeline {
                     // edge is the straight line the stairs follow.
                     // A stair is as wide on screen as the skin is near, so the width asked over
                     // follows the distance: broad on the pillar by the eye, narrow on the far door.
-                    float wide = uSize.y / 720.0 * clamp(0.9 / (ahead * length(ray)), 0.5, 2.2);
+                    float wide = uSize.y / 720.0 * clamp(0.6 / (ahead * length(ray)), 0.5, 2.2);
                     float panes = glass(uv) * 2.0;
                     for (int i = 0; i < 8; i++) {
                         float turn = 0.7854 * float(i);
@@ -1811,7 +1815,7 @@ final class Pipeline {
                         // The glass itself, over the world seen through it: the sky it mirrors,
                         // more at a glancing angle, and the dust and dried rain on it, which
                         // stay put on the pane as the car moves.
-                        vec3 to = at - uEye;
+                        vec3 to = (at - uEye) / CABIN;
                         vec2 side = vec2(-uAhead.y, uAhead.x);
                         float along = dot(to.xy, uAhead);
                         bool ends = abs(dot(n.xy, uAhead)) > abs(dot(n.xy, side));
@@ -1865,10 +1869,10 @@ final class Pipeline {
                 if (cabin > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
                     // green light is on the wheel, the dash round them and the driver's knees.
-                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.46);
+                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.46) * CABIN;
                     vec3 to = dials - at;
                     float far2 = dot(to, to);
-                    float given = 0.05 / (0.02 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));
+                    float given = 0.022 / (0.009 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));
                     color += (pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * 0.6 + 0.12) * vec3(0.35, 1.0, 0.72) * (given * uInstruments);
                 }
                 // The trim of a cabin is cloth and dull plastic, whatever the body outside is.
@@ -2395,9 +2399,9 @@ final class Pipeline {
                 // What the mirror on the screen shows: the world behind, from where the mirror
                 // hangs, drawn small.
                 float aheadX = FirstPerson.aheadX, aheadY = FirstPerson.aheadY;
-                behind.eyeX = camera.eyeX + aheadX * cabin[7] - aheadY * cabin[8];
-                behind.eyeY = camera.eyeY + aheadY * cabin[7] + aheadX * cabin[8];
-                behind.eyeUp = camera.eyeUp + cabin[9];
+                behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
+                behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
+                behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
                 behind.forwardX = -aheadX;
                 behind.forwardY = -aheadY;
                 behind.forwardUp = 0f;
@@ -2408,7 +2412,7 @@ final class Pipeline {
                 behind.upY = 0f;
                 behind.upUp = 1f;
                 inMirror = true;
-                drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, 1.2f, far, fogStart, fogEnd);
+                drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, 2.6f, far, fogStart, fogEnd);
                 inMirror = false;
             }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);

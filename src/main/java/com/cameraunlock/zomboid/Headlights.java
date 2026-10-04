@@ -15,9 +15,9 @@ final class Headlights {
     /** For each beam: where its lamps are (x, y, up), the way it shines (x, y, up), and 1 if it is lit. */
     static final int STRIDE = 7;
     /** How far ahead of a vehicle's middle its lamps are, in tiles. */
-    private static final float NOSE = 1.9f;
+    private static final float NOSE = 2.3f;
     /** How far above the ground the lamps are. */
-    private static final float LAMP_HEIGHT = 0.42f;
+    private static final float LAMP_HEIGHT = 0.6f;
     /** Lamps are dipped: the beam meets the road some way ahead. */
     private static final float DIP = 0.045f;
     private static final float REACH = 45f;

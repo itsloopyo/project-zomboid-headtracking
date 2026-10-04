@@ -39,15 +39,15 @@ public final class Characters {
     private static final float EYES_AHEAD = 0.2f;
     /**
      * How far above where the game's camera stands a vehicle its wheels reach the ground, in
-     * tiles. Set by eye against Base.CarNormal on a level road: without it the car stands in
-     * the road up to its sills.
+     * tiles: without it the car stands in the road up to its sills.
      */
-    private static final float VEHICLE_RAISE = 0.9f;
+    private static final float VEHICLE_RAISE = 0.6f;
     /**
-     * The game's vehicles are drawn at one and a half times their models' size, as its characters
-     * are: measured from a driver's seat, which the game puts 1.15 tiles from the middle of a car.
+     * Vehicles are drawn at their models' own size, which the game's vehicle camera does too:
+     * the standard car is then 4.7 tiles long, as its script says and as it is in the game's
+     * own view. Characters are drawn at one and a half times theirs.
      */
-    private static final float VEHICLE_SCALE = 1.5f;
+    private static final float VEHICLE_SCALE = 1f;
     private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
     private static final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
@@ -264,7 +264,7 @@ public final class Characters {
      * the game draws, once the centre of mass is allowed for: the same in nine vehicles
      * measured against the depth of their own cabins, to about 0.02.
      */
-    private static final float WHEEL_SETTLES = -0.022f;
+    private static final float WHEEL_SETTLES = -0.015f;
 
     /** The light the game gave the models last drawn, averaged over them. */
     static float ambient = 1f;
