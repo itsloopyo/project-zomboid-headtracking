@@ -9,6 +9,7 @@ import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
@@ -81,6 +82,8 @@ final class Pipeline {
     private static final int GL_NONE = 0;
     private static final int GL_DEPTH_TEST = 0x0B71;
     private static final int GL_CULL_FACE = 0x0B44;
+    private static final int GL_ZERO = 0;
+    private static final int GL_ONE = 1;
     private static final int GL_BLEND = 0x0BE2;
     private static final int GL_ALPHA_TEST = 0x0BC0;
     private static final int GL_SCISSOR_TEST = 0x0C11;
@@ -178,11 +181,11 @@ final class Pipeline {
             uniform vec3 uLightColor;
             uniform float uFogStart;
             uniform float uFogEnd;
+            uniform float uSeconds;
             uniform float uCut;
             uniform vec2 uTexel;
             uniform float uLaid;
             uniform float uWet;
-            uniform float uSeconds;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
@@ -204,6 +207,8 @@ final class Pipeline {
             }
 
             const float RELIEF = 0.05;
+            uniform float uRaining;
+
 
             float grain(vec2 p) {
                 // Map positions are in the thousands, and scaled up for fine detail they pass
@@ -224,6 +229,21 @@ final class Pipeline {
             // The height of a bed of stones of three sizes, from coarse to fine.
             float stones(vec2 p) {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
+            }
+
+            // Where rain lands. The ground is cut into cells and each cell is hit again and
+            // again, at a place and a moment of its own. x is the height of the ring that
+            // spreads from the hit, y the splash thrown up at the hit itself.
+            vec2 landing(vec2 p) {
+                vec2 cell = floor(p * 2.4);
+                vec2 within = fract(p * 2.4);
+                float turn = fract(uSeconds * (1.1 + 0.6 * grain(cell + 3.0)) + grain(cell + 7.0));
+                float round = floor(uSeconds * (1.1 + 0.6 * grain(cell + 3.0)) + grain(cell + 7.0));
+                vec2 hit = 0.25 + 0.5 * vec2(grain(cell + round), grain(cell + round + 19.0));
+                float away = length(within - hit);
+                float ring = sin((away - turn * 0.42) * 46.0) * exp(-pow((away - turn * 0.42) * 11.0, 2.0)) * (1.0 - turn);
+                float splash = smoothstep(0.07, 0.0, away) * smoothstep(0.22, 0.0, turn);
+                return vec2(ring, splash);
             }
 
             void main() {
@@ -406,6 +426,16 @@ final class Pipeline {
                     ripple = 0.012 * pool;
                     color *= 1.0 - 0.3 * uWet;
                 }
+                vec2 rings = vec2(0.0);
+                if (uRaining > 0.0 && shine > 0.0 && range < 30.0) {
+                    // Rain rings on whatever holds water, by how hard it is raining.
+                    float e = 0.01;
+                    float here = landing(vWorld.xy).x;
+                    rings = vec2(landing(vWorld.xy + vec2(e, 0.0)).x - here, landing(vWorld.xy + vec2(0.0, e)).x - here) * (uRaining * 0.012 / e);
+                }
+                if (uRaining > 0.0 && !card && open > 0.5 && n.z > 0.8 && range < 22.0) {
+                    color += atmosphere(vec3(0.0, 0.0, 1.0)) * (landing(vWorld.xy).y * uRaining * 0.6);
+                }
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
                     vec3 back = reflect(-view, n);
@@ -414,7 +444,7 @@ final class Pipeline {
                 if (shine > 0.0) {
                     vec2 wave = vec2(sin(vWorld.x * 3.1 + vWorld.y * 1.7 + uSeconds * 1.9) + sin(vWorld.x * 7.3 - vWorld.y * 5.9 + uSeconds * 2.7),
                             sin(vWorld.y * 3.7 - vWorld.x * 1.3 + uSeconds * 2.2) + sin(vWorld.y * 6.7 + vWorld.x * 8.1 - uSeconds * 3.1));
-                    vec3 surface = normalize(vec3(n.xy + wave * ripple, n.z));
+                    vec3 surface = normalize(vec3(n.xy + wave * ripple + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);
                     float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
@@ -470,6 +500,62 @@ final class Pipeline {
                     discard;
                 }
                 gl_FragColor = vec4(1.0);
+            }
+            """;
+
+    /**
+     * Rain as drops in the world. Each is a streak as long as the drop falls while the eye
+     * takes it in, somewhere in a box of air that goes with the eye: a drop that falls out of
+     * the bottom of the box, or is left behind, comes back in on the other side. A vertex
+     * carries where in the box its drop started, and which corner of the streak it is.
+     */
+    private static final String RAIN_VERTEX = """
+            #version 120
+            uniform vec3 uEye;
+            uniform float uTime;
+            uniform vec2 uWind;
+            uniform float uRain;
+            varying vec3 vWorld;
+            varying vec2 vIn;
+
+            const float BOX = 14.0;
+            const float HIGH = 12.0;
+
+            void main() {
+                vec3 seed = gl_Vertex.xyz;
+                float corner = gl_Vertex.w;
+                float speed = 11.0 + 5.0 * fract(seed.x * 37.0 + seed.y * 91.0);
+                vec3 moving = vec3(uWind * 2.5, -speed);
+                vec3 p = vec3(seed.xy * 2.0 * BOX, seed.z * HIGH) + moving * uTime;
+                p.xy = mod(p.xy - uEye.xy + BOX, 2.0 * BOX) - BOX + uEye.xy;
+                p.z = mod(p.z - uEye.z + HIGH * 0.35, HIGH) - HIGH * 0.35 + uEye.z;
+                vec3 way = normalize(moving);
+                vec3 side = normalize(cross(way, uEye - p));
+                float along = corner > 1.5 ? 1.0 : 0.0;
+                float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
+                vec3 at = p - way * (0.032 * speed * along) + side * (across * 0.008);
+                vWorld = at;
+                vIn = vec2(across, along);
+                // The harder it rains the more of the drops there are.
+                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uRain ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+            }
+            """;
+
+    private static final String RAIN_FRAGMENT = """
+            #version 120
+            uniform sampler2DShadow uRoof;
+            uniform mat4 uRoofMatrix;
+            uniform vec3 uTint;
+            varying vec3 vWorld;
+            varying vec2 vIn;
+
+            void main() {
+                // The map of what is overhead, seen from straight above: a drop under a roof
+                // never fell there.
+                vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
+                float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
+                float body = (1.0 - vIn.x * vIn.x) * smoothstep(0.0, 0.25, vIn.y) * smoothstep(1.0, 0.5, vIn.y);
+                gl_FragColor = vec4(uTint, body * open * 0.55);
             }
             """;
 
@@ -736,7 +822,6 @@ final class Pipeline {
             uniform vec3 uRayColor;
             uniform float uAspect;
             uniform float uTime;
-            uniform float uRain;
 
             uniform vec2 uTan;
             uniform float uNear;
@@ -802,10 +887,6 @@ final class Pipeline {
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
             }
 
-            float grainAt(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-            }
-
             // What is left of the sun's glow along the line from this pixel to the sun: a pixel
             // the world covers blocks it, one still at the far plane lets it through.
             vec3 shafts(vec2 uv) {
@@ -825,21 +906,6 @@ final class Pipeline {
                     p += stride;
                 }
                 return uRayColor * (sum / float(RAY_SAMPLES) * reach);
-            }
-
-            // One sheet of falling rain: streaks in columns, each column with its own speed and
-            // its own gaps, leaning with the wind.
-            float sheet(vec2 uv, float columns, float speed, float seed) {
-                vec2 p = vec2(uv.x * uAspect * columns + uv.y * 4.0, uv.y * columns * 0.07 + uTime * speed);
-                float column = floor(p.x);
-                float along = p.y + grainAt(vec2(column, seed)) * 37.0;
-                float drop = grainAt(vec2(column, floor(along) + seed));
-                float streak = smoothstep(0.5, 0.0, abs(fract(p.x) - 0.5) * 2.2) * smoothstep(0.0, 0.25, fract(along)) * smoothstep(1.0, 0.55, fract(along));
-                return streak * step(0.55, drop);
-            }
-
-            float rainfall(vec2 uv) {
-                return sheet(uv, 90.0, 5.5, 1.0) * 0.5 + sheet(uv, 150.0, 4.2, 2.0) * 0.32 + sheet(uv, 260.0, 3.4, 3.0) * 0.2;
             }
 
             // What a lens does with the sun in front of it: faint copies of it strung along the
@@ -890,9 +956,6 @@ final class Pipeline {
                 c += texture2D(uVolume, uv).rgb;
                 c += flare(uv);
                 c += texture2D(uBloom, uv).rgb * 0.045;
-                if (uRain > 0.0) {
-                    c += vec3(0.55, 0.6, 0.68) * (rainfall(uv) * uRain / uExposure * 0.5);
-                }
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);
@@ -987,9 +1050,16 @@ final class Pipeline {
     /** Why the picture cannot be drawn on this machine, or null. Set once, on the render thread. */
     private static volatile String failure;
     private static boolean prepared;
+    private static Program rain;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
+    /** What is overhead near the eye, seen from straight above: where rain cannot fall. */
+    private static int roofMap, roofTarget;
+    private static final float[] roofMatrix = new float[16];
+    private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
+    private static final int RAIN_DROPS = 9000;
+    private static FloatBuffer rainDrops;
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
@@ -1093,6 +1163,9 @@ final class Pipeline {
             }
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect);
+            if (state.rain > 0f) {
+                drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
             stage(STAGE_SKY);
             drawOcclusion(tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_OCCLUSION);
@@ -1360,8 +1433,65 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
         }
+        if (state.rain > 0f) {
+            float texel = 2f * ROOF_EXTENT / SHADOW_SIZE;
+            java.util.Arrays.fill(roofMatrix, 0f);
+            roofMatrix[0] = 1f / ROOF_EXTENT;
+            roofMatrix[12] = -(float) Math.floor(camera.eyeX / texel) * texel / ROOF_EXTENT;
+            roofMatrix[5] = 1f / ROOF_EXTENT;
+            roofMatrix[13] = -(float) Math.floor(camera.eyeY / texel) * texel / ROOF_EXTENT;
+            roofMatrix[10] = -1f / ROOF_RANGE;
+            roofMatrix[14] = camera.eyeUp / ROOF_RANGE;
+            roofMatrix[15] = 1f;
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, roofTarget);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            shadow.use();
+            shadow.set("uMatrix", roofMatrix);
+            drawRanges(0, solidRanges);
+        }
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
+    }
+
+    /** The rain, into the picture after the world and the sky and before anything is made of the picture. */
+    private static void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glMatrixMode(GL_PROJECTION);
+        GL11.glLoadMatrixf(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far));
+        GL11.glMatrixMode(GL_MODELVIEW);
+        GL11.glLoadMatrixf(ViewCamera.view(camera));
+        arrays();
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL11.glVertexPointer(4, GL_FLOAT, 0, rainDrops);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        // Added to what is there. The picture's alpha is left alone: it says what mirrors.
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+        rain.use();
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
+        rain.set("uRoof", 0);
+        rain.set("uRoofMatrix", roofMatrix);
+        rain.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        rain.set("uTime", state.seconds);
+        rain.set("uWind", state.windX, state.windY);
+        rain.set("uRain", state.rain);
+        // A drop shows the sky it falls through.
+        rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
+                1.6f * (float) Math.pow(state.horizonBlue, 2.2));
+        GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
     /**
@@ -1423,6 +1553,7 @@ final class Pipeline {
         world.set("uWind", state.windX, state.windY, state.seconds);
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);
+        world.set("uRaining", state.rain);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
@@ -1644,7 +1775,6 @@ final class Pipeline {
         develop.set("uUp", camera.rightUp, camera.upUp, camera.forwardUp);
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
-        develop.set("uRain", state.rain * state.outdoors);
         boolean sunAhead = ViewCamera.project(camera, tanHalfFieldOfView, aspect, camera.eyeX + state.sunX, camera.eyeY + state.sunY,
                 camera.eyeUp + state.sunUp, sunNdc);
         if (sunAhead) {
@@ -1724,6 +1854,7 @@ final class Pipeline {
         StringBuilder problem = new StringBuilder();
         world = program("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
         shadow = program("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem);
+        rain = program("rain", RAIN_VERTEX, RAIN_FRAGMENT, problem);
         sky = program("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = program("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
         figureLight = program("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);
@@ -1774,9 +1905,24 @@ final class Pipeline {
         String far = shadowMap(made);
         farMap = made[0];
         farTarget = made[1];
-        if (near != null || far != null) {
-            return near != null ? near : far;
+        String roof = shadowMap(made);
+        roofMap = made[0];
+        roofTarget = made[1];
+        if (near != null || far != null || roof != null) {
+            return near != null ? near : far != null ? far : roof;
         }
+        // Where each drop starts in its box of air, and which corner of its streak each of its
+        // six vertices is. The same every run: rain needs no surprises.
+        rainDrops = ByteBuffer.allocateDirect(RAIN_DROPS * 6 * 4 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        java.util.Random random = new java.util.Random(1987);
+        float[] corners = {0f, 1f, 2f, 0f, 2f, 3f};
+        for (int drop = 0; drop < RAIN_DROPS; drop++) {
+            float x = random.nextFloat(), y = random.nextFloat(), z = random.nextFloat();
+            for (float corner : corners) {
+                rainDrops.put(x).put(y).put(z).put(corner);
+            }
+        }
+        rainDrops.flip();
         int error = GL11.glGetError();
         if (error != 0) {
             return "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
