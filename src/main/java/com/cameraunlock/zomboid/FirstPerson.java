@@ -43,7 +43,7 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SNEAKING = 1.1f;
     private static final float EYE_HEIGHT_SITTING = 0.9f;
     /** The eye of someone seated in a vehicle, above the ground the vehicle stands on, in tiles. Set by eye in Base.CarNormal. */
-    private static final float EYE_HEIGHT_IN_VEHICLE = 1.3f;
+    private static final float EYE_HEIGHT_IN_VEHICLE = 1.48f;
     private static final float HEAD_INBOARD = 0.5f;
     private static final org.joml.Vector3f seatAt = new org.joml.Vector3f();
     private static int seatSaid;

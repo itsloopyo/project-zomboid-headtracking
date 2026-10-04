@@ -1280,7 +1280,7 @@ final class Pipeline {
                 // The wipers keep their two arcs of the front screen clean and push what they
                 // clear to the arcs' edges, where it dries as a line.
                 if (swept > 0.5) {
-                    float nearest = min(length(on - vec2(0.05, -0.12)), min(length(on - vec2(0.75, -0.12)), length(on - vec2(-0.65, -0.12))));
+                    float nearest = min(length(on - vec2(0.05, -0.30)), min(length(on - vec2(0.75, -0.30)), length(on - vec2(-0.65, -0.30))));
                     float inside = 1.0 - smoothstep(0.5, 0.54, nearest);
                     dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * exp(-pow((nearest - 0.53) / 0.012, 2.0)) + 0.45 * (1.0 - inside);
                     dirt = clamp(dirt, 0.0, 1.0);
@@ -1303,12 +1303,12 @@ final class Pipeline {
                     float fresh = 1.0;
                     float blade = 0.0;
                     if (swept > 0.5) {
-                        vec2 pivot = vec2(0.05, -0.12);
-                        if (length(on - vec2(0.75, -0.12)) < length(on - pivot)) {
-                            pivot = vec2(0.75, -0.12);
+                        vec2 pivot = vec2(0.05, -0.30);
+                        if (length(on - vec2(0.75, -0.30)) < length(on - pivot)) {
+                            pivot = vec2(0.75, -0.30);
                         }
-                        if (length(on - vec2(-0.65, -0.12)) < length(on - pivot)) {
-                            pivot = vec2(-0.65, -0.12);
+                        if (length(on - vec2(-0.65, -0.30)) < length(on - pivot)) {
+                            pivot = vec2(-0.65, -0.30);
                         }
                         vec2 rel = on - pivot;
                         float reach = length(rel);
@@ -1533,7 +1533,7 @@ final class Pipeline {
                 if (cabin > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
                     // green light is on the wheel, the dash round them and the driver's knees.
-                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.3);
+                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.46);
                     vec3 to = dials - at;
                     float far2 = dot(to, to);
                     float given = 0.05 / (0.02 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));
