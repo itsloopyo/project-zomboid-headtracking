@@ -1351,6 +1351,9 @@ final class Pipeline {
                 float light = dot(x, vec3(0.2126, 0.7152, 0.0722));
                 float shown = light * (1.0 + light / (WHITE * WHITE)) / (1.0 + light);
                 vec3 c = x * (shown / max(light, 1e-5));
+                // Film and the eye both lose colour as light gets strong: a sunlit wall is paler
+                // than its paint, not a brighter version of it.
+                c = mix(c, vec3(shown), 0.4 * smoothstep(0.55, 1.0, shown));
                 // What is brighter than white in one colour alone spills into the others.
                 float over = max(max(c.r, max(c.g, c.b)) - 1.0, 0.0);
                 return clamp(c + over * 0.6, 0.0, 1.0);
@@ -1374,7 +1377,9 @@ final class Pipeline {
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);
-                c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 1.12);
+                // The game's sprites are painted in strong colours, to be read from far above.
+                // Seen at eye level in daylight the world is quieter than that.
+                c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 0.9);
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * 0.32;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;
