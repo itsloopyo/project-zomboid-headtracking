@@ -40,6 +40,10 @@ public final class FirstPerson {
      * in the game's default bindings uses it, and every letter key is taken.
      */
     private static final int POINT_BUTTON = 2;
+    private static final int AIM_BUTTON = 1;
+    /** How long after the aim button is let go the game may still be opening what it opens on a right click. */
+    private static final long AFTER_AIM_NANOS = 400_000_000L;
+    private static long aimedAt = Long.MIN_VALUE / 2;
 
     /** How far a pixel of mouse travel turns the view unzoomed. Zoomed it turns the view less, to move the picture as far. */
     private static final float RADIANS_PER_PIXEL = 0.0025f;
@@ -404,7 +408,15 @@ public final class FirstPerson {
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
         String was = pointer.describe();
-        PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, Mouse.isButtonDown(POINT_BUTTON), Panels.open());
+        int panels = Panels.open();
+        long now = System.nanoTime();
+        if (Mouse.isButtonDown(AIM_BUTTON)) {
+            aimedAt = now;
+        }
+        if (now - aimedAt < AFTER_AIM_NANOS && !pointer.byKey()) {
+            pointer.passOver(panels);
+        }
+        PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, Mouse.isButtonDown(POINT_BUTTON), panels);
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
             Panels.showInventory(inventoryPanels == PointerMode.Inventory.OPEN);
         }

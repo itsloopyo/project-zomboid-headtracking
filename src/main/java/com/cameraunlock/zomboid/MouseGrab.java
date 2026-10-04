@@ -20,7 +20,8 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
      */
     static final boolean ISOLATED = Boolean.getBoolean("cameraunlock.zomboid.isolated");
 
-    private static final int GLFW_CURSOR = 0x00033001, GLFW_CURSOR_NORMAL = 0x00034001, GLFW_CURSOR_CAPTURED = 0x00034004;
+    private static final int GLFW_CURSOR = 0x00033001, GLFW_CURSOR_NORMAL = 0x00034001, GLFW_CURSOR_DISABLED = 0x00034003,
+            GLFW_CURSOR_CAPTURED = 0x00034004;
 
     /** What the logic thread wants. */
     static volatile boolean wanted;
@@ -47,8 +48,16 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             keeping = false;
         }
         boolean keep = kept && !want;
-        if (keeping != keep && !ISOLATED && !want) {
-            GLFW.glfwSetInputMode(Display.getWindow(), GLFW_CURSOR, keep ? GLFW_CURSOR_CAPTURED : GLFW_CURSOR_NORMAL);
+        if (!ISOLATED && (want || keep || keeping)) {
+            // The game puts its own pointer back when the aim is held and at other moments of
+            // its own, and the window then lets the mouse go: held once and trusted to stay
+            // held, the look was lost every time the sights came up. What the window has is
+            // read each frame and put right.
+            int should = want ? GLFW_CURSOR_DISABLED : keep ? GLFW_CURSOR_CAPTURED : GLFW_CURSOR_NORMAL;
+            long window = Display.getWindow();
+            if (GLFW.glfwGetInputMode(window, GLFW_CURSOR) != should) {
+                GLFW.glfwSetInputMode(window, GLFW_CURSOR, should);
+            }
         }
         keeping = keep;
     }
