@@ -855,6 +855,7 @@ final class Pipeline {
             const int BOUNCE_SAMPLES = 10;
             const float BOUNCE_RADIUS = 2.2;
             uniform sampler2D uScene;
+            uniform vec3 uSunEye;
 
             // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 uv) {
@@ -902,6 +903,23 @@ final class Pipeline {
                     lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * step(far2, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0) / (1.0 + far2));
                 }
                 lent *= 1.6 / float(BOUNCE_SAMPLES) * (1.0 - smoothstep(25.0, 50.0, p.z));
+                // The shadow maps cannot hold what is small and close: the shade a blade of grass
+                // or the leg of a chair throws where it meets the ground. A ray is walked from
+                // this point towards the sun through the picture's depth, and if it passes
+                // behind something near by, that something is in the sun's way.
+                if (uSunEye.z > -2.0) {
+                    float reach = min(0.5, 0.03 * p.z + 0.12);
+                    float begin = fract(turn * 0.159 + 0.37);
+                    for (int i = 0; i < 10; i++) {
+                        vec3 q = p + n * 0.03 + uSunEye * (reach * (float(i) + begin) / 10.0);
+                        vec2 at = q.xy / (q.z * uTan) * 0.5 + 0.5;
+                        float behind = q.z - placeAt(at).z;
+                        if (behind > 0.02 && behind < 0.35) {
+                            open *= 0.62;
+                            break;
+                        }
+                    }
+                }
                 // Kept as a part of a whole: the target holds numbers from 0 to 1.
                 gl_FragColor = vec4(lent / (1.0 + lent), mix(open, 1.0, smoothstep(35.0, 65.0, p.z)));
             }
@@ -1599,7 +1617,7 @@ final class Pipeline {
             }
             drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_SKY);
-            drawOcclusion(tanHalfFieldOfView, aspect, near, far);
+            drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_OCCLUSION);
             drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_AIR);
@@ -2175,7 +2193,7 @@ final class Pipeline {
         Log.info(line.toString());
     }
 
-    private static void drawOcclusion(float tanHalfFieldOfView, float aspect, float near, float far) {
+    private static void drawOcclusion(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
@@ -2185,6 +2203,15 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         occlusion.set("uDepth", 0);
         occlusion.set("uScene", 1);
+        // The way to the light as the eye sees it: across, up and ahead. With no light above
+        // the horizon there is nothing to trace towards.
+        if (state.lightUp > 0.02f) {
+            occlusion.set("uSunEye", state.lightX * camera.rightX + state.lightY * camera.rightY + state.lightUp * camera.rightUp,
+                    state.lightX * camera.upX + state.lightY * camera.upY + state.lightUp * camera.upUp,
+                    state.lightX * camera.forwardX + state.lightY * camera.forwardY + state.lightUp * camera.forwardUp);
+        } else {
+            occlusion.set("uSunEye", 0f, 0f, -3f);
+        }
         occlusion.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
         occlusion.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         occlusion.set("uNear", near);
