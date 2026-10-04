@@ -69,13 +69,22 @@ final class Sky {
                 // Flat underneath and rounded on top, as a cloud that has risen to its base is.
                 float shape = smoothstep(0.0, 0.08, h) * smoothstep(1.0, 0.25, h);
                 vec3 q = vec3(p.xy * 0.17 + uDrift, p.z * 0.21);
-                float d = texture3D(uNoise, q).r * shape - (1.0 - uCover);
+                // A sky is not evenly sown with cloud. Over many miles there are banks of it
+                // and open blue between, and within a bank the clouds are of every size.
+                float bank = texture3D(uNoise, vec3(p.xy * 0.021 + uDrift * 0.4, 0.37)).g;
+                // The air a cloud forms in is turning over, which pulls its outline about.
+                vec3 pulled = q + (texture3D(uNoise, q * 0.9 + 0.31).rgr - 0.5) * 0.22;
+                float body = texture3D(uNoise, pulled).r * 0.68 + texture3D(uNoise, pulled * 2.3 + 0.17).g * 0.32;
+                float d = body * shape - (1.0 - uCover) - (0.5 - bank) * 0.34;
                 if (d <= 0.0) {
                     return 0.0;
                 }
-                float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 2.0, 0.0)).g;
-                d -= wear * 0.2 * (1.0 - min(d * 4.0, 1.0));
-                return clamp(d * 5.0, 0.0, 1.0);
+                // The edge of a cloud is where it is drying out into the air: it frays into
+                // curls and wisps, coarse ones and fine ones, and the heart of it does not.
+                float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 2.0, 0.0)).g * 0.62
+                        + texture3D(uNoise, q * 9.1 + vec3(uDrift * 3.0, 0.4)).r * 0.38;
+                d -= wear * 0.42 * (1.0 - min(d * 3.2, 1.0));
+                return clamp(d * 4.2, 0.0, 1.0);
             }
 
             void main() {
@@ -87,9 +96,6 @@ final class Sky {
                 }
                 float near = BOTTOM / d.z;
                 float fade = 1.0 - smoothstep(9.0, 30.0, near);
-                if (fade <= 0.0) {
-                    return;
-                }
                 float stride = (TOP - BOTTOM) / d.z / float(STEPS);
                 float t = near + stride * offset(gl_FragCoord.xy);
                 float mu = max(dot(d, uLight), 0.0);
@@ -122,7 +128,16 @@ final class Sky {
                     }
                     t += stride;
                 }
-                gl_FragColor = vec4(light * fade, 1.0 - (1.0 - through) * fade);
+                // Far above the heaped cloud, thin ice cloud combed out by the high wind into
+                // long streaks. It is there on most days and is half of what makes a sky look
+                // like one.
+                vec2 high = d.xy * (7.0 / d.z);
+                float streaks = texture3D(uNoise, vec3(high.x * 0.012 + uDrift.x * 0.2, high.y * 0.05, 0.71)).r * 0.6
+                        + texture3D(uNoise, vec3(high.x * 0.04, high.y * 0.19 + uDrift.y * 0.2, 0.13)).g * 0.4;
+                float ice = smoothstep(0.5, 0.78, streaks) * 0.4 * smoothstep(0.03, 0.2, d.z) * (0.4 + 0.6 * uCover);
+                vec3 lightAll = light * fade + through * ice * (sunLight * (0.35 + 0.5 * pow(mu, 6.0)) + skyLight * 0.5);
+                float throughAll = (1.0 - (1.0 - through) * fade) * (1.0 - ice * 0.55);
+                gl_FragColor = vec4(lightAll, throughAll);
             }
             """;
 

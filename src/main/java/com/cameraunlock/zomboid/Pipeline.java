@@ -193,14 +193,19 @@ final class Pipeline {
             varying vec3 vWorld;
             varying float vCover;
 
-            float shadowAt(sampler2DShadow map, vec3 c) {
+            float shadowAt(sampler2DShadow map, vec3 c, float soft) {
+                // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
+                // spiral over a disc, the spiral turned a different way at every pixel: the
+                // edge comes out as a fine grain that the picture's last pass smooths away,
+                // where the same sixteen everywhere would show as stripes.
+                float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float lit = 0.0;
-                for (int x = -1; x <= 1; x++) {
-                    for (int y = -1; y <= 1; y++) {
-                        lit += shadow2D(map, c + vec3(vec2(float(x), float(y)) * (1.3 * uShadowTexel), 0.0)).r;
-                    }
+                for (int i = 0; i < 16; i++) {
+                    float a = turn + float(i) * 2.3999632;
+                    float away = sqrt((float(i) + 0.5) / 16.0) * soft * uShadowTexel;
+                    lit += shadow2D(map, c + vec3(cos(a) * away, sin(a) * away, 0.0)).r;
                 }
-                return lit / 9.0;
+                return lit / 16.0;
             }
 
             bool inside(vec3 c) {
@@ -235,6 +240,14 @@ final class Pipeline {
             // The height of a bed of stones of three sizes, from coarse to fine.
             float stones(vec2 p) {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
+            }
+
+            // The height of water's surface: three sizes of ripple, each drifting its own way.
+            float swell(vec2 p) {
+                float t = uSeconds;
+                return patches(p * 1.3 + vec2(t * 0.21, t * 0.13)) * 0.5
+                        + patches(p * 3.1 + vec2(-t * 0.33, t * 0.27)) * 0.3
+                        + patches(p * 7.7 + vec2(t * 0.41, -t * 0.52)) * 0.2;
             }
 
             // Where rain lands. The ground is cut into cells and each cell is hit again and
@@ -339,7 +352,8 @@ final class Pipeline {
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
                             + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
-                            + (1.0 - stony - green) * uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which)
+                            // Earth keeps the game's own grain: what is brown may as well be planks.
+                            + vec3(1.0 - stony - green)
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
                     // Its light and dark only: the colour is the game's, or a dry lawn turns the
                     // colour of the earth it was taken for.
@@ -370,7 +384,7 @@ final class Pipeline {
                     float speed = length(flow);
                     vec2 p = vWorld.xy - flow * uSeconds;
                     float churn = patches(p * vec2(5.1, 5.1)) * 0.5 + patches(p * 13.7 + 3.0) * 0.3 + patches(p * 31.0 + 9.0) * 0.2;
-                    float lap = smoothstep(0.72, 0.98, bank + 0.12 * sin(uSeconds * 1.4 + churn * 9.0) + 0.1 * churn);
+                    float lap = smoothstep(0.84, 1.0, bank + 0.06 * sin(uSeconds * 0.9 + churn * 5.0)) * smoothstep(0.35, 0.7, churn);
                     // A broad river slides along without breaking. Only water on a real fall froths.
                     foam = clamp(smoothstep(0.58, 0.78, churn) * smoothstep(0.9, 1.6, speed) + lap * 0.8, 0.0, 1.0);
                     vec3 body = mix(vec3(0.16, 0.3, 0.33), vec3(0.45, 0.5, 0.4), smoothstep(0.15, 1.0, bank));
@@ -415,13 +429,14 @@ final class Pipeline {
                     // The cards of a tree's fan stand in each other's shade and move in the wind,
                     // and their shadows on one another would flicker all over the tree. A card
                     // asks about the shade a little way towards the sun, past its own fan.
-                    vec4 from = vec4(vWorld + n * 0.07 + (card ? uLight * 0.9 : vec3(0.0)), 1.0);
+                    // Further off the surface than the soft edge is wide, or a level surface shades itself.
+                    vec4 from = vec4(vWorld + n * 0.16 + (card ? uLight * 0.9 : vec3(0.0)), 1.0);
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
-                        reached = shadowAt(uShadowNear, c);
+                        reached = shadowAt(uShadowNear, c, 6.0);
                     } else {
                         c = (uFarMatrix * from).xyz * 0.5 + 0.5;
-                        reached = inside(c) ? shadowAt(uShadowFar, c) : 1.0;
+                        reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0;
                     }
                     sun = reached * facing;
                 }
@@ -465,8 +480,12 @@ final class Pipeline {
                     color += pow(uLightColor, vec3(2.2)) * (pow(max(dot(back, uLight), 0.0), 24.0) * 0.5 * grit * sun);
                 }
                 if (shine > 0.0) {
-                    vec2 wave = vec2(sin(vWorld.x * 3.1 + vWorld.y * 1.7 + uSeconds * 1.9) + sin(vWorld.x * 7.3 - vWorld.y * 5.9 + uSeconds * 2.7),
-                            sin(vWorld.y * 3.7 - vWorld.x * 1.3 + uSeconds * 2.2) + sin(vWorld.y * 6.7 + vWorld.x * 8.1 - uSeconds * 3.1));
+                    // The surface of water is many trains of ripples of every size crossing one
+                    // another, none of them regular. Its slope here is the difference between
+                    // its height here and a little way off each way.
+                    float e = 0.04;
+                    float level = swell(vWorld.xy);
+                    vec2 wave = vec2(swell(vWorld.xy + vec2(e, 0.0)) - level, swell(vWorld.xy + vec2(0.0, e)) - level) * (9.0 / e) * 0.1;
                     vec3 surface = normalize(vec3(n.xy + wave * ripple + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);
