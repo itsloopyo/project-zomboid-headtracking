@@ -137,6 +137,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final java.util.ArrayDeque<ChunkMeshes> spare = new java.util.ArrayDeque<>();
     /** For each chunk's place, a build of it no longer shown, kept for its next build. */
     private static final ChunkMeshes[] retired = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
+    /** Builds no chunk is using, kept to be filled again: more than a frame's worth of remakes is never wanted. */
+    private static final int MOST_SPARE = 32;
+    private static final int FORGET_EVERY_FRAMES = 120;
+    private static int centreWx, centreWy, keptChunks = TABLE_SIDE;
     private static int frames;
 
     /** The chunk builds this frame draws. */
@@ -397,6 +401,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // Looking straight up or down the view faces no way along the ground, and nothing is left out.
         float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
 
+        centreWx = Math.floorDiv((int) player.getX(), CHUNK_TILES);
+        centreWy = Math.floorDiv((int) player.getY(), CHUNK_TILES);
+        keptChunks = IsoChunkMap.chunkGridWidth;
+        if (frames % FORGET_EVERY_FRAMES == 0) {
+            forgetFar();
+        }
         for (int gridX = 0; gridX < IsoChunkMap.chunkGridWidth; gridX++) {
             for (int gridY = 0; gridY < IsoChunkMap.chunkGridWidth; gridY++) {
                 IsoChunk chunk = map.getChunk(gridX, gridY);
@@ -503,12 +513,36 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private static void release(ChunkMeshes meshes) {
-        if (--meshes.users == 0) {
+        if (--meshes.users == 0 && near(meshes)) {
             int slot = (meshes.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (meshes.wy & (TABLE_SIDE - 1));
             if (retired[slot] == null) {
                 retired[slot] = meshes;
-            } else {
+            } else if (spare.size() < MOST_SPARE) {
                 spare.push(meshes);
+            }
+        }
+    }
+
+    /** Whether a build is of a chunk the loaded map could still hold. */
+    private static boolean near(ChunkMeshes meshes) {
+        return Math.abs(meshes.wx - centreWx) <= keptChunks && Math.abs(meshes.wy - centreWy) <= keptChunks;
+    }
+
+    /**
+     * Lets go of every build of a chunk the player has left behind. The tables are far wider
+     * than the loaded map so that no two loaded chunks share a place in them, and a build
+     * stayed in its place until another chunk took it: driving across the map, every chunk
+     * ever passed was kept, grass and all, until there was no memory left.
+     */
+    private static void forgetFar() {
+        for (int slot = 0; slot < latest.length; slot++) {
+            ChunkMeshes held = latest[slot];
+            if (held != null && !near(held)) {
+                latest[slot] = null;
+                held.users--;
+            }
+            if (retired[slot] != null && !near(retired[slot])) {
+                retired[slot] = null;
             }
         }
     }
