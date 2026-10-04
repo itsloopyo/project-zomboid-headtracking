@@ -1561,6 +1561,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             set(c, 3, x + 1f, y + edge, high);
         }
         SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        // The soffit: the boarded underside of the eave, level from the fascia's foot back to
+        // the wall, which is what is seen of a roof from the ground beside the house.
+        plain.open = frame.open + 32f * CONCRETE;
+        float under = far - FASCIA;
+        float wx1 = c[0], wy1 = c[1], wx2 = c[9], wy2 = c[10], ex1 = c[3], ey1 = c[4], ex2 = c[6], ey2 = c[7];
+        set(c, 0, wx1, wy1, under);
+        set(c, 1, ex1, ey1, under);
+        set(c, 2, ex2, ey2, under);
+        set(c, 3, wx2, wy2, under);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        set(c, 0, wx1, wy1, high);
+        set(c, 1, ex1, ey1, far);
+        set(c, 2, ex2, ey2, far);
+        set(c, 3, wx2, wy2, high);
         // The board along the eave's end.
         plain.open = frame.open;
         set(c, 0, c[3], c[4], far);
