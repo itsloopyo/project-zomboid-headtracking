@@ -1011,11 +1011,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
-            // Left out, they are a slot along the ridge that the rooms show through. Each is
-            // laid level over its square at the height the middle of its sprite is drawn at,
-            // which closes the roof along its top.
-            float high = Math.clamp(SpriteGeometry.heightDrawnAt(frame, 0.5f, 0.5f, frame.top + frame.height * 0.5f), 0f, 1.5f);
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, high, 1f, 0f, 0f, 0f, 1f, 0f);
+            // Left out. Laid level they stand proud of a gable as slabs; the sheet under each
+            // roof tile is what closes the roof.
             return;
         }
         // What the game itself moves with the wind, and what it lets the player clear as
