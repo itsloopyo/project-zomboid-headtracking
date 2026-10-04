@@ -215,6 +215,8 @@ final class SpriteGeometry {
     private final float[] spare = new float[MAX_CORNERS * CORNER_FLOATS];
     private float[] result;
     private float centreU, centreV;
+    /** For an upright face, how many frame pixels down its level lines run for each pixel across. */
+    private float alongSlant;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
     float shownA, shownB;
     /**
@@ -275,6 +277,8 @@ final class SpriteGeometry {
         setCorner(frame, 3, a + da2, b + db2, h + dh2);
         centreU = (corners[CORNER_U] + corners[CORNER_FLOATS * 2 + CORNER_U]) / 2f;
         centreV = (corners[CORNER_V] + corners[CORNER_FLOATS * 2 + CORNER_V]) / 2f;
+        float acrossU = corners[CORNER_FLOATS + CORNER_U] - corners[CORNER_U];
+        alongSlant = dh1 == 0f && dh2 != 0f && Math.abs(acrossU) > 1e-3f ? (corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V]) / acrossU : 0f;
 
         // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
         // pixel or two short of its edge; cutting the face there would leave a slit between two
@@ -534,7 +538,12 @@ final class SpriteGeometry {
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = EDGE_INSET_PIXELS * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
-        pixelU += Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
+        float movedAcross = Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
+        pixelU += movedAcross;
+        // A wall's courses run across its sprite at a slant. Moved across alone, a corner of
+        // the face would take its texels from a course up or down, and the boards of one wall
+        // would step where it meets the next: the move follows the slant.
+        pixelV += movedAcross * alongSlant;
         pixelV += Math.clamp(centreV - pixelV, -inset, inset);
         pixelU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
         pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);

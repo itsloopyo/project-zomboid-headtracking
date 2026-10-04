@@ -23,6 +23,7 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
+import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
@@ -196,7 +197,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
-    private static final float WALL_HALF = 0.06f;
+    private static final float WALL_HALF = 0.025f;
     private static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
@@ -601,6 +602,25 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void frameOf(IsoObject object, Texture texture) {
         frame.originU = object.offsetX;
         frame.originV = object.offsetY;
+        // Where a tree's sprite stands on its square the game works out as it draws the tree,
+        // and writes into the tree: a tree its own view has not drawn still has whatever was
+        // there before, and its crown comes out lying in the road. The same sum is done here.
+        IsoSprite tree = object.getSprite();
+        if (tree != null && tree.getType() == IsoObjectType.tree && tree.getName() != null) {
+            String name = tree.getName();
+            frame.originU = FBORenderChunk.FLOOR_WIDTH / 2f;
+            frame.originV = FBORenderChunk.PIXELS_PER_LEVEL;
+            if (name.contains("JUMBOXXL")) {
+                frame.originU = FBORenderChunk.JUMBO_XXL_WIDTH / 2f;
+                frame.originV = FBORenderChunk.JUMBO_XXL_HEIGHT - FBORenderChunk.FLOOR_HEIGHT;
+            } else if (name.contains("JUMBOXL")) {
+                frame.originU = FBORenderChunk.JUMBO_XL_WIDTH / 2f;
+                frame.originV = FBORenderChunk.JUMBO_XL_HEIGHT - FBORenderChunk.FLOOR_HEIGHT;
+            } else if (name.contains("JUMBO")) {
+                frame.originU = FBORenderChunk.JUMBO_L_WIDTH / 2f;
+                frame.originV = FBORenderChunk.JUMBO_L_HEIGHT - FBORenderChunk.FLOOR_HEIGHT;
+            }
+        }
         frame.left = texture.getOffsetX();
         frame.top = texture.getOffsetY();
         frame.width = texture.getWidth();
