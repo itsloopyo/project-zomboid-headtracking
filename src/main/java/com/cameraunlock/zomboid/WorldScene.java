@@ -179,7 +179,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int overLayer;
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
-    private static final float CARD_LAYER = 0.02f;
+    private static final float CARD_LAYER = 0.035f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
     private static final int TUFTS = 14;
@@ -928,8 +928,18 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             for (int card = 0; card < cards; card++) {
                 double angle = turn + card * Math.PI / cards;
                 float side = (card & 1) == 0 ? 1f : -1f;
-                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * (float) Math.cos(angle), side * (float) Math.sin(angle), true);
+                float alongX = (float) Math.cos(angle), alongY = (float) Math.sin(angle);
+                // Leaves lie on the same card as their trunk, and each layer has to stand
+                // clear of the one under it on the side the eye is on, square to this card:
+                // a move straight towards the eye does nothing for a card seen at a slant.
+                float squareX = alongY, squareY = -alongX;
+                float eyeSide = Math.signum(squareX * (camera.eyeX - x - 0.5f) + squareY * (camera.eyeY - y - 0.5f));
+                float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
+                geometry.nudgeX = squareX * clear;
+                geometry.nudgeY = squareY * clear;
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
             }
+            geometry.nudgeX = geometry.nudgeY = 0f;
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);

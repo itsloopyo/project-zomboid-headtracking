@@ -31,6 +31,12 @@ public final class Characters {
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** How far from the eye a model still casts a shadow, in tiles. */
     private static final float SHADOW_REACH = 45f;
+    /**
+     * How far above where the game's camera stands a vehicle its wheels reach the ground, in
+     * tiles. Set by eye against Base.CarNormal on a level road: without it the car stands in
+     * the road up to its sills.
+     */
+    private static final float VEHICLE_RAISE = 0.6f;
     private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
     private static final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
@@ -169,19 +175,22 @@ public final class Characters {
      * The game's vehicle draw sets its matrices up itself, from the current camera, and then
      * moves the vehicle's depth so that its middle lands at the depth of the square it stands
      * on in the game's own picture. Here the middle is to stay where the camera puts it, so the
-     * draw is told that the square's depth is exactly the depth the middle already has.
+     * draw is told that the square's depth is exactly the depth the middle already has. The
+     * game takes that depth as the middle's z after the matrices and before any divide by w,
+     * its own camera having none, so that is the figure given here. With the divide the two
+     * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
     private static void vehicle(ModelSlotRenderData data, int at, float[] view) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]), stood[at + 3], 1f);
+        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+                stood[at + 3], 1f);
         multiply(view, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];
         float eyeY = combined[5] * data.centerOfMassY + combined[13];
         float eyeZ = combined[6] * data.centerOfMassY + combined[14];
         float eyeW = combined[7] * data.centerOfMassY + combined[15];
         float clipZ = projection[2] * eyeX + projection[6] * eyeY + projection[10] * eyeZ + projection[14] * eyeW;
-        float clipW = projection[3] * eyeX + projection[7] * eyeY + projection[11] * eyeZ + projection[15] * eyeW;
         float squareDepth = data.squareDepth;
-        data.squareDepth = (clipZ / clipW + 1f) / 2f;
+        data.squareDepth = (clipZ + 1f) / 2f;
         ModelCamera game = ModelCamera.instance;
         ModelCamera.instance = EYE;
         for (int part = 0; part < data.modelData.size(); part++) {
