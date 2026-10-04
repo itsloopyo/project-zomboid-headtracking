@@ -1242,6 +1242,8 @@ final class Pipeline {
             uniform float uInside;
             uniform float uPainted;
             uniform float uGlassPass;
+            uniform sampler2D uPanes;
+            uniform float uHavePanes;
             uniform float uInstruments;
             uniform vec4 uWheel;
             uniform vec3 uWheelAxis;
@@ -1844,6 +1846,9 @@ final class Pipeline {
                         // The dash and the doors below the glass, not the pillars and the roof.
                         figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6 * step(at.z, uEye.z - 0.06));
                         figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * dark, 0.45, woven));
+                        // The game's bodies have no bulkhead: past the dash the eye would see
+                        // into the wheel arches. It is the dark of a footwell there.
+                        figure.rgb *= 1.0 - 0.93 * smoothstep(0.72, 0.8, local.x) * (1.0 - smoothstep(-0.52, -0.44, local.z));
                     }
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
@@ -1918,7 +1923,7 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && at.z > uEye.z - 0.23 && !wheel && !dial) {
+                if (cabin > 0.5 && (uHavePanes > 0.5 || at.z > uEye.z - 0.23) && !wheel && !dial) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -1934,7 +1939,27 @@ final class Pipeline {
                         vec2 off = vec2(cos(turn), sin(turn)) * wide / uSize;
                         panes += glass(uv + off * 5.0) + glass(uv + off.yx * vec2(-11.0, 11.0)) + glass(uv + off * 17.0);
                     }
+                    // Told by its triangles, a pane's edge is already the line it should be.
+                    // Told by its triangles, a pane's edge is the straight line it should be.
+                    // What the triangles cannot tell is whether a pillar or a seat stands in
+                    // front of a pane further off: there the colours round about are not glass's.
+                    // The frame of a window is painted round the edge of its pane's triangles,
+                    // so the glass is those triangles drawn in by a frame's width.
                     bool glazed = panes > 13.0;
+                    if (uHavePanes > 0.5) {
+                        float frame = 0.032 / (ahead * length(ray) * uTan.y) * 0.5;
+                        float inPane = texture2D(uPanes, uv).r;
+                        for (int i = 0; i < 12; i++) {
+                            float turn = 0.5236 * float(i);
+                            inPane = min(inPane, texture2D(uPanes, uv + vec2(cos(turn) * uSize.y / uSize.x, sin(turn)) * frame).r);
+                        }
+                        glazed = inPane > 0.5 && panes > 5.0;
+                        if (!glazed && texture2D(uPanes, uv).r > 0.5 && panes > 5.0) {
+                            // The frame itself: trim in the cabin's colour with a dark seal
+                            // against the glass, in place of the few dots the game paints there.
+                            figure = vec4(uDashColor * 0.55, 1.0);
+                        }
+                    }
                     if (uGlassPass < 0.5) {
                         if (glazed) {
                             discard;
@@ -2444,6 +2469,21 @@ final class Pipeline {
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private static final float[] beamMatrix = new float[16];
     private static int beamMap, beamTarget;
+    private static int paneColor, paneTarget;
+    private static Program paneMask;
+    private static final int PANE_UNIT = 23;
+    private static final String PANE_VERTEX = """
+            #version 120
+            void main() {
+                gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+            }
+            """;
+    private static final String PANE_FRAGMENT = """
+            #version 120
+            void main() {
+                gl_FragColor = vec4(1.0);
+            }
+            """;
     private static int figureNormal;
     private static final int NORMAL_UNIT = 22;
     private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
@@ -3475,6 +3515,36 @@ final class Pipeline {
         boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         smoothSkins(false);
         Characters.done();
+        java.nio.FloatBuffer glass = own && FirstPerson.seated ? VehicleMeshes.seatedPanes : null;
+        if (glass != null) {
+            // Which pixels are the vehicle's glass, drawn from the triangles of it that are:
+            // a window's edge is then the straight edge of a triangle.
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, paneTarget);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glClear(GL_COLOR_BUFFER_BIT);
+            GL11.glDisable(GL_DEPTH_TEST);
+            GL11.glDisable(GL_CULL_FACE);
+            GL11.glDisable(GL_BLEND);
+            arrays();
+            GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            GL11.glDisableClientState(GL_COLOR_ARRAY);
+            GL11.glDisableClientState(GL_NORMAL_ARRAY);
+            GL11.glMatrixMode(GL_PROJECTION);
+            GL11.glLoadIdentity();
+            GL11.glMatrixMode(GL_MODELVIEW);
+            GL11.glLoadMatrixf(VehicleMeshes.paneMatrix);
+            GL11.glVertexPointer(3, GL_FLOAT, 0, glass);
+            paneMask.use();
+            GL11.glDrawArrays(GL_TRIANGLES, 0, glass.limit() / 3);
+            GL11.glDisableClientState(GL_VERTEX_ARRAY);
+            GL11.glLoadIdentity();
+        }
+        GL13.glActiveTexture(GL_TEXTURE0 + PANE_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, paneColor);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        figureLight.use();
+        figureLight.set("uPanes", PANE_UNIT);
+        figureLight.set("uHavePanes", glass != null ? 1f : 0f);
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -3609,6 +3679,7 @@ final class Pipeline {
     private static String prepare() {
         StringBuilder problem = new StringBuilder();
         world = program("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
+        paneMask = program("pane mask", PANE_VERTEX, PANE_FRAGMENT, problem);
         shadow = program("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem);
         rain = program("rain", RAIN_VERTEX, RAIN_FRAGMENT, problem);
         sky = program("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
@@ -3783,6 +3854,8 @@ final class Pipeline {
         ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         ownTarget = target(ownColor);
+        paneColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        paneTarget = target(paneColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ownDepth, 0);
         if (problem == null) {
             problem = complete("viewer");

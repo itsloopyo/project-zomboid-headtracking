@@ -195,7 +195,9 @@ public final class Characters {
                     place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                     String script = FirstPerson.seatedIn;
                     if (script != null && !data.modelData.isEmpty()) {
-                        VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp);
+                        multiply(projection, ViewCamera.view(camera), combined);
+                        VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
+                                data.centerOfMassY, combined);
                     }
                     ownAmbient[0] = data.ambientR;
                     ownAmbient[1] = data.ambientG;
@@ -203,7 +205,9 @@ public final class Characters {
                     data.ambientR = 1f;
                     data.ambientG = 1f;
                     data.ambientB = 1f;
+                    fromSeat = true;
                     vehicle(data, i * 4, ViewCamera.view(camera));
+                    fromSeat = false;
                     data.ambientR = ownAmbient[0];
                     data.ambientG = ownAmbient[1];
                     data.ambientB = ownAmbient[2];
@@ -267,6 +271,8 @@ public final class Characters {
      * measured against the depth of their own cabins, to about 0.02.
      */
     private static final float WHEEL_SETTLES = -0.015f;
+
+    private static boolean fromSeat;
 
     /** The light the game gave the models last drawn, averaged over them. */
     static float ambient = 1f;
@@ -418,6 +424,11 @@ public final class Characters {
         for (int part = 0; part < data.modelData.size(); part++) {
             GL11.glDepthMask(true);
             ModelInstanceRenderData model = data.modelData.get(part);
+            // The game's bodies have no bulkhead and no arches inside: from the seat the road
+            // wheels would stand in the cabin.
+            if (fromSeat && model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel")) {
+                continue;
+            }
             if (repainted && model.modelInstance instanceof VehicleModelInstance body) {
                 float x = body.painColor.x, y = body.painColor.y, z = body.painColor.z;
                 body.painColor.x = (x + 0.5f) % 1f;

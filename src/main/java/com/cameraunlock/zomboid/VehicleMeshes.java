@@ -34,6 +34,18 @@ final class VehicleMeshes {
      */
     static final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
 
+    /**
+     * The panes of each model, as loose triangles in the model's own space: the vehicle's mask
+     * texture says which of its triangles are glass. Empty for a model with none found.
+     */
+    private static final IdentityHashMap<ModelMesh, java.nio.FloatBuffer> panes = new IdentityHashMap<>();
+    /** The panes of the vehicle the viewer sits in, and the matrix that puts them on the screen. Null with none. */
+    static java.nio.FloatBuffer seatedPanes;
+    static final float[] paneMatrix = new float[16];
+    private static final float[] shifted = new float[16], stands = new float[16];
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001;
+    private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
+
     private static Field handleField, elementsField, bufferField, strideField;
     private static final float[] xfrm = new float[16];
 
@@ -42,7 +54,9 @@ final class VehicleMeshes {
      * stands it in the world, how far below that the game's draw then sets the body (it hangs
      * the model from the vehicle's centre of mass), and where the vehicle stands.
      */
-    static void note(String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY, float groundUp) {
+    static void note(String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY, float groundUp,
+            float centreOfMass, float[] eye) {
+        seatedPanes = null;
         if (!(body.modelInstance instanceof VehicleModelInstance) || body.modelInstance.model == null) {
             return;
         }
@@ -55,13 +69,24 @@ final class VehicleMeshes {
             if (!mesh.isReady() || mesh.vb == null) {
                 return;
             }
-            middle = find(mesh.vb, body.modelInstance.model.name);
+            middle = find(mesh, (VehicleModelInstance) body.modelInstance, body.modelInstance.model.name);
             middles.put(mesh, middle);
+        }
+        body.xfrm.get(xfrm);
+        java.nio.FloatBuffer glass = panes.get(mesh);
+        if (glass != null && glass.capacity() > 0) {
+            // The game hangs the body from the vehicle's centre of mass, along the model's own up.
+            System.arraycopy(placed, 0, shifted, 0, 16);
+            for (int k = 0; k < 3; k++) {
+                shifted[12 + k] += placed[4 + k] * centreOfMass;
+            }
+            multiply(shifted, xfrm, stands);
+            multiply(eye, stands, paneMatrix);
+            seatedPanes = glass;
         }
         if (middle == NONE) {
             return;
         }
-        body.xfrm.get(xfrm);
         float mx = xfrm[0] * middle[0] + xfrm[4] * middle[1] + xfrm[8] * middle[2] + xfrm[12];
         float my = xfrm[1] * middle[0] + xfrm[5] * middle[1] + xfrm[9] * middle[2] + xfrm[13];
         float mz = xfrm[2] * middle[0] + xfrm[6] * middle[1] + xfrm[10] * middle[2] + xfrm[14];
@@ -79,7 +104,8 @@ final class VehicleMeshes {
     }
 
     /** The middle of the wheel in a body's vertices, read back from the graphics card once. */
-    private static float[] find(VertexBufferObject buffer, String name) {
+    private static float[] find(ModelMesh mesh, VehicleModelInstance instance, String name) {
+        VertexBufferObject buffer = mesh.vb;
         try {
             if (handleField == null) {
                 handleField = VertexBufferObject.class.getDeclaredField("handle");
@@ -105,6 +131,7 @@ final class VehicleMeshes {
             ByteBuffer raw = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder());
             GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
+            panes.put(mesh, panesIn(raw, stride, elements, instance, name));
             return wheelIn(raw, stride, bytes / stride, elements, name);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
@@ -170,6 +197,91 @@ final class VehicleMeshes {
                     + "): its driver's place is the game's own");
         }
         return best;
+    }
+
+    /**
+     * The triangles of a body that are glass. The game's vehicle mask paints each window in a
+     * colour of its own, every channel of it nothing or a half, and a triangle is a pane when
+     * the mask at its middle is one of those.
+     */
+    private static java.nio.FloatBuffer panesIn(ByteBuffer raw, int stride, int[] elements, VehicleModelInstance instance, String name) {
+        java.nio.FloatBuffer none = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        if (instance.textureMask == null || stride < 32) {
+            Log.info("the vehicle model " + name + " has no mask to tell its glass by: its windows are told by their colour");
+            return none;
+        }
+        int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+        GL11.glBindTexture(GL_TEXTURE_2D, instance.textureMask.getID());
+        int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
+        ByteBuffer mask = ByteBuffer.allocateDirect(Math.max(width * height * 4, 4)).order(ByteOrder.nativeOrder());
+        if (width > 0 && height > 0) {
+            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, mask);
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, was);
+        if (width <= 0 || height <= 0) {
+            Log.info("the vehicle model " + name + " has an empty mask: its windows are told by their colour");
+            return none;
+        }
+        int triangles = elements.length / 3;
+        // Which way up the mask lies against the model's texture coordinates is settled by
+        // which way finds windows: a body has a few dozen triangles of glass, not none and not most.
+        boolean[][] glass = new boolean[2][triangles];
+        int[] found = new int[2];
+        for (int flip = 0; flip < 2; flip++) {
+            for (int t = 0; t < triangles; t++) {
+                float u = 0f, v = 0f;
+                for (int corner = 0; corner < 3; corner++) {
+                    int at = elements[t * 3 + corner] * stride + 24;
+                    u += raw.getFloat(at) / 3f;
+                    v += raw.getFloat(at + 4) / 3f;
+                }
+                u -= (float) Math.floor(u);
+                v -= (float) Math.floor(v);
+                int x = Math.min((int) (u * width), width - 1), y = Math.min((int) ((flip == 0 ? v : 1f - v) * height), height - 1);
+                int texel = (y * width + x) * 4;
+                int halves = 0, nones = 0;
+                for (int channel = 0; channel < 3; channel++) {
+                    int value = mask.get(texel + channel) & 0xff;
+                    if (value < 40) {
+                        nones++;
+                    } else if (value > 100 && value < 156) {
+                        halves++;
+                    }
+                }
+                glass[flip][t] = halves + nones == 3 && halves >= 1 && halves <= 2;
+                if (glass[flip][t]) {
+                    found[flip]++;
+                }
+            }
+        }
+        int way = Math.abs(found[0] - 32) <= Math.abs(found[1] - 32) ? 0 : 1;
+        Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
+        if (found[way] < 6 || found[way] > triangles / 3) {
+            return none;
+        }
+        java.nio.FloatBuffer out = ByteBuffer.allocateDirect(found[way] * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        for (int t = 0; t < triangles; t++) {
+            if (glass[way][t]) {
+                for (int corner = 0; corner < 3; corner++) {
+                    int at = elements[t * 3 + corner] * stride;
+                    out.put(raw.getFloat(at)).put(raw.getFloat(at + 4)).put(raw.getFloat(at + 8));
+                }
+            }
+        }
+        out.flip();
+        return out;
+    }
+
+    private static void multiply(float[] a, float[] b, float[] out) {
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 4; row++) {
+                float sum = 0f;
+                for (int k = 0; k < 4; k++) {
+                    sum += a[k * 4 + row] * b[column * 4 + k];
+                }
+                out[column * 4 + row] = sum;
+            }
+        }
     }
 
     private static int root(int[] parent, int i) {
