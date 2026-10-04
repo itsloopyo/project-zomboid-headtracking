@@ -177,6 +177,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    private boolean wiredHere;
+    private static final int WIRE_SPAN = 12;
+    private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
     private float steepest;
     private static final float STEEPEST_ROOF = 0.55f;
     private String steepestSaid = "", roofName = "";
@@ -813,6 +816,74 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return (z + Math.max(high - UNDER_ROOF, 0.004f)) * ViewCamera.LEVEL_HEIGHT;
     }
 
+    /**
+     * The game paints a short length of wire on a square here and there along a line of poles.
+     * A wire runs the whole way: from each square that holds some, a cable is strung to the
+     * next such square along each of the four ways a line can run on the map, sagging a little
+     * between them.
+     */
+    private void stringWires(int x, int y, int z) {
+        // Several wires run side by side, so the squares that hold wire are a band a few
+        // squares wide. The cable goes the way the band runs, which is the way along which
+        // the most of them lie, and not across it from wire to wire.
+        int most = 0, along = 0;
+        for (int way = 0; way < 4; way++) {
+            int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
+            int count = 0;
+            for (int far = -WIRE_SPAN; far <= WIRE_SPAN; far++) {
+                if (far != 0 && holdsWire(x + stepX * far, y + stepY * far, z)) {
+                    count++;
+                }
+            }
+            if (count > most) {
+                most = count;
+                along = way;
+            }
+        }
+        for (int way = along; way == along && most > 0; way++) {
+            int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
+            for (int far = 1; far <= WIRE_SPAN; far++) {
+                int toX = x + stepX * far, toY = y + stepY * far;
+                if (!holdsWire(toX, toY, z)) {
+                    continue;
+                }
+                float fromUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x + 0.5f, y + 0.5f);
+                float toUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(toX + 0.5f, toY + 0.5f);
+                float midX = x + 0.5f + stepX * far / 2f, midY = y + 0.5f + stepY * far / 2f;
+                float midUp = (fromUp + toUp) / 2f - WIRE_SAG * far;
+                cable(x + 0.5f, y + 0.5f, fromUp, midX, midY, midUp);
+                cable(midX, midY, midUp, toX + 0.5f, toY + 0.5f, toUp);
+                break;
+            }
+        }
+    }
+
+    private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        plain.open = frame.open + SpriteGeometry.CARD + 32f * WIRE;
+        float[] c = eave;
+        set(c, 0, x0, y0, up0);
+        set(c, 1, x1, y1, up1);
+        set(c, 2, x1, y1, up1 + WIRE_THICK);
+        set(c, 3, x0, y0, up0 + WIRE_THICK);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+    }
+
+    private boolean holdsWire(int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null || square.getFloor() != null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean overPole(int x, int y) {
         IsoGridSquare ground = cell.getGridSquare(x, y, 0);
         if (ground == null) {
@@ -857,6 +928,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
         IsoObject floor = square.getFloor();
         hangsInAir = floor == null;
+        wiredHere = false;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -893,6 +965,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.nudgeX = geometry.nudgeY = 0f;
         }
         frame.material = 0f;
+        if (wiredHere) {
+            stringWires(x, y, z);
+        }
         if (z == 0) {
             addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
@@ -976,6 +1051,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
+        if (z > 0 && hangsInAir && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
+            wiredHere = true;
+        }
         // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
         // a length of wire painted as its view sees it run along the ground's grid. Laid flat
         // at that height the painted line is a straight wire again, from square to square. Stood
