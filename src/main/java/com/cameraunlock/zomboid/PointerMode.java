@@ -56,7 +56,6 @@ final class PointerMode {
         return inventory;
     }
 
-    /** Back to the look, for when the first person view is turned off. */
     /**
      * Takes the panels open now as ones the pointer is not out for. The aim button is for
      * the sights and nothing else: whatever the game opens on it, or on letting it go, does
@@ -67,6 +66,7 @@ final class PointerMode {
         ignoredPanels = panels;
     }
 
+    /** Back to the look, for when the first person view is turned off. */
     void reset() {
         byKey = false;
         byPanel = false;
