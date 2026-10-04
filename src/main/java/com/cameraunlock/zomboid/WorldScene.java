@@ -185,7 +185,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float STEEPEST_ROOF = 0.55f;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
-    private static final float EAVE = 0.22f, FASCIA = 0.12f;
+    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f;
     private final float[] eave = new float[12];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
@@ -1441,6 +1441,40 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
                 frame.red, frame.green, frame.blue);
         addEave(plain, x, y, z, atOrigin, alongX, alongY);
+        addRake(plain, x, y, z, atOrigin, alongX, alongY);
+    }
+
+    /**
+     * At a gable the roof runs a little past the end wall too: where a sloping tile has no roof
+     * beside it across its slope, a strip of roof carries its slope out over the wall.
+     */
+    private void addRake(SpriteGeometry.Mesh plain, int x, int y, int z, float atOrigin, float alongX, float alongY) {
+        if (Math.abs(alongX + alongY) < FLAT_ROOF) {
+            return;
+        }
+        plain.open = frame.open + 32f * SHINGLES;
+        float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        float low = (z + atOrigin) * ViewCamera.LEVEL_HEIGHT + lift, high = (z + atOrigin + alongX + alongY) * ViewCamera.LEVEL_HEIGHT + lift;
+        float[] c = eave;
+        for (int side = 0; side < 2; side++) {
+            int besideX = x + (alongX != 0f ? 0 : side == 0 ? -1 : 1), besideY = y + (alongX != 0f ? side == 0 ? -1 : 1 : 0);
+            if (hasRoof(besideX, besideY, z)) {
+                continue;
+            }
+            float edge = side, out = side == 0 ? -RAKE : RAKE;
+            if (alongX != 0f) {
+                set(c, 0, x, y + edge, low);
+                set(c, 1, x + 1f, y + edge, high);
+                set(c, 2, x + 1f, y + edge + out, high);
+                set(c, 3, x, y + edge + out, low);
+            } else {
+                set(c, 0, x + edge, y, low);
+                set(c, 1, x + edge, y + 1f, high);
+                set(c, 2, x + edge + out, y + 1f, high);
+                set(c, 3, x + edge + out, y, low);
+            }
+            SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        }
     }
 
     /**
