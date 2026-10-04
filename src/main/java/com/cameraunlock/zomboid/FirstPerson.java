@@ -156,7 +156,7 @@ public final class FirstPerson {
         cursorX = Math.round(IsoUtils.XToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
         cursorY = Math.round(IsoUtils.YToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
 
-        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT;
+        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
         ViewCamera.clean(cleanView, player.getX(), player.getY(), floorUp + eyeHeight(player), yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         HeadTracking.view(lookCaptured, cleanView, yaw, world, trackedView);

@@ -150,7 +150,7 @@ public final class Characters {
     }
 
     private static void character(ModelSlotRenderData data, float[] view) {
-        place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT, data.animPlayerAngle, CHARACTER_SCALE);
+        place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(view, placed, combined);
         EYE.Begin();
         for (int part = 0; part < data.modelData.size(); part++) {
@@ -172,7 +172,7 @@ public final class Characters {
      * draw is told that the square's depth is exactly the depth the middle already has.
      */
     private static void vehicle(ModelSlotRenderData data, int at, float[] view) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT, stood[at + 3], 1f);
+        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]), stood[at + 3], 1f);
         multiply(view, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];
         float eyeY = combined[5] * data.centerOfMassY + combined[13];

@@ -136,7 +136,9 @@ final class Pipeline {
             varying vec4 vColor;
             varying vec3 vNormal;
             varying vec3 vWorld;
+            varying float vCover;
             uniform vec3 uWind;
+            uniform float uLaid;
 
             // Where the wind has moved a vertex to. The normal's length says how much of the
             // wind the vertex takes: nothing at a plant's root, all of it at its top.
@@ -153,7 +155,10 @@ final class Pipeline {
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
                 vNormal = gl_Normal;
-                vec4 at = blown(gl_Vertex, gl_Normal);
+                // What is laid on the ground does not blow about: there the normal's length says
+                // how much of the layer shows at the vertex.
+                vec4 at = uLaid > 0.5 ? gl_Vertex : blown(gl_Vertex, gl_Normal);
+                vCover = 2.0 - length(gl_Normal);
                 vWorld = at.xyz;
                 gl_Position = gl_ModelViewProjectionMatrix * at;
             }
@@ -173,12 +178,14 @@ final class Pipeline {
             uniform float uFogEnd;
             uniform float uCut;
             uniform vec2 uTexel;
+            uniform float uLaid;
             uniform float uWet;
             uniform float uSeconds;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
             varying vec3 vWorld;
+            varying float vCover;
 
             float shadowAt(sampler2DShadow map, vec3 c) {
                 float lit = 0.0;
@@ -287,7 +294,14 @@ final class Pipeline {
 
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
                 color = mix(color, atmosphere(-view), haze);
-                gl_FragColor = vec4(color, texel.a);
+                // Ground spreading over its neighbour thins out towards its edge, and the edge
+                // is ragged: tufts and patches, not a ruled fade.
+                float shown = 1.0;
+                if (uLaid > 0.5 && vCover < 0.999) {
+                    float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
+                    shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
+                }
+                gl_FragColor = vec4(color, texel.a * shown);
             }
             """;
 
@@ -1221,6 +1235,7 @@ final class Pipeline {
         world.set("uSeconds", state.seconds);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
+        world.set("uLaid", 0f);
         drawRanges(0, solidRanges, world);
         // What is laid over the floors, mixed in by how see-through each pixel is. It writes no
         // depth: it lies on a floor that already has.
@@ -1228,6 +1243,7 @@ final class Pipeline {
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(false);
         world.set("uCut", 0.02f);
+        world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
         drawRanges(solidRanges, ranges);
         GL11.glDisable(GL_BLEND);

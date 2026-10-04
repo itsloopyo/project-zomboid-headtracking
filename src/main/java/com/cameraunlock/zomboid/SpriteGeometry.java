@@ -216,6 +216,23 @@ final class SpriteGeometry {
      * are taken, beyond the usual inset: see WorldScene.addWall.
      */
     float sealLow, sealHigh;
+    /**
+     * How far the ground stands above the flat map at the four corners of the square being
+     * added, (0, 0), (1, 0), (1, 1) and (0, 1), in tiles: see Terrain. Everything on the square
+     * is lifted with it.
+     */
+    final float[] lift = new float[4];
+    /**
+     * When set, how much of the face shows at each corner of the square, in the corner order of
+     * lift: 1 all of it, 0 none. For ground that spreads over the edge of its neighbour.
+     */
+    float[] cover;
+
+    private float liftAt(float a, float b) {
+        a = Math.clamp(a, 0f, 1f);
+        b = Math.clamp(b, 0f, 1f);
+        return (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b;
+    }
 
     /** Frame pixel across of a point on the tile. */
     static float frameU(Frame frame, float a, float b) {
@@ -257,7 +274,13 @@ final class SpriteGeometry {
         int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
         float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + frame.kind;
-        mesh.face(db1 * up2 - up1 * db2, up1 * da2 - da1 * up2, da1 * db2 - db1 * da2);
+        if (up1 == 0f && up2 == 0f) {
+            // A face lying on the ground tilts with it, and is lit as tilted.
+            float turn = Math.signum(da1 * db2 - db1 * da2);
+            mesh.face(-turn * (lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -turn * (lift[3] - lift[0] + lift[2] - lift[1]) / 2f, turn);
+        } else {
+            mesh.face(db1 * up2 - up1 * db2, up1 * da2 - da1 * up2, da1 * db2 - db1 * da2);
+        }
         float[] from = result;
         for (int i = 1; i < count - 1; i++) {
             emit(mesh, frame, tileX, tileY, tileZ, from, 0);
@@ -351,7 +374,7 @@ final class SpriteGeometry {
 
         float baseX = tileX + a;
         float baseY = tileY + b;
-        float baseUp = (tileZ + h) * ViewCamera.LEVEL_HEIGHT;
+        float baseUp = (tileZ + h) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         float x0 = baseX + rightX * leftOffset, y0 = baseY + rightY * leftOffset;
         float x1 = baseX + rightX * rightOffset, y1 = baseY + rightY * rightOffset;
 
@@ -438,7 +461,9 @@ final class SpriteGeometry {
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
-        mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB, (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT, u, v,
+        mesh.sway = cover == null ? 0f : 1f - (cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
+        mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
+                (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
                 frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                 frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);

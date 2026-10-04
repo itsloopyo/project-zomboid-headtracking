@@ -156,6 +156,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int lowestLevel;
     private int chunksBuilt;
     private int boxes;
+    private int spreadFaces;
+    private int lifted;
     private int chunksDrawn, squaresLoaded, squaresSeen, sprites, triangles;
     private int roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear;
     /** The gap between two sprites on one plane of the square being added. */
@@ -173,6 +175,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
+    /** The ground of the chunk being built and of the ring of squares round it, laid out as the lights are. */
+    private final byte[] groundKind = new byte[LIGHT_SPAN * LIGHT_SPAN];
+    private final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
+    private final Texture[] groundTexture = new Texture[LIGHT_SPAN * LIGHT_SPAN];
+    private final int[] groundRank = new int[LIGHT_SPAN * LIGHT_SPAN];
+    private final java.util.IdentityHashMap<IsoSprite, int[]> ranks = new java.util.IdentityHashMap<>();
+    private final int[] spreading = new int[8];
+    private final float[] cover = new float[4];
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
     /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
@@ -194,9 +204,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     String describe() {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
-                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d models %d | %s",
+                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, Characters.drawnLast(), sky.describe());
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe());
     }
 
     static float drawnAspect() {
@@ -230,6 +240,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         chunksDrawn = 0;
         chunksBuilt = 0;
         boxes = 0;
+        spreadFaces = 0;
+        lifted = 0;
         squaresLoaded = 0;
         squaresSeen = 0;
         sprites = 0;
@@ -305,6 +317,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     chunksBuilt++;
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
+                        float[] ground = z == 0 ? Terrain.corners(cell, chunk.wx, chunk.wy) : null;
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
                             for (int localY = 0; localY < CHUNK_TILES; localY++) {
                                 IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
@@ -313,7 +326,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                                 }
                                 squaresLoaded++;
                                 cornerLights(localX, localY);
-                                addSquare(square, chunkX + localX, chunkY + localY, z, playerIndex);
+                                int corner = localX * Terrain.CORNERS + localY;
+                                geometry.lift[0] = ground == null ? 0f : ground[corner];
+                                geometry.lift[1] = ground == null ? 0f : ground[corner + Terrain.CORNERS];
+                                geometry.lift[2] = ground == null ? 0f : ground[corner + Terrain.CORNERS + 1];
+                                geometry.lift[3] = ground == null ? 0f : ground[corner + 1];
+                                if (geometry.lift[0] != 0f) {
+                                    lifted++;
+                                }
+                                addSquare(square, chunkX + localX, chunkY + localY, z, localX, localY);
                             }
                         }
                     }
@@ -435,6 +456,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
                 IsoGridSquare square = inChunk ? chunk.getGridSquare(i - 1, j - 1, z) : cell.getGridSquare(chunkX + i - 1, chunkY + j - 1, z);
                 int at = i * LIGHT_SPAN + j;
+                if (z == 0) {
+                    groundKind[at] = Terrain.kind(square);
+                    groundObject[at] = square == null ? null : square.getFloor();
+                    groundTexture[at] = textureOf(groundObject[at]);
+                    groundRank[at] = groundKind[at] == Terrain.NATURAL ? rank(groundObject[at].getSprite()) : 0;
+                }
                 if (square == null) {
                     lightOpen[at] = -1;
                     continue;
@@ -497,7 +524,108 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
-    private void addSquare(IsoGridSquare square, int x, int y, int z, int playerIndex) {
+    private void frameOf(IsoObject object, Texture texture) {
+        frame.originU = object.offsetX;
+        frame.originV = object.offsetY;
+        frame.left = texture.getOffsetX();
+        frame.top = texture.getOffsetY();
+        frame.width = texture.getWidth();
+        frame.height = texture.getHeight();
+        frame.uStart = texture.getXStart();
+        frame.uEnd = texture.getXEnd();
+        frame.vStart = texture.getYStart();
+        frame.vEnd = texture.getYEnd();
+    }
+
+    private static Texture textureOf(IsoObject floor) {
+        IsoSprite sprite = floor == null ? null : floor.getSprite();
+        Texture texture = sprite == null ? null : sprite.getTextureForCurrentFrame(floor.getDir());
+        return texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0 ? null : texture;
+    }
+
+    /**
+     * The game lays its ground a square at a time, so where grass meets earth the line between
+     * them is a staircase of square corners. Ground does not end like that. Here grass, earth
+     * and sand spread over the edge of whatever lies next to them: the neighbour's ground is
+     * laid over this square too, all of it at the corners the neighbour touches and none at the
+     * others, and the picture breaks the fade between into an uneven edge.
+     *
+     * Of two kinds of open ground the one whose texture has the higher name spreads over the
+     * other, which is as good a rule as any and is the same from both sides. Ground spreads
+     * over a road or a path and out over the edge of water, never the other way, and nothing
+     * spreads indoors.
+     */
+    private void spreadGround(int x, int y, int localX, int localY) {
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        if (groundKind[own] == Terrain.UNKNOWN || lightOpen[own] != 1) {
+            return;
+        }
+        int mine = groundRank[own];
+        int spread = 0;
+        for (int di = -1; di <= 1; di++) {
+            for (int dj = -1; dj <= 1; dj++) {
+                int at = own + di * LIGHT_SPAN + dj;
+                if (!spreads(at, own, mine)) {
+                    continue;
+                }
+                int name = groundRank[at];
+                boolean done = false;
+                for (int k = 0; k < spread; k++) {
+                    done |= spreading[k] == name;
+                }
+                if (done) {
+                    continue;
+                }
+                spreading[spread++] = name;
+                for (int corner = 0; corner < 4; corner++) {
+                    int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
+                    boolean touches = false;
+                    for (int ci = 0; ci <= 1; ci++) {
+                        for (int cj = 0; cj <= 1; cj++) {
+                            int touching = (i + ci) * LIGHT_SPAN + j + cj;
+                            touches |= touching != own && spreads(touching, own, mine) && groundRank[touching] == name;
+                        }
+                    }
+                    cover[corner] = touches ? 1f : 0f;
+                }
+                frameOf(groundObject[at], groundTexture[at]);
+                geometry.cover = cover;
+                spreadFaces++;
+                geometry.addFace(laid.get(groundTexture[at].getID()), frame, x, y, 0, 0f, 0f, (floorLayer + spread) * standOff / ViewCamera.LEVEL_HEIGHT,
+                        1f, 0f, 0f, 0f, 1f, 0f);
+                geometry.cover = null;
+            }
+        }
+    }
+
+    /**
+     * Which ground a sprite of open ground is, as a number that also says what spreads over
+     * what. The game's sheets of ground hold one kind of ground to a row of sixteen sprites,
+     * so every sprite of a row is the same ground and gets the same number. Grass, the rows
+     * after the first and before the fifth, outranks bare ground: it is grass that grows out
+     * over earth and sand, in tufts, and not the earth that creeps over the grass.
+     */
+    private int rank(IsoSprite sprite) {
+        int[] known = ranks.get(sprite);
+        if (known == null) {
+            String name = sprite.getName();
+            int cut = name.lastIndexOf('_');
+            int row = Integer.parseInt(name.substring(cut + 1)) / 16;
+            known = new int[] {1 + (name.substring(0, cut).hashCode() & 0xffff) * 64 + (row >= 1 && row <= 3 ? 32 + row : row)};
+            ranks.put(sprite, known);
+        }
+        return known[0];
+    }
+
+    private boolean spreads(int at, int own, int mine) {
+        if (groundKind[at] != Terrain.NATURAL || lightOpen[at] != 1 || groundTexture[at] == null) {
+            return false;
+        }
+        int name = groundRank[at];
+        return name != mine && (groundKind[own] != Terrain.NATURAL || name > mine);
+    }
+
+    private void addSquare(IsoGridSquare square, int x, int y, int z, int localX, int localY) {
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY, toUp = z * ViewCamera.LEVEL_HEIGHT - camera.eyeUp;
         standOff = STAND_OFF + STAND_OFF_PER_TILE_SQUARED * (toX * toX + toY * toY + toUp * toUp);
         // An upright sprite faces the eye, not the way the view is turned, so it holds still
@@ -525,25 +653,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             if (texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0) {
                 continue;
             }
-            frame.originU = object.offsetX;
-            frame.originV = object.offsetY;
-            frame.left = texture.getOffsetX();
-            frame.top = texture.getOffsetY();
-            frame.width = texture.getWidth();
-            frame.height = texture.getHeight();
-            frame.uStart = texture.getXStart();
-            frame.uEnd = texture.getXEnd();
-            frame.vStart = texture.getYStart();
-            frame.vEnd = texture.getYEnd();
+            frameOf(object, texture);
             sprites++;
             addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+        }
+        if (z == 0) {
+            spreadGround(x, y, localX, localY);
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
         for (int i = 0; i < bodies.size(); i++) {
             IsoMovingObject body = bodies.get(i);
             solid.get(PLAIN).open = frame.open;
-            SpriteGeometry.addPlainFlat(solid.get(PLAIN), body.getX(), body.getY(), body.getZ() * ViewCamera.LEVEL_HEIGHT + 0.08f,
+            SpriteGeometry.addPlainFlat(solid.get(PLAIN), body.getX(), body.getY(),
+                    body.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(body.getX(), body.getY(), body.getZ()) + 0.08f,
                     0.85f, 0.3f, 0.35f * frame.red, 0.2f * frame.green, 0.18f * frame.blue);
         }
     }
@@ -558,7 +681,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         float x = character.getX(), y = character.getY();
-        float base = character.getZ() * ViewCamera.LEVEL_HEIGHT;
+        float base = character.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, character.getZ());
         if (characters == characterX.length) {
             characterX = java.util.Arrays.copyOf(characterX, characters * 2);
             characterY = java.util.Arrays.copyOf(characterY, characters * 2);
@@ -583,6 +706,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
         if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
                 || properties.has(IsoFlagType.attachedFloor)) {
+            // The game's own edging of one ground over another, a square at a time. spreadGround
+            // does that here.
+            if (!isFloor && z == 0 && sprite.getName() != null && sprite.getName().startsWith("blends_natural")) {
+                return;
+            }
             if (floorLayer == 0 && z > lowestLevel) {
                 addCeiling(mesh, x, y, z);
             }
