@@ -17,12 +17,14 @@ import zombie.core.skinnedmodel.model.VehicleModelInstance;
  * The game's models in the first-person picture: zombies, survivors and
  * animals with their clothes, wounds and whatever they carry, and vehicles.
  *
- * Nothing about a model is rebuilt here. Each frame the game poses every model
- * in view and draws it into its own picture through a camera that looks down
- * from the south-east. This class notes each model the game draws, and has the
- * game draw it again through a camera that stands where the first-person eye
- * is, or where the sun is for its shadow. The game's own shaders, textures,
- * bones and lights do the rest.
+ * Each frame the game poses every model in view and draws it into its own
+ * picture through a camera that looks down from the south-east. This class
+ * notes each model the game draws, and has it drawn again through a camera
+ * that stands where the first-person eye is, or where the sun is for its
+ * shadow. Vehicles, animals, the viewer's own body and whatever a person
+ * holds are drawn again by the game, with its own shaders, textures, bones
+ * and lights. The bodies, clothes and hair of everyone else standing in the
+ * world are drawn by CharacterDraw from the same bones and textures.
  *
  * Render thread only.
  */
@@ -223,7 +225,7 @@ public final class Characters {
                     data.x -= camera.forwardX / flat * EYES_AHEAD;
                     data.y -= camera.forwardY / flat * EYES_AHEAD;
                 }
-                character(data, ViewCamera.view(camera));
+                character(data, ViewCamera.view(camera), true, false);
                 data.x = x;
                 data.y = y;
                 return true;
@@ -328,7 +330,7 @@ public final class Characters {
             } else if (data.inVehicle) {
                 seated(data, i * 4, view);
             } else {
-                character(data, view);
+                character(data, view, data.character == viewer, withViewer);
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -341,12 +343,23 @@ public final class Characters {
         return drawn;
     }
 
-    private static void character(ModelSlotRenderData data, float[] view) {
+    /**
+     * A person standing in the world. The viewer's own body is the game's to draw, part by
+     * part; of anyone else the picture draws the parts it can itself and leaves the game the
+     * rest, what they hold and what hangs from them.
+     */
+    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(view, placed, combined);
         EYE.Begin();
+        if (!own) {
+            CharacterDraw.begin(data, combined, projection, casting);
+        }
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
+            if (!own && CharacterDraw.part(model)) {
+                continue;
+            }
             model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
             // The game's draw ends by putting its own remembered state back, which has depth
             // writes off. Without them the next part, or the next model, is painted over

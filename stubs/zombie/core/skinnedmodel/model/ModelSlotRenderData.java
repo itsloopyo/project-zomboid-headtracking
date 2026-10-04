@@ -5,6 +5,7 @@ import zombie.characters.IsoGameCharacter;
 public final class ModelSlotRenderData {
     public IsoGameCharacter character;
     public final ModelInstanceRenderDataList modelData = null;
+    public zombie.core.skinnedmodel.animation.AnimationPlayer animPlayer;
     public float animPlayerAngle;
     public float x;
     public float y;
@@ -13,4 +14,7 @@ public final class ModelSlotRenderData {
     public float squareDepth;
     public float centerOfMassY;
     public float ambientR, ambientG, ambientB;
+    public float finalScale;
+    public float alpha;
+    public final ModelInstance.EffectLight[] effectLights = null;
 }

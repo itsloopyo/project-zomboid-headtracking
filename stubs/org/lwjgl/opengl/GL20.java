@@ -21,5 +21,9 @@ public final class GL20 {
     public static void glUniform3f(int location, float x, float y, float z) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform4f(int location, float x, float y, float z, float w) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniformMatrix4fv(int location, boolean transpose, float[] value) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glUniformMatrix4fv(int location, boolean transpose, java.nio.FloatBuffer value) { throw new UnsupportedOperationException("reference stub"); }
     public static void glDisableVertexAttribArray(int index) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glEnableVertexAttribArray(int index) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glVertexAttribPointer(int index, int size, int type, boolean normalized, int stride, long pointer) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glBindAttribLocation(int program, int index, CharSequence name) { throw new UnsupportedOperationException("reference stub"); }
 }

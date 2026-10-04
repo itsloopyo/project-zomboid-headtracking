@@ -10,6 +10,8 @@ public final class GL11 {
 
     public static void glEnable(int cap) { throw stub(); }
     public static void glDisable(int cap) { throw stub(); }
+    public static void glCullFace(int mode) { throw stub(); }
+    public static void glDrawElements(int mode, int count, int type, long indices) { throw stub(); }
     public static void glBegin(int mode) { throw stub(); }
     public static void glEnd() { throw stub(); }
     public static void glBindTexture(int target, int texture) { throw stub(); }

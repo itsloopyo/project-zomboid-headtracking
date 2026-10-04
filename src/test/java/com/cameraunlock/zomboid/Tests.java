@@ -54,7 +54,24 @@ public final class Tests {
         wallFaceIsClippedToTheTrimmedSprite();
         faceOutsideTheTrimmedSpriteAddsNothing();
         uprightSpriteStandsOnItsAnchor();
+        smoothNormalsAgreeAcrossASeam();
         System.out.println("all tests passed");
+    }
+
+    private static void smoothNormalsAgreeAcrossASeam() {
+        // A ridge with a wing down either side. The mesh holds the ridge's two ends twice,
+        // once for each wing, and lists the wings' corners opposite ways round.
+        float h = (float) Math.sqrt(0.5);
+        float[] places = {0f, 1f, 0f, 0f, 1f, 1f, -1f, 0f, 0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f, 0f, 0f, 5f, 5f, 5f};
+        float[] normals = {-h, h, 0f, -h, h, 0f, -h, h, 0f, h, h, 0f, h, h, 0f, h, h, 0f, 0f, 0f, 1f};
+        float[] smooth = CharacterDraw.smoothNormals(places, normals, new int[] {0, 1, 2, 3, 4, 5}, 6);
+        for (int ridge : new int[] {0, 1, 3, 4}) {
+            check(near(smooth[ridge * 3], 0f) && near(smooth[ridge * 3 + 1], 1f) && near(smooth[ridge * 3 + 2], 0f),
+                    "every copy of a vertex on the seam faces the way the two wings do between them");
+        }
+        check(near(smooth[6], -h) && near(smooth[7], h) && near(smooth[8], 0f), "a vertex of one face faces as the face does");
+        check(near(smooth[15], h) && near(smooth[16], h) && near(smooth[17], 0f), "whichever way round the face's corners are listed");
+        check(smooth[18] == 0f && smooth[19] == 0f && smooth[20] == 1f, "a vertex no triangle uses keeps its own normal");
     }
 
     private static final float[] PROJECTION = ViewCamera.projection((float) Math.tan(Math.toRadians(35)), 16f / 9f, 0.05f, 200f);

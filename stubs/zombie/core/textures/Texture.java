@@ -2,6 +2,9 @@ package zombie.core.textures;
 
 public class Texture {
     public int getID() { throw new UnsupportedOperationException("reference stub"); }
+    public static int lastTextureID;
+    public void bind() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.Vector2 getUVScale(zombie.iso.Vector2 out) { throw new UnsupportedOperationException("reference stub"); }
     public int getWidth() { throw new UnsupportedOperationException("reference stub"); }
     public int getHeight() { throw new UnsupportedOperationException("reference stub"); }
     public float getOffsetX() { throw new UnsupportedOperationException("reference stub"); }
