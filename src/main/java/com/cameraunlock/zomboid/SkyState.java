@@ -22,8 +22,11 @@ final class SkyState {
     private static final float COVER_CLEAR = 0.29f, COVER_OVERCAST = 0.9f;
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
     private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f;
-    /** Cloud drift in noise widths per second, in still air and per unit of the game's wind intensity. */
-    private static final float DRIFT_STILL = 0.0025f, DRIFT_PER_WIND = 0.02f;
+    /**
+     * Cloud drift in noise widths per second, in still air and per unit of the game's wind
+     * intensity. A cloud overhead crosses a hand's width of sky in several seconds, not in one.
+     */
+    private static final float DRIFT_STILL = 0.0006f, DRIFT_PER_WIND = 0.004f;
 
     /** Unit vectors towards the sun, the moon and whichever of them lights the clouds, in world axes. */
     float sunX, sunY, sunUp;

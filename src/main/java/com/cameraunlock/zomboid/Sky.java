@@ -81,8 +81,10 @@ final class Sky {
                 }
                 // The edge of a cloud is where it is drying out into the air: it frays into
                 // curls and wisps, coarse ones and fine ones, and the heart of it does not.
-                float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 2.0, 0.0)).g * 0.62
-                        + texture3D(uNoise, q * 9.1 + vec3(uDrift * 3.0, 0.4)).r * 0.38;
+                // It moves with the cloud, and only a little faster: a cloud changes its shape
+                // over minutes.
+                float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 0.3, 0.0)).g * 0.62
+                        + texture3D(uNoise, q * 9.1 + vec3(uDrift * 0.6, 0.4)).r * 0.38;
                 d -= wear * 0.42 * (1.0 - min(d * 3.2, 1.0));
                 return clamp(d * 4.2, 0.0, 1.0);
             }
