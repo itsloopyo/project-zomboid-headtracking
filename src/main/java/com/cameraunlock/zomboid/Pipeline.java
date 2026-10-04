@@ -1841,7 +1841,8 @@ final class Pipeline {
                         // Each vehicle's are given their own colours, in the game's shading.
                         float dark = 1.0 - smoothstep(0.4, 0.65, most);
                         figure.rgb = mix(figure.rgb, uSeatColor * (most * 2.2), woven * 0.7);
-                        figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6);
+                        // The dash and the doors below the glass, not the pillars and the roof.
+                        figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6 * step(at.z, uEye.z - 0.06));
                         figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * dark, 0.45, woven));
                     }
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
@@ -1990,7 +1991,8 @@ final class Pipeline {
                         vec2 side = vec2(-uAhead.y, uAhead.x);
                         seen = atmosphere(normalize(vec3(-uAhead + side * ((0.5 - on.x) * 0.6), (on.y - 0.5) * 0.17 + 0.02)));
                     }
-                    color = seen * 0.82;
+                    // One pixel of the small picture gone wrong would be a spark in the glass.
+                    color = min(max(seen, vec3(0.0)), vec3(6.0)) * 0.82;
                 }
                 if (dial && uInstruments > 0.0) {
                     // Lit from behind when the engine runs: the numerals and needles glow.
@@ -2203,7 +2205,7 @@ final class Pipeline {
                 }
                 c += texture2D(uVolume, uv).rgb;
                 c += flare(uv);
-                c += texture2D(uBloom, uv).rgb * 0.045;
+                c += texture2D(uBloom, uv).rgb * 0.07;
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.34);

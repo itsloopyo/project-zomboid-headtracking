@@ -85,8 +85,8 @@ final class Sky {
                 // over minutes.
                 float wear = texture3D(uNoise, q * 3.7 + vec3(uDrift * 0.3, 0.0)).g * 0.62
                         + texture3D(uNoise, q * 9.1 + vec3(uDrift * 0.6, 0.4)).r * 0.38;
-                d -= wear * 0.42 * (1.0 - min(d * 3.2, 1.0));
-                return clamp(d * 4.2, 0.0, 1.0);
+                d -= wear * 0.34 * (1.0 - min(d * 3.2, 1.0));
+                return clamp(d * 7.0, 0.0, 1.0);
             }
 
             void main() {
