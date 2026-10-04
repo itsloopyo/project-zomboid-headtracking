@@ -1176,6 +1176,10 @@ final class Pipeline {
                     fromSky *= mix(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8)), 1.0, open);
                 }
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
+                // The ground in the sun throws its light back up at whatever stands on it. A
+                // wall turned from the sun is lit by the street in front of it, and without
+                // that the shaded side of every building is a flat dark slab.
+                lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
