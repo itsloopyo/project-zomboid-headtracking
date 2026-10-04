@@ -19,6 +19,9 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isAimingFirearmEquipped() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isKnockedDown() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem getPrimaryHandItem() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.inventory.ItemContainer getInventory() { throw new UnsupportedOperationException("reference stub"); }
+    public void setPrimaryHandItem(zombie.inventory.InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
+    public void setSecondaryHandItem(zombie.inventory.InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem getSecondaryHandItem() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSprinting() { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isFalling() { throw new UnsupportedOperationException("reference stub"); }

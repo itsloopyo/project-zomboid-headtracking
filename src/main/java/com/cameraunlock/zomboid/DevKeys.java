@@ -4,6 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import zombie.characters.IsoPlayer;
 import zombie.input.GameKeyboard;
+import zombie.inventory.InventoryItem;
+import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoWorld;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -17,6 +19,10 @@ import zombie.vehicles.VehiclePart;
  * vehicles and driving without first finding one that runs.
  *
  * F6 makes the player invincible, and vulnerable again on the next press.
+ *
+ * F5 puts a pump action shotgun in the player's hands, and from then on whatever firearm is
+ * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
+ * finding a gun and shells.
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
@@ -26,6 +32,11 @@ final class DevKeys {
     /** F6. */
     private static final int INVINCIBLE_KEY = 64;
 
+    /** F5. */
+    private static final int ARM_KEY = 63;
+    private static final String SHOTGUN = "Base.Shotgun";
+
+    private static boolean armed;
     private static boolean invincible, wasInvincible;
     private static java.lang.reflect.Field cannotDie;
     private static boolean looked;
@@ -43,7 +54,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
         if (!enabled) {
@@ -74,6 +85,19 @@ final class DevKeys {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
             wasInvincible = invincible;
+        }
+        if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
+            InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
+            safe.setPrimaryHandItem(shotgun);
+            safe.setSecondaryHandItem(shotgun);
+            armed = true;
+            Log.info("F5: a shotgun in hand, kept loaded");
+        }
+        if (armed && safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
+            held.setCurrentAmmoCount(held.getMaxAmmo());
+            held.setRoundChambered(true);
+            held.setJammed(false);
+            held.setCondition(held.getConditionMax());
         }
         if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;

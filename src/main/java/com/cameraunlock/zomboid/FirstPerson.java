@@ -235,12 +235,13 @@ public final class FirstPerson {
         lastFrameNanos = now;
         Characters.wanted = on;
         MouseGrab.wanted = lookCaptured;
+        MouseGrab.kept = active && pointer.on();
         if (!on) {
             FieldOfView.rest();
             HeadTracking.rest();
             ViewModel.rest();
             Crosshair.hide();
-            if (MouseGrab.applied) {
+            if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
             return;
