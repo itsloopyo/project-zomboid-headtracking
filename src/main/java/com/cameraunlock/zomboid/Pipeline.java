@@ -134,7 +134,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 24;
+    private static final int UNITS = 32;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
     private static final int BEAM_UNIT = 20;
 
@@ -285,7 +285,9 @@ final class Pipeline {
                 // thirty-twos above that what it is made of.
                 vMaterial = floor((vColor.a + 0.5) / 32.0);
                 vKind = vColor.a - 32.0 * vMaterial;
-                bool still = uLaid > 0.5 && vKind < 7.5 || vKind > 3.5 && vKind < 7.5;
+                // Nor what lies under trees or clings to a bole, though a fern, a weed and a
+                // flower growing out of the ground do.
+                bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
                 vec4 at = still ? stands : blown(stands, looks);
                 vCover = 2.0 - length(looks);
                 vWorld = at.xyz;
@@ -381,6 +383,11 @@ final class Pipeline {
             uniform float uLeafGain;
             uniform sampler2D uCloth;
             uniform float uClothGain;
+            uniform sampler2D uLitter;
+            uniform sampler2D uRock;
+            uniform sampler2D uFrond;
+            uniform sampler2D uIvy;
+            uniform vec2 uNatureGain;
 
             // The light and dark of a material's picture on a rounded thing. A sprite's face is
             // flat and takes the picture along itself. Round a cushion there is no one such way,
@@ -566,7 +573,8 @@ final class Pipeline {
                 // Where leaves and blades are thinned out, it is by a pattern fixed to the plant
                 // and not to the screen: the picture is shifted a little each frame to smooth it,
                 // and a pattern on the screen would leave out different leaves every frame.
-                if (vMaterial > 4.5 && vMaterial < 5.5) {
+                bool bushy = vMaterial > 62.5 && vMaterial < 63.5;
+                if (vMaterial > 4.5 && vMaterial < 5.5 || bushy) {
                     // The leaves of a tree. The game's sprite gives the tree its outline and the
                     // colour it is at this time of year, taken broadly so that the painted
                     // edges of its leaves do not come through. A picture of real leaves, laid
@@ -578,8 +586,10 @@ final class Pipeline {
                     vec2 along = vec2(dot(vWorld.xy, normalize(vec2(vNormal.y, -vNormal.x) + vec2(1e-5))), vWorld.z);
                     // Two layers of leaves, the second smaller and offset: a crown is leaves
                     // behind leaves, and one layer alone is a sparse spray.
-                    vec4 leaf = texture2D(uLeaves, along * 0.85);
-                    vec4 behind = texture2D(uLeaves, along * 1.37 + 0.37);
+                    // A bush's leaves are less than half the size of a tree's.
+                    float leaves = bushy ? 1.9 : 0.85;
+                    vec4 leaf = texture2D(uLeaves, along * leaves);
+                    vec4 behind = texture2D(uLeaves, along * (leaves * 1.61) + 0.37);
                     if (leaf.a < 0.5) {
                         leaf = vec4(behind.rgb * 0.7, behind.a);
                     }
@@ -606,10 +616,14 @@ final class Pipeline {
                     texel = vec4(mix(season * mix(0.4, 1.45, clamp(shade * 0.7, 0.0, 1.0)), own * season / max(dot(season, vec3(0.333)), 0.05), 0.35), 1.0);
                     small = false;
                 }
+                // What a blade of grass is like where the pixel is, for the light on it further down:
+                // how far up the blade, which way it is turned, and the way its card runs.
+                float bladeUp = 0.0, bladeTurn = 0.5;
+                vec2 bladeRun = vec2(1.0, 0.0);
                 if (grass) {
-                    // A card of grass: blades side by side along it, each its own height, lean
-                    // and shade, narrowing to a point. Further off they are shorter, and at the
-                    // edge of where grass stands they are gone, so no line shows where it ends.
+                    // A card of grass: blades side by side along it, each its own height, width,
+                    // lean and shade, narrowing to a point. Further off they are shorter, and at
+                    // the edge of where grass stands they are gone, so no line shows where it ends.
                     // A blade right against the eye is a green wall across the picture. Within
                     // arm's reach the grass thins away to nothing.
                     if (length(uEye - vWorld) < 0.45 + 0.5 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
@@ -618,6 +632,10 @@ final class Pipeline {
                     float up = 1.0 - vCover;
                     // Blades are counted along the card, whichever way it is turned.
                     vec2 run = normalize(vec2(-vNormal.y, vNormal.x));
+                    // How well the grass does here, 1 on open lawn and towards 0 at the edge of a
+                    // path and under trees: the tuft's normal leans up by as much. See
+                    // SpriteGeometry.upShare, which has the same two numbers.
+                    float vigour = clamp((normalize(vNormal).z - 0.3) / 0.6, 0.0, 1.0);
                     // Blades narrower than a pixel cannot be drawn: each would be there in one
                     // frame and gone in the next. Further off, the same card is fewer and
                     // broader blades, halving in number each time they would get too fine.
@@ -626,25 +644,170 @@ final class Pipeline {
                     float along = dot(vWorld.xy, run) * 78.0 * fewer;
                     float blade = floor(along);
                     float kind = grain(vec2(blade, 7.0));
+                    // Where grass does poorly there are fewer blades. Which are missing is told by
+                    // the blade's own number, which is its place in the world.
+                    if (grain(vec2(blade, 19.0)) > 0.3 + 0.7 * vigour) {
+                        discard;
+                    }
+                    bool rank = vKind > 15.5;
+                    // Grass grows in clumps a hand or two across, taller in the middle of one.
+                    float clump = patches(vWorld.xy * 2.7 + 5.0);
                     // Lawn dies away with distance and is gone where it stops being grown. Long grass,
                     // which is grown as far as the eye sees, only thins.
-                    float tall = (0.25 + 0.75 * kind * kind) * (vKind > 15.5 ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
+                    float tall = (0.25 + 0.75 * kind * kind) * (0.72 + 0.28 * clump) * (rank ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
                     // A blade bows over further the higher up it, to one side or the other.
                     float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
                     float reach = up / max(tall, 0.001);
-                    if (reach > 1.0 || abs(fract(along) - 0.5 + bow) > 0.46 * (1.0 - reach * reach)) {
+                    // No blade is narrower at its root than the narrowest here, which is nearly
+                    // three quarters of the widest: a finer one would be under a pixel sooner.
+                    float wide = 0.36 + 0.14 * grain(vec2(blade, 17.0));
+                    // The tallest have gone to seed: the top quarter of such a blade is a head,
+                    // broader than the stalk under it and the colour of straw. Few on a lawn,
+                    // more in grass left to grow.
+                    float head = kind > (rank ? 0.88 : 0.965) ? sin(3.14159 * clamp((reach - 0.74) / 0.26, 0.0, 1.0)) : 0.0;
+                    if (reach > 1.0 || abs(fract(along) - 0.5 + bow) > max(wide * (1.0 - reach * reach), 0.24 * head)) {
                         discard;
                     }
                     // Dark where the blades crowd at the root, light at the tip where the sun
-                    // gets to them, and here and there a blade gone to straw.
-                    float dry = smoothstep(0.82, 1.0, grain(vec2(blade, 11.0)));
+                    // gets to them, and here and there a blade gone to straw, more of them where
+                    // the grass does poorly.
+                    float dry = smoothstep(0.82 - 0.4 * (1.0 - vigour), 1.0, grain(vec2(blade, 11.0)));
                     texel.rgb = mix(texel.rgb, vec3(0.62, 0.55, 0.3), dry * 0.6);
                     // A lawn is one green with every blade a little its own, not a quilt of the
-                    // greens the game happened to paint each square.
+                    // greens the game happened to paint each square. Some blades are yellower
+                    // and some bluer, a clump here and there is paler than the rest, and poor
+                    // grass is brown.
                     float lit = dot(texel.rgb, vec3(0.3, 0.55, 0.15));
-                    texel.rgb = mix(texel.rgb, vec3(0.36, 0.5, 0.17) * (lit / 0.38), 0.55);
+                    float hue = grain(vec2(blade, 23.0));
+                    vec3 lawn = hue < 0.33 ? vec3(0.3, 0.47, 0.17) : hue < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
+                    lawn = mix(lawn, vec3(0.44, 0.47, 0.2), 0.6 * smoothstep(0.5, 0.85, patches(vWorld.xy * 0.9 + 13.0)));
+                    lawn = mix(lawn, vec3(0.5, 0.42, 0.24), 0.55 * (1.0 - vigour));
+                    texel.rgb = mix(texel.rgb, lawn * (lit / 0.38), 0.55);
+                    texel.rgb = mix(texel.rgb, vec3(0.5, 0.45, 0.3) * (lit / 0.38), 0.8 * step(0.001, head));
                     texel.rgb *= (0.5 + 0.85 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
                     texel.a = 1.0;
+                    bladeUp = reach;
+                    bladeTurn = grain(vec2(blade, 29.0));
+                    bladeRun = run;
+                }
+                // What Flora builds has no sprite. Each is drawn with the plain white texture,
+                // and what it is made of says what it looks like.
+                bool grown = vMaterial > 55.5 && vMaterial < 62.5;
+                bool litter = false;
+                vec3 dent = vec3(0.0);
+                if (grown) {
+                    if (vMaterial < 56.5) {
+                        // Fallen leaves, laid by where the ground is on the map at two sizes
+                        // turned against each other, as the ground's own pictures are.
+                        litter = true;
+                        vec2 p = vWorld.xy;
+                        float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
+                        vec3 fallen = mix(texture2D(uLitter, p * 0.61).rgb,
+                                texture2D(uLitter, vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.47 + 0.37).rgb, which) * uNatureGain.x;
+                        // Damp and dark in some places, dry and pale in others, and less red
+                        // than leaves fresh down.
+                        float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
+                        texel = vec4(clamp(mix(vec3(tone), fallen, 0.7) * (0.25 + 0.13 * patches(p * 0.31 + 9.0)), 0.0, 1.0), 1.0);
+                    } else if (vMaterial < 57.5) {
+                        // A bole. The bark's picture runs round it and up it, and its light and
+                        // dark are the bark's ridges and furrows: the surface is tilted by how
+                        // fast the picture gets lighter round and up.
+                        vec3 weights = vec3(0.299, 0.587, 0.114);
+                        float e = 1.0 / 256.0;
+                        vec3 bark = texture2D(uBark, vUv).rgb * uTimberGain.x;
+                        float here = dot(bark, weights);
+                        float beside = dot(texture2D(uBark, vUv + vec2(e, 0.0)).rgb, weights) * uTimberGain.x;
+                        float above = dot(texture2D(uBark, vUv + vec2(0.0, e)).rgb, weights) * uTimberGain.x;
+                        vec3 outward = normalize(vNormal);
+                        vec3 round = normalize(cross(vec3(0.0, 0.0, 1.0), outward) + vec3(1e-4, 0.0, 0.0));
+                        vec3 rise = cross(outward, round);
+                        // Only near: further off the ridges are finer than a pixel.
+                        dent = (round * (beside - here) + rise * (above - here)) * (0.02 / e * (1.0 - smoothstep(10.0, 28.0, length(uEye - vWorld))));
+                        // Moss on the roots and the foot of the bole, in patches.
+                        float mossy = (1.0 - smoothstep(0.1, 0.75, vUv.y)) * smoothstep(0.4, 0.7, patches(vUv * vec2(4.0, 2.5) + 2.0));
+                        texel = vec4(clamp(mix(bark * vec3(0.42, 0.35, 0.29), vec3(0.24, 0.3, 0.12) * (0.5 + 0.5 * here), 0.7 * mossy), 0.0, 1.0), 1.0);
+                    } else if (vMaterial < 58.5) {
+                        // Ivy: leaves cut out of a sleeve round the bole. It is thick at the foot
+                        // and gives out towards its top a spray at a time, never at a line: the
+                        // higher up, the fewer patches of it are left. vCover is 1 at the foot
+                        // of the sleeve and 0 at its top.
+                        float thin = smoothstep(0.3, 1.0, 1.0 - vCover);
+                        vec4 ivy = texture2D(uIvy, vUv);
+                        ivy.a *= step(thin, patches(vUv * vec2(4.6, 3.1) + 3.0));
+                        // Leaves over leaves: where the first picture has a gap a second, laid
+                        // on larger and to one side, shows through it, in the first's shade.
+                        vec4 under = texture2D(uIvy, vUv * 0.77 + 0.41);
+                        if (ivy.a < 0.5) {
+                            ivy = vec4(under.rgb * 0.7, under.a * step(thin * 1.3 + 0.15, patches(vUv * vec2(3.3, 2.3) + 11.0)));
+                        }
+                        if (ivy.a < 0.5) {
+                            discard;
+                        }
+                        texel = vec4(min(ivy.rgb * 1.5, 1.0), 1.0);
+                    } else if (vMaterial < 59.5) {
+                        // A boulder: rock laid on from the three axes by how squarely each face
+                        // looks along them, and moss in patches that keep to no face's edge,
+                        // more of it on what faces up and none underneath.
+                        vec3 facing = normalize(vNormal);
+                        vec3 share = facing * facing;
+                        vec3 at = vWorld * 0.55;
+                        vec3 stone = (texture2D(uRock, at.yz).rgb * share.x + texture2D(uRock, at.xz).rgb * share.y + texture2D(uRock, at.xy).rgb * share.z)
+                                * uNatureGain.y;
+                        vec2 over = vWorld.xy + vWorld.z * 0.6;
+                        float moss = smoothstep(0.62, 0.8, 0.3 * facing.z + 0.7 * patches(over * 2.3 + 4.0) + 0.25 * patches(over * 9.0))
+                                * smoothstep(-0.2, 0.3, facing.z);
+                        vec3 green = vec3(0.26, 0.33, 0.12) * (0.6 + 0.8 * patches(vWorld.xy * 37.0));
+                        texel = vec4(clamp(mix(stone * 0.5, green, moss * 0.85), 0.0, 1.0), 1.0);
+                    } else if (vMaterial < 60.5) {
+                        // A fern's frond, cut out of its card.
+                        vec4 frond = texture2D(uFrond, vUv);
+                        if (frond.a < 0.5) {
+                            discard;
+                        }
+                        texel = vec4(frond.rgb, 1.0);
+                    } else {
+                        // A leaf or a flower, drawn here. The card's coordinate across says
+                        // which, in the twos above the 0 to 1 it runs over: see Flora.
+                        float pick = floor(vUv.x / 2.0);
+                        vec2 q = clamp(vec2(vUv.x - 2.0 * pick, vUv.y), 0.0, 1.0);
+                        if (vMaterial < 61.5) {
+                            float off = abs(q.x - 0.5) * 2.0;
+                            if (pick > 3.5) {
+                                // A twig: a brown stick along the middle of its card.
+                                if (off > 0.4) {
+                                    discard;
+                                }
+                                texel = vec4(vec3(0.2, 0.15, 0.11) * (0.8 + 0.4 * patches(vec2(q.y * 9.0, 0.5))), 1.0);
+                            } else {
+                                // A leaf is pointed at both ends and broadest below its middle,
+                                // with a rib down it and veins off the rib.
+                                float broad = pow(max(sin(3.14159 * pow(q.y, 0.75)), 0.0), 0.8);
+                                if (off > broad * 0.95) {
+                                    discard;
+                                }
+                                vec3 own = pick < 0.5 ? vec3(0.25, 0.42, 0.14) : pick < 1.5 ? vec3(0.58, 0.36, 0.14) : pick < 2.5 ? vec3(0.4, 0.26, 0.14)
+                                        : vec3(0.64, 0.52, 0.2);
+                                texel = vec4(own * (0.75 + 0.25 * smoothstep(0.0, 0.07, off)) * (0.9 + 0.1 * sin((q.y - off * 0.3) * 38.0)), 1.0);
+                            }
+                        } else {
+                            // A flower: petals round a heart. They are small, and from far off
+                            // would be specks that come and go, so with distance fewer are
+                            // drawn. Which are left out is told by where each stands.
+                            if (length(uEye - vWorld) > 9.0 + 5.0 * grain(floor(vWorld.xy * 3.0))) {
+                                discard;
+                            }
+                            vec2 c = (q - 0.5) * 2.0;
+                            float r = length(c);
+                            bool yellow = pick > 0.5 && pick < 1.5;
+                            if (r > 0.55 + 0.45 * abs(cos(atan(c.y, c.x) * (yellow ? 5.0 : 3.0)))) {
+                                discard;
+                            }
+                            vec3 own = pick < 0.5 ? vec3(0.95, 0.95, 0.9) : yellow ? vec3(0.95, 0.8, 0.12) : vec3(0.55, 0.38, 0.8);
+                            vec3 heart = yellow ? vec3(0.9, 0.6, 0.05) : vec3(0.95, 0.78, 0.15);
+                            texel = vec4(mix(heart, own * (0.85 + 0.15 * r), smoothstep(0.22, 0.3, r)), 1.0);
+                        }
+                    }
+                    small = false;
                 }
                 // The sprites were drawn for a view in which every level line runs two pixels
                 // across for one down, so the edge of a door or a wall is a staircase of
@@ -683,7 +846,7 @@ final class Pipeline {
                 // cotton, bare metal, paint, the enamel of a fridge, steel, plastic, the glass
                 // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop,
                 // what a frame holds, vinyl.
-                bool model = vMaterial > 15.5 && vMaterial < 59.5;
+                bool model = vMaterial > 15.5 && vMaterial < 51.5;
                 float surface = -1.0;
                 // How far a model's wood is painted over, and whether what its frame holds is a picture.
                 float painted = 0.0;
@@ -780,6 +943,7 @@ final class Pipeline {
                 if (grass) {
                     n = normalize(vec3(n.xy * 0.2, 1.0));
                 }
+                n = normalize(n - dent);
 
                 // Open ground. The game has a handful of squares of each ground and lays them
                 // side by side, so a road or a yard is the same square over and over. Real
@@ -787,7 +951,7 @@ final class Pipeline {
                 // to it is made of stones and grit that the sun catches. Both are worked out
                 // from where the ground is on the map, so they never repeat and they stay put.
                 float grit = 0.0;
-                if (!model && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
+                if (!model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
                     texel.rgb *= 0.78 + 0.44 * wide;
@@ -802,7 +966,7 @@ final class Pipeline {
                     float green = (1.0 - stony) * smoothstep(-0.06, 0.04, (texel.g - texel.r) / max(most, 0.001));
                     // Gravel only where the game says the ground is gravel. Told from tarmac by
                     // how light the ground is, every street in the sun was a bed of pebbles.
-                    float loose = vMaterial > 59.5 ? stony : 0.0;
+                    float loose = vMaterial > 53.5 && vMaterial < 54.5 ? stony : 0.0;
                     float dark = stony - loose;
                     // A picture is about a pace and a half of ground: its stones come out the size of gravel.
                     vec2 one = p * 0.83;
@@ -811,7 +975,7 @@ final class Pipeline {
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
                             + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
                             // Earth only where the game says the ground is earth: what is brown may as well be planks.
-                            + (1.0 - stony - green) * (vMaterial > 3.5 && vMaterial < 59.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
+                            + (1.0 - stony - green) * (vMaterial > 3.5 && vMaterial < 51.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
                     // The picture's light and dark go over the game's colour everywhere. Where
                     // the ground is stone, which has no colour of its own to lose, the picture's
@@ -911,6 +1075,11 @@ final class Pipeline {
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
                 float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range));
+                // A boulder's faces are flat only because it is built of few of them: the rock's
+                // own cracks and ledges stand out of each far more than paint does from a wall.
+                if (vMaterial > 58.5 && vMaterial < 59.5) {
+                    relief *= 3.0;
+                }
                 if (relief > 0.0) {
                     float height = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     vec3 acrossX = dFdx(vWorld), acrossY = dFdy(vWorld);
@@ -924,7 +1093,7 @@ final class Pipeline {
                     }
                 }
                 bool card = !water && vKind > 1.5;
-                if (card && !grass && length(vNormal.xy) > 0.1 * length(vNormal)) {
+                if (card && !grass && !grown && length(vNormal.xy) > 0.1 * length(vNormal)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
                     float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
@@ -999,7 +1168,21 @@ final class Pipeline {
                     // that glow is most of what a tree looks like on a bright day.
                     float against = pow(max(dot(-view, uLight), 0.0), 1.5);
                     vec3 leaf = pow(texel.rgb, vec3(2.2)) * vec3(1.25, 1.2, 0.55);
-                    color += leaf * pow(uLightColor, vec3(2.2)) * (2.8 * against * reached * step(0.0, uLight.z));
+                    // A blade lets most through near its tip, where it is thinnest.
+                    float through = grass ? 0.55 + 0.9 * bladeUp : 1.0;
+                    color += leaf * pow(uLightColor, vec3(2.2)) * (2.8 * through * against * reached * step(0.0, uLight.z));
+                    if (grass && reached > 0.0) {
+                        // A blade of grass is glossy, and throws the sun off its flat as a
+                        // sheen. Each is turned its own way round its stalk and leans back more
+                        // towards its tip, so in a low sun a lawn glitters blade by blade. The
+                        // sheen is one for the whole of a blade, which is never under a pixel.
+                        vec3 flatWay = vec3(bladeRun.y, -bladeRun.x, 0.0);
+                        if (dot(flatWay, view) < 0.0) {
+                            flatWay = -flatWay;
+                        }
+                        vec3 facet = normalize(flatWay * 0.7 + vec3(bladeRun * ((bladeTurn - 0.5) * 1.2), 0.35 + 0.5 * bladeUp));
+                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (0.25 + 0.75 * bladeUp) * glossed(facet, view, uLight, 0.42, 0.04));
+                    }
                     // Deep in the plant the leaves stand in each other's light: darker towards
                     // the foot of a card than at its top.
                     color *= 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
@@ -1042,6 +1225,10 @@ final class Pipeline {
                     // Glazed tile is glossier than a varnished board.
                     if (vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
+                    }
+                    // Bark, rock and dry leaves are as dull as anything is, however pale.
+                    if (grown) {
+                        rough = 0.9;
                     }
                     // Of the mod's own furniture the wood is planed and waxed and the cloth dull.
                     // Enamel and china are glazed, a screen is glass, a worktop is wiped smooth,
@@ -1108,9 +1295,14 @@ final class Pipeline {
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
                 float shown = 1.0;
-                if (uLaid > 0.5 && !grass && vCover < 0.999) {
+                if (uLaid > 0.5 && !grass && vMaterial < 56.5 && vCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
+                    // Where no fallen leaves show, nothing is drawn: left in, they would still
+                    // hide whatever is laid on the same ground after them.
+                    if (litter && shown < 0.03) {
+                        discard;
+                    }
                 }
                 // What is laid over the ground is mixed in by its alpha. For everything else the
                 // alpha says how much of a mirror the surface is, 1 for none, which the last
@@ -1159,7 +1351,7 @@ final class Pipeline {
                 }
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
-                vLeaves = material > 4.5 && material < 5.5 ? 1.0 : 0.0;
+                vLeaves = material > 4.5 && material < 5.5 || material > 54.5 && material < 55.5 ? 1.0 : 0.0;
                 vAt = gl_Vertex.xyz;
                 gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
             }
@@ -2764,6 +2956,12 @@ final class Pipeline {
     private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
     private static final float[] materialGain = new float[MATERIALS.length];
+    /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
+    private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
+    private static final int FIRST_NATURE_CUTOUT = 2;
+    private static final int FIRST_NATURE_UNIT = 24;
+    private static final int[] natureTexture = new int[NATURE.length];
+    private static final float[] natureGain = new float[NATURE.length];
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
@@ -3568,6 +3766,15 @@ final class Pipeline {
         world.set("uLeafGain", materialGain[10]);
         world.set("uCloth", FIRST_MATERIAL_UNIT + 12);
         world.set("uClothGain", materialGain[12]);
+        for (int nature = 0; nature < NATURE.length; nature++) {
+            GL13.glActiveTexture(GL_TEXTURE0 + FIRST_NATURE_UNIT + nature);
+            GL11.glBindTexture(GL_TEXTURE_2D, natureTexture[nature]);
+        }
+        world.set("uLitter", FIRST_NATURE_UNIT);
+        world.set("uRock", FIRST_NATURE_UNIT + 1);
+        world.set("uFrond", FIRST_NATURE_UNIT + 2);
+        world.set("uIvy", FIRST_NATURE_UNIT + 3);
+        world.set("uNatureGain", natureGain[0], natureGain[1]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
@@ -4250,7 +4457,13 @@ final class Pipeline {
         filter(GL_NEAREST);
 
         for (int material = 0; material < MATERIALS.length; material++) {
-            String missing = loadMaterial(material);
+            String missing = loadPicture(MATERIALS[material], material == FIRST_CUTOUT, materialTexture, materialGain, material);
+            if (missing != null) {
+                return missing;
+            }
+        }
+        for (int nature = 0; nature < NATURE.length; nature++) {
+            String missing = loadPicture(NATURE[nature], nature >= FIRST_NATURE_CUTOUT, natureTexture, natureGain, nature);
             if (missing != null) {
                 return missing;
             }
@@ -4437,11 +4650,13 @@ final class Pipeline {
         return texture;
     }
 
-    /** Reads a material's picture out of the jar and gives it to the graphics card. Null, or what went wrong. */
-    private static String loadMaterial(int material) {
-        boolean cutout = material == FIRST_CUTOUT;
+    /**
+     * Reads a material's picture out of the jar and gives it to the graphics card, noting its
+     * texture and its gain at index. Null, or what went wrong.
+     */
+    private static String loadPicture(String name, boolean cutout, int[] textures, float[] gains, int index) {
         int each = cutout ? 4 : 3;
-        String path = "/materials/" + MATERIALS[material] + (cutout ? ".rgba.gz" : ".rgb.gz");
+        String path = "/materials/" + name + (cutout ? ".rgba.gz" : ".rgb.gz");
         ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * each);
         long light = 0;
         long solid;
@@ -4466,9 +4681,9 @@ final class Pipeline {
         } catch (java.io.IOException e) {
             return path + " could not be read: " + e;
         }
-        materialGain[material] = 255f * 1000f * solid / light;
-        materialTexture[material] = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[material]);
+        gains[index] = 255f * 1000f * solid / light;
+        textures[index] = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, textures[index]);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, cutout ? GL_RGBA8 : GL_RGB8, MATERIAL_SIZE, MATERIAL_SIZE, 0, cutout ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pixels);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);

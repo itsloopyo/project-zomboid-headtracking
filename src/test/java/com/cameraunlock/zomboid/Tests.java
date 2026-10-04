@@ -340,6 +340,223 @@ public final class Tests {
         check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
         check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
         check(MuzzleFlash.light()[3] == 0f, "with no weapon drawn there is no light");
+        plantsStandWhereTheyStoodAndAreNeverTooMany();
+        fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
+        tuftCarriesHowWellItsGrassDoes();
+        boleIsClosedAboveItsFoot();
+        ivyKeepsToTheBoleAndSaysHowFarUpItIs();
+        boulderIsClosed();
+        fernGrowsFromItsRoot();
+        litterShowsAsMuchAsItsCornersSay();
+        System.out.println("all tests passed");
+    }
+
+    private static void plantsStandWhereTheyStoodAndAreNeverTooMany() {
+        int flowered = 0, bare = 0, weeds = 0, ferned = 0;
+        for (int x = -40; x < 40; x++) {
+            for (int y = 10900; y < 10980; y++) {
+                int flowers = Flora.flowers(x, y);
+                check(flowers == Flora.flowers(x, y), "a square has the same flowers every time it is built");
+                check(flowers >= 0 && flowers <= Flora.FLOWERS_MOST, "a square never has more flowers than the most");
+                for (int flower = 0; flower < flowers; flower++) {
+                    int kind = Flora.flowerKind(x, y, flower);
+                    check(kind == Flora.flowerKind(x, y, flower) && kind >= Flora.WHITE && kind <= Flora.PURPLE, "a flower is one of the three, and the same one");
+                }
+                flowered += flowers > 0 ? 1 : 0;
+                bare += flowers == 0 ? 1 : 0;
+                weeds += Flora.weed(x, y) ? 1 : 0;
+                check(Flora.ferns(x, y, 0f) == 0 && Flora.fallen(x, y, 0f) == 0, "open ground has no ferns and no fallen leaves");
+                for (float wooded = 0.1f; wooded <= 1f; wooded += 0.3f) {
+                    int ferns = Flora.ferns(x, y, wooded), fallen = Flora.fallen(x, y, wooded);
+                    check(ferns == Flora.ferns(x, y, wooded) && fallen == Flora.fallen(x, y, wooded), "a wooded square has the same ferns and leaves every time");
+                    check(ferns >= 0 && ferns <= Flora.FERNS_MOST && fallen >= 0 && fallen <= Flora.FALLEN_MOST, "and never more than the most");
+                }
+                check(Flora.ferns(x, y, 1f) >= Flora.ferns(x, y, 0.4f), "deeper in a wood there are no fewer ferns");
+                ferned += Flora.ferns(x, y, 1f) > 0 ? 1 : 0;
+                check(Flora.ivied(x, y) == Flora.ivied(x, y), "a tree has ivy every time or never");
+            }
+        }
+        check(flowered > 500 && bare > 3000, "flowers are on some squares and most have none");
+        check(weeds > 300 && weeds < 1500, "a weed grows on about one square in eight");
+        check(ferned > 3000 && ferned < 5000, "ferns grow on over half the squares of a wood, and not on all");
+    }
+
+    private static void fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner() {
+        int tiles = Terrain.CHUNK_TILES, span = tiles + 2 * Flora.WOOD_RING, across = tiles + 1;
+        float[] west = new float[across * across], east = new float[across * across], none = new float[across * across];
+        Flora.wooded(woodAround(0, 0, span, 5), tiles, west);
+        Flora.wooded(woodAround(tiles, 0, span, 5), tiles, east);
+        boolean some = false, whole = false;
+        for (int j = 0; j < across; j++) {
+            check(near(west[tiles * across + j], east[j]), "the corners two chunks share are as deep in leaves from either");
+        }
+        for (float depth : west) {
+            check(depth >= 0f && depth <= 1f, "leaves are no deeper than all the way");
+            some |= depth > 0f && depth < 1f;
+        }
+        check(some, "a thin wood has corners part way deep in leaves");
+        Flora.wooded(new boolean[span * span], tiles, none);
+        for (float depth : none) {
+            check(depth == 0f, "ground with no tree near has no fallen leaves");
+        }
+        Flora.wooded(woodAround(0, 0, span, 1), tiles, west);
+        for (float depth : west) {
+            whole |= depth == 1f;
+        }
+        check(whole, "a wood with a tree on every square is all leaves");
+        boolean[] lone = new boolean[span * span];
+        lone[(4 + Flora.WOOD_RING) * span + 4 + Flora.WOOD_RING] = true;
+        Flora.wooded(lone, tiles, west);
+        check(west[4 * across + 4] > 0.3f && west[4 * across + 4] < 1f, "one tree has a scatter of leaves at its foot");
+        check(west[0] == 0f && west[8 * across + 4] == 0f, "and none four squares away");
+    }
+
+    /** Which squares of a chunk at (chunkX, chunkY) and of the ring round it hold a tree, in a land with one on every so many squares. */
+    private static boolean[] woodAround(int chunkX, int chunkY, int span, int every) {
+        boolean[] trees = new boolean[span * span];
+        for (int i = 0; i < span; i++) {
+            for (int j = 0; j < span; j++) {
+                trees[i * span + j] = Math.floorMod(Flora.mix(chunkX + i - Flora.WOOD_RING, chunkY + j - Flora.WOOD_RING, 3), every) == 0;
+            }
+        }
+        return trees;
+    }
+
+    private static void tuftCarriesHowWellItsGrassDoes() {
+        for (float vigour : new float[] {0f, 0.35f, 1f}) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            new SpriteGeometry().addTuft(mesh, wholeFrame(), 3, 4, 0.5f, 0.5f, 0.6f, 0.8f, 0.3f, 0.4f, SpriteGeometry.GRASS, vigour);
+            check(mesh.triangles() == 2, "a tuft is two triangles");
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float[] f = mesh.vertices;
+                float length = (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
+                check(near(f[at + 11] / length, SpriteGeometry.TUFT_UP_LEAST + SpriteGeometry.TUFT_UP_SPAN * vigour),
+                        "a tuft's normal leans up by how well its grass does, at its root and its top alike");
+                check(near(f[at + 9] * 0.6f + f[at + 10] * 0.8f, 0f), "and still looks square across the tuft");
+            }
+        }
+    }
+
+    /** How many triangles of a mesh meet along each of its edges, by the two ends of the edge. */
+    private static java.util.HashMap<String, Integer> edges(SpriteGeometry.Mesh mesh) {
+        java.util.HashMap<String, Integer> edges = new java.util.HashMap<>();
+        int triangle = 3 * SpriteGeometry.VERTEX_FLOATS;
+        for (int at = 0; at < mesh.floats; at += triangle) {
+            for (int corner = 0; corner < 3; corner++) {
+                String from = place(mesh, at + corner * SpriteGeometry.VERTEX_FLOATS);
+                String to = place(mesh, at + (corner + 1) % 3 * SpriteGeometry.VERTEX_FLOATS);
+                edges.merge(from.compareTo(to) < 0 ? from + " " + to : to + " " + from, 1, Integer::sum);
+            }
+        }
+        return edges;
+    }
+
+    private static String place(SpriteGeometry.Mesh mesh, int at) {
+        return Math.round(mesh.vertices[at] * 10000f) + "," + Math.round(mesh.vertices[at + 1] * 10000f) + "," + Math.round(mesh.vertices[at + 2] * 10000f);
+    }
+
+    private static void boleIsClosedAboveItsFoot() {
+        SpriteGeometry.Frame frame = wholeFrame();
+        for (int seed : new int[] {7, 0x12345678, -99}) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            int triangles = new Flora().addTrunk(mesh, 10.5f, 20.5f, 1f, 0.15f, 2f, true, seed, frame);
+            check(triangles == mesh.triangles() && triangles == 3 * Flora.TRUNK_SIDES * 2 + Flora.TRUNK_SIDES, "a bole near the eye is three bands and a point");
+            int open = 0;
+            for (java.util.Map.Entry<String, Integer> edge : edges(mesh).entrySet()) {
+                check(edge.getValue() <= 2, "no edge of a bole has three faces on it");
+                if (edge.getValue() == 1) {
+                    open++;
+                    String[] ends = edge.getKey().split("[ ,]");
+                    check(Integer.parseInt(ends[2]) < 10000 && Integer.parseInt(ends[5]) < 10000, "a bole is open only round its foot, under the ground");
+                }
+            }
+            check(open == Flora.TRUNK_SIDES, "and its foot is one ring");
+            float widest = 0f;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float away = (float) Math.hypot(mesh.vertices[at] - 10.5f, mesh.vertices[at + 1] - 20.5f);
+                widest = Math.max(widest, away);
+                if (mesh.vertices[at + 2] > 1.5f) {
+                    check(away <= 0.15f + 1e-4f, "a bole is no thicker than its radius above its roots");
+                }
+                check(mesh.vertices[at + 2] <= 1f + 2f * (1f + Flora.SPIRE) + 1e-4f, "and ends in a point that far above its height");
+            }
+            check(widest > 0.28f && widest < 0.4f, "its longest root runs out to about twice its radius or a little more");
+        }
+        SpriteGeometry.Mesh far = new SpriteGeometry.Mesh();
+        check(new Flora().addTrunk(far, 10.5f, 20.5f, 1f, 0.15f, 2f, false, 7, frame) == Flora.TRUNK_SIDES_FAR * 2 && far.triangles() == Flora.TRUNK_SIDES_FAR * 2,
+                "a bole far off is one band of six sides");
+    }
+
+    private static void ivyKeepsToTheBoleAndSaysHowFarUpItIs() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        int triangles = new Flora().addIvy(mesh, 10.5f, 20.5f, 1f, 0.15f, 2f, 1.4f, 7, wholeFrame());
+        check(triangles == mesh.triangles() && triangles == 2 * Flora.TRUNK_SIDES * 2, "ivy is two bands round the bole");
+        boolean foot = false, top = false;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float[] f = mesh.vertices;
+            float away = (float) Math.hypot(f[at] - 10.5f, f[at + 1] - 20.5f);
+            check(f[at + 2] <= 2.4f + 1e-4f && f[at + 2] > 1f, "ivy starts above the ground and stops where it is told to");
+            check(away > 0.15f * 0.78f && away < 0.3f, "and stands just off the bark, clear of the roots' ends");
+            float up = (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]) - 1f;
+            check(up >= -1e-4f && up <= 1f + 1e-4f, "a vertex says how far up the ivy it is");
+            foot |= near(up, 0f);
+            top |= near(up, 1f) && near(f[at + 2], 2.4f);
+        }
+        check(foot && top, "from none at its foot to all at its top");
+    }
+
+    private static void boulderIsClosed() {
+        for (int seed : new int[] {1, 99991, -5}) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            int triangles = new Flora().addRock(mesh, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, true, seed, wholeFrame());
+            check(triangles == 80 && mesh.triangles() == 80, "a boulder near the eye has eighty faces");
+            for (int shared : edges(mesh).values()) {
+                check(shared == 2, "every edge of a boulder has a face on each side");
+            }
+            boolean above = false;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float[] f = mesh.vertices;
+                check(Math.hypot(f[at] - 3.5f, f[at + 1] - 4.5f) < 0.4f * 1.2f, "a boulder keeps within its width, give or take its lumps");
+                check(f[at + 2] < 0.2f + 0.6f * 1.2f, "and its height");
+                above |= f[at + 2] > 0.2f + 0.4f;
+            }
+            check(above, "and stands most of that height");
+        }
+        SpriteGeometry.Mesh far = new SpriteGeometry.Mesh();
+        check(new Flora().addRock(far, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, false, 1, wholeFrame()) == 20, "a boulder far off has twenty faces");
+        for (int shared : edges(far).values()) {
+            check(shared == 2, "and is closed too");
+        }
+    }
+
+    private static void fernGrowsFromItsRoot() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        check(Flora.addFern(mesh, 2.5f, 3.5f, 0.1f, 0.5f, 6, 12345, wholeFrame()) == 24 && mesh.triangles() == 24, "a fern is four triangles a frond");
+        boolean rooted = false;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float[] f = mesh.vertices;
+            check(Math.hypot(f[at] - 2.5f, f[at + 1] - 3.5f) < 0.5f * 1.1f * 1.4f && f[at + 2] >= 0.1f - 1e-4f && f[at + 2] < 0.1f + 0.5f * 1.1f,
+                    "a frond reaches no further than its length and its width allow");
+            check(f[at + 3] >= 0f && f[at + 3] <= 1f && f[at + 4] >= 0f && f[at + 4] <= 1f, "and shows its picture once");
+            rooted |= near(f[at + 4], 0f) && near(f[at + 2], 0.1f);
+        }
+        check(rooted, "every frond starts on the ground");
+    }
+
+    private static void litterShowsAsMuchAsItsCornersSay() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame frame = wholeFrame();
+        frame.light(0.5f, 0.5f, 0.5f);
+        Flora.addLitter(mesh, 5, 6, new float[] {0f, 0.1f, 0.2f, 0.1f}, 0.01f, new float[] {1f, 0.25f, 0f, 0.5f}, frame);
+        check(mesh.triangles() == 2, "litter over a square is two triangles");
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float[] f = mesh.vertices;
+            float cover = 2f - (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
+            boolean east = near(f[at], 6f), south = near(f[at + 1], 7f);
+            check(near(cover, east ? south ? 0f : 0.25f : south ? 0.5f : 1f), "each corner shows as much litter as it was given");
+            check(near(f[at + 2], (east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f) + 0.01f), "and lies just over the ground there");
+            check(near(f[at + 8], Flora.LITTER * 32f), "and is marked as litter");
+        }
     }
 
     /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */

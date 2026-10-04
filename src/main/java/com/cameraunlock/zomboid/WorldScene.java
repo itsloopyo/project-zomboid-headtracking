@@ -216,6 +216,27 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int TALL_SURFACE = 60;
     private static final float CUPBOARD_DEEP = 0.55f;
     private static final int LONG_TUFTS = 13;
+    private final Flora flora = new Flora();
+    private static final int WOOD_SPAN = CHUNK_TILES + 2 * Flora.WOOD_RING;
+    /** Which squares of the chunk being built, and of Flora.WOOD_RING more on every side, hold a tree. */
+    private final boolean[] treed = new boolean[WOOD_SPAN * WOOD_SPAN];
+    /** How deep in fallen leaves each corner of the chunk being built is: see Flora.wooded. */
+    private final float[] wooded = new float[Terrain.CORNERS * Terrain.CORNERS];
+    private final float[] littered = new float[4];
+    /** How many of its neighbours' grounds spreadGround last laid over a square. */
+    private int spreadLayers;
+    /** How far from the eye each thing Flora makes is still made, in tiles. Past TRUNK_NEAR a bole is a plain post, and past ROCK_NEAR a boulder has a quarter of its faces. */
+    private static final float FERN_REACH = 22f, FERN_NEAR = 12f, FALLEN_REACH = 10f, FLOWER_REACH = 14f, TRUNK_NEAR = 18f, TRUNK_REACH = 60f,
+            ROCK_NEAR = 30f, BUSH_REACH = 40f;
+    /** How far in from the edge of a lawn its grass takes to reach its full height, in tiles. */
+    private static final float LAWN_EDGE = 0.9f;
+    /** How far from a bush's middle its outer cards stand, in tiles. */
+    private static final float BUSH_SPREAD = 0.16f;
+    /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
+    private final java.util.IdentityHashMap<IsoSprite, float[]> boles = new java.util.IdentityHashMap<>();
+    private static final float[] NO_BOLE = new float[0];
+    /** A bole is no thinner or thicker than this, in tiles, whatever its sprite says. */
+    private static final float BOLE_THINNEST = 0.05f, BOLE_THICKEST = 0.4f;
     private static final float GRASS_SPILL = 0.35f;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
@@ -406,6 +427,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     chunksBuilt++;
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
+                        if (z == 0) {
+                            readWoods(chunk, chunkX, chunkY);
+                        }
                         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
                         float[] water = Terrain.water(chunk.wx, chunk.wy);
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
@@ -651,6 +675,30 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
+    /** Finds the trees on and round a chunk, and from them how deep in fallen leaves each of its corners is. */
+    private void readWoods(IsoChunk chunk, int chunkX, int chunkY) {
+        for (int i = 0; i < WOOD_SPAN; i++) {
+            for (int j = 0; j < WOOD_SPAN; j++) {
+                int localX = i - Flora.WOOD_RING, localY = j - Flora.WOOD_RING;
+                boolean inChunk = localX >= 0 && localX < CHUNK_TILES && localY >= 0 && localY < CHUNK_TILES;
+                IsoGridSquare square = inChunk ? chunk.getGridSquare(localX, localY, 0) : cell.getGridSquare(chunkX + localX, chunkY + localY, 0);
+                treed[i * WOOD_SPAN + j] = square != null && square.HasTree();
+            }
+        }
+        Flora.wooded(treed, CHUNK_TILES, wooded);
+    }
+
+    /** How deep in fallen leaves the point (a, b) of a square of the chunk being built is. */
+    private float woodedAt(int localX, int localY, float a, float b) {
+        int at = localX * Terrain.CORNERS + localY;
+        return (wooded[at] * (1f - a) + wooded[at + Terrain.CORNERS] * a) * (1f - b)
+                + (wooded[at + 1] * (1f - a) + wooded[at + Terrain.CORNERS + 1] * a) * b;
+    }
+
+    private boolean isLawn(int at) {
+        return groundKind[at] == Terrain.NATURAL && lightOpen[at] == 1 && groundTexture[at] != null && (groundRank[at] - 1) % 64 >= 33;
+    }
+
     private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
         if (over == null) {
             return;
@@ -768,6 +816,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        spreadLayers = 0;
         // A street ends at its kerb, and the verge stands behind it: nothing grows out over the tarmac.
         if (groundKind[own] == Terrain.UNKNOWN || groundKind[own] == Terrain.STREET || lightOpen[own] != 1) {
             return;
@@ -808,6 +857,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 geometry.cover = null;
             }
         }
+        spreadLayers = spread;
     }
 
     /**
@@ -837,31 +887,129 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void growGrass(int x, int y, int localX, int localY) {
         int own = (localX + 1) * LIGHT_SPAN + localY + 1;
-        if (groundKind[own] != Terrain.NATURAL || lightOpen[own] != 1 || groundTexture[own] == null || (groundRank[own] - 1) % 64 < 33) {
+        if (!isLawn(own)) {
             return;
         }
         // A tuft is wider than nothing, and one near the square's edge hangs over it. Over more
         // grass that is as it should be. Over a path it is untidy, and through the wall of a
-        // house it is wrong, so unless every square round this one is open grass too the tufts
-        // keep to the middle.
-        boolean amongGrass = true;
-        for (int di = -1; di <= 1; di++) {
-            for (int dj = -1; dj <= 1; dj++) {
-                int at = own + di * LIGHT_SPAN + dj;
-                amongGrass &= groundKind[at] == Terrain.NATURAL && lightOpen[at] == 1 && (groundRank[at] - 1) % 64 >= 33;
-            }
-        }
-        float edge = amongGrass ? 0f : TUFT_HALF_WIDTH + 0.06f;
+        // house it is wrong, so on a side where the lawn ends the tufts keep in from the edge.
+        boolean west = isLawn(own - LIGHT_SPAN), east = isLawn(own + LIGHT_SPAN), north = isLawn(own - 1), south = isLawn(own + 1);
+        float keepIn = TUFT_HALF_WIDTH + 0.06f;
+        float lowA = west ? 0f : keepIn, highA = east ? 1f : 1f - keepIn, lowB = north ? 0f : keepIn, highB = south ? 1f : 1f - keepIn;
         frameOf(groundObject[own], groundTexture[own]);
         SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
         for (int tuft = 0; tuft < TUFTS; tuft++) {
             int hash = x * 73856093 ^ y * 19349663 ^ tuft * 83492791;
             hash = (hash ^ hash >>> 13) * 0x5bd1e995;
             hash ^= hash >>> 15;
-            float a = edge + (1f - 2f * edge) * (hash & 0xff) / 255f, b = edge + (1f - 2f * edge) * (hash >>> 8 & 0xff) / 255f;
+            float a = lowA + (highA - lowA) * (hash & 0xff) / 255f, b = lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f;
+            // A lawn does not stop at a line. Towards a path or a wall, and under trees, its
+            // grass is shorter, thinner and browner, and the further in or under the more so.
+            float edge = 1f;
+            if (!west) {
+                edge = Math.min(edge, a / LAWN_EDGE);
+            }
+            if (!east) {
+                edge = Math.min(edge, (1f - a) / LAWN_EDGE);
+            }
+            if (!north) {
+                edge = Math.min(edge, b / LAWN_EDGE);
+            }
+            if (!south) {
+                edge = Math.min(edge, (1f - b) / LAWN_EDGE);
+            }
+            float vigour = (1f - 0.85f * woodedAt(localX, localY, a, b)) * (0.2f + 0.8f * edge * edge * (3f - 2f * edge));
+            if (Flora.unit(Flora.mix(x, y, 31 + tuft), 0) > 0.3f + 0.7f * vigour) {
+                continue;
+            }
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
-            float height = 0.16f + 0.26f * (hash >>> 24 & 0xff) / 255f;
-            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height, SpriteGeometry.GRASS);
+            float height = (0.16f + 0.26f * (hash >>> 24 & 0xff) / 255f) * (0.55f + 0.45f * vigour);
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height, SpriteGeometry.GRASS, vigour);
+        }
+    }
+
+    /**
+     * What stands in and lies on open ground besides its grass. Under trees the ground is
+     * fallen leaves, thick in a wood and a thin scatter round one tree on a lawn, with ferns
+     * growing out of them and a leaf or a twig standing proud. A lawn has flowers in drifts,
+     * and here and there a weed. The leaves are laid as far as the land is drawn; the rest
+     * only near the eye, where it can be told from the ground it stands on.
+     */
+    private void strew(int x, int y, int localX, int localY, float away2) {
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        if (groundKind[own] != Terrain.NATURAL || lightOpen[own] != 1) {
+            return;
+        }
+        float deepest = 0f;
+        for (int corner = 0; corner < 4; corner++) {
+            int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
+            // Leaves are swept off a road and a path, and none fall indoors: a corner that touches either has none.
+            boolean open = true;
+            for (int ci = 0; ci <= 1; ci++) {
+                for (int cj = 0; cj <= 1; cj++) {
+                    int touching = (i + ci) * LIGHT_SPAN + j + cj;
+                    open &= groundKind[touching] == Terrain.NATURAL && lightOpen[touching] == 1;
+                }
+            }
+            littered[corner] = open ? wooded[i * Terrain.CORNERS + j] : 0f;
+            deepest = Math.max(deepest, littered[corner]);
+        }
+        SpriteGeometry.Mesh cards = laid.get(PLAIN);
+        if (deepest > 0.02f) {
+            Flora.addLitter(cards, x, y, geometry.lift, (floorLayer + spreadLayers + 1) * standOff, littered, frame);
+        }
+        float deep = (littered[0] + littered[1] + littered[2] + littered[3]) / 4f;
+        boolean tree = treed[(localX + Flora.WOOD_RING) * WOOD_SPAN + localY + Flora.WOOD_RING];
+        if (away2 < FERN_REACH * FERN_REACH && !tree && isLawn(own)) {
+            int ferns = Flora.ferns(x, y, deep);
+            for (int fern = 0; fern < ferns; fern++) {
+                int seed = Flora.mix(x, y, 40 + fern);
+                float a = 0.15f + 0.7f * Flora.unit(seed, 0), b = 0.15f + 0.7f * Flora.unit(seed, 8);
+                int fronds = away2 < FERN_NEAR * FERN_NEAR ? 5 + (seed >>> 24 & 1) : 4;
+                Flora.addFern(cards, x + a, y + b, geometry.liftAt(a, b), 0.4f + 0.3f * Flora.unit(seed, 16), fronds, seed, frame);
+            }
+        }
+        if (away2 < FALLEN_REACH * FALLEN_REACH) {
+            int fallen = Flora.fallen(x, y, deep);
+            for (int leaf = 0; leaf < fallen; leaf++) {
+                int seed = Flora.mix(x, y, 50 + leaf);
+                float a = 0.05f + 0.9f * Flora.unit(seed, 0), b = 0.05f + 0.9f * Flora.unit(seed, 8);
+                double turn = Flora.unit(seed, 16) * 2.0 * Math.PI;
+                float tall = Flora.unit(seed, 24);
+                if (leaf == 0 && (seed & 3) == 0) {
+                    Flora.addLeaf(cards, x + a, y + b, geometry.liftAt(a, b) + 0.03f, 0.22f + 0.2f * tall, 0.035f, turn, Math.toRadians(3.0 + 5.0 * tall),
+                            Flora.TWIG, 0f, frame);
+                } else {
+                    float length = 0.09f + 0.05f * tall;
+                    Flora.addLeaf(cards, x + a, y + b, geometry.liftAt(a, b) + 0.02f, length, length * 0.7f, turn, Math.toRadians(8.0 + 22.0 * tall),
+                            Flora.FALLEN_ORANGE + (seed >>> 20) % 3, 0f, frame);
+                }
+            }
+        }
+        if (away2 < FLOWER_REACH * FLOWER_REACH && isLawn(own) && deep < 0.35f) {
+            addFlowers(cards, x, y, 0.1f, 0.14f, 0.022f);
+            if (Flora.weed(x, y)) {
+                int seed = Flora.mix(x, y, 70);
+                float a = 0.2f + 0.6f * Flora.unit(seed, 0), b = 0.2f + 0.6f * Flora.unit(seed, 8);
+                for (int leaf = 0; leaf < Flora.WEED_LEAVES; leaf++) {
+                    int each = Flora.mix(seed, leaf, 71);
+                    float length = 0.13f + 0.07f * Flora.unit(each, 0);
+                    Flora.addLeaf(cards, x + a, y + b, geometry.liftAt(a, b) + 0.01f, length, length * 0.5f,
+                            (leaf + 0.6 * Flora.unit(each, 8)) * 2.0 * Math.PI / Flora.WEED_LEAVES, Math.toRadians(15.0 + 25.0 * Flora.unit(each, 16)),
+                            Flora.WEED, 0.05f, frame);
+                }
+            }
+        }
+    }
+
+    /** The flowers of a square of grass: heads at least lowest above the ground and up to taller more, the smallest of them least across. */
+    private void addFlowers(SpriteGeometry.Mesh cards, int x, int y, float lowest, float taller, float least) {
+        int flowers = Flora.flowers(x, y);
+        for (int flower = 0; flower < flowers; flower++) {
+            int seed = Flora.mix(x, y, 60 + flower);
+            float a = 0.08f + 0.84f * Flora.unit(seed, 0), b = 0.08f + 0.84f * Flora.unit(seed, 8);
+            Flora.addFlower(cards, x + a, y + b, geometry.liftAt(a, b) + lowest + taller * Flora.unit(seed, 16), least * (1f + 0.65f * Flora.unit(seed, 24)),
+                    Flora.unit(seed, 4) * 2.0 * Math.PI, Flora.flowerKind(x, y, flower), frame);
         }
     }
 
@@ -922,7 +1070,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
             float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
             float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f);
-            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS);
+            float vigour = 1f - 0.7f * woodedAt(waterLocalX, waterLocalY, Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f));
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS, vigour);
+        }
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        if (toX * toX + toY * toY < FLOWER_REACH * FLOWER_REACH) {
+            // Flowers in long grass stand as tall as it does, on stems lost among the blades.
+            addFlowers(laid.get(PLAIN), x, y, 0.4f, 0.35f, 0.03f);
         }
         frame.originU = originU;
         frame.originV = originV;
@@ -938,8 +1092,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
-    /** Above every surface a model has, which run from 16. */
-    private static final float GRAVEL = 60f;
+    /** Between the surfaces a model has, which run from 16 to 51, and what grows, which runs from 56. */
+    private static final float GRAVEL = 54f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -1225,6 +1379,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
                 growGrass(x, y, localX, localY);
             }
+            strew(x, y, localX, localY, toX * toX + toY * toY);
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -1391,6 +1546,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // roof tile is what closes the roof.
             return;
         }
+        // A boulder. The game's picture of one stood up as a card is a cut-out of a boulder,
+        // and wrapped on a box it is a crate painted as one.
+        if (sprite.getName() != null && sprite.getName().startsWith("boulders_") && addRock(x, y, z)) {
+            return;
+        }
         // What the game itself moves with the wind, and what it lets the player clear as
         // growth, is growth. A tree gets a second card across the first: from the eye it is
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
@@ -1475,12 +1635,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // are leaves in front of leaves and they pass each other as the eye moves. Which
             // way the fan is turned comes from where the plant stands, so no two are alike.
             int cards = type == IsoObjectType.tree ? 5 : 3;
+            // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
+            // so the bole stands in for all its cards; a bare one keeps them for its branches.
+            if (type == IsoObjectType.tree && overLayer == 0 && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
+                return;
+            }
             // A bush is leaves all over, as a tree's crown is.
             String grown = sprite.getName();
+            // A bush's leaves are smaller than a tree's.
+            boolean bush = grown != null && type != IsoObjectType.tree
+                    && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
             // So is every other plant the game paints with a dark line round each leaf: the
             // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
             if (grown != null && type != IsoObjectType.tree) {
-                frame.material = LEAVES;
+                frame.material = bush ? Flora.BUSH : LEAVES;
             }
             double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
             for (int card = 0; card < cards; card++) {
@@ -1497,10 +1665,104 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 geometry.nudgeY = squareY * clear;
                 geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
             }
+            float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+            if (bush && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
+                // A fan of cards through one line is thin seen along that line, and from
+                // above it is a star. A bush is a clump: three more cards stand round its
+                // middle, each across the way out to it, so there are leaves on every side.
+                for (int outer = 0; outer < 3; outer++) {
+                    double out = turn + (outer + 0.5) * 2.0 * Math.PI / 3.0;
+                    float outX = (float) Math.cos(out), outY = (float) Math.sin(out);
+                    float side = (outer & 1) == 0 ? 1f : -1f;
+                    geometry.nudgeX = outX * BUSH_SPREAD;
+                    geometry.nudgeY = outY * BUSH_SPREAD;
+                    geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -outY * side, outX * side, true);
+                }
+            }
             geometry.nudgeX = geometry.nudgeY = 0f;
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+    }
+
+    /**
+     * Stands a boulder on the square, as big as its sprite's outline says it is. False for a
+     * sprite whose outline is too flat to say: a stone lying in the grass, which stays as it is.
+     */
+    private boolean addRock(int x, int y, int z) {
+        if (!SpriteGeometry.boxOf(frame, box)) {
+            return false;
+        }
+        float a = Math.clamp(box[0], 0.2f, 0.8f), b = Math.clamp(box[1], 0.2f, 0.8f);
+        float toX = x + a - camera.eyeX, toY = y + b - camera.eyeY;
+        flora.addRock(solid.get(PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b), Math.clamp(box[2] * 1.15f, 0.15f, 0.6f),
+                Math.clamp(box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), toX * toX + toY * toY < ROCK_NEAR * ROCK_NEAR, Flora.mix(x, y, 80), frame);
+        return true;
+    }
+
+    /**
+     * Stands a round bole where a tree's sprite shows its trunk, with ivy up some. False when
+     * the tree is too far off for one, or its sprite has no bole that can be read.
+     */
+    private boolean addBole(IsoSprite sprite, Texture texture, int x, int y, int z) {
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        float away2 = toX * toX + toY * toY;
+        if (away2 > TRUNK_REACH * TRUNK_REACH) {
+            return false;
+        }
+        float[] bole = boles.get(sprite);
+        if (bole == null) {
+            bole = measureBole(texture);
+            boles.put(sprite, bole);
+        }
+        if (bole.length == 0) {
+            return false;
+        }
+        boolean near = away2 < TRUNK_NEAR * TRUNK_NEAR;
+        int seed = Flora.mix(x, y, 81);
+        float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f);
+        flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, seed, frame);
+        if (near && Flora.ivied(x, y)) {
+            flora.addIvy(laid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, frame);
+        }
+        return true;
+    }
+
+    /**
+     * Reads a bole off the tree sprite the frame is set to: how tall it is, which is as much of
+     * the sprite as a tree in leaf shows, and how thick, which is the narrower of what is
+     * painted across the sprite at two heights below where the boughs start. NO_BOLE for a
+     * sprite painted right across at those heights, which is no trunk, and for one painted at
+     * neither.
+     */
+    private float[] measureBole(Texture texture) {
+        float topRow = frame.top + frame.height * (1f - BOLE);
+        float footRow = Math.min(SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f), frame.top + frame.height - 1f);
+        float tall = SpriteGeometry.heightDrawnAt(frame, 0.5f, 0.5f, topRow) * ViewCamera.LEVEL_HEIGHT;
+        if (tall < 0.3f) {
+            return NO_BOLE;
+        }
+        int narrowest = Integer.MAX_VALUE;
+        for (int row = 0; row < 2; row++) {
+            int v = Math.round(footRow + (topRow - footRow) * (row == 0 ? 0.2f : 0.45f));
+            int first = -1, last = -1;
+            for (int u = (int) frame.left; u < frame.left + frame.width; u++) {
+                if (texture.isMaskSet(u, v)) {
+                    if (first < 0) {
+                        first = u;
+                    }
+                    last = u;
+                }
+            }
+            if (first >= 0) {
+                narrowest = Math.min(narrowest, last - first + 1);
+            }
+        }
+        if (narrowest == Integer.MAX_VALUE || narrowest >= frame.width * 0.6f) {
+            return NO_BOLE;
+        }
+        float radius = narrowest / 2f * SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
+        return new float[] {Math.clamp(radius, BOLE_THINNEST, BOLE_THICKEST), tall};
     }
 
     /**

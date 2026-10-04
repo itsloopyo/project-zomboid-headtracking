@@ -33,6 +33,8 @@ final class SpriteGeometry {
     static final float LONG_GRASS = 16f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
+    /** The up share of a tuft's normal where grass barely grows, and how much more it is where it thrives. The world shader has the same two numbers. */
+    static final float TUFT_UP_LEAST = 0.3f, TUFT_UP_SPAN = 0.6f;
     /** A sprite whose outline gives a box narrower than twice this, in tiles, or lower than MIN_BOX_HEIGHT levels, is not a box. */
     private static final float MIN_BOX_HALF = 0.1f;
     private static final float MIN_BOX_HEIGHT = 0.04f;
@@ -44,7 +46,7 @@ final class SpriteGeometry {
     private static final float PIXELS_PER_LEVEL = 96f;
 
     /** Tiles per frame pixel across the screen at tile scale 1: a tile's diagonal is 64 pixels. */
-    private static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / (2.0 * PIXELS_ACROSS_PER_TILE));
+    static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / (2.0 * PIXELS_ACROSS_PER_TILE));
     /** Tiles of height per frame pixel at tile scale 1. */
     private static final float TILES_PER_PIXEL_UP = ViewCamera.LEVEL_HEIGHT / PIXELS_PER_LEVEL;
 
@@ -87,7 +89,7 @@ final class SpriteGeometry {
          * normal's length, which is 1 plus this: the shader takes the length off before it
          * uses the direction.
          */
-        private float sway;
+        float sway;
 
         void face(float x, float y, float up) {
             float length = (float) Math.sqrt(x * x + y * y + up * up);
@@ -109,7 +111,7 @@ final class SpriteGeometry {
             return floats / (VERTEX_FLOATS * 3);
         }
 
-        private void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
+        void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
             if (floats + VERTEX_FLOATS > vertices.length) {
                 vertices = Arrays.copyOf(vertices, vertices.length * 2);
             }
@@ -262,7 +264,7 @@ final class SpriteGeometry {
     /** When above 0, half the box's footprint along b where it is not square: see addBox. */
     float boxHalfB;
 
-    private float liftAt(float a, float b) {
+    float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
         b = Math.clamp(b, 0f, 1f);
         return (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b;
@@ -467,9 +469,13 @@ final class SpriteGeometry {
      * Adds a tuft of grass standing on the point (a, b) of the ground sprite in frame: an
      * upright card halfWidth either side of the point along (rightX, rightY), the colour of the
      * ground under it. The picture cuts the blades out of the card and bends them in the wind.
+     *
+     * vigour is how well the grass does where the tuft stands, 1 on open lawn and towards 0 at
+     * the edge of a path and under trees. A tuft is lit from above whichever way its card faces,
+     * so how far its normal leans up is free to carry it: see upShare.
      */
     void addTuft(Mesh mesh, Frame frame, int tileX, int tileY, float a, float b, float rightX, float rightY,
-            float halfWidth, float height, float kind) {
+            float halfWidth, float height, float kind, float vigour) {
         // The colour is taken from inside the square, wherever the tuft stands: past the
         // square's edge the ground's sprite is its empty corner.
         float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
@@ -481,7 +487,8 @@ final class SpriteGeometry {
         float x1 = tileX + a + rightX * halfWidth, y1 = tileY + b + rightY * halfWidth;
         float base = liftAt(a, b);
         mesh.open = frame.open + kind;
-        mesh.face(rightY, -rightX, 0.9f);
+        float share = upShare(vigour);
+        mesh.face(rightY, -rightX, share / (float) Math.sqrt(1f - share * share));
         mesh.sway = 0f;
         mesh.add(x0, y0, base, u, v, frame.red, frame.green, frame.blue);
         mesh.add(x1, y1, base, u, v, frame.red, frame.green, frame.blue);
@@ -493,6 +500,11 @@ final class SpriteGeometry {
         mesh.add(x1, y1, base + height, u, v, frame.red, frame.green, frame.blue);
         mesh.add(x0, y0, base + height, u, v, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
+    }
+
+    /** The part of a tuft's unit normal that points up, for grass doing as well as vigour says: the picture reads vigour back off it. */
+    static float upShare(float vigour) {
+        return TUFT_UP_LEAST + TUFT_UP_SPAN * Math.clamp(vigour, 0f, 1f);
     }
 
     /**
