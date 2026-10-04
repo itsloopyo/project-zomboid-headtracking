@@ -185,6 +185,8 @@ final class Pipeline {
             uniform mat4 uFarMatrix;
             uniform float uShadowTexel;
             uniform sampler2D uShadowDepth;
+            uniform sampler2D uHeights;
+            uniform mat4 uRoofMatrix;
             uniform float uCover;
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
@@ -287,6 +289,31 @@ final class Pipeline {
                 return patches(p * 1.3 + vec2(t * 0.21, t * 0.13)) * 0.5
                         + patches(p * 3.1 + vec2(-t * 0.33, t * 0.27)) * 0.3
                         + patches(p * 7.7 + vec2(t * 0.41, -t * 0.52)) * 0.2;
+            }
+
+            // How much of the sky a point can see. The land round the eye is kept as a map of
+            // heights seen from straight above, and from the point rays are sent out along
+            // the ground six ways, three lengths each: how high the land stands over the
+            // point at each says how much of the sky that way is hidden. A path between two
+            // houses is dim, the ground under a tree is dim, a lawn in the open is not.
+            float skySeen(vec3 at) {
+                float hidden = 0.0;
+                for (int way = 0; way < 6; way++) {
+                    float a = float(way) * 1.0471976 + 0.4;
+                    vec2 dir = vec2(cos(a), sin(a));
+                    float highest = 0.0;
+                    for (int far = 0; far < 3; far++) {
+                        float d = far == 0 ? 0.7 : far == 1 ? 1.7 : 3.6;
+                        vec3 c = (uRoofMatrix * vec4(at.xy + dir * d, at.z, 1.0)).xyz * 0.5 + 0.5;
+                        if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) {
+                            continue;
+                        }
+                        float over = (c.z - texture2D(uHeights, c.xy).r) * 80.0 - 0.2;
+                        highest = max(highest, over / d);
+                    }
+                    hidden += clamp(highest * 0.6, 0.0, 1.0);
+                }
+                return 1.0 - hidden / 6.0 * 0.75;
             }
 
             // Where rain lands. The ground is cut into cells and each cell is hit again and
@@ -599,6 +626,9 @@ final class Pipeline {
                 // falling straight on it. Out of doors that light comes from the sky, more of it
                 // onto what faces up and bluer than the sun.
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
+                if (open > 0.5 && range < 40.0) {
+                    fromSky *= mix(skySeen(vWorld + n * 0.1), 1.0, smoothstep(25.0, 40.0, range));
+                }
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
@@ -1909,7 +1939,9 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
         }
-        if (state.rain > 0f) {
+        // Drawn whatever the weather: the rain is kept off by it, and the light of the sky is
+        // traced against it.
+        {
             float texel = 2f * ROOF_EXTENT / SHADOW_SIZE;
             java.util.Arrays.fill(roofMatrix, 0f);
             roofMatrix[0] = 1f / ROOF_EXTENT;
@@ -2098,6 +2130,12 @@ final class Pipeline {
         GL33.glBindSampler(UNITS - 2, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
         world.set("uShadowDepth", UNITS - 2);
+        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
+        GL33.glBindSampler(UNITS - 1, depthSampler);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        world.set("uHeights", UNITS - 1);
+        world.set("uRoofMatrix", roofMatrix);
         world.set("uCover", state.cover);
         world.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
@@ -2127,6 +2165,7 @@ final class Pipeline {
         GL11.glDepthMask(true);
         GL33.glBindSampler(0, 0);
         GL33.glBindSampler(UNITS - 2, 0);
+        GL33.glBindSampler(UNITS - 1, 0);
 
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
