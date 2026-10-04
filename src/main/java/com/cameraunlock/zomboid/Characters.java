@@ -188,6 +188,13 @@ public final class Characters {
                     // Drawn in full light, whatever the hour: which of its pixels are glass is
                     // told from their colour, and the picture lights the cabin itself, by the
                     // light the game would have given it.
+                    int at = i * 4;
+                    float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
+                    place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+                    String script = FirstPerson.seatedIn;
+                    if (script != null && !data.modelData.isEmpty()) {
+                        VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp);
+                    }
                     ownAmbient[0] = data.ambientR;
                     ownAmbient[1] = data.ambientG;
                     ownAmbient[2] = data.ambientB;
@@ -251,6 +258,13 @@ public final class Characters {
     static final float[] roots = new float[ROOTS * 4];
     static int rootsFound;
     private static boolean notingRoots;
+
+    /**
+     * Read from a vehicle's model, its steering wheel comes out this much higher than the wheel
+     * the game draws, once the centre of mass is allowed for: the same in nine vehicles
+     * measured against the depth of their own cabins, to about 0.02.
+     */
+    private static final float WHEEL_SETTLES = -0.022f;
 
     /** The light the game gave the models last drawn, averaged over them. */
     static float ambient = 1f;

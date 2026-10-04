@@ -16,7 +16,7 @@
 - Night in first person is darker: the eye no longer opens up until the ground looks as it does by day.
 - Rooms in first person are shaded in their corners.
 - People and zombies in first person are lit by the sun and sky like the world round them, with smooth skins, soft shadow edges and a rim of sky light, and are dark at night outside a lamp's reach.
-- A vehicle's cabin has grained trim and woven seat cloth, and cars, pickups and the SUV have a driver's place of their own: a stitched wheel with a padded hub and switches, stalks behind it, a hooded speedometer and rev counter with a fuel gauge, whose needles follow the vehicle and which light up at night, and a mirror on the screen that shows the road behind. The driver sits in line with the wheel, at the height of each vehicle's seat. Vans keep the game's cabin for now.
+- A vehicle's cabin has grained trim and woven seat cloth, and every vehicle has a driver's place of its own: a stitched wheel with a padded hub and switches, stalks behind it, a hooded speedometer and rev counter with a fuel gauge, whose needles follow the vehicle and which light up at night, and a mirror on the screen that shows the road behind. The driver sits in line with the wheel, behind each vehicle's own wheel: higher in a pickup, further forward in a van.
 - A room at night is dim unless something lights it.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.

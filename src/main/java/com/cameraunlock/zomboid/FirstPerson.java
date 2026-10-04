@@ -224,13 +224,14 @@ public final class FirstPerson {
                 eyeX = seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
                 eyeY = seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
                 eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;
-                // Seats are not all one height nor one reach from the wheel: a pickup's is
-                // higher than a saloon's and a van's further back.
-                float[] moved = Cabins.eye(vehicle.getScriptName());
-                if (moved != null) {
-                    eyeX += aheadX * moved[0] - aheadY * moved[1];
-                    eyeY += aheadY * moved[0] + aheadX * moved[1];
-                    eyeUp += moved[2];
+                // Where the vehicle's own wheel has been found the driver sits behind it: a
+                // pickup's seat is higher than a saloon's and a van's further forward.
+                float[] wheel = VehicleMeshes.wheels.get(vehicle.getScriptName());
+                if (wheel != null) {
+                    float back = wheel[0] - Cabins.EYE_BEHIND;
+                    eyeX = vehicle.getX() + aheadX * back - aheadY * wheel[1];
+                    eyeY = vehicle.getY() + aheadY * back + aheadX * wheel[1];
+                    eyeUp = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + wheel[2] + Cabins.EYE_ABOVE;
                 }
                 if (TRACE && (seatSaid++ & 127) == 0) {
                     Log.info(String.format(java.util.Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,
