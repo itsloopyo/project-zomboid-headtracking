@@ -24,6 +24,7 @@ import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -175,6 +176,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
+    private int overLayer;
+    private static final float CARD_LAYER = 0.02f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
     private static final int TUFTS = 14;
@@ -530,6 +533,27 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
+    private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
+        if (over == null) {
+            return;
+        }
+        Texture texture = over.getTextureForCurrentFrame(object.getDir());
+        if (texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0) {
+            return;
+        }
+        frameOf(object, texture);
+        sprites++;
+        // Leaves stand on the same card as their trunk. Each layer is moved a little towards
+        // the eye from the one under it, or the two would be drawn through each other.
+        overLayer++;
+        float toX = camera.eyeX - (x + 0.5f), toY = camera.eyeY - (y + 0.5f);
+        float away = Math.max((float) Math.sqrt(toX * toX + toY * toY), 0.5f);
+        float nearer = overLayer * (CARD_LAYER + 4f * standOff);
+        geometry.nudgeX = toX / away * nearer;
+        geometry.nudgeY = toY / away * nearer;
+        addSprite(solid.get(texture.getID()), object, under, texture, isFloor, x, y, z);
+    }
+
     private void frameOf(IsoObject object, Texture texture) {
         frame.originU = object.offsetX;
         frame.originV = object.offsetY;
@@ -699,7 +723,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
             frameOf(object, texture);
             sprites++;
+            overLayer = 0;
+            geometry.nudgeX = geometry.nudgeY = 0f;
             addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+            // What the game draws over an object with the object: the leaves on a tree, the
+            // ivy and the stains on a wall. Each lies or stands as the object under it does.
+            ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+            if (attached != null) {
+                for (int k = 0; k < attached.size(); k++) {
+                    addOver(object, sprite, attached.get(k).parentSprite, object == floor, x, y, z);
+                }
+            }
+            addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
+            geometry.nudgeX = geometry.nudgeY = 0f;
         }
         if (z == 0) {
             spreadGround(x, y, localX, localY);

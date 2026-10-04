@@ -229,6 +229,8 @@ final class SpriteGeometry {
      * lift: 1 all of it, 0 none. For ground that spreads over the edge of its neighbour.
      */
     float[] cover;
+    /** How far an upright card is moved from where it stands, in tiles: see WorldScene.addOver. */
+    float nudgeX, nudgeY;
 
     private float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
@@ -374,8 +376,8 @@ final class SpriteGeometry {
         float topHeight = (anchorV - frame.top) * up;
         float bottomHeight = (anchorV - frame.top - frame.height) * up;
 
-        float baseX = tileX + a;
-        float baseY = tileY + b;
+        float baseX = tileX + a + nudgeX;
+        float baseY = tileY + b + nudgeY;
         float baseUp = (tileZ + h) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         float x0 = baseX + rightX * leftOffset, y0 = baseY + rightY * leftOffset;
         float x1 = baseX + rightX * rightOffset, y1 = baseY + rightY * rightOffset;
