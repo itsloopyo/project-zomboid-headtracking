@@ -233,7 +233,15 @@ public final class Characters {
                     if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
                             CHARACTER_SCALE, heldView)) {
                         holding = data;
-                        heldHow = hands;
+                        arms[0] = reach(data, 0);
+                        arms[1] = hands.bothHands() && reach(data, 1);
+                        // Something carried in both hands is not in both at every moment. A
+                        // left hand that is off it stays with the body, where the game has it.
+                        heldBoth = hands.bothHands() && !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON);
+                        if (!arms[0] && !armless) {
+                            armless = true;
+                            Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
+                        }
                     }
                 }
                 System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
@@ -246,7 +254,17 @@ public final class Characters {
                     data.x -= camera.forwardX / flat * EYES_AHEAD;
                     data.y -= camera.forwardY / flat * EYES_AHEAD;
                 }
-                character(data, ViewCamera.view(camera), true, false, holding == null ? null : heldHow);
+                // In full light, as everyone else is: the picture does the lighting, once,
+                // by the light the game gives where the viewer stands.
+                float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+                ownLight = (red + green + blue) / 3f;
+                data.ambientR = 1f;
+                data.ambientG = 1f;
+                data.ambientB = 1f;
+                character(data, ViewCamera.view(camera), true, false, holding != null, heldBoth);
+                data.ambientR = red;
+                data.ambientG = green;
+                data.ambientB = blue;
                 data.x = x;
                 data.y = y;
                 return true;
@@ -262,8 +280,74 @@ public final class Characters {
 
     /** The viewer's model while its weapon is held up, from drawViewer until the frame is done. */
     private static ModelSlotRenderData holding;
-    private static ViewModel.Held heldHow;
     private static final float[] weaponPlace = new float[16], heldView = new float[16];
+    /** Whether the left hand is on the weapon held up, with the right. */
+    private static boolean heldBoth;
+    /**
+     * The picture's own arms behind the hands on the weapon, right then left: whether each is
+     * drawn, its wrist, elbow and shoulder as the eye sees them, the line square to both its
+     * bones, and how far its skin stands off each joint.
+     */
+    private static final boolean[] arms = new boolean[2];
+    private static final float[][] joints = new float[2][9], bends = new float[2][3], wides = new float[2][3];
+    private static final float[] joined = new float[8], shoulder = new float[3], elbow = new float[3], wrist = new float[3], rigid = new float[3];
+    private static boolean armless;
+    /** The upper arm against the forearm, which is the bone the model is measured by. */
+    private static final float UPPER_ARM = 1.15f;
+    /**
+     * How much wider than the model's own the arm is drawn: at the wrist it closes over the
+     * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
+     */
+    private static final float CUFF = 1.2f, AT_ELBOW = 1.05f, AT_SHOULDER = 1.3f;
+    /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
+    private static final float ON_WEAPON = 0.8f;
+
+    /** The light the game gives where the viewer stands, as it gave the viewer's model last drawn. */
+    static float ownLight = 1f;
+
+    /**
+     * Works out one of the picture's arms for the weapon held up: from the wrist of the hand
+     * the game has on the weapon, moved before the eye with it, back to where that shoulder
+     * is, with the elbow dropped down and outwards. False if no part of the model has that
+     * hand and its forearm, which is where the arm's own measures are taken from.
+     */
+    private static boolean reach(ModelSlotRenderData data, int side) {
+        boolean found = false;
+        for (int part = 0; part < data.modelData.size() && !found; part++) {
+            found = CharacterDraw.hand(data.modelData.get(part), side == 1, data.finalScale, joined);
+        }
+        if (!found) {
+            return false;
+        }
+        ViewModelMath.place(heldView, joined[0], joined[1], joined[2], wrist);
+        ViewModelMath.place(heldView, joined[3], joined[4], joined[5], rigid);
+        float fore = apart(wrist, rigid);
+        System.arraycopy(side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER, 0, shoulder, 0, 3);
+        if (!ViewModelMath.elbow(shoulder, wrist, fore * UPPER_ARM, fore, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, elbow)) {
+            return false;
+        }
+        float[] arm = joints[side], bend = bends[side], wide = wides[side];
+        System.arraycopy(wrist, 0, arm, 0, 3);
+        System.arraycopy(elbow, 0, arm, 3, 3);
+        System.arraycopy(shoulder, 0, arm, 6, 3);
+        float ax = elbow[0] - wrist[0], ay = elbow[1] - wrist[1], az = elbow[2] - wrist[2];
+        float bx = shoulder[0] - elbow[0], by = shoulder[1] - elbow[1], bz = shoulder[2] - elbow[2];
+        // An arm is never quite straight, so its two bones always have a line square to both.
+        float x = ay * bz - az * by, y = az * bx - ax * bz, z = ax * by - ay * bx;
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        bend[0] = x / length;
+        bend[1] = y / length;
+        bend[2] = z / length;
+        wide[0] = joined[6] * CHARACTER_SCALE * CUFF;
+        wide[1] = joined[7] * CHARACTER_SCALE * AT_ELBOW;
+        wide[2] = wide[1] * AT_SHOULDER;
+        return true;
+    }
+
+    private static float apart(float[] a, float[] b) {
+        float x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2];
+        return (float) Math.sqrt(x * x + y * y + z * z);
+    }
 
     /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */
     static boolean holding() {
@@ -292,33 +376,51 @@ public final class Characters {
     }
 
     /**
-     * Draws the weapon the viewer holds and the arms that hold it, into whatever target is
-     * bound, where a first person view has them: moved as one piece from where the game's
-     * animation holds the weapon to a place before the eye. Only after drawViewer, in a frame
-     * it left them out of.
+     * Draws the weapon the viewer holds, the hands on it and the picture's own arms behind
+     * them, into whatever target is bound, where a first person view has them: the weapon and
+     * the hands moved as one piece from where the game's animation holds the weapon to a place
+     * before the eye. Only after drawViewer, in a frame it left them out of.
      */
     static void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ModelSlotRenderData data = holding;
         System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
         System.arraycopy(heldView, 0, combined, 0, 16);
+        float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+        data.ambientR = 1f;
+        data.ambientG = 1f;
+        data.ambientB = 1f;
         EYE.Begin();
-        CharacterDraw.begin(data, combined, projection, false);
+        // The weapon first. What the picture draws itself says, beside its colour, which way
+        // it faces, and the game's draw of the weapon does not: drawn after the hands, the
+        // weapon would be lit where it covers them by the way the hand under it faces.
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
-            if (model.model == null || !model.model.isStatic) {
-                CharacterDraw.piece(model, heldHow.bothHands(), true);
-                continue;
-            }
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.
-            if (!inHand(model.modelInstance) || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
+            if (model.model == null || !model.model.isStatic || !inHand(model.modelInstance)
+                    || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
                 continue;
             }
             model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
             GL11.glDepthMask(true);
             model.RenderCharacter(data);
         }
+        CharacterDraw.begin(data, combined, projection, false);
+        for (int part = 0; part < data.modelData.size(); part++) {
+            ModelInstanceRenderData model = data.modelData.get(part);
+            if (model.model == null || !model.model.isStatic) {
+                CharacterDraw.piece(model, heldBoth, true);
+            }
+        }
+        for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
+            for (int part = 0; arms[side] && part < data.modelData.size(); part++) {
+                CharacterDraw.sleeve(data.modelData.get(part), side == 1, joints[side], bends[side], wides[side]);
+            }
+        }
         EYE.End();
+        data.ambientR = red;
+        data.ambientG = green;
+        data.ambientB = blue;
     }
 
     /**
@@ -419,7 +521,7 @@ public final class Characters {
             } else if (data.inVehicle) {
                 seated(data, i * 4, view);
             } else {
-                character(data, view, data.character == viewer, withViewer, null);
+                character(data, view, data.character == viewer, withViewer, false, false);
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -437,18 +539,18 @@ public final class Characters {
      * part; of anyone else the picture draws the parts it can itself and leaves the game the
      * rest, what they hold and what hangs from them.
      */
-    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, ViewModel.Held hands) {
+    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, boolean held, boolean bothHands) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(view, placed, combined);
         EYE.Begin();
-        if (!own || hands != null) {
+        if (!own || held) {
             CharacterDraw.begin(data, combined, projection, casting);
         }
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
-            if (hands != null) {
+            if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye.
-                if (inHand(model.modelInstance) || CharacterDraw.piece(model, hands.bothHands(), false)) {
+                if (inHand(model.modelInstance) || CharacterDraw.piece(model, bothHands, false)) {
                     continue;
                 }
             } else if (!own && CharacterDraw.part(model)) {

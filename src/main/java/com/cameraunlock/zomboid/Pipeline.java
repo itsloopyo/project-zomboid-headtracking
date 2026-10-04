@@ -2768,6 +2768,8 @@ final class Pipeline {
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
     private static int ownTarget, ownColor, ownDepth;
+    /** Beside the viewer's own body, which way each point of it faces, where the picture drew it itself. */
+    private static int ownNormal;
     private static int repaintedTarget, repaintedColor, repaintedDepth;
     private static final float OWN_NEAR = 0.3f;
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
@@ -3960,12 +3962,17 @@ final class Pipeline {
         GL11.glDepthMask(true);
         GL11.glClearColor(0f, 0f, 0f, 0f);
         GL11.glClearDepth(1.0);
+        GL20.glDrawBuffers(BOTH_BUFFERS);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL20.glDrawBuffers(FIRST_BUFFER);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_BLEND);
         smoothSkins(FirstPerson.seated);
+        // What of the body the picture draws itself is drawn unlit, as everyone else is.
+        CharacterDraw.bare = !FirstPerson.seated;
         boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        CharacterDraw.bare = false;
         smoothSkins(false);
         java.nio.FloatBuffer glass = own && FirstPerson.seated ? VehicleMeshes.seatedPanes : null;
         if (glass != null) {
@@ -4020,7 +4027,14 @@ final class Pipeline {
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
             // The pass before this was over painted metal. A vehicle sat in is that; a body is not.
             figureLight.set("uPainted", FirstPerson.seated ? 1f : 0f);
-            figureLight.set("uHaveFacing", 0f);
+            GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            figureLight.set("uFacing", NORMAL_UNIT);
+            figureLight.set("uHaveFacing", FirstPerson.seated ? 0f : 1f);
+            if (!FirstPerson.seated) {
+                figureLight.set("uFigureAmbient", Characters.ownLight);
+            }
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
             figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
@@ -4142,11 +4156,15 @@ final class Pipeline {
         GL11.glDepthMask(true);
         GL11.glClearColor(0f, 0f, 0f, 0f);
         GL11.glClearDepth(1.0);
+        GL20.glDrawBuffers(BOTH_BUFFERS);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL20.glDrawBuffers(FIRST_BUFFER);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_BLEND);
+        CharacterDraw.bare = true;
         Characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
+        CharacterDraw.bare = false;
         // The game's draw leaves its own program, buffers and arrays bound.
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -4364,11 +4382,16 @@ final class Pipeline {
         ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         ownTarget = target(ownColor);
-        paneColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
-        paneTarget = target(paneColor);
+        ownNormal = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, ownNormal, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ownDepth, 0);
         if (problem == null) {
             problem = complete("viewer");
+        }
+        paneColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        paneTarget = target(paneColor);
+        if (problem == null) {
+            problem = complete("window glass");
         }
         int levelW = width, levelH = height;
         for (int level = 0; level < BLOOM_LEVELS && problem == null; level++) {

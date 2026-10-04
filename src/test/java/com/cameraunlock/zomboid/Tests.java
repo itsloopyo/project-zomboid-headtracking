@@ -86,7 +86,144 @@ public final class Tests {
         recoilIsOverInAHundredAndFiftyMilliseconds();
         stepBobsTheWeaponDownAndAcross();
         flashIsBrightestAtTheShotAndGoneAfterItsTime();
+        elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints();
+        armTooShortToReachBringsItsShoulderWithIt();
+        armWithNoWayForItsElbowToDropHasNone();
+        swingDrawsBackSweepsAcrossAndComesBackToWhereItStarted();
+        swingMovesWithoutAJump();
+        raiseLeavesTheStraightLineOnlyBetweenItsEnds();
+        meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
         System.out.println("all tests passed");
+    }
+
+    private static float apart(float[] a, float[] b) {
+        return (float) Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+    }
+
+    private static void elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints() {
+        float[] shoulder = ViewModel.RIGHT_SHOULDER.clone(), wrist = {0.17f, -0.2f, -0.3f}, elbow = new float[3];
+        check(ViewModelMath.elbow(shoulder, wrist, 0.3f, 0.27f, ViewModel.RIGHT_ELBOW, elbow), "an arm within reach has an elbow");
+        check(apart(shoulder, ViewModel.RIGHT_SHOULDER) < 1e-5f, "its shoulder stays where it is");
+        check(near(apart(shoulder, elbow), 0.3f) && near(apart(elbow, wrist), 0.27f), "both bones are their own lengths");
+        float alongLine = ((elbow[2] - shoulder[2]) / (wrist[2] - shoulder[2]));
+        float lineY = shoulder[1] + (wrist[1] - shoulder[1]) * alongLine, lineX = shoulder[0] + (wrist[0] - shoulder[0]) * alongLine;
+        check(elbow[1] < lineY - 0.05f, "the elbow is below the line from shoulder to wrist");
+        check(elbow[0] > lineX, "and the right elbow is out to the right of it");
+        float[] left = ViewModel.LEFT_SHOULDER.clone(), leftWrist = {-0.17f, -0.2f, -0.3f}, leftElbow = new float[3];
+        check(ViewModelMath.elbow(left, leftWrist, 0.3f, 0.27f, ViewModel.LEFT_ELBOW, leftElbow), "the left arm has one too");
+        check(near(leftElbow[0], -elbow[0]) && near(leftElbow[1], elbow[1]) && near(leftElbow[2], elbow[2]), "the mirror of the right arm's");
+    }
+
+    private static void armTooShortToReachBringsItsShoulderWithIt() {
+        float[] shoulder = ViewModel.LEFT_SHOULDER.clone(), wrist = {0.1f, -0.12f, -0.8f}, elbow = new float[3];
+        check(ViewModelMath.elbow(shoulder, wrist, 0.3f, 0.27f, ViewModel.LEFT_ELBOW, elbow), "a wrist out of reach still has an arm");
+        check(near(apart(shoulder, elbow), 0.3f) && near(apart(elbow, wrist), 0.27f), "whose bones are their own lengths");
+        check(near(apart(shoulder, wrist), 0.57f * ViewModelMath.STRAIGHTEST), "drawn out as far as an arm goes");
+        float[] was = ViewModel.LEFT_SHOULDER;
+        float cross = (shoulder[1] - wrist[1]) * (was[2] - wrist[2]) - (shoulder[2] - wrist[2]) * (was[1] - wrist[1]);
+        check(Math.abs(cross) < 1e-4f && shoulder[2] < was[2], "the shoulder has come forward along the line to the wrist");
+        float[] close = ViewModel.RIGHT_SHOULDER.clone(), touching = {0.2f, -0.26f, 0.04f};
+        check(ViewModelMath.elbow(close, touching, 0.3f, 0.27f, ViewModel.RIGHT_ELBOW, elbow), "a wrist at the shoulder has an arm");
+        check(near(apart(close, elbow), 0.3f) && near(apart(elbow, touching), 0.27f), "which is not folded shorter than its bones");
+    }
+
+    private static void armWithNoWayForItsElbowToDropHasNone() {
+        float[] shoulder = {0f, 0f, 0f}, elbow = {7f, 7f, 7f};
+        check(!ViewModelMath.elbow(shoulder, new float[] {0f, -0.4f, 0f}, 0.3f, 0.27f, new float[] {0f, -1f, 0f}, elbow), "a pole along the arm places no elbow");
+        check(!ViewModelMath.elbow(shoulder, new float[] {0f, 0f, 0f}, 0.3f, 0.27f, new float[] {0f, -1f, 0f}, elbow), "nor does a wrist at the shoulder itself");
+        check(elbow[0] == 7f && shoulder[1] == 0f, "and nothing is changed");
+    }
+
+    private static void swingDrawsBackSweepsAcrossAndComesBackToWhereItStarted() {
+        float[] at = new float[6];
+        ViewModelMath.swing(0f, at);
+        for (float part : at) {
+            check(part == 0f, "a swing starts from where the weapon is held");
+        }
+        ViewModelMath.swing(1f, at);
+        for (float part : at) {
+            check(part == 0f, "and ends there");
+        }
+        ViewModelMath.swing(ViewModelMath.SWING_WOUND, at);
+        check(at[1] > 0.3f && at[3] > 0.03f && at[5] > 0.03f, "drawn back it is turned and moved to the right, and towards the viewer");
+        float wasRight = at[3], wasYaw = at[1];
+        for (float progress = ViewModelMath.SWING_WOUND + 0.02f; progress <= ViewModelMath.SWING_SWEPT; progress += 0.02f) {
+            ViewModelMath.swing(progress, at);
+            check(at[3] < wasRight && at[1] < wasYaw, "the sweep goes from right to left all the way");
+            wasRight = at[3];
+            wasYaw = at[1];
+        }
+        ViewModelMath.swing(ViewModelMath.SWING_SWEPT, at);
+        check(at[1] < -1f && at[3] < -0.25f && at[5] < -0.05f, "swept it is turned and moved well to the left, and away from the viewer");
+        check(at[0] < 0f, "with its end brought down");
+    }
+
+    private static void swingMovesWithoutAJump() {
+        float[] at = new float[6], before = new float[6];
+        for (int step = 1; step <= 500; step++) {
+            ViewModelMath.swing(step / 500f, at);
+            for (int part = 0; part < 6; part++) {
+                check(Math.abs(at[part] - before[part]) < 0.02f, "no part of a swing moves far in a five-hundredth of it");
+            }
+            System.arraycopy(at, 0, before, 0, 6);
+        }
+        ViewModelMath.swing(-3f, at);
+        check(at[1] == 0f, "before a swing there is none");
+        ViewModelMath.swing(3f, at);
+        check(at[1] == 0f, "nor after it");
+    }
+
+    private static void raiseLeavesTheStraightLineOnlyBetweenItsEnds() {
+        check(ViewModelMath.arc(0f) == 0f && Math.abs(ViewModelMath.arc(1f)) < 1e-6f, "at the hip and at the sights the weapon is on the line");
+        check(near(ViewModelMath.arc(0.5f), 1f), "and furthest off it half way");
+        check(ViewModelMath.smooth(0f) == 0f && ViewModelMath.smooth(1f) == 1f && near(ViewModelMath.smooth(0.5f), 0.5f), "the raise starts and ends at rest");
+        check(ViewModelMath.smooth(0.1f) < 0.1f && ViewModelMath.smooth(0.9f) > 0.9f, "slow at both ends");
+    }
+
+    /**
+     * A right arm of four square rings along x: one of the upper arm at 0, two of the forearm
+     * at 1 and 2, one of the hand at 3. Each ring's texture places are its place along the arm.
+     */
+    private static void meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears() {
+        int rings = 4;
+        float[] places = new float[rings * 4 * 3], uvs = new float[rings * 4 * 2];
+        int[] kinds = new int[rings * 4];
+        int[] ringKind = {CharacterDraw.UPPER, CharacterDraw.FORE, CharacterDraw.FORE, CharacterDraw.HAND};
+        for (int ring = 0; ring < rings; ring++) {
+            for (int corner = 0; corner < 4; corner++) {
+                int vertex = ring * 4 + corner;
+                places[vertex * 3] = ring;
+                places[vertex * 3 + 1] = corner == 0 || corner == 3 ? -0.1f : 0.1f;
+                places[vertex * 3 + 2] = corner < 2 ? -0.1f : 0.1f;
+                uvs[vertex * 2] = ring / 3f;
+                uvs[vertex * 2 + 1] = corner / 4f;
+                kinds[vertex] = ringKind[ring];
+            }
+        }
+        int[] elements = new int[(rings - 1) * 4 * 6];
+        int at = 0;
+        for (int ring = 0; ring + 1 < rings; ring++) {
+            for (int corner = 0; corner < 4; corner++) {
+                int here = ring * 4 + corner, next = ring * 4 + (corner + 1) % 4;
+                elements[at++] = here;
+                elements[at++] = next;
+                elements[at++] = here + 4;
+                elements[at++] = next;
+                elements[at++] = next + 4;
+                elements[at++] = here + 4;
+            }
+        }
+        CharacterDraw.Limb arm = CharacterDraw.limb(places, uvs, kinds, elements, elements.length, 0);
+        check(near(arm.wrist[0], 2.5f) && near(arm.wrist[1], 0f) && near(arm.wrist[2], 0f), "the wrist is midway between the hand's ring and the forearm's last");
+        check(near(arm.elbow[0], 0.5f) && near(arm.elbow[1], 0f), "the elbow midway between the upper arm's ring and the forearm's first");
+        check(arm.wristWide > 0.14f && arm.wristWide < 0.6f, "the skin stands off the wrist about as far as its corners are");
+        check(arm.foreUv.length == CharacterDraw.SAMPLES * 2 && arm.upperUv.length == CharacterDraw.SAMPLES * 2, "each length of the arm has its samples");
+        for (int sample = 0; sample < CharacterDraw.SAMPLES; sample++) {
+            check(arm.foreUv[sample * 2] > 1f / 3f && arm.foreUv[sample * 2] < 2f / 3f, "the forearm is read between its own two rings");
+            check(arm.upperUv[sample * 2] < 1f / 3f, "the upper arm on its own side of the elbow");
+        }
+        CharacterDraw.Limb other = CharacterDraw.limb(places, uvs, kinds, elements, elements.length, 1);
+        check(other.wrist == null && other.elbow == null && other.foreUv == null && other.upperUv == null, "a mesh with nothing of the left arm says nothing of it");
     }
 
     /** A weapon posed off every axis: its grip, the way it points, its top, and its muzzle a little above the grip's line. */

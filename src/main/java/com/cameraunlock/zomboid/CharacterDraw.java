@@ -67,7 +67,7 @@ final class CharacterDraw {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_BUFFER_SIZE = 0x8764, GL_STATIC_DRAW = 0x88E4;
     private static final int GL_VERTEX_SHADER = 0x8B31, GL_FRAGMENT_SHADER = 0x8B30, GL_TESS_CONTROL_SHADER = 0x8E88, GL_TESS_EVALUATION_SHADER = 0x8E87;
     private static final int GL_COMPILE_STATUS = 0x8B81, GL_LINK_STATUS = 0x8B82;
-    private static final int GL_CULL_FACE = 0x0B44, GL_FRONT = 0x0404, GL_DEPTH_TEST = 0x0B71, GL_LESS = 0x0201, GL_BLEND = 0x0BE2;
+    private static final int GL_CULL_FACE = 0x0B44, GL_FRONT = 0x0404, GL_DEPTH_TEST = 0x0B71, GL_LESS = 0x0201, GL_LEQUAL = 0x0203, GL_BLEND = 0x0BE2;
     private static final int GL_TEXTURE0 = 0x84C0;
 
     private static final String OLD = """
@@ -143,10 +143,87 @@ final class CharacterDraw {
             """;
 
     /**
-     * The viewer's own body is drawn in two pieces: the arms that hold a weapon, moved to where
-     * a first person view holds it, and the rest, left where the game posed it. Each corner
-     * says how much of it belongs to the bones of those arms, and each piece is drawn without
-     * what belongs to the other.
+     * Turns a colour round the colour wheel by a part of a whole turn, keeping how bright and
+     * how strong it is.
+     */
+    private static final String HUE = """
+            vec3 turned(vec3 color, float by) {
+                float most = max(color.r, max(color.g, color.b));
+                float least = min(color.r, min(color.g, color.b));
+                float spread = most - least;
+                if (spread <= 0.0) {
+                    return color;
+                }
+                float hue;
+                if (most == color.r) {
+                    hue = (color.g - color.b) / spread;
+                } else if (most == color.g) {
+                    hue = 2.0 + (color.b - color.r) / spread;
+                } else {
+                    hue = 4.0 + (color.r - color.g) / spread;
+                }
+                float sixth = fract(hue / 6.0 + by) * 6.0;
+                vec3 pure = clamp(vec3(abs(sixth - 3.0) - 1.0, 2.0 - abs(sixth - 2.0), 2.0 - abs(sixth - 4.0)), 0.0, 1.0);
+                return most * mix(vec3(1.0), pure, spread / most);
+            }
+            """;
+
+    /**
+     * An arm of the picture's own, from a wrist by way of an elbow to a shoulder, all three
+     * given as the eye sees them. Each corner of its mesh says where it is round the arm, as
+     * a cosine and a sine, and how far along: 0 at the wrist, 1 at the elbow, 2 at the
+     * shoulder. Below 0 the end is closed over the wrist as half a ball, and past 2 the arm
+     * runs straight on, so that its open end is never in the picture.
+     *
+     * The three joints lie in one plane, and the line square to it is square to both bones:
+     * round the arm is measured from that line, so the skin does not twist at the elbow.
+     */
+    private static final String SLEEVE_VERTEX = """
+            FROM_MESH vec3 aPlace;
+            uniform vec3 uJoint[3];
+            uniform vec3 uBend;
+            uniform vec3 uWide;
+            uniform mat4 uProjection;
+            TO_NEXT vec3 vOut;
+            TO_NEXT vec3 vWay;
+            TO_NEXT vec3 vRound;
+            const float ROUNDED = 0.3;
+
+            void main() {
+                float along = clamp(aPlace.z, 0.0, 2.0);
+                vec3 fore = uJoint[1] - uJoint[0], upper = uJoint[2] - uJoint[1];
+                vec3 middle;
+                vec3 way;
+                if (along < 1.0 - ROUNDED) {
+                    middle = uJoint[0] + fore * along;
+                    way = fore;
+                } else if (along > 1.0 + ROUNDED) {
+                    middle = uJoint[1] + upper * (along - 1.0);
+                    way = upper;
+                } else {
+                    // Round the elbow, not through its corner.
+                    float turn = (along - 1.0 + ROUNDED) / (2.0 * ROUNDED);
+                    vec3 from = uJoint[1] - fore * ROUNDED, to = uJoint[1] + upper * ROUNDED;
+                    middle = from * ((1.0 - turn) * (1.0 - turn)) + uJoint[1] * (2.0 * turn * (1.0 - turn)) + to * (turn * turn);
+                    way = mix(normalize(fore), normalize(upper), turn);
+                }
+                way = normalize(way);
+                middle += normalize(upper) * (max(aPlace.z - 2.0, 0.0) * length(upper));
+                float wide = along < 1.0 ? mix(uWide.x, uWide.y, along) : mix(uWide.y, uWide.z, along - 1.0);
+                vec3 ring = aPlace.x * uBend + aPlace.y * cross(way, uBend);
+                float closing = (1.0 - clamp(-aPlace.z, 0.0, 1.0)) * 1.5708;
+                vOut = ring * sin(closing) - way * cos(closing);
+                vWay = way;
+                vRound = aPlace;
+                gl_Position = uProjection * vec4(middle + vOut * wide, 1.0);
+            }
+            """;
+
+    /**
+     * The viewer's own body is drawn in pieces: the hands on a weapon, moved to where a first
+     * person view holds it, and the body without the arms those hands are on, left where the
+     * game posed it. Each corner says how much of it belongs to the bones the piece is cut
+     * along, and is drawn or left out by that.
      */
     private static final String CUT_VERTEX = POSED + """
             uniform mat4 uModelView;
@@ -275,26 +352,7 @@ final class CharacterDraw {
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
 
-            vec3 turned(vec3 color, float by) {
-                float most = max(color.r, max(color.g, color.b));
-                float least = min(color.r, min(color.g, color.b));
-                float spread = most - least;
-                if (spread <= 0.0) {
-                    return color;
-                }
-                float hue;
-                if (most == color.r) {
-                    hue = (color.g - color.b) / spread;
-                } else if (most == color.g) {
-                    hue = 2.0 + (color.b - color.r) / spread;
-                } else {
-                    hue = 4.0 + (color.r - color.g) / spread;
-                }
-                float sixth = fract(hue / 6.0 + by) * 6.0;
-                vec3 pure = clamp(vec3(abs(sixth - 3.0) - 1.0, 2.0 - abs(sixth - 2.0), 2.0 - abs(sixth - 4.0)), 0.0, 1.0);
-                return most * mix(vec3(1.0), pure, spread / most);
-            }
-
+            """ + HUE + """
             void main() {
                 // The game's skins are a few hundred dots across a whole person. Read through
                 // a curve over the four nearest dots each way, and not a straight blend of
@@ -342,6 +400,60 @@ final class CharacterDraw {
             }
             """;
 
+    private static final String SLEEVE_FRAGMENT = """
+            uniform sampler2D uTexture;
+            uniform vec2 uForeUv[3];
+            uniform vec2 uUpperUv[3];
+            uniform vec2 uHas;
+            uniform float uAlpha;
+            uniform float uHue;
+            uniform vec3 uTint;
+            FROM_LAST vec3 vOut;
+            FROM_LAST vec3 vWay;
+            FROM_LAST vec3 vRound;
+            """ + HUE + """
+            // What is worn at three places on one length of the arm: the mean of those the
+            // texture has anything at, or nothing where it is clear at all three.
+            vec4 worn(vec2 a, vec2 b, vec2 c) {
+                vec4 sum = vec4(0.0);
+                vec4 texel = TEXEL(uTexture, a);
+                sum += texel.a >= 0.5 ? vec4(texel.rgb, 1.0) : vec4(0.0);
+                texel = TEXEL(uTexture, b);
+                sum += texel.a >= 0.5 ? vec4(texel.rgb, 1.0) : vec4(0.0);
+                texel = TEXEL(uTexture, c);
+                sum += texel.a >= 0.5 ? vec4(texel.rgb, 1.0) : vec4(0.0);
+                return sum.a > 0.0 ? vec4(sum.rgb / sum.a, 1.0) : vec4(0.0);
+            }
+
+            void main() {
+                float along = vRound.z;
+                vec4 fore = uHas.x > 0.5 ? worn(uForeUv[0], uForeUv[1], uForeUv[2]) : vec4(0.0);
+                vec4 upper = uHas.y > 0.5 ? worn(uUpperUv[0], uUpperUv[1], uUpperUv[2]) : vec4(0.0);
+                vec4 here = along < 1.0 ? fore : upper;
+                // A part that has nothing on this length of the arm leaves it to the part under it.
+                if (here.a < 0.5 || uAlpha <= 0.01) {
+                    discard;
+                }
+                vec3 color = fore.a > 0.5 && upper.a > 0.5 ? mix(fore.rgb, upper.rgb, smoothstep(0.85, 1.15, along)) : here.rgb;
+                if (uHue != 0.0) {
+                    color = turned(color, uHue);
+                }
+                color *= uTint;
+                // Skin, living or dead, is redder than it is blue and not strongly coloured.
+                // A bare arm is smooth; a sleeve gathers in folds round it, most at the elbow.
+                float most = max(color.r, max(color.g, color.b)), least = min(color.r, min(color.g, color.b));
+                float flesh = step(color.b, color.g + 0.02) * step(color.g, color.r + 0.02) * smoothstep(0.25, 0.4, most)
+                        * (1.0 - smoothstep(0.35, 0.6, (most - least) / max(most, 0.001)));
+                float gathered = (0.3 + 0.7 * exp(-(along - 1.0) * (along - 1.0) * 9.0)) * (1.0 - flesh);
+                float fold = along * 34.0 + vRound.x * 2.2 + 1.6 * sin(along * 7.0 + vRound.y * 2.0);
+                vec3 n = normalize(normalize(vOut) + normalize(vWay) * (cos(fold) * gathered * 0.45));
+                color *= 1.0 - 0.12 * (0.5 - 0.5 * sin(fold)) * gathered;
+                // Unlit, with the way the surface faces as the eye sees it: the picture lights it.
+                gl_FragData[0] = vec4(uAlpha * color, uAlpha);
+                gl_FragData[1] = vec4(n * 0.5 + 0.5, 1.0);
+            }
+            """;
+
     private static final String CUT_FRAGMENT = """
             FROM_LAST float vArm;
             uniform float uKeepArms;
@@ -351,9 +463,26 @@ final class CharacterDraw {
                     discard;
                 }""");
 
-    /** The bones of each arm from the shoulder down, by the names the game's skeleton gives them. */
-    private static final String[] RIGHT_ARM = {"Bip01_R_UpperArm", "Bip01_R_Forearm", "Bip01_R_Hand", "Bip01_R_Finger0", "Bip01_R_Finger1"};
-    private static final String[] LEFT_ARM = {"Bip01_L_UpperArm", "Bip01_L_Forearm", "Bip01_L_Hand", "Bip01_L_Finger0", "Bip01_L_Finger1"};
+    /** The bones of each arm, right then left, by the names the game's skeleton gives them: the hand's own first. */
+    private static final String[][] HAND_BONES = {{"Bip01_R_Hand", "Bip01_R_Finger0", "Bip01_R_Finger1"}, {"Bip01_L_Hand", "Bip01_L_Finger0", "Bip01_L_Finger1"}};
+    private static final String[] FOREARM_BONE = {"Bip01_R_Forearm", "Bip01_L_Forearm"}, UPPER_ARM_BONE = {"Bip01_R_UpperArm", "Bip01_L_UpperArm"};
+    /** What a bone is to an arm. The left arm's are these and KINDS more. */
+    static final int HAND = 1, FORE = 2, UPPER = 3, KINDS = 3;
+    /** How many places on each length of an arm its sleeve's colour is read at. */
+    static final int SAMPLES = 3;
+    /** How many sides the picture's arm has, and how far along it each ring of them is. */
+    private static final int SIDES = 12;
+    private static final float[] RINGS = {-1f, -0.75f, -0.5f, -0.25f, 0f, 0.125f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 0.875f, 1f, 1.125f, 1.25f,
+        1.375f, 1.5f, 1.625f, 1.75f, 1.875f, 2f, 2.5f, 3f};
+
+    /** What a mesh has of one arm, in the mesh's own places as it was made. */
+    static final class Limb {
+        /** The middles of the wrist and of the elbow, or null in a mesh that does not reach across one, and how far its skin stands off each. */
+        float[] wrist, elbow;
+        float wristWide, elbowWide;
+        /** Texture places well inside the forearm's skin and the upper arm's, SAMPLES pairs each, or null in a mesh that covers none of it. */
+        float[] foreUv, upperUv;
+    }
 
     /** One program and where its settings live. */
     private static final class Skin {
@@ -388,13 +517,18 @@ final class CharacterDraw {
         final int modification;
         /** Zero for a mesh the picture cannot draw, which is left to the game. */
         final int vertices, indices, count;
+        /** The right arm and the left, and the bone of each hand: null for a mesh that is not drawn. */
+        final Limb[] limbs;
+        final int[] handBone;
 
-        Copy(VertexBufferObject from, int modification, int vertices, int indices, int count) {
+        Copy(VertexBufferObject from, int modification, int vertices, int indices, int count, Limb[] limbs, int[] handBone) {
             this.from = from;
             this.modification = modification;
             this.vertices = vertices;
             this.indices = indices;
             this.count = count;
+            this.limbs = limbs;
+            this.handBone = handBone;
         }
     }
 
@@ -407,11 +541,16 @@ final class CharacterDraw {
     /** The program that draws the viewer's body in its two pieces, or null if the driver refused it. */
     private static Skin cut;
     private static int cutArm, cutKeep;
-    /** While set, the part is drawn by the cut program: which bones are the arms, and which piece is kept. */
+    /** While set, the part is drawn by the cut program: which bones it is cut along, and which side of the cut is kept. */
     private static float[] cutBones;
-    private static boolean cutKeepsArms;
-    /** For each skeleton, 1 at each bone of the right arm, and the same with the left arm's too. */
+    private static boolean cutKeepsThem;
+    /**
+     * For each skeleton, 1 at each bone of the right arm, the same with the left arm's too,
+     * and then the same two for the hands alone.
+     */
     private static final IdentityHashMap<SkinningData, float[][]> arms = new IdentityHashMap<>();
+    /** The program that draws the picture's own arms, and their mesh. */
+    private static int sleeve, sleeveVertices, sleeveIndices, sleeveCount;
     private static Field handleField, elementsField, formatField;
     private static final IdentityHashMap<ModelMesh, Copy> copies = new IdentityHashMap<>();
 
@@ -455,18 +594,18 @@ final class CharacterDraw {
     }
 
     /**
-     * Draws one piece of one part of the viewer begun: the arms that hold the weapon, or
-     * everything but them. False for a part that is the game's to draw, whole.
+     * Draws one piece of one part of the viewer begun: the hands on the weapon, or the body
+     * without the arms those hands are on. False for a part that is the game's to draw, whole.
      *
-     * @param bothArms whether the left arm is on the weapon too
-     * @param held     whether the arms are the piece to draw
+     * @param bothArms whether the left hand is on the weapon too
+     * @param held     whether the hands are the piece to draw
      */
     static boolean piece(ModelInstanceRenderData part, boolean bothArms, boolean held) {
         if (part.model == null || !(part.model.tag instanceof SkinningData skeleton)) {
             return false;
         }
-        cutBones = armBones(skeleton)[bothArms ? 1 : 0];
-        cutKeepsArms = held;
+        cutBones = armBones(skeleton)[(held ? 2 : 0) + (bothArms ? 1 : 0)];
+        cutKeepsThem = held;
         boolean drawn = part(part);
         cutBones = null;
         return drawn;
@@ -475,22 +614,190 @@ final class CharacterDraw {
     private static float[][] armBones(SkinningData skeleton) {
         float[][] found = arms.get(skeleton);
         if (found == null) {
-            found = new float[2][BONES];
-            mark(skeleton, RIGHT_ARM, found[0]);
-            mark(skeleton, RIGHT_ARM, found[1]);
-            mark(skeleton, LEFT_ARM, found[1]);
+            found = new float[4][BONES];
+            int[] kinds = kinds(skeleton);
+            for (int bone = 0; bone < BONES; bone++) {
+                if (kinds[bone] != 0) {
+                    boolean right = kinds[bone] <= KINDS, hand = (kinds[bone] - 1) % KINDS + 1 == HAND;
+                    found[1][bone] = 1f;
+                    found[0][bone] = right ? 1f : 0f;
+                    found[3][bone] = hand ? 1f : 0f;
+                    found[2][bone] = hand && right ? 1f : 0f;
+                }
+            }
             arms.put(skeleton, found);
         }
         return found;
     }
 
-    private static void mark(SkinningData skeleton, String[] names, float[] bones) {
-        for (String name : names) {
-            Integer bone = skeleton.boneIndices.get(name);
-            if (bone != null && bone >= 0 && bone < BONES) {
-                bones[bone] = 1f;
+    /** What each bone of a skeleton is to an arm: nought for a bone of neither. */
+    private static int[] kinds(SkinningData skeleton) {
+        int[] kinds = new int[BONES];
+        for (int side = 0; side < 2; side++) {
+            for (String name : HAND_BONES[side]) {
+                mark(skeleton, name, kinds, side * KINDS + HAND);
+            }
+            mark(skeleton, FOREARM_BONE[side], kinds, side * KINDS + FORE);
+            mark(skeleton, UPPER_ARM_BONE[side], kinds, side * KINDS + UPPER);
+        }
+        return kinds;
+    }
+
+    private static void mark(SkinningData skeleton, String name, int[] kinds, int kind) {
+        Integer bone = skeleton.boneIndices.get(name);
+        if (bone != null && bone >= 0 && bone < BONES) {
+            kinds[bone] = kind;
+        }
+    }
+
+    /**
+     * Where a hand joins its arm, from a part of a person whose mesh has the hand and
+     * the forearm both: the middle of the wrist, and where the elbow would be were the forearm
+     * rigid with the hand, in the axes the person is stood from, at the scale given; then how far the
+     * skin stands off the wrist and off the elbow. False for a part with no such hand.
+     */
+    static boolean hand(ModelInstanceRenderData part, boolean left, float finalScale, float[] out) {
+        Model model = part.model;
+        if (off || model == null || model.isStatic || model.mesh == null || part.matrixPalette == null) {
+            return false;
+        }
+        Copy copy = copy(model);
+        int side = left ? 1 : 0;
+        if (copy == null || copy.count == 0 || copy.handBone[side] < 0) {
+            return false;
+        }
+        Limb limb = copy.limbs[side];
+        if (limb.wrist == null || limb.elbow == null) {
+            return false;
+        }
+        // The hand's bone carries both points: its matrix is kept by rows.
+        int at = copy.handBone[side] * 16;
+        FloatBuffer palette = part.matrixPalette;
+        for (int point = 0; point < 2; point++) {
+            float[] from = point == 0 ? limb.wrist : limb.elbow;
+            for (int axis = 0; axis < 3; axis++) {
+                int row = at + axis * 4;
+                out[point * 3 + axis] = (palette.get(row) * from[0] + palette.get(row + 1) * from[1] + palette.get(row + 2) * from[2] + palette.get(row + 3))
+                        * finalScale;
             }
         }
+        out[6] = limb.wristWide * finalScale;
+        out[7] = limb.elbowWide * finalScale;
+        return true;
+    }
+
+    /**
+     * Draws what one part of the viewer begun wears on one arm, as the picture's own arm:
+     * nothing for a part that has none of that arm. The parts are to be given in the order the
+     * game draws them, so that what is worn over the skin is drawn over it here.
+     *
+     * @param joints the wrist, the elbow and the shoulder as the eye sees them
+     * @param bend   the line square to both bones, of length one
+     * @param wide   how far the skin stands off each joint
+     */
+    static void sleeve(ModelInstanceRenderData part, boolean left, float[] joints, float[] bend, float[] wide) {
+        Model model = part.model;
+        if (off || model == null || model.isStatic || model.mesh == null) {
+            return;
+        }
+        Shader effect = model.effect;
+        if (effect != null && !GAME_PROGRAM.equals(effect.getName())) {
+            return;
+        }
+        Copy copy = copy(model);
+        if (copy == null || copy.count == 0 || person.alpha < FAINTEST) {
+            return;
+        }
+        Limb limb = copy.limbs[left ? 1 : 0];
+        if (limb.foreUv == null && limb.upperUv == null) {
+            return;
+        }
+        ModelInstance instance = part.modelInstance;
+        Texture texture = instance.tex != null ? instance.tex : model.tex;
+        if (texture == null) {
+            return;
+        }
+        // As for a part: the finer skin is asked for before any state is set.
+        Texture worn = FineSkins.of(texture);
+
+        // The arm is seen from outside only, and each part's is the same mesh at the same
+        // depth: one drawn later has to be let through where it is as near.
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_BLEND);
+        GL20.glUseProgram(sleeve);
+        for (int joint = 0; joint < 3; joint++) {
+            GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uJoint[" + joint + "]"), joints[joint * 3], joints[joint * 3 + 1], joints[joint * 3 + 2]);
+        }
+        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uBend"), bend[0], bend[1], bend[2]);
+        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uWide"), wide[0], wide[1], wide[2]);
+        GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(sleeve, "uProjection"), false, projection);
+        GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uAlpha"), person.alpha);
+        GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uHue"), part.hue);
+        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uTint"), instance.tintR, instance.tintG, instance.tintB);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        Texture.lastTextureID = -1;
+        worn.bind();
+        worn.getUVScale(uvScale);
+        GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uHas"), limb.foreUv != null ? 1f : 0f, limb.upperUv != null ? 1f : 0f);
+        for (int sample = 0; sample < SAMPLES; sample++) {
+            if (limb.foreUv != null) {
+                GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uForeUv[" + sample + "]"), limb.foreUv[sample * 2] * uvScale.x, limb.foreUv[sample * 2 + 1] * uvScale.y);
+            }
+            if (limb.upperUv != null) {
+                GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uUpperUv[" + sample + "]"), limb.upperUv[sample * 2] * uvScale.x, limb.upperUv[sample * 2 + 1] * uvScale.y);
+            }
+        }
+        if (bare) {
+            GL20.glDrawBuffers(BOTH);
+        }
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, sleeveVertices);
+        GL20.glVertexAttribPointer(PLACE, 3, GL_FLOAT, false, 12, 0L);
+        GL20.glEnableVertexAttribArray(PLACE);
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sleeveIndices);
+        GL11.glDrawElements(GL_TRIANGLES, sleeveCount, GL_UNSIGNED_INT, 0L);
+        if (bare) {
+            GL20.glDrawBuffers(FIRST);
+        }
+        GL20.glDisableVertexAttribArray(PLACE);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
+
+    /** The picture's arm before it is bent to its joints: rings of corners, each saying where it is round the arm and how far along. */
+    private static void makeSleeve() {
+        FloatBuffer corners = ByteBuffer.allocateDirect(RINGS.length * SIDES * 12).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        for (float ring : RINGS) {
+            for (int side = 0; side < SIDES; side++) {
+                double round = 2 * Math.PI * side / SIDES;
+                corners.put((float) Math.cos(round)).put((float) Math.sin(round)).put(ring);
+            }
+        }
+        corners.flip();
+        int[] triangles = new int[(RINGS.length - 1) * SIDES * 6];
+        int at = 0;
+        for (int ring = 0; ring + 1 < RINGS.length; ring++) {
+            for (int side = 0; side < SIDES; side++) {
+                int here = ring * SIDES + side, next = ring * SIDES + (side + 1) % SIDES;
+                triangles[at++] = here;
+                triangles[at++] = next;
+                triangles[at++] = here + SIDES;
+                triangles[at++] = next;
+                triangles[at++] = next + SIDES;
+                triangles[at++] = here + SIDES;
+            }
+        }
+        sleeveVertices = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, sleeveVertices);
+        GL15.glBufferData(GL_ARRAY_BUFFER, corners, GL_STATIC_DRAW);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        sleeveIndices = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sleeveIndices);
+        GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles, GL_STATIC_DRAW);
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        sleeveCount = triangles.length;
     }
 
     /** Draws one part of the person begun. False for a part that is the game's to draw. */
@@ -549,7 +856,7 @@ final class CharacterDraw {
         GL20.glUseProgram(skin.id);
         if (cutBones != null) {
             GL20.glUniform1fv(cutArm, cutBones);
-            GL20.glUniform1f(cutKeep, cutKeepsArms ? 1f : 0f);
+            GL20.glUniform1f(cutKeep, cutKeepsThem ? 1f : 0f);
         }
         // The game keeps each bone's matrix with its rows where OpenGL wants columns.
         GL20.glUniformMatrix4fv(skin.palette, true, part.matrixPalette);
@@ -646,12 +953,17 @@ final class CharacterDraw {
         // body and weapon stay where the game holds them.
         StringBuilder cutProblem = new StringBuilder();
         int pieces = program("held weapon", cutProblem, GL_VERTEX_SHADER, OLD + CUT_VERTEX, GL_FRAGMENT_SHADER, OLD + CUT_FRAGMENT);
+        int arm = cutProblem.length() > 0 ? 0 : program("held arm", cutProblem, GL_VERTEX_SHADER, OLD + SLEEVE_VERTEX, GL_FRAGMENT_SHADER, OLD + SLEEVE_FRAGMENT);
         if (cutProblem.length() > 0) {
             Log.info("the weapon in hand is drawn where the game holds it: " + cutProblem);
         } else {
             cut = new Skin(pieces);
             cutArm = GL20.glGetUniformLocation(pieces, "uArm");
             cutKeep = GL20.glGetUniformLocation(pieces, "uKeepArms");
+            sleeve = arm;
+            GL20.glUseProgram(arm);
+            GL20.glUniform1i(GL20.glGetUniformLocation(arm, "uTexture"), 0);
+            makeSleeve();
         }
         if (divides) {
             divided = new Skin(bowed);
@@ -720,13 +1032,13 @@ final class CharacterDraw {
             GL15.glDeleteBuffers(copy.vertices);
             GL15.glDeleteBuffers(copy.indices);
         }
-        copy = read(buffer, mesh.modificationCount, handle, elements, format, model.name);
+        copy = read(buffer, mesh.modificationCount, handle, elements, format, model.name, model.tag instanceof SkinningData skeleton ? skeleton : null);
         copies.put(mesh, copy);
         return copy;
     }
 
     private static Copy read(VertexBufferObject buffer, int modification, VertexBufferObject.Vbo handle, int[] elements,
-            VertexBufferObject.VertexFormat format, String name) {
+            VertexBufferObject.VertexFormat format, String name, SkinningData skeleton) {
         int[] from = {-1, -1, -1, -1, -1};
         for (int element = 0; format != null && element < format.getNumElements(); element++) {
             VertexBufferObject.VertexElement at = format.getElement(element);
@@ -750,7 +1062,7 @@ final class CharacterDraw {
                 : elements == null || elements.length < count || count % 3 != 0 ? "its triangles are not kept as a list of " + count + " corners" : null;
         if (lacks != null) {
             Log.info("the model " + name + " is left to the game's own draw: " + lacks);
-            return new Copy(buffer, modification, 0, 0, 0);
+            return new Copy(buffer, modification, 0, 0, 0, null, null);
         }
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, handle.vboId);
@@ -762,7 +1074,7 @@ final class CharacterDraw {
             if (elements[corner] < 0 || elements[corner] >= vertices) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
                 Log.info("the model " + name + " is left to the game's own draw: a triangle names vertex " + elements[corner] + " of " + vertices);
-                return new Copy(buffer, modification, 0, 0, 0);
+                return new Copy(buffer, modification, 0, 0, 0, null, null);
             }
         }
 
@@ -774,6 +1086,31 @@ final class CharacterDraw {
             }
         }
         float[] smooth = smoothNormals(places, normals, elements, count);
+        Limb[] limbs = {new Limb(), new Limb()};
+        int[] handBone = {-1, -1};
+        if (skeleton != null) {
+            int[] boneKinds = kinds(skeleton);
+            int[] kinds = new int[vertices];
+            float[] uvs = new float[vertices * 2];
+            for (int vertex = 0; vertex < vertices; vertex++) {
+                float most = 0f;
+                for (int share = 0; share < 4; share++) {
+                    float weight = raw.getFloat(vertex * stride + from[WEIGHTS] + share * 4);
+                    int bone = (int) raw.getFloat(vertex * stride + from[BONE_NUMBERS] + share * 4);
+                    if (weight > most && bone >= 0 && bone < BONES) {
+                        most = weight;
+                        kinds[vertex] = boneKinds[bone];
+                    }
+                }
+                uvs[vertex * 2] = raw.getFloat(vertex * stride + from[UV]);
+                uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + from[UV] + 4);
+            }
+            for (int side = 0; side < 2; side++) {
+                limbs[side] = limb(places, uvs, kinds, elements, count, side);
+                Integer bone = skeleton.boneIndices.get(HAND_BONES[side][0]);
+                handBone[side] = bone != null && bone >= 0 && bone < BONES ? bone : -1;
+            }
+        }
         FloatBuffer made = ByteBuffer.allocateDirect(vertices * STRIDE).order(ByteOrder.nativeOrder()).asFloatBuffer();
         for (int vertex = 0; vertex < vertices; vertex++) {
             for (int attribute = 0; attribute < SMOOTH; attribute++) {
@@ -792,7 +1129,143 @@ final class CharacterDraw {
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
         GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.length == count ? elements : java.util.Arrays.copyOf(elements, count), GL_STATIC_DRAW);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        return new Copy(buffer, modification, ours, indices, count);
+        return new Copy(buffer, modification, ours, indices, count, limbs, handBone);
+    }
+
+    /**
+     * What a mesh has of one arm. Each vertex is taken to belong to the bone that has most of
+     * it. The wrist is where triangles reach from the hand's vertices to the forearm's, and
+     * the elbow where they reach from the forearm's to the upper arm's: the middle of each is
+     * the mean of those triangles' corners. The colour of what is worn on a length of the arm
+     * is read at the middles of the triangles nearest half way along it, which are inside the
+     * texture's piece for that length and not on its edge.
+     *
+     * @param kinds what each vertex's bone is to an arm
+     * @param side  0 for the right arm, 1 for the left
+     */
+    static Limb limb(float[] places, float[] uvs, int[] kinds, int[] elements, int count, int side) {
+        int hand = side * KINDS + HAND, fore = side * KINDS + FORE, upper = side * KINDS + UPPER;
+        Limb limb = new Limb();
+        boolean[] atWrist = new boolean[kinds.length], atElbow = new boolean[kinds.length];
+        // How many of each triangle's corners are the forearm's, and the upper arm's.
+        int[] ofFore = new int[count / 3], ofUpper = new int[count / 3];
+        for (int corner = 0; corner + 2 < count; corner += 3) {
+            int hands = 0, fores = 0, uppers = 0;
+            for (int of = 0; of < 3; of++) {
+                int kind = kinds[elements[corner + of]];
+                hands += kind == hand ? 1 : 0;
+                fores += kind == fore ? 1 : 0;
+                uppers += kind == upper ? 1 : 0;
+            }
+            for (int of = 0; of < 3; of++) {
+                atWrist[elements[corner + of]] |= hands > 0 && fores > 0;
+                atElbow[elements[corner + of]] |= fores > 0 && uppers > 0;
+            }
+            ofFore[corner / 3] = fores;
+            ofUpper[corner / 3] = uppers;
+        }
+        float[] wrist = middle(places, atWrist), elbow = middle(places, atElbow);
+        if (wrist != null) {
+            limb.wrist = new float[] {wrist[0], wrist[1], wrist[2]};
+            limb.wristWide = wrist[3];
+        }
+        if (elbow != null) {
+            limb.elbow = new float[] {elbow[0], elbow[1], elbow[2]};
+            limb.elbowWide = elbow[3];
+        }
+        limb.foreUv = worn(places, uvs, elements, ofFore, wrist != null && elbow != null
+                ? new float[] {(wrist[0] + elbow[0]) / 2f, (wrist[1] + elbow[1]) / 2f, (wrist[2] + elbow[2]) / 2f} : null);
+        limb.upperUv = worn(places, uvs, elements, ofUpper, null);
+        return limb;
+    }
+
+    /** The mean of the marked vertices and their mean distance from it, or null with none marked. */
+    private static float[] middle(float[] places, boolean[] marked) {
+        float[] middle = new float[4];
+        int of = 0;
+        for (int vertex = 0; vertex < marked.length; vertex++) {
+            if (marked[vertex]) {
+                middle[0] += places[vertex * 3];
+                middle[1] += places[vertex * 3 + 1];
+                middle[2] += places[vertex * 3 + 2];
+                of++;
+            }
+        }
+        if (of == 0) {
+            return null;
+        }
+        middle[0] /= of;
+        middle[1] /= of;
+        middle[2] /= of;
+        for (int vertex = 0; vertex < marked.length; vertex++) {
+            if (marked[vertex]) {
+                float x = places[vertex * 3] - middle[0], y = places[vertex * 3 + 1] - middle[1], z = places[vertex * 3 + 2] - middle[2];
+                middle[3] += (float) Math.sqrt(x * x + y * y + z * z) / of;
+            }
+        }
+        return middle;
+    }
+
+    /**
+     * The texture places at the middles of the SAMPLES triangles nearest a point, among those
+     * with the most corners on one length of an arm: all three where the mesh has such
+     * triangles, which a mesh of few faces may not. Null if no triangle has a corner there.
+     *
+     * @param corners how many of each triangle's corners are on that length
+     * @param near    the point, or null for the middle of all such triangles
+     */
+    private static float[] worn(float[] places, float[] uvs, int[] elements, int[] corners, float[] near) {
+        int most = 0;
+        for (int has : corners) {
+            most = Math.max(most, has);
+        }
+        if (most == 0) {
+            return null;
+        }
+        float[] middles = new float[corners.length * 3];
+        float[] mean = new float[3];
+        int of = 0;
+        for (int triangle = 0; triangle < corners.length; triangle++) {
+            if (corners[triangle] != most) {
+                continue;
+            }
+            for (int axis = 0; axis < 3; axis++) {
+                middles[triangle * 3 + axis] = (places[elements[triangle * 3] * 3 + axis] + places[elements[triangle * 3 + 1] * 3 + axis]
+                        + places[elements[triangle * 3 + 2] * 3 + axis]) / 3f;
+                mean[axis] += middles[triangle * 3 + axis];
+            }
+            of++;
+        }
+        float[] to = near != null ? near : new float[] {mean[0] / of, mean[1] / of, mean[2] / of};
+        float[] found = new float[SAMPLES * 2];
+        boolean[] taken = new boolean[corners.length];
+        int last = -1;
+        for (int sample = 0; sample < SAMPLES; sample++) {
+            int nearest = -1;
+            float least = Float.MAX_VALUE;
+            for (int triangle = 0; triangle < corners.length; triangle++) {
+                if (corners[triangle] != most || taken[triangle]) {
+                    continue;
+                }
+                float x = middles[triangle * 3] - to[0], y = middles[triangle * 3 + 1] - to[1], z = middles[triangle * 3 + 2] - to[2];
+                float away = x * x + y * y + z * z;
+                if (away < least) {
+                    least = away;
+                    nearest = triangle;
+                }
+            }
+            // A length of fewer triangles than samples is read at its last one again.
+            if (nearest < 0) {
+                nearest = last;
+            }
+            taken[nearest] = true;
+            last = nearest;
+            for (int axis = 0; axis < 2; axis++) {
+                found[sample * 2 + axis] = (uvs[elements[nearest * 3] * 2 + axis] + uvs[elements[nearest * 3 + 1] * 2 + axis]
+                        + uvs[elements[nearest * 3 + 2] * 2 + axis]) / 3f;
+            }
+        }
+        return found;
     }
 
     /**
