@@ -1275,11 +1275,15 @@ final class Pipeline {
                     float e = 0.04;
                     float level = swell(vWorld.xy);
                     vec2 wave = vec2(swell(vWorld.xy + vec2(e, 0.0)) - level, swell(vWorld.xy + vec2(0.0, e)) - level) * (9.0 / e) * 0.1;
+                    // Far off a pixel takes in many ripples, and what it shows is their mean,
+                    // which is level water. Tilted by whichever ripple the pixel's middle fell
+                    // on, the far shore's reflection breaks up into dashes that crawl.
+                    wave *= 1.0 - smoothstep(14.0, 55.0, range);
                     vec3 surface = normalize(vec3(n.xy + wave * ripple + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);
                     float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
-                    color = mix(color, atmosphere(mirrored) * (0.35 + 0.65 * open), glance * shine);
+                    color = mix(color, ridges(mirrored, atmosphere(mirrored)) * (0.35 + 0.65 * open), glance * shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
                     // Headlights on a wet road are a long streak of glare towards the eye.
                     for (int i = 0; i < 2; i++) {
@@ -1294,8 +1298,10 @@ final class Pipeline {
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
                 float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
-                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
-                color = mix(color, atmosphere(-view), haze);
+                color = mix(color, atmosphere(-view), 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
+                // The world ends by fading into what stands behind it, which is the hills and
+                // not bare air: faded to air, its last tiles show as dashes against them.
+                color = mix(color, ridges(-view, atmosphere(-view)), smoothstep(uFogStart, uFogEnd, range));
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
                 float shown = 1.0;
@@ -2607,7 +2613,7 @@ final class Pipeline {
             // behind something the picture shows, that thing is what the mirror shows there.
             // A ray that leaves the picture, or passes behind something too far to be sure of,
             // finds nothing and the sky stays.
-            vec3 mirrored(vec2 uv, vec4 scene) {
+            vec3 walked(vec2 uv, vec4 scene) {
                 float mirror = 1.0 - scene.a;
                 if (mirror < 0.02) {
                     return scene.rgb;
@@ -2646,15 +2652,22 @@ final class Pipeline {
                     last = at;
                     float behind = q.z - placeAt(at).z;
                     if (behind > 0.0) {
-                        last = uv;
+                        // A ray that goes far behind what the picture shows has not been
+                        // stopped by it, as far as the picture can tell: over far water the
+                        // depth is in coarse steps, and a ray counted as stopped at each step
+                        // left the far shore's reflection full of holes.
                         if (behind < 0.6 + reach * 1.5) {
                             float edge = min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y));
                             vec4 found = texture2D(uScene, at);
-                            // A mirror seen in a mirror is the sky both times.
-                            float sure = smoothstep(0.0, 0.08, edge) * step(0.5, found.a);
-                            return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
+                            // A ray that comes down on the water again has met nothing: it is
+                            // the water's own coarse depth it has gone behind, and it goes on.
+                            if (found.a >= 0.5) {
+                                float sure = smoothstep(0.0, 0.08, edge);
+                                return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
+                            }
+                        } else {
+                            break;
                         }
-                        break;
                     }
                 }
                 // A ray that met nothing went on into the sky. The sky it went into is in the
@@ -2668,10 +2681,22 @@ final class Pipeline {
                     vec2 sky = thrown.xy / (thrown.z * uTan) * 0.5 + 0.5;
                     if (sky.x > 0.0 && sky.x < 1.0 && sky.y > 0.0 && sky.y < 1.0 && texture2D(uDepth, sky).r >= 0.9999995) {
                         float edge = min(min(sky.x, 1.0 - sky.x), 1.0 - sky.y);
-                        return mix(scene.rgb, texture2D(uScene, sky).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge));
+                        // Just over the horizon the picture has sky in one pixel and the
+                        // world's far edge in the next. There the water keeps the sky the
+                        // world's shader worked out for it, which has no such edge in it.
+                        float clear = smoothstep(0.02, 0.07, dot(thrown, uUp));
+                        return mix(scene.rgb, texture2D(uScene, sky).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge) * clear);
                     }
                 }
                 return scene.rgb;
+            }
+
+            // Far water is a pixel or two a tile, and a ray walked from it lands behind
+            // something in one pixel and misses in the next: the far shore is a band of
+            // dashes. Out there the water shows the sky the world's shader gave it.
+            vec3 mirrored(vec2 uv, vec4 scene) {
+                float near = 1.0 - smoothstep(45.0, 80.0, placeAt(uv).z);
+                return near > 0.0 ? mix(scene.rgb, walked(uv, scene), near) : scene.rgb;
             }
 
             float hash(vec2 p) {

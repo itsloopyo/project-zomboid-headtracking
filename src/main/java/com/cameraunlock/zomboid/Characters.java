@@ -297,6 +297,8 @@ public final class Characters {
     private static boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
+    /** In tiles: a forearm in a sleeve is about nine centimetres through at the cuff and eleven at the elbow. */
+    private static final float WIDEST_CUFF = 0.045f, WIDEST_ELBOW = 0.055f;
     /**
      * How much wider than the model's own the arm is drawn: at the wrist it closes over the
      * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
@@ -341,8 +343,9 @@ public final class Characters {
         bend[0] = x / length;
         bend[1] = y / length;
         bend[2] = z / length;
-        wide[0] = joined[6] * CHARACTER_SCALE * CUFF;
-        wide[1] = joined[7] * CHARACTER_SCALE * AT_ELBOW;
+        // A loose coat measures far wider than the arm in it, and that near the eye it is a wall.
+        wide[0] = Math.min(joined[6] * CHARACTER_SCALE * CUFF, WIDEST_CUFF);
+        wide[1] = Math.min(joined[7] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW);
         wide[2] = wide[1] * AT_SHOULDER;
         return true;
     }

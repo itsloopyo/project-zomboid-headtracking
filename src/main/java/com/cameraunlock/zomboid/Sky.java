@@ -31,6 +31,39 @@ final class Sky {
                 color += uSunColor * (0.16 * pow(mu, 18.0) + 0.5 * pow(mu, 300.0));
                 return pow(max(color, vec3(0.0)), vec3(2.2));
             }
+
+            float ridgeHash(vec2 p) {
+                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            float ridgeLine(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(ridgeHash(cell), ridgeHash(cell + vec2(1.0, 0.0)), f.x),
+                        mix(ridgeHash(cell + vec2(0.0, 1.0)), ridgeHash(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
+            // The map ends, and the country does not: beyond it stand wooded hills, ridge
+            // behind ridge, each paler and bluer than the one in front as the air between
+            // takes its colour. They are a backdrop only, where no ground of the game's is.
+            // Whatever shows the sky shows them, water as well, or a lake mirrors a sky the
+            // picture does not have.
+            vec3 ridges(vec3 d, vec3 color) {
+                vec2 round = normalize(d.xy + vec2(1e-6));
+                float rise = d.z / max(length(d.xy), 1e-4);
+                vec3 air = atmosphere(vec3(d.xy, 0.0));
+                vec3 wooded = pow(mix(uHorizon, uZenith, 0.6) * vec3(0.2, 0.3, 0.22), vec3(2.2));
+                for (int ridge = 0; ridge < 3; ridge++) {
+                    float nth = float(ridge);
+                    vec2 at = round * (2.2 + 1.7 * nth) + 13.0 * nth;
+                    float crest = ridgeLine(at) * 0.6 + ridgeLine(at * 3.1 + 5.0) * 0.28 + ridgeLine(at * 11.0) * 0.09 + ridgeLine(at * 47.0) * 0.03;
+                    float high = (0.105 - 0.03 * nth) * crest * crest + 0.012 - 0.004 * nth;
+                    float edge = 0.0015;
+                    color = mix(color, mix(wooded, air, 0.82 - 0.2 * nth), smoothstep(high + edge, high - edge, rise));
+                }
+                return color;
+            }
             """;
 
     /**
@@ -199,7 +232,9 @@ final class Sky {
 
                 vec4 c = texture2D(uClouds, uv);
                 color = color * c.a + c.rgb;
-                color = mix(color, atmosphere(vec3(d.xy, 0.0)), smoothstep(0.0, -0.04, d.z));
+                color = ridges(d, color);
+                vec3 air = atmosphere(vec3(d.xy, 0.0));
+                color = mix(color, air, smoothstep(0.0, -0.04, d.z));
                 gl_FragColor = vec4(color, 1.0);
             }
             """;
