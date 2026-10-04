@@ -84,6 +84,7 @@ final class Pipeline {
     private static final int GL_DEPTH_TEST = 0x0B71;
     private static final int GL_CULL_FACE = 0x0B44;
     private static final int GL_ZERO = 0;
+    private static final int GL_ALWAYS = 0x0207;
     private static final int GL_ONE = 1;
     private static final int GL_BLEND = 0x0BE2;
     private static final int GL_ALPHA_TEST = 0x0BC0;
@@ -1035,6 +1036,7 @@ final class Pipeline {
             uniform float uFogEnd;
             uniform float uInside;
             uniform vec2 uAhead;
+            uniform float uWriteNear;
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
@@ -1143,6 +1145,11 @@ final class Pipeline {
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 gl_FragColor = vec4(color, 1.0);
+                // The viewer's own body and vehicle are drawn with a depth of their own. Here
+                // it is put into the picture's depth, in the picture's own measure, so that
+                // what is worked out from depth afterwards, the shade in corners and the
+                // steadying over time, sees them and not the ground behind them.
+                gl_FragDepth = uWriteNear > 0.0 ? 0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear) : gl_FragCoord.z;
             }
             """;
 
@@ -2399,6 +2406,7 @@ final class Pipeline {
         figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         figureLight.set("uFogStart", fogStart);
         figureLight.set("uFogEnd", fogEnd);
+        figureLight.set("uWriteNear", 0f);
         figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
         figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
         atmosphere(figureLight, state);
@@ -2431,7 +2439,13 @@ final class Pipeline {
             GL13.glActiveTexture(GL_TEXTURE0);
             GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
             figureLight.set("uNear", OWN_NEAR);
+            figureLight.set("uWriteNear", near);
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_ALWAYS);
+            GL11.glDepthMask(true);
             quad();
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDisable(GL_DEPTH_TEST);
         }
         GL11.glDepthMask(true);
     }
