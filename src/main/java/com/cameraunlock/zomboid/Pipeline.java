@@ -1305,7 +1305,9 @@ final class Pipeline {
                     // The window is painted on a skin of few dots, and its edge from the seat
                     // is a staircase a finger wide: asked over a width greater than a stair, the
                     // edge is the straight line the stairs follow.
-                    float wide = uSize.y / 720.0;
+                    // A stair is as wide on screen as the skin is near, so the width asked over
+                    // follows the distance: broad on the pillar by the eye, narrow on the far door.
+                    float wide = uSize.y / 720.0 * clamp(0.9 / (ahead * length(ray)), 0.5, 2.2);
                     float panes = glass(uv) * 2.0;
                     for (int i = 0; i < 8; i++) {
                         float turn = 0.7854 * float(i);
