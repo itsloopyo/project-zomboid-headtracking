@@ -15,4 +15,7 @@ public class Texture {
     public float getYEnd() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isMaskSet(int x, int y) { throw new UnsupportedOperationException("reference stub"); }
     public String getName() { throw new UnsupportedOperationException("reference stub"); }
+    public static Texture getSharedTexture(String name, int flags) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isReady() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isFailure() { throw new UnsupportedOperationException("reference stub"); }
 }

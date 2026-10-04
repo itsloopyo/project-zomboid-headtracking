@@ -102,6 +102,16 @@ final class CallSite {
         invokeStatic(code, hook);
     }
 
+    /**
+     * Calls the static method {@code hook} with whatever the method being rewritten has on
+     * its stack and then its first argument. The method has to be an instance method that
+     * does not assign to that argument.
+     */
+    static void passFirstArgument(CodeBuilder code, Method hook) {
+        code.aload(1);
+        invokeStatic(code, hook);
+    }
+
     private static void invokeStatic(CodeBuilder code, Method method) {
         code.invoke(Opcode.INVOKESTATIC, ClassDesc.ofInternalName(method.owner()), method.name(),
                 MethodTypeDesc.ofDescriptor(method.descriptor()), false);

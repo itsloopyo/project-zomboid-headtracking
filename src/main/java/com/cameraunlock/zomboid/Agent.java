@@ -19,6 +19,9 @@ public final class Agent {
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
     private static final String RETICLE = "zombie/input/AimingReticle";
     private static final String CHARACTER_DRAW = "zombie/core/skinnedmodel/model/ModelSlotRenderData";
+    private static final String COMBINER = "zombie/core/textures/TextureCombiner";
+    private static final String TEXTURE = "Lzombie/core/textures/Texture;";
+    private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
     private static final String INT_FILTER = "(I)I";
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
 
@@ -44,6 +47,14 @@ public final class Agent {
         String gap = firstPerson.gap();
         firstPersonPatched = gap == null;
         return gap;
+    }
+
+    /** The patches that tell FineSkins what the game's texture combiner composes and takes back. */
+    private static PatchTransformer fineSkins;
+
+    /** Why finer skins cannot be made on this build of the game, or null once both of their patches are in. */
+    static String fineSkinsGap() {
+        return fineSkins.gap();
     }
 
     private static volatile boolean loaded;
@@ -106,6 +117,18 @@ public final class Agent {
                     });
                 })));
         instrumentation.addTransformer(firstPerson);
+
+        // Apart from the first person view's patches: without these the view still draws,
+        // with the game's own skins.
+        fineSkins = new PatchTransformer(List.of(
+                new Patch(COMBINER, "combine before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(COMBINER, "combine", "(Ljava/util/ArrayList;)" + TEXTURE),
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "combined",
+                                "(" + TEXTURE + "Ljava/util/ArrayList;)" + TEXTURE)))),
+                new Patch(COMBINER, "releaseTexture before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V"))))));
+        instrumentation.addTransformer(fineSkins);
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */

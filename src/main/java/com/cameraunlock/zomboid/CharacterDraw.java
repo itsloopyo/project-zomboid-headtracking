@@ -366,6 +366,8 @@ final class CharacterDraw {
     private static ModelSlotRenderData person;
     private static float[] modelView, projection;
     private static boolean shadow;
+    /** How far from the eye the person begun stands, in tiles. */
+    private static float away;
     /**
      * Set while people are drawn into a target that has a second picture for the way their
      * surfaces face: they are then drawn unlit, for the picture to light.
@@ -385,6 +387,7 @@ final class CharacterDraw {
         modelView = standing;
         projection = seen;
         shadow = casting;
+        away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
         if (!off) {
             lights(data);
         }
@@ -423,6 +426,10 @@ final class CharacterDraw {
         if (texture == null) {
             return true;
         }
+        // Making a finer skin runs the game's combiner, so it is asked for before any of
+        // this part's state is set. Further off than triangles are divided a person is too
+        // small on the screen for a finer skin to show, and a shadow has no skin at all.
+        Texture worn = shadow || away > WHOLE_BEYOND ? texture : FineSkins.of(texture);
 
         ModelScript script = instance.modelScript;
         if (script != null && script.cullFace == 0) {
@@ -469,10 +476,10 @@ final class CharacterDraw {
         // parts it draws itself.
         GL13.glActiveTexture(GL_TEXTURE0);
         Texture.lastTextureID = -1;
-        texture.bind();
-        texture.getUVScale(uvScale);
+        worn.bind();
+        worn.getUVScale(uvScale);
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
-        GL20.glUniform2f(GL20.glGetUniformLocation(skin.id, "uTexSize"), texture.getWidth() / uvScale.x, texture.getHeight() / uvScale.y);
+        GL20.glUniform2f(GL20.glGetUniformLocation(skin.id, "uTexSize"), worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, copy.vertices);
         for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {

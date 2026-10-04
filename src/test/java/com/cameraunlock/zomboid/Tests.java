@@ -55,7 +55,53 @@ public final class Tests {
         faceOutsideTheTrimmedSpriteAddsNothing();
         uprightSpriteStandsOnItsAnchor();
         smoothNormalsAgreeAcrossASeam();
+        fineSkinFileIsNamedAfterTheGamesTexture();
+        hookBeforeAReturnGetsTheResultAndTheFirstArgument();
         System.out.println("all tests passed");
+    }
+
+    private static void fineSkinFileIsNamedAfterTheGamesTexture() {
+        check("F_Hair_Braids.png".equals(FineSkins.Pack.relative(
+                "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid\\media\\textures\\F_Hair_Braids.png")),
+                "a texture straight under the game's folder is a file straight under the pack's");
+        check("Body/MaleBody01.png".equals(FineSkins.Pack.relative("D:/Games/ProjectZomboid/media/textures/Body/MaleBody01.png")),
+                "a texture in a folder is in the same folder of the pack");
+        check("Body/Masks/Mask_Chest.PNG".equals(FineSkins.Pack.relative("C:\\pz\\MEDIA\\Textures\\Body/Masks\\Mask_Chest.PNG")),
+                "either slash and any case of the game's folder, with the rest as the game spells it");
+        check("Body/MaleBody01.png".equals(FineSkins.Pack.relative("media/textures/Body/MaleBody01.png")),
+                "a name that starts at the game's folder");
+        check("Clothes/Shirt.png".equals(FineSkins.Pack.relative("C:/pz/mods/Mine/media/textures/old/media/textures/Clothes/Shirt.png")),
+                "the last folder of that name is the one the file is under");
+        check(FineSkins.Pack.relative("SmartTexture") == null, "a composed texture has no file");
+        check(FineSkins.Pack.relative(null) == null, "nor has a texture with no name");
+        check(FineSkins.Pack.relative("C:/pz/multimedia/textures/Body/MaleBody01.png") == null, "a folder that only ends like the game's is not it");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/../../secret.png") == null, "a name that climbs out of the folder names nothing");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/Body//MaleBody01.png") == null, "nor does one with an empty piece");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/Body/MaleBody01.txt") == null, "only pictures are in the pack");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/.png") == null, "a picture has a name");
+        check(FineSkins.Pack.folder().endsWith(java.nio.file.Path.of("Zomboid", "CameraUnlock", "skins")),
+                "the pack is in the game's own folder of the player's");
+    }
+
+    public static String resultAndArgument(String result, String argument) {
+        return result + " from " + argument;
+    }
+
+    private static void hookBeforeAReturnGetsTheResultAndTheFirstArgument() throws Throwable {
+        ClassDesc string = ConstantDescs.CD_String;
+        MethodTypeDesc make = MethodTypeDesc.of(string, string);
+        byte[] subject = ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.SubjectWithArgument"), type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withMethodBody(ConstantDescs.INIT_NAME, ConstantDescs.MTD_void, ClassFile.ACC_PUBLIC, code ->
+                        code.aload(0).invokespecial(ConstantDescs.CD_Object, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void).return_())
+                .withMethodBody("make", make, ClassFile.ACC_PUBLIC, code -> code.ldc("made").areturn()));
+        CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectWithArgument", "make", "(Ljava/lang/String;)Ljava/lang/String;");
+        CallSite.Method hook = new CallSite.Method("com/cameraunlock/zomboid/Tests", "resultAndArgument",
+                "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+        byte[] hooked = CallSite.insertBeforeReturns(subject, within, code -> CallSite.passFirstArgument(code, hook));
+        Class<?> defined = MethodHandles.lookup().defineClass(hooked);
+        Object made = defined.getMethod("make", String.class).invoke(defined.getConstructor().newInstance(), "steps");
+        check("made from steps".equals(made), "the hook is given what the method was about to return and the method's first argument, and its answer is returned");
     }
 
     private static void smoothNormalsAgreeAcrossASeam() {
