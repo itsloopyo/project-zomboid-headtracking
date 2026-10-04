@@ -323,8 +323,10 @@ public final class Characters {
     private static final float UPPER_ARM = 1.15f;
     /** In tiles: a loose coat measures far wider at the elbow than the arm in it, and that near the eye it is a wall. */
     private static final float WIDEST_ELBOW = 0.027f;
+    /** How much of the cuff's thickness the arm keeps by the elbow. */
+    private static final float SLIMS = 0.62f;
     /** How the arm is drawn against the model's own measure at the elbow, and the upper arm against the elbow. */
-    private static final float AT_ELBOW = 0.52f, AT_SHOULDER = 1.2f;
+    private static final float AT_ELBOW = 0.52f;
     /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
     private static final float ON_WEAPON = 0.5f;
 
@@ -396,9 +398,10 @@ public final class Characters {
         bend[2] = z / length;
         wide[0] = wristAcross * CHARACTER_SCALE * ViewModelMath.CUFF;
         wide[1] = wristThrough * CHARACTER_SCALE * ViewModelMath.CUFF;
-        // A forearm is no thinner at the elbow than its wrist is through.
-        wide[2] = Math.max(Math.min(joined[CharacterDraw.ELBOW_WIDE] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW), wide[1]);
-        wide[3] = wide[2] * AT_SHOULDER;
+        // The game's hands are broad for their arms, and an arm as thick all the way up as
+        // the cuff that covers the hand's cut end is a log across the foot of the picture.
+        wide[2] = Math.max(Math.min(joined[CharacterDraw.ELBOW_WIDE] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW), wide[1] * SLIMS);
+        wide[3] = wide[2];
         return true;
     }
 
