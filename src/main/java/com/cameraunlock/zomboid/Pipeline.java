@@ -772,9 +772,9 @@ final class Pipeline {
                     // A leaf lets the sun through. Looked at against the light, foliage and
                     // grass glow from behind, yellower than they are lit from in front, and
                     // that glow is most of what a tree looks like on a bright day.
-                    float against = pow(max(dot(-view, uLight), 0.0), 2.0);
+                    float against = pow(max(dot(-view, uLight), 0.0), 1.5);
                     vec3 leaf = pow(texel.rgb, vec3(2.2)) * vec3(1.25, 1.2, 0.55);
-                    color += leaf * pow(uLightColor, vec3(2.2)) * (1.6 * against * reached * step(0.0, uLight.z));
+                    color += leaf * pow(uLightColor, vec3(2.2)) * (2.8 * against * reached * step(0.0, uLight.z));
                     // Deep in the plant the leaves stand in each other's light: darker towards
                     // the foot of a card than at its top.
                     color *= 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
@@ -859,7 +859,10 @@ final class Pipeline {
                     }
                 }
 
-                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
+                // Towards a low sun the air itself is lit: what stands far off in that quarter
+                // is veiled in gold, and the nearer for the lower the sun is.
+                float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
+                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
                 color = mix(color, atmosphere(-view), haze);
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
@@ -1267,7 +1270,10 @@ final class Pipeline {
                 float along = length(ray);
                 float mu = max(dot(ray / along, uLight), 0.0);
                 // Mist sends most of what it catches on the way the light was going.
-                float towards = 0.3 + 2.4 * pow(mu, 5.0);
+                // A low sun shines through far more air than a high one, and the air towards
+                // it glows broadly, with a hot heart.
+                float low = 1.0 - smoothstep(0.1, 0.75, uLight.z);
+                float towards = 0.3 + (1.2 + 2.6 * low) * pow(mu, 2.5) + (2.4 + 5.0 * low) * pow(mu, 9.0);
                 vec3 caught = pow(uLightColor, vec3(2.2)) * (lit / float(STEPS) * ahead * along * uMist * towards);
                 // A beam shows in clear night air too, on the dust in it, and far more in mist.
                 caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0012 + 1.2 * uMist));
@@ -2294,7 +2300,7 @@ final class Pipeline {
                 }
                 c += texture2D(uVolume, uv).rgb;
                 c += flare(uv);
-                c += texture2D(uBloom, uv).rgb * 0.07;
+                c += texture2D(uBloom, uv).rgb * 0.1;
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), 0.34);
