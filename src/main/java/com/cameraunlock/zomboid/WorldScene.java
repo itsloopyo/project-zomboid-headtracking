@@ -178,6 +178,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] box = new float[4];
     private int overLayer;
     private boolean wiredHere;
+    private boolean wallNorth, wallWest;
+    private static final float SWITCH_WIDEST = 12f;
     private static final java.util.HashMap<Long, Integer> strung = new java.util.HashMap<>();
     private static final int WIRE_SPAN = 12;
     private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
@@ -972,6 +974,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
         IsoObject floor = square.getFloor();
         hangsInAir = floor == null;
+        wallNorth = wallWest = false;
+        PZArrayList<IsoObject> here = square.getObjects();
+        for (int i = 0; i < here.size(); i++) {
+            IsoSprite sprite = here.get(i).getSprite();
+            if (sprite != null) {
+                PropertyContainer flags = sprite.getProperties();
+                wallNorth |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN);
+                wallWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
+            }
+        }
         wiredHere = false;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
@@ -1129,6 +1141,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE);
             west = both || standsOnWestEdge(properties, type);
             north = both || standsOnNorthEdge(properties, type);
+        }
+        // A light switch says nothing of where it is. It is on a wall of its square, and is
+        // laid on whichever the square has; stood up to face the eye it is a grey panel
+        // floating in the room.
+        if (!west && !north && type == IsoObjectType.lightswitch && frame.width < SWITCH_WIDEST * frame.scale) {
+            if (!wallNorth && !wallWest) {
+                return;
+            }
+            north = wallNorth;
+            west = !wallNorth;
         }
         if (west) {
             addEdge(mesh, texture, isWall(properties, type), x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
