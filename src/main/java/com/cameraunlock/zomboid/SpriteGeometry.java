@@ -75,7 +75,8 @@ final class SpriteGeometry {
          * Starts small and doubles. A scene keeps a mesh for every texture it has ever drawn,
          * and most of them only ever hold a few sprites.
          */
-        float[] vertices = new float[VERTEX_FLOATS * 3 * 8];
+        private static final int START_FLOATS = VERTEX_FLOATS * 3 * 8, SHRINK_ABOVE = 1 << 16;
+        float[] vertices = new float[START_FLOATS];
         int floats;
         /** What the vertices added next carry: 1 out of doors, 0 under a roof. */
         float open;
@@ -96,6 +97,11 @@ final class SpriteGeometry {
         }
 
         void clear() {
+            // A mesh that held a house and now holds a field gives the room back: builds are
+            // pooled, and what one chunk needed once is not what the next needs.
+            if (vertices.length > SHRINK_ABOVE && floats * 8 < vertices.length) {
+                vertices = new float[Math.max(floats * 2, START_FLOATS)];
+            }
             floats = 0;
         }
 

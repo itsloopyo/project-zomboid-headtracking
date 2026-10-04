@@ -127,6 +127,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         private int users;
     }
 
+    /** How near the eye a piece of furniture has to be to be drawn as a model, in tiles. */
+    private static final float MODELLED_WITHIN = 14f;
     /** A chunk nearer the eye than this is built every frame. */
     private static final float BUILT_EVERY_FRAME = 20f;
     private static final float BUILT_OFTEN = 44f;
@@ -136,6 +138,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int TABLE_SIDE = 64;
     private static final ChunkMeshes[] latest = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     private static final java.util.ArrayDeque<ChunkMeshes> spare = new java.util.ArrayDeque<>();
+    /** For each chunk's place, a build of it no longer shown, kept for its next build. */
+    private static final ChunkMeshes[] retired = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     private static int frames;
 
     /** The chunk builds this frame draws. */
@@ -386,7 +390,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 boolean due = !missing && frames - current.builtFrame >= buildEvery(distance, slot)
                         && (distance < CHUNK_TILES * 1.5f || remakes++ < REMAKES_A_FRAME);
                 if (missing || due) {
-                    ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                    // A chunk's last build but one is the right size for its next: a furnished
+                    // house is a hundred times a field. Handed round between chunks, every
+                    // build in the pool would in time have grown to the size of the largest.
+                    ChunkMeshes fresh = retired[slot] != null ? retired[slot] : spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                    retired[slot] = null;
                     fresh.solid.clear();
                     fresh.laid.clear();
                     fresh.wx = chunk.wx;
@@ -458,7 +466,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     private static void release(ChunkMeshes meshes) {
         if (--meshes.users == 0) {
-            spare.push(meshes);
+            int slot = (meshes.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (meshes.wy & (TABLE_SIDE - 1));
+            if (retired[slot] == null) {
+                retired[slot] = meshes;
+            } else {
+                spare.push(meshes);
+            }
         }
     }
 
@@ -1841,6 +1854,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
         Furniture piece = known(sprite);
         if (piece == null) {
+            return false;
+        }
+        // A model's every vertex is written into its chunk's mesh, and a street of furnished
+        // houses is more of them than the game's memory has room for. Beyond a room or two
+        // from the eye a piece is drawn from its sprite, as it was.
+        float awayX = x + 0.5f - camera.eyeX, awayY = y + 0.5f - camera.eyeY;
+        if (awayX * awayX + awayY * awayY > MODELLED_WITHIN * MODELLED_WITHIN) {
             return false;
         }
         if (piece.basin) {
