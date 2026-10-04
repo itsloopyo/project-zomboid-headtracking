@@ -1002,6 +1002,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return known;
     }
 
+    /** The middle of what is painted in column u of the sprite, as a frame row. NaN if nothing is. */
+    private float paintedAt(Texture texture, int u) {
+        int first = -1, last = -1;
+        for (int v = (int) frame.top; v < frame.top + frame.height; v++) {
+            if (texture.isMaskSet(u, v)) {
+                if (first < 0) {
+                    first = v;
+                }
+                last = v;
+            }
+        }
+        return first < 0 ? Float.NaN : (first + last) / 2f;
+    }
+
     private boolean overPole(int x, int y) {
         IsoGridSquare ground = cell.getGridSquare(x, y, 0);
         if (ground == null) {
@@ -1533,6 +1547,21 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 alongY++;
             } else if (atX && !atY) {
                 alongX++;
+            }
+        }
+        if (alongX == alongY && frame.width > WHOLE_TILE_WIDE * frame.scale) {
+            // The corners did not say. The sprite's two ends do: its left end is the tile's
+            // south-west corner and its right end the north-east one, and whichever end is
+            // painted higher up is the higher corner.
+            float left = paintedAt(texture, Math.round(frame.left + ROOF_CORNER_INSET * frame.scale));
+            float right = paintedAt(texture, Math.round(frame.left + frame.width - 1 - ROOF_CORNER_INSET * frame.scale));
+            if (!Float.isNaN(left) && !Float.isNaN(right) && Math.abs(left - right) > 2f * frame.scale) {
+                boolean southWestHigher = left < right;
+                if (southWestHigher == southEast > northWest) {
+                    alongY++;
+                } else {
+                    alongX++;
+                }
             }
         }
         if (alongX > alongY) {
