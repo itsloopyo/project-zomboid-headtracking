@@ -52,6 +52,12 @@ public final class Characters {
     private static final float[] combined = new float[16];
     private static final float[] projection = new float[16];
     private static int drawnLast;
+    private static float asideX, asideY;
+
+    static void aside(float x, float y) {
+        asideX = x;
+        asideY = y;
+    }
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     /** With tracing on, what the models noted last frame were. */
     static volatile String described = "";
@@ -124,6 +130,10 @@ public final class Characters {
      */
     static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
+        // Drawn the same fraction of a pixel aside as the world is this frame, so the models'
+        // edges are smoothed over time with everything else's.
+        projection[8] += asideX;
+        projection[9] += asideY;
         drawnLast = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
     }
 

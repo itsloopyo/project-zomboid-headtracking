@@ -1978,6 +1978,7 @@ final class Pipeline {
         jitterAt = (jitterAt + 1) % JITTER_X.length;
         projection[8] += JITTER_X[jitterAt] / width;
         projection[9] += JITTER_Y[jitterAt] / height;
+        Characters.aside(JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
