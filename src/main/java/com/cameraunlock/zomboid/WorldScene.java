@@ -191,6 +191,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
     private static final float WALL_HALF = 0.06f;
+    private static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
     private static final int LONG_TUFTS = 10;
@@ -1293,8 +1294,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // hangs on the skin inside the square.
         float inX = db * WALL_HALF, inY = da * WALL_HALF;
         if (!wall) {
-            geometry.shownA = inX;
-            geometry.shownB = inY;
+            // A finger's width clear of the skin: lying in the skin's own plane, the two are
+            // drawn through each other.
+            geometry.shownA = inX + db * HUNG_CLEAR;
+            geometry.shownB = inY + da * HUNG_CLEAR;
             geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
             geometry.shownA = geometry.shownB = 0f;
             return;
