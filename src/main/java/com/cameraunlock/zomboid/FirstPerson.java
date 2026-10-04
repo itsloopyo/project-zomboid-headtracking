@@ -109,6 +109,14 @@ public final class FirstPerson {
     private static float yaw;
     private static float pitch;
 
+    /**
+     * How the picture is keeping up, said every few seconds whoever is playing: a report of a
+     * slow game is of no use without the frame time, the memory in use and the size of the scene.
+     */
+    private static final long PACE_EVERY_NANOS = 5_000_000_000L;
+    private static long paceSince, paceWorst;
+    private static int paceFrames;
+    private static WorldScene paceScene;
     private static boolean haveRawX, haveRawY;
     private static int lastRawX, lastRawY;
     private static int cursorX, cursorY;
@@ -235,7 +243,25 @@ public final class FirstPerson {
         }
         lookCaptured = active && !pointer.on();
         long now = System.nanoTime();
+        long frameNanos = now - lastFrameNanos;
         float sinceLastFrame = Math.min((now - lastFrameNanos) / 1e9f, MAX_FRAME_SECONDS);
+        if (on) {
+            paceFrames++;
+            paceWorst = Math.max(paceWorst, frameNanos);
+            if (now - paceSince > PACE_EVERY_NANOS) {
+                Runtime memory = Runtime.getRuntime();
+                Log.info(String.format(java.util.Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB, %s",
+                        (now - paceSince) / 1e6 / paceFrames, paceWorst / 1e6, (memory.totalMemory() - memory.freeMemory()) >> 20,
+                        memory.maxMemory() >> 20, paceScene == null ? "no scene yet" : paceScene.describe()));
+                paceSince = now;
+                paceFrames = 0;
+                paceWorst = 0;
+            }
+        } else {
+            paceSince = now;
+            paceFrames = 0;
+            paceWorst = 0;
+        }
         lastFrameNanos = now;
         Characters.wanted = on;
         MouseGrab.wanted = lookCaptured;
@@ -335,6 +361,7 @@ public final class FirstPerson {
         aimView.eyeUp += carried[2];
         WorldScene scene = WorldScene.next();
         scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical());
+        paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         placeReticle(scene, floorUp);
         // The game draws its own reticle while the aim is held, and nothing while it is not.
