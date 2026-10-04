@@ -405,7 +405,7 @@ final class Pipeline {
                 bool upright = vKind > 1.5 && vKind < 3.5;
                 // An overhead wire is a hair of paint with nothing round it, and mixed with that
                 // nothing it comes out a pale ghost. It is a black cable, wherever any of it shows.
-                if (vMaterial > 11.5) {
+                if (vMaterial > 11.5 && vMaterial < 12.5) {
                     if (cover < 0.04) {
                         discard;
                     }
@@ -683,7 +683,9 @@ final class Pipeline {
                 // A varnished floor mirrors a little too: the window across the room, the legs of
                 // a chair.
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
-                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(shine, polish) * step(0.8, n.z));
+                // A window pane mirrors whichever way it faces.
+                float pane = vMaterial > 12.5 ? 0.45 : 0.0;
+                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
 
@@ -1133,8 +1135,17 @@ final class Pipeline {
                 }
                 vec3 p = placeAt(uv);
                 vec3 line = normalize(p);
-                vec3 thrown = reflect(line, uUp);
-                float glance = 0.04 + 0.96 * pow(1.0 - max(dot(-line, uUp), 0.0), 5.0);
+                // Which way the mirror faces is read off the picture's depth: a floor faces up,
+                // a window pane faces out of its wall.
+                vec3 facing = normalize(cross(dFdx(p), dFdy(p)));
+                if (dot(facing, line) > 0.0) {
+                    facing = -facing;
+                }
+                if (dot(facing, uUp) > 0.9) {
+                    facing = uUp;
+                }
+                vec3 thrown = reflect(line, facing);
+                float glance = 0.04 + 0.96 * pow(1.0 - max(dot(-line, facing), 0.0), 5.0);
                 float reach = 0.12 + 0.02 * p.z;
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float along = reach * start;
