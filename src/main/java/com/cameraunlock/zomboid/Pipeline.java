@@ -369,7 +369,10 @@ final class Pipeline {
                 float sun = 0.0;
                 float reached = 0.0;
                 if (facing > 0.0) {
-                    vec4 from = vec4(vWorld + n * 0.07, 1.0);
+                    // The cards of a tree's fan stand in each other's shade and move in the wind,
+                    // and their shadows on one another would flicker all over the tree. A card
+                    // asks about the shade a little way towards the sun, past its own fan.
+                    vec4 from = vec4(vWorld + n * 0.07 + (card ? uLight * 0.9 : vec3(0.0)), 1.0);
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
                         reached = shadowAt(uShadowNear, c);

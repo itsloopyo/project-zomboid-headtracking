@@ -180,6 +180,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
     private static final float CARD_LAYER = 0.035f;
+    /** The height of a bed, in levels. */
+    private static final float BED_HEIGHT = 0.2f;
     /** How much of a tree's trunk sprite, from the ground up, is its bole. */
     private static final float BOLE = 0.42f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
@@ -922,6 +924,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
                 && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
+            geometry.addBox(mesh, frame, x, y, z, box);
+            boxes++;
+            return;
+        }
+        // A bed is two squares long and each square's sprite is half of it, so neither half has
+        // the outline of a box of its own. Each is the whole square wide and as high as a
+        // mattress on its frame.
+        // The game marks whatever can be rested on as a bed, chairs too: a bed is told by its sheet.
+        if (!grows && properties.has(IsoFlagType.bed) && sprite.getName() != null && sprite.getName().startsWith("furniture_bedding")) {
+            box[0] = 0.5f;
+            box[1] = 0.5f;
+            box[2] = 0.5f;
+            box[3] = BED_HEIGHT;
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
             return;
