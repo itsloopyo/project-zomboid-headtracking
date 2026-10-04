@@ -195,6 +195,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
     private static final int TABLE_HIGHEST = 48;
+    private static final int TALL_SURFACE = 60;
     private static final int LONG_TUFTS = 10;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
@@ -1174,6 +1175,18 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
                 && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
+            geometry.addBox(mesh, frame, x, y, z, box);
+            boxes++;
+            return;
+        }
+        // A wardrobe or a dresser two squares wide is the same case as the bed below: each
+        // square's sprite is half of it, and the outline of a half is not a box. The game
+        // says how high such a thing stands and that it fills its square.
+        if (!grows && properties.has(IsoFlagType.solid) && properties.getSurface() >= TALL_SURFACE) {
+            box[0] = 0.5f;
+            box[1] = 0.5f;
+            box[2] = 0.5f;
+            box[3] = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
             return;
