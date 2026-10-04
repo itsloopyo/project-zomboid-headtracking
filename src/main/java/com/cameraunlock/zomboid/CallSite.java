@@ -28,6 +28,11 @@ final class CallSite {
      * written for, and throws rather than guessing which call was meant.
      */
     static byte[] insertAfter(byte[] classBytes, Method within, Method call, Method hook) {
+        return insertAfterEach(classBytes, within, call, hook, 1);
+    }
+
+    /** As insertAfter, for a method that makes the call {@code expected} times and is to have the hook after each. */
+    static byte[] insertAfterEach(byte[] classBytes, Method within, Method call, Method hook, int expected) {
         int[] matches = {0};
         CodeTransform insert = (code, element) -> {
             code.with(element);
@@ -37,10 +42,18 @@ final class CallSite {
             }
         };
         byte[] transformed = transform(classBytes, within, insert);
-        if (matches[0] != 1) {
-            throw new IllegalStateException("expected one call to " + call + " in " + within + ", found " + matches[0]);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of the call to " + call + " in " + within + ", found " + matches[0]);
         }
         return transformed;
+    }
+
+    /**
+     * Passes what {@code within} returns through the static method {@code filter},
+     * which takes the value about to be returned and returns its replacement.
+     */
+    static byte[] filterReturn(byte[] classBytes, Method within, Method filter) {
+        return insertBeforeReturns(classBytes, within, code -> invokeStatic(code, filter));
     }
 
     /** Inserts {@code code} before every return of {@code within}, which has to have at least one. */

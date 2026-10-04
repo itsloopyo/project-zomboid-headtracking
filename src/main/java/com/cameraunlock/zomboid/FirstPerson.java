@@ -32,7 +32,10 @@ public final class FirstPerson {
     /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it. */
     private static final int TOGGLE_KEY = 66;
 
+    /** How far a pixel of mouse travel turns the view unzoomed. Zoomed it turns the view less, to move the picture as far. */
     private static final float RADIANS_PER_PIXEL = 0.0025f;
+    /** A frame longer than this is a hitch, and taking it whole would snap the zoom to its target. */
+    private static final float MAX_FRAME_SECONDS = 0.25f;
     private static final float PITCH_LIMIT = (float) Math.toRadians(89);
     /** How far ahead of the character the game's cursor is held, in tiles. */
     private static final float CURSOR_DISTANCE = 3f;
@@ -63,12 +66,19 @@ public final class FirstPerson {
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
 
-    private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
+    static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
     private static boolean on;
     private static boolean wasRiding, onForTheRide;
     private static boolean lookCaptured;
+    /**
+     * Leaving for the main menu stops the frames with the look still marked as captured, and
+     * the game goes on reading its keys there.
+     */
+    private static final long CAPTURE_LASTS_NANOS = 500_000_000L;
+    private static long lastFrameNanos;
+    private static boolean zoomSaid;
     private static float yaw;
     private static float pitch;
 
@@ -104,6 +114,11 @@ public final class FirstPerson {
 
     static float pitch() {
         return pitch;
+    }
+
+    /** Whether the mouse is turning the view, for what the game asks between frames. */
+    static boolean lookCaptured() {
+        return lookCaptured && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
     }
 
     static void setLook(float newYaw, float newPitch) {
@@ -172,9 +187,13 @@ public final class FirstPerson {
             Log.info("first person off: " + whyNot(player));
         }
         lookCaptured = on && !GameTime.isGamePaused() && !player.isDead();
+        long now = System.nanoTime();
+        float sinceLastFrame = Math.min((now - lastFrameNanos) / 1e9f, MAX_FRAME_SECONDS);
+        lastFrameNanos = now;
         Characters.wanted = on;
         MouseGrab.wanted = lookCaptured;
         if (!on) {
+            FieldOfView.rest();
             HeadTracking.rest();
             if (MouseGrab.applied) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
@@ -239,6 +258,14 @@ public final class FirstPerson {
                 }
             }
         }
+        FieldOfView.ease(Controls.sightsUp(player), sinceLastFrame);
+        if (!zoomSaid) {
+            zoomSaid = true;
+            Log.info(String.format(java.util.Locale.ROOT,
+                    "head tracking zoom factor %.4f: the picture is drawn at %.2f degrees and the field of view is set to %.2f",
+                    ZoomCompensation.factor(FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical()),
+                    FieldOfView.drawnDegrees(), FieldOfView.degrees()));
+        }
         ViewCamera.clean(cleanView, eyeX, eyeY, eyeUp, yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         HeadTracking.view(lookCaptured, cleanView, yaw, world, trackedView);
@@ -259,6 +286,18 @@ public final class FirstPerson {
      * aim is at infinity and only its direction is left to project.
      */
     private static void placeReticle(WorldScene scene, float floorUp) {
+        shotDistance = world.shotDistance(cleanView, floorUp, WorldScene.REACH,
+                scene.characterX, scene.characterY, scene.characterBase, scene.characters);
+        // The game looks for a shot's target along a line through this point. With nothing
+        // in reach it is a point as far along the view as anything could have been. The
+        // picture raises the land and the game's map is flat, so the point's height is
+        // taken above the flat map, in floor levels.
+        float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
+        float aimedX = cleanView.eyeX + cleanView.forwardX * aimed, aimedY = cleanView.eyeY + cleanView.forwardY * aimed;
+        float aimedUp = cleanView.eyeUp + cleanView.forwardUp * aimed;
+        float level = IsoPlayer.getInstance().getZ();
+        Controls.aimAt(aimedX, aimedY, (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT);
+
         float aspect = WorldScene.drawnAspect();
         if (aspect == 0f) {
             // No frame has been drawn yet, so the shape of the picture is not known.
@@ -266,8 +305,6 @@ public final class FirstPerson {
             reticleY = RETICLE_HIDDEN;
             return;
         }
-        shotDistance = world.shotDistance(cleanView, floorUp, WorldScene.REACH,
-                scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         float along = shotDistance;
         ViewCamera.Pose from = cleanView;
         if (along == Float.POSITIVE_INFINITY) {
@@ -311,7 +348,7 @@ public final class FirstPerson {
             return raw;
         }
         if (haveRawX && !MouseGrab.ISOLATED) {
-            setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL, pitch);
+            setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom(), pitch);
         }
         lastRawX = raw;
         haveRawX = true;
@@ -325,7 +362,7 @@ public final class FirstPerson {
             return raw;
         }
         if (haveRawY && !MouseGrab.ISOLATED) {
-            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL);
+            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom());
         }
         lastRawY = raw;
         haveRawY = true;
@@ -371,11 +408,11 @@ public final class FirstPerson {
         Log.info(String.format(java.util.Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
                         + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
-                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s",
+                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
                 cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, HeadTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
-                scene.describe()));
+                scene.describe(), Controls.describe()));
     }
 }

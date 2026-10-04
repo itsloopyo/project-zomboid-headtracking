@@ -130,6 +130,7 @@ final class HeadTracking {
             return;
         }
         applied = true;
+        float zoom = FieldOfView.zoom();
         // A tracker that has gone quiet leaves the last pose in place: the filter is fed the
         // same sample and holds it.
         filter.update(sample, receiver.isRemote(), delta);
@@ -137,8 +138,11 @@ final class HeadTracking {
         if (mode.rotation) {
             // The tracker's senses, as its apps send them: yaw positive to the right, pitch
             // positive up, roll positive tilting the head to the left. They are this camera's too.
-            float yaw = (float) Math.toRadians(filter.yaw());
-            float pitch = (float) Math.toRadians(filter.pitch());
+            // A narrowed field of view magnifies the head's turn with everything else, so yaw
+            // and pitch are scaled to move the picture as far as they do unzoomed. Roll turns
+            // the picture by its own angle at any field of view.
+            float yaw = ZoomCompensation.scaleAngle((float) Math.toRadians(filter.yaw()), zoom);
+            float pitch = ZoomCompensation.scaleAngle((float) Math.toRadians(filter.pitch()), zoom);
             float roll = (float) Math.toRadians(filter.roll());
             ViewCamera.turn(out, yaw, pitch, roll, worldYaw);
             HeadFollowLight.follow(clean, yaw, pitch, roll, worldYaw);
@@ -162,6 +166,9 @@ final class HeadTracking {
         lean[1] = cos * right + sin * forward;
         lean[2] = up;
         leanAsked = (float) Math.sqrt(right * right + up * up + forward * forward);
+        // Only the lean across the view is magnified by a zoom. The lean along it is left
+        // whole, so leaning in reaches as far through the sights as at the hip.
+        ZoomCompensation.scaleLean(lean, clean.forwardX, clean.forwardY, clean.forwardUp, zoom);
         leanWorld = world;
         leanEyeX = clean.eyeX;
         leanEyeY = clean.eyeY;

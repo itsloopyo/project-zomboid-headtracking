@@ -10,6 +10,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
+- **First person controls** - left mouse attacks at once, right mouse aims down the sights, `Left Shift` sprints and `Left Ctrl` crouches
 - **A first person picture of its own** - sun, moon, shadows, clouds, rain, mirrored water, hills, standing grass and trees in leaf, drawn from the game's own map and sprites. The isometric view is left exactly as the game draws it, and no game file is changed
 
 ## Requirements
@@ -102,7 +103,30 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 `F8` switches between the game's own view and the first person view. In first person the mouse turns the view and the movement keys follow it. The first person view is for single player: it stays off in multiplayer and split screen.
 
-The two columns below do the same things. Use whichever your keyboard has.
+### In first person
+
+While the mouse is turning the first person view, these work differently from the game's own view:
+
+| Action | In first person | The game's default |
+|--------|-----------------|--------------------|
+| Attack | Left mouse, at once | Left mouse while the aim is held |
+| Aim | Right mouse | Right mouse or `Left Ctrl` |
+| Sprint | `Left Shift` | `Left Alt` |
+| Jog | `Left Alt` | `Left Shift` |
+| Crouch | `C` or `Left Ctrl` | `C` |
+
+- **Attack**: a left click raises your weapon and attacks with it, a firearm or a melee weapon. What the attack does is the game's own: ammunition, recoil, aiming time and hit chance are unchanged. A click also does what holding the aim does in the game: it stops a sprint and whatever your character was in the middle of.
+- **Aim**: with a firearm in hand, holding the aim narrows the view, to 50 degrees at the default field of view. A left click alone does not narrow it. Head tracking moves the picture as far through the sights as at the hip, and so does the mouse. The game is given the direction the view points as the aim, and the point the view is aimed at as the place to look for a target.
+- **Clicks** do not act on the doors, switches and containers of the game's own view, and a right click does not open its menu: there is no pointer to use them with while the mouse turns the view.
+- **Crouch** keeps your own key if you moved it, and gains `Left Ctrl`.
+- Reload, rack, shove, the weapon slots, the light and interact are on your own bindings, as in the game's own view.
+- `Left Alt` is also the game's default for an attack aimed at the ground, so an attack made with the jog held is aimed down.
+
+None of this is written to your key bindings. The game's own view, a paused game and the options screen all have your bindings as you saved them. If the game's **toggle to aim** option is on, the left mouse button works as it does in the game: set the aim first, then click.
+
+### Head tracking
+
+The two columns below do the same things. Use whichever your keyboard has. In first person `Left Ctrl` and `Left Shift` also crouch and sprint; the right hand `Ctrl` and `Shift` work for the chords and do neither.
 
 | Action | Nav cluster | Chord |
 |--------|-------------|-------|
@@ -131,6 +155,7 @@ The mod has no settings file. Its values are built in:
 | Lean limit, forward | `0.40` m | Leaning towards the screen |
 | Lean limit, back | `0.10` m | Leaning away from it |
 | Field of view | `65` degrees | Measured from the bottom of the picture to the top |
+| Field of view, firearm aimed | `50` degrees | 0.73 of the field of view's half tangent, a magnification of 1.37 |
 | Carried light | `1.5` | How far a carried light turns relative to your head |
 
 Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.

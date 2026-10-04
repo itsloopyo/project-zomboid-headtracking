@@ -22,7 +22,12 @@ public final class Agent {
     private static final String COMBINER = "zombie/core/textures/TextureCombiner";
     private static final String TEXTURE = "Lzombie/core/textures/Texture;";
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
+    private static final String CONTROLS = "com/cameraunlock/zomboid/Controls";
+    private static final String PLAYER = "zombie/characters/IsoPlayer";
+    private static final String UI = "zombie/ui/UIManager";
+    private static final String KEY_BINDING = "Lzombie/core/Core$KeyBinding;";
     private static final String INT_FILTER = "(I)I";
+    private static final String BOOLEAN_FILTER = "(Z)Z";
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
 
     /** A rewrite of one method of one game class. */
@@ -93,6 +98,9 @@ public final class Agent {
                 after(new CallSite.Method(TORCH, "set", "(Lzombie/characters/IsoPlayer;Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
                         new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
                         new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction", VECTOR2_FILTER)))));
+        CallSite.Method aiming = new CallSite.Method(PLAYER, "isAiming", "()Z");
+        CallSite.Method clickAiming = new CallSite.Method(CONTROLS, "aimingForWorldClicks", BOOLEAN_FILTER);
+        CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
         firstPerson = new PatchTransformer(List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
@@ -108,6 +116,20 @@ public final class Agent {
                 reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getYA", "reticleY"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getXA", "reticleX"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getYA", "reticleY"),
+                returning("zombie/characters/component/CharacterInputComponent", "isAimKeyDownInternal", "()Z", "aimKey", BOOLEAN_FILTER),
+                returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
+                new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
+                        new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
+                // Once where a right press reaches the object under the cursor and once where its release does.
+                new Patch(UI, "updateMouseButtons after isAiming", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(UI, "updateMouseButtons", "(II)I"), aiming, clickAiming, 2)),
+                returning(PLAYER, "calculateAimVector", VECTOR2_FILTER, "aimVector", VECTOR2_FILTER),
+                after(ballistics, new CallSite.Method(RETICLE, "getX", INT_FILTER), new CallSite.Method(CONTROLS, "aimPointX", INT_FILTER)),
+                after(ballistics, new CallSite.Method(RETICLE, "getY", INT_FILTER), new CallSite.Method(CONTROLS, "aimPointY", INT_FILTER)),
+                new Patch("zombie/core/Core", "getKeyBinding before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(CONTROLS, "binding",
+                                "(" + KEY_BINDING + "Ljava/lang/String;)" + KEY_BINDING)))),
                 new Patch(GAME_MOUSE, "update before its returns", classBytes -> {
                     CallSite.requireStaticInt(classBytes, "x");
                     CallSite.requireStaticInt(classBytes, "y");
@@ -135,6 +157,12 @@ public final class Agent {
     private static Patch reticle(String owner, String render, String descriptor, String read, String filter) {
         return after(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER),
                 new CallSite.Method(FIRST_PERSON, filter, INT_FILTER));
+    }
+
+    /** What a method returns is passed through one of the hooks in Controls. */
+    private static Patch returning(String owner, String method, String descriptor, String filter, String filterDescriptor) {
+        return new Patch(owner, method + " before its returns", classBytes -> CallSite.filterReturn(classBytes,
+                new CallSite.Method(owner, method, descriptor), new CallSite.Method(CONTROLS, filter, filterDescriptor)));
     }
 
     private static Patch after(CallSite.Method within, CallSite.Method call, CallSite.Method hook) {

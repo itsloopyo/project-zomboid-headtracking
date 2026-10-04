@@ -46,7 +46,13 @@ public final class Tests {
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
         insertAfterRejectsTwoCalls();
+        insertAfterEachAddsTheHookAfterEveryCall();
+        returnedBooleanGoesThroughTheFilter();
         staticIntFieldIsRequiredAsDeclared();
+        attackHoldsTheAimForAShortTail();
+        zoomScalesWhatMovesAcrossThePicture();
+        fieldOfViewEasesToTheAimedZoomAndBack();
+        firstPersonKeysReplaceTheStockOnes();
         transformerHasNoGapOnceEveryPatchIsIn();
         transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
         transformerNamesAClassTheGameDoesNotHave();
@@ -906,8 +912,12 @@ public final class Tests {
     private static final CallSite.Method HOOK = new CallSite.Method("com/cameraunlock/zomboid/Tests", "hook", "()V");
 
     private static byte[] subjectCallingTarget(int times) {
+        return subjectCallingTarget("Subject", times);
+    }
+
+    private static byte[] subjectCallingTarget(String name, int times) {
         MethodTypeDesc noArgs = MethodTypeDesc.of(ConstantDescs.CD_void);
-        return ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.Subject"), type ->
+        return ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid." + name), type ->
                 type.withFlags(ClassFile.ACC_PUBLIC).withMethodBody("run", noArgs, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> {
                     for (int i = 0; i < times; i++) {
                         code.invokestatic(TESTS, "target", noArgs);
@@ -940,6 +950,162 @@ public final class Tests {
             return;
         }
         throw new AssertionError("a method with the call twice is rejected");
+    }
+
+    private static void insertAfterEachAddsTheHookAfterEveryCall() throws Throwable {
+        byte[] hooked = CallSite.insertAfterEach(subjectCallingTarget("SubjectCallingTwice", 2), RUN, TARGET, HOOK, 2);
+        Class<?> subject = MethodHandles.lookup().defineClass(hooked);
+        hookCalls = 0;
+        subject.getMethod("run").invoke(null);
+        check(hookCalls == 2, "the hook runs after each of the two calls");
+        boolean refused = false;
+        try {
+            CallSite.insertAfterEach(subjectCallingTarget(1), RUN, TARGET, HOOK, 2);
+        } catch (IllegalStateException expected) {
+            refused = true;
+        }
+        check(refused, "a method with fewer calls than expected is rejected");
+    }
+
+    public static boolean opposite(boolean value) {
+        return !value;
+    }
+
+    private static void returnedBooleanGoesThroughTheFilter() throws Throwable {
+        MethodTypeDesc booleanToBoolean = MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_boolean);
+        byte[] subject = ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.SubjectReturningBoolean"), type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withMethodBody("same", booleanToBoolean, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code ->
+                        code.iload(0).ifThenElse(yes -> yes.iconst_1().ireturn(), no -> no.iconst_0().ireturn())));
+        CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectReturningBoolean", "same", "(Z)Z");
+        CallSite.Method filter = new CallSite.Method("com/cameraunlock/zomboid/Tests", "opposite", "(Z)Z");
+        Class<?> defined = MethodHandles.lookup().defineClass(CallSite.filterReturn(subject, within, filter));
+        java.lang.reflect.Method same = defined.getMethod("same", boolean.class);
+        check(Boolean.FALSE.equals(same.invoke(null, true)) && Boolean.TRUE.equals(same.invoke(null, false)),
+                "every return of the method hands back what the filter made of its value");
+        boolean refused = false;
+        try {
+            CallSite.filterReturn(subject, new CallSite.Method(within.owner(), "missing", "(Z)Z"), filter);
+        } catch (IllegalStateException expected) {
+            refused = true;
+        }
+        check(refused, "a class without the method is rejected");
+    }
+
+    private static void attackHoldsTheAimForAShortTail() {
+        long start = Long.MAX_VALUE - AimInput.TAIL_NANOS / 2, frame = 16_000_000L;
+        AimInput aim = new AimInput();
+        check(!aim.held(false, false, start), "nothing pressed is no aim");
+        check(aim.held(true, false, start), "the game's own aim input is passed on");
+        check(aim.held(false, true, start), "the attack button holds the aim");
+        check(aim.held(false, false, start + frame), "the aim stays held on the frame after a one frame click");
+        check(aim.held(false, false, start + AimInput.TAIL_NANOS - 1), "and to the end of the tail, across the clock's wrap");
+        check(!aim.held(false, false, start + AimInput.TAIL_NANOS), "and no longer");
+        aim.held(false, true, start);
+        aim.held(false, true, start + 10 * frame);
+        check(aim.held(false, false, start + 10 * frame + AimInput.TAIL_NANOS - 1), "the tail runs from the last frame the button was down");
+        aim.held(false, true, start);
+        aim.reset();
+        check(!aim.held(false, false, start + frame), "a tail that was reset holds nothing");
+        check(aim.held(true, false, start + frame), "but the game's own aim input still does");
+    }
+
+    private static void zoomScalesWhatMovesAcrossThePicture() {
+        float base = (float) Math.tan(Math.toRadians(65) / 2), aimed = base * FieldOfView.AIMED_ZOOM;
+        check(ZoomCompensation.factor(base, base) == 1f, "unzoomed, the factor is exactly 1");
+        float factor = ZoomCompensation.factor(aimed, base);
+        check(near(factor, FieldOfView.AIMED_ZOOM), "zoomed, it is the ratio of the tangents");
+        check(ZoomCompensation.scaleAngle(radians(10), 1f) == radians(10), "an angle is untouched unzoomed");
+
+        // A head yaw puts a point that was dead ahead off to one side. Where it lands on
+        // screen has to be the same zoomed and unzoomed.
+        ViewCamera.Pose clean = cleanPose(3f, 4f, 1.6f, radians(30), 0f);
+        float aheadX = clean.eyeX + clean.forwardX * 8f, aheadY = clean.eyeY + clean.forwardY * 8f;
+        float[] hip = new float[2], sights = new float[2];
+        for (float degrees : new float[] {-40f, -10f, 5f, 25f}) {
+            ViewCamera.Pose turned = new ViewCamera.Pose();
+            turned.set(clean);
+            ViewCamera.turn(turned, radians(degrees), 0f, 0f, true);
+            ViewCamera.project(turned, base, ASPECT, aheadX, aheadY, clean.eyeUp, hip);
+            turned.set(clean);
+            ViewCamera.turn(turned, ZoomCompensation.scaleAngle(radians(degrees), factor), 0f, 0f, true);
+            ViewCamera.project(turned, aimed, ASPECT, aheadX, aheadY, clean.eyeUp, sights);
+            check(near(hip[0], sights[0]), "a head yaw of " + degrees + " degrees moves the picture as far zoomed as unzoomed");
+        }
+
+        // Looking along +x: a lean of 0.2 along the view, 0.3 across it and 0.1 up.
+        float[] lean = {0.2f, 0.3f, 0.1f};
+        ZoomCompensation.scaleLean(lean, 1f, 0f, 0f, 0.5f);
+        check(near(lean[0], 0.2f), "the lean along the view is left whole");
+        check(near(lean[1], 0.15f) && near(lean[2], 0.05f), "the lean across the view is scaled");
+        float[] slanted = {0.3f, 0.3f, 0f};
+        float diagonal = (float) Math.sqrt(0.5);
+        ZoomCompensation.scaleLean(slanted, diagonal, diagonal, 0f, 0.5f);
+        check(near(slanted[0], 0.3f) && near(slanted[1], 0.3f), "a lean straight along a slanted view is left whole");
+        float[] across = {0.3f, -0.3f, 0f};
+        ZoomCompensation.scaleLean(across, diagonal, diagonal, 0f, 0.5f);
+        check(near(across[0], 0.15f) && near(across[1], -0.15f), "and one straight across it is scaled whole");
+        float[] same = {0.2f, 0.3f, 0.1f};
+        ZoomCompensation.scaleLean(same, 0.6f, 0f, 0.8f, 1f);
+        check(near(same[0], 0.2f) && near(same[1], 0.3f) && near(same[2], 0.1f), "unzoomed, a lean is untouched");
+    }
+
+    private static void fieldOfViewEasesToTheAimedZoomAndBack() {
+        FieldOfView.rest();
+        float set = FieldOfView.setTanHalfVertical();
+        check(FieldOfView.zoom() == 1f && FieldOfView.tanHalfVertical() == set, "unaimed, the picture is drawn at the field of view that was set");
+        FieldOfView.ease(false, 0.016f);
+        check(FieldOfView.zoom() == 1f, "and stays there");
+        FieldOfView.ease(true, FieldOfView.ZOOM_SECONDS);
+        float afterOne = FieldOfView.zoom();
+        check(near(afterOne, FieldOfView.AIMED_ZOOM + (1f - FieldOfView.AIMED_ZOOM) / (float) Math.E),
+                "one time constant covers all but 1/e of the way");
+        FieldOfView.rest();
+        for (int i = 0; i < 7; i++) {
+            FieldOfView.ease(true, FieldOfView.ZOOM_SECONDS / 7f);
+        }
+        check(near(FieldOfView.zoom(), afterOne), "the easing does not depend on the frame rate");
+        for (int i = 0; i < 120; i++) {
+            FieldOfView.ease(true, 0.016f);
+        }
+        check(FieldOfView.zoom() == FieldOfView.AIMED_ZOOM, "it settles on the aimed zoom exactly");
+        check(near(FieldOfView.tanHalfVertical(), set * FieldOfView.AIMED_ZOOM), "which narrows the tangent the picture is drawn with");
+        check(near(FieldOfView.setTanHalfVertical(), set), "and leaves the field of view that was set");
+        FieldOfView.ease(false, 0.016f);
+        check(FieldOfView.zoom() > FieldOfView.AIMED_ZOOM && FieldOfView.zoom() < 1f, "lowering the sights eases back, never at once");
+        for (int i = 0; i < 120; i++) {
+            FieldOfView.ease(false, 0.016f);
+        }
+        check(FieldOfView.zoom() == 1f, "and settles on exactly 1");
+        FieldOfView.ease(true, 0.016f);
+        FieldOfView.rest();
+        check(FieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
+    }
+
+    private static void firstPersonKeysReplaceTheStockOnes() {
+        int shift = KeySubstitutions.LEFT_SHIFT, alt = KeySubstitutions.LEFT_ALT, control = KeySubstitutions.LEFT_CONTROL;
+        int rightMouse = KeySubstitutions.RIGHT_MOUSE, c = KeySubstitutions.C, x = 45;
+        check(new KeySubstitutions.Keys(shift, 0).equals(KeySubstitutions.substitute("Sprint", alt, 0)), "Left Shift sprints");
+        check(new KeySubstitutions.Keys(alt, 0).equals(KeySubstitutions.substitute("Run", shift, 0)), "the jog moves to Left Alt");
+        check(KeySubstitutions.substitute("Sprint", shift, 0) == null, "a sprint already on Left Shift is the player's own binding");
+        check(new KeySubstitutions.Keys(rightMouse, 0).equals(KeySubstitutions.substitute("Aim", control, rightMouse)),
+                "the aim gives up Left Ctrl and keeps the right mouse button");
+        check(new KeySubstitutions.Keys(x, 0).equals(KeySubstitutions.substitute("Aim", x, control)), "wherever Left Ctrl was");
+        check(new KeySubstitutions.Keys(rightMouse, 0).equals(KeySubstitutions.substitute("Aim", control, 0)),
+                "an aim that was on Left Ctrl alone goes to the right mouse button");
+        check(KeySubstitutions.substitute("Aim", x, rightMouse) == null, "an aim that was never on Left Ctrl is left alone");
+        check(new KeySubstitutions.Keys(c, control).equals(KeySubstitutions.substitute("Crouch", c, 0)), "C and Left Ctrl crouch");
+        check(new KeySubstitutions.Keys(x, control).equals(KeySubstitutions.substitute("Crouch", x, 0)),
+                "a crouch the player moved keeps its key and gains Left Ctrl");
+        check(new KeySubstitutions.Keys(c, control).equals(KeySubstitutions.substitute("Crouch", 0, 0)), "an unbound crouch gets both");
+        check(KeySubstitutions.substitute("Crouch", control, 0) == null, "a crouch already on Left Ctrl is left alone");
+        for (String vanilla : new String[] {"ReloadWeapon", "Melee", "Interact", "Attack/Click", "Hotbar 1",
+                "Equip/Turn On/Off Light Source", "Toggle Inventory", "Rack Firearm", "ManualFloorAtk"}) {
+            check(KeySubstitutions.substitute(vanilla, 19, 0) == null, vanilla + " is left as the player has it");
+        }
+        for (String name : KeySubstitutions.NAMES) {
+            check(KeySubstitutions.substitute(name, 0, 0) != null, name + " is named as substituted and is");
+        }
     }
 
     private static byte[] subjectWithField(String name, ClassDesc type, int flags) {
