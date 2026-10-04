@@ -204,6 +204,9 @@ final class Pipeline {
             const float RELIEF = 0.05;
 
             float grain(vec2 p) {
+                // Map positions are in the thousands, and scaled up for fine detail they pass
+                // what a float can count singly. Wrapped, the pattern repeats only far away.
+                p = mod(p, 4096.0);
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
             }
 
@@ -214,6 +217,11 @@ final class Pipeline {
                 f = f * f * (3.0 - 2.0 * f);
                 return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
                         mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
+            // The height of a bed of stones of three sizes, from coarse to fine.
+            float stones(vec2 p) {
+                return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
             }
 
             void main() {
@@ -251,6 +259,31 @@ final class Pipeline {
                 vec3 n = normalize(vNormal);
                 if (dot(n, view) < 0.0) {
                     n = -n;
+                }
+
+                // Open ground. The game has a handful of squares of each ground and lays them
+                // side by side, so a road or a yard is the same square over and over. Real
+                // ground is not: it is paler here and darker there over many paces, and close
+                // to it is made of stones and grit that the sun catches. Both are worked out
+                // from where the ground is on the map, so they never repeat and they stay put.
+                float grit = 0.0;
+                if (vColor.a < 1.5 && vColor.a > 0.5 && n.z > 0.8) {
+                    vec2 p = vWorld.xy;
+                    float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
+                    texel.rgb *= 0.78 + 0.44 * wide;
+                    float most = max(texel.r, max(texel.g, texel.b));
+                    float least = min(texel.r, min(texel.g, texel.b));
+                    // Stone, gravel and tarmac are grey; earth and grass are not.
+                    float stony = 1.0 - smoothstep(0.12, 0.3, (most - least) / max(most, 0.001));
+                    float near = 1.0 - smoothstep(5.0, 16.0, range);
+                    if (near > 0.0) {
+                        float e = 0.012;
+                        float here = stones(p), east = stones(p + vec2(e, 0.0)), south = stones(p + vec2(0.0, e));
+                        float depth = (0.05 + 0.1 * stony) * near;
+                        n = normalize(n - vec3(east - here, south - here, 0.0) * (depth / e));
+                        texel.rgb *= 1.0 + (here - 0.5) * (0.25 + 0.3 * stony) * near;
+                        grit = stony * near * here;
+                    }
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
@@ -317,6 +350,11 @@ final class Pipeline {
                     shine = uWet * (0.22 + 0.78 * pool);
                     ripple = 0.012 * pool;
                     color *= 1.0 - 0.3 * uWet;
+                }
+                if (grit > 0.0 && sun > 0.0) {
+                    // Grit glints: each stone has a face or two that throws the sun at the eye.
+                    vec3 back = reflect(-view, n);
+                    color += pow(uLightColor, vec3(2.2)) * (pow(max(dot(back, uLight), 0.0), 24.0) * 0.5 * grit * sun);
                 }
                 if (shine > 0.0) {
                     vec2 wave = vec2(sin(vWorld.x * 3.1 + vWorld.y * 1.7 + uSeconds * 1.9) + sin(vWorld.x * 7.3 - vWorld.y * 5.9 + uSeconds * 2.7),
