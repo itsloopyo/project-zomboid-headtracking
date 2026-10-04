@@ -345,16 +345,9 @@ final class CharacterDraw {
     private static final String CUT_FRAGMENT = """
             FROM_LAST float vArm;
             uniform float uKeepArms;
-            uniform float uHandsOnly;
             """ + FRAGMENT.replace("void main() {", """
             void main() {
                 if ((vArm > 0.5) != (uKeepArms > 0.5)) {
-                    discard;
-                }
-                // At the hip the game carries a weapon with the arms down, and moved before
-                // the eye with the weapon they would rise from it to the top of the picture.
-                // Until the sights come up only the hands on the weapon are drawn.
-                if (uKeepArms > 0.5 && uHandsOnly > 0.5 && vArm > 1.5) {
                     discard;
                 }""");
 
@@ -495,8 +488,7 @@ final class CharacterDraw {
         for (String name : names) {
             Integer bone = skeleton.boneIndices.get(name);
             if (bone != null && bone >= 0 && bone < BONES) {
-                // The arm above the wrist counts double, so the hand can be told from it.
-                bones[bone] = name.endsWith("UpperArm") || name.endsWith("Forearm") ? 2f : 1f;
+                bones[bone] = 1f;
             }
         }
     }
@@ -558,8 +550,6 @@ final class CharacterDraw {
         if (cutBones != null) {
             GL20.glUniform1fv(cutArm, cutBones);
             GL20.glUniform1f(cutKeep, cutKeepsArms ? 1f : 0f);
-            ViewModel.Held holding = ViewModel.held;
-            GL20.glUniform1f(GL20.glGetUniformLocation(skin.id, "uHandsOnly"), holding != null && holding.aim() < 0.5f ? 1f : 0f);
         }
         // The game keeps each bone's matrix with its rows where OpenGL wants columns.
         GL20.glUniformMatrix4fv(skin.palette, true, part.matrixPalette);
