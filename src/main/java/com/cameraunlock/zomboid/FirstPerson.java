@@ -467,6 +467,17 @@ public final class FirstPerson {
         return player.isSneaking() ? EYE_HEIGHT_SNEAKING : EYE_HEIGHT_STANDING;
     }
 
+    /**
+     * Called as the game's window is about to show or hide its cursor to suit the game. The
+     * game shows and hides its pointer as the player aims and fires, and each change puts the
+     * window's cursor back where it was before: the look, which goes by how far the cursor
+     * has moved, took that for a turn and jumped. While the look has the mouse the window's
+     * cursor is the look's alone.
+     */
+    public static boolean holdsMouse() {
+        return !MouseGrab.ISOLATED && (MouseGrab.applied || MouseGrab.keeping);
+    }
+
     /** Called at the end of the game's Mouse.update with the cursor column it read. */
     public static int cursorX(int raw) {
         if (!lookCaptured) {

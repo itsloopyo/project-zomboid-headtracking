@@ -61,6 +61,23 @@ final class CallSite {
         return insertBeforeReturns(classBytes, within, code -> invokeStatic(code, filter));
     }
 
+    /**
+     * Makes {@code within}, which returns nothing, return at once whenever the static method
+     * {@code condition} answers true.
+     */
+    static byte[] returnAtOnceIf(byte[] classBytes, Method within, Method condition) {
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                invokeStatic(code, condition);
+                code.ifThen(Opcode.IFNE, CodeBuilder::return_);
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
     /** Inserts {@code code} before every return of {@code within}, which has to have at least one. */
     static byte[] insertBeforeReturns(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
         int[] matches = {0};
