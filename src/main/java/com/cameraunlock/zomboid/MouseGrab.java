@@ -23,6 +23,16 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
     private static final int GLFW_CURSOR = 0x00033001, GLFW_CURSOR_NORMAL = 0x00034001, GLFW_CURSOR_DISABLED = 0x00034003,
             GLFW_CURSOR_CAPTURED = 0x00034004;
 
+    /**
+     * How many more reads of the mouse are of a cursor the window has just put somewhere
+     * else. Each time the mouse is taken or let go the window moves its cursor, and the
+     * distance it moved is not the player's hand: read as a turn, the view jumped to a new
+     * angle whenever the game let the mouse go and it was taken back, which is on aiming and
+     * on firing.
+     */
+    static volatile int moved;
+    private static final int MOVED_FOR = 3;
+
     /** What the logic thread wants. */
     static volatile boolean wanted;
     /**
@@ -46,6 +56,7 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             }
             applied = want;
             keeping = false;
+            moved = MOVED_FOR;
         }
         boolean keep = kept && !want;
         if (!ISOLATED && (want || keep || keeping)) {
@@ -57,6 +68,8 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             long window = Display.getWindow();
             if (GLFW.glfwGetInputMode(window, GLFW_CURSOR) != should) {
                 GLFW.glfwSetInputMode(window, GLFW_CURSOR, should);
+                moved = MOVED_FOR;
+                Log.info("the window had let the mouse go: taken back");
             }
         }
         keeping = keep;
