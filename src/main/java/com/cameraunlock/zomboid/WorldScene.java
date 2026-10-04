@@ -187,6 +187,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
     private float steepest;
     private static final float STEEPEST_ROOF = 0.55f;
+    /** A roof sprite narrower than this, in unscaled pixels, is a fitting on the roof and not a tile of it. */
+    private static final float WHOLE_TILE_WIDE = 50f;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
@@ -1514,8 +1516,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         // Only where the tile's slope is sure: a sheet under a tile whose slope was guessed
         // stands up out of the roof as a slab.
-        if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest) > 0 && sure) {
-            underRoof(x, y, z, northWest, 0f, southEast - northWest);
+        if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest) > 0) {
+            if (sure) {
+                underRoof(x, y, z, northWest, 0f, southEast - northWest);
+            } else if (frame.width > WHOLE_TILE_WIDE * frame.scale) {
+                // Which way this tile slopes is a guess, and a sheet laid to a wrong guess
+                // stands out of the roof. A level one at the tile's lowest height cannot: it
+                // is under the tile whichever way it slopes, and still closes the roof.
+                underRoof(x, y, z, Math.min(northWest, southEast), 0f, 0f);
+            }
         }
     }
 

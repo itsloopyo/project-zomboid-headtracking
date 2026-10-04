@@ -462,9 +462,12 @@ final class Pipeline {
                 // which up close are a black lattice: here the wire is half as thick and the
                 // grey of zinc.
                 if (vMaterial > 14.5) {
-                    if (cover < 0.72) {
+                    // Far off, where a pixel takes in several wires, the fence is a veil and is
+                    // let through by how much of the pixel is wire.
+                    if (cover < (small ? 0.12 + 0.3 * grain(gl_FragCoord.xy) : 0.72)) {
                         discard;
                     }
+                    cover = 1.0;
                     texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
                 }
                 if (cover < (upright ? min(uCut, 0.1) : uCut)) {
