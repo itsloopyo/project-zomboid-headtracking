@@ -447,6 +447,17 @@ final class Pipeline {
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
+                if (card) {
+                    // A leaf lets the sun through. Looked at against the light, foliage and
+                    // grass glow from behind, yellower than they are lit from in front, and
+                    // that glow is most of what a tree looks like on a bright day.
+                    float against = pow(max(dot(-view, uLight), 0.0), 2.0);
+                    vec3 leaf = pow(texel.rgb, vec3(2.2)) * vec3(1.25, 1.2, 0.55);
+                    color += leaf * pow(uLightColor, vec3(2.2)) * (1.6 * against * reached * step(0.0, uLight.z));
+                    // Deep in the plant the leaves stand in each other's light: darker towards
+                    // the foot of a card than at its top.
+                    color *= 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
+                }
 
                 // Water, and ground that rain has wetted, show the sky: little of it looking
                 // straight down, nearly all of it at a glancing angle, and the sun as a streak
