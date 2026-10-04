@@ -774,7 +774,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -984,8 +984,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // ground under them.
         if (z > 0 && hangsInAir && !overPole(x, y) && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
             frame.kind = SpriteGeometry.CARD;
+            frame.material = WIRE;
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.kind = 0f;
+            frame.material = 0f;
             return;
         }
 

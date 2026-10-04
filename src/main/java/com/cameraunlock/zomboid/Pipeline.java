@@ -382,6 +382,15 @@ final class Pipeline {
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
                 bool upright = vKind > 1.5 && vKind < 3.5;
+                // An overhead wire is a hair of paint with nothing round it, and mixed with that
+                // nothing it comes out a pale ghost. It is a black cable, wherever any of it shows.
+                if (vMaterial > 11.5) {
+                    if (cover < 0.04) {
+                        discard;
+                    }
+                    texel = vec4(0.03, 0.03, 0.035, 1.0);
+                    cover = 1.0;
+                }
                 if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
@@ -612,7 +621,7 @@ final class Pipeline {
                         rough = 0.32;
                     }
                     // Glazed tile is glossier than a varnished board.
-                    if (vMaterial > 10.5) {
+                    if (vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
                     }
                     rough = mix(rough, 0.18, shine);
@@ -652,7 +661,7 @@ final class Pipeline {
                 // pass reads to trace what the mirror shows.
                 // A varnished floor mirrors a little too: the window across the room, the legs of
                 // a chair.
-                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 ? 0.3 : 0.0;
+                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(shine, polish) * step(0.8, n.z));
             }
             """;
