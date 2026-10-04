@@ -1113,6 +1113,7 @@ final class Pipeline {
             uniform float uFogEnd;
             uniform float uInside;
             uniform float uPainted;
+            uniform sampler2D uRepainted;
             uniform float uWriteNear;
 
             bool inside(vec3 c) {
@@ -1121,9 +1122,14 @@ final class Pipeline {
 
             // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
             // or the pale blue of the sky a pane shows.
-            float glass(vec4 f) {
+            float glass(vec2 at) {
+                vec4 f = texture2D(uFigure, at);
                 if (f.a < 0.5) {
                     return 1.0;
+                }
+                // Bodywork changes with the paint. Glass does not.
+                if (distance(f.rgb, texture2D(uRepainted, at).rgb) > 0.06) {
+                    return 0.0;
                 }
                 vec3 paint = f.rgb / f.a;
                 float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
@@ -1216,8 +1222,8 @@ final class Pipeline {
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
                     vec2 px = 3.0 / uSize;
-                    float panes = glass(figure) * 2.0 + glass(texture2D(uFigure, uv + vec2(px.x, 0.0))) + glass(texture2D(uFigure, uv - vec2(px.x, 0.0)))
-                            + glass(texture2D(uFigure, uv + vec2(0.0, px.y))) + glass(texture2D(uFigure, uv - vec2(0.0, px.y)));
+                    float panes = glass(uv) * 2.0 + glass(uv + vec2(px.x, 0.0)) + glass(uv - vec2(px.x, 0.0))
+                            + glass(uv + vec2(0.0, px.y)) + glass(uv - vec2(0.0, px.y));
                     if (panes > 2.5) {
                         discard;
                     }
@@ -1638,6 +1644,7 @@ final class Pipeline {
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
     private static int ownTarget, ownColor, ownDepth;
+    private static int repaintedTarget, repaintedColor, repaintedDepth;
     private static final float OWN_NEAR = 0.3f;
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
     private static int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
@@ -2532,6 +2539,19 @@ final class Pipeline {
             quad();
         }
 
+        if (FirstPerson.seated) {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);
+            GL11.glDepthMask(true);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDisable(GL_BLEND);
+            Characters.repainted = true;
+            Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+            Characters.repainted = false;
+        }
         // The viewer's own body, the same way: drawn by the game, lit here.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, ownTarget);
         GL11.glDepthMask(true);
@@ -2554,6 +2574,9 @@ final class Pipeline {
         if (own) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
             figureLight.use();
+            GL13.glActiveTexture(GL_TEXTURE0 + 4);
+            GL11.glBindTexture(GL_TEXTURE_2D, repaintedColor);
+            figureLight.set("uRepainted", 4);
             GL13.glActiveTexture(GL_TEXTURE0 + 3);
             GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
             GL13.glActiveTexture(GL_TEXTURE0);
@@ -2728,6 +2751,13 @@ final class Pipeline {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         if (problem == null) {
             problem = complete("character");
+        }
+        repaintedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        repaintedDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        repaintedTarget = target(repaintedColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, repaintedDepth, 0);
+        if (problem == null) {
+            problem = complete("repainted vehicle");
         }
         ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);

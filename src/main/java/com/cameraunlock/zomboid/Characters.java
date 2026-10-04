@@ -11,6 +11,7 @@ import zombie.core.skinnedmodel.ModelCamera;
 import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
+import zombie.core.skinnedmodel.model.VehicleModelInstance;
 
 /**
  * The game's models in the first-person picture: zombies, survivors and
@@ -60,6 +61,12 @@ public final class Characters {
     private static final float[] combined = new float[16];
     private static final float[] projection = new float[16];
     private static int drawnLast;
+    /**
+     * While set, a vehicle is drawn in another colour of paint than its own. What of it comes
+     * out the same as in its own paint is not painted bodywork: its glass, its trim, its seats.
+     * The game's picture of a vehicle does not otherwise say which of it is glass.
+     */
+    static boolean repainted;
     /** Which of the models a draw takes: vehicles are painted metal and are lit apart from flesh and cloth. */
     private static final int ALL = 0, ONLY_CHARACTERS = 1, ONLY_VEHICLES = 2;
     private static int only = ALL;
@@ -320,7 +327,19 @@ public final class Characters {
         ModelCamera.instance = EYE;
         for (int part = 0; part < data.modelData.size(); part++) {
             GL11.glDepthMask(true);
-            data.modelData.get(part).RenderVehicle(data);
+            ModelInstanceRenderData model = data.modelData.get(part);
+            if (repainted && model.modelInstance instanceof VehicleModelInstance body) {
+                float x = body.painColor.x, y = body.painColor.y, z = body.painColor.z;
+                body.painColor.x = (x + 0.5f) % 1f;
+                body.painColor.y = y < 0.5f ? 1f : 0f;
+                body.painColor.z = z < 0.5f ? 1f : 0.15f;
+                model.RenderVehicle(data);
+                body.painColor.x = x;
+                body.painColor.y = y;
+                body.painColor.z = z;
+            } else {
+                model.RenderVehicle(data);
+            }
         }
         ModelCamera.instance = game;
         data.squareDepth = squareDepth;
