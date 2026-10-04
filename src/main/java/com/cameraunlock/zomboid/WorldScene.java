@@ -763,7 +763,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -775,6 +775,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (name.startsWith("walls_")) {
             return PAINT;
+        }
+        if (name.startsWith("fencing_") || name.startsWith("carpentry_")) {
+            return PLANKS;
+        }
+        if (name.startsWith("e_") && !name.startsWith("e_newgrass")) {
+            return BARK;
         }
         if (isFloor && name.startsWith("blends_natural")) {
             return EARTH;

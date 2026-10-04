@@ -132,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 12;
+    private static final int UNITS = 13;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -248,6 +248,9 @@ final class Pipeline {
             uniform sampler2D uWood;
             uniform vec3 uSurfaceGain;
             uniform sampler2D uLeaves;
+            uniform sampler2D uBark;
+            uniform sampler2D uPlanks;
+            uniform vec2 uTimberGain;
             uniform float uLeafGain;
 
 
@@ -438,12 +441,14 @@ final class Pipeline {
                 // wall is and where its boards and windows are; a picture of the stuff itself,
                 // laid over it by where the surface is in the world, gives it the grain of
                 // shingle, of old paint, of floorboards. Its light and dark only.
-                if (vMaterial > 0.5 && vMaterial < 3.5) {
+                if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
                     float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
-                            : dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z;
-                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : 0.7);
+                            : vMaterial < 3.5 ? dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z
+                            : vMaterial < 6.5 ? dot(texture2D(uBark, across * vec2(1.6, 0.8)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
+                            : dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y;
+                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8);
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
@@ -1321,9 +1326,9 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "leaves"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "leaves"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
-    private static final int FIRST_CUTOUT = 7;
+    private static final int FIRST_CUTOUT = 9;
     private static final int MATERIAL_SIZE = 1024;
     private static final int FIRST_MATERIAL_UNIT = 3;
     private static final int[] materialTexture = new int[MATERIALS.length];
@@ -1867,8 +1872,11 @@ final class Pipeline {
         world.set("uPaint", FIRST_MATERIAL_UNIT + 5);
         world.set("uWood", FIRST_MATERIAL_UNIT + 6);
         world.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
-        world.set("uLeaves", FIRST_MATERIAL_UNIT + 7);
-        world.set("uLeafGain", materialGain[7]);
+        world.set("uBark", FIRST_MATERIAL_UNIT + 7);
+        world.set("uPlanks", FIRST_MATERIAL_UNIT + 8);
+        world.set("uTimberGain", materialGain[7], materialGain[8]);
+        world.set("uLeaves", FIRST_MATERIAL_UNIT + 9);
+        world.set("uLeafGain", materialGain[9]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
