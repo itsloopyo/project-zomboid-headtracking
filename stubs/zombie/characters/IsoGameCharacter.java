@@ -18,4 +18,5 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public BaseVehicle getVehicle() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isKnockedDown() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isInvisible() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.characters.BodyDamage.BodyDamage getBodyDamage() { throw new UnsupportedOperationException("reference stub"); }
 }

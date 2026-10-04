@@ -391,7 +391,11 @@ final class Pipeline {
 
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
-                if (uTexel.x > 0.0) {
+                // A wall's sprite is drawn on the slant, each column of its dots a step below the
+                // last, and sharpening across those columns rules the wall with stripes: walls
+                // and doors are read plainly.
+                bool slanted = vKind < 1.5 && abs(normalize(vNormal).z) < 0.5;
+                if (uTexel.x > 0.0 && !slanted) {
                     // The game's sprites are drawn for a screen seen from far above, and from
                     // the ground each of their dots is a hand across. Read through a curve
                     // over the four nearest dots each way, and drawn a little away from the

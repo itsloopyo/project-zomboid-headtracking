@@ -15,13 +15,18 @@ import zombie.vehicles.VehiclePart;
  * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
  * sits the player in the driver's seat, whatever state it was found in. For looking at
  * vehicles and driving without first finding one that runs.
+ *
+ * F6 makes the player invincible, and vulnerable again on the next press.
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
     /** F7 in the key codes the game's keyboard uses. */
     private static final int TAKE_VEHICLE_KEY = 65;
     private static final float TAKE_WITHIN = 5f;
+    /** F6. */
+    private static final int INVINCIBLE_KEY = 64;
 
+    private static boolean invincible;
     private static boolean looked;
     private static boolean enabled;
 
@@ -37,10 +42,23 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F7 takes the nearest vehicle");
+                Log.info("development install: F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
-        if (!enabled || !GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
+        if (!enabled) {
+            return;
+        }
+        IsoPlayer safe = IsoPlayer.getInstance();
+        if (GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
+            invincible = !invincible;
+            Log.info("F6: invincible " + invincible);
+        }
+        // The game's own god mode is refused outside its debug mode, so the player is made
+        // whole again every frame instead: wounds, bites and infection are gone as they land.
+        if (invincible && safe != null && !safe.isDead()) {
+            safe.getBodyDamage().RestoreToFullHealth();
+        }
+        if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;
         }
         IsoPlayer player = IsoPlayer.getInstance();
