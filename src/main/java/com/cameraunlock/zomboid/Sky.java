@@ -25,7 +25,7 @@ final class Sky {
 
             vec3 atmosphere(vec3 d) {
                 float low = 1.0 - clamp(d.z, 0.0, 1.0);
-                vec3 color = mix(uZenith, uHorizon, pow(low, 3.5));
+                vec3 color = mix(uZenith, uHorizon, pow(low, 2.6));
                 float mu = max(dot(d, uSun), 0.0);
                 color += uGlow * (pow(mu, 2.5) * pow(low, 5.0) * 0.9 + pow(low, 14.0) * 0.25);
                 color += uSunColor * (0.16 * pow(mu, 18.0) + 0.5 * pow(mu, 300.0));

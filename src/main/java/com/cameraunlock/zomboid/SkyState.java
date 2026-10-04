@@ -98,12 +98,12 @@ final class SkyState {
         // good deal of blue: the sky only closes over near the top of it, or in rain.
         cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max((float) Math.pow(clouds, 1.6) * 0.75f, rain);
 
-        zenithRed = mix(0.010f, 0.110f, day) + 0.10f * twilight;
-        zenithGreen = mix(0.016f, 0.300f, day) + 0.04f * twilight;
-        zenithBlue = mix(0.045f, 0.740f, day) + 0.08f * twilight;
-        horizonRed = mix(0.030f, 0.560f, day) + 0.34f * twilight;
-        horizonGreen = mix(0.040f, 0.730f, day) + 0.05f * twilight;
-        horizonBlue = mix(0.085f, 0.900f, day) - 0.10f * twilight;
+        zenithRed = mix(0.010f, 0.240f, day) + 0.10f * twilight;
+        zenithGreen = mix(0.016f, 0.430f, day) + 0.04f * twilight;
+        zenithBlue = mix(0.045f, 0.780f, day) + 0.08f * twilight;
+        horizonRed = mix(0.030f, 0.700f, day) + 0.34f * twilight;
+        horizonGreen = mix(0.040f, 0.810f, day) + 0.05f * twilight;
+        horizonBlue = mix(0.085f, 0.920f, day) - 0.10f * twilight;
         glowRed = 1.00f * twilight;
         glowGreen = 0.42f * twilight;
         glowBlue = 0.12f * twilight;
