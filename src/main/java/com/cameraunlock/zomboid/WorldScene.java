@@ -321,7 +321,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     chunksBuilt++;
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
-                        float[] ground = z == 0 ? Terrain.corners(cell, chunk.wx, chunk.wy) : null;
+                        float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
                             for (int localY = 0; localY < CHUNK_TILES; localY++) {
                                 IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
@@ -331,10 +331,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                                 squaresLoaded++;
                                 cornerLights(localX, localY);
                                 int corner = localX * Terrain.CORNERS + localY;
-                                geometry.lift[0] = ground == null ? 0f : ground[corner];
-                                geometry.lift[1] = ground == null ? 0f : ground[corner + Terrain.CORNERS];
-                                geometry.lift[2] = ground == null ? 0f : ground[corner + Terrain.CORNERS + 1];
-                                geometry.lift[3] = ground == null ? 0f : ground[corner + 1];
+                                geometry.lift[0] = ground[corner];
+                                geometry.lift[1] = ground[corner + Terrain.CORNERS];
+                                geometry.lift[2] = ground[corner + Terrain.CORNERS + 1];
+                                geometry.lift[3] = ground[corner + 1];
                                 if (geometry.lift[0] != 0f) {
                                     lifted++;
                                 }
@@ -799,8 +799,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.addFace(mesh, frame, x, y, z, 0f, 1f - ++southLayer * standOff, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
             return;
         }
+        // The game marks most of a roof's sprites as roof, but not the caps along its ridge
+        // and its edges. Their sprites do not say which way they lie, and stood upright like
+        // furniture they are boxes floating over the house, so they are left out: the roof
+        // ends cleanly at its wall.
         if (type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
             addRoof(mesh, texture, x, y, z);
+            return;
+        }
+        if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
             return;
         }
         // What the game itself moves with the wind, and what it lets the player clear as

@@ -85,7 +85,7 @@ final class WorldQuery {
         if (aim.forwardUp < 0f) {
             nearest = Math.min(nearest, (floorUp - aim.eyeUp) / aim.forwardUp);
         } else if (aim.forwardUp > 0f) {
-            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT - aim.eyeUp) / aim.forwardUp;
+            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + Terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
             if (toCeiling < nearest && toCeiling <= reach) {
                 IsoGridSquare above = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toCeiling),
                         (int) Math.floor(aim.eyeY + aim.forwardY * toCeiling), level + 1);
