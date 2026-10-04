@@ -31,6 +31,8 @@ public final class Characters {
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** How far from the eye a model still casts a shadow, in tiles. */
     private static final float SHADOW_REACH = 45f;
+    /** How far ahead of the middle of the head the eyes are, in tiles. */
+    private static final float EYES_AHEAD = 0.2f;
     /**
      * How far above where the game's camera stands a vehicle its wheels reach the ground, in
      * tiles. Set by eye against Base.CarNormal on a level road: without it the car stands in
@@ -123,7 +125,41 @@ public final class Characters {
     static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
         drawnLast = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+    }
+
+    /** The frame has drawn the models it was given. */
+    static void done() {
         noted.clear();
+    }
+
+    /**
+     * Draws the viewer's own model, into whatever target is bound, through a camera whose near
+     * plane is nearFrom away. The eye is inside the model's head: everything nearer than that
+     * is cut away, the head, the shoulders and the chest, and what is left is the body a
+     * person sees looking down, arms and legs. False if the viewer is not among the models.
+     */
+    static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        IsoPlayer viewer = IsoPlayer.getInstance();
+        for (int i = 0; i < noted.size(); i++) {
+            ModelSlotRenderData data = noted.get(i);
+            if (data.character != null && data.character == viewer && !data.inVehicle) {
+                System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+                // A person's eyes are at the front of the head, ahead of the neck. The view's
+                // eye is on the model's axis, so the model is stood a little behind it: looking
+                // down, the chest is below the eye and not the hole of the collar.
+                float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
+                float x = data.x, y = data.y;
+                if (flat > 1e-3f) {
+                    data.x -= camera.forwardX / flat * EYES_AHEAD;
+                    data.y -= camera.forwardY / flat * EYES_AHEAD;
+                }
+                character(data, ViewCamera.view(camera));
+                data.x = x;
+                data.y = y;
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

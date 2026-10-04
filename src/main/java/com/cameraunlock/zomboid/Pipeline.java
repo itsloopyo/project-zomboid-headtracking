@@ -1179,6 +1179,9 @@ final class Pipeline {
     private static final float[] materialGain = new float[MATERIALS.length];
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
+    /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
+    private static int ownTarget, ownColor, ownDepth;
+    private static final float OWN_NEAR = 0.3f;
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
     private static int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
     private static int spriteSampler;
@@ -1963,6 +1966,36 @@ final class Pipeline {
         figureLight.set("uFogEnd", fogEnd);
         atmosphere(figureLight, state);
         quad();
+
+        // The viewer's own body, the same way: drawn by the game, lit here.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, ownTarget);
+        GL11.glDepthMask(true);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDisable(GL_BLEND);
+        boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        Characters.done();
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glDisable(GL_BLEND);
+        GL11.glDisable(GL_ALPHA_TEST);
+        GL11.glDepthMask(false);
+        if (own) {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            figureLight.use();
+            GL13.glActiveTexture(GL_TEXTURE0 + 3);
+            GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
+            figureLight.set("uNear", OWN_NEAR);
+            quad();
+        }
         GL11.glDepthMask(true);
     }
 
@@ -2108,6 +2141,13 @@ final class Pipeline {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         if (problem == null) {
             problem = complete("character");
+        }
+        ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        ownTarget = target(ownColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ownDepth, 0);
+        if (problem == null) {
+            problem = complete("viewer");
         }
         int levelW = width, levelH = height;
         for (int level = 0; level < BLOOM_LEVELS && problem == null; level++) {
