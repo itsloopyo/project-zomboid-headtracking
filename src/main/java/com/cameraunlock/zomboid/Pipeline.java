@@ -1093,6 +1093,7 @@ final class Pipeline {
             uniform float uFogStart;
             uniform float uFogEnd;
             uniform float uInside;
+            uniform float uPainted;
             uniform float uWriteNear;
 
             bool inside(vec3 c) {
@@ -1210,8 +1211,13 @@ final class Pipeline {
                 vec3 lightHere = fromSky * (1.0 + 1.6 * cabin) + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
-                color += atmosphere(reflect(-view, n) * vec3(1.0, 1.0, sign(reflect(-view, n).z))) * (0.22 * glance);
-                color += sunLight * (pow(max(dot(reflect(-view, n), uLight), 0.0), 48.0) * 0.45 * sun);
+                // Paint under lacquer mirrors the sky all over, more at a glance, and throws
+                // the sun back as a small hard light. Cloth and skin only catch the sky at
+                // their edges.
+                vec3 back = reflect(-view, n);
+                vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
+                color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, uPainted);
+                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, uPainted)) * mix(0.45, 3.0, uPainted) * sun);
 
                 float range = ahead * length(ray);
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
@@ -2449,58 +2455,62 @@ final class Pipeline {
 
     private static void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
-        GL11.glViewport(0, 0, width, height);
-        GL11.glClearColor(0f, 0f, 0f, 0f);
-        GL11.glClear(GL_COLOR_BUFFER_BIT);
-        GL11.glEnable(GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL_LEQUAL);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL_BLEND);
-        Characters.draw(camera, tanHalfFieldOfView, aspect, near, far);
-        // The game's draw leaves its own program, buffers and arrays bound.
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glDisable(GL_DEPTH_TEST);
-        GL11.glDisable(GL_CULL_FACE);
-        GL11.glDisable(GL_BLEND);
-        GL11.glDisable(GL_ALPHA_TEST);
-        GL11.glDepthMask(false);
+        // Flesh and cloth first, then painted metal, which is lit as lacquer.
+        for (int pass = 0; pass < 2; pass++) {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
+            GL11.glViewport(0, 0, width, height);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glClear(GL_COLOR_BUFFER_BIT);
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL_BLEND);
+            Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1);
+            // The game's draw leaves its own program, buffers and arrays bound.
+            GL30.glBindVertexArray(0);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glDisable(GL_DEPTH_TEST);
+            GL11.glDisable(GL_CULL_FACE);
+            GL11.glDisable(GL_BLEND);
+            GL11.glDisable(GL_ALPHA_TEST);
+            GL11.glDepthMask(false);
 
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        figureLight.use();
-        figureLight.set("uFigure", 0);
-        figureLight.set("uDepth", 3);
-        figureLight.set("uShadowNear", 1);
-        figureLight.set("uShadowFar", 2);
-        GL13.glActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
-        figureLight.set("uNearMatrix", nearMatrix);
-        figureLight.set("uFarMatrix", farMatrix);
-        figureLight.set("uSize", (float) width, (float) height);
-        figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-        figureLight.set("uNear", near);
-        figureLight.set("uFar", far);
-        figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-        figureLight.set("uRight", camera.rightX, camera.rightY, camera.rightUp);
-        figureLight.set("uUp", camera.upX, camera.upY, camera.upUp);
-        figureLight.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
-        figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-        figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        figureLight.set("uFogStart", fogStart);
-        figureLight.set("uFogEnd", fogEnd);
-        figureLight.set("uWriteNear", 0f);
-        // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
-        figureLight.set("uInside", 0f);
-        atmosphere(figureLight, state);
-        quad();
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            figureLight.use();
+            figureLight.set("uFigure", 0);
+            figureLight.set("uDepth", 3);
+            figureLight.set("uShadowNear", 1);
+            figureLight.set("uShadowFar", 2);
+            GL13.glActiveTexture(GL_TEXTURE0 + 3);
+            GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
+            GL13.glActiveTexture(GL_TEXTURE0 + 2);
+            GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+            GL13.glActiveTexture(GL_TEXTURE0 + 1);
+            GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
+            figureLight.set("uNearMatrix", nearMatrix);
+            figureLight.set("uFarMatrix", farMatrix);
+            figureLight.set("uSize", (float) width, (float) height);
+            figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
+            figureLight.set("uNear", near);
+            figureLight.set("uFar", far);
+            figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+            figureLight.set("uRight", camera.rightX, camera.rightY, camera.rightUp);
+            figureLight.set("uUp", camera.upX, camera.upY, camera.upUp);
+            figureLight.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
+            figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
+            figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+            figureLight.set("uFogStart", fogStart);
+            figureLight.set("uFogEnd", fogEnd);
+            figureLight.set("uWriteNear", 0f);
+            // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
+            figureLight.set("uInside", 0f);
+            atmosphere(figureLight, state);
+            figureLight.set("uPainted", pass == 1 ? 1f : 0f);
+            quad();
+        }
 
         // The viewer's own body, the same way: drawn by the game, lit here.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, ownTarget);

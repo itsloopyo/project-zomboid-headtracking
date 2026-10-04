@@ -60,6 +60,9 @@ public final class Characters {
     private static final float[] combined = new float[16];
     private static final float[] projection = new float[16];
     private static int drawnLast;
+    /** Which of the models a draw takes: vehicles are painted metal and are lit apart from flesh and cloth. */
+    private static final int ALL = 0, ONLY_CHARACTERS = 1, ONLY_VEHICLES = 2;
+    private static int only = ALL;
     private static float asideX, asideY;
 
     static void aside(float x, float y) {
@@ -136,13 +139,16 @@ public final class Characters {
      * whatever target is bound. The target's depth has to be the world's, so a zombie behind a
      * wall stays behind it. The viewer's own model is left out: the eye is inside its head.
      */
-    static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
         System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
         // Drawn the same fraction of a pixel aside as the world is this frame, so the models'
         // edges are smoothed over time with everything else's.
         projection[8] += asideX;
         projection[9] += asideY;
-        drawnLast = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
+        int drawn = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        drawnLast = vehicles ? drawnLast + drawn : drawn;
+        only = ALL;
     }
 
     /** The frame has drawn the models it was given. */
@@ -226,6 +232,9 @@ public final class Characters {
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             if (!withViewer && data.character != null && data.character == viewer) {
+                continue;
+            }
+            if (only != ALL && (data.character == null) != (only == ONLY_VEHICLES)) {
                 continue;
             }
             float toX = data.x - eyeX, toY = data.y - eyeY;
