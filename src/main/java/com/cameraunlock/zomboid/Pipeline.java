@@ -536,7 +536,7 @@ final class Pipeline {
                 // So are the mod's own kerbs, of concrete, and the walls of its quays, of dark
                 // wet timber.
                 if (vMaterial > 8.5 && vMaterial < 10.5) {
-                    texel.rgb = vMaterial < 9.5 ? vec3(0.62, 0.62, 0.6) : vec3(0.2, 0.17, 0.14);
+                    texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
                 if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
