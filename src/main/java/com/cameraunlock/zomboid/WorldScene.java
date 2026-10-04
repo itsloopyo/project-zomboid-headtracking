@@ -192,7 +192,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int spreadFaces;
     private int lifted;
     private int chunksDrawn, squaresLoaded, squaresSeen, sprites, triangles;
-    private int roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear;
+    private int roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, roofsFolded;
     /** The gap between two sprites on one plane of the square being added. */
     private float standOff;
     private int floorLayer, westLayer, northLayer, eastLayer, southLayer;
@@ -226,6 +226,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
     private final float[] eave = new float[12];
+    /**
+     * The cap along a ridge or down a hip, in tiles: how far it reaches either side of the line,
+     * half the width of its level crown, how far the crown stands over the line and how far its
+     * edges stand off the roof.
+     */
+    private static final float CAP_HALF = 0.11f, CAP_CROWN = 0.035f, CAP_RISE = 0.03f, CAP_CLEAR = 0.008f;
+    private final float[] folded = new float[9];
     private final float[] heldLift = new float[4];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
@@ -332,7 +339,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + ChunkBuffers.describe() + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + ChunkBuffers.describe() + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded;
     }
 
     static float drawnAspect() {
@@ -380,6 +387,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         roofsWestEast = 0;
         roofsFlat = 0;
         roofsUnclear = 0;
+        roofsFolded = 0;
 
         viewer = player;
         float daylight = GameTime.getInstance().getAmbient();
@@ -1104,7 +1112,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // The colour given is the light on it. What colour the thing is, the picture knows by
         // what it is made of.
         if (beside == Terrain.STREET) {
-            mesh.open = frame.open + 32f * CONCRETE;
+            mesh.open = frame.open + 32f * KERB_STONE;
             SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f, frame.red, frame.green, frame.blue);
         } else if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
             mesh.open = frame.open + 32f * QUAY;
@@ -1161,10 +1169,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
-    /** Between the surfaces a model has, which run from 16 to 51, and what grows, which runs from 56. */
-    private static final float GRAVEL = 54f;
+    /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
+    private static final float KERB_STONE = 64f;
     /** A wall of upright boards. */
     private static final float BOARDS = 52f;
+    /** The cap along a ridge or a hip: the roof's own covering, which the picture draws a shade darker. */
+    private static final float RIDGE = 53f;
 
     /** What a sprite that is no floor is made of: see materialOf. A wall the game says is of wood, on a sheet made for one place, is boarded. */
     static float materialOf(IsoSprite sprite) {
@@ -1432,8 +1442,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 continue;
             }
             frameOf(object, texture);
-            frame.material = object == floor && "Gravel".equals(sprite.getProperties().get("FootstepMaterial")) ? GRAVEL
-                    : object == floor ? materialOf(sprite.getName(), true) : materialOf(sprite);
+            frame.material = Ground.of(sprite.getProperties().get("FloorMaterial"), sprite.getProperties().get("FootstepMaterial"), object == floor);
+            if (frame.material == 0f) {
+                frame.material = object == floor ? materialOf(sprite.getName(), true) : materialOf(sprite);
+            }
             if (frame.material == PLANKS && isMesh(sprite, texture)) {
                 frame.material = MESH;
             }
@@ -2717,13 +2729,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /**
-     * Lays the tiles of the slopes the map leaves out that lie in a chunk: see RoofFit.backs.
-     * They are of the roof's own colour, and lit as the open air is: no square of the map
-     * holds them, so none has a light for them.
+     * Lays the tiles of the slopes the map leaves out that lie in a chunk, and the caps of the
+     * ridges and hips in it: see RoofFit.backs and RoofFit.caps. They are of the roof's own
+     * colour, and lit as the open air is: no square of the map holds them, so none has a
+     * light for them.
      */
     private void addBacks(IsoChunk chunk, int chunkX, int chunkY) {
         ArrayList<Roofs.Laid> backs = Roofs.madeIn(chunk.wx, chunk.wy, frames);
-        if (backs == null) {
+        ArrayList<Roofs.Capped> caps = Roofs.cappedIn(chunk.wx, chunk.wy, frames);
+        if (backs == null && caps == null) {
             return;
         }
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
@@ -2731,22 +2745,113 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         frame.open = 1f;
         frame.kind = 0f;
         float[] lift = geometry.lift;
-        for (int i = 0; i < backs.size(); i++) {
+        for (int i = 0; backs != null && i < backs.size(); i++) {
             RoofFit.Tile tile = backs.get(i).tile;
-            int corner = (tile.x - chunkX) * Terrain.CORNERS + tile.y - chunkY;
-            lift[0] = ground[corner];
-            lift[1] = ground[corner + Terrain.CORNERS];
-            lift[2] = ground[corner + Terrain.CORNERS + 1];
-            lift[3] = ground[corner + 1];
+            liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
-            boolean alongX = tile.fitAxis == RoofFit.ALONG_X;
-            float low = tile.fitLow, high = tile.fitHigh;
-            SpriteGeometry.addOver(sheet, tile.x, tile.y, low * ViewCamera.LEVEL_HEIGHT + lift[0],
-                    (alongX ? high : low) * ViewCamera.LEVEL_HEIGHT + lift[1], high * ViewCamera.LEVEL_HEIGHT + lift[2],
-                    (alongX ? low : high) * ViewCamera.LEVEL_HEIGHT + lift[3], roofU, roofV, frame.red, frame.green, frame.blue);
-            addEave(sheet, tile.x, tile.y, tile.z, low - tile.z, alongX ? high - low : 0f, alongX ? 0f : high - low);
-            addRake(sheet, tile.x, tile.y, tile.z, low - tile.z, alongX ? high - low : 0f, alongX ? 0f : high - low);
+            if (tile.shaped) {
+                addFolded(sheet, tile, 3, false);
+                addFoldEaves(sheet, tile);
+                continue;
+            }
+            float[] at = tile.corners;
+            SpriteGeometry.addOver(sheet, tile.x, tile.y, at[0] * ViewCamera.LEVEL_HEIGHT + lift[0], at[1] * ViewCamera.LEVEL_HEIGHT + lift[1],
+                    at[2] * ViewCamera.LEVEL_HEIGHT + lift[2], at[3] * ViewCamera.LEVEL_HEIGHT + lift[3], roofU, roofV, frame.red, frame.green, frame.blue);
+            addEave(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0], true);
+            addRake(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0]);
+        }
+        for (int i = 0; caps != null && i < caps.size(); i++) {
+            RoofFit.Cap cap = caps.get(i).cap;
+            liftOf(ground, Math.clamp((int) Math.floor((cap.x0 + cap.x1) / 2f) - chunkX, 0, CHUNK_TILES - 1),
+                    Math.clamp((int) Math.floor((cap.y0 + cap.y1) / 2f) - chunkY, 0, CHUNK_TILES - 1));
+            roof = caps.get(i).roof;
+            addCap(cap);
+        }
+    }
+
+    /** Sets the ground's lift at the corners of a square of the chunk whose ground is given. */
+    private void liftOf(float[] ground, int localX, int localY) {
+        int corner = localX * Terrain.CORNERS + localY;
+        float[] lift = geometry.lift;
+        lift[0] = ground[corner];
+        lift[1] = ground[corner + Terrain.CORNERS];
+        lift[2] = ground[corner + Terrain.CORNERS + 1];
+        lift[3] = ground[corner + 1];
+    }
+
+    /**
+     * The mod's own sheet over the triangles of a folded roof tile that which names, bit 0 the
+     * first and bit 1 the second: in the tile's own surface, or just under it for a triangle
+     * the tile's sprite is drawn on.
+     */
+    private void addFolded(SpriteGeometry.Mesh sheet, RoofFit.Tile tile, int which, boolean under) {
+        int[] order = RoofFit.TRIANGLES[tile.crease];
+        for (int triangle = 0; triangle < 2; triangle++) {
+            if ((which >> triangle & 1) == 0) {
+                continue;
+            }
+            for (int i = 0; i < 3; i++) {
+                int corner = order[triangle * 3 + i];
+                float high = tile.corners[corner] - tile.z;
+                set(folded, i, tile.x + RoofFit.cornerX(corner), tile.y + RoofFit.cornerY(corner),
+                        (under ? under(tile.z, high) : (tile.z + high) * ViewCamera.LEVEL_HEIGHT) + geometry.lift[corner]);
+            }
+            SpriteGeometry.addTriangle(sheet, folded, roofU, roofV, frame.red, frame.green, frame.blue);
+        }
+    }
+
+    /** The west, east, north and south edge of a square, each as its two corners. */
+    private static final int[][] EDGES = {{0, 3}, {1, 2}, {0, 1}, {3, 2}};
+
+    /**
+     * The eaves of a folded tile. Each of its triangles is a slope of its own, and where one
+     * comes down to a level edge of the square with no roof beyond, that edge is an eave.
+     */
+    private void addFoldEaves(SpriteGeometry.Mesh sheet, RoofFit.Tile tile) {
+        int[] order = RoofFit.TRIANGLES[tile.crease];
+        float[] at = tile.corners;
+        for (int edge = 0; edge < 4; edge++) {
+            int first = EDGES[edge][0], second = EDGES[edge][1];
+            if (Math.abs(at[first] - at[second]) > RoofFit.SAME) {
+                continue;
+            }
+            // The triangle against this edge is the one whose corner off the fold is one of the edge's own.
+            int off = order[2] == first || order[2] == second ? order[2] : order[5];
+            int high = order[0] == first || order[0] == second ? order[1] : order[0];
+            float rise = at[high] - at[first];
+            if (off != first && off != second || rise < Roofs.FLAT) {
+                continue;
+            }
+            boolean alongX = edge < 2, lowAtFar = edge == 1 || edge == 3;
+            float atOrigin = at[first] - tile.z + (lowAtFar ? rise : 0f), along = lowAtFar ? -rise : rise;
+            // One pipe to a corner: the eave along x gives it.
+            addEave(sheet, tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along, !alongX);
+        }
+    }
+
+    /**
+     * The cap along a ridge or down a hip: a low strip with a level crown and two sides that
+     * come down onto the roof, of the roof's own covering.
+     */
+    private void addCap(RoofFit.Cap cap) {
+        SpriteGeometry.Mesh sheet = roofSheet();
+        sheet.open = frame.open + 32f * RIDGE;
+        float dx = cap.x1 - cap.x0, dy = cap.y1 - cap.y0;
+        float length = (float) Math.sqrt(dx * dx + dy * dy);
+        float acrossX = -dy / length, acrossY = dx / length;
+        float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        float from = cap.high0 * ViewCamera.LEVEL_HEIGHT + lift, to = cap.high1 * ViewCamera.LEVEL_HEIGHT + lift;
+        float edge = CAP_CLEAR - cap.fall * ViewCamera.LEVEL_HEIGHT * CAP_HALF;
+        float[] c = eave;
+        for (int strip = 0; strip < 3; strip++) {
+            float near = strip == 0 ? -CAP_HALF : strip == 1 ? -CAP_CROWN : CAP_CROWN, far = strip == 0 ? -CAP_CROWN : strip == 1 ? CAP_CROWN : CAP_HALF;
+            float nearUp = strip == 0 ? edge : CAP_RISE, farUp = strip == 2 ? edge : CAP_RISE;
+            set(c, 0, cap.x0 + acrossX * near, cap.y0 + acrossY * near, from + nearUp);
+            set(c, 1, cap.x1 + acrossX * near, cap.y1 + acrossY * near, to + nearUp);
+            set(c, 2, cap.x1 + acrossX * far, cap.y1 + acrossY * far, to + farUp);
+            set(c, 3, cap.x0 + acrossX * far, cap.y0 + acrossY * far, from + farUp);
+            SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
         }
     }
 
@@ -3197,6 +3302,27 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             steepestSaid = String.format(Locale.ROOT, "%s at (%d, %d, %d) nw %.2f se %.2f frame %.0fx%.0f at (%.0f, %.0f) origin (%.0f, %.0f) scale %.0f",
                     roofName, x, y, z, northWest, southEast, frame.width, frame.height, frame.left, frame.top, frame.originU, frame.originV, frame.scale);
         }
+        if (tile.shaped) {
+            // Two slopes on one square: each half of the sprite goes on its own, and where
+            // the map's slope is only one of the two the other half is the mod's own sheet.
+            int[] order = RoofFit.TRIANGLES[tile.crease];
+            for (int triangle = 0; triangle < 2; triangle++) {
+                if ((tile.own >> triangle & 1) == 0) {
+                    continue;
+                }
+                for (int i = 0; i < 3; i++) {
+                    int corner = order[triangle * 3 + i];
+                    set(folded, i, RoofFit.cornerX(corner), RoofFit.cornerY(corner), tile.corners[corner] - z);
+                }
+                geometry.addTriangle(mesh, frame, x, y, z, folded);
+            }
+            roofsFolded++;
+            SpriteGeometry.Mesh sheet = roofSheet();
+            addFolded(sheet, tile, tile.own, true);
+            addFolded(sheet, tile, ~tile.own & 3, false);
+            addFoldEaves(sheet, tile);
+            return;
+        }
         if (own.axis == RoofFit.LEVEL) {
             roofsFlat++;
             float level = (northWest + southEast) / 2f;
@@ -3252,7 +3378,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         SpriteGeometry.addOver(sheet, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
                 under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
                 roofU, roofV, frame.red, frame.green, frame.blue);
-        addEave(sheet, x, y, z, atOrigin, alongX, alongY);
+        addEave(sheet, x, y, z, atOrigin, alongX, alongY, true);
         addRake(sheet, x, y, z, atOrigin, alongX, alongY);
     }
 
@@ -3313,9 +3439,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /**
      * A roof does not stop at the wall. Where a sloping tile is the lowest of its slope, with
      * no roof beyond its low edge, the slope runs on past the wall and a little down: the
-     * eave, with a board closing its end.
+     * eave, with a board closing its end. piped is whether the gutter may empty into a pipe here.
      */
-    private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY) {
+    private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped) {
         float along = alongX != 0f ? alongX : alongY;
         if (Math.abs(along) < Roofs.FLAT) {
             return;
@@ -3382,7 +3508,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // Where the eave ends, at the corner of the building, the gutter empties into a pipe
         // down the wall to the ground.
         // Of the gutter's dark metal: pale, it reads as a post standing at the foot of the gable.
-        if (!hasRoof(alongX != 0f ? x : x - 1, alongX != 0f ? y - 1 : y, z)) {
+        if (piped && !hasRoof(alongX != 0f ? x : x - 1, alongX != 0f ? y - 1 : y, z)) {
             float px = x1 + ox * 0.5f - (alongX != 0f ? Math.signum(out) * EAVE : 0f), py = y1 + oy * 0.5f - (alongX != 0f ? 0f : Math.signum(out) * EAVE);
             float foot = lift;
             for (int turn = 0; turn < 2; turn++) {

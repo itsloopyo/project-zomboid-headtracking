@@ -23,14 +23,23 @@ final class BuildingTests {
         farSlopeStartsPastARoofsLevelTop();
         farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey();
         roofWithBothItsSlopesGetsNoMore();
+        pavementIsNotLooseStone();
     }
 
-    /** A site with the building under squares from one x to another, a floor at one level over a run of x, and rooms at a level from an x on. */
+    private static void pavementIsNotLooseStone() {
+        check(Ground.of("Road_04", "Gravel", true) == Ground.PAVING, "the pale floor of a pavement or a square is paving, whatever it sounds like underfoot");
+        check(Ground.of("Road_04", null, false) == Ground.PAVING, "and so is its edging laid over the floor beside it");
+        check(Ground.of(null, "Gravel", true) == Ground.GRAVEL, "a floor of gravel that is no street's is loose stone");
+        check(Ground.of(null, "Gravel", false) == 0f, "what lies on a floor is not the ground");
+        check(Ground.of("Road_07", null, true) == 0f && Ground.of(null, "Concrete", true) == 0f, "any other ground is what its sheet says");
+    }
+
+    /** A site with the building under squares from one x to another on rows 0 and 1, a floor at one level over a run of x, and rooms at a level from an x on. */
     private static RoofFit.Site site(int builtFrom, int builtTo, int floorLevel, int floorFrom, int floorTo, int roomLevel, int roomTo) {
         return new RoofFit.Site() {
             @Override
-            public boolean built(int x, int y) {
-                return x >= builtFrom && x <= builtTo;
+            public boolean stands(int x, int y, int z) {
+                return x >= builtFrom && x <= builtTo && y >= 0 && y <= 1;
             }
 
             @Override

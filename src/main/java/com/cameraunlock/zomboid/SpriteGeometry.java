@@ -346,6 +346,42 @@ final class SpriteGeometry {
     }
 
     /**
+     * Adds the triangle with its corners at three points of the tile, each (a, b, h) in points,
+     * textured with what the sprite shows there: one half of a roof tile that is folded along
+     * its diagonal. Returns the number of triangles added, which is 0 when the triangle misses
+     * the trimmed sprite.
+     */
+    int addTriangle(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] points) {
+        // The clip works on four corners: the last is given twice.
+        for (int corner = 0; corner < 4; corner++) {
+            int from = Math.min(corner, 2) * 3;
+            setCorner(frame, corner, points[from], points[from + 1], points[from + 2]);
+        }
+        centreU = (corners[CORNER_U] + corners[CORNER_FLOATS + CORNER_U] + corners[CORNER_FLOATS * 2 + CORNER_U]) / 3f;
+        centreV = (corners[CORNER_V] + corners[CORNER_FLOATS + CORNER_V] + corners[CORNER_FLOATS * 2 + CORNER_V]) / 3f;
+        alongSlant = 0f;
+        halfAcross = 0f;
+        halfDown = 0f;
+        int covered = clipToFrame(frame, 0f);
+        if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
+            return 0;
+        }
+        int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
+        float da1 = points[3] - points[0], db1 = points[4] - points[1], up1 = (points[5] - points[2]) * ViewCamera.LEVEL_HEIGHT;
+        float da2 = points[6] - points[0], db2 = points[7] - points[1], up2 = (points[8] - points[2]) * ViewCamera.LEVEL_HEIGHT;
+        float turn = Math.signum(da1 * db2 - db1 * da2);
+        mesh.open = frame.open + frame.kind + 32f * frame.material;
+        mesh.face(turn * (db1 * up2 - up1 * db2), turn * (up1 * da2 - da1 * up2), turn * (da1 * db2 - db1 * da2));
+        float[] from = result;
+        for (int i = 1; i < count - 1; i++) {
+            emit(mesh, frame, tileX, tileY, tileZ, from, 0);
+            emit(mesh, frame, tileX, tileY, tileZ, from, i);
+            emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
+        }
+        return count - 2;
+    }
+
+    /**
      * Adds a piece of furniture as the box it fills. The game drew the sprite looking down from
      * the south-east, so its outline says how big the box is: its width is the box's footprint,
      * its lowest pixel the footprint's near corner, its highest the far corner of the top. The
@@ -716,6 +752,17 @@ final class SpriteGeometry {
         float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
         mesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
         for (int corner : QUAD) {
+            mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], u, v, red, green, blue);
+        }
+    }
+
+    /** Adds the triangle with corners c, each (x, y, up), facing up, every vertex with the one texel (u, v). */
+    static void addTriangle(Mesh mesh, float[] c, float u, float v, float red, float green, float blue) {
+        float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
+        float vx = c[6] - c[0], vy = c[7] - c[1], vz = c[8] - c[2];
+        float turn = Math.signum(ux * vy - uy * vx);
+        mesh.face(turn * (uy * vz - uz * vy), turn * (uz * vx - ux * vz), turn * (ux * vy - uy * vx));
+        for (int corner = 0; corner < 3; corner++) {
             mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], u, v, red, green, blue);
         }
     }

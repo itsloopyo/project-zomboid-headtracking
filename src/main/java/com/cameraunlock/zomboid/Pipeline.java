@@ -1021,13 +1021,17 @@ final class Pipeline {
                     // Gravel only where the game says the ground is gravel. Told from tarmac by
                     // how light the ground is, every street in the sun was a bed of pebbles.
                     float loose = vMaterial > 53.5 && vMaterial < 54.5 ? stony : 0.0;
-                    float dark = stony - loose;
+                    // The pale floor of pavements, squares and car parks is laid slabs: it has
+                    // neither the stones of a drive nor the grain and the colour of tarmac.
+                    float paved = vMaterial > 54.5 && vMaterial < 55.5 ? stony : 0.0;
+                    float dark = stony - loose - paved;
                     // A picture is about a pace and a half of ground: its stones come out the size of gravel.
                     vec2 one = p * 0.83;
                     vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
-                            + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
+                            + loose * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
+                            + paved * vec3(0.95 + 0.1 * patches(p * 7.3 + 13.0))
                             // Earth only where the game says the ground is earth: what is brown may as well be planks.
                             + (1.0 - stony - green) * (vMaterial > 3.5 && vMaterial < 51.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
@@ -1038,7 +1042,20 @@ final class Pipeline {
                     // colour, which is the season's.
                     float fine = dot(grain3, vec3(0.299, 0.587, 0.114));
                     float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
-                    texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * stony);
+                    texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved));
+                    if (paved > 0.0) {
+                        // Two slabs to a tile, each row laid half a slab along from the last,
+                        // no two quite the same grey, with a dark joint between them. Joints
+                        // finer than a pixel are left out: they would only crawl.
+                        vec2 slab = p * 2.0;
+                        slab.x += 0.5 * mod(floor(slab.y), 2.0);
+                        vec2 toJoint = min(fract(slab), 1.0 - fract(slab)) * 0.5;
+                        vec2 soft = fwidth(p);
+                        float seen = paved * (1.0 - smoothstep(0.06, 0.2, max(soft.x, soft.y)));
+                        float joint = max(1.0 - smoothstep(0.008, 0.008 + soft.x, toJoint.x), 1.0 - smoothstep(0.008, 0.008 + soft.y, toJoint.y));
+                        float tone = grain(floor(slab));
+                        texel.rgb *= (1.0 + (tone - 0.5) * 0.08 * seen) * (1.0 - 0.3 * joint * seen);
+                    }
                     float near = 1.0 - smoothstep(5.0, 16.0, range);
                     if (near > 0.0) {
                         float e = 0.012;
@@ -1047,7 +1064,7 @@ final class Pipeline {
                         float depth = (0.05 - 0.035 * stony + 0.135 * loose) * near;
                         n = normalize(n - vec3(east - here, south - here, 0.0) * (depth / e));
                         texel.rgb *= 1.0 + (here - 0.5) * (0.25 - 0.18 * stony + 0.48 * loose) * near;
-                        grit = stony * near * here;
+                        grit = (stony - paved) * near * here;
                     }
                 }
 
@@ -1057,7 +1074,10 @@ final class Pipeline {
                 // shingle, of old paint, of floorboards. Its light and dark only.
                 // A sheet with no sprite that is marked as shingle is the mod's own roofing: it
                 // is the grey of shingle, in sun as in shade.
-                if (vMaterial > 0.5 && vMaterial < 1.5 && min(texel.r, min(texel.g, texel.b)) > 0.99) {
+                // The cap along a ridge or a hip is the roof's own covering.
+                bool capping = vMaterial > 52.5 && vMaterial < 53.5;
+                bool roofing = capping || vMaterial > 0.5 && vMaterial < 1.5;
+                if (roofing && min(texel.r, min(texel.g, texel.b)) > 0.99) {
                     texel.rgb = vec3(0.3, 0.3, 0.32);
                 }
                 // So are the mod's own kerbs, of concrete, and the walls of its quays, of dark
@@ -1065,20 +1085,33 @@ final class Pipeline {
                 if (vMaterial > 8.5 && vMaterial < 10.5) {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
-                if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
+                // A kerb is cast in lengths: pale concrete, a little uneven in its grey, with
+                // a joint where one length ends and the next begins.
+                if (vMaterial > 63.5) {
+                    float along = dot(vWorld.xy, vec2(n.y, -n.x));
+                    float poured = patches(vec2(along * 2.3, vWorld.z * 11.0)) * 0.6 + patches(vec2(along * 19.0, vWorld.z * 37.0) + 3.0) * 0.4;
+                    float toJoint = abs(fract(along / 1.5) - 0.5) * 1.5;
+                    float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along), 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
+                    texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);
+                }
+                if (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
-                    float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
+                    float fine = roofing ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
                             : vMaterial < 3.5 ? dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z
                             : vMaterial < 6.5 ? dot(texture2D(uBark, across * vec2(1.6, 0.8)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
                             : vMaterial < 7.5 ? dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y
                             : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
-                    float much = vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
+                    float much = roofing ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
                     // What is painted white is paint over the wood: its grain barely shows.
                     if (vMaterial > 2.5 && vMaterial < 3.5) {
                         much *= 1.0 - 0.75 * smoothstep(0.6, 0.85, min(texel.r, min(texel.g, texel.b)));
                     }
                     texel.rgb *= mix(1.0, fine, much);
+                }
+                // It has had the weather longest, and is a shade darker than the slopes it joins.
+                if (capping) {
+                    texel.rgb *= 0.72;
                 }
                 if (model && (surface < 4.5 || surface > 14.5 && surface < 15.5)) {
                     // Furniture is seen from nearer than a floor is, so its grain is finer: the
@@ -1417,7 +1450,7 @@ final class Pipeline {
                 }
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
-                vLeaves = material > 4.5 && material < 5.5 || material > 54.5 && material < 55.5 ? 1.0 : 0.0;
+                vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
                 vAt = gl_Vertex.xyz;
                 gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
             }

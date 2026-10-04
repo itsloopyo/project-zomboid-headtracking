@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -28,6 +29,8 @@ final class Roofs {
     private static final float STEEPEST = 0.55f;
     /** A roof sprite narrower than this, in unscaled pixels, is a fitting on the roof and not a tile of it. */
     static final float WHOLE_TILE_WIDE = 50f;
+    /** This many rows of a sprite with nothing painted on them end what is painted above them, in frame pixels at tile scale 1. */
+    private static final float PAINT_GAP = 3f;
     private static final int KEPT = 600, RETRIED = 30;
     /** The most tiles read as one roof. */
     private static final int MOST = 4000;
@@ -64,6 +67,21 @@ final class Roofs {
      */
     private static final HashMap<Long, Laid> made = new HashMap<>();
     private static final HashMap<Long, ArrayList<Laid>> madeByChunk = new HashMap<>();
+
+    /** One length of the cap along a ridge or down a hip, and the roof it is on. */
+    static final class Capped {
+        final RoofFit.Cap cap;
+        final Roof roof;
+
+        Capped(RoofFit.Cap cap, Roof roof) {
+            this.cap = cap;
+            this.roof = roof;
+        }
+    }
+
+    /** The caps of the roofs read, by where each is and by the chunk its middle is in: kept and dropped as the made tiles are. */
+    private static final HashMap<Long, Capped> capped = new HashMap<>();
+    private static final HashMap<Long, ArrayList<Capped>> cappedByChunk = new HashMap<>();
     private static final int MADE_KEPT = 3 * KEPT;
     /** How many levels over a place are looked through for what roofs it. */
     private static final int LOOKED_ABOVE = 3;
@@ -135,10 +153,44 @@ final class Roofs {
             for (RoofFit.Tile tile : tiles) {
                 highest = Math.max(highest, tile.z);
             }
-            for (RoofFit.Tile back : RoofFit.backs(tiles, site(cell, highest))) {
+            List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest));
+            for (RoofFit.Tile back : backs) {
                 keep(new Laid(back, null, roof));
             }
+            for (RoofFit.Cap cap : RoofFit.caps(tiles, backs)) {
+                keep(new Capped(cap, roof));
+            }
         }
+    }
+
+    private static void keep(Capped cap) {
+        float middleX = (cap.cap.x0 + cap.cap.x1) / 2f, middleY = (cap.cap.y0 + cap.cap.y1) / 2f;
+        // Two caps are never nearer than half a tile, so twice the middle, rounded, names one.
+        long key = RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), 0);
+        long chunk = RoofFit.key(Math.floorDiv((int) Math.floor(middleX), WorldScene.CHUNK_TILES), Math.floorDiv((int) Math.floor(middleY), WorldScene.CHUNK_TILES), 0);
+        Capped was = capped.put(key, cap);
+        if (was != null) {
+            for (ArrayList<Capped> held : cappedByChunk.values()) {
+                held.remove(was);
+            }
+        }
+        cappedByChunk.computeIfAbsent(chunk, unused -> new ArrayList<>()).add(cap);
+    }
+
+    /** The caps of ridges and hips whose middles lie in a chunk, or null for a chunk with none. */
+    static ArrayList<Capped> cappedIn(int chunkX, int chunkY, int now) {
+        ArrayList<Capped> held = cappedByChunk.get(RoofFit.key(chunkX, chunkY, 0));
+        if (held == null) {
+            return null;
+        }
+        for (int i = held.size() - 1; i >= 0; i--) {
+            Capped cap = held.get(i);
+            if (now - cap.roof.stamp > MADE_KEPT) {
+                held.remove(i);
+                capped.values().remove(cap);
+            }
+        }
+        return held;
     }
 
     private static void keep(Laid back) {
@@ -177,14 +229,20 @@ final class Roofs {
     private static RoofFit.Site site(IsoCell cell, int highest) {
         return new RoofFit.Site() {
             @Override
-            public boolean built(int x, int y) {
-                for (int z = 0; z <= highest; z++) {
-                    IsoGridSquare square = cell.getGridSquare(x, y, z);
-                    if (square != null && square.getBuilding() != null) {
-                        return true;
+            public boolean stands(int x, int y, int z) {
+                boolean built = false;
+                for (int level = 0; level <= highest; level++) {
+                    IsoGridSquare square = cell.getGridSquare(x, y, level);
+                    if (square == null) {
+                        continue;
+                    }
+                    built |= square.getBuilding() != null;
+                    // A floor in the open air is a flat roof, and what is under it stops there.
+                    if (level > 0 && level < z && square.getRoomID() == -1L && (square.getFloor() != null || roofing(square))) {
+                        return false;
                     }
                 }
-                return false;
+                return built;
             }
 
             @Override
@@ -263,6 +321,16 @@ final class Roofs {
     static RoofFit.Tile measure(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
+        boolean fitting = frame.width <= WHOLE_TILE_WIDE * frame.scale;
+        // A few sprites have a stray pixel or two far from the tile, at the foot of the
+        // frame, and their outline then runs from the tile to the stray. The tile is the
+        // longest run of rows with paint on them.
+        if (Math.abs(northWest - southEast) > STEEPEST && !fitting) {
+            int first = (int) frame.top, last = first + (int) frame.height - 1;
+            int[] rows = RoofFit.longestRun(last - first + 1, Math.round(PAINT_GAP * frame.scale), row -> paintedRow(frame, texture, first + row));
+            northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, first + rows[0]);
+            southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, first + rows[1] + 1);
+        }
         // Some roof sprites have more painted on them than the slope, the end of the roof or
         // a board up its edge, and their outline then says the tile climbs a whole floor. Such
         // a tile is taken to rise a third of a floor from its lowest drawn point, which is the
@@ -275,9 +343,10 @@ final class Roofs {
             }
         }
         if (Math.abs(northWest - southEast) < FLAT) {
-            return new RoofFit.Tile(x, y, z, RoofFit.LEVEL, true, z + northWest, z + southEast);
+            return tile(x, y, z, RoofFit.LEVEL, true, z + northWest, z + southEast, fitting);
         }
         int alongY = 0, alongX = 0;
+        boolean southWestAlongY = false, northEastAlongX = false;
         // South-west corner, then north-east: the two the slope's direction decides.
         for (int i = 0; i < 2; i++) {
             float a = i, b = 1 - i;
@@ -288,9 +357,16 @@ final class Roofs {
             boolean atX = texture.isMaskSet(u, Math.round(SpriteGeometry.frameV(frame, a, b, i == 0 ? northWest : southEast)));
             if (atY && !atX) {
                 alongY++;
+                southWestAlongY |= i == 0;
             } else if (atX && !atY) {
                 alongX++;
+                northEastAlongX |= i == 1;
             }
+        }
+        // Each of the two corners says a different way: both are at the height of the same
+        // one of the other two, and the tile is where two slopes meet.
+        if (alongX == 1 && alongY == 1 && !fitting) {
+            return tile(x, y, z, southWestAlongY && northEastAlongX ? RoofFit.NORTH_WEST_ODD : RoofFit.SOUTH_EAST_ODD, true, z + northWest, z + southEast, false);
         }
         if (alongX == alongY && frame.width > WHOLE_TILE_WIDE * frame.scale) {
             // The corners did not say. The sprite's two ends do: its left end is the tile's
@@ -307,7 +383,22 @@ final class Roofs {
                 }
             }
         }
-        return new RoofFit.Tile(x, y, z, alongX > alongY ? RoofFit.ALONG_X : RoofFit.ALONG_Y, alongX != alongY, z + northWest, z + southEast);
+        return tile(x, y, z, alongX > alongY ? RoofFit.ALONG_X : RoofFit.ALONG_Y, alongX != alongY, z + northWest, z + southEast, fitting);
+    }
+
+    private static RoofFit.Tile tile(int x, int y, int z, int axis, boolean sure, float low, float high, boolean fitting) {
+        RoofFit.Tile tile = new RoofFit.Tile(x, y, z, axis, sure, low, high);
+        tile.fitting = fitting;
+        return tile;
+    }
+
+    private static boolean paintedRow(SpriteGeometry.Frame frame, Texture texture, int v) {
+        for (int u = (int) frame.left; u < frame.left + frame.width; u++) {
+            if (texture.isMaskSet(u, v)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The middle of what is painted in column u of the sprite, as a frame row. NaN if nothing is. */

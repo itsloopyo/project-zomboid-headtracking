@@ -962,6 +962,7 @@ public final class Tests {
         wallTintSurvivesItsPacking();
         meshesAreKeptByTextureAndTint();
         BuildingTests.run();
+        RoofTests.run();
         ShapeTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         System.out.println("all tests passed");
