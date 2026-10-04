@@ -1316,6 +1316,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // the sprite has in the middle of the bed's top, as high as the game says a bed is.
             float high = properties.getSurface() > 0 ? properties.getSurface() / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
             geometry.addBlock(mesh, frame, x, y, z, high, 0.5f, 0.5f, high);
+            // Over the block, what the sprite shows of the bed's top: the pillow, the fold of the
+            // blanket. Where the sprite stops short the block's own colour carries on.
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, high + 2f * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
             boxes++;
             return;
         }
