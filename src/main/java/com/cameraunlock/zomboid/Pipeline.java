@@ -451,6 +451,12 @@ final class Pipeline {
                 if (dot(n, view) < 0.0) {
                     n = -n;
                 }
+                // A tuft of grass is lit as the ground it grows from is, from above. Lit as the
+                // card it is drawn on, each tuft is a flat pane brighter or darker than the
+                // next, and a lawn is a heap of green blocks.
+                if (grass) {
+                    n = normalize(vec3(n.xy * 0.2, 1.0));
+                }
 
                 // Open ground. The game has a handful of squares of each ground and lays them
                 // side by side, so a road or a yard is the same square over and over. Real
