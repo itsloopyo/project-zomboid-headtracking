@@ -2159,7 +2159,10 @@ final class Pipeline {
                 if (dot(facing, line) > 0.0) {
                     facing = -facing;
                 }
-                if (dot(facing, uUp) > 0.9) {
+                // Read off depth, the way a level surface faces is only roughly up, and with
+                // the head rolled each column of the picture reads it a little differently:
+                // the mirror is ruled with lines. Whatever faces more up than sideways is level.
+                if (dot(facing, uUp) > 0.6) {
                     facing = uUp;
                 }
                 vec3 thrown = reflect(line, facing);
