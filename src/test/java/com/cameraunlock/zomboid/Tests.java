@@ -57,7 +57,139 @@ public final class Tests {
         smoothNormalsAgreeAcrossASeam();
         fineSkinFileIsNamedAfterTheGamesTexture();
         hookBeforeAReturnGetsTheResultAndTheFirstArgument();
+        packedModelIsReadBack();
+        brokenModelFilesAreRefused();
+        quarterTurnsCarryAModelsFrontRoundTheCompass();
+        modelStandsWhereItIsPutAndTakesItsDye();
+        jarHoldsEveryModelStoodOnTheFloor();
         System.out.println("all tests passed");
+    }
+
+    /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */
+    private static java.nio.ByteBuffer packedWedge() {
+        java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(256).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(1).putInt(1);
+        out.put((byte) 5).put("wedge".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
+        out.putInt(1);
+        out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
+        out.putFloat(0f).putFloat(2f).putFloat(1f).putFloat(0f).putFloat(0f).putFloat(1f).put((byte) Models.CLOTH).put((byte) 51);
+        out.putFloat(1f).putFloat(0f).putFloat(0.5f).putFloat(1f).putFloat(0f).putFloat(0f).put((byte) Models.METAL).put((byte) 0);
+        return out.flip();
+    }
+
+    private static java.io.InputStream gzipped(java.nio.ByteBuffer plain) throws java.io.IOException {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.GZIPOutputStream packed = new java.util.zip.GZIPOutputStream(bytes)) {
+            packed.write(plain.array(), 0, plain.limit());
+        }
+        return new java.io.ByteArrayInputStream(bytes.toByteArray());
+    }
+
+    private static Models.Model wedge() throws java.io.IOException {
+        return Models.read(gzipped(packedWedge())).get("wedge");
+    }
+
+    private static void packedModelIsReadBack() throws java.io.IOException {
+        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedge()));
+        check(models.size() == 1 && models.containsKey("wedge"), "the file's one model is read under its name");
+        Models.Model wedge = models.get("wedge");
+        check(wedge.triangles() == 1, "it has the one triangle");
+        check(near(wedge.width(), 2f) && near(wedge.depth(), 4f) && near(wedge.height(), 1f), "its bounds give its size");
+        check(near(wedge.vertices[6], 0f) && near(wedge.vertices[7], 2f) && near(wedge.vertices[8], 1f), "the second vertex is where it was packed");
+        check(near(wedge.vertices[11], 1f), "and looks up, as packed");
+        check(wedge.surface[0] == Models.WOOD && wedge.surface[1] == Models.CLOTH && wedge.surface[2] == Models.METAL, "each vertex keeps its surface");
+        check(near(wedge.reached[0], 1f) && near(wedge.reached[1], 0.2f) && near(wedge.reached[2], 0f), "and how much light reaches it, as a share");
+    }
+
+    private static void brokenModelFilesAreRefused() throws java.io.IOException {
+        java.nio.ByteBuffer otherFile = packedWedge();
+        otherFile.put(0, (byte) 'X');
+        refused(otherFile, "does not start with CUFM");
+        java.nio.ByteBuffer laterFormat = packedWedge();
+        laterFormat.putInt(4, 2);
+        refused(laterFormat, "format 2");
+        java.nio.ByteBuffer cutShort = packedWedge();
+        cutShort.limit(cutShort.limit() - 10);
+        refused(cutShort, "the file ends before that many");
+        java.nio.ByteBuffer unknownSurface = packedWedge();
+        unknownSurface.put(unknownSurface.limit() - 2, (byte) 7);
+        refused(unknownSurface, "surface 7");
+        java.nio.ByteBuffer trailing = packedWedge();
+        trailing.limit(trailing.limit() + 3);
+        refused(trailing, "3 bytes follow the last model");
+    }
+
+    private static void refused(java.nio.ByteBuffer plain, String why) throws java.io.IOException {
+        try {
+            Models.read(gzipped(plain));
+        } catch (java.io.IOException e) {
+            check(e.getMessage().contains(why), "a broken file of models is refused for what is wrong with it, got: " + e.getMessage());
+            return;
+        }
+        throw new AssertionError("a file of models was read that should be refused: " + why);
+    }
+
+    private static void quarterTurnsCarryAModelsFrontRoundTheCompass() {
+        float[] out = new float[2];
+        // The map's x runs east and its y south. A model's front is its -y.
+        float[][] fronts = {{0f, -1f}, {1f, 0f}, {0f, 1f}, {-1f, 0f}};
+        for (int turns = 0; turns < 4; turns++) {
+            Models.turn(turns, 0f, -1f, out);
+            check(near(out[0], fronts[turns][0]) && near(out[1], fronts[turns][1]), "the front faces north, east, south and west in turn, at turn " + turns);
+            // Seen from above the map, with north up, clockwise is from north to east. Whoever
+            // stands in front of the piece looking at it has the model's +x on their right.
+            float lookX = -out[0], lookY = -out[1];
+            Models.turn(turns, 1f, 0f, out);
+            check(near(out[0], -lookY) && near(out[1], lookX), "the model's +x is on the right of whoever faces its front, at turn " + turns);
+            Models.turn(turns, 3f, 4f, out);
+            check(near(out[0] * out[0] + out[1] * out[1], 25f), "a turn keeps lengths, at turn " + turns);
+        }
+        Models.turn(5, 0f, -1f, out);
+        check(near(out[0], 1f) && near(out[1], 0f), "five quarter turns are one");
+    }
+
+    private static void modelStandsWhereItIsPutAndTakesItsDye() throws java.io.IOException {
+        Models.Model wedge = wedge();
+        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh(), dyed = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        light.light(0.5f, 0.6f, 0.7f);
+        light.open = 1f;
+        // Facing east at half size, its middle at (10.5, 20.5), on a floor 2.5 up. The cloth is dyed.
+        Models.add(wedge, plain, dyed, 1 << Models.CLOTH, 0.25f, 0.75f, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f);
+        check(plain.floats == 2 * SpriteGeometry.VERTEX_FLOATS && dyed.floats == SpriteGeometry.VERTEX_FLOATS, "the dyed surface alone goes to the sprite's mesh");
+        float[] wood = plain.vertices;
+        // The model's (-1, -2, 0) faces east: its -y is the map's +x, its +x the map's -y.
+        check(near(wood[0], 11.5f) && near(wood[1], 21f) && near(wood[2], 2.5f), "a vertex is turned, scaled and moved to where the model stands");
+        check(near(wood[3], 0f) && near(wood[4], 0f), "a surface with a colour of its own looks at no texel");
+        check(near(wood[5], 0.5f) && near(wood[6], 0.6f) && near(wood[7], 0.7f), "it carries the square's light");
+        check(near(wood[8], 1f + 32f * (Models.FIRST_MATERIAL + Models.WOOD)), "and says what it is made of, and that it is out of doors");
+        check(near(wood[9], 1f) && near(wood[10], 0f) && near(wood[11], 0f), "the way it looks is turned with it: the front looks east");
+        float[] cloth = dyed.vertices;
+        check(near(cloth[0], 9.5f) && near(cloth[1], 20.5f) && near(cloth[2], 3f), "the dyed vertex stands with the rest");
+        check(near(cloth[3], 0.25f) && near(cloth[4], 0.75f), "and looks at the texel that dyes it");
+        // The picture raises the colour to the power 2.2, which leaves the fifth of the light the vertex was packed with.
+        float fifth = (float) Math.pow(0.2, 1.0 / 2.2);
+        check(near(cloth[5], 0.5f * fifth) && near(cloth[6], 0.6f * fifth) && near(cloth[7], 0.7f * fifth),
+                "what reaches a vertex of the square's light is what the model lets through");
+        check(near(cloth[8], 1f + 32f * (Models.FIRST_DYED_MATERIAL + Models.CLOTH)), "and is marked as taking its colour from the sprite");
+        check(near(cloth[11], 1f), "what looks up still looks up");
+    }
+
+    private static void jarHoldsEveryModelStoodOnTheFloor() {
+        for (String name : new String[] {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "bedside_cabinet"}) {
+            Models.Model model = Models.get(name);
+            check(model.triangles() > 100 && model.triangles() <= 6000, name + " is a model of a size to draw, at " + model.triangles() + " triangles");
+            check(near(model.minZ, 0f), name + " stands on the floor");
+            check(Math.abs(model.minX + model.maxX) < 1e-3f && Math.abs(model.minY + model.maxY) < 1e-3f, name + " has its origin at the middle of its footprint");
+            for (int at = 0; at < model.vertices.length; at += Models.VERTEX_FLOATS) {
+                float[] v = model.vertices;
+                float length = (float) Math.sqrt(v[at + 3] * v[at + 3] + v[at + 4] * v[at + 4] + v[at + 5] * v[at + 5]);
+                // The picture reads a longer normal as a plant that moves with the wind.
+                check(Math.abs(length - 1f) < 1e-3f, name + " has unit normals, and one is " + length);
+                check(v[at] >= model.minX - 1e-4f && v[at] <= model.maxX + 1e-4f && v[at + 2] <= model.maxZ + 1e-4f, name + " lies inside its bounds");
+            }
+        }
     }
 
     private static void fineSkinFileIsNamedAfterTheGamesTexture() {

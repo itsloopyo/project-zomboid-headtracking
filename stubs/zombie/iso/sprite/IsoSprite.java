@@ -10,4 +10,6 @@ public final class IsoSprite {
     public Texture getTextureForCurrentFrame(IsoDirections direction) { throw new UnsupportedOperationException("reference stub"); }
     public IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }
     public String getName() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoSpriteGrid getSpriteGrid() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoDirections getFacing() { throw new UnsupportedOperationException("reference stub"); }
 }

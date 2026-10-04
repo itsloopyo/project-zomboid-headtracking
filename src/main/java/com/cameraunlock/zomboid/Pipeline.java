@@ -318,7 +318,21 @@ final class Pipeline {
             uniform sampler2D uCarpet;
             uniform vec3 uTimberGain;
             uniform float uLeafGain;
+            uniform sampler2D uCloth;
+            uniform float uClothGain;
 
+            // The light and dark of a material's picture on a rounded thing. A sprite's face is
+            // flat and takes the picture along itself. Round a cushion there is no one such way,
+            // so the picture is laid on from each of the three axes and the three are mixed by
+            // how squarely the surface faces each: the grain holds still as the surface turns.
+            float wrapped(sampler2D picture, vec3 at, vec3 facing, float size) {
+                vec3 share = facing * facing;
+                share *= share;
+                share /= share.x + share.y + share.z;
+                vec3 tone = vec3(0.299, 0.587, 0.114);
+                return dot(texture2D(picture, at.yz * size).rgb, tone) * share.x + dot(texture2D(picture, at.xz * size).rgb, tone) * share.y
+                        + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
+            }
 
             float grain(vec2 p) {
                 // Map positions are in the thousands, and scaled up for fine detail they pass
@@ -565,7 +579,7 @@ final class Pipeline {
                 // Chain link is thin galvanised wire. The game paints it as heavy dark strokes,
                 // which up close are a black lattice: here the wire is half as thick and the
                 // grey of zinc.
-                if (vMaterial > 14.5) {
+                if (vMaterial > 14.5 && vMaterial < 15.5) {
                     // Far off, where a pixel takes in several wires, the fence is a veil and is
                     // let through by how much of the pixel is wire.
                     if (cover < (small ? 0.12 + 0.3 * grain(gl_FragCoord.xy) : 0.72)) {
@@ -574,7 +588,33 @@ final class Pipeline {
                     cover = 1.0;
                     texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
                 }
-                if (cover < (upright ? min(uCut, 0.1) : uCut)) {
+                // The mod's own furniture is a model and has no sprite. Its surface says what it
+                // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
+                // cotton, metal, paint. Where the game's sprite of the piece is to say what
+                // colour it is, a green sofa or a blue blanket, the vertex looks at one place on
+                // that sprite, taken broadly so that a line of the drawing does not dye the
+                // whole piece, and is solid whatever the sprite is there.
+                bool model = vMaterial > 15.5;
+                float surface = -1.0;
+                if (model) {
+                    bool dyed = vMaterial > 23.5;
+                    surface = vMaterial - (dyed ? 24.0 : 16.0);
+                    vec3 own = surface < 0.5 ? vec3(0.66, 0.5, 0.32) : surface < 1.5 ? vec3(0.33, 0.22, 0.15) : surface < 2.5 ? vec3(0.46, 0.48, 0.52)
+                            : surface < 3.5 ? vec3(0.88, 0.86, 0.8) : surface < 4.5 ? vec3(0.95, 0.95, 0.93) : surface < 5.5 ? vec3(0.62, 0.6, 0.56)
+                            : vec3(0.9, 0.89, 0.86);
+                    if (dyed) {
+                        vec4 sum = vec4(0.0);
+                        for (int i = 0; i < 5; i++) {
+                            vec2 off = (i == 0 ? vec2(0.0) : i == 1 ? vec2(4.0, 0.0) : i == 2 ? vec2(-4.0, 0.0) : i == 3 ? vec2(0.0, 4.0) : vec2(0.0, -4.0)) * uTexel;
+                            vec4 near = texture2D(uTexture, vUv + off);
+                            sum += vec4(near.rgb * near.a, near.a);
+                        }
+                        if (sum.a > 0.5) {
+                            own = sum.rgb / sum.a;
+                        }
+                    }
+                    texel = vec4(own, 1.0);
+                } else if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
                 vec3 toEye = uEye - vWorld;
@@ -598,7 +638,7 @@ final class Pipeline {
                 // to it is made of stones and grit that the sun catches. Both are worked out
                 // from where the ground is on the map, so they never repeat and they stay put.
                 float grit = 0.0;
-                if (vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
+                if (!model && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
                     texel.rgb *= 0.78 + 0.44 * wide;
@@ -668,6 +708,13 @@ final class Pipeline {
                         much *= 1.0 - 0.75 * smoothstep(0.6, 0.85, min(texel.r, min(texel.g, texel.b)));
                     }
                     texel.rgb *= mix(1.0, fine, much);
+                }
+                if (model && surface < 4.5) {
+                    // Furniture is seen from nearer than a floor is, so its grain is finer: the
+                    // wood's a hand across, the cloth's a weave. Linen and a pillow show less
+                    // of it than a blanket does.
+                    float fine = surface < 1.5 ? wrapped(uWood, vWorld, n, 0.9) * uSurfaceGain.z : wrapped(uCloth, vWorld, n, 6.0) * uClothGain;
+                    texel.rgb *= mix(1.0, fine, surface < 1.5 ? 0.45 : surface < 2.5 ? 0.4 : surface < 3.5 ? 0.25 : 0.15);
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
@@ -775,6 +822,14 @@ final class Pipeline {
                     // Under trees the sky's light is thinned and green, not gone.
                     fromSky *= mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range));
                 }
+                if (model) {
+                    // The game's light for a square comes from no direction, and a sprite needs
+                    // none: its shading is painted on. A model lit the same from every side is
+                    // a flat shape of one colour. A room's light comes mostly from above, off
+                    // the ceiling and down through the windows, and a little more from one side
+                    // than the other, so a model takes most of it on what faces up.
+                    fromSky *= mix(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8)), 1.0, open);
+                }
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
@@ -827,8 +882,15 @@ final class Pipeline {
                     if (vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
                     }
+                    // Of the mod's own furniture the wood is planed and waxed, the cloth dull, and
+                    // a handle is bare metal, which mirrors far more than anything else does.
+                    float mirrors = 0.04;
+                    if (model) {
+                        rough = surface < 1.5 ? 0.38 : surface < 4.5 ? 0.9 : surface < 5.5 ? 0.3 : 0.5;
+                        mirrors = surface > 4.5 && surface < 5.5 ? 0.55 : 0.04;
+                    }
                     rough = mix(rough, 0.18, shine);
-                    color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
+                    color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
@@ -3199,6 +3261,8 @@ final class Pipeline {
         world.set("uTimberGain", materialGain[7], materialGain[8], materialGain[9]);
         world.set("uLeaves", FIRST_MATERIAL_UNIT + 10);
         world.set("uLeafGain", materialGain[10]);
+        world.set("uCloth", FIRST_MATERIAL_UNIT + 12);
+        world.set("uClothGain", materialGain[12]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);

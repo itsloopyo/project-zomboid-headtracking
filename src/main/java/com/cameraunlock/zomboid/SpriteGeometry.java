@@ -118,6 +118,29 @@ final class SpriteGeometry {
             vertices[floats++] = normalY * (1f + sway);
             vertices[floats++] = normalUp * (1f + sway);
         }
+
+        /**
+         * Adds a vertex of a rounded thing, which looks its own way: (normalX, normalY, normalUp)
+         * is a unit vector. A sprite's face is flat and all its vertices share the way set by face.
+         */
+        void addRounded(float x, float y, float up, float u, float v, float red, float green, float blue,
+                float normalX, float normalY, float normalUp) {
+            if (floats + VERTEX_FLOATS > vertices.length) {
+                vertices = Arrays.copyOf(vertices, vertices.length * 2);
+            }
+            vertices[floats++] = x;
+            vertices[floats++] = y;
+            vertices[floats++] = up;
+            vertices[floats++] = u;
+            vertices[floats++] = v;
+            vertices[floats++] = red;
+            vertices[floats++] = green;
+            vertices[floats++] = blue;
+            vertices[floats++] = open;
+            vertices[floats++] = normalX;
+            vertices[floats++] = normalY;
+            vertices[floats++] = normalUp;
+        }
     }
 
     /**
@@ -256,6 +279,18 @@ final class SpriteGeometry {
     /** Frame pixel down of a point on the tile. */
     static float frameV(Frame frame, float a, float b, float h) {
         return ((a + b) * PIXELS_DOWN_PER_TILE - h * PIXELS_PER_LEVEL) * frame.scale + frame.originV;
+    }
+
+    /** Where in its texture the sprite shows the point (a, b) of the tile, across: the nearest texel it has. */
+    static float textureU(Frame frame, float a, float b) {
+        float pixel = Math.clamp(frameU(frame, a, b), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        return frame.uStart + (pixel - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+    }
+
+    /** Where in its texture the sprite shows the point (a, b, h) of the tile, down. */
+    static float textureV(Frame frame, float a, float b, float h) {
+        float pixel = Math.clamp(frameV(frame, a, b, h), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        return frame.vStart + (pixel - frame.top) / frame.height * (frame.vEnd - frame.vStart);
     }
 
     /** The height, in levels, at which the point (a, b) of the tile is drawn on frame row v. */
@@ -453,10 +488,7 @@ final class SpriteGeometry {
      * larger and cannot be wrapped onto a box of its own.
      */
     void addBlock(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float high, float a, float b, float h) {
-        float pixelU = Math.clamp(frameU(frame, a, b), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
-        float pixelV = Math.clamp(frameV(frame, a, b, h), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
-        float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
-        float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        float u = textureU(frame, a, b), v = textureV(frame, a, b, h);
         float foot = tileZ * ViewCamera.LEVEL_HEIGHT + liftAt(0.5f, 0.5f), top = foot + high * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + 32f * frame.material;
         mesh.sway = 0f;

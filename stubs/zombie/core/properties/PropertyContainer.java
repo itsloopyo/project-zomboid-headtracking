@@ -7,4 +7,5 @@ public final class PropertyContainer {
     public int getSurface() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isTable() { throw new UnsupportedOperationException("reference stub"); }
     public boolean has(String property) { throw new UnsupportedOperationException("reference stub"); }
+    public String get(String property) { throw new UnsupportedOperationException("reference stub"); }
 }

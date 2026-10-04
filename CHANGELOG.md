@@ -26,5 +26,6 @@
 - People and zombies near the eye in first person are rounded where the game's models are faceted.
 - A clear day in first person has clearer air, fuller colour and more contrast, warm in the sun and cool in the shade.
 - Vehicles in first person are the size they are in the game's own view. They were drawn half as big again.
+- Beds, wardrobes, sofas, dining chairs, square tables and bedside drawers in first person are solid furniture with rounded edges, cushions, pillows and a turned-down blanket, in the colours the game gives each piece.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.

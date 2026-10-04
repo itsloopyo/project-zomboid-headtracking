@@ -15,6 +15,7 @@ import zombie.core.textures.TextureDraw;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoChunkMap;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
@@ -25,6 +26,7 @@ import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteGrid;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
 
@@ -164,6 +166,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int lowestLevel;
     private int chunksBuilt;
     private int boxes;
+    private int furnished;
     private int spreadFaces;
     private int lifted;
     private int chunksDrawn, squaresLoaded, squaresSeen, sprites, triangles;
@@ -258,9 +261,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     String describe() {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
-                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d spread %d lifted %d models %d | %s",
+                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
     }
 
     static float drawnAspect() {
@@ -295,6 +298,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         chunksBuilt = 0;
         remakes = 0;
         boxes = 0;
+        furnished = 0;
         spreadFaces = 0;
         lifted = 0;
         squaresLoaded = 0;
@@ -640,6 +644,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private void frameOf(IsoObject object, Texture texture) {
+        frameOf(frame, object, texture);
+    }
+
+    private static void frameOf(SpriteGeometry.Frame frame, IsoObject object, Texture texture) {
         frame.originU = object.offsetX;
         frame.originV = object.offsetY;
         // Where a tree's sprite stands on its square the game works out as it draws the tree,
@@ -1322,6 +1330,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
         // way the eye looks at the tree.
         boolean grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
+        if (!grows && addFurniture(object, sprite, x, y, z)) {
+            return;
+        }
         // What the game counts as filling its square, or as something to sit or lie on, is
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
@@ -1331,9 +1342,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             boxes++;
             return;
         }
-        // A wardrobe or a dresser two squares wide is the same case as the bed below: each
-        // square's sprite is half of it, and the outline of a half is not a box. The game
-        // says how high such a thing stands and that it fills its square.
+        // A tall cupboard two squares wide that addFurniture has no model for is the same
+        // case as the bed below: each square's sprite is half of it, and the outline of a half
+        // is not a box. The game says how high such a thing stands and that it fills its square.
         if (!grows && properties.has(IsoFlagType.solid) && properties.getSurface() >= TALL_SURFACE) {
             // Half a square deep, as a wardrobe is, against whichever wall the square has.
             box[0] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
@@ -1346,9 +1357,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             boxes++;
             return;
         }
-        // A bed is two squares long and each square's sprite is half of it, so neither half has
-        // the outline of a box of its own. Each is the whole square wide and as high as a
-        // mattress on its frame.
+        // A bed addFurniture could not lay out, one with a square of it missing, say. It is
+        // two squares long and each square's sprite is half of it, so neither half has the
+        // outline of a box of its own. Each is the whole square wide and as high as a mattress
+        // on its frame.
         // The game marks whatever can be rested on as a bed, chairs too: a bed is told by its sheet.
         if (!grows && sprite.getName() != null && sprite.getName().startsWith("furniture_bedding")) {
             // The sprite of one square of a bed is a part of the bed, and wrapped on a box it
@@ -1426,6 +1438,193 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+    }
+
+    /**
+     * A model is in metres, and the view's lengths are in tiles, along the ground and up
+     * alike: a level is ViewCamera.LEVEL_HEIGHT tiles up, and a pixel of the height the game
+     * gives a surface is LEVEL_HEIGHT / SURFACE_PIXELS_PER_LEVEL of a tile. A tile is taken as
+     * a metre. The character's eye stands 1.6 tiles up and a storey is 2.45, which is what
+     * they are in metres.
+     */
+    private static final float TILES_PER_METRE = 1f;
+    /** How far inside the edge of its squares a piece of furniture stops, in tiles. */
+    private static final float FURNITURE_CLEAR = 0.02f;
+    /** How far the back of a piece that stands against a wall is from the edge of its square: clear of the wall's skin. */
+    private static final float BACK_CLEAR = WALL_HALF + 0.02f;
+
+    /** A sprite the mod has a model for, and how the model stands on the squares the game gives the piece. */
+    private static final class Furniture {
+        final Models.Model model;
+        /** Quarter turns from facing north, as Models.turn takes them. */
+        final int turns;
+        /** The piece's squares when it has more than one, and how many there are along x and y. */
+        final IsoSpriteGrid grid;
+        final int width, height;
+        /** Which of those squares this sprite is. */
+        final int gridX, gridY;
+        /** The surfaces that take their colour from the game's sprite, a bit for each. */
+        final int dyed;
+        /** The square whose sprite gives that colour, and how high above the middle of that square, in levels. */
+        final int dyeX, dyeY;
+        final float dyeHigh;
+        final float scale;
+        /** Where the middle of the model's footprint is from the corner of the piece's first square. */
+        final float centreX, centreY;
+
+        /**
+         * @param topUp        how high the game says the piece's top is, in tiles, for one made as high as that, or 0
+         * @param dyeAtFront   whether the colour is taken from the square at the piece's front and not its first
+         * @param againstBack  whether the piece stands with its back at the edge of its squares and not in the middle of them
+         */
+        Furniture(IsoSprite sprite, String model, int turns, int dyed, float dyeHigh, boolean dyeAtFront, float topUp, boolean againstBack) {
+            this.model = Models.get(model);
+            this.turns = turns;
+            this.dyed = dyed;
+            this.dyeHigh = dyeHigh;
+            grid = sprite.getSpriteGrid();
+            width = grid == null ? 1 : grid.getWidth();
+            height = grid == null ? 1 : grid.getHeight();
+            gridX = grid == null ? 0 : grid.getSpriteGridPosX(sprite);
+            gridY = grid == null ? 0 : grid.getSpriteGridPosY(sprite);
+            boolean alongY = (turns & 1) == 0;
+            float along = alongY ? height : width, across = alongY ? width : height;
+            float fits = Math.min((along - 2f * FURNITURE_CLEAR) / this.model.depth(), (across - 2f * FURNITURE_CLEAR) / this.model.width());
+            scale = Math.min(topUp > 0f ? topUp / this.model.height() : TILES_PER_METRE, fits);
+            float[] front = new float[2];
+            Models.turn(turns, 0f, -1f, front);
+            dyeX = dyeAtFront && front[0] > 0f ? width - 1 : 0;
+            dyeY = dyeAtFront && front[1] > 0f ? height - 1 : 0;
+            float slack = againstBack ? Math.max((along - this.model.depth() * scale) / 2f - BACK_CLEAR, 0f) : 0f;
+            centreX = width / 2f - front[0] * slack;
+            centreY = height / 2f - front[1] * slack;
+        }
+    }
+
+    /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
+    private static final java.util.IdentityHashMap<IsoSprite, Furniture> furniture = new java.util.IdentityHashMap<>();
+    private final SpriteGeometry.Frame dyeFrame = new SpriteGeometry.Frame();
+
+    /**
+     * Which of the mod's models a sprite is a square of, by what the game says the sprite is:
+     * the name it gives the piece, which way the piece faces and the squares it lies on. Null
+     * for a piece of another shape than the models: an armchair is not the dining chair, a
+     * round table not the square one.
+     */
+    private static Furniture recognise(IsoSprite sprite) {
+        String name = sprite.getName();
+        PropertyContainer properties = sprite.getProperties();
+        String called = properties.get("CustomName");
+        IsoSpriteGrid grid = sprite.getSpriteGrid();
+        if (name == null || called == null || grid != null && grid.getLevels() != 1) {
+            return null;
+        }
+        int surface = properties.getSurface();
+        float surfaceHigh = surface / SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
+        IsoDirections facing = sprite.getFacing();
+        if (facing == null) {
+            // A table for four has no front, and the game gives it none.
+            if (grid == null && name.startsWith("furniture_tables_high") && properties.isTable() && !called.contains("Round")
+                    && surface > 0 && surface <= TABLE_HIGHEST) {
+                return new Furniture(sprite, "small_table", 0, 1 << Models.WOOD, surfaceHigh, false, surfaceUp, false);
+            }
+            return null;
+        }
+        // The game gives a facing as one of the four ways along the map's axes.
+        int turns = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+        boolean alongY = (turns & 1) == 0;
+        int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
+        int along = alongY ? height : width, across = alongY ? width : height;
+        // A bed faces the way its foot points, so its head is the model's back. Its blanket's
+        // colour is on the squares of its foot: the squares of its head show the pillows.
+        if (name.startsWith("furniture_bedding") && called.equals("Bed") && along == 2 && across <= 2) {
+            return new Furniture(sprite, across == 2 ? "double_bed" : "single_bed", turns, 1 << Models.CLOTH,
+                    surface > 0 ? surfaceHigh : BED_HEIGHT, true, 0f, false);
+        }
+        if (called.equals("Wardrobe") && properties.has(IsoFlagType.solid) && surface >= TALL_SURFACE && along == 1 && across == 2) {
+            return new Furniture(sprite, "wardrobe", turns, 1 << Models.WOOD, surfaceHigh / 2f, false, surfaceUp, true);
+        }
+        if (name.startsWith("furniture_seating_indoor") && called.equals("Couch") && surface > 0 && along == 1 && across == 2) {
+            return new Furniture(sprite, "sofa", turns, 1 << Models.CLOTH, surfaceHigh, false, 0f, true);
+        }
+        // What the game rates as bad to sleep on is a hard chair. An armchair it rates better.
+        if (name.startsWith("furniture_seating_indoor") && called.equals("Chair") && surface > 0 && grid == null
+                && "badBed".equals(properties.get("BedType"))) {
+            return new Furniture(sprite, "dining_chair", turns, 1 << Models.CLOTH, surfaceHigh, false, 0f, false);
+        }
+        if (called.equals("Drawers") && "sidetable".equals(properties.get("container")) && surface > 0 && grid == null) {
+            return new Furniture(sprite, "bedside_cabinet", turns, 1 << Models.WOOD, surfaceHigh, false, surfaceUp, true);
+        }
+        return null;
+    }
+
+    /**
+     * Stands the mod's own model of a piece of furniture where the game has the sprites of
+     * one, and says whether this sprite is thereby dealt with. A piece on several squares is
+     * one model, added by the first of its squares, and its other squares add nothing.
+     *
+     * False, which leaves the sprite to be drawn as it is, when there is no model of the
+     * piece, when one of its squares is missing, and when the sprite that is to give it its
+     * colour has nothing painted where the colour is taken. Every square of a piece reaches
+     * the same answer, so none of it is drawn twice or left out.
+     */
+    private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
+        if (!furniture.containsKey(sprite)) {
+            furniture.put(sprite, recognise(sprite));
+        }
+        Furniture piece = furniture.get(sprite);
+        if (piece == null) {
+            return false;
+        }
+        int originX = x - piece.gridX, originY = y - piece.gridY;
+        IsoObject dyer = object;
+        if (piece.grid != null) {
+            for (int i = 0; i < piece.width; i++) {
+                for (int j = 0; j < piece.height; j++) {
+                    IsoObject part = holding(cell.getGridSquare(originX + i, originY + j, z), piece.grid.getSprite(i, j));
+                    if (part == null) {
+                        return false;
+                    }
+                    if (i == piece.dyeX && j == piece.dyeY) {
+                        dyer = part;
+                    }
+                }
+            }
+        }
+        Texture dye = dyer.getSprite().getTextureForCurrentFrame(dyer.getDir());
+        if (dye == null || dye.getID() <= 0 || dye.getWidth() <= 0 || dye.getHeight() <= 0) {
+            return false;
+        }
+        dyeFrame.scale = frame.scale;
+        frameOf(dyeFrame, dyer, dye);
+        if (!dye.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, 0.5f, 0.5f)), Math.round(SpriteGeometry.frameV(dyeFrame, 0.5f, 0.5f, piece.dyeHigh)))) {
+            return false;
+        }
+        // What the game lays over the piece's sprite, a stain, has no place on the model.
+        if (piece.gridX != 0 || piece.gridY != 0 || overLayer > 0) {
+            return true;
+        }
+        float[] lift = geometry.lift;
+        Models.add(piece.model, solid.get(PLAIN), solid.get(dye.getID()), piece.dyed,
+                SpriteGeometry.textureU(dyeFrame, 0.5f, 0.5f), SpriteGeometry.textureV(dyeFrame, 0.5f, 0.5f, piece.dyeHigh),
+                frame, x, y, originX + piece.centreX, originY + piece.centreY,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f, piece.turns, piece.scale);
+        furnished++;
+        return true;
+    }
+
+    /** The object on a square that shows the sprite, or null. */
+    private static IsoObject holding(IsoGridSquare square, IsoSprite sprite) {
+        if (square == null || sprite == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i).getSprite() == sprite) {
+                return objects.get(i);
+            }
+        }
+        return null;
     }
 
     /**
