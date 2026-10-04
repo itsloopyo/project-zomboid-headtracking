@@ -293,7 +293,9 @@ final class Pipeline {
                     float along = dot(vWorld.xy, run) * 46.0;
                     float blade = floor(along);
                     float kind = grain(vec2(blade, 7.0));
-                    float tall = (0.25 + 0.75 * kind * kind) * (1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
+                    // Lawn dies away with distance and is gone where it stops being grown. Long grass,
+                    // which is grown as far as the eye sees, only thins.
+                    float tall = (0.25 + 0.75 * kind * kind) * (vColor.a > 15.5 ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
                     // A blade bows over further the higher up it, to one side or the other.
                     float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
                     float reach = up / max(tall, 0.001);
@@ -422,7 +424,7 @@ final class Pipeline {
                         discard;
                     }
                 }
-                float open = grass ? vColor.a - 8.0 : water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
+                float open = grass ? vColor.a - (vColor.a > 15.5 ? 16.0 : 8.0) : water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (card) {
                     facing = 0.5 + 0.4 * facing;

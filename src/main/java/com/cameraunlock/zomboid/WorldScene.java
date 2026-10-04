@@ -177,6 +177,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    private static final int LONG_TUFTS = 10;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
     /** How far down the wall of a quay goes from its top: past the water's surface. */
@@ -694,7 +695,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             float a = edge + (1f - 2f * edge) * (hash & 0xff) / 255f, b = edge + (1f - 2f * edge) * (hash >>> 8 & 0xff) / 255f;
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
             float height = 0.16f + 0.26f * (hash >>> 24 & 0xff) / 255f;
-            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height);
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height, SpriteGeometry.GRASS);
         }
     }
 
@@ -725,6 +726,53 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f,
                     0.3f * frame.red, 0.26f * frame.green, 0.22f * frame.blue);
         }
+    }
+
+    private boolean growLongGrass(int x, int y) {
+        int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
+        if (groundTexture[own] == null) {
+            return false;
+        }
+        float originU = frame.originU, originV = frame.originV, left = frame.left, top = frame.top, width = frame.width, height = frame.height;
+        float uStart = frame.uStart, uEnd = frame.uEnd, vStart = frame.vStart, vEnd = frame.vEnd;
+        frameOf(groundObject[own], groundTexture[own]);
+        SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
+        for (int tuft = 0; tuft < LONG_TUFTS; tuft++) {
+            int hash = x * 19349663 ^ y * 83492791 ^ tuft * 73856093;
+            hash = (hash ^ hash >>> 13) * 0x5bd1e995;
+            hash ^= hash >>> 15;
+            float a = 0.12f + 0.76f * (hash & 0xff) / 255f, b = 0.12f + 0.76f * (hash >>> 8 & 0xff) / 255f;
+            double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
+            float tall = 0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f;
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS);
+        }
+        frame.originU = originU;
+        frame.originV = originV;
+        frame.left = left;
+        frame.top = top;
+        frame.width = width;
+        frame.height = height;
+        frame.uStart = uStart;
+        frame.uEnd = uEnd;
+        frame.vStart = vStart;
+        frame.vEnd = vEnd;
+        return true;
+    }
+
+    private boolean overPole(int x, int y) {
+        IsoGridSquare ground = cell.getGridSquare(x, y, 0);
+        if (ground == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = ground.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            String name = sprite == null ? null : sprite.getName();
+            if (name != null && (name.startsWith("street_decoration") || name.startsWith("lighting_outdoor") || name.startsWith("appliances_com"))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean spreads(int at, int own, int mine) {
@@ -876,8 +924,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // a length of wire painted as its view sees it run along the ground's grid. Laid flat
         // at that height the painted line is a straight wire again, from square to square. Stood
         // up to face the eye, as other loose things are, they were a fan of dashes in the sky.
-        // The upper lengths of the pole hang there too: those are taller than they are wide.
-        if (z > 0 && hangsInAir && frame.height < frame.width && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
+        // The upper lengths of the pole hang there too: those have the foot of the pole on the
+        // ground under them.
+        if (z > 0 && hangsInAir && !overPole(x, y) && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
             frame.kind = SpriteGeometry.CARD;
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.kind = 0f;
@@ -964,6 +1013,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (!grows && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
+            return;
+        }
+        // Long grass. The game has it as a small picture of a clump, which up close is a
+        // handful of coarse painted strokes. Here it is grown instead: tall blades, the
+        // colour of the ground they stand in, thick on the square.
+        if (z == 0 && sprite.getName() != null && sprite.getName().startsWith("e_newgrass") && growLongGrass(x, y)) {
             return;
         }
         if (grows) {
