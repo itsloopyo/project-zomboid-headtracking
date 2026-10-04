@@ -324,8 +324,9 @@ final class Pipeline {
                 // The game draws its furniture with a dark line round every part, which is what
                 // makes a chair a drawing of a chair. A texel much darker than what lies round
                 // it is such a line, and takes the colour round it, a little darkened: the
-                // edge is still there, as a shade and not as ink.
-                if ((vMaterial > 2.5 && vMaterial < 3.5 || vMaterial > 7.5 && vMaterial < 8.5) && uTexel.x > 0.0) {
+                // edge is still there, as a shade and not as ink. The same for whatever else
+                // stands as a card: a mailbox, a lamp, a sign.
+                if ((vMaterial > 2.5 && vMaterial < 3.5 || vMaterial > 7.5 && vMaterial < 8.5 || vMaterial < 0.5 && vKind > 1.5 && vKind < 3.5) && uTexel.x > 0.0) {
                     float ink = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     vec3 round = vec3(0.0);
                     float found = 0.0;
