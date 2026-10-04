@@ -321,6 +321,26 @@ final class Pipeline {
                     texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
                 }
                 bool grass = vKind > 7.5;
+                // The game draws its furniture with a dark line round every part, which is what
+                // makes a chair a drawing of a chair. A texel much darker than what lies round
+                // it is such a line, and takes the colour round it, a little darkened: the
+                // edge is still there, as a shade and not as ink.
+                if ((vMaterial > 2.5 && vMaterial < 3.5 || vMaterial > 7.5 && vMaterial < 8.5) && uTexel.x > 0.0) {
+                    float ink = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+                    vec3 round = vec3(0.0);
+                    float found = 0.0;
+                    for (int i = 0; i < 4; i++) {
+                        vec2 off = (i == 0 ? vec2(3.0, 0.0) : i == 1 ? vec2(-3.0, 0.0) : i == 2 ? vec2(0.0, 3.0) : vec2(0.0, -3.0)) * uTexel;
+                        vec4 near = texture2D(uTexture, vUv + off);
+                        float light = dot(near.rgb, vec3(0.299, 0.587, 0.114));
+                        float counts = step(0.5, near.a) * step(ink + 0.12, light);
+                        round += near.rgb * counts;
+                        found += counts;
+                    }
+                    if (found > 0.5) {
+                        texel.rgb = mix(texel.rgb, round / found * 0.78, 0.85);
+                    }
+                }
                 if (vMaterial > 4.5 && vMaterial < 5.5) {
                     // The leaves of a tree. The game's sprite gives the tree its outline and the
                     // colour it is at this time of year, taken broadly so that the painted
