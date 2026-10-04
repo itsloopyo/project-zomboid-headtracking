@@ -201,6 +201,8 @@ final class Pipeline {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
+            const float RELIEF = 0.05;
+
             float grain(vec2 p) {
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
             }
@@ -238,6 +240,25 @@ final class Pipeline {
                 // A card stands in for something with depth and leaves, a bush or a tree, which
                 // the sun gets into from any side: it is lit whichever way the card faces.
                 bool water = vColor.a > 3.5;
+                // A sprite is paint on a flat sheet. Its light and dark say where the thing it
+                // shows stands proud and where it is sunk, the mortar between bricks, the gaps
+                // between boards, the blades of grass, so the sheet is lit as if it were
+                // raised where it is light. The sun then picks the surface out as it moves, and
+                // a wall or a lawn stops being a photograph of one. It fades with distance,
+                // where it would only shimmer.
+                float relief = water ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range));
+                if (relief > 0.0) {
+                    float height = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+                    vec3 acrossX = dFdx(vWorld), acrossY = dFdy(vWorld);
+                    vec3 r1 = cross(acrossY, n), r2 = cross(n, acrossX);
+                    float det = dot(acrossX, r1);
+                    // Seen edge on, a sheet has no width on the screen to measure a slope across.
+                    if (abs(det) > 1e-9) {
+                        vec3 slope = (dFdx(height) * r1 + dFdy(height) * r2) / det;
+                        float steep = length(slope) * relief;
+                        n = normalize(n - slope * (relief * min(1.0, 0.7 / max(steep, 1e-4))));
+                    }
+                }
                 bool card = !water && vColor.a > 1.5;
                 float open = water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
