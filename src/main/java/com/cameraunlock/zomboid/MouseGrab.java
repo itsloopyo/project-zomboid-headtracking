@@ -32,6 +32,8 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
      */
     static volatile int moved;
     private static final int MOVED_FOR = 3;
+    private static int takenBack;
+    private static long saidAt;
 
     /** What the logic thread wants. */
     static volatile boolean wanted;
@@ -69,7 +71,12 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             if (GLFW.glfwGetInputMode(window, GLFW_CURSOR) != should) {
                 GLFW.glfwSetInputMode(window, GLFW_CURSOR, should);
                 moved = MOVED_FOR;
-                Log.info("the window had let the mouse go: taken back");
+                takenBack++;
+                long now = System.nanoTime();
+                if (now - saidAt > 1_000_000_000L) {
+                    Log.info("the window had let the mouse go: taken back " + takenBack + " times so far");
+                    saidAt = now;
+                }
             }
         }
         keeping = keep;
