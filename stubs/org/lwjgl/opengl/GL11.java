@@ -61,4 +61,5 @@ public final class GL11 {
     public static void glPopClientAttrib() { throw stub(); }
     public static void glFogf(int pname, float param) { throw stub(); }
     public static void glFogfv(int pname, float[] params) { throw stub(); }
+    public static void glLoadIdentity() { throw new UnsupportedOperationException("reference stub"); }
 }

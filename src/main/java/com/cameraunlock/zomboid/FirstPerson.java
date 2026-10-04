@@ -57,6 +57,7 @@ public final class FirstPerson {
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
     private static boolean on;
+    private static boolean wasRiding, onForTheRide;
     private static boolean lookCaptured;
     private static float yaw;
     private static float pitch;
@@ -141,6 +142,20 @@ public final class FirstPerson {
         }
         HeadTracking.pollHotkeys();
         DevKeys.poll();
+        // Getting into a vehicle is getting behind its wheel: the view goes to the seat by
+        // itself, and goes back to how it was on getting out.
+        IsoPlayer rider = IsoPlayer.getInstance();
+        boolean riding = rider != null && rider.getVehicle() != null;
+        if (riding && !wasRiding && !on) {
+            toggle();
+            onForTheRide = on;
+        } else if (!riding && wasRiding && onForTheRide && on) {
+            toggle();
+        }
+        if (!riding) {
+            onForTheRide = false;
+        }
+        wasRiding = riding;
         IsoPlayer player = IsoPlayer.getInstance();
         if (on && !allowed(player)) {
             on = false;

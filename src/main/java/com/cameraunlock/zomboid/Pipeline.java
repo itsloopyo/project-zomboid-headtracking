@@ -1116,11 +1116,53 @@ final class Pipeline {
             uniform float uFogEnd;
             uniform float uInside;
             uniform float uPainted;
+            uniform float uGlassPass;
+            uniform vec2 uAhead;
             uniform sampler2D uRepainted;
             uniform float uWriteNear;
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
+            }
+
+            float noise2(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+                float b = fract(sin(dot(cell + vec2(1.0, 0.0), vec2(12.9898, 78.233))) * 43758.5453);
+                float c = fract(sin(dot(cell + vec2(0.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+                float d = fract(sin(dot(cell + vec2(1.0, 1.0), vec2(12.9898, 78.233))) * 43758.5453);
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
+            // a glancing angle, and the dust and dried rain on it, which stay put on the glass
+            // as the car moves. on is the place on the pane, in tiles.
+            vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
+                float dust = smoothstep(0.35, 0.85, noise2(on * 5.0) * 0.55 + noise2(on * 15.0 + 3.0) * 0.3 + noise2(on * 61.0) * 0.15);
+                float runs = smoothstep(0.62, 0.95, noise2(vec2(on.x * 46.0, on.y * 2.2)));
+                float dirt = clamp(dust * 0.75 + runs * 0.45, 0.0, 1.0);
+                // The wipers keep their two arcs of the front screen clean and push what they
+                // clear to the arcs' edges, where it dries as a line.
+                if (swept > 0.5) {
+                    float nearest = min(length(on - vec2(0.05, -0.12)), min(length(on - vec2(0.75, -0.12)), length(on - vec2(-0.65, -0.12))));
+                    float inside = 1.0 - smoothstep(0.5, 0.54, nearest);
+                    dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * exp(-pow((nearest - 0.53) / 0.012, 2.0)) + 0.45 * (1.0 - inside);
+                    dirt = clamp(dirt, 0.0, 1.0);
+                }
+                float glancing = 0.04 + 0.96 * pow(1.0 - abs(dot(n, view)), 5.0);
+                vec3 thrown = reflect(-view, n);
+                // Glass seen from inside mirrors the inside: where the mirrored ray goes down it
+                // is the sunlit top of the dashboard, pale on the screen above it.
+                vec3 sunLight = pow(uLightColor, vec3(2.2));
+                vec3 sheen = thrown.z > 0.0 ? atmosphere(thrown) * 0.6 : vec3(0.16, 0.16, 0.17) * sunLight * (0.4 + max(uLight.z, 0.0));
+                // Dust on glass shows most where the sun is behind it.
+                float lit = 0.45 + 2.0 * pow(max(dot(-view, uLight), 0.0), 5.0);
+                vec3 grime = vec3(0.36, 0.33, 0.28) * sunLight * lit;
+                float dusty = (0.04 + 0.96 * dirt) * (0.16 + 0.2 * lit);
+                float cover = clamp(0.06 + 0.5 * glancing + dusty, 0.0, 0.8);
+                return vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
             }
 
             // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
@@ -1165,13 +1207,28 @@ final class Pipeline {
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec4 figure = texture2D(uFigure, uv);
+                vec2 ndc = uv * 2.0 - 1.0;
+                vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
                 if (figure.a < 0.5) {
-                    discard;
+                    // From a seat the vehicle is all round the eye, so where the game drew
+                    // none of it above the sills there is an opening with a pane in it.
+                    vec3 out3 = normalize(ray);
+                    if (uGlassPass < 0.5 || out3.z < -0.3) {
+                        discard;
+                    }
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    float along = dot(out3.xy, uAhead), across = dot(out3.xy, side);
+                    bool ends = abs(along) > abs(across);
+                    // The screens lean back and the side windows stand nearly upright.
+                    vec3 faces = ends ? normalize(vec3(-sign(along) * uAhead, 0.75)) : normalize(vec3(-sign(across) * side, 0.12));
+                    float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
+                    vec3 to = out3 * reach;
+                    gl_FragColor = pane(vec2(ends ? dot(to.xy, side) : dot(to.xy, uAhead) + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+                    gl_FragDepth = gl_FragCoord.z;
+                    return;
                 }
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
-                vec2 ndc = uv * 2.0 - 1.0;
-                vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
                 vec3 at = uEye + ray * ahead;
 
                 // The game's models are few flat faces and the game lights them all alike, so
@@ -1183,7 +1240,11 @@ final class Pipeline {
                 vec3 view = normalize(uEye - at);
                 // Right against the eye a figure's neighbouring pixels are at the same place and
                 // say nothing of which way it faces: there it is taken to face the eye.
-                vec3 found = normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
+                // From the seat a panel is at arm's length and the depth it was drawn with
+                // comes in steps finer than a pixel is wide: read close by, the steps show as
+                // rings. Read from further off they do not.
+                float close = uInside * step(ahead * length(ray), 3.2);
+                vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 // The models' skins are flat paint. Their light and dark say where the cloth
                 // folds and the flesh is torn, and the surface is lit as raised where it is
@@ -1191,7 +1252,21 @@ final class Pipeline {
                 vec2 px = 1.0 / uSize;
                 vec4 east = texture2D(uFigure, uv + vec2(px.x, 0.0)), west = texture2D(uFigure, uv - vec2(px.x, 0.0));
                 vec4 north = texture2D(uFigure, uv + vec2(0.0, px.y)), south = texture2D(uFigure, uv - vec2(0.0, px.y));
-                if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
+                float cabin = close;
+                if (cabin > 0.5) {
+                    // The game draws a vehicle's skin without the smaller copies a texture
+                    // needs to be seen at a slant, and from the seat every panel is at a slant:
+                    // the weave of its trim comes out as rings of dots. Evened out over the
+                    // pixels round about, it is cloth and plastic again.
+                    vec4 sum = figure * 2.0 + east + west + north + south;
+                    for (int i = 0; i < 4; i++) {
+                        vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
+                        sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
+                    }
+                    if (sum.a > 6.0) {
+                        figure = vec4(sum.rgb / sum.a, 1.0);
+                    }
+                } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
                     slope *= min(1.0, 0.25 / max(length(slope), 0.001));
@@ -1214,7 +1289,10 @@ final class Pipeline {
                         sun = shadow2D(uShadowFar, c).r;
                     }
                 }
-                float cabin = uInside * step(ahead * length(ray), 3.2);
+                // The vehicle in the shadow map is the one the game draws from outside, and
+                // from the seat its panels lie right on their own shadow: the sun comes and
+                // goes across them in rings. Under its roof the cabin has the sky's light only.
+                sun = mix(sun, 0.22, cabin);
                 // From a seat the game's vehicle is all round the eye. Its windows are painted
                 // on its one body, as panes that show the sky: pale and nearly without colour,
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
@@ -1224,12 +1302,38 @@ final class Pipeline {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
-                    vec2 px = 3.0 / uSize;
-                    float panes = glass(uv) * 2.0 + glass(uv + vec2(px.x, 0.0)) + glass(uv - vec2(px.x, 0.0))
-                            + glass(uv + vec2(0.0, px.y)) + glass(uv - vec2(0.0, px.y));
-                    if (panes > 2.5) {
-                        discard;
+                    // The window is painted on a skin of few dots, and its edge from the seat
+                    // is a staircase a finger wide: asked over a width greater than a stair, the
+                    // edge is the straight line the stairs follow.
+                    float wide = uSize.y / 720.0;
+                    float panes = glass(uv) * 2.0;
+                    for (int i = 0; i < 8; i++) {
+                        float turn = 0.7854 * float(i);
+                        vec2 off = vec2(cos(turn), sin(turn)) * wide / uSize;
+                        panes += glass(uv + off * 5.0) + glass(uv + off.yx * vec2(-11.0, 11.0)) + glass(uv + off * 17.0);
                     }
+                    bool glazed = panes > 13.0;
+                    if (uGlassPass < 0.5) {
+                        if (glazed) {
+                            discard;
+                        }
+                    } else {
+                        if (!glazed) {
+                            discard;
+                        }
+                        // The glass itself, over the world seen through it: the sky it mirrors,
+                        // more at a glancing angle, and the dust and dried rain on it, which
+                        // stay put on the pane as the car moves.
+                        vec3 to = at - uEye;
+                        vec2 side = vec2(-uAhead.y, uAhead.x);
+                        float along = dot(to.xy, uAhead);
+                        bool ends = abs(dot(n.xy, uAhead)) > abs(dot(n.xy, side));
+                        gl_FragColor = pane(vec2(ends ? dot(to.xy, side) : along + 7.0, to.z), n, view, ends && along > 0.0 ? 1.0 : 0.0);
+                        gl_FragDepth = gl_FragCoord.z;
+                        return;
+                    }
+                } else if (uGlassPass > 0.5) {
+                    discard;
                 }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
@@ -1244,8 +1348,10 @@ final class Pipeline {
                 // their edges.
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
-                color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, uPainted);
-                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, uPainted)) * mix(0.45, 3.0, uPainted) * sun);
+                // The trim of a cabin is cloth and dull plastic, whatever the body outside is.
+                float lacquer = uPainted * (1.0 - cabin);
+                color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * cabin);
+                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45, 3.0, lacquer) * sun);
 
                 float range = ahead * length(ray);
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
@@ -1652,6 +1758,9 @@ final class Pipeline {
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
     private static int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
     private static int spriteSampler;
+    private static int skinSampler;
+    private static boolean glazed;
+    private static final int SKIN_UNITS = 8;
     private static int depthSampler;
     /** How wide the sun is, as the width of a shadow's soft edge for each tile between caster and ground. Wider than the real sun's: the real one's edge is too fine to read at this scale. */
     private static final float SUN_WIDTH = 0.06f;
@@ -1744,6 +1853,7 @@ final class Pipeline {
             load(chunks);
             stage(STAGE_LOAD);
             boolean figures = Characters.ready();
+            glazed = false;
             drawShadows(state, camera, figures);
             stage(STAGE_SHADOWS);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
@@ -1755,6 +1865,9 @@ final class Pipeline {
             drawSky(camera, state, tanHalfFieldOfView, aspect);
             if (state.rain > 0f) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
+            if (glazed) {
+                drawGlass();
             }
             drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_SKY);
@@ -2552,7 +2665,9 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_BLEND);
             Characters.repainted = true;
+            smoothSkins(true);
             Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+            smoothSkins(false);
             Characters.repainted = false;
         }
         // The viewer's own body, the same way: drawn by the game, lit here.
@@ -2564,7 +2679,9 @@ final class Pipeline {
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_BLEND);
+        smoothSkins(FirstPerson.seated);
         boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        smoothSkins(false);
         Characters.done();
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -2590,10 +2707,56 @@ final class Pipeline {
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
+            figureLight.set("uGlassPass", 0f);
+            figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
             quad();
+            glazed = FirstPerson.seated;
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
         }
+        GL11.glDepthMask(true);
+    }
+
+    /**
+     * The game draws a vehicle's skin with each of its dots a hard square, which is right from
+     * its own distance. From the seat a dot is a hand across and the edge of a painted window
+     * is a staircase, so there the skin is read with its dots run together.
+     */
+    private static void smoothSkins(boolean smooth) {
+        for (int unit = 0; unit < SKIN_UNITS; unit++) {
+            GL33.glBindSampler(unit, smooth ? skinSampler : 0);
+        }
+    }
+
+    /**
+     * The panes of the vehicle the viewer sits in, over everything seen through them: the
+     * world, the sky and the rain, which are all outside the glass.
+     */
+    private static void drawGlass() {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glMatrixMode(GL_PROJECTION);
+        GL11.glLoadIdentity();
+        GL11.glMatrixMode(GL_MODELVIEW);
+        GL11.glLoadIdentity();
+        figureLight.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 4);
+        GL11.glBindTexture(GL_TEXTURE_2D, repaintedColor);
+        GL13.glActiveTexture(GL_TEXTURE0 + 3);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glDepthMask(false);
+        GL11.glEnable(GL_BLEND);
+        // The picture's alpha is left alone: it says what mirrors.
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        figureLight.set("uGlassPass", 1f);
+        quad();
+        figureLight.set("uGlassPass", 0f);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
     }
 
@@ -2666,6 +2829,11 @@ final class Pipeline {
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
+        skinSampler = GL33.glGenSamplers();
+        GL33.glSamplerParameteri(skinSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        GL33.glSamplerParameteri(skinSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GL33.glSamplerParameteri(skinSampler, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        GL33.glSamplerParameteri(skinSampler, GL_TEXTURE_WRAP_T, GL_REPEAT);
         spriteSampler = GL33.glGenSamplers();
         GL33.glSamplerParameteri(spriteSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         GL33.glSamplerParameteri(spriteSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

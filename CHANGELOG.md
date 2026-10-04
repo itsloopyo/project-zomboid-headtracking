@@ -9,6 +9,7 @@
 - Made grass stand up in blades near the eye, put trees and bushes in leaf with depth to them, and let grass, earth and sand run raggedly into each other where the game lays them in squares.
 - Gave buildings in the first person view walls with thickness, eaves, roofs closed on every side and power lines strung from pole to pole, and gave roofs, walls, floors, furniture, tree trunks and fences the grain of what they are made of.
 - Added soft shadows that sharpen where a thing meets the ground, light that bounces between nearby surfaces, cloud shadows, polished floors, and anti-aliasing over time to the first person view. Looking down shows your character's body.
-- Added a view from the seat when you are in a vehicle in first person: the dashboard, wheel and doors with the road ahead. The vehicle's roof and windows are left out, because the game's vehicles have their glass painted on.
+- Added a view from the seat when you are in a vehicle: the dashboard, wheel, doors and roof with the road ahead, seen through glass that carries a little dust and mirrors the sky at a glancing angle.
+- Getting into a vehicle switches to first person, and getting out switches back to the view you had before.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.
