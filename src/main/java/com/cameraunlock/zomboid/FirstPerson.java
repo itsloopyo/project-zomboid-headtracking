@@ -503,6 +503,20 @@ public final class FirstPerson {
     }
 
     /**
+     * Called with the way the game takes the player to be looking when it works out what
+     * they can see. The game hides whoever is outside that cone, and its cone is the body's:
+     * walking sideways the body faces the way it walks, and a zombie straight ahead of the
+     * view, an arm's length off, was gone and back again as the body turned. In first person
+     * what the player can see is what the view faces.
+     */
+    public static Vector2 sightVector(Vector2 look) {
+        if (!on) {
+            return look;
+        }
+        return look.set((float) Math.cos(yaw), (float) Math.sin(yaw));
+    }
+
+    /**
      * Called with the direction the movement keys ask for, in world axes. In
      * the game's own view forward is up the screen; here it is where the view
      * faces. With no key down and no aim held the character is turned to face

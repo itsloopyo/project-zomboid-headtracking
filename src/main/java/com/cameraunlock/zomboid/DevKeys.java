@@ -2,11 +2,13 @@ package com.cameraunlock.zomboid;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import zombie.GameTime;
 import zombie.characters.IsoPlayer;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoWorld;
+import zombie.iso.weather.ClimateManager;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
 
@@ -20,6 +22,9 @@ import zombie.vehicles.VehiclePart;
  *
  * F6 makes the player invincible, and vulnerable again on the next press.
  *
+ * F4 sets the clock to early evening, with the sun starting down: the hour the picture looks
+ * its best.
+ *
  * F5 puts a pump action shotgun in the player's hands, and from then on whatever firearm is
  * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
  * finding a gun and shells.
@@ -32,6 +37,10 @@ final class DevKeys {
     /** F6. */
     private static final int INVINCIBLE_KEY = 64;
 
+    /** F4. */
+    private static final int EVENING_KEY = 62;
+    /** How long before dusk the clock is set to, in hours. */
+    private static final float BEFORE_DUSK = 1.75f;
     /** F5. */
     private static final int ARM_KEY = 63;
     private static final String SHOTGUN = "Base.Shotgun";
@@ -54,7 +63,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
         if (!enabled) {
@@ -85,6 +94,11 @@ final class DevKeys {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
             wasInvincible = invincible;
+        }
+        if (GameKeyboard.isKeyPressed(EVENING_KEY)) {
+            float hour = ClimateManager.getInstance().getSeason().getDusk() - BEFORE_DUSK;
+            GameTime.getInstance().setTimeOfDay(hour);
+            Log.info("F4: the clock set to " + hour);
         }
         if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);

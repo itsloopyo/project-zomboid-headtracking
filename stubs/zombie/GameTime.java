@@ -5,4 +5,5 @@ public final class GameTime {
     public static boolean isGamePaused() { throw new UnsupportedOperationException("reference stub"); }
     public float getAmbient() { throw new UnsupportedOperationException("reference stub"); }
     public float getTimeOfDay() { throw new UnsupportedOperationException("reference stub"); }
+    public void setTimeOfDay(float hours) { throw new UnsupportedOperationException("reference stub"); }
 }
