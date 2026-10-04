@@ -132,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 15;
+    private static final int UNITS = 16;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -184,6 +184,9 @@ final class Pipeline {
             uniform mat4 uFarMatrix;
             uniform float uShadowTexel;
             uniform sampler2D uShadowDepth;
+            uniform sampler3D uCloudNoise;
+            uniform float uCover;
+            uniform vec2 uDrift;
             uniform float uSoftPerDepth;
             uniform vec3 uEye;
             uniform vec3 uLight;
@@ -539,6 +542,13 @@ final class Pipeline {
                         c = (uFarMatrix * from).xyz * 0.5 + 0.5;
                         reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0;
                     }
+                    // The clouds overhead pass between the sun and the ground, and their
+                    // shadows cross the land with the wind: fields go dull and bright by turns.
+                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 90.0) / 60.0;
+                    vec3 q = vec3(under * 0.17 + uDrift, 0.3);
+                    float bank = texture3D(uCloudNoise, vec3(under * 0.021 + uDrift * 0.4, 0.37)).g;
+                    float body = texture3D(uCloudNoise, q).r * 0.68 + texture3D(uCloudNoise, q * 2.3 + 0.17).g * 0.32;
+                    reached *= 1.0 - 0.7 * smoothstep(0.0, 0.16, body * 0.75 - (1.0 - uCover) - (0.5 - bank) * 0.34);
                     sun = reached * facing;
                 }
 
@@ -1937,11 +1947,17 @@ final class Pipeline {
         world.set("uNearMatrix", nearMatrix);
         world.set("uFarMatrix", farMatrix);
         world.set("uShadowTexel", 1f / SHADOW_SIZE);
-        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
+        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 2);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL33.glBindSampler(UNITS - 1, depthSampler);
+        GL33.glBindSampler(UNITS - 2, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
-        world.set("uShadowDepth", UNITS - 1);
+        world.set("uShadowDepth", UNITS - 2);
+        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
+        GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        world.set("uCloudNoise", UNITS - 1);
+        world.set("uCover", state.cover);
+        world.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
         world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * SHADOW_SIZE / (2f * NEAR_EXTENT));
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
@@ -1968,7 +1984,7 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         GL33.glBindSampler(0, 0);
-        GL33.glBindSampler(UNITS - 1, 0);
+        GL33.glBindSampler(UNITS - 2, 0);
 
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);

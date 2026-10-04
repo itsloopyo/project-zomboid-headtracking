@@ -178,7 +178,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] box = new float[4];
     private int overLayer;
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
-    private static final float EAVE = 0.3f, FASCIA = 0.16f;
+    private static final float EAVE = 0.22f, FASCIA = 0.12f;
     private final float[] eave = new float[12];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
@@ -1335,7 +1335,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 1, x2, y2, far);
         set(c, 2, x2, y2, far - FASCIA);
         set(c, 3, x1, y1, far - FASCIA);
-        SpriteGeometry.addPlainQuad(plain, c, 0.8f * frame.red, 0.8f * frame.green, 0.78f * frame.blue);
+        SpriteGeometry.addPlainQuad(plain, c, 0.55f * frame.red, 0.55f * frame.green, 0.53f * frame.blue);
     }
 
     private static void set(float[] c, int corner, float x, float y, float h) {
