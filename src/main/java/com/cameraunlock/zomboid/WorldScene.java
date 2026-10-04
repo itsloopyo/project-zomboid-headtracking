@@ -178,6 +178,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    private int remakes;
+    private static final int REMAKES_A_FRAME = 12;
     private boolean wiredHere;
     private final java.util.IdentityHashMap<IsoSprite, Boolean> meshes = new java.util.IdentityHashMap<>();
     private static final int MESH_CHANGES = 12;
@@ -285,6 +287,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         frames++;
         chunksDrawn = 0;
         chunksBuilt = 0;
+        remakes = 0;
         boxes = 0;
         spreadFaces = 0;
         lifted = 0;
@@ -349,8 +352,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 chunksDrawn++;
                 int slot = (chunk.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (chunk.wy & (TABLE_SIDE - 1));
                 ChunkMeshes current = latest[slot];
-                if (current == null || current.wx != chunk.wx || current.wy != chunk.wy
-                        || frames - current.builtFrame >= buildEvery(distance, slot)) {
+                boolean missing = current == null || current.wx != chunk.wx || current.wy != chunk.wy;
+                // A chunk that is only due to be made again can wait a frame when many fall due
+                // together: its old build is still good enough to show. Without this the frames
+                // on which dozens fall due are several times as long as the rest.
+                boolean due = !missing && frames - current.builtFrame >= buildEvery(distance, slot)
+                        && (distance < CHUNK_TILES * 1.5f || remakes++ < REMAKES_A_FRAME);
+                if (missing || due) {
                     ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
                     fresh.solid.clear();
                     fresh.laid.clear();
