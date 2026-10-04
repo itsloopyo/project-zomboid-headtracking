@@ -177,6 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
+    private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
     private static final int LONG_TUFTS = 10;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
@@ -1018,6 +1020,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (!grows && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
+            return;
+        }
+        // A table. The game says how high its top is. The top is laid level at that height,
+        // taking from the sprite what the sprite shows there, round or square as it is painted,
+        // and what the sprite shows below the top stands under it as the legs.
+        if (!grows && properties.isTable() && properties.getSurface() > 0) {
+            float top = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, 0f, 0f, 1f, 0f);
+            float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
+            if (under > 0.05f) {
+                geometry.keep = Math.min(under, 1f);
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+                geometry.keep = 1f;
+            }
             return;
         }
         // Long grass. The game has it as a small picture of a clump, which up close is a
