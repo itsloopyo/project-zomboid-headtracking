@@ -805,6 +805,18 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (isFloor && name.startsWith("blends_natural")) {
             return EARTH;
         }
+        // Furniture, by what it is mostly made of: timber, or cloth.
+        if (name.startsWith("furniture_tables") || name.startsWith("furniture_storage") || name.startsWith("furniture_shelving")
+                || name.startsWith("fixtures_counters")) {
+            return WOOD;
+        }
+        // A panelled door is painted: under coarse grain its panels are lost.
+        if (name.startsWith("fixtures_doors")) {
+            return PAINT;
+        }
+        if (name.startsWith("furniture_seating_indoor") || name.startsWith("furniture_bedding") || name.startsWith("fixtures_windows_curtains")) {
+            return CARPET;
+        }
         if (isFloor && name.contains("tile") && !name.contains("wood")) {
             return TILE;
         }
