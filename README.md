@@ -225,8 +225,8 @@ you pick, so it holds the next time you start the game:
 
 Leaning carries on through the aim. As the sights come up, your arms and weapon
 move with your head, so the sights stay in front of your eye, and your rounds
-leave from where your eye is. Lean round a corner with the sights up and you can
-hit what you can see from there. Leaning in stops just short of the rear sight.
+leave from where your eye is and land where the sights point. Leaning in stops
+just short of the rear sight.
 
 The mode is logged each time it changes, as `Aim mode: sights locked` and so on.
 
