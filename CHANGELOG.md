@@ -18,6 +18,7 @@
 - People and zombies in first person are lit by the sun and sky like the world round them, with smooth skins, soft shadow edges and a rim of sky light, and are dark at night outside a lamp's reach.
 - A vehicle's cabin has grained trim and woven seat cloth, and each kind of vehicle has a driver's place of its own, with its own wheel, instruments, colours and gear lever: a stitched wheel with a padded hub and switches, stalks behind it, a hooded speedometer and rev counter with a fuel gauge, whose needles follow the vehicle and which light up at night, and a mirror on the screen that shows the road behind. The driver sits in line with the wheel, behind each vehicle's own wheel: higher in a pickup, further forward in a van.
 - A room at night is dim unless something lights it.
+- People and zombies near the eye in first person are rounded where the game's models are faceted.
 - A clear day in first person has clearer air, fuller colour and more contrast, warm in the sun and cool in the shade.
 - Vehicles in first person are the size they are in the game's own view. They were drawn half as big again.
 - The game's own isometric view is drawn exactly as before.
