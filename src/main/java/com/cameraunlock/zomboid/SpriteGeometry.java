@@ -391,7 +391,7 @@ final class SpriteGeometry {
 
         // A flat card stands in for something round, a bush or a chair, so it is lit as if it
         // leaned back: partly from the side it faces and partly from above.
-        mesh.open = frame.open + CARD;
+        mesh.open = frame.open + CARD + 32f * frame.material;
         mesh.face(rightY, -rightX, 0.9f);
         // What grows moves with the wind, the more the higher it stands above its root.
         float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;

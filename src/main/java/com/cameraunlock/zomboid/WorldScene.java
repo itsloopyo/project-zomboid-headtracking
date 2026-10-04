@@ -560,6 +560,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         frameOf(object, texture);
+        frame.material = under.getType() == IsoObjectType.tree ? LEAVES : frame.material;
         sprites++;
         // Leaves stand on the same card as their trunk. Each layer is moved a little towards
         // the eye from the one under it, or the two would be drawn through each other.
@@ -762,7 +763,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {

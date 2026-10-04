@@ -247,6 +247,8 @@ final class Pipeline {
             uniform sampler2D uPaint;
             uniform sampler2D uWood;
             uniform vec3 uSurfaceGain;
+            uniform sampler2D uLeaves;
+            uniform float uLeafGain;
 
 
             float grain(vec2 p) {
@@ -311,6 +313,30 @@ final class Pipeline {
                     texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
                 }
                 bool grass = vKind > 7.5;
+                if (vMaterial > 4.5 && vMaterial < 5.5) {
+                    // The leaves of a tree. The game's sprite gives the tree its outline and the
+                    // colour it is at this time of year, taken broadly so that the painted
+                    // edges of its leaves do not come through. A picture of real leaves, laid
+                    // over the card by where it is in the world, gives it its leaves: their
+                    // shape against the sky, and their light and dark.
+                    vec2 wide = uTexel * 5.0;
+                    vec4 broad = (texture2D(uTexture, vUv + vec2(wide.x, 0.0)) + texture2D(uTexture, vUv - vec2(wide.x, 0.0))
+                            + texture2D(uTexture, vUv + vec2(0.0, wide.y)) + texture2D(uTexture, vUv - vec2(0.0, wide.y)) + texel) / 5.0;
+                    vec2 along = vec2(dot(vWorld.xy, normalize(vec2(vNormal.y, -vNormal.x) + vec2(1e-5))), vWorld.z);
+                    // Two layers of leaves, the second smaller and offset: a crown is leaves
+                    // behind leaves, and one layer alone is a sparse spray.
+                    vec4 leaf = texture2D(uLeaves, along * 0.5);
+                    vec4 behind = texture2D(uLeaves, along * 0.83 + 0.37);
+                    if (leaf.a < 0.5) {
+                        leaf = vec4(behind.rgb * 0.7, behind.a);
+                    }
+                    if (broad.a < 0.35 || leaf.a < 0.5) {
+                        discard;
+                    }
+                    float shade = dot(leaf.rgb, vec3(0.299, 0.587, 0.114)) * uLeafGain;
+                    texel = vec4(broad.rgb / max(broad.a, 0.001) * mix(0.55, 1.25, clamp(shade * 0.7, 0.0, 1.0)), 1.0);
+                    small = false;
+                }
                 if (grass) {
                     // A card of grass: blades side by side along it, each its own height, lean
                     // and shade, narrowing to a point. Further off they are shorter, and at the
@@ -1295,7 +1321,9 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "leaves"};
+    /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
+    private static final int FIRST_CUTOUT = 7;
     private static final int MATERIAL_SIZE = 1024;
     private static final int FIRST_MATERIAL_UNIT = 3;
     private static final int[] materialTexture = new int[MATERIALS.length];
@@ -1839,6 +1867,8 @@ final class Pipeline {
         world.set("uPaint", FIRST_MATERIAL_UNIT + 5);
         world.set("uWood", FIRST_MATERIAL_UNIT + 6);
         world.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
+        world.set("uLeaves", FIRST_MATERIAL_UNIT + 7);
+        world.set("uLeafGain", materialGain[7]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
@@ -2375,9 +2405,12 @@ final class Pipeline {
 
     /** Reads a material's picture out of the jar and gives it to the graphics card. Null, or what went wrong. */
     private static String loadMaterial(int material) {
-        String path = "/materials/" + MATERIALS[material] + ".rgb.gz";
-        ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * 3);
+        boolean cutout = material >= FIRST_CUTOUT;
+        int each = cutout ? 4 : 3;
+        String path = "/materials/" + MATERIALS[material] + (cutout ? ".rgba.gz" : ".rgb.gz");
+        ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * each);
         long light = 0;
+        long solid;
         try (java.io.InputStream packed = Pipeline.class.getResourceAsStream(path)) {
             if (packed == null) {
                 return "the jar has no " + path;
@@ -2386,17 +2419,23 @@ final class Pipeline {
             if (bytes.length != pixels.capacity()) {
                 return path + " holds " + bytes.length + " bytes, not " + pixels.capacity();
             }
-            for (int i = 0; i < bytes.length; i += 3) {
-                light += 299 * (bytes[i] & 0xff) + 587 * (bytes[i + 1] & 0xff) + 114 * (bytes[i + 2] & 0xff);
+            long counted = 0;
+            for (int i = 0; i < bytes.length; i += each) {
+                // A cut-out's mean is over what is solid.
+                if (!cutout || (bytes[i + 3] & 0xff) > 127) {
+                    light += 299 * (bytes[i] & 0xff) + 587 * (bytes[i + 1] & 0xff) + 114 * (bytes[i + 2] & 0xff);
+                    counted++;
+                }
             }
+            solid = counted;
             pixels.put(bytes).flip();
         } catch (java.io.IOException e) {
             return path + " could not be read: " + e;
         }
-        materialGain[material] = 255f * 1000f * MATERIAL_SIZE * MATERIAL_SIZE / light;
+        materialGain[material] = 255f * 1000f * solid / light;
         materialTexture[material] = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[material]);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, MATERIAL_SIZE, MATERIAL_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, cutout ? GL_RGBA8 : GL_RGB8, MATERIAL_SIZE, MATERIAL_SIZE, 0, cutout ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pixels);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

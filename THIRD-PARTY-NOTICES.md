@@ -66,10 +66,10 @@ Copyright (c) 2026 itsloopyo
 
 ## Generated material textures
 
-- **Files:** every `materials/*.rgb.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, paint and wood
+- **Files:** every `materials/*.rgb.gz` and `materials/*.rgba.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, paint, wood and leaves
 - **Made with:** Stable Diffusion XL base 1.0 (stabilityai/stable-diffusion-xl-base-1.0), from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
 - **Model license:** CreativeML Open RAIL++-M, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md
-- **Usage:** The first person view lays them over open ground, roofs, walls and wooden floors to give each the grain of what it is made of.
+- **Usage:** The first person view lays them over open ground, roofs, walls, wooden floors and the crowns of trees to give each the grain of what it is made of.
 - **Bundled:** the textures, yes. The model is not.
 
 ---
