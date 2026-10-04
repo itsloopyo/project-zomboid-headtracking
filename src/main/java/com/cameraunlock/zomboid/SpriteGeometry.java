@@ -69,6 +69,8 @@ final class SpriteGeometry {
     static final class Mesh {
         /** The OpenGL name of the texture, set by whoever keeps meshes by texture. */
         int texture;
+        /** The colour its triangles are painted over in, as WallSides packs one, or 0 for the sprite's own. */
+        int tint;
         /**
          * Starts small and doubles. A scene keeps a mesh for every texture it has ever drawn,
          * and most of them only ever hold a few sprites.
@@ -152,19 +154,24 @@ final class SpriteGeometry {
         final java.util.ArrayList<Mesh> all = new java.util.ArrayList<>();
 
         Mesh get(int texture) {
-            int slot = slotFor(byTexture, texture);
+            return get(texture, 0);
+        }
+
+        Mesh get(int texture, int tint) {
+            int slot = slotFor(byTexture, texture, tint);
             Mesh mesh = byTexture[slot];
             if (mesh != null) {
                 return mesh;
             }
             mesh = new Mesh();
             mesh.texture = texture;
+            mesh.tint = tint;
             all.add(mesh);
             if (all.size() * 2 > byTexture.length) {
                 byTexture = new Mesh[byTexture.length * 2];
                 for (int i = 0; i < all.size(); i++) {
                     Mesh moved = all.get(i);
-                    byTexture[slotFor(byTexture, moved.texture)] = moved;
+                    byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
                 }
             } else {
                 byTexture[slot] = mesh;
@@ -187,11 +194,11 @@ final class SpriteGeometry {
             return triangles;
         }
 
-        /** The slot holding the texture's mesh, or the empty one it belongs in. */
-        private static int slotFor(Mesh[] table, int texture) {
+        /** The slot holding the mesh of the texture in that tint, or the empty one it belongs in. */
+        private static int slotFor(Mesh[] table, int texture, int tint) {
             int mask = table.length - 1;
-            int slot = texture & mask;
-            while (table[slot] != null && table[slot].texture != texture) {
+            int slot = (texture ^ tint * 0x9E3779B1 >>> 16) & mask;
+            while (table[slot] != null && (table[slot].texture != texture || table[slot].tint != tint)) {
                 slot = (slot + 1) & mask;
             }
             return slot;

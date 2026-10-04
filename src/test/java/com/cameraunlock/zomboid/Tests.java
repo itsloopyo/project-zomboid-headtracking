@@ -190,6 +190,114 @@ public final class Tests {
                 check(v[at] >= model.minX - 1e-4f && v[at] <= model.maxX + 1e-4f && v[at + 2] <= model.maxZ + 1e-4f, name + " lies inside its bounds");
             }
         }
+        wallTintSurvivesItsPacking();
+        meshesAreKeptByTextureAndTint();
+        wallIndoorsFindsTheOutsideWallAcrossTheBuilding();
+        wallOutOfDoorsFindsTheWallOfTheRoomBeyond();
+        usualColourIsWhatMostOfTheSpriteIsPaintedIn();
+        System.out.println("all tests passed");
+    }
+
+    private static void wallTintSurvivesItsPacking() {
+        float[] tint = new float[4];
+        WallSides.tint(0, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f && tint[3] == 0f, "no key is no tint, which the picture reads as the sprite's own colour");
+        float step = 0.5f / 15f + 1e-4f;
+        for (float[] colour : new float[][] {{0.8f, 0.42f, 0.13f, 0.6f}, {1f, 1f, 1f, 1f}, {0.03f, 0.5f, 0.97f, 0.31f}}) {
+            int key = WallSides.key(colour[0], colour[1], colour[2], colour[3]);
+            check(key != 0, "a colour's key is never the key that means none");
+            WallSides.tint(key, tint);
+            check(Math.abs(tint[0] - colour[0]) <= step && Math.abs(tint[1] - colour[1]) <= step && Math.abs(tint[2] - colour[2]) <= step,
+                    "the colour comes back to within half a step of sixteen");
+            check(Math.abs(1f / tint[3] - colour[3]) <= step, "and so does the sprite's usual brightness, as 1 over it");
+            float[] again = new float[4];
+            WallSides.tint(WallSides.key(tint[0], tint[1], tint[2], 1f / tint[3]), again);
+            check(java.util.Arrays.equals(tint, again), "what came back packs to itself");
+        }
+        check(WallSides.key(0f, 0f, 0f, 0f) != 0, "black over a black sprite is still a tint");
+        WallSides.tint(WallSides.key(0f, 0f, 0f, 0f), tint);
+        check(tint[3] > 0.5f && !Float.isInfinite(tint[3]), "and a sprite with no brightness does not divide by nothing");
+        check(WallSides.key(0.4f, 0.4f, 0.4f, 0.4f) == WallSides.key(0.41f, 0.39f, 0.4f, 0.42f), "colours a hair apart share a key, and so a draw");
+    }
+
+    private static void meshesAreKeptByTextureAndTint() {
+        SpriteGeometry.MeshSet meshes = new SpriteGeometry.MeshSet();
+        SpriteGeometry.Mesh plain = meshes.get(7), tinted = meshes.get(7, 0x8421);
+        check(plain != tinted && plain.tint == 0 && tinted.tint == 0x8421 && tinted.texture == 7, "one texture in two tints is two meshes");
+        for (int texture = 1; texture < 200; texture++) {
+            meshes.get(texture, texture % 3 == 0 ? 0x1111 * (texture % 5 + 1) : 0);
+        }
+        check(meshes.get(7) == plain && meshes.get(7, 0x8421) == tinted, "and each is found again after the table has grown");
+    }
+
+    private static final int OUT = WallSides.LOADED, IN = WallSides.LOADED | WallSides.INDOORS, WALL = WallSides.WALL;
+
+    private static WallSides.Squares squares(int... along) {
+        return step -> step < along.length ? along[step] : 0;
+    }
+
+    private static void wallIndoorsFindsTheOutsideWallAcrossTheBuilding() {
+        check(WallSides.toOutsideWall(squares(IN | WALL, IN, IN | WALL, IN, OUT | WALL, OUT)) == 4,
+                "the walk crosses the room and the partition in it to the first square out of doors");
+        check(WallSides.toOutsideWall(squares(IN | WALL, OUT | WALL)) == 1, "a room one square deep has its outside wall on the next square");
+        check(WallSides.toOutsideWall(squares(IN | WALL, IN, OUT, OUT | WALL)) == WallSides.NOTHING,
+                "a building open on its far side has no wall there, and the next building's is not taken");
+        check(WallSides.toOutsideWall(squares(IN | WALL, IN, IN)) == WallSides.UNKNOWN, "a walk that runs off the loaded map is not an answer");
+        int[] deep = new int[WallSides.FURTHEST + 3];
+        java.util.Arrays.fill(deep, IN);
+        deep[WallSides.FURTHEST + 1] = OUT | WALL;
+        check(WallSides.toOutsideWall(squares(deep)) == WallSides.NOTHING, "the walk gives up past its furthest square");
+        deep[WallSides.FURTHEST] = OUT | WALL;
+        check(WallSides.toOutsideWall(squares(deep)) == WallSides.FURTHEST, "and not before it");
+    }
+
+    private static void wallOutOfDoorsFindsTheWallOfTheRoomBeyond() {
+        check(WallSides.toRoomWall(squares(IN, IN, IN | WALL, IN | WALL)) == 2, "the walk crosses the room to its first wall on the far side");
+        check(WallSides.toRoomWall(squares(IN | WALL, IN)) == 0, "a room one square deep has that wall on the square it starts from");
+        check(WallSides.toRoomWall(squares(IN, OUT | WALL)) == WallSides.NOTHING, "a room open on its far side has no wall of its own there");
+        check(WallSides.toRoomWall(squares(IN, IN)) == WallSides.UNKNOWN, "a walk that runs off the loaded map is not an answer");
+        int[] deep = new int[WallSides.FURTHEST + 1];
+        java.util.Arrays.fill(deep, IN);
+        deep[WallSides.FURTHEST] = IN | WALL;
+        check(WallSides.toRoomWall(squares(deep)) == WallSides.NOTHING, "the walk gives up past its furthest square");
+        deep[WallSides.FURTHEST - 1] = IN | WALL;
+        check(WallSides.toRoomWall(squares(deep)) == WallSides.FURTHEST - 1, "and not before it");
+    }
+
+    private static void usualColourIsWhatMostOfTheSpriteIsPaintedIn() {
+        int width = 8, height = 6;
+        java.nio.ByteBuffer pixels = java.nio.ByteBuffer.allocate(width * height * 4);
+        // A sheet of red, with the sprite on it from (2, 1) to before (7, 5): 20 pixels, of
+        // which 12 are a pale blue, 4 a dark frame, 2 unpainted and 2 a little lighter blue.
+        for (int i = 0; i < width * height; i++) {
+            pixels.put(i * 4, (byte) 255).put(i * 4 + 3, (byte) 255);
+        }
+        int[][] kinds = {{100, 150, 200, 255}, {20, 20, 20, 255}, {255, 255, 255, 0}, {110, 160, 210, 255}};
+        int[] counts = {12, 4, 2, 2};
+        int kind = 0, used = 0;
+        for (int y = 1; y < 5; y++) {
+            for (int x = 2; x < 7; x++) {
+                if (used == counts[kind]) {
+                    kind++;
+                    used = 0;
+                }
+                used++;
+                for (int channel = 0; channel < 4; channel++) {
+                    pixels.put((y * width + x) * 4 + channel, (byte) kinds[kind][channel]);
+                }
+            }
+        }
+        float[] colour = new float[4];
+        check(WallSides.usualColour(pixels, width, 2, 1, 7, 5, colour), "a painted sprite has a colour");
+        float red = (12 * 100 + 2 * 110) / (14 * 255f), green = (12 * 150 + 2 * 160) / (14 * 255f), blue = (12 * 200 + 2 * 210) / (14 * 255f);
+        check(near(colour[0], red) && near(colour[1], green) && near(colour[2], blue),
+                "it is the mean of the brightness most of it has: not the frame, the unpainted pixels or the sheet round it");
+        check(near(colour[3], 0.299f * red + 0.587f * green + 0.114f * blue), "with the brightness of that colour");
+        check(!WallSides.usualColour(pixels, width, 2, 1, 2, 5, colour), "a sprite of no width has none");
+        for (int i = 0; i < width * height; i++) {
+            pixels.put(i * 4 + 3, (byte) 0);
+        }
+        check(!WallSides.usualColour(pixels, width, 2, 1, 7, 5, colour), "nor has one with nothing painted");
     }
 
     private static void fineSkinFileIsNamedAfterTheGamesTexture() {

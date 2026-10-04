@@ -254,6 +254,7 @@ final class Pipeline {
             uniform float uSeconds;
             uniform float uCut;
             uniform vec2 uTexel;
+            uniform vec4 uTint;
             uniform float uLaid;
             uniform float uWet;
             varying vec2 vUv;
@@ -455,6 +456,14 @@ final class Pipeline {
                     vec4 d = texture2D(uTexture, vUv - 0.125 * stepX - 0.375 * stepY);
                     float solid = a.a + b.a + c.a + d.a;
                     texel = vec4((a.rgb * a.a + b.rgb * b.a + c.rgb * c.a + d.rgb * d.a) / max(solid, 0.001), solid * 0.25);
+                }
+                // The skin of a wall that faces away from the side its sprite was painted for
+                // keeps the sprite's outline and its light and dark, each dot as much lighter or
+                // darker than the sprite mostly is as it was painted, in the colour of the
+                // surface that side of the wall has. uTint.a is 1 over the sprite's usual
+                // brightness, and 0 for everything else.
+                if (uTint.a > 0.5) {
+                    texel.rgb = min(uTint.rgb * min(dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * uTint.a, 1.6), 1.0);
                 }
                 bool grass = vKind > 7.5;
                 // The game draws its furniture with a dark line round every part, which is what
@@ -2605,7 +2614,8 @@ final class Pipeline {
     private static final int[] levelWidth = new int[BLOOM_LEVELS], levelHeight = new int[BLOOM_LEVELS];
 
     private static FloatBuffer vertices = buffer(1 << 20);
-    private static int[] rangeTexture = new int[256], rangeFirst = new int[256], rangeCount = new int[256];
+    private static int[] rangeTexture = new int[256], rangeFirst = new int[256], rangeCount = new int[256], rangeTint = new int[256];
+    private static final float[] tint = new float[4];
     private static int ranges, solidRanges;
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private static final float[] beamMatrix = new float[16];
@@ -2706,6 +2716,7 @@ final class Pipeline {
                 GL11.glFinish();
                 stageStart = System.nanoTime();
             }
+            SpriteColours.read();
             load(chunks);
             stage(STAGE_LOAD);
             boolean figures = Characters.ready();
@@ -2811,6 +2822,7 @@ final class Pipeline {
             rangeTexture = new int[most * 2];
             rangeFirst = new int[most * 2];
             rangeCount = new int[most * 2];
+            rangeTint = new int[most * 2];
         }
         ranges = 0;
         int floats = solidRuns.place(0);
@@ -2828,9 +2840,9 @@ final class Pipeline {
         arrays();
     }
 
-    /** The runs of the vertex buffer by texture: how long each is, where it starts, and where the next mesh for it goes. */
+    /** The runs of the vertex buffer by texture and tint: how long each is, where it starts, and where the next mesh for it goes. */
     private static final class Runs {
-        private int[] texture = new int[512], floats = new int[512], cursor = new int[512];
+        private int[] texture = new int[512], tint = new int[512], floats = new int[512], cursor = new int[512];
         private boolean[] taken = new boolean[512];
         int used;
 
@@ -2839,10 +2851,10 @@ final class Pipeline {
             used = 0;
         }
 
-        private int slot(int name) {
+        private int slot(int name, int tinted) {
             int mask = texture.length - 1;
-            int slot = (name * 0x9E3779B1) >>> 16 & mask;
-            while (taken[slot] && texture[slot] != name) {
+            int slot = ((name ^ tinted << 12) * 0x9E3779B1) >>> 16 & mask;
+            while (taken[slot] && (texture[slot] != name || tint[slot] != tinted)) {
                 slot = (slot + 1) & mask;
             }
             return slot;
@@ -2857,10 +2869,11 @@ final class Pipeline {
                 if (used * 2 >= texture.length) {
                     grow();
                 }
-                int slot = slot(mesh.texture);
+                int slot = slot(mesh.texture, mesh.tint);
                 if (!taken[slot]) {
                     taken[slot] = true;
                     texture[slot] = mesh.texture;
+                    tint[slot] = mesh.tint;
                     floats[slot] = 0;
                     used++;
                 }
@@ -2869,17 +2882,19 @@ final class Pipeline {
         }
 
         private void grow() {
-            int[] oldTexture = texture, oldFloats = floats;
+            int[] oldTexture = texture, oldTint = tint, oldFloats = floats;
             boolean[] oldTaken = taken;
             texture = new int[oldTexture.length * 2];
+            tint = new int[oldTexture.length * 2];
             floats = new int[oldTexture.length * 2];
             cursor = new int[oldTexture.length * 2];
             taken = new boolean[oldTexture.length * 2];
             for (int i = 0; i < oldTexture.length; i++) {
                 if (oldTaken[i]) {
-                    int slot = slot(oldTexture[i]);
+                    int slot = slot(oldTexture[i], oldTint[i]);
                     taken[slot] = true;
                     texture[slot] = oldTexture[i];
+                    tint[slot] = oldTint[i];
                     floats[slot] = oldFloats[i];
                 }
             }
@@ -2893,6 +2908,7 @@ final class Pipeline {
                 }
                 cursor[slot] = start;
                 rangeTexture[ranges] = texture[slot] == 0 ? whiteTexture : texture[slot];
+                rangeTint[ranges] = tint[slot];
                 rangeFirst[ranges] = start / SpriteGeometry.VERTEX_FLOATS;
                 rangeCount[ranges] = floats[slot] / SpriteGeometry.VERTEX_FLOATS;
                 ranges++;
@@ -2907,7 +2923,7 @@ final class Pipeline {
                 if (mesh.floats == 0) {
                     continue;
                 }
-                int slot = slot(mesh.texture);
+                int slot = slot(mesh.texture, mesh.tint);
                 vertices.put(cursor[slot], mesh.vertices, 0, mesh.floats);
                 cursor[slot] += mesh.floats;
             }
@@ -2948,14 +2964,20 @@ final class Pipeline {
         return view;
     }
 
-    /** Draws the ranges telling the program the size of a texel of each one's texture. */
+    /**
+     * Draws the ranges telling the program the size of a texel of each one's texture and the
+     * colour it is painted over in, and leaves it told that nothing is painted over.
+     */
     private static void drawRanges(int from, int to, Program program) {
         for (int i = from; i < to; i++) {
             GL11.glBindTexture(GL_TEXTURE_2D, rangeTexture[i]);
             program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
                     1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
+            WallSides.tint(rangeTint[i], tint);
+            program.set("uTint", tint[0], tint[1], tint[2], tint[3]);
             GL11.glDrawArrays(GL_TRIANGLES, rangeFirst[i], rangeCount[i]);
         }
+        program.set("uTint", 0f, 0f, 0f, 0f);
     }
 
     private static void drawRanges(int from, int to) {

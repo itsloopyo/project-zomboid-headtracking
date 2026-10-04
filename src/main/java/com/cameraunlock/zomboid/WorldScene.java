@@ -252,6 +252,23 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
     private float buildMillis;
 
+    /** The wall that shows what the far side of another wall is, and what that surface is made of. */
+    private static final class OtherSide {
+        Texture texture;
+        float material;
+    }
+
+    private static final OtherSide NO_OTHER_SIDE = new OtherSide();
+    /** How many frames what the walks found is kept for. */
+    private static final int WALKS_KEPT = 600;
+    private final long[] walkedKey = new long[4096];
+    private final OtherSide[] walked = new OtherSide[4096];
+    private int walkedCount, walkedFrame;
+    private int walkX, walkY, walkZ, walkStep;
+    private boolean walkNorth;
+    private final WallSides.Squares walk = this::walkAt;
+    private float farMaterial;
+
     private WorldScene() {}
 
     static WorldScene next() {
@@ -1666,7 +1683,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, int x, int y, int z,
             float a, float b, float da, float db) {
         // A wall is as thick as a wall: two skins, one each side of the square's edge, both
-        // showing what the sprite shows. Through a window or a doorway the far skin is seen
+        // with the sprite's outline. Through a window or a doorway the far skin is seen
         // behind the near one, which is the depth of the opening. What hangs on the wall
         // hangs on the skin inside the square.
         float inX = db * WALL_HALF, inY = da * WALL_HALF;
@@ -1690,10 +1707,126 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
         geometry.shownA = -inX;
         geometry.shownB = -inY;
-        geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        // The sprite is painted for the side inside the square. Where the far side is another
+        // kind of place, the skin on it is that side's surface. Only the wall itself: ivy or a
+        // stain over it is on the side it was painted on, and is no part of the wall's colour.
+        float material = frame.material;
+        int tint = overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
+        if (tint != 0) {
+            frame.material = farMaterial;
+        }
+        geometry.addFace(tint != 0 ? solid.get(texture.getID(), tint) : mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        frame.material = material;
         geometry.shownA = geometry.shownB = 0f;
         geometry.sealLow = 0f;
         geometry.sealHigh = 0f;
+    }
+
+    /**
+     * What the far skin of the wall on the north or west edge of the square being added is
+     * painted over in, as WallSides packs it, and into farMaterial what it is made of. 0 where
+     * it shows the sprite as the near skin does: a partition between two rooms, a fence or a
+     * wall in the open, a building whose other wall is not to be found, and a sprite the
+     * picture has not read yet.
+     */
+    private int farTint(Texture texture, int x, int y, int z, boolean north) {
+        int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1, far = north ? own - 1 : own - LIGHT_SPAN;
+        if (lightOpen[far] < 0 || lightOpen[far] == lightOpen[own]) {
+            return 0;
+        }
+        OtherSide other = otherSide(x, y, z, north, lightOpen[own] == 0);
+        if (other == NO_OTHER_SIDE || other.texture == texture) {
+            return 0;
+        }
+        float[] here = SpriteColours.of(texture), there = SpriteColours.of(other.texture);
+        if (here == null || there == null) {
+            return 0;
+        }
+        farMaterial = other.material;
+        return WallSides.key(there[0], there[1], there[2], here[3]);
+    }
+
+    /**
+     * The wall whose sprite shows what the far side of the wall on the square's north or west
+     * edge is: for a wall with its own square indoors, the building's outside wall on the
+     * opposite side, and for one with its own square out of doors, the wall of the room beyond
+     * it. Kept by the square the walk starts from and the edge, since every wall asks each time
+     * its chunk is built, and thrown away every so often, since walls are built and knocked down.
+     */
+    private OtherSide otherSide(int x, int y, int z, boolean north, boolean ownIndoors) {
+        if (frames - walkedFrame >= WALKS_KEPT || walkedCount * 2 > walked.length) {
+            java.util.Arrays.fill(walked, null);
+            walkedCount = 0;
+            walkedFrame = frames;
+        }
+        long key = (long) x << 36 ^ (y & 0xFFFFFFFL) << 8 ^ (z & 0x7F) << 1 ^ (north ? 1 : 0);
+        int mask = walked.length - 1;
+        int slot = (int) (key * 0x9E3779B97F4A7C15L >>> 40) & mask;
+        while (walked[slot] != null && walkedKey[slot] != key) {
+            slot = (slot + 1) & mask;
+        }
+        if (walked[slot] != null) {
+            return walked[slot];
+        }
+        // Indoors the walk leaves the wall behind it and crosses the building. Out of doors it
+        // starts on the square beyond the wall and crosses the room there.
+        walkX = north || ownIndoors ? x : x - 1;
+        walkY = !north || ownIndoors ? y : y - 1;
+        walkZ = z;
+        walkNorth = north;
+        walkStep = ownIndoors ? 1 : -1;
+        int step = ownIndoors ? WallSides.toOutsideWall(walk) : WallSides.toRoomWall(walk);
+        if (step == WallSides.UNKNOWN) {
+            return NO_OTHER_SIDE;
+        }
+        OtherSide found = NO_OTHER_SIDE;
+        if (step != WallSides.NOTHING) {
+            IsoObject wall = wallOn(walkSquare(step), north);
+            found = new OtherSide();
+            found.texture = wall.getSprite().getTextureForCurrentFrame(wall.getDir());
+            // A room's wall is painted or papered whatever sheet its sprite is from. Siding is
+            // what its own sheet says.
+            found.material = ownIndoors ? materialOf(wall.getSprite().getName(), false) : PAINT;
+        }
+        walkedKey[slot] = key;
+        walked[slot] = found;
+        walkedCount++;
+        return found;
+    }
+
+    private IsoGridSquare walkSquare(int step) {
+        return cell.getGridSquare(walkX + (walkNorth ? 0 : walkStep * step), walkY + (walkNorth ? walkStep * step : 0), walkZ);
+    }
+
+    private int walkAt(int step) {
+        IsoGridSquare square = walkSquare(step);
+        if (square == null) {
+            return 0;
+        }
+        return WallSides.LOADED | (square.isOutside() ? 0 : WallSides.INDOORS) | (wallOn(square, walkNorth) != null ? WallSides.WALL : 0);
+    }
+
+    /** The wall standing on the square's north or west edge that has a sprite to show, or null. */
+    private static IsoObject wallOn(IsoGridSquare square, boolean north) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null) {
+                continue;
+            }
+            PropertyContainer properties = sprite.getProperties();
+            IsoObjectType type = sprite.getType();
+            if (!isWall(properties, type) || !(properties.has(IsoFlagType.WallNW)
+                    || (north ? standsOnNorthEdge(properties, type) : standsOnWestEdge(properties, type)))) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (texture != null && texture.getID() > 0 && texture.getWidth() > 0 && texture.getHeight() > 0) {
+                return object;
+            }
+        }
+        return null;
     }
 
     /**

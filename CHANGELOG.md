@@ -27,5 +27,6 @@
 - A clear day in first person has clearer air, fuller colour and more contrast, warm in the sun and cool in the shade.
 - Vehicles in first person are the size they are in the game's own view. They were drawn half as big again.
 - Beds, wardrobes, sofas, dining chairs, square tables and bedside drawers in first person are solid furniture with rounded edges, cushions, pillows and a turned-down blanket, in the colours the game gives each piece.
+- A building's outside walls in first person show its siding on the outside and the room's walls on the inside, on every side of the building. The back of a house showed wallpaper outside, and the front showed siding indoors.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.
