@@ -522,7 +522,12 @@ final class Pipeline {
                             : vMaterial < 6.5 ? dot(texture2D(uBark, across * vec2(1.6, 0.8)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
                             : vMaterial < 7.5 ? dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y
                             : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
-                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8);
+                    float much = vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
+                    // What is painted white is paint over the wood: its grain barely shows.
+                    if (vMaterial > 2.5 && vMaterial < 3.5) {
+                        much *= 1.0 - 0.75 * smoothstep(0.6, 0.85, min(texel.r, min(texel.g, texel.b)));
+                    }
+                    texel.rgb *= mix(1.0, fine, much);
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which

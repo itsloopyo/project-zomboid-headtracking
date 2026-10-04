@@ -194,6 +194,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
+    private static final int TABLE_HIGHEST = 48;
     private static final int LONG_TUFTS = 10;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
@@ -1139,11 +1140,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         // The far edges are the next square's wall, so even the first sprite here stands off it.
         if (properties.has(IsoFlagType.attachedE) || type == IsoObjectType.curtainE) {
+            // Clear of the skin of the next square's wall, which stands this side of the edge.
+            geometry.shownA = -WALL_HALF - HUNG_CLEAR;
             geometry.addFace(mesh, frame, x, y, z, 1f - ++eastLayer * standOff, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+            geometry.shownA = 0f;
             return;
         }
         if (properties.has(IsoFlagType.attachedS) || type == IsoObjectType.curtainS) {
+            geometry.shownB = -WALL_HALF - HUNG_CLEAR;
             geometry.addFace(mesh, frame, x, y, z, 0f, 1f - ++southLayer * standOff, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+            geometry.shownB = 0f;
             return;
         }
         // The game marks most of a roof's sprites as roof, but not the caps along its ridge
@@ -1198,7 +1204,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // A table. The game says how high its top is. The top is laid level at that height,
         // taking from the sprite what the sprite shows there, round or square as it is painted,
         // and what the sprite shows below the top stands under it as the legs.
-        if (!grows && properties.isTable() && properties.getSurface() > 0) {
+        // Only what is table height: a tall cupboard the game also calls a table is not one.
+        if (!grows && properties.isTable() && properties.getSurface() > 0 && properties.getSurface() <= TABLE_HIGHEST) {
             float top = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, 0f, 0f, 1f, 0f);
             float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
