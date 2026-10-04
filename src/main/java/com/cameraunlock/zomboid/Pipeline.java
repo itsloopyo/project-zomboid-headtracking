@@ -250,7 +250,7 @@ final class Pipeline {
                     // gets to them, and here and there a blade gone to straw.
                     float dry = smoothstep(0.82, 1.0, grain(vec2(blade, 11.0)));
                     texel.rgb = mix(texel.rgb, vec3(0.62, 0.55, 0.3), dry * 0.6);
-                    texel.rgb *= (0.38 + 0.95 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
+                    texel.rgb *= (0.6 + 0.7 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
                     texel.a = 1.0;
                 }
                 // The sprites were drawn for a view in which every level line runs two pixels
@@ -404,7 +404,10 @@ final class Pipeline {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
                 }
-                gl_FragColor = vec4(color, texel.a * shown);
+                // What is laid over the ground is mixed in by its alpha. For everything else the
+                // alpha says how much of a mirror the surface is, 1 for none, which the last
+                // pass reads to trace what the mirror shows.
+                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - shine * step(0.8, n.z));
             }
             """;
 
@@ -708,8 +711,65 @@ final class Pipeline {
             uniform float uTime;
             uniform float uRain;
 
+            uniform vec2 uTan;
+            uniform float uNear;
+            uniform float uFar;
+            uniform vec3 uUp;
+
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
+            const int MIRROR_STEPS = 40;
+
+            // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
+            vec3 placeAt(vec2 uv) {
+                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                return vec3((uv * 2.0 - 1.0) * uTan * ahead, ahead);
+            }
+
+            // What a wet or watery surface shows of the world. The world's own shader has put
+            // the sky in it already. Here a ray is sent from the surface the way a mirror would
+            // throw the eye's line, and walked through the picture's own depth: where it goes
+            // behind something the picture shows, that thing is what the mirror shows there.
+            // A ray that leaves the picture, or passes behind something too far to be sure of,
+            // finds nothing and the sky stays.
+            vec3 mirrored(vec2 uv, vec4 scene) {
+                float mirror = 1.0 - scene.a;
+                if (mirror < 0.02) {
+                    return scene.rgb;
+                }
+                vec3 p = placeAt(uv);
+                vec3 line = normalize(p);
+                vec3 thrown = reflect(line, uUp);
+                float glance = 0.04 + 0.96 * pow(1.0 - max(dot(-line, uUp), 0.0), 5.0);
+                float reach = 0.12 + 0.02 * p.z;
+                float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+                float along = reach * start;
+                for (int i = 0; i < MIRROR_STEPS; i++) {
+                    along += reach;
+                    reach *= 1.14;
+                    vec3 q = p + thrown * along;
+                    if (q.z <= uNear) {
+                        break;
+                    }
+                    vec2 at = q.xy / (q.z * uTan) * 0.5 + 0.5;
+                    if (at.x < 0.0 || at.x > 1.0 || at.y < 0.0 || at.y > 1.0) {
+                        break;
+                    }
+                    float behind = q.z - placeAt(at).z;
+                    if (behind > 0.0) {
+                        if (behind < 0.6 + reach * 1.5) {
+                            float edge = min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y));
+                            vec4 found = texture2D(uScene, at);
+                            // A mirror seen in a mirror is the sky both times.
+                            float sure = smoothstep(0.0, 0.08, edge) * step(0.5, found.a);
+                            return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
+                        }
+                        break;
+                    }
+                }
+                return scene.rgb;
+            }
 
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -796,7 +856,7 @@ final class Pipeline {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                vec3 c = texture2D(uScene, uv).rgb * mix(1.0, texture2D(uOcclusion, uv).r, 0.62);
+                vec3 c = mirrored(uv, texture2D(uScene, uv)) * mix(1.0, texture2D(uOcclusion, uv).r, 0.62);
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }
@@ -1013,7 +1073,7 @@ final class Pipeline {
             stage(STAGE_AIR);
             drawBloom(exposure);
             stage(STAGE_GLOW);
-            drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure);
+            drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far);
             stage(STAGE_DEVELOP);
             GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
             GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -1528,7 +1588,8 @@ final class Pipeline {
         }
     }
 
-    private static void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure) {
+    private static void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
+            float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, shownTarget);
         GL11.glViewport(0, 0, width, height);
         develop.use();
@@ -1549,6 +1610,11 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
         develop.set("uSize", (float) width, (float) height);
         develop.set("uExposure", exposure);
+        develop.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
+        develop.set("uNear", near);
+        develop.set("uFar", far);
+        // The way up in the world, as the eye sees it: across, up and ahead.
+        develop.set("uUp", camera.rightUp, camera.upUp, camera.forwardUp);
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
         develop.set("uRain", state.rain * state.outdoors);
