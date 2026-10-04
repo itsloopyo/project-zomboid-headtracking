@@ -820,7 +820,7 @@ final class Pipeline {
                     }
                 }
 
-                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
+                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(-view), haze);
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
@@ -1881,7 +1881,7 @@ final class Pipeline {
                 color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45, 3.0, lacquer) * sun);
 
                 float range = ahead * length(ray);
-                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));
+                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 gl_FragColor = vec4(color, 1.0);
                 // The viewer's own body and vehicle are drawn with a depth of their own. Here
@@ -2076,10 +2076,12 @@ final class Pipeline {
                 c += texture2D(uBloom, uv).rgb * 0.045;
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
-                c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);
-                // The game's sprites are painted in strong colours, to be read from far above.
-                // Seen at eye level in daylight the world is quieter than that.
-                c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 0.9);
+                c = mix(c, c * c * (3.0 - 2.0 * c), 0.34);
+                // A clear day photographs warm where the sun falls and cool in the shade, and
+                // with its greens and blues full.
+                float grey = dot(c, vec3(0.2126, 0.7152, 0.0722));
+                c = mix(vec3(grey), c, 1.08);
+                c *= mix(vec3(0.96, 0.99, 1.05), vec3(1.05, 1.01, 0.95), smoothstep(0.25, 0.8, grey));
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * 0.32;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;

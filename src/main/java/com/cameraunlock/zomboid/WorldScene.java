@@ -56,7 +56,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How much wider than the picture's corners the drawn cone is, so nothing pops in at the edges. */
     private static final float CONE_MARGIN = (float) Math.toRadians(8);
     /** The world fades into the sky from this share of the way to the edge of the loaded map. */
-    private static final float FOG_START = 0.55f;
+    private static final float FOG_START = 0.78f;
     /**
      * How far the near plane's corners are from the eye. A lean stops LeanClamp.SKIN off a wall,
      * and the wall is only drawn while that is further than this.
