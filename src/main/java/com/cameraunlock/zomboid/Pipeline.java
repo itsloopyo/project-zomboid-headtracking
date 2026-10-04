@@ -389,9 +389,14 @@ final class Pipeline {
                             // Earth keeps the game's own grain: what is brown may as well be planks.
                             + vec3(1.0 - stony - green)
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
-                    // Its light and dark only: the colour is the game's, or a dry lawn turns the
-                    // colour of the earth it was taken for.
-                    texel.rgb *= mix(1.0, dot(grain3, vec3(0.299, 0.587, 0.114)), 0.9);
+                    // The picture's light and dark go over the game's colour everywhere. Where
+                    // the ground is stone, which has no colour of its own to lose, the picture's
+                    // colour comes too, as bright as the game painted the spot: tarmac and gravel
+                    // are then the real thing and not a painting of it. Grass keeps the game's
+                    // colour, which is the season's.
+                    float fine = dot(grain3, vec3(0.299, 0.587, 0.114));
+                    float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+                    texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * stony);
                     float near = 1.0 - smoothstep(5.0, 16.0, range);
                     if (near > 0.0) {
                         float e = 0.012;
