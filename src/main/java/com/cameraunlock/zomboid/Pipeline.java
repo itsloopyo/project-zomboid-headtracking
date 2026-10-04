@@ -245,6 +245,7 @@ final class Pipeline {
                 return facets * seen * fresnel * 0.25 * nl;
             }
             uniform float uRaining;
+            uniform float uDark;
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -712,6 +713,15 @@ final class Pipeline {
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
                 }
+                // A lamp that is lit is brighter than anything it lights. The game lights the
+                // square a burning lamp stands on strongly, and in the dark that is how a lamp
+                // that is on is told: its pale parts, the shade and the glass, then give light
+                // of their own, enough to bloom.
+                if (vMaterial > 13.5 && uDark > 0.0) {
+                    float lit = smoothstep(0.55, 0.95, max(vColor.r, max(vColor.g, vColor.b)));
+                    float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
+                    color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);
+                }
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
                     vec3 back = reflect(-view, n);
@@ -748,7 +758,7 @@ final class Pipeline {
                 // a chair.
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 // A window pane mirrors whichever way it faces.
-                float pane = vMaterial > 12.5 ? 0.45 : 0.0;
+                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
@@ -2206,6 +2216,7 @@ final class Pipeline {
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);
         world.set("uRaining", state.rain);
+        world.set("uDark", state.night);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
