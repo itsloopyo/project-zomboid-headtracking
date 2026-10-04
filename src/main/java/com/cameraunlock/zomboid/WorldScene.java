@@ -603,7 +603,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * LIGHT_SPAN + localY + 1;
-        if (groundKind[own] == Terrain.UNKNOWN || lightOpen[own] != 1) {
+        // A street ends at its kerb, and the verge stands behind it: nothing grows out over the tarmac.
+        if (groundKind[own] == Terrain.UNKNOWN || groundKind[own] == Terrain.STREET || lightOpen[own] != 1) {
             return;
         }
         int mine = groundRank[own];
@@ -721,7 +722,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         mesh.open = frame.open;
         if (beside == Terrain.STREET) {
             SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f,
-                    0.6f * frame.red, 0.6f * frame.green, 0.58f * frame.blue);
+                    0.82f * frame.red, 0.82f * frame.green, 0.8f * frame.blue);
         } else if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
             SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f,
                     0.3f * frame.red, 0.26f * frame.green, 0.22f * frame.blue);
@@ -970,13 +971,17 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         // The game marks most of a roof's sprites as roof, but not the caps along its ridge
         // and its edges. Their sprites do not say which way they lie, and stood upright like
-        // furniture they are boxes floating over the house, so they are left out: the roof
-        // ends cleanly at its wall.
+        // furniture they are boxes floating over the house.
         if (type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
             addRoof(mesh, texture, x, y, z);
             return;
         }
         if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
+            // Left out, they are a slot along the ridge that the rooms show through. Each is
+            // laid level over its square at the height the middle of its sprite is drawn at,
+            // which closes the roof along its top.
+            float high = Math.clamp(SpriteGeometry.heightDrawnAt(frame, 0.5f, 0.5f, frame.top + frame.height * 0.5f), 0f, 1.5f);
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, high, 1f, 0f, 0f, 0f, 1f, 0f);
             return;
         }
         // What the game itself moves with the wind, and what it lets the player clear as
