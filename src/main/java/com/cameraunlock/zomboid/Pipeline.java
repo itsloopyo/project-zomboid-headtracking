@@ -184,7 +184,6 @@ final class Pipeline {
             uniform mat4 uFarMatrix;
             uniform float uShadowTexel;
             uniform sampler2D uShadowDepth;
-            uniform sampler3D uCloudNoise;
             uniform float uCover;
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
@@ -554,11 +553,9 @@ final class Pipeline {
                     }
                     // The clouds overhead pass between the sun and the ground, and their
                     // shadows cross the land with the wind: fields go dull and bright by turns.
-                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 14.0;
-                    vec3 q = vec3(under * 0.17 + uDrift, 0.3);
-                    float bank = texture3D(uCloudNoise, vec3(under * 0.021 + uDrift * 0.4, 0.37)).g;
-                    float body = texture3D(uCloudNoise, q).r * 0.68 + texture3D(uCloudNoise, q * 2.3 + 0.17).g * 0.32;
-                    reached *= 1.0 - 0.7 * smoothstep(0.0, 0.16, body - (1.0 - uCover) - (0.5 - bank) * 0.34);
+                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
+                    float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
+                    reached *= 1.0 - 0.65 * smoothstep(-0.06, 0.06, body - (1.12 - uCover));
                     sun = reached * facing;
                 }
 
@@ -1988,10 +1985,6 @@ final class Pipeline {
         GL33.glBindSampler(UNITS - 2, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
         world.set("uShadowDepth", UNITS - 2);
-        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
-        GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        world.set("uCloudNoise", UNITS - 1);
         world.set("uCover", state.cover);
         world.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
