@@ -20,6 +20,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isKnockedDown() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem getPrimaryHandItem() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getInventory() { throw new UnsupportedOperationException("reference stub"); }
+    public void setInvulnerable(boolean invulnerable) { throw new UnsupportedOperationException("reference stub"); }
     public void teleportTo(float x, float y, int level) { throw new UnsupportedOperationException("reference stub"); }
     public void setPrimaryHandItem(zombie.inventory.InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
     public void setSecondaryHandItem(zombie.inventory.InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }

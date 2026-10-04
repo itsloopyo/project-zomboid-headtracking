@@ -98,6 +98,9 @@ final class DevKeys {
                 throw new IllegalStateException("the game's character has no invincible field: " + e, e);
             }
             safe.setAvoidDamage(invincible);
+            // The game's own god mode, by the door that has no check of who is asking: with
+            // the field and the damage switch alone a crowd still killed in seconds.
+            safe.setInvulnerable(invincible);
             if (invincible && !safe.isDead()) {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
