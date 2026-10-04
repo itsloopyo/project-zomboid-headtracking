@@ -22,6 +22,9 @@ import zombie.vehicles.VehiclePart;
  *
  * F6 makes the player invincible, and vulnerable again on the next press.
  *
+ * F3 moves the player to the next of a few places worth looking at: a lake shore, a wood, open
+ * farmland, a town street.
+ *
  * F4 sets the clock to early evening, with the sun starting down: the hour the picture looks
  * its best.
  *
@@ -37,6 +40,11 @@ final class DevKeys {
     /** F6. */
     private static final int INVINCIBLE_KEY = 64;
 
+    /** F3. */
+    private static final int PLACE_KEY = 61;
+    /** Tile x and y of each place, on the ground. */
+    private static final float[][] PLACES = {{6442.5f, 5187.5f}, {10900.5f, 8500.5f}, {9050.5f, 8700.5f}, {10792.5f, 9776.5f}};
+    private static int place;
     /** F4. */
     private static final int EVENING_KEY = 62;
     /** How long before dusk the clock is set to, in hours. */
@@ -63,7 +71,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: F3 goes to the next view, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
         if (!enabled) {
@@ -94,6 +102,11 @@ final class DevKeys {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
             wasInvincible = invincible;
+        }
+        if (safe != null && safe.getVehicle() == null && GameKeyboard.isKeyPressed(PLACE_KEY)) {
+            float[] to = PLACES[place++ % PLACES.length];
+            safe.teleportTo(to[0], to[1], 0);
+            Log.info("F3: moved to (" + to[0] + ", " + to[1] + ")");
         }
         if (GameKeyboard.isKeyPressed(EVENING_KEY)) {
             float hour = ClimateManager.getInstance().getSeason().getDusk() - BEFORE_DUSK;
