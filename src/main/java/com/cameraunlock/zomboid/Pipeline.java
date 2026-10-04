@@ -605,7 +605,11 @@ final class Pipeline {
                     if (max(spread.x, spread.y) > 0.1 + 0.17 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
-                    if (broad.a < 0.35 || leaf.a < 0.5) {
+                    // A leaf smaller than a pixel is there in one frame and gone in the next,
+                    // and a far crown cut out leaf by leaf is a crawl of dots. As the leaves
+                    // shrink towards a pixel the cut goes, and the crown is the game's outline.
+                    float cut = 0.5 * (1.0 - smoothstep(0.012, 0.04, max(spread.x, spread.y)));
+                    if (broad.a < 0.35 || leaf.a < cut) {
                         discard;
                     }
                     float shade = dot(leaf.rgb, vec3(0.299, 0.587, 0.114)) * uLeafGain;
