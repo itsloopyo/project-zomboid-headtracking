@@ -132,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 13;
+    private static final int UNITS = 14;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -183,6 +183,8 @@ final class Pipeline {
             uniform mat4 uNearMatrix;
             uniform mat4 uFarMatrix;
             uniform float uShadowTexel;
+            uniform sampler2D uShadowDepth;
+            uniform float uSoftPerDepth;
             uniform vec3 uEye;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
@@ -515,7 +517,22 @@ final class Pipeline {
                     vec4 from = vec4(vWorld + n * 0.16 + (card ? uLight * 0.9 : vec3(0.0)), 1.0);
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
-                        reached = shadowAt(uShadowNear, c, 6.0);
+                        // A shadow is sharp where the thing that casts it touches the ground and
+                        // soft far from it: the foot of a post against the top of its shadow. How
+                        // far off the caster is, is found by looking round in the map for what is
+                        // nearer the sun than this point.
+                        float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+                        float nearer = 0.0, casters = 0.0;
+                        for (int i = 0; i < 8; i++) {
+                            float a = turn + float(i) * 2.3999632;
+                            float d = texture2D(uShadowDepth, c.xy + vec2(cos(a), sin(a)) * (sqrt((float(i) + 0.5) / 8.0) * 10.0 * uShadowTexel)).r;
+                            if (d < c.z - 0.0008) {
+                                nearer += d;
+                                casters += 1.0;
+                            }
+                        }
+                        float soft = casters > 0.0 ? clamp((c.z - nearer / casters) * uSoftPerDepth, 1.2, 14.0) : 1.2;
+                        reached = shadowAt(uShadowNear, c, soft);
                     } else {
                         c = (uFarMatrix * from).xyz * 0.5 + 0.5;
                         reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0;
@@ -1352,6 +1369,9 @@ final class Pipeline {
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
     private static int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
     private static int spriteSampler;
+    private static int depthSampler;
+    /** How wide the sun is, as the width of a shadow's soft edge for each tile between caster and ground. Wider than the real sun's: the real one's edge is too fine to read at this scale. */
+    private static final float SUN_WIDTH = 0.06f;
     private static int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
@@ -1903,6 +1923,13 @@ final class Pipeline {
         world.set("uNearMatrix", nearMatrix);
         world.set("uFarMatrix", farMatrix);
         world.set("uShadowTexel", 1f / SHADOW_SIZE);
+        GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL33.glBindSampler(UNITS - 1, depthSampler);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        world.set("uShadowDepth", UNITS - 1);
+        // Texels of soft edge for each unit of the map's depth between caster and ground.
+        world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * SHADOW_SIZE / (2f * NEAR_EXTENT));
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
         world.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
@@ -1927,6 +1954,7 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         GL33.glBindSampler(0, 0);
+        GL33.glBindSampler(UNITS - 1, 0);
 
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -2288,6 +2316,14 @@ final class Pipeline {
                 return missing;
             }
         }
+
+        // Reads a shadow map's depth as a number, where the map's own settings compare it.
+        depthSampler = GL33.glGenSamplers();
+        GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 
         spriteSampler = GL33.glGenSamplers();
         GL33.glSamplerParameteri(spriteSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
