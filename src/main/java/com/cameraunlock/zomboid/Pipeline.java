@@ -515,7 +515,12 @@ final class Pipeline {
                     float lap = smoothstep(0.84, 1.0, bank + 0.06 * sin(uSeconds * 0.9 + churn * 5.0)) * smoothstep(0.35, 0.7, churn);
                     // A broad river slides along without breaking. Only water on a real fall froths.
                     foam = clamp(smoothstep(0.58, 0.78, churn) * smoothstep(0.9, 1.6, speed) + lap * 0.8, 0.0, 1.0);
-                    vec3 body = mix(vec3(0.16, 0.3, 0.33), vec3(0.45, 0.5, 0.4), smoothstep(0.15, 1.0, bank));
+                    // Deep water is dark and shows nothing under it. In the shallows at the bank
+                    // the bed shows through, its stones shifting as the ripples above bend the
+                    // light, and the water over it only tints it.
+                    vec2 bent = vWorld.xy + vec2(swell(vWorld.xy), swell(vWorld.xy + 3.7)) * 0.18;
+                    vec3 bed = texture2D(uSoil, bent * 0.6).rgb * uMaterialGain.z * vec3(0.5, 0.56, 0.46);
+                    vec3 body = mix(vec3(0.16, 0.3, 0.33), bed, smoothstep(0.3, 1.0, bank) * 0.85);
                     texel.rgb = mix(body, vec3(0.95), foam) / 0.74;
                 }
                 // A sprite is paint on a flat sheet. Its light and dark say where the thing it
@@ -1179,9 +1184,15 @@ final class Pipeline {
                 // picture at the last place the ray was seen, clouds and all, and that is what
                 // the water shows: without this, water mirrors clouds far off and not near by,
                 // with a line across it where the one gives way to the other.
-                if (last != uv && texture2D(uDepth, last).r >= 0.9999995) {
-                    float edge = min(min(last.x, 1.0 - last.x), 1.0 - last.y);
-                    return mix(scene.rgb, texture2D(uScene, last).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge));
+                // Where in the picture the sky the ray went into is: the place its direction
+                // points at, however far it went. Taken from where the ray was last seen, the
+                // steps of the walk show as rings on the water.
+                if (last != uv && thrown.z > 0.001) {
+                    vec2 sky = thrown.xy / (thrown.z * uTan) * 0.5 + 0.5;
+                    if (sky.x > 0.0 && sky.x < 1.0 && sky.y > 0.0 && sky.y < 1.0 && texture2D(uDepth, sky).r >= 0.9999995) {
+                        float edge = min(min(sky.x, 1.0 - sky.x), 1.0 - sky.y);
+                        return mix(scene.rgb, texture2D(uScene, sky).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge));
+                    }
                 }
                 return scene.rgb;
             }
