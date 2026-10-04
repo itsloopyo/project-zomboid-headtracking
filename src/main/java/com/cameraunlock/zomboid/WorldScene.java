@@ -177,6 +177,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    private float steepest;
+    private static final float STEEPEST_ROOF = 0.55f;
+    private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f;
     private final float[] eave = new float[12];
@@ -233,7 +236,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described;
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
     }
 
     static float drawnAspect() {
@@ -1022,7 +1025,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // and its edges. Their sprites do not say which way they lie, and stood upright like
         // furniture they are boxes floating over the house.
         if (type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
-            addRoof(mesh, texture, x, y, z);
+            roofName = sprite.getName();
+            addRoof(mesh, texture, type, x, y, z);
             return;
         }
         if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
@@ -1239,9 +1243,24 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * south-west corner drawn at the south-east corner's height, a slope along x at the
      * north-west corner's, and only one of the two places has the sprite's pixels in it.
      */
-    private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
+    private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, IsoObjectType type, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
+        // Some roof sprites have more painted on them than the slope, a board down to the wall
+        // or the end of the roof, and their outline then says the tile climbs a whole floor.
+        // No roof in the game does: a slope takes three tiles to a floor, and the tile's kind
+        // says which third it is.
+        if (Math.abs(northWest - southEast) > STEEPEST_ROOF) {
+            float foot = type == IsoObjectType.WestRoofM ? 1f / 3f : type == IsoObjectType.WestRoofT ? 2f / 3f : 0f;
+            boolean risesNorthWest = northWest > southEast;
+            northWest = risesNorthWest ? foot + 1f / 3f : foot;
+            southEast = risesNorthWest ? foot : foot + 1f / 3f;
+        }
+        if (Math.abs(northWest - southEast) > steepest) {
+            steepest = Math.abs(northWest - southEast);
+            steepestSaid = String.format(Locale.ROOT, "%s at (%d, %d, %d) nw %.2f se %.2f frame %.0fx%.0f at (%.0f, %.0f) origin (%.0f, %.0f) scale %.0f",
+                    roofName, x, y, z, northWest, southEast, frame.width, frame.height, frame.left, frame.top, frame.originU, frame.originV, frame.scale);
+        }
         if (Math.abs(northWest - southEast) < FLAT_ROOF) {
             roofsFlat++;
             if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f) > 0) {
