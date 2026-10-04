@@ -246,6 +246,33 @@ final class Pipeline {
             }
             uniform float uRaining;
             uniform float uDark;
+            uniform vec4 uBeamAt[2];
+            uniform vec3 uBeamWay[2];
+
+            // What the headlights that are on give the air at p: a broad spill and a hot
+            // middle, thinning with the square of the distance.
+            float beamAt(int i, vec3 p, out vec3 dir) {
+                vec3 to = p - uBeamAt[i].xyz;
+                float far2 = dot(to, to);
+                dir = to * inversesqrt(max(far2, 0.0001));
+                float within = dot(dir, uBeamWay[i]);
+                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
+                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+            }
+
+            // And what they give a surface there that faces n. Leaves and grass take light
+            // from any side.
+            vec3 beams(vec3 p, vec3 n, float leafy) {
+                vec3 sum = vec3(0.0);
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        vec3 dir;
+                        float given = beamAt(i, p, dir);
+                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
+                    }
+                }
+                return sum;
+            }
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -725,6 +752,7 @@ final class Pipeline {
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
                 }
+                color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
@@ -1081,6 +1109,33 @@ final class Pipeline {
             uniform vec3 uLight;
             uniform vec3 uLightColor;
             uniform float uMist;
+            uniform vec4 uBeamAt[2];
+            uniform vec3 uBeamWay[2];
+
+            // What the headlights that are on give the air at p: a broad spill and a hot
+            // middle, thinning with the square of the distance.
+            float beamAt(int i, vec3 p, out vec3 dir) {
+                vec3 to = p - uBeamAt[i].xyz;
+                float far2 = dot(to, to);
+                dir = to * inversesqrt(max(far2, 0.0001));
+                float within = dot(dir, uBeamWay[i]);
+                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
+                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+            }
+
+            // And what they give a surface there that faces n. Leaves and grass take light
+            // from any side.
+            vec3 beams(vec3 p, vec3 n, float leafy) {
+                vec3 sum = vec3(0.0);
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        vec3 dir;
+                        float given = beamAt(i, p, dir);
+                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
+                    }
+                }
+                return sum;
+            }
 
             const int STEPS = 24;
             const float REACH = 48.0;
@@ -1098,6 +1153,7 @@ final class Pipeline {
                 float stride = ahead / float(STEPS);
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float lit = 0.0;
+                float beamed = 0.0;
                 for (int i = 0; i < STEPS; i++) {
                     vec4 p = vec4(uEye + ray * ((float(i) + start) * stride), 1.0);
                     vec3 c = (uNearMatrix * p).xyz * 0.5 + 0.5;
@@ -1112,12 +1168,20 @@ final class Pipeline {
                     }
                     // The air thins with height, and there is none to speak of under the ground.
                     lit += sun * exp(-max(p.z, 0.0) * 0.12);
+                    for (int b = 0; b < 2; b++) {
+                        if (uBeamAt[b].w > 0.0) {
+                            vec3 dir;
+                            beamed += beamAt(b, p.xyz, dir);
+                        }
+                    }
                 }
                 float along = length(ray);
                 float mu = max(dot(ray / along, uLight), 0.0);
                 // Mist sends most of what it catches on the way the light was going.
                 float towards = 0.3 + 2.4 * pow(mu, 5.0);
                 vec3 caught = pow(uLightColor, vec3(2.2)) * (lit / float(STEPS) * ahead * along * uMist * towards);
+                // A beam shows in clear night air too, on the dust in it, and far more in mist.
+                caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0012 + 1.2 * uMist));
                 gl_FragColor = vec4(caught, 1.0);
             }
             """;
@@ -1150,6 +1214,34 @@ final class Pipeline {
             uniform float uInside;
             uniform float uPainted;
             uniform float uGlassPass;
+            uniform float uInstruments;
+            uniform vec4 uBeamAt[2];
+            uniform vec3 uBeamWay[2];
+
+            // What the headlights that are on give the air at p: a broad spill and a hot
+            // middle, thinning with the square of the distance.
+            float beamAt(int i, vec3 p, out vec3 dir) {
+                vec3 to = p - uBeamAt[i].xyz;
+                float far2 = dot(to, to);
+                dir = to * inversesqrt(max(far2, 0.0001));
+                float within = dot(dir, uBeamWay[i]);
+                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
+                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+            }
+
+            // And what they give a surface there that faces n. Leaves and grass take light
+            // from any side.
+            vec3 beams(vec3 p, vec3 n, float leafy) {
+                vec3 sum = vec3(0.0);
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        vec3 dir;
+                        float given = beamAt(i, p, dir);
+                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
+                    }
+                }
+                return sum;
+            }
             uniform vec2 uAhead;
             uniform sampler2D uRepainted;
             uniform float uWriteNear;
@@ -1383,6 +1475,16 @@ final class Pipeline {
                 // their edges.
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
+                color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
+                if (cabin > 0.5 && uInstruments > 0.0) {
+                    // With the engine running the instruments are lit, and in the dark their
+                    // green light is on the wheel, the dash round them and the driver's knees.
+                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.3);
+                    vec3 to = dials - at;
+                    float far2 = dot(to, to);
+                    float given = 0.05 / (0.02 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));
+                    color += (pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * 0.6 + 0.12) * vec3(0.35, 1.0, 0.72) * (given * uInstruments);
+                }
                 // The trim of a cabin is cloth and dull plastic, whatever the body outside is.
                 float lacquer = uPainted * (1.0 - cabin);
                 color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * cabin);
@@ -2376,6 +2478,7 @@ final class Pipeline {
         world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * SHADOW_SIZE / (2f * NEAR_EXTENT));
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
+        setBeams(world);
         world.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
@@ -2557,6 +2660,7 @@ final class Pipeline {
         volume.set("uUp", camera.upX, camera.upY, camera.upUp);
         volume.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
         volume.set("uLight", state.lightX, state.lightY, state.lightUp);
+        setBeams(volume);
         volume.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         volume.set("uMist", state.mist);
         quad();
@@ -2687,6 +2791,7 @@ final class Pipeline {
             figureLight.set("uUp", camera.upX, camera.upY, camera.upUp);
             figureLight.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
+            setBeams(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
@@ -2751,6 +2856,7 @@ final class Pipeline {
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
+            figureLight.set("uInstruments", FirstPerson.instrumentsLit ? 0.9f * state.night : 0f);
             figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
             quad();
             glazed = FirstPerson.seated;
@@ -2801,6 +2907,18 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
+    }
+
+    /** How bright a headlight is beside the sun at 2.1. */
+    private static final float BEAM_STRENGTH = 9f;
+
+    private static void setBeams(Program program) {
+        float[] beams = Headlights.beams;
+        for (int i = 0; i < Headlights.BEAMS; i++) {
+            int at = i * Headlights.STRIDE;
+            program.set("uBeamAt[" + i + "]", beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
+            program.set("uBeamWay[" + i + "]", beams[at + 3], beams[at + 4], beams[at + 5]);
+        }
     }
 
     private static void quad() {

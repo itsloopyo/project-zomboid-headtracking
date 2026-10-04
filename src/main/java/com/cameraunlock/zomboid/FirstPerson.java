@@ -50,6 +50,8 @@ public final class FirstPerson {
     private static final org.joml.Vector3f facing = new org.joml.Vector3f();
     /** Whether the viewer is in a vehicle. Set on the logic thread, read by the picture. */
     static volatile boolean seated;
+    /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
+    static volatile boolean instrumentsLit;
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
 
@@ -185,9 +187,11 @@ public final class FirstPerson {
 
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
         float eyeX = player.getX(), eyeY = player.getY(), eyeUp = floorUp + eyeHeight(player);
+        Headlights.gather(eyeX, eyeY);
         // In a vehicle the eye is at the seat, not where the game keeps the character on its map.
         BaseVehicle vehicle = player.getVehicle();
         seated = vehicle != null;
+        instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         if (vehicle != null) {
             int seat = vehicle.getSeat(player);
             if (seat >= 0) {

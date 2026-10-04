@@ -11,5 +11,8 @@
 - Added soft shadows that sharpen where a thing meets the ground, light that bounces between nearby surfaces, cloud shadows, polished floors, and anti-aliasing over time to the first person view. Looking down shows your character's body.
 - Added a view from the seat when you are in a vehicle: the dashboard, wheel, doors and roof with the road ahead, seen through glass that carries a little dust and mirrors the sky at a glancing angle.
 - Getting into a vehicle switches to first person, and getting out switches back to the view you had before.
+- Headlights that are on light the road, the verges, characters and the air in front of the vehicle in first person, and the instruments glow in the cabin when the engine runs at night.
+- Night in first person is darker: the eye no longer opens up until the ground looks as it does by day.
+- Rooms in first person are shaded in their corners.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.

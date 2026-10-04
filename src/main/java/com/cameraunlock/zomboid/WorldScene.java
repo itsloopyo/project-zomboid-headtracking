@@ -152,6 +152,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private float fogEnd;
     /** How much light the eye lets in this frame: see adaptEye. */
     private float exposure;
+    /** How much of its opening-up the eye is refused at full night. */
+    private static final float NIGHT_HELD_BACK = 0.62f;
     private IsoPlayer viewer;
     private IsoCell cell;
     private int playerIndex;
@@ -496,6 +498,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // it, though never so far that night stops being dark.
         float ground = (float) Math.pow((unseenRed + unseenGreen + unseenBlue) / 3f, 2.2);
         float outdoors = Math.min(1.4f / (0.8f * ground + 1.83f * (float) Math.pow(strongest, 2.2)), EXPOSURE_MOST);
+        // An eye in the dark does not get back what the day had: it sees less, and that is
+        // what makes a lit window or a pair of headlights the brightest thing in the night.
+        outdoors *= 1f - NIGHT_HELD_BACK * sky.night;
         float here = 1f;
         if (under != null) {
             ColorInfo light = under.lighting[player.getIndex()].lightInfo();
