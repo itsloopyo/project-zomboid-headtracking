@@ -187,7 +187,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float STEEPEST_ROOF = 0.55f;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
-    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f;
+    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f;
     private final float[] eave = new float[12];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
@@ -1566,6 +1566,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 2, x2, y2, far - FASCIA);
         set(c, 3, x1, y1, far - FASCIA);
         SpriteGeometry.addPlainQuad(plain, c, 0.55f * frame.red, 0.55f * frame.green, 0.53f * frame.blue);
+        // The gutter along the eave: a trough standing out from the board, its outer face and
+        // its underside.
+        float ox = alongX != 0f ? Math.signum(out) * GUTTER : 0f, oy = alongX != 0f ? 0f : Math.signum(out) * GUTTER;
+        plain.open = frame.open + 32f * QUAY;
+        set(c, 0, x1 + ox, y1 + oy, far + 0.01f);
+        set(c, 1, x2 + ox, y2 + oy, far + 0.01f);
+        set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
+        set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        set(c, 0, x1, y1, far - GUTTER);
+        set(c, 1, x2, y2, far - GUTTER);
+        set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
+        set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
     }
 
     private static void set(float[] c, int corner, float x, float y, float h) {
