@@ -1221,7 +1221,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             box[0] = 0.5f;
             box[1] = 0.5f;
             box[2] = 0.5f;
-            box[3] = BED_HEIGHT;
+            // As high as the game says the bed is to lie on: the sprite's picture of the top
+            // of the bed then falls on the top of the box.
+            box[3] = properties.getSurface() > 0 ? properties.getSurface() / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
             return;
