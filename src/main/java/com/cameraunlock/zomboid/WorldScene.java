@@ -199,7 +199,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int TABLE_HIGHEST = 48;
     private static final int TALL_SURFACE = 60;
     private static final float CUPBOARD_DEEP = 0.55f;
-    private static final int LONG_TUFTS = 10;
+    private static final int LONG_TUFTS = 13;
+    private static final float GRASS_SPILL = 0.35f;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
     /** How far down the wall of a quay goes from its top: past the water's surface. */
@@ -753,6 +754,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
+    private boolean spillsTo(int at) {
+        return groundKind[at] == Terrain.NATURAL && lightOpen[at] == 1;
+    }
+
     private boolean growLongGrass(int x, int y) {
         int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
         if (groundTexture[own] == null) {
@@ -761,14 +766,21 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float originU = frame.originU, originV = frame.originV, left = frame.left, top = frame.top, width = frame.width, height = frame.height;
         float uStart = frame.uStart, uEnd = frame.uEnd, vStart = frame.vStart, vEnd = frame.vEnd;
         frameOf(groundObject[own], groundTexture[own]);
+        float lowA = spillsTo(own - LIGHT_SPAN) ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + LIGHT_SPAN) ? 1f + GRASS_SPILL : 0.88f;
+        float lowB = spillsTo(own - 1) ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) ? 1f + GRASS_SPILL : 0.88f;
         SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
         for (int tuft = 0; tuft < LONG_TUFTS; tuft++) {
             int hash = x * 19349663 ^ y * 83492791 ^ tuft * 73856093;
             hash = (hash ^ hash >>> 13) * 0x5bd1e995;
             hash ^= hash >>> 15;
-            float a = 0.12f + 0.76f * (hash & 0xff) / 255f, b = 0.12f + 0.76f * (hash >>> 8 & 0xff) / 255f;
+            // A clump of long grass is not the shape of the square the game put it on. Towards
+            // open ground its tufts spill a third of a square past the edge, shorter the
+            // further out they stand, so a patch has a ragged outline. Towards a road, a
+            // path or a floor it keeps inside.
+            float a = lowA + (highA - lowA) * (hash & 0xff) / 255f, b = lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f;
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
-            float tall = 0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f;
+            float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
+            float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f);
             geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS);
         }
         frame.originU = originU;

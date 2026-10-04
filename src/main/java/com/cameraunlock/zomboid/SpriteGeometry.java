@@ -418,8 +418,11 @@ final class SpriteGeometry {
      */
     void addTuft(Mesh mesh, Frame frame, int tileX, int tileY, float a, float b, float rightX, float rightY,
             float halfWidth, float height, float kind) {
-        float pixelU = Math.clamp(frameU(frame, a, b), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
-        float pixelV = Math.clamp(frameV(frame, a, b, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        // The colour is taken from inside the square, wherever the tuft stands: past the
+        // square's edge the ground's sprite is its empty corner.
+        float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
+        float pixelU = Math.clamp(frameU(frame, inA, inB), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        float pixelV = Math.clamp(frameV(frame, inA, inB, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
         float x0 = tileX + a - rightX * halfWidth, y0 = tileY + b - rightY * halfWidth;
