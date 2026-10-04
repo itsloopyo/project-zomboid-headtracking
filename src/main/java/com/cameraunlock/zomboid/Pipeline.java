@@ -1121,6 +1121,69 @@ final class Pipeline {
             }
             """;
 
+    /**
+     * The picture steadied over time. Leaves in the wind, the grain of the soft shadows and of
+     * the thin edges of cards all change from one frame to the next, and what changes every
+     * frame is seen as flicker. Each pixel is mixed with what was at the same place in the
+     * world a frame ago: where that place was on the last frame's picture is worked out from
+     * the pixel's depth and where the eye then was. What the last frame had there is held to
+     * the range of colours round the pixel now, so a thing that has moved leaves no ghost.
+     */
+    private static final String STEADY = """
+            #version 120
+            uniform sampler2D uScene;
+            uniform sampler2D uBefore;
+            uniform sampler2D uDepth;
+            uniform vec2 uSize;
+            uniform vec2 uTan;
+            uniform float uNear;
+            uniform float uFar;
+            uniform vec3 uEye;
+            uniform vec3 uRight;
+            uniform vec3 uUp;
+            uniform vec3 uForward;
+            uniform vec3 uEyeBefore;
+            uniform vec3 uRightBefore;
+            uniform vec3 uUpBefore;
+            uniform vec3 uForwardBefore;
+            uniform float uKept;
+
+            void main() {
+                vec2 uv = gl_FragCoord.xy / uSize;
+                vec4 now = texture2D(uScene, uv);
+                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                vec2 ndc = uv * 2.0 - 1.0;
+                vec3 at = uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
+                vec3 from = at - uEyeBefore;
+                float was = dot(from, uForwardBefore);
+                vec2 before = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5;
+                if (uKept <= 0.0 || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
+                    gl_FragColor = now;
+                    return;
+                }
+                vec3 least = now.rgb, most = now.rgb;
+                for (int x = -1; x <= 1; x++) {
+                    for (int y = -1; y <= 1; y++) {
+                        vec3 near = texture2D(uScene, uv + vec2(float(x), float(y)) / uSize).rgb;
+                        least = min(least, near);
+                        most = max(most, near);
+                    }
+                }
+                vec3 held = clamp(texture2D(uBefore, before).rgb, least, most);
+                gl_FragColor = vec4(mix(now.rgb, held, uKept), now.a);
+            }
+            """;
+
+    private static final String COPY = """
+            #version 120
+            uniform sampler2D uSource;
+            uniform vec2 uSize;
+            void main() {
+                gl_FragColor = texture2D(uSource, gl_FragCoord.xy / uSize);
+            }
+            """;
+
     /** Smooths the stair-steps of edges, looking along each edge for how far to blend. */
     private static final String SMOOTH = """
             #version 120
@@ -1209,6 +1272,14 @@ final class Pipeline {
     private static volatile String failure;
     private static boolean prepared;
     private static Program rain;
+    private static Program steady, copy;
+    /** The steadied picture of the last frame and of this one, taking turns. */
+    private static final int[] keptColor = new int[2], keptTarget = new int[2];
+    private static int keptNow;
+    private static boolean keptAny;
+    private static final ViewCamera.Pose before = new ViewCamera.Pose();
+    /** How much of the last frame's picture goes into this one. */
+    private static final float KEPT = 0.86f;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
@@ -1339,6 +1410,7 @@ final class Pipeline {
             if (state.rain > 0f) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
+            drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_SKY);
             drawOcclusion(tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_OCCLUSION);
@@ -1625,6 +1697,50 @@ final class Pipeline {
         }
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
+    }
+
+    private static void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        int next = 1 - keptNow;
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisable(GL_BLEND);
+        GL11.glDepthMask(false);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, keptTarget[next]);
+        GL11.glViewport(0, 0, width, height);
+        steady.use();
+        steady.set("uScene", 0);
+        steady.set("uBefore", 1);
+        steady.set("uDepth", 2);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, keptColor[keptNow]);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        steady.set("uSize", (float) width, (float) height);
+        steady.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
+        steady.set("uNear", near);
+        steady.set("uFar", far);
+        steady.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        steady.set("uRight", camera.rightX, camera.rightY, camera.rightUp);
+        steady.set("uUp", camera.upX, camera.upY, camera.upUp);
+        steady.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
+        steady.set("uEyeBefore", before.eyeX, before.eyeY, before.eyeUp);
+        steady.set("uRightBefore", before.rightX, before.rightY, before.rightUp);
+        steady.set("uUpBefore", before.upX, before.upY, before.upUp);
+        steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
+        steady.set("uKept", keptAny ? KEPT : 0f);
+        quad();
+        // The rest of the frame is made from the steadied picture.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        copy.use();
+        GL11.glBindTexture(GL_TEXTURE_2D, keptColor[next]);
+        copy.set("uSource", 0);
+        copy.set("uSize", (float) width, (float) height);
+        quad();
+        keptNow = next;
+        keptAny = true;
+        before.set(camera);
+        GL11.glDepthMask(true);
     }
 
     /** The rain, into the picture after the world and the sky and before anything is made of the picture. */
@@ -2081,6 +2197,8 @@ final class Pipeline {
         bloomUp = program("glow up", SCREEN_VERTEX, BLOOM_UP, problem);
         develop = program("develop", SCREEN_VERTEX, DEVELOP, problem);
         smooth = program("smooth", SCREEN_VERTEX, SMOOTH, problem);
+        steady = program("steady", SCREEN_VERTEX, STEADY, problem);
+        copy = program("copy", SCREEN_VERTEX, COPY, problem);
         if (problem.length() > 0) {
             return problem.toString();
         }
@@ -2181,6 +2299,11 @@ final class Pipeline {
         width = newWidth;
         height = newHeight;
         sceneColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
+        for (int i = 0; i < 2; i++) {
+            keptColor[i] = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
+            keptTarget[i] = target(keptColor[i]);
+        }
+        keptAny = false;
         sceneDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         sceneTarget = GL30.glGenFramebuffers();
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
