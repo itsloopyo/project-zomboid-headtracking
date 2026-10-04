@@ -1033,6 +1033,7 @@ final class Pipeline {
             uniform vec3 uLightColor;
             uniform float uFogStart;
             uniform float uFogEnd;
+            uniform float uInside;
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
@@ -1111,10 +1112,20 @@ final class Pipeline {
                         sun = shadow2D(uShadowFar, c).r;
                     }
                 }
+                float cabin = uInside * step(ahead * length(ray), 3.2);
+                // From the driver's seat the game's car is all round the eye, and its windows
+                // are painted on its one body: they cannot be seen through. So from inside,
+                // what of the car stands above its window sills is left out, glass, pillars
+                // and roof, and the driver looks out over the doors and the bonnet.
+                if (cabin > 0.5 && at.z > uEye.z - 0.2) {
+                    discard;
+                }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
                 vec3 fromSky = mix(vec3(0.42, 0.40, 0.36), vec3(0.72, 0.80, 0.95), 0.5 + 0.5 * n.z);
-                vec3 lightHere = fromSky + sunLight * (2.1 * sun * facing);
+                // The cabin is lit through its windows from every side, though its own roof
+                // keeps the sun off it.
+                vec3 lightHere = fromSky * (1.0 + 1.6 * cabin) + sunLight * (2.1 * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(1.0 - max(dot(n, view), 0.0), 3.0);
                 color += atmosphere(reflect(-view, n) * vec3(1.0, 1.0, sign(reflect(-view, n).z))) * (0.22 * glance);
@@ -2380,6 +2391,7 @@ final class Pipeline {
         figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         figureLight.set("uFogStart", fogStart);
         figureLight.set("uFogEnd", fogEnd);
+        figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
         atmosphere(figureLight, state);
         quad();
 

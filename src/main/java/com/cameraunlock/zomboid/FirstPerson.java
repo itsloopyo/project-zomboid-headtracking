@@ -7,6 +7,7 @@ import zombie.core.SpriteRenderer;
 import zombie.input.GameKeyboard;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoUtils;
+import zombie.vehicles.BaseVehicle;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.network.GameClient;
@@ -41,6 +42,13 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_STANDING = 1.6f;
     private static final float EYE_HEIGHT_SNEAKING = 1.1f;
     private static final float EYE_HEIGHT_SITTING = 0.9f;
+    /** The eye of someone seated in a vehicle, above the ground the vehicle stands on, in tiles. Set by eye in Base.CarNormal. */
+    private static final float EYE_HEIGHT_IN_VEHICLE = 1.3f;
+    private static final float HEAD_INBOARD = 0.32f;
+    private static final org.joml.Vector3f seatAt = new org.joml.Vector3f();
+    private static int seatSaid;
+    /** Whether the viewer is in a vehicle. Set on the logic thread, read by the picture. */
+    static volatile boolean seated;
 
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
@@ -157,7 +165,28 @@ public final class FirstPerson {
         cursorY = Math.round(IsoUtils.YToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
 
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
-        ViewCamera.clean(cleanView, player.getX(), player.getY(), floorUp + eyeHeight(player), yaw, pitch);
+        float eyeX = player.getX(), eyeY = player.getY(), eyeUp = floorUp + eyeHeight(player);
+        // In a vehicle the eye is at the seat, not where the game keeps the character on its map.
+        BaseVehicle vehicle = player.getVehicle();
+        seated = vehicle != null;
+        if (vehicle != null) {
+            int seat = vehicle.getSeat(player);
+            if (seat >= 0) {
+                vehicle.getPassengerWorldPos(seat, seatAt);
+                // The game's seat is where the character's feet go, by the door. The head is
+                // further in.
+                float inX = vehicle.getX() - seatAt.x, inY = vehicle.getY() - seatAt.y;
+                float in = Math.max((float) Math.hypot(inX, inY), 1e-3f);
+                eyeX = seatAt.x + inX / in * HEAD_INBOARD;
+                eyeY = seatAt.y + inY / in * HEAD_INBOARD;
+                eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;
+                if (TRACE && (seatSaid++ & 127) == 0) {
+                    Log.info(String.format(java.util.Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) player (%.2f, %.2f, %.2f)", seat, seatAt.x, seatAt.y, seatAt.z,
+                            player.getX(), player.getY(), player.getZ()));
+                }
+            }
+        }
+        ViewCamera.clean(cleanView, eyeX, eyeY, eyeUp, yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         HeadTracking.view(lookCaptured, cleanView, yaw, world, trackedView);
         WorldScene scene = WorldScene.next();

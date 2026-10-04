@@ -8,6 +8,7 @@ import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.skinnedmodel.ModelCamera;
+import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 
@@ -31,6 +32,8 @@ public final class Characters {
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** How far from the eye a model still casts a shadow, in tiles. */
     private static final float SHADOW_REACH = 45f;
+    /** A vehicle whose middle is this near the eye of a seated viewer is the one the viewer is in: tiles. */
+    private static final float OWN_VEHICLE = 2.5f;
     /** How far ahead of the middle of the head the eyes are, in tiles. */
     private static final float EYES_AHEAD = 0.2f;
     /**
@@ -38,7 +41,12 @@ public final class Characters {
      * tiles. Set by eye against Base.CarNormal on a level road: without it the car stands in
      * the road up to its sills.
      */
-    private static final float VEHICLE_RAISE = 0.6f;
+    private static final float VEHICLE_RAISE = 0.9f;
+    /**
+     * The game's vehicles are drawn at one and a half times their models' size, as its characters
+     * are: measured from a driver's seat, which the game puts 1.15 tiles from the middle of a car.
+     */
+    private static final float VEHICLE_SCALE = 1.5f;
     private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
     private static final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
@@ -150,6 +158,21 @@ public final class Characters {
      */
     static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
+        if (FirstPerson.seated) {
+            // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
+            // apart from the world, so that the picture can leave out what of it is in the
+            // way without leaving a hole in the world behind it.
+            for (int i = 0; i < noted.size(); i++) {
+                ModelSlotRenderData data = noted.get(i);
+                float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
+                if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+                    System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+                    vehicle(data, i * 4, ViewCamera.view(camera));
+                    return true;
+                }
+            }
+            return false;
+        }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             if (data.character != null && data.character == viewer && !data.inVehicle) {
@@ -188,6 +211,12 @@ public final class Characters {
             StringBuilder said = new StringBuilder();
             for (int i = 0; i < noted.size(); i++) {
                 ModelSlotRenderData data = noted.get(i);
+                if (data.character == null) {
+                    for (int part = 0; part < data.modelData.size(); part++) {
+                        Model model = data.modelData.get(part).modelInstance.model;
+                        said.append('[').append(model == null ? "?" : model.name).append(']');
+                    }
+                }
                 said.append(data.character == null ? "none" : data.character.getClass().getSimpleName()).append(data.character == viewer ? "(viewer)" : "")
                         .append(" parts ").append(data.modelData.size()).append(" away ")
                         .append(String.format(java.util.Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
@@ -196,16 +225,21 @@ public final class Characters {
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
-            // A character in a vehicle is placed by its seat, which is not worked out here yet.
-            if (data.inVehicle || !withViewer && data.character != null && data.character == viewer) {
+            if (!withViewer && data.character != null && data.character == viewer) {
                 continue;
             }
             float toX = data.x - eyeX, toY = data.y - eyeY;
             if (toX * toX + toY * toY > reach * reach) {
                 continue;
             }
+            // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
+            if (!withViewer && FirstPerson.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+                continue;
+            }
             if (data.character == null) {
                 vehicle(data, i * 4, view);
+            } else if (data.inVehicle) {
+                seated(data, i * 4, view);
             } else {
                 character(data, view);
             }
@@ -231,6 +265,29 @@ public final class Characters {
     }
 
     /**
+     * A character in a vehicle. The game stands its camera where the vehicle is and then seats
+     * the character from there itself, by the seat's place in the vehicle and the way the
+     * vehicle is turned and tipped. Here the camera stands the same place as seen from the eye,
+     * and the game does its seating on top of that.
+     */
+    private static void seated(ModelSlotRenderData data, int at, float[] view) {
+        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+                stood[at + 3], VEHICLE_SCALE);
+        multiply(view, placed, combined);
+        ModelCamera game = ModelCamera.instance;
+        ModelCamera.instance = EYE;
+        Model.CharacterModelCameraBegin(data);
+        ModelCamera.instance = game;
+        for (int part = 0; part < data.modelData.size(); part++) {
+            ModelInstanceRenderData model = data.modelData.get(part);
+            model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
+            GL11.glDepthMask(true);
+            model.RenderCharacter(data);
+        }
+        EYE.End();
+    }
+
+    /**
      * The game's vehicle draw sets its matrices up itself, from the current camera, and then
      * moves the vehicle's depth so that its middle lands at the depth of the square it stands
      * on in the game's own picture. Here the middle is to stay where the camera puts it, so the
@@ -241,7 +298,7 @@ public final class Characters {
      */
     private static void vehicle(ModelSlotRenderData data, int at, float[] view) {
         place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
-                stood[at + 3], 1f);
+                stood[at + 3], VEHICLE_SCALE);
         multiply(view, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];
         float eyeY = combined[5] * data.centerOfMassY + combined[13];
