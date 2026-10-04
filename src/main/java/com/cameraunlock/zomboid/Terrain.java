@@ -45,12 +45,18 @@ final class Terrain {
     private static final float BANK_WIDTH = 2.6f;
     private static final int SPAN = CHUNK_TILES + 2 * REACH;
 
-    static final byte NATURAL = 0, MADE = 1, WATER = 2, UNKNOWN = 3;
+    static final byte NATURAL = 0, MADE = 1, WATER = 2, UNKNOWN = 3, STREET = 4;
+    /** How far a street lies below the ground beside it: the height of a kerb, in tiles. */
+    static final float KERB = 0.11f;
 
     private static final class Grid {
         int wx, wy;
         boolean settled;
         final float[] heights = new float[CORNERS * CORNERS];
+        /** The height of water at each corner, which where a quay meets it is not the land's. */
+        final float[] water = new float[CORNERS * CORNERS];
+        /** How far each square lies below its corners: a street, by its kerb. */
+        final float[] drop = new float[CHUNK_TILES * CHUNK_TILES];
     }
 
     private static final class Kinds {
@@ -91,7 +97,13 @@ final class Terrain {
         float a = x - tileX, b = y - tileY;
         float[] h = grid.heights;
         int at = i * CORNERS + j;
-        return (h[at] * (1f - a) + h[at + CORNERS] * a) * (1f - b) + (h[at + 1] * (1f - a) + h[at + CORNERS + 1] * a) * b;
+        return (h[at] * (1f - a) + h[at + CORNERS] * a) * (1f - b) + (h[at + 1] * (1f - a) + h[at + CORNERS + 1] * a) * b
+                - grid.drop[i * CHUNK_TILES + j];
+    }
+
+    /** The height of water at the corners of a chunk, laid out as corners gives the land's. After corners. */
+    static float[] water(int wx, int wy) {
+        return grids.get(slot(wx, wy)).water;
     }
 
     /**
@@ -111,7 +123,14 @@ final class Terrain {
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
         for (int i = 0; i < CORNERS; i++) {
             for (int j = 0; j < CORNERS; j++) {
-                fresh.heights[i * CORNERS + j] = corner(wx * CHUNK_TILES + i, wy * CHUNK_TILES + j, i + REACH, j + REACH);
+                float x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
+                fresh.heights[i * CORNERS + j] = corner(x, y, i + REACH, j + REACH);
+                fresh.water[i * CORNERS + j] = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY) - WATER_BELOW;
+            }
+        }
+        for (int i = 0; i < CHUNK_TILES; i++) {
+            for (int j = 0; j < CHUNK_TILES; j++) {
+                fresh.drop[i * CHUNK_TILES + j] = around[(i + REACH) * SPAN + j + REACH] == STREET ? KERB : 0f;
             }
         }
         grids.set(slot, fresh);
@@ -120,7 +139,7 @@ final class Terrain {
 
     /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. */
     private static float corner(float x, float y, int cornerI, int cornerJ) {
-        float toMade = REACH, toWater = REACH, toPad = REACH;
+        float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH;
         float touchingPads = 0f, nearPads = 0f, nearWeight = 0f;
         int touching = 0;
         for (int di = -REACH; di < REACH; di++) {
@@ -135,6 +154,8 @@ final class Terrain {
                 toMade = Math.min(toMade, away);
                 if (kind == WATER) {
                     toWater = Math.min(toWater, away);
+                } else {
+                    toBuilt = Math.min(toBuilt, away);
                 }
                 float pad = padsAround[at];
                 if (!Float.isNaN(pad) && away < REACH) {
@@ -154,7 +175,10 @@ final class Terrain {
             return touchingPads / touching;
         }
         float land = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY)
-                + (knolls(x, y) + roll(x, y)) * smooth(toMade / REACH) - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH));
+                + (knolls(x, y) + roll(x, y)) * smooth(toMade / REACH)
+                // A bank falls to the water. A quay or a boardwalk does not: it runs level to its
+                // edge and the water lies below it.
+                - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH)) * smooth(toBuilt / 2f);
         if (nearWeight == 0f) {
             return land;
         }
@@ -285,7 +309,10 @@ final class Terrain {
             return WATER;
         }
         String name = sprite.getName();
-        return square.isOutside() && name != null && name.startsWith("blends_natural") ? NATURAL : MADE;
+        if (name == null || !square.isOutside()) {
+            return MADE;
+        }
+        return name.startsWith("blends_natural") ? NATURAL : name.startsWith("blends_street") ? STREET : MADE;
     }
 
     /** What is drawn at (x, y), on any floor, stands this much above where the flat map has it. */

@@ -177,6 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** How far down the wall of a quay goes from its top: past the water's surface. */
+    private static final float QUAY_DEPTH = 0.6f;
     private static final float CARD_LAYER = 0.02f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
@@ -327,6 +329,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
                         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
+                        float[] water = Terrain.water(chunk.wx, chunk.wy);
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
                             for (int localY = 0; localY < CHUNK_TILES; localY++) {
                                 IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
@@ -336,10 +339,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                                 squaresLoaded++;
                                 cornerLights(localX, localY);
                                 int corner = localX * Terrain.CORNERS + localY;
-                                geometry.lift[0] = ground[corner];
-                                geometry.lift[1] = ground[corner + Terrain.CORNERS];
-                                geometry.lift[2] = ground[corner + Terrain.CORNERS + 1];
-                                geometry.lift[3] = ground[corner + 1];
+                                // Water lies at its own height, and a street below its kerb.
+                                byte kind = z == 0 ? groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] : Terrain.MADE;
+                                float[] heights = kind == Terrain.WATER ? water : ground;
+                                float drop = kind == Terrain.STREET ? Terrain.KERB : 0f;
+                                geometry.lift[0] = heights[corner] - drop;
+                                geometry.lift[1] = heights[corner + Terrain.CORNERS] - drop;
+                                geometry.lift[2] = heights[corner + Terrain.CORNERS + 1] - drop;
+                                geometry.lift[3] = heights[corner + 1] - drop;
                                 if (geometry.lift[0] != 0f) {
                                     lifted++;
                                 }
@@ -683,6 +690,35 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
+    /**
+     * Where a square stands above the one beside it there is a face between them: the kerb
+     * along a street, and the wall of a quay or a boardwalk over water.
+     */
+    private void addEdges(int x, int y, int localX, int localY) {
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        byte mine = groundKind[own];
+        if (mine == Terrain.WATER || mine == Terrain.STREET || mine == Terrain.UNKNOWN) {
+            return;
+        }
+        float[] lift = geometry.lift;
+        addEdge(groundKind[own - LIGHT_SPAN], mine, x, y + 0.5f, 0f, 1f, (lift[0] + lift[3]) / 2f);
+        addEdge(groundKind[own + LIGHT_SPAN], mine, x + 1f, y + 0.5f, 0f, 1f, (lift[1] + lift[2]) / 2f);
+        addEdge(groundKind[own - 1], mine, x + 0.5f, y, 1f, 0f, (lift[0] + lift[1]) / 2f);
+        addEdge(groundKind[own + 1], mine, x + 0.5f, y + 1f, 1f, 0f, (lift[3] + lift[2]) / 2f);
+    }
+
+    private void addEdge(byte beside, byte mine, float x, float y, float alongX, float alongY, float top) {
+        SpriteGeometry.Mesh mesh = solid.get(PLAIN);
+        mesh.open = frame.open;
+        if (beside == Terrain.STREET) {
+            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f,
+                    0.6f * frame.red, 0.6f * frame.green, 0.58f * frame.blue);
+        } else if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
+            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f,
+                    0.3f * frame.red, 0.26f * frame.green, 0.22f * frame.blue);
+        }
+    }
+
     private boolean spreads(int at, int own, int mine) {
         if (groundKind[at] != Terrain.NATURAL || lightOpen[at] != 1 || groundTexture[at] == null) {
             return false;
@@ -738,6 +774,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.nudgeX = geometry.nudgeY = 0f;
         }
         if (z == 0) {
+            addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
             if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
                 growGrass(x, y, localX, localY);
