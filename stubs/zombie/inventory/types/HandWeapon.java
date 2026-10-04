@@ -4,6 +4,7 @@ import zombie.inventory.InventoryItem;
 
 public final class HandWeapon extends InventoryItem {
     public boolean isAimedFirearm() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isRackAfterShoot() { throw new UnsupportedOperationException("reference stub"); }
     public void setRoundChambered(boolean chambered) { throw new UnsupportedOperationException("reference stub"); }
     public void setJammed(boolean jammed) { throw new UnsupportedOperationException("reference stub"); }
 }

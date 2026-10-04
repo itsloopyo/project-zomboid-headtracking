@@ -92,11 +92,33 @@ public final class ViewModel {
     private static final float[] bob = new float[2];
     private static boolean gapSaid;
 
+    /**
+     * A pump action is worked after every shot: the hand on the fore-end draws it back and
+     * shoves it forward again. The game's own animation of that is made for its distant view
+     * and turns the hand about; here the hand keeps its hold and slides.
+     */
+    private static final float PUMP_AFTER = 0.16f, PUMP_BACK = 0.14f, PUMP_FORWARD = 0.16f;
+    private static final float NOT_PUMPING = -1f;
+    private static boolean racked;
+    private static float sinceShot = NOT_PUMPING;
+    /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
+    static volatile float pumped;
+
+    /** How far back the hand is at a time after the shot: still, then back, then forward. */
+    static float pumpAt(float seconds) {
+        float back = (seconds - PUMP_AFTER) / PUMP_BACK;
+        float forward = (seconds - PUMP_AFTER - PUMP_BACK) / PUMP_FORWARD;
+        return ViewModelMath.smooth(back) - ViewModelMath.smooth(forward);
+    }
+
     /** Called by the game straight after it starts its own muzzle flash, which is where a firearm's shot is taken. */
     public static void shot() {
         if (held != null) {
             kicks++;
             MuzzleFlash.fire();
+            if (racked) {
+                sinceShot = 0f;
+            }
         }
     }
 
@@ -176,12 +198,22 @@ public final class ViewModel {
         wasSneaking = sneaking;
         wasFalling = falling;
         wasAttacking = attacking;
+        racked = firearm && weapon.isRackAfterShoot();
+        if (sinceShot != NOT_PUMPING) {
+            sinceShot += seconds;
+            if (sinceShot > PUMP_AFTER + PUMP_BACK + PUMP_FORWARD) {
+                sinceShot = NOT_PUMPING;
+            }
+        }
+        pumped = sinceShot == NOT_PUMPING ? 0f : pumpAt(sinceShot);
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
                 swingFor == NOT_SWINGING ? 0f : swingFor / SWING_SECONDS, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip);
     }
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
     static void rest() {
+        sinceShot = NOT_PUMPING;
+        pumped = 0f;
         held = null;
         placed = false;
         aim = 0f;
@@ -267,6 +299,8 @@ public final class ViewModel {
      * wherever it goes.
      */
     private static final float FORE_END = 0.42f, FORE_END_BELOW = 0.035f;
+    /** How much of the way from grip to muzzle the fore-end travels. */
+    private static final float PUMP_TRAVEL = 0.12f;
     /** Where the left palm is held on the weapon last placed, in the view: only with a muzzle. */
     static final float[] foreEnd = new float[3];
     private static final float[] over = new float[3];
@@ -363,8 +397,9 @@ public final class ViewModel {
         ViewModelMath.onto(fromAim, out);
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
-            ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * FORE_END, origin[1] + (end[1] - origin[1]) * FORE_END,
-                    origin[2] + (end[2] - origin[2]) * FORE_END, foreEnd);
+            float along = FORE_END - PUMP_TRAVEL * pumped;
+            ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
+                    origin[2] + (end[2] - origin[2]) * along, foreEnd);
             ViewModelMath.turned(out, top, over);
             float length = (float) Math.sqrt(over[0] * over[0] + over[1] * over[1] + over[2] * over[2]);
             for (int axis = 0; axis < 3; axis++) {

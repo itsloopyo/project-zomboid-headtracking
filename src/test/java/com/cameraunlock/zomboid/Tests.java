@@ -90,6 +90,7 @@ public final class Tests {
         stepBobsTheWeaponDownAndAcross();
         flashIsBrightestAtTheShotAndGoneAfterItsTime();
         elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints();
+        pumpGoesBackAndComesForwardAgain();
         armTooShortToReachBringsItsShoulderWithIt();
         armWithNoWayForItsElbowToDropHasNone();
         swingDrawsBackSweepsAcrossAndComesBackToWhereItStarted();
@@ -101,6 +102,17 @@ public final class Tests {
 
     private static float apart(float[] a, float[] b) {
         return (float) Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+    }
+
+    private static void pumpGoesBackAndComesForwardAgain() {
+        check(ViewModel.pumpAt(0f) == 0f && ViewModel.pumpAt(0.1f) == 0f, "the hand is still while the shot kicks");
+        check(Math.abs(ViewModel.pumpAt(0.3f) - 1f) < 1e-4f, "the fore-end is right back at the end of the pull");
+        check(ViewModel.pumpAt(0.46f) < 1e-4f && ViewModel.pumpAt(2f) == 0f, "and forward again after the shove");
+        float last = 0f;
+        for (float t = 0.16f; t <= 0.3f; t += 0.01f) {
+            check(ViewModel.pumpAt(t) >= last - 1e-6f, "the pull only goes back");
+            last = ViewModel.pumpAt(t);
+        }
     }
 
     private static void elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints() {
