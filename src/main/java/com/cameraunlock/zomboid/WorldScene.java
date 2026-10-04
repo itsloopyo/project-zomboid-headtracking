@@ -1196,6 +1196,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // What the game counts as filling its square, or as something to sit or lie on, is
         // furniture, and furniture is a solid thing with sides and a top.
         if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
+                && !(sprite.getName() != null && sprite.getName().startsWith("furniture_bedding"))
                 && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
@@ -1217,14 +1218,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // the outline of a box of its own. Each is the whole square wide and as high as a
         // mattress on its frame.
         // The game marks whatever can be rested on as a bed, chairs too: a bed is told by its sheet.
-        if (!grows && properties.has(IsoFlagType.bed) && sprite.getName() != null && sprite.getName().startsWith("furniture_bedding")) {
-            box[0] = 0.5f;
-            box[1] = 0.5f;
-            box[2] = 0.5f;
-            // As high as the game says the bed is to lie on: the sprite's picture of the top
-            // of the bed then falls on the top of the box.
-            box[3] = properties.getSurface() > 0 ? properties.getSurface() / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
-            geometry.addBox(mesh, frame, x, y, z, box);
+        if (!grows && sprite.getName() != null && sprite.getName().startsWith("furniture_bedding")) {
+            // The sprite of one square of a bed is a part of the bed, and wrapped on a box it
+            // leaves gaps and torn edges. The square is a block of bedding instead, the colour
+            // the sprite has in the middle of the bed's top, as high as the game says a bed is.
+            float high = properties.getSurface() > 0 ? properties.getSurface() / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
+            geometry.addBlock(mesh, frame, x, y, z, high, 0.5f, 0.5f, high);
             boxes++;
             return;
         }

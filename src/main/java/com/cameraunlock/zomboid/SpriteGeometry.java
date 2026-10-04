@@ -438,6 +438,42 @@ final class SpriteGeometry {
         mesh.sway = 0f;
     }
 
+    /**
+     * Adds a block over the whole of the square, high levels high, all of it the colour the
+     * sprite has at the point (a, b, h): for a thing whose sprite is a part of something
+     * larger and cannot be wrapped onto a box of its own.
+     */
+    void addBlock(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float high, float a, float b, float h) {
+        float pixelU = Math.clamp(frameU(frame, a, b), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        float pixelV = Math.clamp(frameV(frame, a, b, h), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+        float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        float foot = tileZ * ViewCamera.LEVEL_HEIGHT + liftAt(0.5f, 0.5f), top = foot + high * ViewCamera.LEVEL_HEIGHT;
+        mesh.open = frame.open + 32f * frame.material;
+        mesh.sway = 0f;
+        float x0 = tileX, y0 = tileY, x1 = tileX + 1f, y1 = tileY + 1f;
+        mesh.face(0f, 0f, 1f);
+        blockFace(mesh, frame, u, v, x0, y0, top, x1, y0, top, x1, y1, top, x0, y1, top);
+        mesh.face(0f, 1f, 0f);
+        blockFace(mesh, frame, u, v, x0, y1, foot, x1, y1, foot, x1, y1, top, x0, y1, top);
+        mesh.face(0f, -1f, 0f);
+        blockFace(mesh, frame, u, v, x0, y0, foot, x1, y0, foot, x1, y0, top, x0, y0, top);
+        mesh.face(1f, 0f, 0f);
+        blockFace(mesh, frame, u, v, x1, y0, foot, x1, y1, foot, x1, y1, top, x1, y0, top);
+        mesh.face(-1f, 0f, 0f);
+        blockFace(mesh, frame, u, v, x0, y0, foot, x0, y1, foot, x0, y1, top, x0, y0, top);
+    }
+
+    private static void blockFace(Mesh mesh, Frame frame, float u, float v, float ax, float ay, float az, float bx, float by, float bz,
+            float cx, float cy, float cz, float dx, float dy, float dz) {
+        mesh.add(ax, ay, az, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(bx, by, bz, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(cx, cy, cz, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(ax, ay, az, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(cx, cy, cz, u, v, frame.red, frame.green, frame.blue);
+        mesh.add(dx, dy, dz, u, v, frame.red, frame.green, frame.blue);
+    }
+
     private void setCorner(Frame frame, int index, float a, float b, float h) {
         int at = index * CORNER_FLOATS;
         corners[at] = a;
