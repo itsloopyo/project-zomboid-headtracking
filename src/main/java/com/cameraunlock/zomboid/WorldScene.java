@@ -155,6 +155,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int playerIndex;
     private int lowestLevel;
     private int chunksBuilt;
+    private int boxes;
     private int chunksDrawn, squaresLoaded, squaresSeen, sprites, triangles;
     private int roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear;
     /** The gap between two sprites on one plane of the square being added. */
@@ -171,6 +172,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] corner = new float[2];
+    private final float[] box = new float[4];
+    /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
+    private static final float MOST_UNPAINTED = 5f;
+    /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
+    private static final float SEAL_HEIGHT = 0.15f;
     /** A chunk's squares and the ring of squares round them. */
     private static final int LIGHT_SPAN = CHUNK_TILES + 2;
     private final float[] lightRed = new float[LIGHT_SPAN * LIGHT_SPAN], lightGreen = new float[LIGHT_SPAN * LIGHT_SPAN],
@@ -188,9 +194,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     String describe() {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
-                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d characters %d | %s",
+                        + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, Characters.drawnLast(), sky.describe());
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, Characters.drawnLast(), sky.describe());
     }
 
     static float drawnAspect() {
@@ -223,6 +229,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         frames++;
         chunksDrawn = 0;
         chunksBuilt = 0;
+        boxes = 0;
         squaresLoaded = 0;
         squaresSeen = 0;
         sprites = 0;
@@ -604,10 +611,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             north = both || standsOnNorthEdge(properties, type);
         }
         if (west) {
-            geometry.addFace(mesh, frame, x, y, z, westLayer++ * standOff, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+            addEdge(mesh, texture, isWall(properties, type), x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
         }
         if (north) {
-            geometry.addFace(mesh, frame, x, y, z, 0f, northLayer++ * standOff, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+            addEdge(mesh, texture, isWall(properties, type), x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
         }
         if (west || north) {
             return;
@@ -630,6 +637,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
         // way the eye looks at the tree.
         boolean grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
+        // What the game counts as filling its square, or as something to sit or lie on, is
+        // furniture, and furniture is a solid thing with sides and a top.
+        if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
+                && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
+            geometry.addBox(mesh, frame, x, y, z, box);
+            boxes++;
+            return;
+        }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, grows);
         if (type == IsoObjectType.tree) {
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -cardRightY, cardRightX, grows);
@@ -661,6 +676,67 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         System.arraycopy(heldRed, 0, frame.cornerRed, 0, 4);
         System.arraycopy(heldGreen, 0, frame.cornerGreen, 0, 4);
         System.arraycopy(heldBlue, 0, frame.cornerBlue, 0, 4);
+    }
+
+    /**
+     * Adds a face standing on the square from (a, b) along (da, db), a level high: a wall, or
+     * what hangs on one. A wall's sprite is trimmed to everything it shows, its cap and its corner post too, so the wall
+     * itself can stop a few pixels inside the sprite's edge with nothing painted beyond. A face
+     * that took those texels would be see-through there, a slit of sky between two walls. So
+     * the sprite is walked in from each end of the face, below any window, to the first pixel that is
+     * painted, and the face takes its texels from there. Only a wall: a window or a curtain
+     * that stops short of the square's edge really does stop there.
+     */
+    private void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, int x, int y, int z,
+            float a, float b, float da, float db) {
+        if (!wall) {
+            geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+            return;
+        }
+        float fromStart = unpainted(texture, a, b, da, db);
+        float fromEnd = unpainted(texture, a + da, b + db, -da, -db);
+        boolean startIsLow = SpriteGeometry.frameU(frame, a, b) < SpriteGeometry.frameU(frame, a + da, b + db);
+        geometry.sealLow = startIsLow ? fromStart : fromEnd;
+        geometry.sealHigh = startIsLow ? fromEnd : fromStart;
+        geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        geometry.sealLow = 0f;
+        geometry.sealHigh = 0f;
+    }
+
+    /**
+     * How many frame pixels along (da, db) from (a, b), at SEAL_HEIGHT, the sprite has nothing
+     * painted. 0 when it is painted from the start, and when nothing is within MOST_UNPAINTED:
+     * that is a sprite which is not a wall from edge to edge, and it is left as it is.
+     */
+    private float unpainted(Texture texture, float a, float b, float da, float db) {
+        float pixels = Math.abs(SpriteGeometry.frameU(frame, a + da, b + db) - SpriteGeometry.frameU(frame, a, b));
+        int most = Math.round(MOST_UNPAINTED * frame.scale);
+        for (int pixel = 0; pixel <= most; pixel++) {
+            float along = (pixel + 0.5f) / pixels;
+            float u = SpriteGeometry.frameU(frame, a + da * along, b + db * along);
+            float v = SpriteGeometry.frameV(frame, a + da * along, b + db * along, SEAL_HEIGHT);
+            if (u >= frame.left && u < frame.left + frame.width && v >= frame.top && v < frame.top + frame.height
+                    && texture.isMaskSet((int) u, (int) v)) {
+                return pixel;
+            }
+        }
+        return 0f;
+    }
+
+    /**
+     * Whether the sprite is painted all over the box its outline describes: a fridge, a counter,
+     * a bed. A chair or a table has air where the middle of a side would be, and wrapped onto a
+     * box it comes apart, so those stay upright cards.
+     */
+    private boolean fillsBox(Texture texture) {
+        float a = box[0], b = box[1], half = box[2], height = box[3];
+        return painted(texture, a, b, height) && painted(texture, a, b + half, height * 0.5f) && painted(texture, a + half, b, height * 0.5f)
+                && painted(texture, a, b + half, height * 0.2f) && painted(texture, a + half, b, height * 0.2f)
+                && painted(texture, a - half * 0.5f, b + half, height * 0.8f) && painted(texture, a + half, b - half * 0.5f, height * 0.8f);
+    }
+
+    private boolean painted(Texture texture, float a, float b, float h) {
+        return texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, a, b)), Math.round(SpriteGeometry.frameV(frame, a, b, h)));
     }
 
     /**
@@ -726,6 +802,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
         }
         return true;
+    }
+
+    private static boolean isWall(PropertyContainer properties, IsoObjectType type) {
+        return type == IsoObjectType.wall || properties.has(IsoFlagType.WallW) || properties.has(IsoFlagType.WallN)
+                || properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE)
+                || properties.has(IsoFlagType.DoorWallW) || properties.has(IsoFlagType.DoorWallN)
+                || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.WindowN);
     }
 
     private static boolean standsOnWestEdge(PropertyContainer properties, IsoObjectType type) {

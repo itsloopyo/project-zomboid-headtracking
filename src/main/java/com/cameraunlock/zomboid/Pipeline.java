@@ -54,6 +54,13 @@ final class Pipeline {
     private static final int GL_DEPTH_COMPONENT = 0x1902;
     private static final int GL_DEPTH_COMPONENT24 = 0x81A6;
     private static final int GL_TEXTURE_2D = 0x0DE1;
+    private static final int GL_TEXTURE_WIDTH = 0x1000;
+    private static final int GL_TEXTURE_HEIGHT = 0x1001;
+    /**
+     * How covered a pixel of a solid sprite has to be to be drawn. A shade under a half: the
+     * cover is a mean over two texels, and a bar one texel wide reaches a half and no more.
+     */
+    private static final float SOLID_CUT = 0.48f;
     private static final int GL_TEXTURE_3D = 0x806F;
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
@@ -165,6 +172,7 @@ final class Pipeline {
             uniform float uFogStart;
             uniform float uFogEnd;
             uniform float uCut;
+            uniform vec2 uTexel;
             uniform float uWet;
             uniform float uSeconds;
             varying vec2 vUv;
@@ -201,7 +209,14 @@ final class Pipeline {
 
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
-                if (texel.a < uCut) {
+                // The sprites were drawn for a view in which every level line runs two pixels
+                // across for one down, so the edge of a door or a wall is a staircase of
+                // two-pixel steps. Seen square on and close, the steps show as a saw edge. Taken
+                // as the mean of two samples one texel apart across, each step is averaged with
+                // the next and the edge comes out straight.
+                vec2 half = vec2(0.5 * uTexel.x, 0.0);
+                float cover = uTexel.x > 0.0 ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
+                if (cover < uCut) {
                     discard;
                 }
                 vec3 toEye = uEye - vWorld;
@@ -1075,6 +1090,16 @@ final class Pipeline {
         return view;
     }
 
+    /** Draws the ranges telling the program the size of a texel of each one's texture. */
+    private static void drawRanges(int from, int to, Program program) {
+        for (int i = from; i < to; i++) {
+            GL11.glBindTexture(GL_TEXTURE_2D, rangeTexture[i]);
+            program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
+                    1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
+            GL11.glDrawArrays(GL_TRIANGLES, rangeFirst[i], rangeCount[i]);
+        }
+    }
+
     private static void drawRanges(int from, int to) {
         for (int i = from; i < to; i++) {
             GL11.glBindTexture(GL_TEXTURE_2D, rangeTexture[i]);
@@ -1195,14 +1220,15 @@ final class Pipeline {
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);
         atmosphere(world, state);
-        world.set("uCut", 0.5f);
-        drawRanges(0, solidRanges);
+        world.set("uCut", SOLID_CUT);
+        drawRanges(0, solidRanges, world);
         // What is laid over the floors, mixed in by how see-through each pixel is. It writes no
         // depth: it lies on a floor that already has.
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(false);
         world.set("uCut", 0.02f);
+        world.set("uTexel", 0f, 0f);
         drawRanges(solidRanges, ranges);
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);

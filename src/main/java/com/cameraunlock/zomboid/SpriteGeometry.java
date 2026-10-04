@@ -29,6 +29,9 @@ final class SpriteGeometry {
     static final float WATER = 4f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
+    /** A sprite whose outline gives a box narrower than twice this, in tiles, or lower than MIN_BOX_HEIGHT levels, is not a box. */
+    private static final float MIN_BOX_HALF = 0.1f;
+    private static final float MIN_BOX_HEIGHT = 0.04f;
 
     /** The game's projection at tile scale 1: a tile along x or y is this many frame pixels across and down. */
     private static final float PIXELS_ACROSS_PER_TILE = 32f;
@@ -206,6 +209,13 @@ final class SpriteGeometry {
     private final float[] spare = new float[MAX_CORNERS * CORNER_FLOATS];
     private float[] result;
     private float centreU, centreV;
+    /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
+    private float shownA, shownB;
+    /**
+     * How many frame pixels in from the face's low and high edge across the sprite its texels
+     * are taken, beyond the usual inset: see WorldScene.addWall.
+     */
+    float sealLow, sealHigh;
 
     /** Frame pixel across of a point on the tile. */
     static float frameU(Frame frame, float a, float b) {
@@ -255,6 +265,47 @@ final class SpriteGeometry {
             emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
         }
         return count - 2;
+    }
+
+    /**
+     * Adds a piece of furniture as the box it fills. The game drew the sprite looking down from
+     * the south-east, so its outline says how big the box is: its width is the box's footprint,
+     * its lowest pixel the footprint's near corner, its highest the far corner of the top. The
+     * top and the two sides the sprite shows are textured with what it shows there, exactly as
+     * the game drew them. The two sides it does not show are the mirror of the two it does.
+     *
+     * box is what boxOf found for the sprite.
+     */
+    void addBox(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] box) {
+        float a = box[0], b = box[1], half = box[2], height = box[3];
+        float side = 2f * half;
+        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b - half, height, side, 0f, 0f, 0f, side, 0f);
+        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b + half, 0f, side, 0f, 0f, 0f, 0f, height);
+        addFace(mesh, frame, tileX, tileY, tileZ, a + half, b - half, 0f, 0f, side, 0f, 0f, 0f, height);
+        shownB = -side;
+        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b + half, 0f, side, 0f, 0f, 0f, 0f, height);
+        shownB = 0f;
+        shownA = -side;
+        addFace(mesh, frame, tileX, tileY, tileZ, a + half, b - half, 0f, 0f, side, 0f, 0f, 0f, height);
+        shownA = 0f;
+    }
+
+    /**
+     * The box a sprite's outline describes, into box as the middle of its footprint (a, b), half
+     * the footprint's side and its height in levels. False for a sprite too thin or too flat to
+     * be a box.
+     */
+    static boolean boxOf(Frame frame, float[] box) {
+        float across = PIXELS_ACROSS_PER_TILE * frame.scale, down = PIXELS_DOWN_PER_TILE * frame.scale;
+        float half = frame.width / (4f * across);
+        float sum = (frame.top + frame.height - frame.originV) / down - 2f * half;
+        float difference = (frame.left + frame.width / 2f - frame.originU) / across;
+        float height = ((sum - 2f * half) * down + frame.originV - frame.top) / (PIXELS_PER_LEVEL * frame.scale);
+        box[0] = (sum + difference) / 2f;
+        box[1] = (sum - difference) / 2f;
+        box[2] = half;
+        box[3] = height;
+        return half >= MIN_BOX_HALF && height >= MIN_BOX_HEIGHT;
     }
 
     /** Clips the face in corners to the trimmed sprite grown by slack, into result. Returns its corner count. */
@@ -378,7 +429,8 @@ final class SpriteGeometry {
         // Across and down separately: a wall's side edges are upright, and an inset towards the
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = EDGE_INSET_PIXELS * frame.scale;
-        pixelU += Math.clamp(centreU - pixelU, -inset, inset);
+        float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
+        pixelU += Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
         pixelV += Math.clamp(centreV - pixelV, -inset, inset);
         pixelU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
         pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
@@ -386,7 +438,7 @@ final class SpriteGeometry {
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
-        mesh.add(tileX + polygon[at], tileY + polygon[at + 1], (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT, u, v,
+        mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB, (tileZ + polygon[at + 2]) * ViewCamera.LEVEL_HEIGHT, u, v,
                 frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                 frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);

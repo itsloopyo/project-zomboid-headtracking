@@ -25,6 +25,7 @@ public final class GL11 {
     public static void glAlphaFunc(int func, float ref) { throw stub(); }
     public static void glVertex3f(float x, float y, float z) { throw stub(); }
     public static int glGetInteger(int pname) { throw stub(); }
+    public static int glGetTexLevelParameteri(int target, int level, int pname) { throw stub(); }
     public static void glGetIntegerv(int pname, int[] params) { throw stub(); }
     public static int glGetError() { throw stub(); }
     public static String glGetString(int name) { throw stub(); }
