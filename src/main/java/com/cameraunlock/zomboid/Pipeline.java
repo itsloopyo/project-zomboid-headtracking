@@ -1410,6 +1410,7 @@ final class Pipeline {
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
             uniform float uKept;
+            uniform float uOwnWithin;
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
@@ -1421,7 +1422,9 @@ final class Pipeline {
                 vec3 from = at - uEyeBefore;
                 float was = dot(from, uForwardBefore);
                 vec2 before = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5;
-                if (uKept <= 0.0 || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
+                // The vehicle the viewer rides in goes with the eye: where it was in the world a
+                // frame ago says nothing of where it was in the picture.
+                if (uKept <= 0.0 || ahead < uOwnWithin || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
                     gl_FragColor = now;
                     return;
                 }
@@ -2003,6 +2006,7 @@ final class Pipeline {
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
         steady.set("uKept", keptAny ? KEPT : 0f);
+        steady.set("uOwnWithin", FirstPerson.seated ? 3.2f : 0f);
         quad();
         // The rest of the frame is made from the steadied picture.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
