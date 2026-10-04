@@ -554,11 +554,11 @@ final class Pipeline {
                     }
                     // The clouds overhead pass between the sun and the ground, and their
                     // shadows cross the land with the wind: fields go dull and bright by turns.
-                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 90.0) / 60.0;
+                    vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 14.0;
                     vec3 q = vec3(under * 0.17 + uDrift, 0.3);
                     float bank = texture3D(uCloudNoise, vec3(under * 0.021 + uDrift * 0.4, 0.37)).g;
                     float body = texture3D(uCloudNoise, q).r * 0.68 + texture3D(uCloudNoise, q * 2.3 + 0.17).g * 0.32;
-                    reached *= 1.0 - 0.7 * smoothstep(0.0, 0.16, body * 0.75 - (1.0 - uCover) - (0.5 - bank) * 0.34);
+                    reached *= 1.0 - 0.7 * smoothstep(0.0, 0.16, body - (1.0 - uCover) - (0.5 - bank) * 0.34);
                     sun = reached * facing;
                 }
 
