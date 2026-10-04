@@ -132,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 14;
+    private static final int UNITS = 15;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -252,7 +252,8 @@ final class Pipeline {
             uniform sampler2D uLeaves;
             uniform sampler2D uBark;
             uniform sampler2D uPlanks;
-            uniform vec2 uTimberGain;
+            uniform sampler2D uCarpet;
+            uniform vec3 uTimberGain;
             uniform float uLeafGain;
 
 
@@ -449,7 +450,8 @@ final class Pipeline {
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
                             : vMaterial < 3.5 ? dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z
                             : vMaterial < 6.5 ? dot(texture2D(uBark, across * vec2(1.6, 0.8)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
-                            : dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y;
+                            : vMaterial < 7.5 ? dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y
+                            : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
                     texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8);
                 }
 
@@ -1353,9 +1355,9 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "leaves"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
-    private static final int FIRST_CUTOUT = 9;
+    private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
     private static final int FIRST_MATERIAL_UNIT = 3;
     private static final int[] materialTexture = new int[MATERIALS.length];
@@ -1912,9 +1914,10 @@ final class Pipeline {
         world.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
         world.set("uBark", FIRST_MATERIAL_UNIT + 7);
         world.set("uPlanks", FIRST_MATERIAL_UNIT + 8);
-        world.set("uTimberGain", materialGain[7], materialGain[8]);
-        world.set("uLeaves", FIRST_MATERIAL_UNIT + 9);
-        world.set("uLeafGain", materialGain[9]);
+        world.set("uCarpet", FIRST_MATERIAL_UNIT + 9);
+        world.set("uTimberGain", materialGain[7], materialGain[8], materialGain[9]);
+        world.set("uLeaves", FIRST_MATERIAL_UNIT + 10);
+        world.set("uLeafGain", materialGain[10]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);

@@ -767,7 +767,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return true;
     }
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f;
+    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
@@ -776,6 +776,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (name.startsWith("roofs_")) {
             return SHINGLES;
+        }
+        if (name.startsWith("walls_exterior_wooden")) {
+            return PLANKS;
+        }
+        if (name.startsWith("floors_interior_carpet") || name.startsWith("floors_rugs")) {
+            return CARPET;
         }
         if (name.startsWith("walls_")) {
             return PAINT;
@@ -790,6 +796,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return EARTH;
         }
         return isFloor && name.contains("wood") ? WOOD : 0f;
+    }
+
+    /** The height of the sheet under a roof where the roof is at level z plus high. Never below the level itself: that is the ceiling of the room under it. */
+    private static float under(int z, float high) {
+        return (z + Math.max(high - UNDER_ROOF, 0.004f)) * ViewCamera.LEVEL_HEIGHT;
     }
 
     private boolean overPole(int x, int y) {
@@ -1272,10 +1283,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY) {
         SpriteGeometry.Mesh plain = solid.get(PLAIN);
         plain.open = frame.open + 32f * SHINGLES;
-        float base = (z + atOrigin - UNDER_ROOF) * ViewCamera.LEVEL_HEIGHT;
-        float riseX = alongX * ViewCamera.LEVEL_HEIGHT, riseY = alongY * ViewCamera.LEVEL_HEIGHT;
         float[] lift = geometry.lift;
-        SpriteGeometry.addPlainOver(plain, x, y, base + lift[0], base + riseX + lift[1], base + riseX + riseY + lift[2], base + riseY + lift[3],
+        SpriteGeometry.addPlainOver(plain, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
+                under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
                 0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
     }
 
