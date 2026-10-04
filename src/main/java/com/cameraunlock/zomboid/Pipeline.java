@@ -453,7 +453,7 @@ final class Pipeline {
                 }
                 // So are the mod's own kerbs, of concrete, and the walls of its quays, of dark
                 // wet timber.
-                if (vMaterial > 8.5) {
+                if (vMaterial > 8.5 && vMaterial < 10.5) {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.62, 0.62, 0.6) : vec3(0.2, 0.17, 0.14);
                 }
                 if (vMaterial > 0.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
@@ -611,6 +611,10 @@ final class Pipeline {
                     if (vMaterial > 2.5 && vMaterial < 3.5) {
                         rough = 0.32;
                     }
+                    // Glazed tile is glossier than a varnished board.
+                    if (vMaterial > 10.5) {
+                        rough = 0.22;
+                    }
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
                 }
@@ -648,7 +652,7 @@ final class Pipeline {
                 // pass reads to trace what the mirror shows.
                 // A varnished floor mirrors a little too: the window across the room, the legs of
                 // a chair.
-                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : 0.0;
+                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 ? 0.3 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(shine, polish) * step(0.8, n.z));
             }
             """;
