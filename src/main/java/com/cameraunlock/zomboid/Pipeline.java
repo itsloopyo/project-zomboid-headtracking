@@ -1076,7 +1076,6 @@ final class Pipeline {
             uniform float uFogStart;
             uniform float uFogEnd;
             uniform float uInside;
-            uniform vec2 uAhead;
             uniform float uWriteNear;
 
             bool inside(vec3 c) {
@@ -1157,19 +1156,15 @@ final class Pipeline {
                     }
                 }
                 float cabin = uInside * step(ahead * length(ray), 3.2);
-                // From the driver's seat the game's car is all round the eye, and its windows
-                // are painted on its one body: they cannot be seen through. So from inside,
-                // what of the car stands above its window sills is left out, glass, pillars
-                // and roof, and the driver looks out over the doors and the bonnet.
-                if (cabin > 0.5 && at.z > uEye.z - 0.2) {
-                    // The steering wheel stands up into that part of the car, an arm's length
-                    // ahead and below the eye. It stays.
-                    vec3 to = at - uEye;
-                    float along = length(to.xy);
-                    bool wheel = along < 0.95 && to.z < -0.02 && dot(to.xy, uAhead) > 0.75 * along;
-                    if (!wheel) {
-                        discard;
-                    }
+                // From a seat the game's vehicle is all round the eye. Its windows are painted
+                // on its one body, as panes that show the sky: pale and nearly without colour,
+                // where the paint, the trim and the seats are dark or coloured. Above the sills,
+                // what is pale and grey is glass and is looked through; the pillars, the frames
+                // of the windows and the roof stay.
+                vec3 paint = figure.rgb / max(figure.a, 0.001);
+                float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
+                if (cabin > 0.5 && at.z > uEye.z - 0.35 && most > 0.34 && most - least < 0.3 * most) {
+                    discard;
                 }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
@@ -2463,7 +2458,6 @@ final class Pipeline {
         figureLight.set("uWriteNear", 0f);
         // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
         figureLight.set("uInside", 0f);
-        figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
         atmosphere(figureLight, state);
         quad();
 
