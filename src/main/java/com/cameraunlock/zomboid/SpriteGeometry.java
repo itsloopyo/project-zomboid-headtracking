@@ -237,6 +237,8 @@ final class SpriteGeometry {
     float nudgeX, nudgeY;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
+    /** When above 0, half the box's footprint along b where it is not square: see addBox. */
+    float boxHalfB;
 
     private float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
@@ -310,16 +312,16 @@ final class SpriteGeometry {
      * box is what boxOf found for the sprite.
      */
     void addBox(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] box) {
-        float a = box[0], b = box[1], half = box[2], height = box[3];
-        float side = 2f * half;
-        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b - half, height, side, 0f, 0f, 0f, side, 0f);
-        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b + half, 0f, side, 0f, 0f, 0f, 0f, height);
-        addFace(mesh, frame, tileX, tileY, tileZ, a + half, b - half, 0f, 0f, side, 0f, 0f, 0f, height);
-        shownB = -side;
-        addFace(mesh, frame, tileX, tileY, tileZ, a - half, b + half, 0f, side, 0f, 0f, 0f, 0f, height);
+        float a = box[0], b = box[1], halfA = box[2], halfB = boxHalfB > 0f ? boxHalfB : box[2], height = box[3];
+        float sideA = 2f * halfA, sideB = 2f * halfB;
+        addFace(mesh, frame, tileX, tileY, tileZ, a - halfA, b - halfB, height, sideA, 0f, 0f, 0f, sideB, 0f);
+        addFace(mesh, frame, tileX, tileY, tileZ, a - halfA, b + halfB, 0f, sideA, 0f, 0f, 0f, 0f, height);
+        addFace(mesh, frame, tileX, tileY, tileZ, a + halfA, b - halfB, 0f, 0f, sideB, 0f, 0f, 0f, height);
+        shownB = -sideB;
+        addFace(mesh, frame, tileX, tileY, tileZ, a - halfA, b + halfB, 0f, sideA, 0f, 0f, 0f, 0f, height);
         shownB = 0f;
-        shownA = -side;
-        addFace(mesh, frame, tileX, tileY, tileZ, a + half, b - half, 0f, 0f, side, 0f, 0f, 0f, height);
+        shownA = -sideA;
+        addFace(mesh, frame, tileX, tileY, tileZ, a + halfA, b - halfB, 0f, 0f, sideB, 0f, 0f, 0f, height);
         shownA = 0f;
     }
 

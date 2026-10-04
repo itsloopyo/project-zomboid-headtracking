@@ -198,6 +198,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
     private static final int TABLE_HIGHEST = 48;
     private static final int TALL_SURFACE = 60;
+    private static final float CUPBOARD_DEEP = 0.55f;
     private static final int LONG_TUFTS = 10;
     /** Whether the square being added has no floor. */
     private boolean hangsInAir;
@@ -1206,11 +1207,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // square's sprite is half of it, and the outline of a half is not a box. The game
         // says how high such a thing stands and that it fills its square.
         if (!grows && properties.has(IsoFlagType.solid) && properties.getSurface() >= TALL_SURFACE) {
-            box[0] = 0.5f;
-            box[1] = 0.5f;
-            box[2] = 0.5f;
+            // Half a square deep, as a wardrobe is, against whichever wall the square has.
+            box[0] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
+            box[1] = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
+            box[2] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
             box[3] = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
+            geometry.boxHalfB = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
             geometry.addBox(mesh, frame, x, y, z, box);
+            geometry.boxHalfB = 0f;
             boxes++;
             return;
         }
