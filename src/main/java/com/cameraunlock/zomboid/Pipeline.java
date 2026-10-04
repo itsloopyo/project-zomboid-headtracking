@@ -357,7 +357,7 @@ final class Pipeline {
             }
             uniform float uRaining;
             uniform float uDark;
-            """ + BEAMS + """
+            """ + BEAMS + MuzzleFlash.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -1025,6 +1025,7 @@ final class Pipeline {
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
+                color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
                 // A lamp that is lit is brighter than anything it lights. The game lights the
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
@@ -1489,7 +1490,11 @@ final class Pipeline {
                 // it glows broadly, with a hot heart.
                 float low = 1.0 - smoothstep(0.1, 0.75, uLight.z);
                 float towards = 0.3 * (1.0 - 0.6 * low) + (1.2 + 1.4 * low) * pow(mu, 2.5) + (2.4 + 3.0 * low) * pow(mu, 9.0);
-                vec3 caught = pow(uLightColor, vec3(2.2)) * (lit / float(STEPS) * ahead * along * uMist * towards);
+                // Lit air is paler than the light that lights it: it is seen against the sky's
+                // own blue, and a sunset's air is gold and rose, not the red of the sun's disc.
+                vec3 glow = pow(uLightColor, vec3(2.2));
+                glow = mix(glow, vec3(dot(glow, vec3(0.3, 0.5, 0.2))) * vec3(1.0, 0.82, 0.62), 0.65);
+                vec3 caught = glow * (lit / float(STEPS) * ahead * along * uMist * towards);
                 // A beam shows in clear night air too, on the dust in it, and far more in mist.
                 caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0012 + 1.2 * uMist));
                 gl_FragColor = vec4(caught, 1.0);
@@ -3547,6 +3552,7 @@ final class Pipeline {
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(world);
+        setFlash(world);
         world.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
