@@ -7,5 +7,7 @@
 - Gave the first person view a picture of its own: a sun and moon that follow the game's clock and season, shadows, clouds, light shafts, rain, wet ground and water that mirror what stands over them, and the game's own characters and vehicles.
 - Gave the land in the first person view a shape: hills, valleys round water, level ground under buildings, kerbs along streets and quays over water. It is drawn only. Movement, paths and collisions use the game's flat map as before.
 - Made grass stand up in blades near the eye, put trees and bushes in leaf with depth to them, and let grass, earth and sand run raggedly into each other where the game lays them in squares.
+- Gave buildings in the first person view walls with thickness, eaves, roofs closed on every side and power lines strung from pole to pole, and gave roofs, walls, floors, furniture, tree trunks and fences the grain of what they are made of.
+- Added soft shadows that sharpen where a thing meets the ground, light that bounces between nearby surfaces, cloud shadows, polished floors, and anti-aliasing over time to the first person view. Looking down shows your character's body.
 - The game's own isometric view is drawn exactly as before.
 - Centred the game window in its monitor's work area when the game runs windowed, at startup and after a resolution change. Fullscreen and borderless are left as the game places them.
