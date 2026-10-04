@@ -387,6 +387,18 @@ final class Pipeline {
                     if (leaf.a < 0.5) {
                         leaf = vec4(behind.rgb * 0.7, behind.a);
                     }
+                    // Seen at a slant the leaves run together into one flat green sheet. Where a
+                    // pixel takes in more than a sixth of the leaf picture the card is left out,
+                    // thinning away first: the other cards of the fan are the tree from here.
+                    // Nor is a leaf right against the eye drawn: standing in a tree, the leaves
+                    // within reach thin away and the view is of the wood beyond them.
+                    if (length(uEye - vWorld) < 0.9 + 0.7 * grain(gl_FragCoord.xy)) {
+                        discard;
+                    }
+                    vec2 spread = fwidth(along * 0.5);
+                    if (max(spread.x, spread.y) > 0.06 + 0.1 * grain(gl_FragCoord.xy)) {
+                        discard;
+                    }
                     if (broad.a < 0.35 || leaf.a < 0.5) {
                         discard;
                     }
@@ -398,6 +410,11 @@ final class Pipeline {
                     // A card of grass: blades side by side along it, each its own height, lean
                     // and shade, narrowing to a point. Further off they are shorter, and at the
                     // edge of where grass stands they are gone, so no line shows where it ends.
+                    // A blade right against the eye is a green wall across the picture. Within
+                    // arm's reach the grass thins away to nothing.
+                    if (length(uEye - vWorld) < 0.45 + 0.5 * grain(gl_FragCoord.xy)) {
+                        discard;
+                    }
                     float up = 1.0 - vCover;
                     // Blades are counted along the card, whichever way it is turned.
                     vec2 run = normalize(vec2(-vNormal.y, vNormal.x));
