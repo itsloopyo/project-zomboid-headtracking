@@ -66,6 +66,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.8f;
     private static final float EXPOSURE_MOST = 3.5f;
+    private static final float EXPOSURE_MOST_AT_NIGHT = 1.5f;
     /**
      * How far a sprite hung on a wall or laid on a floor stands off the one under it, so the two
      * do not fight for depth. The depth buffer tells two surfaces apart less well the further
@@ -506,7 +507,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             ColorInfo light = under.lighting[player.getIndex()].lightInfo();
             here = (float) Math.pow((light.r + light.g + light.b) / 3f, 2.2);
         }
-        float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), EXPOSURE_MOST);
+        // By day an eye indoors opens up to a dim room. At night it has less to open with: an
+        // unlit room stays dark, and one with a lamp on is seen by the lamp.
+        float most = EXPOSURE_MOST + (EXPOSURE_MOST_AT_NIGHT - EXPOSURE_MOST) * sky.night;
+        float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most);
         return indoors + (outdoors - indoors) * eyeOpen;
     }
 
