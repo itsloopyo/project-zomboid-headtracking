@@ -1163,7 +1163,10 @@ final class Pipeline {
                 // of the windows and the roof stay.
                 vec3 paint = figure.rgb / max(figure.a, 0.001);
                 float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
-                if (cabin > 0.5 && at.z > uEye.z - 0.35 && most > 0.34 && most - least < 0.3 * most) {
+                // The sky a pane shows may be its blue, too: brighter and paler than any paint.
+                bool grey = most > 0.34 && most - least < 0.3 * most;
+                bool skyBlue = most > 0.45 && paint.b >= paint.g && paint.g > paint.r && most - least < 0.6 * most;
+                if (cabin > 0.5 && at.z > uEye.z - 0.35 && (grey || skyBlue)) {
                     discard;
                 }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
