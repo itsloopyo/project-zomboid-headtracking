@@ -68,4 +68,5 @@ public final class GL11 {
     public static void glFogfv(int pname, float[] params) { throw stub(); }
     public static void glLoadIdentity() { throw new UnsupportedOperationException("reference stub"); }
     public static void glGetTexImage(int target, int level, int format, int type, java.nio.ByteBuffer pixels) { throw stub(); }
+    public static void glColorPointer(int size, int type, int stride, long pointer) { throw stub(); }
 }

@@ -43,6 +43,7 @@ public final class Tests {
         CabinTests.run();
         AimTests.run();
         ArmTests.run();
+        BufferTests.run();
         shotStopsOnACharacter();
         receiverRefusesAPoseNoTrackerSendsAndABadPort();
         windowIsCentredInItsWorkArea();

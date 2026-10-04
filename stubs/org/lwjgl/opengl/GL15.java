@@ -8,4 +8,6 @@ public final class GL15 {
     public static void glDeleteBuffers(int buffer) { throw new UnsupportedOperationException("reference stub"); }
     public static void glBufferData(int target, java.nio.FloatBuffer data, int usage) { throw new UnsupportedOperationException("reference stub"); }
     public static void glBufferData(int target, int[] data, int usage) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glBufferData(int target, long size, int usage) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glBufferSubData(int target, long offset, java.nio.FloatBuffer data) { throw new UnsupportedOperationException("reference stub"); }
 }

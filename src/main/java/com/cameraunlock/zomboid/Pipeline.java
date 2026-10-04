@@ -40,8 +40,6 @@ final class Pipeline {
     private static final float NEAR_RANGE = 120f, FAR_RANGE = 220f;
     private static final int BLOOM_LEVELS = 5;
     private static final int NOISE_SIZE = 64;
-    /** Floats a vertex takes in the buffer handed to OpenGL: what SpriteGeometry writes. */
-    private static final int STRIDE = SpriteGeometry.VERTEX_FLOATS * Float.BYTES;
 
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_TRIANGLE_STRIP = 0x0005;
@@ -3488,10 +3486,7 @@ final class Pipeline {
     private static final int[] upTarget = new int[BLOOM_LEVELS - 1], upColor = new int[BLOOM_LEVELS - 1];
     private static final int[] levelWidth = new int[BLOOM_LEVELS], levelHeight = new int[BLOOM_LEVELS];
 
-    private static FloatBuffer vertices = buffer(1 << 20);
-    private static int[] rangeTexture = new int[256], rangeFirst = new int[256], rangeCount = new int[256], rangeTint = new int[256];
     private static final float[] tint = new float[4];
-    private static int ranges, solidRanges;
     /** The chunk builds the frame draws, for the furniture standing on each. */
     private static ArrayList<WorldScene.ChunkMeshes> drawn;
     /** Every model the mod has, on the graphics card as Models.buffer lays them out. */
@@ -3613,7 +3608,9 @@ final class Pipeline {
                 stageStart = System.nanoTime();
             }
             SpriteColours.read();
-            load(chunks);
+            drawn = chunks;
+            ChunkBuffers.load(chunks);
+            arrays();
             stage(STAGE_LOAD);
             boolean figures = Characters.ready();
             glazed = false;
@@ -3702,134 +3699,6 @@ final class Pipeline {
         lastMillis = (System.nanoTime() - start) / 1e6f;
     }
 
-    /**
-     * Copies every chunk's meshes into the one buffer OpenGL draws from, all the triangles
-     * that wear one texture together whichever chunk they came from, so a texture costs one
-     * draw however many chunks show it. What is solid comes first, then what is laid over it.
-     */
-    private static void load(ArrayList<WorldScene.ChunkMeshes> chunks) {
-        drawn = chunks;
-        solidRuns.clear();
-        laidRuns.clear();
-        for (int i = 0; i < chunks.size(); i++) {
-            solidRuns.count(chunks.get(i).solid.all);
-            laidRuns.count(chunks.get(i).laid.all);
-        }
-        int most = solidRuns.used + laidRuns.used;
-        if (most > rangeTexture.length) {
-            rangeTexture = new int[most * 2];
-            rangeFirst = new int[most * 2];
-            rangeCount = new int[most * 2];
-            rangeTint = new int[most * 2];
-        }
-        ranges = 0;
-        int floats = solidRuns.place(0);
-        solidRanges = ranges;
-        floats = laidRuns.place(floats);
-        if (floats > vertices.capacity()) {
-            vertices = buffer(Integer.highestOneBit(floats) * 2);
-        }
-        vertices.clear();
-        vertices.limit(floats);
-        for (int i = 0; i < chunks.size(); i++) {
-            solidRuns.copy(chunks.get(i).solid.all);
-            laidRuns.copy(chunks.get(i).laid.all);
-        }
-        arrays();
-    }
-
-    /** The runs of the vertex buffer by texture and tint: how long each is, where it starts, and where the next mesh for it goes. */
-    private static final class Runs {
-        private int[] texture = new int[512], tint = new int[512], floats = new int[512], cursor = new int[512];
-        private boolean[] taken = new boolean[512];
-        int used;
-
-        void clear() {
-            java.util.Arrays.fill(taken, false);
-            used = 0;
-        }
-
-        private int slot(int name, int tinted) {
-            int mask = texture.length - 1;
-            int slot = ((name ^ tinted << 12) * 0x9E3779B1) >>> 16 & mask;
-            while (taken[slot] && (texture[slot] != name || tint[slot] != tinted)) {
-                slot = (slot + 1) & mask;
-            }
-            return slot;
-        }
-
-        void count(ArrayList<SpriteGeometry.Mesh> meshes) {
-            for (int i = 0; i < meshes.size(); i++) {
-                SpriteGeometry.Mesh mesh = meshes.get(i);
-                if (mesh.floats == 0) {
-                    continue;
-                }
-                if (used * 2 >= texture.length) {
-                    grow();
-                }
-                int slot = slot(mesh.texture, mesh.tint);
-                if (!taken[slot]) {
-                    taken[slot] = true;
-                    texture[slot] = mesh.texture;
-                    tint[slot] = mesh.tint;
-                    floats[slot] = 0;
-                    used++;
-                }
-                floats[slot] += mesh.floats;
-            }
-        }
-
-        private void grow() {
-            int[] oldTexture = texture, oldTint = tint, oldFloats = floats;
-            boolean[] oldTaken = taken;
-            texture = new int[oldTexture.length * 2];
-            tint = new int[oldTexture.length * 2];
-            floats = new int[oldTexture.length * 2];
-            cursor = new int[oldTexture.length * 2];
-            taken = new boolean[oldTexture.length * 2];
-            for (int i = 0; i < oldTexture.length; i++) {
-                if (oldTaken[i]) {
-                    int slot = slot(oldTexture[i], oldTint[i]);
-                    taken[slot] = true;
-                    texture[slot] = oldTexture[i];
-                    tint[slot] = oldTint[i];
-                    floats[slot] = oldFloats[i];
-                }
-            }
-        }
-
-        /** Gives each texture its run of the buffer from the float at start, notes it as a range to draw, and returns the float after the last. */
-        int place(int start) {
-            for (int slot = 0; slot < texture.length; slot++) {
-                if (!taken[slot]) {
-                    continue;
-                }
-                cursor[slot] = start;
-                rangeTexture[ranges] = texture[slot] == 0 ? whiteTexture : texture[slot];
-                rangeTint[ranges] = tint[slot];
-                rangeFirst[ranges] = start / SpriteGeometry.VERTEX_FLOATS;
-                rangeCount[ranges] = floats[slot] / SpriteGeometry.VERTEX_FLOATS;
-                ranges++;
-                start += floats[slot];
-            }
-            return start;
-        }
-
-        void copy(ArrayList<SpriteGeometry.Mesh> meshes) {
-            for (int i = 0; i < meshes.size(); i++) {
-                SpriteGeometry.Mesh mesh = meshes.get(i);
-                if (mesh.floats == 0) {
-                    continue;
-                }
-                int slot = slot(mesh.texture, mesh.tint);
-                vertices.put(cursor[slot], mesh.vertices, 0, mesh.floats);
-                cursor[slot] += mesh.floats;
-            }
-        }
-    }
-
-    private static final Runs solidRuns = new Runs(), laidRuns = new Runs();
-
     /** Points OpenGL at the frame's vertices. Done again after the game has drawn anything, which leaves its own arrays set. */
     private static void arrays() {
         GL30.glBindVertexArray(0);
@@ -3850,16 +3719,7 @@ final class Pipeline {
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glEnableClientState(GL_COLOR_ARRAY);
         GL11.glEnableClientState(GL_NORMAL_ARRAY);
-        GL11.glVertexPointer(3, GL_FLOAT, STRIDE, at(0));
-        GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, at(3));
-        GL11.glColorPointer(4, GL_FLOAT, STRIDE, at(5));
-        GL11.glNormalPointer(GL_FLOAT, STRIDE, at(9));
-    }
-
-    private static FloatBuffer at(int offset) {
-        FloatBuffer view = vertices.duplicate();
-        view.position(Math.min(offset, view.limit()));
-        return view;
+        ChunkBuffers.point();
     }
 
     /**
@@ -3868,20 +3728,20 @@ final class Pipeline {
      */
     private static void drawRanges(int from, int to, Program program) {
         for (int i = from; i < to; i++) {
-            GL11.glBindTexture(GL_TEXTURE_2D, rangeTexture[i]);
+            GL11.glBindTexture(GL_TEXTURE_2D, ChunkBuffers.texture(i) == 0 ? whiteTexture : ChunkBuffers.texture(i));
             program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
                     1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
-            WallSides.tint(rangeTint[i], tint);
+            WallSides.tint(ChunkBuffers.tint(i), tint);
             program.set("uTint", tint[0], tint[1], tint[2], tint[3]);
-            GL11.glDrawArrays(GL_TRIANGLES, rangeFirst[i], rangeCount[i]);
+            ChunkBuffers.draw(i);
         }
         program.set("uTint", 0f, 0f, 0f, 0f);
     }
 
     private static void drawRanges(int from, int to) {
         for (int i = from; i < to; i++) {
-            GL11.glBindTexture(GL_TEXTURE_2D, rangeTexture[i]);
-            GL11.glDrawArrays(GL_TRIANGLES, rangeFirst[i], rangeCount[i]);
+            GL11.glBindTexture(GL_TEXTURE_2D, ChunkBuffers.texture(i) == 0 ? whiteTexture : ChunkBuffers.texture(i));
+            ChunkBuffers.draw(i);
         }
     }
 
@@ -3890,10 +3750,11 @@ final class Pipeline {
      *
      * A pointer is read as a place in whichever buffer is bound when it is set, and as memory
      * of this process when none is. So the buffer is bound while these three are set and no
-     * longer: arrays() sets the frame's own with none bound, and one of them set with this
-     * still bound would be taken for a place in it, far past its end. The models carry no
-     * colour, and the frame's colours are too few for a model's vertices, so that array is off
-     * until arrays() puts it back.
+     * longer: the rain and the vehicle's glass set pointers to memory of their own with none
+     * bound, and one of them set with this still bound would be taken for a place in it, far
+     * past its end. The models carry no colour, and the colour array would be read from the
+     * chunks' buffer at a model's vertex numbers, so that array is off until arrays() puts it
+     * back.
      */
     private static void modelArrays() {
         boolean made = modelBuffer != 0;
@@ -4009,7 +3870,7 @@ final class Pipeline {
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
-            drawRanges(0, solidRanges);
+            drawRanges(0, ChunkBuffers.solidRanges());
             drawModels(shadow, false, null, 0f);
         }
         if (figures) {
@@ -4062,7 +3923,7 @@ final class Pipeline {
             shadow.set("uMatrix", beamMatrix);
             shadow.set("uSunWay", 0f, 0f, 1f);
             GL13.glActiveTexture(GL_TEXTURE0);
-            drawRanges(0, solidRanges);
+            drawRanges(0, ChunkBuffers.solidRanges());
             drawModels(shadow, false, null, 0f);
             if (figures) {
                 Characters.castCharacters(beamMatrix, camera);
@@ -4097,7 +3958,7 @@ final class Pipeline {
             shadow.use();
             shadow.set("uMatrix", roofMatrix);
             shadow.set("uSunWay", 0f, 0f, 1f);
-            drawRanges(0, solidRanges);
+            drawRanges(0, ChunkBuffers.solidRanges());
             drawModels(shadow, false, null, 0f);
         }
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
@@ -4326,7 +4187,7 @@ final class Pipeline {
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
-        drawRanges(0, solidRanges, world);
+        drawRanges(0, ChunkBuffers.solidRanges(), world);
         // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
         drawModels(world, true, inMirror ? null : camera, far);
         // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
@@ -4336,7 +4197,7 @@ final class Pipeline {
         world.set("uCut", 0.02f);
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
-        drawRanges(solidRanges, ranges);
+        drawRanges(ChunkBuffers.solidRanges(), ChunkBuffers.ranges());
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         GL33.glBindSampler(0, 0);

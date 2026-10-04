@@ -124,6 +124,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         private int builtFrame;
         /** The frames in flight that show this build, and one more while it is the chunk's latest. */
         private int users;
+        /**
+         * Raised each time the build has been filled. The render thread reads it before it
+         * reads the build's vertices, which is what lets it see all of what the logic thread
+         * wrote, and from it tells a build the graphics card holds as it was from one it holds
+         * as it is.
+         */
+        volatile int version;
+        /**
+         * The block of ChunkBuffers' buffer that holds this build's vertices: which making of
+         * the buffer it is in, 0 for none, and where. The logic thread reads the first to tell
+         * whether there is a block to free, and the render thread alone writes them.
+         */
+        volatile int heldEpoch;
+        int heldVersion, heldAt, heldFloats;
     }
 
     /** A chunk nearer the eye than this is built every frame. */
@@ -318,7 +332,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + ChunkBuffers.describe() + " | noted " + Characters.described + " | steepest roof " + steepestSaid;
     }
 
     static float drawnAspect() {
@@ -480,6 +494,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                         }
                     }
                     addBacks(chunk, chunkX, chunkY);
+                    fresh.version++;
                     if (current != null) {
                         release(current);
                     }
@@ -513,7 +528,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     private static void release(ChunkMeshes meshes) {
-        if (--meshes.users == 0 && near(meshes)) {
+        if (--meshes.users != 0) {
+            return;
+        }
+        ChunkBuffers.forget(meshes);
+        if (near(meshes)) {
             int slot = (meshes.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (meshes.wy & (TABLE_SIDE - 1));
             if (retired[slot] == null) {
                 retired[slot] = meshes;
@@ -539,7 +558,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             ChunkMeshes held = latest[slot];
             if (held != null && !near(held)) {
                 latest[slot] = null;
-                held.users--;
+                if (--held.users == 0) {
+                    ChunkBuffers.forget(held);
+                }
             }
             if (retired[slot] != null && !near(retired[slot])) {
                 retired[slot] = null;
