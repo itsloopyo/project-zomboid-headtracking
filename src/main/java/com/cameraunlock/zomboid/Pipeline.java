@@ -386,8 +386,8 @@ final class Pipeline {
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
                             + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
-                            // Earth keeps the game's own grain: what is brown may as well be planks.
-                            + vec3(1.0 - stony - green)
+                            // Earth only where the game says the ground is earth: what is brown may as well be planks.
+                            + (1.0 - stony - green) * (vMaterial > 3.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
                             + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
                     // The picture's light and dark go over the game's colour everywhere. Where
                     // the ground is stone, which has no colour of its own to lose, the picture's
@@ -412,12 +412,12 @@ final class Pipeline {
                 // wall is and where its boards and windows are; a picture of the stuff itself,
                 // laid over it by where the surface is in the world, gives it the grain of
                 // shingle, of old paint, of floorboards. Its light and dark only.
-                if (vMaterial > 0.5) {
+                if (vMaterial > 0.5 && vMaterial < 3.5) {
                     vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
                     float fine = vMaterial < 1.5 ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
                             : dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z;
-                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.6 : 0.7);
+                    texel.rgb *= mix(1.0, fine, vMaterial < 1.5 ? 0.85 : vMaterial < 2.5 ? 0.3 : 0.7);
                 }
 
                 // A card stands in for something with depth and leaves, a bush or a tree, which
