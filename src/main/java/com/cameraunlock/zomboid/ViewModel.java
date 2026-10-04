@@ -209,9 +209,9 @@ public final class ViewModel {
      * ViewModelMath's: x to the right, y up, z towards the viewer, in tiles. Below the eye, to
      * either side of it and a little behind it.
      */
-    static final float[] RIGHT_SHOULDER = {0.2f, -0.26f, 0.05f}, LEFT_SHOULDER = {-0.2f, -0.26f, 0.05f};
+    static final float[] RIGHT_SHOULDER = {0.25f, -0.44f, 0.12f}, LEFT_SHOULDER = {-0.25f, -0.44f, 0.12f};
     /** The way each elbow drops: down, and out from the body. */
-    static final float[] RIGHT_ELBOW = {0.45f, -1f, 0.1f}, LEFT_ELBOW = {-0.45f, -1f, 0.1f};
+    static final float[] RIGHT_ELBOW = {0.7f, -1f, 0.1f}, LEFT_ELBOW = {-0.7f, -1f, 0.1f};
 
     /**
      * Where a firearm is held, in tiles from the eye: the line of its barrel to the right and

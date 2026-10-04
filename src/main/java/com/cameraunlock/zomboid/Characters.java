@@ -234,10 +234,13 @@ public final class Characters {
                             CHARACTER_SCALE, heldView)) {
                         holding = data;
                         arms[0] = reach(data, 0);
-                        arms[1] = hands.bothHands() && reach(data, 1);
+                        // A bat or an axe is swung from the right hand here: the game's left
+                        // hand is placed for its own swing, and is nowhere near the handle in ours.
+                        boolean both = hands.bothHands() && hands.firearm();
+                        arms[1] = both && reach(data, 1);
                         // Something carried in both hands is not in both at every moment. A
                         // left hand that is off it stays with the body, where the game has it.
-                        heldBoth = hands.bothHands() && !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON);
+                        heldBoth = both && !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON);
                         if (!arms[0] && !armless) {
                             armless = true;
                             Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
@@ -298,9 +301,9 @@ public final class Characters {
      * How much wider than the model's own the arm is drawn: at the wrist it closes over the
      * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
      */
-    private static final float CUFF = 1.2f, AT_ELBOW = 1.05f, AT_SHOULDER = 1.3f;
+    private static final float CUFF = 1.12f, AT_ELBOW = 0.85f, AT_SHOULDER = 1.1f;
     /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
-    private static final float ON_WEAPON = 0.8f;
+    private static final float ON_WEAPON = 0.5f;
 
     /** The light the game gives where the viewer stands, as it gave the viewer's model last drawn. */
     static float ownLight = 1f;

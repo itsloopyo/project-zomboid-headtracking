@@ -445,9 +445,9 @@ final class CharacterDraw {
                 float flesh = step(color.b, color.g + 0.02) * step(color.g, color.r + 0.02) * smoothstep(0.25, 0.4, most)
                         * (1.0 - smoothstep(0.35, 0.6, (most - least) / max(most, 0.001)));
                 float gathered = (0.3 + 0.7 * exp(-(along - 1.0) * (along - 1.0) * 9.0)) * (1.0 - flesh);
-                float fold = along * 34.0 + vRound.x * 2.2 + 1.6 * sin(along * 7.0 + vRound.y * 2.0);
-                vec3 n = normalize(normalize(vOut) + normalize(vWay) * (cos(fold) * gathered * 0.45));
-                color *= 1.0 - 0.12 * (0.5 - 0.5 * sin(fold)) * gathered;
+                float fold = along * 21.0 + vRound.x * 2.2 + 1.6 * sin(along * 7.0 + vRound.y * 2.0);
+                vec3 n = normalize(normalize(vOut) + normalize(vWay) * (cos(fold) * gathered * 0.2));
+                color *= 1.0 - 0.08 * (0.5 - 0.5 * sin(fold)) * gathered;
                 // Unlit, with the way the surface faces as the eye sees it: the picture lights it.
                 gl_FragData[0] = vec4(uAlpha * color, uAlpha);
                 gl_FragData[1] = vec4(n * 0.5 + 0.5, 1.0);
