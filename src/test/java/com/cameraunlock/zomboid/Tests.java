@@ -40,6 +40,7 @@ public final class Tests {
         filterEasesBackWhenSamplesStop();
         leanClampTightensAtOnceAndReleasesSlowly();
         gridTraceFindsTheFirstBlockedEdge();
+        CabinTests.run();
         shotStopsOnACharacter();
         receiverRefusesAPoseNoTrackerSendsAndABadPort();
         windowIsCentredInItsWorkArea();

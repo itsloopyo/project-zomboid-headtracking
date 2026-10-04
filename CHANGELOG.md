@@ -27,6 +27,13 @@
 - Trees in first person have leaves you can make out, the sun comes through their crowns in patches, and a wood is light enough to see in.
 - Everything the game paints is sharper up close in first person, and grass is finer and an even green.
 - From the driver's seat a vehicle's windows have straight frames, and its road wheels no longer show inside the cabin.
+- A vehicle's cabin is trimmed by what each part of it is: the seats in their own cloth, ribbed, pleated, plaid or striped by the kind of vehicle, the dashboard in its own colour with air vents, a radio, a glove box and a band or a whole face of wood where the vehicle has them, and the doors with a cloth panel, an armrest, a handle and a window winder. A dashboard no longer takes the seats' cloth, and the pillars keep the body's paint.
+- Cars with a lever on the floor have its boot and a console between the seats, a van has its engine cover there, and a step van has the post up the middle of its screen. A lever on the column is on the side towards the middle of the vehicle.
+- The steering wheel turns with the steering, and the warning lamps under a strip speedometer light for a running engine, headlights and low fuel.
+- The driver's door has a mirror outside the glass that shows the road behind on that side, and the mirror on the screen shows the road through the vehicle's own back window.
+- The bonnet is seen through the windscreen, in the vehicle's paint, with the sky and the sun in its lacquer.
+- The driver's place stays fixed to the vehicle when the head leans.
+- The viewer's own vehicle, body and held weapon are drawn with a depth of their own again, so their parts hide one another in the right order and are lit by the way they face.
 - People and zombies near the eye in first person are rounded where the game's models are faceted.
 - A clear day in first person has clearer air, fuller colour and more contrast, warm in the sun and cool in the shade.
 - Vehicles in first person are the size they are in the game's own view. They were drawn half as big again.

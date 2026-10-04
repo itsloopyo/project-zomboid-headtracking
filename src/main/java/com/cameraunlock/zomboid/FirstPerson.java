@@ -70,6 +70,17 @@ public final class FirstPerson {
     /** The speedometer reads to 160 km/h, a hundred miles an hour, and the rev counter to 7000. */
     private static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
 
+    /** How far the road wheels of the vehicle the viewer sits in are turned, in radians, to the right positive. */
+    static volatile float steering;
+    /** Whether the vehicle the viewer sits in has its headlights on. */
+    static volatile boolean lampsOn;
+    /**
+     * Where the vehicle the viewer sits in seats its passengers: across, up and along for each,
+     * from the middle of its model, in tiles, as its script has them. The driver is the first.
+     */
+    static volatile float[] seats;
+    private static String seatsOf;
+
     /** The script name of the vehicle the viewer sits in, or null. */
     static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
@@ -245,6 +256,11 @@ public final class FirstPerson {
         Headlights.gather(eyeX, eyeY);
         // In a vehicle the eye is at the seat, not where the game keeps the character on its map.
         BaseVehicle vehicle = player.getVehicle();
+        // The picture reads the seats as soon as it sees the viewer seated: they are set first.
+        if (vehicle != null && !vehicle.getScriptName().equals(seatsOf)) {
+            seatsOf = vehicle.getScriptName();
+            seats = seatsOf(vehicle.getScript());
+        }
         seated = vehicle != null;
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         seatedIn = vehicle == null ? null : vehicle.getScriptName();
@@ -253,6 +269,8 @@ public final class FirstPerson {
             engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
             zombie.vehicles.VehiclePart tank = vehicle.getPartById("GasTank");
             fuel = tank == null || tank.getContainerCapacity() <= 0 ? 0f : tank.getContainerContentAmount() / tank.getContainerCapacity();
+            steering = vehicle.getCurrentSteering();
+            lampsOn = vehicle.getHeadlightsOn();
         }
         if (vehicle != null) {
             int seat = vehicle.getSeat(player);
@@ -399,6 +417,22 @@ public final class FirstPerson {
     /** Called where the game's reticle and aim cursor read the screen row to draw at, counted from the top. */
     public static int reticleY(int stock) {
         return on ? reticleY : stock;
+    }
+
+    /** A seat a passenger is never inside, on a trailer or a roof, has no place in the cabin and is left out. */
+    private static float[] seatsOf(zombie.scripting.objects.VehicleScript script) {
+        float[] found = new float[script.getPassengerCount() * 3];
+        int seats = 0;
+        for (int i = 0; i < script.getPassengerCount(); i++) {
+            zombie.scripting.objects.VehicleScript.Position inside = script.getPassenger(i).getPositionById("inside");
+            if (inside != null) {
+                found[seats * 3] = inside.getOffset().x;
+                found[seats * 3 + 1] = inside.getOffset().y;
+                found[seats * 3 + 2] = inside.getOffset().z;
+                seats++;
+            }
+        }
+        return java.util.Arrays.copyOf(found, seats * 3);
     }
 
     private static float eyeHeight(IsoPlayer player) {

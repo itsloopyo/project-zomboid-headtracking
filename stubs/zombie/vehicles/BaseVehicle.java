@@ -20,4 +20,6 @@ public final class BaseVehicle {
     public float getCurrentSpeedKmHour() { throw new UnsupportedOperationException("reference stub"); }
     public double getEngineSpeed() { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPartById(String id) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.scripting.objects.VehicleScript getScript() { throw new UnsupportedOperationException("reference stub"); }
+    public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -43,6 +43,39 @@ final class VehicleMeshes {
     static java.nio.FloatBuffer seatedPanes;
     static final float[] paneMatrix = new float[16];
     private static final float[] shifted = new float[16], stands = new float[16];
+
+    /** The triangles of a body that are not glass, sorted by what part of the cabin each is, in the model's own space. */
+    static final class Parts {
+        final java.nio.FloatBuffer triangles;
+        /** For each kind CabinParts tells, where its vertices begin and how many they are. */
+        final int[] first = new int[CabinParts.KINDS], count = new int[CabinParts.KINDS];
+        /** Whether the seats were found as pieces of their own. Where they were not, they are not told from the shell. */
+        final boolean seats;
+        /**
+         * From the wheel's middle, in tiles: the foot of the windscreen, along and up; the
+         * sill of the driver's window, up; how far out from the wheel that window is; how far
+         * across the vehicle's middle line is, by sign; the top of the dashboard, up; and
+         * the mirror on the driver's door, along, out and up.
+         */
+        final float[] measures;
+
+        Parts(java.nio.FloatBuffer triangles, boolean seats, float[] measures) {
+            this.triangles = triangles;
+            this.seats = seats;
+            this.measures = measures;
+        }
+    }
+
+    private static final IdentityHashMap<ModelMesh, Parts> parts = new IdentityHashMap<>();
+    /** The parts of the vehicle the viewer sits in, drawn with paneMatrix as the panes are. Null with none. */
+    static Parts seatedParts;
+    /** Where the wheel of the vehicle the viewer sits in is in the world this frame, or null: x, y and up. */
+    static float[] seatedWheel;
+    private static final float[] wheelNow = new float[3];
+    /** The paint of the vehicle the viewer sits in. */
+    static final float[] seatedPaint = new float[3];
+    /** What turns a vertex of the body into tiles along the vehicle, across it and up from the ground: three rows of four. */
+    private static final float[] frame = new float[12];
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001;
     private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
 
@@ -57,33 +90,44 @@ final class VehicleMeshes {
     static void note(String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY, float groundUp,
             float centreOfMass, float[] eye) {
         seatedPanes = null;
-        if (!(body.modelInstance instanceof VehicleModelInstance) || body.modelInstance.model == null) {
+        seatedParts = null;
+        seatedWheel = null;
+        if (!(body.modelInstance instanceof VehicleModelInstance instance) || body.modelInstance.model == null) {
             return;
         }
         ModelMesh mesh = body.modelInstance.model.mesh;
         if (mesh == null) {
             return;
         }
+        body.xfrm.get(xfrm);
+        // The game hangs the body from the vehicle's centre of mass, along the model's own up.
+        System.arraycopy(placed, 0, shifted, 0, 16);
+        for (int k = 0; k < 3; k++) {
+            shifted[12 + k] += placed[4 + k] * centreOfMass;
+        }
+        multiply(shifted, xfrm, stands);
+        multiply(eye, stands, paneMatrix);
+        float aheadX = FirstPerson.aheadX, aheadY = FirstPerson.aheadY;
         float[] middle = middles.get(mesh);
         if (middle == null) {
             if (!mesh.isReady() || mesh.vb == null) {
                 return;
             }
-            middle = find(mesh, (VehicleModelInstance) body.modelInstance, body.modelInstance.model.name);
+            for (int column = 0; column < 4; column++) {
+                float shift = column == 3 ? 1f : 0f;
+                frame[column] = (stands[column * 4] - standsX * shift) * aheadX + (stands[column * 4 + 1] - standsY * shift) * aheadY;
+                frame[4 + column] = -(stands[column * 4] - standsX * shift) * aheadY + (stands[column * 4 + 1] - standsY * shift) * aheadX;
+                frame[8 + column] = stands[column * 4 + 2] - groundUp * shift;
+            }
+            middle = find(mesh, instance, body.modelInstance.model.name);
             middles.put(mesh, middle);
         }
-        body.xfrm.get(xfrm);
         java.nio.FloatBuffer glass = panes.get(mesh);
         if (glass != null && glass.capacity() > 0) {
-            // The game hangs the body from the vehicle's centre of mass, along the model's own up.
-            System.arraycopy(placed, 0, shifted, 0, 16);
-            for (int k = 0; k < 3; k++) {
-                shifted[12 + k] += placed[4 + k] * centreOfMass;
-            }
-            multiply(shifted, xfrm, stands);
-            multiply(eye, stands, paneMatrix);
             seatedPanes = glass;
         }
+        seatedParts = parts.get(mesh);
+        paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seatedPaint);
         if (middle == NONE) {
             return;
         }
@@ -93,7 +137,10 @@ final class VehicleMeshes {
         float x = placed[0] * mx + placed[4] * my + placed[8] * mz + placed[12];
         float y = placed[1] * mx + placed[5] * my + placed[9] * mz + placed[13];
         float up = placed[2] * mx + placed[6] * my + placed[10] * mz + placed[14] - lowered;
-        float aheadX = FirstPerson.aheadX, aheadY = FirstPerson.aheadY;
+        wheelNow[0] = x;
+        wheelNow[1] = y;
+        wheelNow[2] = up;
+        seatedWheel = wheelNow;
         float along = (x - standsX) * aheadX + (y - standsY) * aheadY;
         float across = -(x - standsX) * aheadY + (y - standsY) * aheadX;
         float[] known = wheels.get(script);
@@ -101,6 +148,19 @@ final class VehicleMeshes {
             Log.info(String.format(java.util.Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up", script, body.modelInstance.model.name, along, across, up - groundUp));
         }
         wheels.put(script, new float[] {along, across, up - groundUp});
+    }
+
+    /**
+     * A vehicle's paint. The game gives a body's skin this hue and moves the skin's strength
+     * and lightness by the other two. The skin is not read here: the two are taken as the
+     * paint's own, which is right for a skin of middling strength and lightness.
+     */
+    private static void paint(float hue, float strength, float light, float[] out) {
+        for (int channel = 0; channel < 3; channel++) {
+            float turn = (hue * 6f + (channel == 0 ? 0f : channel == 1 ? 4f : 2f)) % 6f;
+            float ramp = Math.clamp(Math.abs(turn - 3f) - 1f, 0f, 1f);
+            out[channel] = light * (1f - strength + strength * ramp);
+        }
     }
 
     /** The middle of the wheel in a body's vertices, read back from the graphics card once. */
@@ -131,8 +191,13 @@ final class VehicleMeshes {
             ByteBuffer raw = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder());
             GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
-            panes.put(mesh, panesIn(raw, stride, elements, instance, name));
-            return wheelIn(raw, stride, bytes / stride, elements, name);
+            boolean[] glass = glassIn(raw, stride, elements, instance, name);
+            panes.put(mesh, loose(raw, stride, elements, glass));
+            float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name);
+            if (wheel != NONE) {
+                parts.put(mesh, partsIn(raw, stride, bytes / stride, elements, glass, wheel, name));
+            }
+            return wheel;
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
         }
@@ -200,12 +265,12 @@ final class VehicleMeshes {
     }
 
     /**
-     * The triangles of a body that are glass. The game's vehicle mask paints each window in a
+     * Which triangles of a body are glass. The game's vehicle mask paints each window in a
      * colour of its own, every channel of it nothing or a half, and a triangle is a pane when
-     * the mask at its middle is one of those.
+     * the mask at its middle is one of those. None are, for a body whose mask does not say.
      */
-    private static java.nio.FloatBuffer panesIn(ByteBuffer raw, int stride, int[] elements, VehicleModelInstance instance, String name) {
-        java.nio.FloatBuffer none = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    private static boolean[] glassIn(ByteBuffer raw, int stride, int[] elements, VehicleModelInstance instance, String name) {
+        boolean[] none = new boolean[elements.length / 3];
         if (instance.textureMask == null || stride < 32) {
             Log.info("the vehicle model " + name + " has no mask to tell its glass by: its windows are told by their colour");
             return none;
@@ -255,12 +320,18 @@ final class VehicleMeshes {
         // The mask lies the same way up against every model: the first way.
         int way = 0;
         Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
-        if (found[way] < 6 || found[way] > triangles / 3) {
-            return none;
+        return found[way] < 6 || found[way] > triangles / 3 ? none : glass[way];
+    }
+
+    /** The panes of a body as loose triangles in the model's own space. Empty for a body with none found. */
+    private static java.nio.FloatBuffer loose(ByteBuffer raw, int stride, int[] elements, boolean[] glass) {
+        int found = 0;
+        for (boolean pane : glass) {
+            found += pane ? 1 : 0;
         }
-        java.nio.FloatBuffer out = ByteBuffer.allocateDirect(found[way] * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        for (int t = 0; t < triangles; t++) {
-            if (glass[way][t]) {
+        java.nio.FloatBuffer out = ByteBuffer.allocateDirect(found * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        for (int t = 0; t < glass.length; t++) {
+            if (glass[t]) {
                 for (int corner = 0; corner < 3; corner++) {
                     int at = elements[t * 3 + corner] * stride;
                     out.put(raw.getFloat(at)).put(raw.getFloat(at + 4)).put(raw.getFloat(at + 8));
@@ -269,6 +340,59 @@ final class VehicleMeshes {
         }
         out.flip();
         return out;
+    }
+
+    /**
+     * What part of the cabin each triangle of a body is. The body is measured as it stands
+     * this frame, in tiles along the vehicle, across it and up, which is the frame the script
+     * seats its passengers in.
+     */
+    private static Parts partsIn(ByteBuffer raw, int stride, int vertices, int[] elements, boolean[] glass, float[] wheel, String name) {
+        float[] at = new float[vertices * 3], facing = new float[vertices * 3];
+        for (int i = 0; i < vertices; i++) {
+            for (int row = 0; row < 3; row++) {
+                float place = frame[row * 4 + 3], faces = 0f;
+                for (int axis = 0; axis < 3; axis++) {
+                    place += frame[row * 4 + axis] * raw.getFloat(i * stride + axis * 4);
+                    faces += frame[row * 4 + axis] * raw.getFloat(i * stride + 12 + axis * 4);
+                }
+                at[i * 3 + row] = place;
+                facing[i * 3 + row] = faces;
+            }
+        }
+        float[] middle = new float[3];
+        for (int row = 0; row < 3; row++) {
+            middle[row] = frame[row * 4] * wheel[0] + frame[row * 4 + 1] * wheel[1] + frame[row * 4 + 2] * wheel[2] + frame[row * 4 + 3];
+        }
+        float[] seats = CabinParts.seats(FirstPerson.seats, frame[3], frame[7], middle[1]);
+        CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
+        Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
+                new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
+                    found.middleAcross - middle[1], found.dashTop - middle[2],
+                    found.mirror[0] - middle[0], Math.abs(found.mirror[1] - found.middleAcross) - Math.abs(middle[1] - found.middleAcross), found.mirror[2] - middle[2]});
+        for (int kind = 0; kind < CabinParts.KINDS; kind++) {
+            made.first[kind] = made.triangles.position() / 3;
+            for (int t = 0; t < found.kinds.length; t++) {
+                if (found.kinds[t] == kind) {
+                    for (int corner = 0; corner < 3; corner++) {
+                        int v = elements[t * 3 + corner] * stride;
+                        made.triangles.put(raw.getFloat(v)).put(raw.getFloat(v + 4)).put(raw.getFloat(v + 8));
+                    }
+                }
+            }
+            made.count[kind] = made.triangles.position() / 3 - made.first[kind];
+        }
+        made.triangles.flip();
+        Log.info(String.format(java.util.Locale.ROOT,
+                "cabin of %s: %d seat pieces, and %d seat, %d dashboard, %d door and %d bonnet vertices; the driver sits %.3f behind the wheel and %.3f beside it;"
+                        + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f, door mirror %.3f ahead, %.3f out, %.3f above",
+                name, found.seatPieces, made.count[CabinParts.SEAT], made.count[CabinParts.DASH], made.count[CabinParts.DOOR], made.count[CabinParts.BONNET],
+                seats.length == 0 ? Float.NaN : middle[0] - seats[0], seats.length == 0 ? Float.NaN : seats[1] - middle[1],
+                made.measures[0], made.measures[1], made.measures[2], made.measures[5], made.measures[6], made.measures[7], made.measures[8]));
+        if (!made.seats) {
+            Log.info("the vehicle model " + name + " has no seat that is a piece of its own: its seats are told by their colour");
+        }
+        return made;
     }
 
     private static void multiply(float[] a, float[] b, float[] out) {
