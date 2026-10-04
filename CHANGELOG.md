@@ -18,6 +18,7 @@
 - People and zombies in first person are lit by the sun and sky like the world round them, with smooth skins, soft shadow edges and a rim of sky light, and are dark at night outside a lamp's reach.
 - A vehicle's cabin has grained trim and woven seat cloth, and each kind of vehicle has a driver's place of its own, with its own wheel, instruments, colours and gear lever: a stitched wheel with a padded hub and switches, stalks behind it, a hooded speedometer and rev counter with a fuel gauge, whose needles follow the vehicle and which light up at night, and a mirror on the screen that shows the road behind. The driver sits in line with the wheel, behind each vehicle's own wheel: higher in a pickup, further forward in a van.
 - A room at night is dim unless something lights it.
+- People near the eye in first person wear skins at four times the game's resolution, where finer copies of the game's textures have been made on the player's own machine.
 - Trees in first person have leaves you can make out, the sun comes through their crowns in patches, and a wood is light enough to see in.
 - Everything the game paints is sharper up close in first person, and grass is finer and an even green.
 - From the driver's seat a vehicle's windows have straight frames, and its road wheels no longer show inside the cabin.

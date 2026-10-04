@@ -178,6 +178,9 @@ public final class FineSkins {
      * putting back the state the game remembers, not the picture's: all of it is put back
      * here, and the caller sets its own state after this, not before. Render thread only.
      */
+    private static final int SIZE_HELD = 128;
+    private static int said;
+
     static Texture of(Texture bound) {
         try {
             return finer(bound);
@@ -389,7 +392,9 @@ public final class FineSkins {
         }
         // With the flags the game reads its own skins with. It loads the file on another
         // thread, so what comes back is often not ready yet.
-        Texture pack = Texture.getSharedTexture(file.toString(), ModelManager.instance.getTextureFlags());
+        // The game holds a texture loaded as a model's to the size its options allow,
+        // 256 dots by default. The flag that says so is left off, and the rest kept.
+        Texture pack = Texture.getSharedTexture(file.toString(), ModelManager.instance.getTextureFlags() & ~SIZE_HELD);
         if (pack == null) {
             throw new IllegalStateException("the game would not load " + file + ", and its own log says why");
         }
@@ -453,6 +458,9 @@ public final class FineSkins {
             commands.add(command);
         }
         Texture made = TextureCombiner.instance.combine(commands);
+        if (said++ < 3) {
+            Log.info("a skin composed at " + made.getWidth() + "x" + made.getHeight() + " from " + commands.size() + " layers");
+        }
         for (Texture each : onTheWay) {
             TextureCombiner.instance.releaseTexture(each);
         }
