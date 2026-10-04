@@ -934,6 +934,8 @@ final class Pipeline {
             const int SAMPLES = 14;
             const float RADIUS = 0.5;
             const int BOUNCE_SAMPLES = 10;
+            const int ROOM_SAMPLES = 8;
+            const float ROOM_RADIUS = 1.8;
             const float BOUNCE_RADIUS = 2.2;
             uniform sampler2D uScene;
             uniform vec3 uSunEye;
@@ -968,6 +970,20 @@ final class Pipeline {
                     blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0);
                 }
                 float open = clamp(1.0 - blocked * (1.5 / float(SAMPLES)), 0.0, 1.0);
+                // The same again over the width of a room: the corner where two walls and a
+                // ceiling meet, the ground under a porch, the foot of a hedge. It is what makes
+                // a room a hollow and not six lit cards.
+                float broad = 0.0;
+                float roomy = ROOM_RADIUS / (p.z * uTan.y) * 0.5;
+                for (int i = 0; i < ROOM_SAMPLES; i++) {
+                    float along = (float(i) + 0.5) / float(ROOM_SAMPLES);
+                    float a = turn + 2.1 + along * 19.3;
+                    vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * roomy);
+                    vec3 v = placeAt(uv + off) - p;
+                    float far2 = dot(v, v);
+                    broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * step(far2, ROOM_RADIUS * ROOM_RADIUS * 2.0);
+                }
+                open *= clamp(1.0 - broad * (2.0 / float(ROOM_SAMPLES)), 0.4, 1.0);
                 // Light does not stop at the first thing it falls on. A sunlit lawn throws
                 // green up under the eaves, a red wall warms the path beside it. What stands
                 // in the picture within a few paces of this point, on the side it faces, lends
@@ -1010,17 +1026,34 @@ final class Pipeline {
     private static final String SOFTEN = """
             #version 120
             uniform sampler2D uSource;
+            uniform sampler2D uDepth;
             uniform vec2 uSize;
+            uniform float uNear;
+            uniform float uFar;
+
+            float aheadAt(vec2 uv) {
+                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+            }
+
             void main() {
                 vec2 texel = 1.0 / uSize;
                 vec2 uv = gl_FragCoord.xy * texel;
+                float here = aheadAt(uv);
                 vec4 sum = vec4(0.0);
+                float weight = 0.0;
+                // Only what is at this pixel's own distance is averaged in: the shade under a
+                // table does not leak onto the wall seen past its edge.
                 for (int x = -2; x < 2; x++) {
                     for (int y = -2; y < 2; y++) {
-                        sum += texture2D(uSource, uv + (vec2(float(x), float(y)) + 0.5) * texel);
+                        vec2 at = uv + (vec2(float(x), float(y)) + 0.5) * texel;
+                        float w = 1.0 / (1.0 + 40.0 * abs(aheadAt(at) - here) / here) ;
+                        w *= w;
+                        sum += texture2D(uSource, at) * w;
+                        weight += w;
                     }
                 }
-                gl_FragColor = sum / 16.0;
+                gl_FragColor = sum / weight;
             }
             """;
 
@@ -2486,10 +2519,18 @@ final class Pipeline {
         quad();
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, softTarget);
         soften.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, occlusionColor);
-        soften.set("uSource", 0);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        soften.set("uSource", 1);
+        soften.set("uDepth", 0);
+        soften.set("uNear", near);
+        soften.set("uFar", far);
         soften.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
         quad();
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        GL13.glActiveTexture(GL_TEXTURE0);
     }
 
     private static void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
