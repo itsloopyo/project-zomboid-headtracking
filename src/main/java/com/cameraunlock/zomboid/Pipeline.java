@@ -1099,6 +1099,19 @@ final class Pipeline {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
+            // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
+            // or the pale blue of the sky a pane shows.
+            float glass(vec4 f) {
+                if (f.a < 0.5) {
+                    return 1.0;
+                }
+                vec3 paint = f.rgb / f.a;
+                float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
+                bool grey = most > 0.34 && most - least < 0.3 * most;
+                bool skyBlue = most > 0.45 && paint.b >= paint.g && paint.g > paint.r && most - least < 0.6 * most;
+                return grey || skyBlue ? 1.0 : 0.0;
+            }
+
             vec3 placeAt(vec2 uv) {
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
@@ -1178,13 +1191,16 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                vec3 paint = figure.rgb / max(figure.a, 0.001);
-                float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
-                // The sky a pane shows may be its blue, too: brighter and paler than any paint.
-                bool grey = most > 0.34 && most - least < 0.3 * most;
-                bool skyBlue = most > 0.45 && paint.b >= paint.g && paint.g > paint.r && most - least < 0.6 * most;
-                if (cabin > 0.5 && at.z > uEye.z - 0.35 && (grey || skyBlue)) {
-                    discard;
+                if (cabin > 0.5 && at.z > uEye.z - 0.35) {
+                    // Taken over the pixel and its neighbours a few pixels off: a pane's edge
+                    // against a pillar is then a clean line and not the ragged one where each
+                    // pixel's shade of sky falls one side or other of the rule.
+                    vec2 px = 3.0 / uSize;
+                    float panes = glass(figure) * 2.0 + glass(texture2D(uFigure, uv + vec2(px.x, 0.0))) + glass(texture2D(uFigure, uv - vec2(px.x, 0.0)))
+                            + glass(texture2D(uFigure, uv + vec2(0.0, px.y))) + glass(texture2D(uFigure, uv - vec2(0.0, px.y)));
+                    if (panes > 2.5) {
+                        discard;
+                    }
                 }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
