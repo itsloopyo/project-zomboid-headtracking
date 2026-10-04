@@ -223,8 +223,6 @@ final class VehicleMeshes {
             return none;
         }
         int triangles = elements.length / 3;
-        // Which way up the mask lies against the model's texture coordinates is settled by
-        // which way finds windows: a body has a few dozen triangles of glass, not none and not most.
         boolean[][] glass = new boolean[2][triangles];
         int[] found = new int[2];
         for (int flip = 0; flip < 2; flip++) {
@@ -254,7 +252,8 @@ final class VehicleMeshes {
                 }
             }
         }
-        int way = Math.abs(found[0] - 32) <= Math.abs(found[1] - 32) ? 0 : 1;
+        // The mask lies the same way up against every model: the first way.
+        int way = 0;
         Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
         if (found[way] < 6 || found[way] > triangles / 3) {
             return none;
