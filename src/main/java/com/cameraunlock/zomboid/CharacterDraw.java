@@ -219,7 +219,7 @@ final class CharacterDraw {
                 vec3 level = share.x * ePlace[0] + share.y * ePlace[1] + share.z * ePlace[2];
                 vec3 rounded = share.x * onto(level, ePlace[0], eSmooth[0]) + share.y * onto(level, ePlace[1], eSmooth[1])
                         + share.z * onto(level, ePlace[2], eSmooth[2]);
-                vNormal = share.x * eNormal[0] + share.y * eNormal[1] + share.z * eNormal[2];
+                vNormal = share.x * eSmooth[0] + share.y * eSmooth[1] + share.z * eSmooth[2];
                 vUv = share.x * eUv[0] + share.y * eUv[1] + share.z * eUv[2];
                 gl_Position = uProjection * (uModelView * vec4(mix(level, rounded, ROUNDING), 1.0));
             }
@@ -238,6 +238,8 @@ final class CharacterDraw {
             uniform vec3 uAmbient;
             uniform vec3 uLightWay[5];
             uniform vec3 uLightColor[5];
+            uniform mat4 uModelView;
+            uniform float uBare;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
 
@@ -276,7 +278,14 @@ final class CharacterDraw {
                 for (int i = 0; i < 5; i++) {
                     light += uLightColor[i] * max(dot(n, uLightWay[i]), 0.0);
                 }
-                gl_FragColor = vec4(uAlpha * color * uTint * min(light, vec3(1.0)), alpha);
+                if (uBare > 0.5) {
+                    // For the picture's own lighting: the colour as it is, and beside it the
+                    // way the surface faces as the eye sees it.
+                    gl_FragData[0] = vec4(uAlpha * color * uTint, alpha);
+                    gl_FragData[1] = vec4(normalize(mat3(uModelView) * n) * 0.5 + 0.5, 1.0);
+                } else {
+                    gl_FragData[0] = vec4(uAlpha * color * uTint * min(light, vec3(1.0)), alpha);
+                }
             }
             """;
 
@@ -335,6 +344,12 @@ final class CharacterDraw {
     private static ModelSlotRenderData person;
     private static float[] modelView, projection;
     private static boolean shadow;
+    /**
+     * Set while people are drawn into a target that has a second picture for the way their
+     * surfaces face: they are then drawn unlit, for the picture to light.
+     */
+    static boolean bare;
+    private static final int[] FIRST = {0x8CE0}, BOTH = {0x8CE0, 0x8CE1};
     private static final float[] lightWay = new float[LIGHTS * 3], lightColor = new float[LIGHTS * 3];
     private static Vector2 uvScale;
 
@@ -408,6 +423,10 @@ final class CharacterDraw {
         GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
         GL20.glUniformMatrix4fv(skin.projection, false, projection);
         GL20.glUniform1f(skin.scale, person.finalScale);
+        GL20.glUniform1f(GL20.glGetUniformLocation(skin.id, "uBare"), bare && !shadow ? 1f : 0f);
+        if (bare && !shadow) {
+            GL20.glDrawBuffers(BOTH);
+        }
         GL20.glUniform1f(skin.alpha, person.alpha);
         GL20.glUniform1f(skin.hue, part.hue);
         GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
@@ -444,6 +463,9 @@ final class CharacterDraw {
             GL11.glDrawElements(GL_PATCHES, copy.count, GL_UNSIGNED_INT, 0L);
         } else {
             GL11.glDrawElements(GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
+        }
+        if (bare && !shadow) {
+            GL20.glDrawBuffers(FIRST);
         }
         // The game's draw of the next part turns on only the arrays its own mesh has. One left
         // on from here would be read past the end of this mesh's buffer.

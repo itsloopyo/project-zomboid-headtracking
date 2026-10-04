@@ -26,4 +26,5 @@ public final class GL20 {
     public static void glEnableVertexAttribArray(int index) { throw new UnsupportedOperationException("reference stub"); }
     public static void glVertexAttribPointer(int index, int size, int type, boolean normalized, int stride, long pointer) { throw new UnsupportedOperationException("reference stub"); }
     public static void glBindAttribLocation(int program, int index, CharSequence name) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDrawBuffers(int[] buffers) { throw new UnsupportedOperationException("reference stub"); }
 }

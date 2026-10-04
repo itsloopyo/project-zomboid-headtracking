@@ -1269,6 +1269,8 @@ final class Pipeline {
             uniform vec2 uCabinGain;
             uniform vec3 uOwnAmbient;
             uniform float uFigureAmbient;
+            uniform sampler2D uFacing;
+            uniform float uHaveFacing;
             uniform float uRaining;
             uniform float uTime;
             """ + BEAMS + """
@@ -1765,6 +1767,17 @@ final class Pipeline {
                 float close = uInside * step(ahead * length(ray), 2.2);
                 vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
+                // A person the picture drew itself comes with the way each point of them
+                // faces, smooth over the whole body, and unlit: the light is all the picture's.
+                float bare = 0.0;
+                if (uHaveFacing > 0.5) {
+                    vec4 facing = texture2D(uFacing, uv);
+                    if (facing.a > 0.5) {
+                        vec3 seen = facing.xyz * 2.0 - 1.0;
+                        n = normalize(uRight * seen.x + uUp * seen.y - uForward * seen.z);
+                        bare = 1.0;
+                    }
+                }
                 bool ghost = false;
                 if (dial) {
                     vec2 side = vec2(-uAhead.y, uAhead.x);
@@ -1951,7 +1964,7 @@ final class Pipeline {
                 // A cabin is lit through its windows by the sky there is: a great deal by day, next
                 // to nothing on a dark night.
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
-                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) * mix(pow(uFigureAmbient, 2.2) * 1.7 * skyGives, 1.0, cabin) + sunLight * (2.1 * sun * facing);
+                vec3 lightHere = fromSky * mix(vec3(1.0), pow(uOwnAmbient, vec3(2.2)) * (2.6 * skyGives), cabin) * mix(mix(pow(uFigureAmbient, 2.2) * 1.7, 0.8, bare) * skyGives, 1.0, cabin) + sunLight * (mix(2.1, 1.5, bare) * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
                 float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
                 if (uPainted < 0.5 && cabin < 0.5) {
@@ -2429,6 +2442,9 @@ final class Pipeline {
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private static final float[] beamMatrix = new float[16];
     private static int beamMap, beamTarget;
+    private static int figureNormal;
+    private static final int NORMAL_UNIT = 22;
+    private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
     private static int mirrorColor, mirrorTarget;
     private static boolean inMirror;
     private static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180, MIRROR_UNIT = 21;
@@ -3356,13 +3372,17 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
             GL11.glViewport(0, 0, width, height);
             GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL20.glDrawBuffers(BOTH_BUFFERS);
             GL11.glClear(GL_COLOR_BUFFER_BIT);
+            GL20.glDrawBuffers(FIRST_BUFFER);
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
+            CharacterDraw.bare = true;
             Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1);
+            CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
             GL30.glBindVertexArray(0);
@@ -3408,6 +3428,11 @@ final class Pipeline {
             figureLight.set("uInside", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", Characters.ambient);
+            GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            figureLight.set("uFacing", NORMAL_UNIT);
+            figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
             figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uWearGain", materialGain[13], materialGain[11]);
@@ -3469,6 +3494,7 @@ final class Pipeline {
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+            figureLight.set("uHaveFacing", 0f);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
             figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
@@ -3739,6 +3765,8 @@ final class Pipeline {
         problem = complete("developed picture");
         figureColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         figureTarget = target(figureColor);
+        figureNormal = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
         if (problem == null) {
             problem = complete("character");
