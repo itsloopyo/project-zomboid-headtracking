@@ -572,6 +572,9 @@ final class Pipeline {
                     // paint and planed wood, and much more for anything with water lying on it.
                     float pale = max(texel.r, max(texel.g, texel.b));
                     float rough = mix(0.82, 0.5, smoothstep(0.55, 0.95, pale));
+                    if (vMaterial > 2.5 && vMaterial < 3.5) {
+                        rough = 0.32;
+                    }
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, 0.04));
                 }
@@ -607,7 +610,10 @@ final class Pipeline {
                 // What is laid over the ground is mixed in by its alpha. For everything else the
                 // alpha says how much of a mirror the surface is, 1 for none, which the last
                 // pass reads to trace what the mirror shows.
-                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - shine * step(0.8, n.z));
+                // A varnished floor mirrors a little too: the window across the room, the legs of
+                // a chair.
+                float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : 0.0;
+                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(shine, polish) * step(0.8, n.z));
             }
             """;
 
