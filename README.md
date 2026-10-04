@@ -10,6 +10,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
+- **A first person picture of its own** - sun, moon, shadows, clouds, rain, mirrored water, hills, standing grass and trees in leaf, drawn from the game's own map and sprites. The isometric view is left exactly as the game draws it, and no game file is changed
 
 ## Requirements
 
