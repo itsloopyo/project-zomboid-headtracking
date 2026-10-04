@@ -318,7 +318,7 @@ final class Pipeline {
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
                 bool upright = vColor.a > 1.5 && vColor.a < 3.5;
-                if (cover < (upright ? min(uCut, 0.22) : uCut)) {
+                if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
                 vec3 toEye = uEye - vWorld;
@@ -414,7 +414,7 @@ final class Pipeline {
                     }
                 }
                 bool card = !water && vColor.a > 1.5;
-                if (card && !grass) {
+                if (card && !grass && length(vNormal.xy) > 0.1 * length(vNormal)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
                     float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
@@ -847,7 +847,9 @@ final class Pipeline {
                 vec3 north = placeAt(uv + vec2(0.0, step.y)) - at, south = at - placeAt(uv - vec2(0.0, step.y));
                 vec3 across = dot(east, east) < dot(west, west) ? east : west;
                 vec3 up = dot(north, north) < dot(south, south) ? north : south;
-                return normalize(cross(across, up));
+                vec3 square = cross(across, up);
+                float size = length(square);
+                return size > 1e-12 ? square / size : vec3(0.0);
             }
 
             void main() {
@@ -868,8 +870,11 @@ final class Pipeline {
                 // off for the round of a limb or a wing, and the two together are smooth where
                 // the model has edges. With that the sun lights one side and the sky the
                 // other, the edge of a figure catches the sky, and paint and wet skin shine.
-                vec3 n = normalize(normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0));
                 vec3 view = normalize(uEye - at);
+                // Right against the eye a figure's neighbouring pixels are at the same place and
+                // say nothing of which way it faces: there it is taken to face the eye.
+                vec3 found = normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
+                vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 if (dot(n, view) < 0.0) {
                     n = -n;
                 }

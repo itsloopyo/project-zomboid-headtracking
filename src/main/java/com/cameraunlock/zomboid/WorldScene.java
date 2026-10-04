@@ -177,6 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** Whether the square being added has no floor. */
+    private boolean hangsInAir;
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
     private static final float CARD_LAYER = 0.035f;
@@ -752,6 +754,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         waterLocalY = localY;
 
         IsoObject floor = square.getFloor();
+        hangsInAir = floor == null;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -866,6 +869,18 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.kind = 0f;
             geometry.cover = null;
+            return;
+        }
+
+        // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
+        // a length of wire painted as its view sees it run along the ground's grid. Laid flat
+        // at that height the painted line is a straight wire again, from square to square. Stood
+        // up to face the eye, as other loose things are, they were a fan of dashes in the sky.
+        // The upper lengths of the pole hang there too: those are taller than they are wide.
+        if (z > 0 && hangsInAir && frame.height < frame.width && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
+            frame.kind = SpriteGeometry.CARD;
+            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            frame.kind = 0f;
             return;
         }
 
