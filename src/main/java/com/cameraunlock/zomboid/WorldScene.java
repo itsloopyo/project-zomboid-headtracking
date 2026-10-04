@@ -1222,7 +1222,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // furniture they are boxes floating over the house.
         if (type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
             roofName = sprite.getName();
-            addRoof(mesh, texture, type, x, y, z);
+            addRoof(mesh, texture, x, y, z);
             return;
         }
         if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
@@ -1458,18 +1458,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * south-west corner drawn at the south-east corner's height, a slope along x at the
      * north-west corner's, and only one of the two places has the sprite's pixels in it.
      */
-    private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, IsoObjectType type, int x, int y, int z) {
+    private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
-        // Some roof sprites have more painted on them than the slope, a board down to the wall
-        // or the end of the roof, and their outline then says the tile climbs a whole floor.
-        // No roof in the game does: a slope takes three tiles to a floor, and the tile's kind
-        // says which third it is.
+        // Some roof sprites have more painted on them than the slope, the end of the roof or
+        // a board up its edge, and their outline then says the tile climbs a whole floor. No
+        // roof in the game does: a slope takes three tiles to a floor. Such a tile is taken
+        // to rise a third of a floor from its lowest drawn point, which is the roof's own.
         if (Math.abs(northWest - southEast) > STEEPEST_ROOF) {
-            float foot = type == IsoObjectType.WestRoofM ? 1f / 3f : type == IsoObjectType.WestRoofT ? 2f / 3f : 0f;
-            boolean risesNorthWest = northWest > southEast;
-            northWest = risesNorthWest ? foot + 1f / 3f : foot;
-            southEast = risesNorthWest ? foot : foot + 1f / 3f;
+            if (northWest > southEast) {
+                northWest = southEast + 1f / 3f;
+            } else {
+                southEast = northWest + 1f / 3f;
+            }
         }
         if (Math.abs(northWest - southEast) > steepest) {
             steepest = Math.abs(northWest - southEast);
