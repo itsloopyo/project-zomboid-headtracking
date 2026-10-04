@@ -2461,7 +2461,8 @@ final class Pipeline {
         figureLight.set("uFogStart", fogStart);
         figureLight.set("uFogEnd", fogEnd);
         figureLight.set("uWriteNear", 0f);
-        figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+        // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
+        figureLight.set("uInside", 0f);
         figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
         atmosphere(figureLight, state);
         quad();
@@ -2494,6 +2495,7 @@ final class Pipeline {
             GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
+            figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
