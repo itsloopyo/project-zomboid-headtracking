@@ -17,9 +17,9 @@ import zombie.scripting.objects.ModelScript;
  *
  * Nothing the game simulates is touched. The game goes on posing the character as it does for
  * its own view, and the shot leaves where it always did. Only where the picture draws the
- * weapon and the hands on it changes: they are moved, as one rigid piece, from where the
- * game's animation has them to a place before the eye, and the arms behind the hands are the
- * picture's own, from where a person's shoulders are.
+ * weapon and the hands on it changes: they are moved from where the game's animation has
+ * them to a place before the eye, and the arms behind the hands are the picture's own, from
+ * where a person's shoulders are. Each hand is turned on what it holds to meet its arm.
  *
  * The game's logic thread works out how the weapon is held this frame and the render thread
  * reads the last of it whole.
@@ -201,9 +201,9 @@ public final class ViewModel {
     /** For the trace. */
     static String describe() {
         Held now = held;
-        return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f swing %.2f",
+        return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f swing %.2f, %s",
                 now.item, now.firearm ? " (firearm)" : "", now.bothHands ? " in both hands" : "", now.aim, now.recoil, bobPhase, now.bobX, now.bobY,
-                now.lowered, now.swing);
+                now.lowered, now.swing, Characters.describeArms());
     }
 
     /** How far apart the hip crosshair's ticks stand: 0 standing still, more moving and just after a shot. */
@@ -220,8 +220,11 @@ public final class ViewModel {
      * either side of it and a little behind it.
      */
     static final float[] RIGHT_SHOULDER = {0.36f, -0.4f, 0.1f}, LEFT_SHOULDER = {-0.36f, -0.4f, 0.1f};
-    /** The way each elbow drops: down, and out from the body. */
-    static final float[] RIGHT_ELBOW = {1f, -0.6f, 0f}, LEFT_ELBOW = {-1f, -0.6f, 0f};
+    /**
+     * The way each elbow drops: down, and half as far out from the body. A forearm then comes
+     * up to the grip from below and behind it, and leaves the picture by its foot.
+     */
+    static final float[] RIGHT_ELBOW = {0.5f, -1f, 0f}, LEFT_ELBOW = {-0.5f, -1f, 0f};
 
     /**
      * Where a firearm is held, in tiles from the eye: the line of its barrel to the right and
@@ -258,13 +261,13 @@ public final class ViewModel {
     private static final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
     private static final float[] along = new float[3], grip = new float[3], swung = new float[6];
     /**
-     * Where the left wrist is held on a firearm: this far from the grip to the muzzle, and this
+     * Where the left palm is held on a firearm: this far from the grip to the muzzle, and this
      * far under that line, in tiles. The game's animation moves the left hand about against
      * the weapon as the character turns, steps and settles, and an arm drawn to it there goes
      * wherever it goes.
      */
     private static final float FORE_END = 0.42f, FORE_END_BELOW = 0.035f;
-    /** Where the left wrist is held on the weapon last placed, in the view: only with a muzzle. */
+    /** Where the left palm is held on the weapon last placed, in the view: only with a muzzle. */
     static final float[] foreEnd = new float[3];
     private static final float[] over = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */

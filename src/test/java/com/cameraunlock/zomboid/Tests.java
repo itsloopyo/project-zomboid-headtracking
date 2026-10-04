@@ -42,6 +42,7 @@ public final class Tests {
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         AimTests.run();
+        ArmTests.run();
         shotStopsOnACharacter();
         receiverRefusesAPoseNoTrackerSendsAndABadPort();
         windowIsCentredInItsWorkArea();
@@ -218,7 +219,7 @@ public final class Tests {
         CharacterDraw.Limb arm = CharacterDraw.limb(places, uvs, kinds, elements, elements.length, 0);
         check(near(arm.wrist[0], 2.5f) && near(arm.wrist[1], 0f) && near(arm.wrist[2], 0f), "the wrist is midway between the hand's ring and the forearm's last");
         check(near(arm.elbow[0], 0.5f) && near(arm.elbow[1], 0f), "the elbow midway between the upper arm's ring and the forearm's first");
-        check(arm.wristWide > 0.14f && arm.wristWide < 0.6f, "the skin stands off the wrist about as far as its corners are");
+        check(near(arm.palm[0], 3f) && near(arm.palm[1], 0f) && near(arm.palm[2], 0f), "the middle of the hand is the middle of its own ring");
         check(arm.foreUv.length == CharacterDraw.SAMPLES * 2 && arm.upperUv.length == CharacterDraw.SAMPLES * 2, "each length of the arm has its samples");
         for (int sample = 0; sample < CharacterDraw.SAMPLES; sample++) {
             check(arm.foreUv[sample * 2] > 1f / 3f && arm.foreUv[sample * 2] < 2f / 3f, "the forearm is read between its own two rings");

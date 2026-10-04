@@ -204,6 +204,168 @@ final class ViewModelMath {
     static final float STRAIGHTEST = 0.97f;
 
     /**
+     * How far a wrist is left bent, and how far one is ever drawn bent, in radians. A hand is
+     * turned on what it holds only until its wrist is bent the first of these, which a wrist
+     * does with ease; the second is as far as one goes.
+     */
+    static final float WRIST_EASY = (float) Math.toRadians(30), WRIST_MOST = (float) Math.toRadians(45);
+    /** How many times the hand is turned to the arm before the arm is settled: each turn moves the wrist, and so the arm a little. */
+    private static final int HAND_TURNS = 3;
+
+    /**
+     * Fits a hand and the arm behind it to each other. The hand comes posed for a forearm that
+     * is not there: the game's. The arm that is drawn runs to the picture's shoulder, and
+     * leaves the wrist some other way, so the hand is turned about its palm, which is where
+     * it holds, by the least turn that leaves its wrist bent no further than a wrist bends
+     * with ease. A hand already within that is left as it was posed.
+     *
+     * Turning the hand moves its wrist and with it the arm, so this is done a few times over.
+     * After the last, whatever bend is left over the most a wrist goes is taken out of the
+     * arm: the elbow is brought round to the hand and the shoulder follows it.
+     *
+     * @param shoulder where the arm starts, moved as `elbow` moves it and by the above
+     * @param pole     the way the elbow drops, of any length
+     * @param upper    the upper arm's length against the forearm's
+     * @param wrist    the middle of the hand's wrist, moved with the hand
+     * @param rigid    where the elbow would be with the wrist straight, moved with the hand
+     * @param palm     the middle of the hand, which stays where it is
+     * @param turn     the answer: the matrix that turns the hand, to be put after the one that placed it
+     * @param elbow    the answer
+     * @param said     for the trace, in radians: how far the wrist would have been bent with
+     *                 the hand as it was posed, and how far it is bent as drawn
+     * @return false if the hand has no forearm or the arm no elbow, with the answers not to be used
+     */
+    static boolean arm(float[] shoulder, float[] pole, float upper, float[] wrist, float[] rigid, float[] palm,
+            float[] turn, float[] elbow, float[] said) {
+        float hx = rigid[0] - wrist[0], hy = rigid[1] - wrist[1], hz = rigid[2] - wrist[2];
+        float fore = (float) Math.sqrt(hx * hx + hy * hy + hz * hz);
+        if (!(fore > NO_LENGTH)) {
+            return false;
+        }
+        hx /= fore;
+        hy /= fore;
+        hz /= fore;
+        float sx = shoulder[0], sy = shoulder[1], sz = shoulder[2];
+        for (int i = 0; i < 16; i++) {
+            turn[i] = i % 5 == 0 ? 1f : 0f;
+        }
+        for (int pass = 0; pass <= HAND_TURNS; pass++) {
+            shoulder[0] = sx;
+            shoulder[1] = sy;
+            shoulder[2] = sz;
+            if (!elbow(shoulder, wrist, fore * upper, fore, pole, elbow)) {
+                return false;
+            }
+            float fx = (elbow[0] - wrist[0]) / fore, fy = (elbow[1] - wrist[1]) / fore, fz = (elbow[2] - wrist[2]) / fore;
+            float bent = (float) Math.acos(Math.clamp(hx * fx + hy * fy + hz * fz, -1f, 1f));
+            if (pass == 0) {
+                said[0] = bent;
+            }
+            if (!(bent > WRIST_EASY)) {
+                said[1] = bent;
+                break;
+            }
+            // The line the hand turns about is square to its own forearm and the arm's. A hand
+            // posed for a forearm dead against the arm's has no such line, and is turned about
+            // the one square to the way the elbow drops.
+            float ax = hy * fz - hz * fy, ay = hz * fx - hx * fz, az = hx * fy - hy * fx;
+            float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+            if (!(length > NO_LENGTH)) {
+                ax = hy * pole[2] - hz * pole[1];
+                ay = hz * pole[0] - hx * pole[2];
+                az = hx * pole[1] - hy * pole[0];
+                length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+                if (!(length > NO_LENGTH)) {
+                    return false;
+                }
+            }
+            ax /= length;
+            ay /= length;
+            az /= length;
+            if (pass < HAND_TURNS) {
+                float by = bent - WRIST_EASY;
+                about(turn, ax, ay, az, by);
+                float cos = (float) Math.cos(by), sin = (float) Math.sin(by);
+                float wx = wrist[0] - palm[0], wy = wrist[1] - palm[1], wz = wrist[2] - palm[2];
+                float dot = ax * wx + ay * wy + az * wz;
+                wrist[0] = palm[0] + wx * cos + (ay * wz - az * wy) * sin + ax * dot * (1f - cos);
+                wrist[1] = palm[1] + wy * cos + (az * wx - ax * wz) * sin + ay * dot * (1f - cos);
+                wrist[2] = palm[2] + wz * cos + (ax * wy - ay * wx) * sin + az * dot * (1f - cos);
+                // The line is square to the hand's forearm, which turns in the plane square to it.
+                float nx = ay * hz - az * hy, ny = az * hx - ax * hz, nz = ax * hy - ay * hx;
+                hx = hx * cos + nx * sin;
+                hy = hy * cos + ny * sin;
+                hz = hz * cos + nz * sin;
+                continue;
+            }
+            if (bent > WRIST_MOST) {
+                float nx = ay * hz - az * hy, ny = az * hx - ax * hz, nz = ax * hy - ay * hx;
+                float cos = (float) Math.cos(WRIST_MOST), sin = (float) Math.sin(WRIST_MOST);
+                elbow[0] = wrist[0] + (hx * cos + nx * sin) * fore;
+                elbow[1] = wrist[1] + (hy * cos + ny * sin) * fore;
+                elbow[2] = wrist[2] + (hz * cos + nz * sin) * fore;
+                float ux = shoulder[0] - elbow[0], uy = shoulder[1] - elbow[1], uz = shoulder[2] - elbow[2];
+                length = (float) Math.sqrt(ux * ux + uy * uy + uz * uz);
+                if (!(length > NO_LENGTH)) {
+                    return false;
+                }
+                shoulder[0] = elbow[0] + ux / length * fore * upper;
+                shoulder[1] = elbow[1] + uy / length * fore * upper;
+                shoulder[2] = elbow[2] + uz / length * fore * upper;
+                bent = WRIST_MOST;
+            }
+            said[1] = bent;
+        }
+        rigid[0] = wrist[0] + hx * fore;
+        rigid[1] = wrist[1] + hy * fore;
+        rigid[2] = wrist[2] + hz * fore;
+        turn[12] = palm[0] - (turn[0] * palm[0] + turn[4] * palm[1] + turn[8] * palm[2]);
+        turn[13] = palm[1] - (turn[1] * palm[0] + turn[5] * palm[1] + turn[9] * palm[2]);
+        turn[14] = palm[2] - (turn[2] * palm[0] + turn[6] * palm[1] + turn[10] * palm[2]);
+        return true;
+    }
+
+    /** Turns what a matrix turns once more, about a line through the origin of length one, by an angle in radians. */
+    private static void about(float[] matrix, float ax, float ay, float az, float angle) {
+        float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle), rest = 1f - cos;
+        float r00 = cos + ax * ax * rest, r01 = ax * ay * rest - az * sin, r02 = ax * az * rest + ay * sin;
+        float r10 = ay * ax * rest + az * sin, r11 = cos + ay * ay * rest, r12 = ay * az * rest - ax * sin;
+        float r20 = az * ax * rest - ay * sin, r21 = az * ay * rest + ax * sin, r22 = cos + az * az * rest;
+        for (int column = 0; column < 3; column++) {
+            int at = column * 4;
+            float x = matrix[at], y = matrix[at + 1], z = matrix[at + 2];
+            matrix[at] = r00 * x + r01 * y + r02 * z;
+            matrix[at + 1] = r10 * x + r11 * y + r12 * z;
+            matrix[at + 2] = r20 * x + r21 * y + r22 * z;
+        }
+    }
+
+    /**
+     * How much wider than the wrist in it a cuff is drawn. The cuff's faces are flat, which
+     * brings them inside the oval they are laid out on, and the cut end of the hand has to be
+     * inside them with the wrist bent as far as it goes.
+     */
+    static final float CUFF = 1.15f;
+
+    /**
+     * The line across a cuff: the hand's own line across its wrist, laid square to the forearm
+     * that is drawn. A wrist is wider across than it is through, and the cuff drawn over it is
+     * that shape, the same way round.
+     *
+     * @param across the line across the hand's wrist as the hand is drawn, of any length
+     * @param out    the answer, of length one
+     */
+    static void cuff(float[] across, float[] wrist, float[] elbow, float[] out) {
+        float wx = elbow[0] - wrist[0], wy = elbow[1] - wrist[1], wz = elbow[2] - wrist[2];
+        float along = (across[0] * wx + across[1] * wy + across[2] * wz) / (wx * wx + wy * wy + wz * wz);
+        float x = across[0] - wx * along, y = across[1] - wy * along, z = across[2] - wz * along;
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        out[0] = x / length;
+        out[1] = y / length;
+        out[2] = z / length;
+    }
+
+    /**
      * How a swing moves what is swung, over and above where it is held: drawn back to the
      * right, swept across the view to the left, and brought back to where it was.
      *

@@ -238,7 +238,6 @@ public final class Characters {
                         // A bat or an axe is swung from the right hand here: the game's left
                         // hand is placed for its own swing, and is nowhere near the handle in ours.
                         boolean both = hands.bothHands() && hands.firearm();
-                        System.arraycopy(heldView, 0, leftView, 0, 16);
                         arms[1] = both && reach(data, 1);
                         // A firearm with a muzzle has its left hand held on the fore-end.
                         // Anything else carried in both hands is not in both at every moment: a
@@ -294,30 +293,38 @@ public final class Characters {
      */
     static final ViewCamera.Pose aim = new ViewCamera.Pose();
     private static final float[] fromAim = new float[16], pole = new float[3];
-    /** The view the left hand on the weapon is drawn through: the weapon's, moved to hold the hand on the fore-end. */
-    private static final float[] leftView = new float[16];
+    /**
+     * The views the hands on the weapon are drawn through, right then left: the weapon's, with
+     * each hand turned about its palm to the arm behind it, and the left first moved to hold
+     * its palm on the fore-end.
+     */
+    private static final float[][] handViews = new float[2][16];
+    private static final float[] turn = new float[16];
     /** Whether the left hand is on the weapon held up, with the right. */
     private static boolean heldBoth;
     /**
      * The picture's own arms behind the hands on the weapon, right then left: whether each is
      * drawn, its wrist, elbow and shoulder as the eye sees them, the line square to both its
-     * bones, and how far its skin stands off each joint.
+     * bones, the line across its cuff, and half the cuff's width across and through with how
+     * far its skin stands off the elbow and the shoulder.
      */
     private static final boolean[] arms = new boolean[2];
-    private static final float[][] joints = new float[2][9], bends = new float[2][3], wides = new float[2][3];
-    private static final float[] joined = new float[8], shoulder = new float[3], elbow = new float[3], wrist = new float[3], rigid = new float[3];
+    private static final float[][] joints = new float[2][9], bends = new float[2][3], cuffs = new float[2][3], wides = new float[2][4];
+    private static final float[] joined = new float[CharacterDraw.HAND_SAYS], other = new float[CharacterDraw.HAND_SAYS];
+    private static final float[] shoulder = new float[3], elbow = new float[3], wrist = new float[3], rigid = new float[3], palm = new float[3], across = new float[3];
+    /**
+     * For the trace, right then left, in radians: how far each wrist would be bent with the
+     * hand as the game posed it, and how far it is bent as drawn. Written by the render
+     * thread and read by the logic thread's trace, which may read a frame's two halves.
+     */
+    private static final float[][] wristSaid = new float[2][2];
     private static boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
-    /** How hard the game's own forearm pulls the elbow, against the drop of 1 that is down and out. */
-    private static final float OWN_FOREARM = 0.6f;
-    /** In tiles, by the size the hand is drawn at: a sleeve is a little wider than the hand in it. */
-    private static final float WIDEST_CUFF = 0.021f, WIDEST_ELBOW = 0.027f;
-    /**
-     * How much wider than the model's own the arm is drawn: at the wrist it closes over the
-     * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
-     */
-    private static final float CUFF = 0.62f, AT_ELBOW = 0.52f, AT_SHOULDER = 1.2f;
+    /** In tiles: a loose coat measures far wider at the elbow than the arm in it, and that near the eye it is a wall. */
+    private static final float WIDEST_ELBOW = 0.027f;
+    /** How the arm is drawn against the model's own measure at the elbow, and the upper arm against the elbow. */
+    private static final float AT_ELBOW = 0.52f, AT_SHOULDER = 1.2f;
     /** A left wrist further than this from the right, in tiles, is not on what the right hand holds. */
     private static final float ON_WEAPON = 0.5f;
 
@@ -325,44 +332,56 @@ public final class Characters {
     static float ownLight = 1f;
 
     /**
-     * Works out one of the picture's arms for the weapon held up: from the wrist of the hand
-     * the game has on the weapon, moved before the eye with it, back to where that shoulder
-     * is, with the elbow dropped down and outwards. False if no part of the model has that
-     * hand and its forearm, which is where the arm's own measures are taken from.
+     * Works out one of the picture's arms for the weapon held up, and the turn of the hand it
+     * ends in: from the hand the game has on the weapon, moved before the eye with it, back to
+     * where that shoulder is, with the elbow dropped down and outwards. The hand is turned
+     * about its palm to meet the arm. False if no part of the model has that hand and its
+     * forearm, which is where the arm's own measures are taken from; the hand is then drawn
+     * as the game posed it.
      */
     private static boolean reach(ModelSlotRenderData data, int side) {
+        float[] view = handViews[side];
+        System.arraycopy(heldView, 0, view, 0, 16);
         boolean found = false;
-        for (int part = 0; part < data.modelData.size() && !found; part++) {
-            found = CharacterDraw.hand(data.modelData.get(part), side == 1, data.finalScale, joined);
+        float wristAcross = 0f, wristThrough = 0f;
+        // The joints are the first such part's, which is the body's own. The cuff has to go
+        // over every part's cut end, so it is as wide as the widest of them.
+        for (int part = 0; part < data.modelData.size(); part++) {
+            if (CharacterDraw.hand(data.modelData.get(part), side == 1, data.finalScale, found ? other : joined)) {
+                float[] said = found ? other : joined;
+                wristAcross = Math.max(wristAcross, said[CharacterDraw.WRIST_ACROSS]);
+                wristThrough = Math.max(wristThrough, said[CharacterDraw.WRIST_THROUGH]);
+                found = true;
+            }
         }
         if (!found) {
             return false;
         }
-        ViewModelMath.place(heldView, joined[0], joined[1], joined[2], wrist);
-        ViewModelMath.place(heldView, joined[3], joined[4], joined[5], rigid);
+        ViewModelMath.place(view, joined[0], joined[1], joined[2], wrist);
+        ViewModelMath.place(view, joined[3], joined[4], joined[5], rigid);
+        ViewModelMath.place(view, joined[6], joined[7], joined[8], palm);
+        ViewModelMath.place(view, joined[9], joined[10], joined[11], across);
+        for (int axis = 0; axis < 3; axis++) {
+            across[axis] -= wrist[axis];
+        }
         if (side == 1 && ViewModel.hasMuzzle) {
             for (int axis = 0; axis < 3; axis++) {
-                float move = ViewModel.foreEnd[axis] - wrist[axis];
+                float move = ViewModel.foreEnd[axis] - palm[axis];
                 wrist[axis] += move;
                 rigid[axis] += move;
-                leftView[12 + axis] += move;
+                palm[axis] += move;
+                view[12 + axis] += move;
             }
         }
-        float fore = apart(wrist, rigid);
         float[] at = side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER;
         ViewModelMath.place(fromAim, at[0], at[1], at[2], shoulder);
         ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
-        // The hand keeps the turn the game gave it, which suits the game's own forearm. The
-        // elbow may swing anywhere on a ring round the line from shoulder to wrist, so it is
-        // swung towards where the game's forearm points as well as down and out: the forearm
-        // then leaves the hand as near as it can to the way the hand expects, and the wrist
-        // is not bent back on itself.
-        for (int axis = 0; axis < 3; axis++) {
-            pole[axis] += (rigid[axis] - wrist[axis]) / fore * OWN_FOREARM;
-        }
-        if (!ViewModelMath.elbow(shoulder, wrist, fore * UPPER_ARM, fore, pole, elbow)) {
+        if (!ViewModelMath.arm(shoulder, pole, UPPER_ARM, wrist, rigid, palm, turn, elbow, wristSaid[side])) {
             return false;
         }
+        ViewModelMath.onto(turn, view);
+        ViewModelMath.turned(turn, across, across);
+        ViewModelMath.cuff(across, wrist, elbow, cuffs[side]);
         float[] arm = joints[side], bend = bends[side], wide = wides[side];
         System.arraycopy(wrist, 0, arm, 0, 3);
         System.arraycopy(elbow, 0, arm, 3, 3);
@@ -375,11 +394,27 @@ public final class Characters {
         bend[0] = x / length;
         bend[1] = y / length;
         bend[2] = z / length;
-        // A loose coat measures far wider than the arm in it, and that near the eye it is a wall.
-        wide[0] = Math.min(joined[6] * CHARACTER_SCALE * CUFF, WIDEST_CUFF);
-        wide[1] = Math.min(joined[7] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW);
-        wide[2] = wide[1] * AT_SHOULDER;
+        wide[0] = wristAcross * CHARACTER_SCALE * ViewModelMath.CUFF;
+        wide[1] = wristThrough * CHARACTER_SCALE * ViewModelMath.CUFF;
+        // A forearm is no thinner at the elbow than its wrist is through.
+        wide[2] = Math.max(Math.min(joined[CharacterDraw.ELBOW_WIDE] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW), wide[1]);
+        wide[3] = wide[2] * AT_SHOULDER;
         return true;
+    }
+
+    /** For the trace: how the wrists of the hands on the weapon are bent. */
+    static String describeArms() {
+        StringBuilder said = new StringBuilder();
+        for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
+            said.append(side == 0 ? "right" : "; left");
+            if (arms[side]) {
+                said.append(String.format(java.util.Locale.ROOT, " wrist bent %.0f, as posed %.0f, cuff %.3f by %.3f",
+                        Math.toDegrees(wristSaid[side][1]), Math.toDegrees(wristSaid[side][0]), wides[side][0], wides[side][1]));
+            } else {
+                said.append(" hand has no arm");
+            }
+        }
+        return said.toString();
     }
 
     private static float apart(float[] a, float[] b) {
@@ -415,9 +450,10 @@ public final class Characters {
 
     /**
      * Draws the weapon the viewer holds, the hands on it and the picture's own arms behind
-     * them, into whatever target is bound, where a first person view has them: the weapon and
-     * the hands moved as one piece from where the game's animation holds the weapon to a place
-     * before the eye. Only after drawViewer, in a frame it left them out of.
+     * them, into whatever target is bound, where a first person view has them: the weapon
+     * moved from where the game's animation holds it to a place before the eye, and the hands
+     * moved with it and turned to their arms. Only after drawViewer, in a frame it left them
+     * out of.
      */
     static void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ModelSlotRenderData data = holding;
@@ -443,7 +479,7 @@ public final class Characters {
             GL11.glDepthMask(true);
             model.RenderCharacter(data);
         }
-        CharacterDraw.begin(data, combined, projection, false);
+        CharacterDraw.begin(data, handViews[0], projection, false);
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -451,7 +487,7 @@ public final class Characters {
             }
         }
         if (heldBoth) {
-            CharacterDraw.begin(data, leftView, projection, false);
+            CharacterDraw.begin(data, handViews[1], projection, false);
             for (int part = 0; part < data.modelData.size(); part++) {
                 ModelInstanceRenderData model = data.modelData.get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -461,7 +497,7 @@ public final class Characters {
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             for (int part = 0; arms[side] && part < data.modelData.size(); part++) {
-                CharacterDraw.sleeve(data.modelData.get(part), side == 1, joints[side], bends[side], wides[side]);
+                CharacterDraw.sleeve(data.modelData.get(part), side == 1, joints[side], bends[side], cuffs[side], wides[side]);
             }
         }
         EYE.End();

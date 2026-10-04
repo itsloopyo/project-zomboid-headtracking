@@ -175,6 +175,11 @@ final class CharacterDraw {
      * shoulder. Below 0 the end is closed over the wrist as half a ball, and past 2 the arm
      * runs straight on, so that its open end is never in the picture.
      *
+     * At the wrist the arm is an oval, wide along the line given across the cuff, and the
+     * ball that closes it is as deep as the oval is wide: the cut end of the hand is inside it
+     * whichever way the wrist is bent. uWide is half the cuff's width across and through, then
+     * how far the skin stands off the elbow and the shoulder.
+     *
      * The three joints lie in one plane, and the line square to it is square to both bones:
      * round the arm is measured from that line, so the skin does not twist at the elbow.
      */
@@ -182,7 +187,8 @@ final class CharacterDraw {
             FROM_MESH vec3 aPlace;
             uniform vec3 uJoint[3];
             uniform vec3 uBend;
-            uniform vec3 uWide;
+            uniform vec3 uCuff;
+            uniform vec4 uWide;
             uniform mat4 uProjection;
             TO_NEXT vec3 vOut;
             TO_NEXT vec3 vWay;
@@ -209,13 +215,23 @@ final class CharacterDraw {
                 }
                 way = normalize(way);
                 middle += normalize(upper) * (max(aPlace.z - 2.0, 0.0) * length(upper));
-                float wide = along < 1.0 ? mix(uWide.x, uWide.y, along) : mix(uWide.y, uWide.z, along - 1.0);
                 vec3 ring = aPlace.x * uBend + aPlace.y * cross(way, uBend);
+                vec3 skin = ring * mix(uWide.z, uWide.w, along - 1.0);
+                vec3 facing = ring;
+                if (along < 1.0) {
+                    // An oval at the wrist, the hand's own way round, drawn in to a circle by the elbow.
+                    vec3 across = normalize(uCuff - way * dot(uCuff, way));
+                    vec3 through = cross(way, across);
+                    float wide = mix(uWide.x, uWide.z, along), deep = mix(uWide.y, uWide.z, along);
+                    float a = dot(ring, across), b = dot(ring, through);
+                    skin = across * (a * wide) + through * (b * deep);
+                    facing = normalize(across * (a * deep) + through * (b * wide));
+                }
                 float closing = (1.0 - clamp(-aPlace.z, 0.0, 1.0)) * 1.5708;
-                vOut = ring * sin(closing) - way * cos(closing);
+                vOut = facing * sin(closing) - way * cos(closing);
                 vWay = way;
                 vRound = aPlace;
-                gl_Position = uProjection * vec4(middle + vOut * wide, 1.0);
+                gl_Position = uProjection * vec4(middle + skin * sin(closing) - way * (cos(closing) * max(uWide.x, uWide.y)), 1.0);
             }
             """;
 
@@ -466,6 +482,9 @@ final class CharacterDraw {
     /** The bones of each arm, right then left, by the names the game's skeleton gives them: the hand's own first. */
     private static final String[][] HAND_BONES = {{"Bip01_R_Hand", "Bip01_R_Finger0", "Bip01_R_Finger1"}, {"Bip01_L_Hand", "Bip01_L_Finger0", "Bip01_L_Finger1"}};
     private static final String[] FOREARM_BONE = {"Bip01_R_Forearm", "Bip01_L_Forearm"}, UPPER_ARM_BONE = {"Bip01_R_UpperArm", "Bip01_L_UpperArm"};
+    private static final float[] NOWHERE = new float[3];
+    /** A wrist thinner than this against its width is a card. */
+    private static final float FLAT = 1e-3f;
     /** What a bone is to an arm. The left arm's are these and KINDS more. */
     static final int HAND = 1, FORE = 2, UPPER = 3, KINDS = 3;
     /** How many places on each length of an arm its sleeve's colour is read at. */
@@ -477,9 +496,18 @@ final class CharacterDraw {
 
     /** What a mesh has of one arm, in the mesh's own places as it was made. */
     static final class Limb {
-        /** The middles of the wrist and of the elbow, or null in a mesh that does not reach across one, and how far its skin stands off each. */
+        /** The middles of the wrist and of the elbow, or null in a mesh that does not reach across one, and how far its skin stands off the elbow. */
         float[] wrist, elbow;
-        float wristWide, elbowWide;
+        float elbowWide;
+        /**
+         * The shape of the wrist seen along the forearm, in a mesh that has both and whose wrist is not flat: the line
+         * across it, of length one, and half its width along that line and square to it. The
+         * oval of those two halves has every corner of the wrist inside it.
+         */
+        float[] across;
+        float wristAcross, wristThrough;
+        /** The middle of the hand, or null in a mesh with none of it. */
+        float[] palm;
         /** Texture places well inside the forearm's skin and the upper arm's, SAMPLES pairs each, or null in a mesh that covers none of it. */
         float[] foreUv, upperUv;
     }
@@ -663,11 +691,16 @@ final class CharacterDraw {
         }
     }
 
+    /** How many floats `hand` says, and where among them the wrist's two half widths and the elbow's are. */
+    static final int HAND_SAYS = 15, WRIST_ACROSS = 12, WRIST_THROUGH = 13, ELBOW_WIDE = 14;
+
     /**
      * Where a hand joins its arm, from a part of a person whose mesh has the hand and
-     * the forearm both: the middle of the wrist, and where the elbow would be were the forearm
-     * rigid with the hand, in the axes the person is stood from, at the scale given; then how far the
-     * skin stands off the wrist and off the elbow. False for a part with no such hand.
+     * the forearm both: the middle of the wrist, where the elbow would be were the forearm
+     * rigid with the hand, the middle of the hand, and a point off the wrist's middle along
+     * the line across the wrist, all in the axes the person is stood from, at the scale given;
+     * then half the wrist's width across and through, and how far the skin stands off the
+     * elbow. False for a part with no such hand.
      */
     static boolean hand(ModelInstanceRenderData part, boolean left, float finalScale, float[] out) {
         Model model = part.model;
@@ -680,22 +713,24 @@ final class CharacterDraw {
             return false;
         }
         Limb limb = copy.limbs[side];
-        if (limb.wrist == null || limb.elbow == null) {
+        if (limb.across == null) {
             return false;
         }
-        // The hand's bone carries both points: its matrix is kept by rows.
+        // The hand's bone carries every point: its matrix is kept by rows.
         int at = copy.handBone[side] * 16;
         FloatBuffer palette = part.matrixPalette;
-        for (int point = 0; point < 2; point++) {
-            float[] from = point == 0 ? limb.wrist : limb.elbow;
+        for (int point = 0; point < 4; point++) {
+            float[] from = point == 0 || point == 3 ? limb.wrist : point == 1 ? limb.elbow : limb.palm;
+            float[] off = point == 3 ? limb.across : NOWHERE;
+            float x = from[0] + off[0], y = from[1] + off[1], z = from[2] + off[2];
             for (int axis = 0; axis < 3; axis++) {
                 int row = at + axis * 4;
-                out[point * 3 + axis] = (palette.get(row) * from[0] + palette.get(row + 1) * from[1] + palette.get(row + 2) * from[2] + palette.get(row + 3))
-                        * finalScale;
+                out[point * 3 + axis] = (palette.get(row) * x + palette.get(row + 1) * y + palette.get(row + 2) * z + palette.get(row + 3)) * finalScale;
             }
         }
-        out[6] = limb.wristWide * finalScale;
-        out[7] = limb.elbowWide * finalScale;
+        out[WRIST_ACROSS] = limb.wristAcross * finalScale;
+        out[WRIST_THROUGH] = limb.wristThrough * finalScale;
+        out[ELBOW_WIDE] = limb.elbowWide * finalScale;
         return true;
     }
 
@@ -706,9 +741,10 @@ final class CharacterDraw {
      *
      * @param joints the wrist, the elbow and the shoulder as the eye sees them
      * @param bend   the line square to both bones, of length one
-     * @param wide   how far the skin stands off each joint
+     * @param cuff   the line across the cuff, square to the forearm, of length one
+     * @param wide   half the cuff's width across and through, then how far the skin stands off the elbow and the shoulder
      */
-    static void sleeve(ModelInstanceRenderData part, boolean left, float[] joints, float[] bend, float[] wide) {
+    static void sleeve(ModelInstanceRenderData part, boolean left, float[] joints, float[] bend, float[] cuff, float[] wide) {
         Model model = part.model;
         if (off || model == null || model.isStatic || model.mesh == null) {
             return;
@@ -745,7 +781,8 @@ final class CharacterDraw {
             GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uJoint[" + joint + "]"), joints[joint * 3], joints[joint * 3 + 1], joints[joint * 3 + 2]);
         }
         GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uBend"), bend[0], bend[1], bend[2]);
-        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uWide"), wide[0], wide[1], wide[2]);
+        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uCuff"), cuff[0], cuff[1], cuff[2]);
+        GL20.glUniform4f(GL20.glGetUniformLocation(sleeve, "uWide"), wide[0], wide[1], wide[2], wide[3]);
         GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(sleeve, "uProjection"), false, projection);
         GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uAlpha"), person.alpha);
         GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uHue"), part.hue);
@@ -1180,7 +1217,17 @@ final class CharacterDraw {
         float[] wrist = middle(places, atWrist), elbow = middle(places, atElbow);
         if (wrist != null) {
             limb.wrist = new float[] {wrist[0], wrist[1], wrist[2]};
-            limb.wristWide = wrist[3];
+        }
+        boolean[] ofHand = new boolean[kinds.length];
+        for (int vertex = 0; vertex < kinds.length; vertex++) {
+            ofHand[vertex] = kinds[vertex] == hand;
+        }
+        float[] palm = middle(places, ofHand);
+        if (palm != null) {
+            limb.palm = new float[] {palm[0], palm[1], palm[2]};
+        }
+        if (wrist != null && elbow != null) {
+            section(places, atWrist, wrist, elbow, limb);
         }
         if (elbow != null) {
             limb.elbow = new float[] {elbow[0], elbow[1], elbow[2]};
@@ -1190,6 +1237,66 @@ final class CharacterDraw {
                 ? new float[] {(wrist[0] + elbow[0]) / 2f, (wrist[1] + elbow[1]) / 2f, (wrist[2] + elbow[2]) / 2f} : null);
         limb.upperUv = worn(places, uvs, elements, ofUpper, null);
         return limb;
+    }
+
+    /**
+     * The shape of a wrist as it is seen along the forearm. The line across it is the one its
+     * corners are spread furthest along, and the oval is the least of that line's proportions
+     * that has every corner inside it: a wrist of four corners is an oval round the four.
+     */
+    private static void section(float[] places, boolean[] atWrist, float[] wrist, float[] elbow, Limb limb) {
+        float ax = elbow[0] - wrist[0], ay = elbow[1] - wrist[1], az = elbow[2] - wrist[2];
+        float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        ax /= length;
+        ay /= length;
+        az /= length;
+        // Two lines square to the forearm and to each other, the first from whichever axis the forearm is least along.
+        float sx = Math.abs(ax) <= Math.abs(ay) && Math.abs(ax) <= Math.abs(az) ? 1f : 0f, sy = sx == 0f && Math.abs(ay) <= Math.abs(az) ? 1f : 0f;
+        float sz = 1f - sx - sy;
+        float along = sx * ax + sy * ay + sz * az;
+        float ux = sx - ax * along, uy = sy - ay * along, uz = sz - az * along;
+        length = (float) Math.sqrt(ux * ux + uy * uy + uz * uz);
+        ux /= length;
+        uy /= length;
+        uz /= length;
+        float vx = ay * uz - az * uy, vy = az * ux - ax * uz, vz = ax * uy - ay * ux;
+        float uu = 0f, uv = 0f, vv = 0f;
+        for (int vertex = 0; vertex < atWrist.length; vertex++) {
+            if (atWrist[vertex]) {
+                float x = places[vertex * 3] - wrist[0], y = places[vertex * 3 + 1] - wrist[1], z = places[vertex * 3 + 2] - wrist[2];
+                float u = x * ux + y * uy + z * uz, v = x * vx + y * vy + z * vz;
+                uu += u * u;
+                uv += u * v;
+                vv += v * v;
+            }
+        }
+        double spreadAlong = 0.5 * Math.atan2(2 * uv, uu - vv);
+        float cos = (float) Math.cos(spreadAlong), sin = (float) Math.sin(spreadAlong);
+        float[] across = {ux * cos + vx * sin, uy * cos + vy * sin, uz * cos + vz * sin};
+        float tx = vx * cos - ux * sin, ty = vy * cos - uy * sin, tz = vz * cos - uz * sin;
+        float widest = 0f, deepest = 0f;
+        for (int vertex = 0; vertex < atWrist.length; vertex++) {
+            if (atWrist[vertex]) {
+                float x = places[vertex * 3] - wrist[0], y = places[vertex * 3 + 1] - wrist[1], z = places[vertex * 3 + 2] - wrist[2];
+                widest = Math.max(widest, Math.abs(x * across[0] + y * across[1] + z * across[2]));
+                deepest = Math.max(deepest, Math.abs(x * tx + y * ty + z * tz));
+            }
+        }
+        // A wrist that is a flat card has no shape to measure: its hand is not one an arm is drawn to.
+        if (!(widest > 0f && deepest > widest * FLAT)) {
+            return;
+        }
+        float outside = 0f;
+        for (int vertex = 0; vertex < atWrist.length; vertex++) {
+            if (atWrist[vertex]) {
+                float x = places[vertex * 3] - wrist[0], y = places[vertex * 3 + 1] - wrist[1], z = places[vertex * 3 + 2] - wrist[2];
+                float u = (x * across[0] + y * across[1] + z * across[2]) / widest, v = (x * tx + y * ty + z * tz) / deepest;
+                outside = Math.max(outside, (float) Math.sqrt(u * u + v * v));
+            }
+        }
+        limb.across = across;
+        limb.wristAcross = widest * outside;
+        limb.wristThrough = deepest * outside;
     }
 
     /** The mean of the marked vertices and their mean distance from it, or null with none marked. */
