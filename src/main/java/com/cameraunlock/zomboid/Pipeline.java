@@ -1557,7 +1557,7 @@ final class Pipeline {
             uniform float uHaveFacing;
             uniform float uRaining;
             uniform float uTime;
-            """ + BEAMS + """
+            """ + BEAMS + MuzzleFlash.GLSL + """
             uniform vec2 uAhead;
             uniform sampler2D uRepainted;
             uniform float uWriteNear;
@@ -2289,6 +2289,7 @@ final class Pipeline {
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
                 color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
+                color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * flashLight(at, n);
                 if (wheel && wheelPart > 6.5 && abs(wheelPlace.y - uMirror.y) < 0.112 && abs(wheelPlace.z - uMirror.z) < 0.029 && wheelPlace.x < uMirror.x) {
                     // The glass shows the world behind, left for right, and the sky where the
                     // world stops.
@@ -2915,6 +2916,7 @@ final class Pipeline {
             smooth.set("uSize", (float) width, (float) height);
             smooth.set("uOrigin", (float) viewport[0], (float) viewport[1]);
             quad();
+            Crosshair.draw(viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
             int error = GL11.glGetError();
@@ -3866,6 +3868,7 @@ final class Pipeline {
             figureLight.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
+            setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
@@ -3918,7 +3921,6 @@ final class Pipeline {
         smoothSkins(FirstPerson.seated);
         boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         smoothSkins(false);
-        Characters.done();
         java.nio.FloatBuffer glass = own && FirstPerson.seated ? VehicleMeshes.seatedPanes : null;
         if (glass != null) {
             // Which pixels are the vehicle's glass, drawn from the triangles of it that are:
@@ -3970,6 +3972,8 @@ final class Pipeline {
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+            // The pass before this was over painted metal. A vehicle sat in is that; a body is not.
+            figureLight.set("uPainted", FirstPerson.seated ? 1f : 0f);
             figureLight.set("uHaveFacing", 0f);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
@@ -4009,7 +4013,11 @@ final class Pipeline {
             glazed = FirstPerson.seated;
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
+            if (Characters.holding()) {
+                drawHeld(camera, tanHalfFieldOfView, aspect, far);
+            }
         }
+        Characters.done();
         GL11.glDepthMask(true);
     }
 
@@ -4069,6 +4077,58 @@ final class Pipeline {
         program.set("uBeamShadow", BEAM_UNIT);
         program.set("uBeamMatrix", beamMatrix);
     }
+
+    /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
+    private static void setFlash(Program program) {
+        float[] flash = MuzzleFlash.light();
+        program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
+        program.set("uFlashColor", flash[4], flash[5], flash[6]);
+    }
+
+    /**
+     * The weapon the viewer holds and the arms on it, drawn after the rest of the body into
+     * the same picture of their own, cleared between, and lit the same way. Their near plane
+     * is their own: the body's cuts away the head and chest, and would cut the weapon's stock
+     * off in the middle of the picture.
+     */
+    private static void drawHeld(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float far) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, ownTarget);
+        GL11.glDepthMask(true);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDisable(GL_BLEND);
+        Characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
+        // The game's draw leaves its own program, buffers and arrays bound.
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glDisable(GL_BLEND);
+        GL11.glDisable(GL_ALPHA_TEST);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        figureLight.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 3);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
+        figureLight.set("uNear", HELD_NEAR);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_ALWAYS);
+        GL11.glDepthMask(true);
+        quad();
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDisable(GL_DEPTH_TEST);
+        if (ViewModel.hasMuzzle) {
+            MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
+        } else {
+            MuzzleFlash.none();
+        }
+    }
+
+    /** How near the eye the held weapon is still drawn, in tiles. */
+    private static final float HELD_NEAR = 0.08f;
 
     private static void quad() {
         GL11.glBegin(GL_TRIANGLE_STRIP);

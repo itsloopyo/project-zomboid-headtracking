@@ -62,6 +62,14 @@ public final class Agent {
         return fineSkins.gap();
     }
 
+    /** The patch that tells ViewModel a firearm has been fired. */
+    private static PatchTransformer shot;
+
+    /** Why the held weapon is not told of its shots on this build of the game, or null once the patch is in. */
+    static String shotGap() {
+        return shot.gap();
+    }
+
     private static volatile boolean loaded;
 
     static boolean loaded() {
@@ -151,6 +159,16 @@ public final class Agent {
                         new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V"))))));
         instrumentation.addTransformer(fineSkins);
+
+        // Apart again: without it the weapon in hand is held up all the same, with no kick
+        // and no flash. The game starts its own muzzle flash at the one place a firearm's
+        // shot is taken.
+        shot = new PatchTransformer(List.of(
+                after(new CallSite.Method("zombie/CombatManager", "attackCollisionCheck",
+                                "(Lzombie/characters/IsoGameCharacter;Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
+                        new CallSite.Method("zombie/EffectsManager", "startMuzzleFlash", "(Lzombie/characters/IsoGameCharacter;I)V"),
+                        new CallSite.Method("com/cameraunlock/zomboid/ViewModel", "shot", "()V"))));
+        instrumentation.addTransformer(shot);
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */

@@ -73,7 +73,132 @@ public final class Tests {
         pieceCarriesTheLightOfItsSquaresCorners();
         pieceIsHeldByItsBall();
         jarHoldsEveryModelStoodOnTheFloor();
+        heldWeaponPointsAheadWithItsBarrelOnTheLineAsked();
+        heldWeaponKeepsItsShapeAndTheGamesMirror();
+        weaponWithoutAMuzzleIsHeldByItsGrip();
+        weaponWithNoFrameIsNotHeld();
+        weaponTurnsAboutItsGrip();
+        easingCoversAllButOneOverEInItsConstantAtAnyFrameRate();
+        recoilIsOverInAHundredAndFiftyMilliseconds();
+        stepBobsTheWeaponDownAndAcross();
+        flashIsBrightestAtTheShotAndGoneAfterItsTime();
         System.out.println("all tests passed");
+    }
+
+    /** A weapon posed off every axis: its grip, the way it points, its top, and its muzzle a little above the grip's line. */
+    private static final float[] POSED_GRIP = {0.3f, 0.9f, -0.2f}, POSED_FORWARD = {0.6f, -1.2f, 0.4f}, POSED_TOP = {0.5f, 0.5f, 1f};
+
+    private static float[] posedMuzzle() {
+        float length = (float) Math.sqrt(0.36f + 1.44f + 0.16f);
+        float[] muzzle = new float[3];
+        for (int i = 0; i < 3; i++) {
+            muzzle[i] = POSED_GRIP[i] + POSED_FORWARD[i] / length * 0.4f + POSED_TOP[i] * 0.03f;
+        }
+        return muzzle;
+    }
+
+    private static float[] placed(float[] matrix, float[] point) {
+        float[] out = new float[3];
+        ViewModelMath.place(matrix, point[0], point[1], point[2], out);
+        return out;
+    }
+
+    private static void heldWeaponPointsAheadWithItsBarrelOnTheLineAsked() {
+        float[] matrix = new float[16];
+        float[] muzzle = posedMuzzle();
+        check(ViewModelMath.hold(POSED_GRIP, POSED_FORWARD, POSED_TOP, muzzle, 1.5f, 0.17f, -0.16f, 0.42f, matrix), "a posed weapon is held");
+        float[] grip = placed(matrix, POSED_GRIP), end = placed(matrix, muzzle);
+        check(near(grip[2], -0.42f), "the grip is the distance asked ahead of the eye");
+        check(near(end[0], 0.17f) && near(end[1], -0.16f), "the muzzle is on the line asked");
+        check(end[2] < grip[2] - 0.5f, "and further ahead than the grip, by the barrel's length at the scale drawn");
+        float[] further = placed(matrix, new float[] {muzzle[0] + POSED_FORWARD[0], muzzle[1] + POSED_FORWARD[1], muzzle[2] + POSED_FORWARD[2]});
+        check(near(further[0], end[0]) && near(further[1], end[1]) && further[2] < end[2], "the barrel points straight ahead");
+        check(grip[1] < end[1], "the grip hangs below the barrel");
+    }
+
+    private static void heldWeaponKeepsItsShapeAndTheGamesMirror() {
+        float[] matrix = new float[16];
+        ViewModelMath.hold(POSED_GRIP, POSED_FORWARD, POSED_TOP, posedMuzzle(), 1.5f, 0f, -0.06f, 0.36f, matrix);
+        float[] a = {0.1f, 0.2f, 0.3f}, b = {-0.4f, 0.7f, 0.1f};
+        float[] heldA = placed(matrix, a), heldB = placed(matrix, b);
+        float before = (float) Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+        float after = (float) Math.sqrt((heldA[0] - heldB[0]) * (heldA[0] - heldB[0]) + (heldA[1] - heldB[1]) * (heldA[1] - heldB[1])
+                + (heldA[2] - heldB[2]) * (heldA[2] - heldB[2]));
+        check(near(after, before * 1.5f), "two points of the model stay as far apart, at the scale drawn");
+        float determinant = matrix[0] * (matrix[5] * matrix[10] - matrix[9] * matrix[6]) - matrix[4] * (matrix[1] * matrix[10] - matrix[9] * matrix[2])
+                + matrix[8] * (matrix[1] * matrix[6] - matrix[5] * matrix[2]);
+        check(near(determinant, -1.5f * 1.5f * 1.5f), "the model is mirrored, as the game draws it");
+    }
+
+    private static void weaponWithoutAMuzzleIsHeldByItsGrip() {
+        float[] matrix = new float[16];
+        check(ViewModelMath.hold(POSED_GRIP, POSED_FORWARD, POSED_TOP, null, 1.5f, 0.22f, -0.25f, 0.4f, matrix), "a weapon with no muzzle is held");
+        float[] grip = placed(matrix, POSED_GRIP);
+        check(near(grip[0], 0.22f) && near(grip[1], -0.25f) && near(grip[2], -0.4f), "its grip is at the place asked");
+        float[] above = placed(matrix, new float[] {POSED_GRIP[0] + POSED_TOP[0], POSED_GRIP[1] + POSED_TOP[1], POSED_GRIP[2] + POSED_TOP[2]});
+        check(above[1] > grip[1], "its top is up");
+    }
+
+    private static void weaponWithNoFrameIsNotHeld() {
+        float[] matrix = new float[16];
+        check(!ViewModelMath.hold(POSED_GRIP, new float[3], POSED_TOP, null, 1.5f, 0f, 0f, 0.4f, matrix), "a weapon that points nowhere is not held");
+        check(!ViewModelMath.hold(POSED_GRIP, POSED_FORWARD, POSED_FORWARD, null, 1.5f, 0f, 0f, 0.4f, matrix), "nor one whose top is along its barrel");
+    }
+
+    private static void weaponTurnsAboutItsGrip() {
+        float[] matrix = new float[16];
+        ViewModelMath.hold(POSED_GRIP, POSED_FORWARD, POSED_TOP, null, 1.5f, 0.2f, -0.2f, 0.4f, matrix);
+        float[] ahead = {POSED_GRIP[0] + POSED_FORWARD[0], POSED_GRIP[1] + POSED_FORWARD[1], POSED_GRIP[2] + POSED_FORWARD[2]};
+        float[] raised = matrix.clone();
+        ViewModelMath.turn(raised, 0.3f, 0f, 0f, 0.2f, -0.2f, -0.4f, 0f, 0f, 0f);
+        float[] grip = placed(raised, POSED_GRIP);
+        check(near(grip[0], 0.2f) && near(grip[1], -0.2f) && near(grip[2], -0.4f), "the grip stays where it is");
+        check(placed(raised, ahead)[1] > placed(matrix, ahead)[1] + 0.1f, "positive pitch raises the muzzle");
+        float[] swung = matrix.clone();
+        ViewModelMath.turn(swung, 0f, 0.3f, 0f, 0.2f, -0.2f, -0.4f, 0f, 0f, 0f);
+        check(placed(swung, ahead)[0] > placed(matrix, ahead)[0] + 0.1f, "positive yaw swings it to the right");
+        float[] kicked = matrix.clone();
+        ViewModelMath.turn(kicked, 0f, 0f, 0f, 0.2f, -0.2f, -0.4f, 0.01f, 0.02f, 0.03f);
+        grip = placed(kicked, POSED_GRIP);
+        check(near(grip[0], 0.21f) && near(grip[1], -0.18f) && near(grip[2], -0.37f), "a move carries the grip with it");
+    }
+
+    private static void easingCoversAllButOneOverEInItsConstantAtAnyFrameRate() {
+        float once = ViewModelMath.ease(0f, 1f, 0.07f, 0.07f);
+        check(near(once, 1f - 1f / (float) Math.E), "one time constant covers all but 1/e of the way");
+        float stepped = 0f;
+        for (int i = 0; i < 7; i++) {
+            stepped = ViewModelMath.ease(stepped, 1f, 0.01f, 0.07f);
+        }
+        check(near(stepped, once), "in seven frames or in one");
+        check(near(ViewModelMath.turned((float) Math.toRadians(170), (float) Math.toRadians(-170)), (float) Math.toRadians(20)),
+                "a turn past half a circle is taken the short way");
+    }
+
+    private static void recoilIsOverInAHundredAndFiftyMilliseconds() {
+        float kick = 1f;
+        for (int frame = 0; frame < 9; frame++) {
+            kick = ViewModelMath.ease(kick, 0f, 0.15f / 9f, ViewModel.RECOIL_SECONDS);
+        }
+        check(kick < 0.06f && kick > 0f, "all but a twentieth of a kick has gone 150 ms after the shot");
+        check(ViewModelMath.ease(1f, 0f, 0.016f, ViewModel.RECOIL_SECONDS) > 0.7f, "and most of it is still there a frame after");
+    }
+
+    private static void stepBobsTheWeaponDownAndAcross() {
+        float[] at = new float[2];
+        ViewModelMath.bob(1.3f, 0f, at);
+        check(at[0] == 0f && at[1] == 0f, "standing still the weapon is still");
+        ViewModelMath.bob((float) (Math.PI / 2), 1f, at);
+        check(near(at[0], ViewModelMath.BOB_ACROSS) && near(at[1], -ViewModelMath.BOB_DOWN), "mid step it is across and down");
+        ViewModelMath.bob((float) (3 * Math.PI / 2), 1f, at);
+        check(near(at[0], -ViewModelMath.BOB_ACROSS) && near(at[1], -ViewModelMath.BOB_DOWN), "the next step it is across the other way, and down again");
+    }
+
+    private static void flashIsBrightestAtTheShotAndGoneAfterItsTime() {
+        check(MuzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
+        check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
+        check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
+        check(MuzzleFlash.light()[3] == 0f, "with no weapon drawn there is no light");
     }
 
     /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */

@@ -6,6 +6,9 @@ public class ModelInstance {
     public zombie.core.textures.Texture tex;
     public float tintR, tintG, tintB;
     public zombie.scripting.objects.ModelScript modelScript;
+    public ModelInstance parent;
+    public String parentBoneName;
+    public String attachmentNameParent;
 
     public static final class EffectLight {
         public float x, y, z;

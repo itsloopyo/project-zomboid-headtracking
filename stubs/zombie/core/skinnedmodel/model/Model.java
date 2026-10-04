@@ -7,4 +7,5 @@ public final class Model {
     public zombie.core.skinnedmodel.shader.Shader effect;
     public boolean isStatic;
     public zombie.core.textures.Texture tex;
+    public Object tag;
 }

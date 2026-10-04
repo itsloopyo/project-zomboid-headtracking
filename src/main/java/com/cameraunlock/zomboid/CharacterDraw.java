@@ -18,6 +18,7 @@ import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelMesh;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
+import zombie.core.skinnedmodel.model.SkinningData;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.skinnedmodel.shader.Shader;
 import zombie.core.textures.Texture;
@@ -138,6 +139,36 @@ final class CharacterDraw {
                 cNormal = (blend * vec4(aNormal, 0.0)).xyz;
                 cSmooth = (blend * vec4(aSmooth, 0.0)).xyz;
                 cUv = aUv * uUvScale;
+            }
+            """;
+
+    /**
+     * The viewer's own body is drawn in two pieces: the arms that hold a weapon, moved to where
+     * a first person view holds it, and the rest, left where the game posed it. Each corner
+     * says how much of it belongs to the bones of those arms, and each piece is drawn without
+     * what belongs to the other.
+     */
+    private static final String CUT_VERTEX = POSED + """
+            uniform mat4 uModelView;
+            uniform mat4 uProjection;
+            uniform float uArm[60];
+            TO_NEXT vec3 vNormal;
+            TO_NEXT vec2 vUv;
+            TO_NEXT float vArm;
+
+            void main() {
+                mat4 blend = posed();
+                vec4 place = blend * vec4(aPlace, 1.0);
+                place.xyz *= uScale;
+                vNormal = (blend * vec4(aNormal, 0.0)).xyz;
+                vUv = aUv * uUvScale;
+                float arm = 0.0;
+                if (aWeights.x > 0.0) arm += uArm[int(aBones.x)] * aWeights.x;
+                if (aWeights.y > 0.0) arm += uArm[int(aBones.y)] * aWeights.y;
+                if (aWeights.z > 0.0) arm += uArm[int(aBones.z)] * aWeights.z;
+                if (aWeights.w > 0.0) arm += uArm[int(aBones.w)] * aWeights.w;
+                vArm = arm;
+                gl_Position = uProjection * (uModelView * place);
             }
             """;
 
@@ -311,6 +342,19 @@ final class CharacterDraw {
             }
             """;
 
+    private static final String CUT_FRAGMENT = """
+            FROM_LAST float vArm;
+            uniform float uKeepArms;
+            """ + FRAGMENT.replace("void main() {", """
+            void main() {
+                if ((vArm > 0.5) != (uKeepArms > 0.5)) {
+                    discard;
+                }""");
+
+    /** The bones of each arm from the shoulder down, by the names the game's skeleton gives them. */
+    private static final String[] RIGHT_ARM = {"Bip01_R_UpperArm", "Bip01_R_Forearm", "Bip01_R_Hand", "Bip01_R_Finger0", "Bip01_R_Finger1"};
+    private static final String[] LEFT_ARM = {"Bip01_L_UpperArm", "Bip01_L_Forearm", "Bip01_L_Hand", "Bip01_L_Finger0", "Bip01_L_Finger1"};
+
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
@@ -360,6 +404,14 @@ final class CharacterDraw {
     /** Set once something of the game's is not as this build knows it: every person is then the game's to draw. */
     private static boolean off;
     private static Skin whole, divided;
+    /** The program that draws the viewer's body in its two pieces, or null if the driver refused it. */
+    private static Skin cut;
+    private static int cutArm, cutKeep;
+    /** While set, the part is drawn by the cut program: which bones are the arms, and which piece is kept. */
+    private static float[] cutBones;
+    private static boolean cutKeepsArms;
+    /** For each skeleton, 1 at each bone of the right arm, and the same with the left arm's too. */
+    private static final IdentityHashMap<SkinningData, float[][]> arms = new IdentityHashMap<>();
     private static Field handleField, elementsField, formatField;
     private static final IdentityHashMap<ModelMesh, Copy> copies = new IdentityHashMap<>();
 
@@ -390,6 +442,54 @@ final class CharacterDraw {
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
         if (!off) {
             lights(data);
+        }
+    }
+
+    /** Whether the viewer's body can be drawn in two pieces on this machine. */
+    static boolean cuts() {
+        if (!prepared) {
+            prepared = true;
+            prepare();
+        }
+        return !off && cut != null;
+    }
+
+    /**
+     * Draws one piece of one part of the viewer begun: the arms that hold the weapon, or
+     * everything but them. False for a part that is the game's to draw, whole.
+     *
+     * @param bothArms whether the left arm is on the weapon too
+     * @param held     whether the arms are the piece to draw
+     */
+    static boolean piece(ModelInstanceRenderData part, boolean bothArms, boolean held) {
+        if (part.model == null || !(part.model.tag instanceof SkinningData skeleton)) {
+            return false;
+        }
+        cutBones = armBones(skeleton)[bothArms ? 1 : 0];
+        cutKeepsArms = held;
+        boolean drawn = part(part);
+        cutBones = null;
+        return drawn;
+    }
+
+    private static float[][] armBones(SkinningData skeleton) {
+        float[][] found = arms.get(skeleton);
+        if (found == null) {
+            found = new float[2][BONES];
+            mark(skeleton, RIGHT_ARM, found[0]);
+            mark(skeleton, RIGHT_ARM, found[1]);
+            mark(skeleton, LEFT_ARM, found[1]);
+            arms.put(skeleton, found);
+        }
+        return found;
+    }
+
+    private static void mark(SkinningData skeleton, String[] names, float[] bones) {
+        for (String name : names) {
+            Integer bone = skeleton.boneIndices.get(name);
+            if (bone != null && bone >= 0 && bone < BONES) {
+                bones[bone] = 1f;
+            }
         }
     }
 
@@ -445,8 +545,12 @@ final class CharacterDraw {
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
 
-        Skin skin = divided != null && !shadow ? divided : whole;
+        Skin skin = cutBones != null ? cut : divided != null && !shadow ? divided : whole;
         GL20.glUseProgram(skin.id);
+        if (cutBones != null) {
+            GL20.glUniform1fv(cutArm, cutBones);
+            GL20.glUniform1f(cutKeep, cutKeepsArms ? 1f : 0f);
+        }
         // The game keeps each bone's matrix with its rows where OpenGL wants columns.
         GL20.glUniformMatrix4fv(skin.palette, true, part.matrixPalette);
         GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
@@ -538,6 +642,17 @@ final class CharacterDraw {
         }
         uvScale = new Vector2();
         whole = new Skin(plain);
+        // Apart from the others: without it people are drawn as before, and the viewer's own
+        // body and weapon stay where the game holds them.
+        StringBuilder cutProblem = new StringBuilder();
+        int pieces = program("held weapon", cutProblem, GL_VERTEX_SHADER, OLD + CUT_VERTEX, GL_FRAGMENT_SHADER, OLD + CUT_FRAGMENT);
+        if (cutProblem.length() > 0) {
+            Log.info("the weapon in hand is drawn where the game holds it: " + cutProblem);
+        } else {
+            cut = new Skin(pieces);
+            cutArm = GL20.glGetUniformLocation(pieces, "uArm");
+            cutKeep = GL20.glGetUniformLocation(pieces, "uKeepArms");
+        }
         if (divides) {
             divided = new Skin(bowed);
             Log.info("characters are drawn by the picture, rounded near the eye (OpenGL " + version + ")");

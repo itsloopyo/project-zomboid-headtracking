@@ -221,6 +221,8 @@ public final class FirstPerson {
         if (!on) {
             FieldOfView.rest();
             HeadTracking.rest();
+            ViewModel.rest();
+            Crosshair.hide();
             if (MouseGrab.applied) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
@@ -285,6 +287,7 @@ public final class FirstPerson {
             }
         }
         FieldOfView.ease(Controls.sightsUp(player), sinceLastFrame);
+        ViewModel.update(player, yaw, pitch, sinceLastFrame, Controls.sightsUp(player));
         if (!zoomSaid) {
             zoomSaid = true;
             Log.info(String.format(java.util.Locale.ROOT,
@@ -299,6 +302,12 @@ public final class FirstPerson {
         scene.build(player, trackedView, FieldOfView.tanHalfVertical());
         SpriteRenderer.instance.drawGeneric(scene);
         placeReticle(scene, floorUp);
+        // The game draws its own reticle while the aim is held, and nothing while it is not.
+        if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && !player.isAiming()) {
+            Crosshair.show(ndc[0], ndc[1], ViewModel.spread());
+        } else {
+            Crosshair.hide();
+        }
 
         if (TRACE) {
             trace(player, scene, zoom);
@@ -466,11 +475,11 @@ public final class FirstPerson {
         Log.info(String.format(java.util.Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
                         + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b pointer %s | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
-                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s",
+                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
                 cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), HeadTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
-                scene.describe(), Controls.describe()));
+                scene.describe(), Controls.describe(), ViewModel.describe()));
     }
 }

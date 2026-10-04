@@ -11,6 +11,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
 - **First person controls** - left mouse attacks at once, right mouse aims down the sights, `Left Shift` sprints and `Left Ctrl` crouches
+- **A weapon in your hands** - in first person a firearm sits at the hip and comes up to the eye when you aim, sways and kicks, and flashes at the muzzle when it fires
 - **A pointer when you need one** - the inventory key, any window or menu of the game's, or the middle mouse button held, hands the mouse back as a pointer without leaving first person
 - **A first person picture of its own** - sun, moon, shadows, clouds, rain, mirrored water, hills, standing grass and trees in leaf, drawn from the game's own map and sprites. The isometric view is left exactly as the game draws it, and no game file is changed
 
@@ -124,6 +125,18 @@ While the mouse is turning the first person view, these work differently from th
 - `Left Alt` is also the game's default for an attack aimed at the ground, so an attack made with the jog held is aimed down.
 
 None of this is written to your key bindings. The game's own view, a paused game and the options screen all have your bindings as you saved them. If the game's **toggle to aim** option is on, the left mouse button works as it does in the game: set the aim first, then click.
+
+### The weapon in your hands
+
+With a weapon in hand and on foot, first person draws it and the arms that hold it before the eye instead of where the game's animation carries them:
+
+- **A firearm** sits low and to the right at the hip, pointing where the view points. Holding the aim brings it up to the middle of the picture as the view narrows. Your left arm comes with it when the weapon is held in both hands.
+- **A melee weapon** is held up at the lower right. A swing is the game's own attack animation, seen from the eye.
+- The weapon trails a turn of the view by a few degrees and catches up, sways with each step, drops across the body while you sprint, and dips when you crouch or land.
+- **A shot** kicks the weapon back and up for about a sixth of a second, throws a flash from the muzzle and lights the people and zombies round it for the length of the flash.
+- **The crosshair**: while the aim is held the game draws its own reticle, which widens and tightens as the game's aim does, and first person puts it where the shot will land. With a weapon in hand and the aim not held the game draws none, so first person draws a small crosshair at that same point. It spreads a little while you move and after a shot. There is none without a weapon, in a vehicle, or while the pointer is out.
+
+All of it is drawn only. Where the shot goes, how fast you can fire, recoil's effect on your aim and what a swing hits are the game's own and are not changed. The rest of your body stays as the game poses it.
 
 ### The pointer
 

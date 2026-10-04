@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- In first person a weapon is held before the eye. A firearm sits low and to the right at the hip and comes up to the middle of the picture when the aim is held; a melee weapon is held up at the lower right and its swing is seen from the eye. The arms that hold it come with it. The weapon trails a turn of the view, sways with each step, drops while sprinting and dips on a crouch or a landing.
+- A shot in first person kicks the weapon back and up, throws a flash from its muzzle and lights the people and zombies near it for the length of the flash. Where the shot goes and what it hits are unchanged.
+- With a weapon in hand and the aim not held, first person draws a small crosshair where the shot would land. The game's own reticle takes over while the aim is held, as before.
 - Added a pointer to the first person view. The inventory key shows the inventory and loot panels and hands the mouse back as a pointer, and the same key or `Escape` puts them away and returns to the look. The pointer also comes out by itself while a window, dialog or menu of the game's is open, and for as long as the middle mouse button is held. The picture, head tracking and the game carry on meanwhile.
 - Added a first person view. `F8` switches between it and the game's own view: the mouse turns the camera, the movement keys follow it, and the world is drawn from the game's loaded tiles. It stays off in multiplayer and split screen.
 - Gave the first person view a picture of its own: a sun and moon that follow the game's clock and season, shadows, clouds, light shafts, rain, wet ground and water that mirror what stands over them, and the game's own characters and vehicles.

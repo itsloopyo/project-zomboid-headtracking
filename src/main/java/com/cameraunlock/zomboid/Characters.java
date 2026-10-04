@@ -9,6 +9,7 @@ import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.skinnedmodel.ModelCamera;
 import zombie.core.skinnedmodel.model.Model;
+import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
@@ -24,7 +25,9 @@ import zombie.core.skinnedmodel.model.VehicleModelInstance;
  * shadow. Vehicles, animals, the viewer's own body and whatever a person
  * holds are drawn again by the game, with its own shaders, textures, bones
  * and lights. The bodies, clothes and hair of everyone else standing in the
- * world are drawn by CharacterDraw from the same bones and textures.
+ * world are drawn by CharacterDraw from the same bones and textures, and so
+ * is the viewer's body while a weapon is in hand: the arms on the weapon are
+ * then drawn apart from the rest, held up before the eye with it.
  *
  * Render thread only.
  */
@@ -168,6 +171,7 @@ public final class Characters {
     /** The frame has drawn the models it was given. */
     static void done() {
         noted.clear();
+        holding = null;
     }
 
     /**
@@ -178,6 +182,7 @@ public final class Characters {
      */
     static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
+        holding = null;
         if (FirstPerson.seated) {
             // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
             // apart from the world, so that the picture can leave out what of it is in the
@@ -219,6 +224,18 @@ public final class Characters {
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             if (data.character != null && data.character == viewer && !data.inVehicle) {
+                // Whether the weapon can be held up is settled before the body is drawn: the
+                // body is drawn without the arms that hold it only if they are then drawn
+                // with the weapon.
+                ViewModel.Held hands = ViewModel.held;
+                if (hands != null && CharacterDraw.cuts()) {
+                    ModelInstanceRenderData weapon = weaponOf(data);
+                    if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
+                            CHARACTER_SCALE, heldView)) {
+                        holding = data;
+                        heldHow = hands;
+                    }
+                }
                 System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
                 // A person's eyes are at the front of the head, ahead of the neck. The view's
                 // eye is on the model's axis, so the model is stood a little behind it: looking
@@ -229,13 +246,79 @@ public final class Characters {
                     data.x -= camera.forwardX / flat * EYES_AHEAD;
                     data.y -= camera.forwardY / flat * EYES_AHEAD;
                 }
-                character(data, ViewCamera.view(camera), true, false);
+                character(data, ViewCamera.view(camera), true, false, holding == null ? null : heldHow);
                 data.x = x;
                 data.y = y;
                 return true;
             }
         }
         return false;
+    }
+
+    /** The bone the game hangs what is in the right hand from. */
+    private static final String HAND_BONE = "Bip01_Prop1";
+    /** The attachment of a weapon that the game hangs its own flash from. */
+    private static final String MUZZLE = "muzzle";
+
+    /** The viewer's model while its weapon is held up, from drawViewer until the frame is done. */
+    private static ModelSlotRenderData holding;
+    private static ViewModel.Held heldHow;
+    private static final float[] weaponPlace = new float[16], heldView = new float[16];
+
+    /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */
+    static boolean holding() {
+        return holding != null;
+    }
+
+    /** What is in the viewer's right hand, or null: the one part the game hangs from the hand's bone. */
+    private static ModelInstanceRenderData weaponOf(ModelSlotRenderData data) {
+        for (int part = 0; part < data.modelData.size(); part++) {
+            ModelInstanceRenderData model = data.modelData.get(part);
+            if (model.model != null && model.model.isStatic && HAND_BONE.equals(model.modelInstance.parentBoneName)) {
+                return model;
+            }
+        }
+        return null;
+    }
+
+    /** Whether a part is what the right hand holds, or is fixed to it: a sight, a magazine. */
+    private static boolean inHand(ModelInstance instance) {
+        for (ModelInstance of = instance; of != null; of = of.parent) {
+            if (HAND_BONE.equals(of.parentBoneName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Draws the weapon the viewer holds and the arms that hold it, into whatever target is
+     * bound, where a first person view has them: moved as one piece from where the game's
+     * animation holds the weapon to a place before the eye. Only after drawViewer, in a frame
+     * it left them out of.
+     */
+    static void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        ModelSlotRenderData data = holding;
+        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+        System.arraycopy(heldView, 0, combined, 0, 16);
+        EYE.Begin();
+        CharacterDraw.begin(data, combined, projection, false);
+        for (int part = 0; part < data.modelData.size(); part++) {
+            ModelInstanceRenderData model = data.modelData.get(part);
+            if (model.model == null || !model.model.isStatic) {
+                CharacterDraw.piece(model, heldHow.bothHands(), true);
+                continue;
+            }
+            // The game's own flash is a model on the muzzle, lit like the weapon it is on.
+            // The picture draws the flash itself, as light.
+            if (!inHand(model.modelInstance) || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
+                continue;
+            }
+            model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
+            GL11.glDepthMask(true);
+            model.RenderCharacter(data);
+        }
+        EYE.End();
     }
 
     /**
@@ -336,7 +419,7 @@ public final class Characters {
             } else if (data.inVehicle) {
                 seated(data, i * 4, view);
             } else {
-                character(data, view, data.character == viewer, withViewer);
+                character(data, view, data.character == viewer, withViewer, null);
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -354,16 +437,21 @@ public final class Characters {
      * part; of anyone else the picture draws the parts it can itself and leaves the game the
      * rest, what they hold and what hangs from them.
      */
-    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting) {
+    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, ViewModel.Held hands) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(view, placed, combined);
         EYE.Begin();
-        if (!own) {
+        if (!own || hands != null) {
             CharacterDraw.begin(data, combined, projection, casting);
         }
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
-            if (!own && CharacterDraw.part(model)) {
+            if (hands != null) {
+                // The weapon and the arms on it are drawn apart, held up before the eye.
+                if (inHand(model.modelInstance) || CharacterDraw.piece(model, hands.bothHands(), false)) {
+                    continue;
+                }
+            } else if (!own && CharacterDraw.part(model)) {
                 continue;
             }
             model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
