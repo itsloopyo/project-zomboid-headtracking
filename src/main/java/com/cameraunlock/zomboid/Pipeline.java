@@ -1247,9 +1247,9 @@ final class Pipeline {
             uniform vec3 uWheelAxis;
             uniform vec3 uMirror;
             uniform sampler2D uBehind;
+            uniform vec3 uGauges;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
-            uniform sampler2D uDials;
             uniform sampler2D uJersey;
             uniform vec2 uWearGain;
             uniform vec4 uRoot[16];
@@ -1366,6 +1366,60 @@ final class Pipeline {
                     paint = vec3(0.07, 0.07, 0.075);
                 }
                 return paint;
+            }
+
+            // How near p is to the line from the middle of a dial out to its edge at a turn.
+            float needle(vec2 p, float turn, float reach) {
+                vec2 way = vec2(cos(turn), sin(turn));
+                float along = clamp(dot(p, way), -0.12, reach);
+                return length(p - way * along);
+            }
+
+            // The face of an instrument, at p from its middle with its rim at 1. Left of the
+            // column is the speedometer, right of it the rev counter with the fuel gauge in
+            // its foot. uGauges is the road speed, the engine's speed and the fuel, each as a
+            // part of the gauge's full scale. Glow is how much of the colour is lit from behind.
+            vec3 dialFace(vec2 p, float right, out float glow) {
+                float out2 = length(p);
+                glow = 0.0;
+                if (out2 > 0.9) {
+                    // A bright ring round the glass.
+                    return vec3(0.55, 0.55, 0.57) * (0.6 + 0.4 * sin(atan(p.y, p.x) * 2.0 + 1.0));
+                }
+                vec3 face = vec3(0.035, 0.035, 0.04);
+                // The scale runs three quarters of the way round, from lower left over the top.
+                const float FROM = 3.927, SWEEP = 4.712;
+                float turn = atan(p.y, p.x);
+                float at = fract((FROM - turn) / 6.2831853) * 6.2831853 / SWEEP;
+                if (at <= 1.0) {
+                    float major = 1.0 - smoothstep(0.012, 0.02, abs(fract(at * 8.0 + 0.5) - 0.5) / 8.0 * SWEEP * out2);
+                    float minor = 1.0 - smoothstep(0.006, 0.012, abs(fract(at * 40.0 + 0.5) - 0.5) / 40.0 * SWEEP * out2);
+                    float marks = max(major * step(0.66, out2) * step(out2, 0.86), minor * step(0.78, out2) * step(out2, 0.86));
+                    vec3 ink = right > 0.5 && at > 0.8 ? vec3(0.95, 0.2, 0.1) : vec3(0.88, 0.92, 0.86);
+                    face = mix(face, ink, marks);
+                    glow = marks;
+                }
+                if (right > 0.5) {
+                    // Fuel: a short scale in the foot of the dial, empty to the left.
+                    vec2 q = (p - vec2(0.0, -0.42)) / 0.34;
+                    float turn2 = atan(q.y, q.x);
+                    float span = (2.356 - turn2) / 1.571;
+                    float far2 = length(q);
+                    if (span >= 0.0 && span <= 1.0 && far2 < 1.0) {
+                        float marks = (1.0 - smoothstep(0.03, 0.06, abs(fract(span * 4.0 + 0.5) - 0.5) / 4.0 * 1.571 * far2)) * step(0.7, far2);
+                        face = mix(face, span < 0.15 ? vec3(0.95, 0.2, 0.1) : vec3(0.88, 0.92, 0.86), marks);
+                        glow = max(glow, marks);
+                    }
+                    float hand2 = 1.0 - smoothstep(0.03, 0.06, needle(q, 2.356 - 1.571 * clamp(uGauges.z, 0.0, 1.0), 0.9));
+                    face = mix(face, vec3(0.95, 0.35, 0.08), hand2);
+                    glow = max(glow, hand2);
+                }
+                float shown = clamp(right > 0.5 ? uGauges.y : uGauges.x, 0.0, 1.05);
+                float hand = 1.0 - smoothstep(0.022, 0.04, needle(p, FROM - SWEEP * shown, 0.8));
+                face = mix(face, vec3(0.98, 0.38, 0.08), hand);
+                glow = max(glow, hand);
+                face = mix(face, vec3(0.02, 0.02, 0.022), 1.0 - smoothstep(0.1, 0.12, out2));
+                return face;
             }
 
             float hash21(vec2 p) {
@@ -1488,6 +1542,8 @@ final class Pipeline {
                 bool wheel = false;
                 bool dial = false;
                 vec2 dialAt = vec2(0.0);
+                float dialRight = 0.0;
+                float dialGlow = 0.0;
                 float dialFar = 0.0;
                 if (uInside > 0.5 && uWheel.w > 0.0) {
                     vec3 d = normalize(ray);
@@ -1504,7 +1560,9 @@ final class Pipeline {
                         vec2 face = vec2(abs(on.x) - 0.085, on.y) / 0.046;
                         if (dot(face, face) < 1.0) {
                             dial = true;
-                            dialAt = face * vec2(on.x < 0.0 ? -0.47 : 0.47, 0.47) + 0.5;
+                            // Across the vehicle runs to the driver's left; a dial reads left to right.
+                            dialAt = vec2(-face.x, face.y);
+                            dialRight = on.x < 0.0 ? 0.0 : 1.0;
                             dialFar = t;
                         }
                     }
@@ -1596,7 +1654,7 @@ final class Pipeline {
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     n = -vec3(uAhead * uWheelAxis.x + side * uWheelAxis.y, uWheelAxis.z);
                     close = 1.0;
-                    figure = vec4(texture2D(uDials, vec2(dialAt.x, 1.0 - dialAt.y)).rgb, 1.0);
+                    figure = vec4(dialFace(dialAt, dialRight, dialGlow), 1.0);
                 } else if (wheel) {
                     n = wheelFaces;
                     close = 1.0;
@@ -1802,8 +1860,7 @@ final class Pipeline {
                 }
                 if (dial && uInstruments > 0.0) {
                     // Lit from behind when the engine runs: the numerals and needles glow.
-                    vec3 face = pow(figure.rgb, vec3(2.2));
-                    color += face * vec3(0.55, 1.0, 0.8) * (3.5 * uInstruments * smoothstep(0.15, 0.6, max(face.r, max(face.g, face.b))));
+                    color += pow(figure.rgb, vec3(2.2)) * (4.0 * uInstruments * dialGlow);
                 }
                 if (cabin > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
@@ -2207,7 +2264,7 @@ final class Pipeline {
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "dials", "jersey"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
@@ -3228,9 +3285,9 @@ final class Pipeline {
             figureLight.set("uInside", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", Characters.ambient);
-            figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 14);
+            figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
-            figureLight.set("uWearGain", materialGain[14], materialGain[11]);
+            figureLight.set("uWearGain", materialGain[13], materialGain[11]);
             figureLight.set("uRoots", pass == 0 ? (float) Characters.rootsFound : 0f);
             for (int root = 0; root < Characters.rootsFound && pass == 0; root++) {
                 figureLight.set("uRoot[" + root + "]", Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
@@ -3291,7 +3348,6 @@ final class Pipeline {
             figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
-            figureLight.set("uDials", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
             figureLight.set("uOwnAmbient", Characters.ownAmbient[0], Characters.ownAmbient[1], Characters.ownAmbient[2]);
             GL11.glEnable(GL_DEPTH_TEST);
@@ -3312,6 +3368,7 @@ final class Pipeline {
                 figureLight.set("uBehind", MIRROR_UNIT);
             }
             figureLight.set("uRaining", state.rain);
+            figureLight.set("uGauges", FirstPerson.roadSpeed, FirstPerson.engineSpeed, FirstPerson.fuel);
             figureLight.set("uTime", state.seconds);
             figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
             quad();

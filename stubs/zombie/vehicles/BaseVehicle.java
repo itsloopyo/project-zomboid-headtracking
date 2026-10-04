@@ -17,4 +17,7 @@ public final class BaseVehicle {
     public void setHotwired(boolean hotwired) { throw new UnsupportedOperationException("reference stub"); }
     public boolean enter(int seat, IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
     public VehicleParts getParts() { throw new UnsupportedOperationException("reference stub"); }
+    public float getCurrentSpeedKmHour() { throw new UnsupportedOperationException("reference stub"); }
+    public double getEngineSpeed() { throw new UnsupportedOperationException("reference stub"); }
+    public VehiclePart getPartById(String id) { throw new UnsupportedOperationException("reference stub"); }
 }

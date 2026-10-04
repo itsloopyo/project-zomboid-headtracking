@@ -53,6 +53,11 @@ public final class FirstPerson {
     static volatile boolean seated;
     /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
     static volatile boolean instrumentsLit;
+    /** What the instruments of the vehicle the viewer sits in show, each as a part of its gauge's full scale. */
+    static volatile float roadSpeed, engineSpeed, fuel;
+    /** The speedometer reads to 160 km/h, a hundred miles an hour, and the rev counter to 7000. */
+    private static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
+
     /** The script name of the vehicle the viewer sits in, or null. */
     static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
@@ -197,6 +202,12 @@ public final class FirstPerson {
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         seatedIn = vehicle == null ? null : vehicle.getScriptName();
         if (vehicle != null) {
+            roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
+            engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
+            zombie.vehicles.VehiclePart tank = vehicle.getPartById("GasTank");
+            fuel = tank == null || tank.getContainerCapacity() <= 0 ? 0f : tank.getContainerContentAmount() / tank.getContainerCapacity();
+        }
+        if (vehicle != null) {
             int seat = vehicle.getSeat(player);
             if (seat >= 0) {
                 vehicle.getPassengerWorldPos(seat, seatAt);
@@ -213,6 +224,14 @@ public final class FirstPerson {
                 eyeX = seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
                 eyeY = seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
                 eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;
+                // Seats are not all one height nor one reach from the wheel: a pickup's is
+                // higher than a saloon's and a van's further back.
+                float[] moved = Cabins.eye(vehicle.getScriptName());
+                if (moved != null) {
+                    eyeX += aheadX * moved[0] - aheadY * moved[1];
+                    eyeY += aheadY * moved[0] + aheadX * moved[1];
+                    eyeUp += moved[2];
+                }
                 if (TRACE && (seatSaid++ & 127) == 0) {
                     Log.info(String.format(java.util.Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,
                             seatAt.x, seatAt.y, seatAt.z, vehicle.getX(), vehicle.getY(), facing.x, facing.y, facing.z, eyeX, eyeY));
