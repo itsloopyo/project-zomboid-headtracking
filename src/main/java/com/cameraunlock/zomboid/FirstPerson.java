@@ -49,6 +49,8 @@ public final class FirstPerson {
     private static int seatSaid;
     /** Whether the viewer is in a vehicle. Set on the logic thread, read by the picture. */
     static volatile boolean seated;
+    /** The way the viewer's vehicle faces, on the map. */
+    static volatile float aheadX, aheadY;
 
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
@@ -177,6 +179,10 @@ public final class FirstPerson {
                 // further in.
                 float inX = vehicle.getX() - seatAt.x, inY = vehicle.getY() - seatAt.y;
                 float in = Math.max((float) Math.hypot(inX, inY), 1e-3f);
+                // The way the vehicle faces: square to the line from the driver's seat to its
+                // middle, with the middle on the driver's right: the game's cars are driven from the left.
+                aheadX = inY / in;
+                aheadY = -inX / in;
                 eyeX = seatAt.x + inX / in * HEAD_INBOARD;
                 eyeY = seatAt.y + inY / in * HEAD_INBOARD;
                 eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;

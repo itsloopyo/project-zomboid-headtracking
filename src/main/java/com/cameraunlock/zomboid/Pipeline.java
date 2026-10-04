@@ -1034,6 +1034,7 @@ final class Pipeline {
             uniform float uFogStart;
             uniform float uFogEnd;
             uniform float uInside;
+            uniform vec2 uAhead;
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
@@ -1118,7 +1119,14 @@ final class Pipeline {
                 // what of the car stands above its window sills is left out, glass, pillars
                 // and roof, and the driver looks out over the doors and the bonnet.
                 if (cabin > 0.5 && at.z > uEye.z - 0.2) {
-                    discard;
+                    // The steering wheel stands up into that part of the car, an arm's length
+                    // ahead and below the eye. It stays.
+                    vec3 to = at - uEye;
+                    float along = length(to.xy);
+                    bool wheel = along < 0.95 && to.z < -0.02 && dot(to.xy, uAhead) > 0.75 * along;
+                    if (!wheel) {
+                        discard;
+                    }
                 }
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
@@ -2392,6 +2400,7 @@ final class Pipeline {
         figureLight.set("uFogStart", fogStart);
         figureLight.set("uFogEnd", fogEnd);
         figureLight.set("uInside", FirstPerson.seated ? 1f : 0f);
+        figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
         atmosphere(figureLight, state);
         quad();
 
