@@ -1064,6 +1064,18 @@ final class Pipeline {
                 // say nothing of which way it faces: there it is taken to face the eye.
                 vec3 found = normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
+                // The models' skins are flat paint. Their light and dark say where the cloth
+                // folds and the flesh is torn, and the surface is lit as raised where it is
+                // light, so a shirt has creases the sun rakes across and not a picture of them.
+                vec2 px = 1.0 / uSize;
+                vec4 east = texture2D(uFigure, uv + vec2(px.x, 0.0)), west = texture2D(uFigure, uv - vec2(px.x, 0.0));
+                vec4 north = texture2D(uFigure, uv + vec2(0.0, px.y)), south = texture2D(uFigure, uv - vec2(0.0, px.y));
+                if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
+                    vec3 grey = vec3(0.299, 0.587, 0.114);
+                    vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
+                    slope *= min(1.0, 0.25 / max(length(slope), 0.001));
+                    n = normalize(n - (uRight * slope.x + uUp * slope.y) * 2.2);
+                }
                 if (dot(n, view) < 0.0) {
                     n = -n;
                 }
