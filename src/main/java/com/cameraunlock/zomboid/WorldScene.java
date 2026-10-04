@@ -179,7 +179,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int overLayer;
     private boolean wiredHere;
     private final java.util.IdentityHashMap<IsoSprite, Boolean> meshes = new java.util.IdentityHashMap<>();
-    private static final float MESH_PAINTED_MOST = 0.45f;
+    private static final int MESH_CHANGES = 12;
     private boolean wallNorth, wallWest;
     private static final float SWITCH_WIDEST = 12f;
     private static final java.util.HashMap<Long, Integer> strung = new java.util.HashMap<>();
@@ -852,9 +852,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return isFloor && name.contains("wood") ? WOOD : 0f;
     }
 
-    /** The height of the sheet under a roof where the roof is at level z plus high. Never below the level itself: that is the ceiling of the room under it. */
+    /**
+     * The height of the sheet under a roof where the roof is at level z plus high: under the
+     * roof, and never below the level itself, which is the ceiling of the room beneath. Where
+     * the roof comes down to the level the sheet comes up to meet it along that line only. Held
+     * a fixed step above the level instead, it lay in the roof's own plane along the eaves and
+     * the two were drawn through each other.
+     */
     private static float under(int z, float high) {
-        return (z + Math.max(high - UNDER_ROOF, 0.004f)) * ViewCamera.LEVEL_HEIGHT;
+        return (z + high - Math.min(UNDER_ROOF, Math.max(high, 0f) * 0.5f)) * ViewCamera.LEVEL_HEIGHT;
     }
 
     /**
@@ -951,21 +957,26 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /**
-     * Whether a fence's sprite is mostly air: chain link or wire, not boards. Counted once for
-     * each sprite, over a grid of points across it.
+     * Whether a fence's sprite is chain link or wire and not boards: along a line across it the
+     * sprite goes from painted to clear and back many times, where a board fence does so at
+     * its ends and between a few boards. Counted once for each sprite, along three lines.
      */
     private boolean isMesh(IsoSprite sprite, Texture texture) {
         Boolean known = meshes.get(sprite);
         if (known == null) {
-            int painted = 0;
-            for (int i = 0; i < 12; i++) {
-                for (int j = 0; j < 12; j++) {
-                    if (texture.isMaskSet((int) (frame.left + (i + 0.5f) * frame.width / 12f), (int) (frame.top + (j + 0.5f) * frame.height / 12f))) {
-                        painted++;
+            int changes = 0;
+            for (int row = 1; row <= 3; row++) {
+                int v = (int) (frame.top + frame.height * row / 4f);
+                boolean was = false;
+                for (int u = (int) frame.left; u < frame.left + frame.width; u++) {
+                    boolean is = texture.isMaskSet(u, v);
+                    if (is != was) {
+                        changes++;
                     }
+                    was = is;
                 }
             }
-            known = painted < 144 * MESH_PAINTED_MOST;
+            known = changes >= 3 * MESH_CHANGES;
             meshes.put(sprite, known);
         }
         return known;
@@ -1386,8 +1397,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (!wall) {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
             // drawn through each other.
-            geometry.shownA = inX + db * HUNG_CLEAR;
-            geometry.shownB = inY + da * HUNG_CLEAR;
+            // More of it the further off, where the picture's depth is coarser.
+            geometry.shownA = inX + db * (HUNG_CLEAR + 3f * standOff);
+            geometry.shownB = inY + da * (HUNG_CLEAR + 3f * standOff);
             geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
             geometry.shownA = geometry.shownB = 0f;
             return;
@@ -1481,7 +1493,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (Math.abs(northWest - southEast) < FLAT_ROOF) {
             roofsFlat++;
-            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f) > 0) {
+            // A flat roof that lies on its level has the floor there under it already.
+            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f) > 0
+                    && (northWest + southEast) / 2f > 2f * UNDER_ROOF) {
                 underRoof(x, y, z, (northWest + southEast) / 2f, 0f, 0f);
             }
             return;
