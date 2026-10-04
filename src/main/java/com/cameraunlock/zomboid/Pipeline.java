@@ -466,8 +466,8 @@ final class Pipeline {
                     vec2 along = vec2(dot(vWorld.xy, normalize(vec2(vNormal.y, -vNormal.x) + vec2(1e-5))), vWorld.z);
                     // Two layers of leaves, the second smaller and offset: a crown is leaves
                     // behind leaves, and one layer alone is a sparse spray.
-                    vec4 leaf = texture2D(uLeaves, along * 0.5);
-                    vec4 behind = texture2D(uLeaves, along * 0.83 + 0.37);
+                    vec4 leaf = texture2D(uLeaves, along * 0.85);
+                    vec4 behind = texture2D(uLeaves, along * 1.37 + 0.37);
                     if (leaf.a < 0.5) {
                         leaf = vec4(behind.rgb * 0.7, behind.a);
                     }
@@ -479,15 +479,19 @@ final class Pipeline {
                     if (length(uEye - vWorld) < 0.9 + 0.7 * grain(gl_FragCoord.xy)) {
                         discard;
                     }
-                    vec2 spread = fwidth(along * 0.5);
-                    if (max(spread.x, spread.y) > 0.06 + 0.1 * grain(gl_FragCoord.xy)) {
+                    vec2 spread = fwidth(along * 0.85);
+                    if (max(spread.x, spread.y) > 0.1 + 0.17 * grain(gl_FragCoord.xy)) {
                         discard;
                     }
                     if (broad.a < 0.35 || leaf.a < 0.5) {
                         discard;
                     }
                     float shade = dot(leaf.rgb, vec3(0.299, 0.587, 0.114)) * uLeafGain;
-                    texel = vec4(broad.rgb / max(broad.a, 0.001) * mix(0.55, 1.25, clamp(shade * 0.7, 0.0, 1.0)), 1.0);
+                    // Each leaf has its own light and dark, and the leaf picture's own greens show
+                    // through the tree's colour, so a crown is leaves and not a tinted cloud.
+                    vec3 season = broad.rgb / max(broad.a, 0.001);
+                    vec3 own = leaf.rgb * uLeafGain * dot(season, vec3(0.333)) * 1.6;
+                    texel = vec4(mix(season * mix(0.4, 1.45, clamp(shade * 0.7, 0.0, 1.0)), own * season / max(dot(season, vec3(0.333)), 0.05), 0.35), 1.0);
                     small = false;
                 }
                 if (grass) {
@@ -755,7 +759,8 @@ final class Pipeline {
                 // onto what faces up and bluer than the sun.
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
                 if (open > 0.5 && range < 40.0) {
-                    fromSky *= mix(skySeen(vWorld + n * 0.1), 1.0, smoothstep(25.0, 40.0, range));
+                    // Under trees the sky's light is thinned and green, not gone.
+                    fromSky *= mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range));
                 }
                 vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
