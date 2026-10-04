@@ -509,6 +509,18 @@ final class SpriteGeometry {
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
     }
 
+    /** Adds an untextured four-cornered face, its corners given in order round it as x, y and height in tiles. */
+    static void addPlainQuad(Mesh mesh, float[] c, float red, float green, float blue) {
+        float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
+        float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
+        mesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+        for (int corner : QUAD) {
+            mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], 0f, 0f, red, green, blue);
+        }
+    }
+
+    private static final int[] QUAD = {0, 1, 2, 0, 2, 3};
+
     /**
      * Adds an untextured face over the whole of a square, its corners (0, 0), (1, 0), (1, 1) and
      * (0, 1) at the given heights in tiles.

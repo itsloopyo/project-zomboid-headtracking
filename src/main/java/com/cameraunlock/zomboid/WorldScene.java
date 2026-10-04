@@ -177,6 +177,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
+    private static final float EAVE = 0.3f, FASCIA = 0.16f;
+    private final float[] eave = new float[12];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
@@ -1287,6 +1290,73 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         SpriteGeometry.addPlainOver(plain, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
                 under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
                 0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
+        addEave(plain, x, y, z, atOrigin, alongX, alongY);
+    }
+
+    /**
+     * A roof does not stop at the wall. Where a sloping tile is the lowest of its slope, with
+     * no roof beyond its low edge, the slope runs on past the wall and a little down: the
+     * eave, with a board closing its end.
+     */
+    private void addEave(SpriteGeometry.Mesh plain, int x, int y, int z, float atOrigin, float alongX, float alongY) {
+        float along = alongX != 0f ? alongX : alongY;
+        if (Math.abs(along) < FLAT_ROOF) {
+            return;
+        }
+        boolean lowAtFar = along < 0f;
+        int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
+        if (hasRoof(beyondX, beyondY, z)) {
+            return;
+        }
+        float low = lowAtFar ? atOrigin + along : atOrigin;
+        float out = lowAtFar ? EAVE : -EAVE;
+        float edge = lowAtFar ? 1f : 0f;
+        float drop = -Math.abs(along) * EAVE;
+        float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        float high = (z + low) * ViewCamera.LEVEL_HEIGHT + lift, far = (z + low + drop) * ViewCamera.LEVEL_HEIGHT + lift;
+        float[] c = eave;
+        if (alongX != 0f) {
+            set(c, 0, x + edge, y, high);
+            set(c, 1, x + edge + out, y, far);
+            set(c, 2, x + edge + out, y + 1f, far);
+            set(c, 3, x + edge, y + 1f, high);
+        } else {
+            set(c, 0, x, y + edge, high);
+            set(c, 1, x, y + edge + out, far);
+            set(c, 2, x + 1f, y + edge + out, far);
+            set(c, 3, x + 1f, y + edge, high);
+        }
+        SpriteGeometry.addPlainQuad(plain, c, 0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
+        // The board along the eave's end.
+        plain.open = frame.open;
+        set(c, 0, c[3], c[4], far);
+        set(c, 3, c[6], c[7], far - FASCIA);
+        float x1 = c[3], y1 = c[4], x2 = c[6], y2 = c[7];
+        set(c, 1, x2, y2, far);
+        set(c, 2, x2, y2, far - FASCIA);
+        set(c, 3, x1, y1, far - FASCIA);
+        SpriteGeometry.addPlainQuad(plain, c, 0.8f * frame.red, 0.8f * frame.green, 0.78f * frame.blue);
+    }
+
+    private static void set(float[] c, int corner, float x, float y, float h) {
+        c[corner * 3] = x;
+        c[corner * 3 + 1] = y;
+        c[corner * 3 + 2] = h;
+    }
+
+    private boolean hasRoof(int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
