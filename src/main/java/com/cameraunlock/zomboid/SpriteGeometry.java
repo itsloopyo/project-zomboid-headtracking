@@ -230,6 +230,11 @@ final class SpriteGeometry {
     private float centreU, centreV;
     /** For an upright face, how many frame pixels down its level lines run for each pixel across. */
     private float alongSlant;
+    /**
+     * For a face that stands straight up, half its width in frame pixels across and half its
+     * height in frame pixels down. 0 for any other face.
+     */
+    private float halfAcross, halfDown;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
     float shownA, shownB;
     /**
@@ -237,6 +242,8 @@ final class SpriteGeometry {
      * are taken, beyond the usual inset: see WorldScene.addWall.
      */
     float sealLow, sealHigh;
+    /** The same down from the top edge of a face that stands straight up. */
+    float sealTop;
     /**
      * How far the ground stands above the flat map at the four corners of the square being
      * added, (0, 0), (1, 0), (1, 1) and (0, 1), in tiles: see Terrain. Everything on the square
@@ -304,6 +311,9 @@ final class SpriteGeometry {
         centreV = (corners[CORNER_V] + corners[CORNER_FLOATS * 2 + CORNER_V]) / 2f;
         float acrossU = corners[CORNER_FLOATS + CORNER_U] - corners[CORNER_U];
         alongSlant = dh1 == 0f && dh2 != 0f && Math.abs(acrossU) > 1e-3f ? (corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V]) / acrossU : 0f;
+        boolean straightUp = alongSlant != 0f && da2 == 0f && db2 == 0f;
+        halfAcross = straightUp ? Math.abs(acrossU) / 2f : 0f;
+        halfDown = straightUp ? Math.abs(corners[CORNER_FLOATS * 3 + CORNER_V] - corners[CORNER_V]) / 2f : 0f;
 
         // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
         // pixel or two short of its edge; cutting the face there would leave a slit between two
@@ -372,7 +382,14 @@ final class SpriteGeometry {
         return half >= MIN_BOX_HALF && height >= MIN_BOX_HEIGHT;
     }
 
-    /** Clips the face in corners to the trimmed sprite grown by slack, into result. Returns its corner count. */
+    /**
+     * Clips the face in corners to the trimmed sprite, into result, and returns its corner
+     * count. Across, the face may run slack past the sprite and takes the sprite's last
+     * texels there. Up and down it may do so only where its own edge is within slack of the
+     * sprite's: cut slack past the sprite's top or bottom anywhere else, the corners of the
+     * cut would take the sprite's last row, and all of the sprite between two such corners
+     * would be drawn squeezed towards its middle, by a different amount for every sprite.
+     */
     private int clipToFrame(Frame frame, float slack) {
         System.arraycopy(corners, 0, clipped, 0, 4 * CORNER_FLOATS);
         float[] from = clipped;
@@ -381,12 +398,18 @@ final class SpriteGeometry {
         for (int edge = 0; edge < 4 && count > 0; edge++) {
             int axis = edge < 2 ? CORNER_U : CORNER_V;
             boolean keepAbove = (edge & 1) == 0;
-            float limit = switch (edge) {
-                case 0 -> frame.left - slack;
-                case 1 -> frame.left + frame.width + slack;
-                case 2 -> frame.top - slack;
-                default -> frame.top + frame.height + slack;
+            float furthest = corners[axis];
+            for (int corner = 1; corner < 4; corner++) {
+                float value = corners[corner * CORNER_FLOATS + axis];
+                furthest = keepAbove ? Math.min(furthest, value) : Math.max(furthest, value);
+            }
+            float side = switch (edge) {
+                case 0 -> frame.left;
+                case 1 -> frame.left + frame.width;
+                case 2 -> frame.top;
+                default -> frame.top + frame.height;
             };
+            float limit = axis == CORNER_U ? side + (keepAbove ? -slack : slack) : Math.abs(furthest - side) <= slack ? furthest : side;
             count = clip(from, count, to, axis, limit, keepAbove);
             float[] swap = from;
             from = to;
@@ -560,14 +583,36 @@ final class SpriteGeometry {
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = EDGE_INSET_PIXELS * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
-        float movedAcross = Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
-        pixelU += movedAcross;
-        // A wall's courses run across its sprite at a slant. Moved across alone, a corner of
-        // the face would take its texels from a course up or down, and the boards of one wall
-        // would step where it meets the next: the move follows the slant.
-        pixelV += movedAcross * alongSlant;
-        pixelV += Math.clamp(centreV - pixelV, -inset, inset);
-        pixelU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        if (halfAcross > inset && halfDown > inset) {
+            // A face that stands straight up is drawn smaller onto itself about its middle,
+            // so every point of it moves in by its share and not by the whole inset. A sprite
+            // that covers part of the face cuts it there, and the corners the cut makes are
+            // inside the face: moved the whole inset like the face's own corners, each sprite
+            // would be stretched by where it happens to be cut, and a pipe that runs along a
+            // wall from one square's sprite to the next would step at every square.
+            float fromCentre = pixelU - centreU;
+            // How far below the face's middle the point is, with the slant of its courses taken out.
+            float below = pixelV - centreV - fromCentre * alongSlant;
+            float movedAcross = -Math.clamp(fromCentre / halfAcross, -1f, 1f) * insetAcross;
+            float insetDown = inset + (below < 0f ? sealTop : 0f);
+            pixelU += movedAcross;
+            // A wall's courses run across its sprite at a slant. Moved across alone, a corner
+            // of the face would take its texels from a course up or down, and the boards of
+            // one wall would step where it meets the next: the move follows the slant.
+            pixelV += movedAcross * alongSlant - Math.clamp(below / halfDown, -1f, 1f) * insetDown;
+        } else {
+            float movedAcross = Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
+            pixelU += movedAcross;
+            pixelV += movedAcross * alongSlant;
+            pixelV += Math.clamp(centreV - pixelV, -inset, inset);
+        }
+        float keptU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        // On a face that stands straight up, a texel kept inside the sprite's side stays on
+        // its own course: left on its row, the courses of the face would tilt towards that side.
+        if (halfAcross > 0f) {
+            pixelV += (keptU - pixelU) * alongSlant;
+        }
+        pixelU = keptU;
         pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
@@ -605,6 +650,30 @@ final class SpriteGeometry {
         mesh.add(x, y, h00, 0f, 0f, red, green, blue);
         mesh.add(x + 1f, y + 1f, h11, 0f, 0f, red, green, blue);
         mesh.add(x, y + 1f, h01, 0f, 0f, red, green, blue);
+    }
+
+    /** As addPlainOver, every vertex with the one texel (u, v). */
+    static void addOver(Mesh mesh, int x, int y, float h00, float h10, float h11, float h01, float u, float v, float red, float green, float blue) {
+        mesh.face(-(h10 - h00 + h11 - h01) / 2f, -(h01 - h00 + h11 - h10) / 2f, 1f);
+        mesh.add(x, y, h00, u, v, red, green, blue);
+        mesh.add(x + 1f, y, h10, u, v, red, green, blue);
+        mesh.add(x + 1f, y + 1f, h11, u, v, red, green, blue);
+        mesh.add(x, y, h00, u, v, red, green, blue);
+        mesh.add(x + 1f, y + 1f, h11, u, v, red, green, blue);
+        mesh.add(x, y + 1f, h01, u, v, red, green, blue);
+    }
+
+    /**
+     * As addPlainQuad, every vertex with the one texel (u, v): for a mesh whose picture gives
+     * the face nothing but a colour.
+     */
+    static void addQuad(Mesh mesh, float[] c, float u, float v, float red, float green, float blue) {
+        float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
+        float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
+        mesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+        for (int corner : QUAD) {
+            mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], u, v, red, green, blue);
+        }
     }
 
     /**

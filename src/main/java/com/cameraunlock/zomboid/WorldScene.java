@@ -22,6 +22,7 @@ import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.areas.IsoBuilding;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
@@ -77,10 +78,6 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private static final float STAND_OFF = 0.004f;
     private static final float STAND_OFF_PER_TILE_SQUARED = 1e-5f;
-    /** Two corner heights of a roof tile nearer than this, in levels, are one height: the tile is flat. */
-    private static final float FLAT_ROOF = 0.03f;
-    /** How far inside a roof tile's corner its sprite is looked at, in frame pixels at tile scale 1. */
-    private static final float ROOF_CORNER_INSET = 4f;
 
     /** The mesh of things drawn without a texture. No texture has this name. */
     private static final int PLAIN = 0;
@@ -203,13 +200,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int WIRE_SPAN = 12;
     private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
     private float steepest;
-    private static final float STEEPEST_ROOF = 0.55f;
-    /** A roof sprite narrower than this, in unscaled pixels, is a fitting on the roof and not a tile of it. */
-    private static final float WHOLE_TILE_WIDE = 50f;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
     private final float[] eave = new float[12];
+    private final float[] heldLift = new float[4];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
@@ -257,22 +252,24 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
     private float buildMillis;
 
-    /** The wall that shows what the far side of another wall is, and what that surface is made of. */
-    private static final class OtherSide {
-        Texture texture;
-        float material;
-    }
-
-    private static final OtherSide NO_OTHER_SIDE = new OtherSide();
-    /** How many frames what the walks found is kept for. */
-    private static final int WALKS_KEPT = 600;
-    private final long[] walkedKey = new long[4096];
-    private final OtherSide[] walked = new OtherSide[4096];
-    private int walkedCount, walkedFrame;
-    private int walkX, walkY, walkZ, walkStep;
-    private boolean walkNorth;
-    private final WallSides.Squares walk = this::walkAt;
-    private float farMaterial;
+    /** The square being added. */
+    private IsoGridSquare here;
+    /** Where in the chunk's lights the square beyond the wall last asked about is, or -1 when it is the same place as this side. */
+    private int farLight;
+    /** The roof the tile being added is part of, or null. */
+    private Roofs.Roof roof;
+    private float roofU, roofV;
+    /** How far up a wall's sprite an opening is looked for, in levels: above a sill and below a lintel. */
+    private static final float OPENING_ROW = 0.5f;
+    /** The narrowest gap in a wall's sprite that is an opening, as a share of the wall's length. */
+    private static final float NARROWEST_OPENING = 0.2f;
+    /** How far inside an opening's corners its sprite has to be clear for it to be a rectangle, in unscaled pixels. */
+    private static final float OPENING_CORNER = 1.5f;
+    /** No door is lower than this, in levels. */
+    private static final float LOWEST_DOOR = 0.5f;
+    /** Where the opening in each wall sprite seen so far is: see openingOf. */
+    private static final java.util.IdentityHashMap<Texture, float[]> openings = new java.util.IdentityHashMap<>();
+    private final float[] reveal = new float[12];
 
     private WorldScene() {}
 
@@ -680,7 +677,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         frameOf(frame, object, texture);
     }
 
-    private static void frameOf(SpriteGeometry.Frame frame, IsoObject object, Texture texture) {
+    static void frameOf(SpriteGeometry.Frame frame, IsoObject object, Texture texture) {
         frame.originU = object.offsetX;
         frame.originV = object.offsetY;
         // Where a tree's sprite stands on its square the game works out as it draws the tree,
@@ -1083,20 +1080,6 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return known;
     }
 
-    /** The middle of what is painted in column u of the sprite, as a frame row. NaN if nothing is. */
-    private float paintedAt(Texture texture, int u) {
-        int first = -1, last = -1;
-        for (int v = (int) frame.top; v < frame.top + frame.height; v++) {
-            if (texture.isMaskSet(u, v)) {
-                if (first < 0) {
-                    first = v;
-                }
-                last = v;
-            }
-        }
-        return first < 0 ? Float.NaN : (first + last) / 2f;
-    }
-
     private boolean overPole(int x, int y) {
         IsoGridSquare ground = cell.getGridSquare(x, y, 0);
         if (ground == null) {
@@ -1139,6 +1122,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         waterLocalX = localX;
         waterLocalY = localY;
 
+        here = square;
         IsoObject floor = square.getFloor();
         hangsInAir = floor == null;
         wallNorth = wallWest = false;
@@ -1326,11 +1310,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             north = wallNorth;
             west = !wallNorth;
         }
+        boolean door = object instanceof IsoDoor || object instanceof IsoThumpable hinged && hinged.isDoor();
         if (west) {
-            addEdge(mesh, texture, isWall(properties, type), x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
+            addEdge(mesh, texture, isWall(properties, type), door, x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
         }
         if (north) {
-            addEdge(mesh, texture, isWall(properties, type), x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
+            addEdge(mesh, texture, isWall(properties, type), door, x, y, z, 0f, northLayer++ * standOff, 1f, 0f);
         }
         if (west || north) {
             return;
@@ -1352,7 +1337,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // The game marks most of a roof's sprites as roof, but not the caps along its ridge
         // and its edges. Their sprites do not say which way they lie, and stood upright like
         // furniture they are boxes floating over the house.
-        if (type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
+        if (Roofs.isTile(type)) {
             roofName = sprite.getName();
             addRoof(mesh, texture, x, y, z);
             return;
@@ -1926,11 +1911,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * what hangs on one. A wall's sprite is trimmed to everything it shows, its cap and its corner post too, so the wall
      * itself can stop a few pixels inside the sprite's edge with nothing painted beyond. A face
      * that took those texels would be see-through there, a slit of sky between two walls. So
-     * the sprite is walked in from each end of the face, below any window, to the first pixel that is
-     * painted, and the face takes its texels from there. Only a wall: a window or a curtain
-     * that stops short of the square's edge really does stop there.
+     * the sprite is walked in from each end of the face, below any window, and down from its
+     * top, to the first pixel that is painted, and the face takes its texels from there. Only
+     * a wall: a window or a curtain that stops short of the square's edge really does stop there.
      */
-    private void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, int x, int y, int z,
+    private void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float a, float b, float da, float db) {
         // A wall is as thick as a wall: two skins, one each side of the square's edge, both
         // with the sprite's outline. Through a window or a doorway the far skin is seen
@@ -1943,121 +1928,279 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // More of it the further off, where the picture's depth is coarser.
             geometry.shownA = inX + db * (HUNG_CLEAR + 3f * standOff);
             geometry.shownB = inY + da * (HUNG_CLEAR + 3f * standOff);
-            geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+            // A door's top is a straight line, and its sprite has it as a staircase of pixels
+            // on the slant. The face stops at the door's top, so the line is the face's own edge.
+            geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, door ? doorTop(texture, a, b, da, db) : 1f);
             geometry.shownA = geometry.shownB = 0f;
             return;
         }
         float fromStart = unpainted(texture, a, b, da, db);
         float fromEnd = unpainted(texture, a + da, b + db, -da, -db);
+        float fromTop = unpaintedTop(texture, a, b, da, db);
         boolean startIsLow = SpriteGeometry.frameU(frame, a, b) < SpriteGeometry.frameU(frame, a + da, b + db);
-        geometry.sealLow = startIsLow ? fromStart : fromEnd;
-        geometry.sealHigh = startIsLow ? fromEnd : fromStart;
+        float[] opening = openingOf(texture, a, b, da, db);
+        int at = da != 0f ? 0 : OPENING_FLOATS;
         geometry.shownA = inX;
         geometry.shownB = inY;
-        geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        addSkin(mesh, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
         geometry.shownA = -inX;
         geometry.shownB = -inY;
         // The sprite is painted for the side inside the square. Where the far side is another
-        // kind of place, the skin on it is that side's surface. Only the wall itself: ivy or a
+        // place, the skin on it is that side's surface. Only the wall itself: ivy or a
         // stain over it is on the side it was painted on, and is no part of the wall's colour.
         float material = frame.material;
         int tint = overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
         if (tint != 0) {
-            frame.material = farMaterial;
+            frame.material = PAINT;
         }
-        geometry.addFace(tint != 0 ? solid.get(texture.getID(), tint) : mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+        // The far skin is in the place beyond the wall, and is lit as that place is: the
+        // outside of a house by the day, whatever the room behind it is lit by.
+        float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open;
+        if (overLayer == 0 && farLight >= 0) {
+            System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
+            System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
+            System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
+            if (lightOpen[farLight] < 0) {
+                frame.light(unseenLight.r, unseenLight.g, unseenLight.b);
+                frame.open = 1f;
+            } else {
+                frame.light(lightRed[farLight], lightGreen[farLight], lightBlue[farLight]);
+                frame.open = lightOpen[farLight];
+            }
+        }
+        addSkin(tint != 0 ? solid.get(texture.getID(), tint) : mesh, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        if (overLayer == 0 && farLight >= 0) {
+            frame.red = red;
+            frame.green = green;
+            frame.blue = blue;
+            frame.open = open;
+            System.arraycopy(heldRed, 0, frame.cornerRed, 0, 4);
+            System.arraycopy(heldGreen, 0, frame.cornerGreen, 0, 4);
+            System.arraycopy(heldBlue, 0, frame.cornerBlue, 0, 4);
+        }
         frame.material = material;
         geometry.shownA = geometry.shownB = 0f;
-        geometry.sealLow = 0f;
-        geometry.sealHigh = 0f;
+        geometry.sealLow = geometry.sealHigh = geometry.sealTop = 0f;
+        if (overLayer == 0 && opening[at + OPENING_START] >= 0f) {
+            addReveals(opening, at, x, y, z, a, b, da, db, inX, inY);
+        }
+    }
+
+    /**
+     * One skin of a wall. A wall with a door or a window in it is the wall round the opening,
+     * in pieces, and not one face with a hole in its picture: the edges of the opening are then
+     * edges of faces, straight, where the sprite has them as staircases of pixels on the slant.
+     */
+    private void addSkin(SpriteGeometry.Mesh mesh, float[] opening, int at, int x, int y, int z, float a, float b, float da, float db,
+            float fromStart, float fromEnd, float fromTop, boolean startIsLow) {
+        float start = opening[at + OPENING_START], end = opening[at + OPENING_END];
+        if (start < 0f) {
+            addPiece(mesh, x, y, z, a, b, da, db, 0f, 1f, 0f, 1f, fromStart, fromEnd, fromTop, startIsLow);
+            return;
+        }
+        float foot = opening[at + OPENING_FOOT], head = opening[at + OPENING_HEAD];
+        addPiece(mesh, x, y, z, a, b, da, db, 0f, start, 0f, 1f, fromStart, 0f, fromTop, startIsLow);
+        addPiece(mesh, x, y, z, a, b, da, db, end, 1f, 0f, 1f, 0f, fromEnd, fromTop, startIsLow);
+        if (head < 1f) {
+            addPiece(mesh, x, y, z, a, b, da, db, start, end, head, 1f, 0f, 0f, fromTop, startIsLow);
+        }
+        if (foot > 0f) {
+            addPiece(mesh, x, y, z, a, b, da, db, start, end, 0f, foot, 0f, 0f, 0f, startIsLow);
+        }
+    }
+
+    /** The part of a wall from one share of its length to another and from one height to another, in levels. */
+    private void addPiece(SpriteGeometry.Mesh mesh, int x, int y, int z, float a, float b, float da, float db,
+            float from, float to, float foot, float head, float sealFrom, float sealTo, float sealTop, boolean startIsLow) {
+        geometry.sealLow = startIsLow ? sealFrom : sealTo;
+        geometry.sealHigh = startIsLow ? sealTo : sealFrom;
+        geometry.sealTop = sealTop;
+        geometry.addFace(mesh, frame, x, y, z, a + da * from, b + db * from, foot, da * (to - from), db * (to - from), 0f, 0f, 0f, head - foot);
+    }
+
+    /**
+     * The sides of an opening through a wall, from one skin to the other: the jambs, the
+     * underside of the lintel and the sill. Without them the eye sees in between the two skins.
+     */
+    private void addReveals(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        plain.open = frame.open + 32f * CONCRETE;
+        float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        float foot = (z + opening[at + OPENING_FOOT]) * ViewCamera.LEVEL_HEIGHT + lift, head = (z + opening[at + OPENING_HEAD]) * ViewCamera.LEVEL_HEIGHT + lift;
+        float x0 = x + a + da * opening[at + OPENING_START], y0 = y + b + db * opening[at + OPENING_START];
+        float x1 = x + a + da * opening[at + OPENING_END], y1 = y + b + db * opening[at + OPENING_END];
+        float[] c = reveal;
+        for (int side = 0; side < 2; side++) {
+            float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;
+            set(c, 0, jx - inX, jy - inY, foot);
+            set(c, 1, jx + inX, jy + inY, foot);
+            set(c, 2, jx + inX, jy + inY, head);
+            set(c, 3, jx - inX, jy - inY, head);
+            SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        }
+        for (int side = 0; side < 2; side++) {
+            if (side == 0 ? opening[at + OPENING_HEAD] >= 1f : opening[at + OPENING_FOOT] <= 0f) {
+                continue;
+            }
+            float up = side == 0 ? head : foot;
+            set(c, 0, x0 - inX, y0 - inY, up);
+            set(c, 1, x0 + inX, y0 + inY, up);
+            set(c, 2, x1 + inX, y1 + inY, up);
+            set(c, 3, x1 - inX, y1 - inY, up);
+            SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        }
+    }
+
+    /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
+    private static final int OPENING_FLOATS = 6, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5;
+
+    /**
+     * Where the door or window through a wall is, read off the wall's sprite: at at + OPENING_START
+     * and OPENING_END the shares of the wall's length it starts and ends at, and at OPENING_FOOT
+     * and OPENING_HEAD the heights of its sill and its lintel, in levels. A start below 0 is a
+     * wall with no opening, or with one that is not a rectangle, an arched window, or with more
+     * than one. Read once for each sprite on each edge.
+     */
+    private float[] openingOf(Texture texture, float a, float b, float da, float db) {
+        int at = da != 0f ? 0 : OPENING_FLOATS;
+        float[] known = openings.get(texture);
+        if (known == null) {
+            known = new float[2 * OPENING_FLOATS];
+            java.util.Arrays.fill(known, Float.NaN);
+            openings.put(texture, known);
+        }
+        if (known[at + OPENING_ORIGIN] == frame.originU && known[at + OPENING_ORIGIN + 1] == frame.originV) {
+            return known;
+        }
+        known[at + OPENING_ORIGIN] = frame.originU;
+        known[at + OPENING_ORIGIN + 1] = frame.originV;
+        known[at + OPENING_START] = -1f;
+        int pixels = Math.round(Math.abs(SpriteGeometry.frameU(frame, a + da, b + db) - SpriteGeometry.frameU(frame, a, b)));
+        int first = -1, last = -1, gaps = 0, run = -1;
+        for (int pixel = 0; pixel <= pixels; pixel++) {
+            boolean clear = pixel < pixels && !paintedOnWall(texture, a, b, da, db, (pixel + 0.5f) / pixels, OPENING_ROW, 0f);
+            if (clear && run < 0) {
+                run = pixel;
+            } else if (!clear && run >= 0) {
+                // A gap that reaches the wall's end is the sprite stopping short there, not an opening.
+                if (run > 0 && pixel < pixels && pixel - run >= NARROWEST_OPENING * pixels) {
+                    gaps++;
+                    first = run;
+                    last = pixel;
+                }
+                run = -1;
+            }
+        }
+        if (gaps != 1) {
+            return known;
+        }
+        float start = (float) first / pixels, end = (float) last / pixels, middle = (start + end) / 2f;
+        float perPixel = 1f / (96f * frame.scale);
+        float head = 1f, foot = 0f;
+        for (float h = OPENING_ROW; h < 1f; h += perPixel) {
+            if (paintedOnWall(texture, a, b, da, db, middle, h, 0f)) {
+                head = h - perPixel / 2f;
+                break;
+            }
+        }
+        for (float h = OPENING_ROW; h > 0f; h -= perPixel) {
+            if (paintedOnWall(texture, a, b, da, db, middle, h, 0f)) {
+                foot = h + perPixel / 2f;
+                break;
+            }
+        }
+        // A rectangle is clear right into its corners. An arch is not.
+        float inAlong = OPENING_CORNER * frame.scale / pixels, inUp = OPENING_CORNER * frame.scale * perPixel;
+        for (int corner = 0; corner < 4; corner++) {
+            float along = (corner & 1) == 0 ? start + inAlong : end - inAlong;
+            float up = corner < 2 ? foot + inUp : head - inUp;
+            if (paintedOnWall(texture, a, b, da, db, along, up, 0f)) {
+                return known;
+            }
+        }
+        known[at + OPENING_START] = start;
+        known[at + OPENING_END] = end;
+        known[at + OPENING_FOOT] = foot;
+        known[at + OPENING_HEAD] = head;
+        return known;
+    }
+
+    /** Whether the sprite is painted where it shows the point a share along the wall and up levels high, down frame pixels lower. */
+    private boolean paintedOnWall(Texture texture, float a, float b, float da, float db, float along, float up, float down) {
+        float u = SpriteGeometry.frameU(frame, a + da * along, b + db * along);
+        float v = SpriteGeometry.frameV(frame, a + da * along, b + db * along, up) + down;
+        return u >= frame.left && u < frame.left + frame.width && v >= frame.top && v < frame.top + frame.height
+                && texture.isMaskSet((int) u, (int) v);
+    }
+
+    /**
+     * How many frame pixels down from the wall's top its sprite has nothing painted: the most
+     * found a quarter, a half and three quarters of the way along it. 0 when it is painted
+     * from the top, and where nothing is within MOST_UNPAINTED: a low wall stops where it stops.
+     */
+    private float unpaintedTop(Texture texture, float a, float b, float da, float db) {
+        int most = Math.round(MOST_UNPAINTED * frame.scale);
+        float deepest = 0f;
+        for (int place = 1; place <= 3; place++) {
+            for (int pixel = 0; pixel <= most; pixel++) {
+                if (paintedOnWall(texture, a, b, da, db, place / 4f, 1f, pixel + 0.5f)) {
+                    deepest = Math.max(deepest, pixel);
+                    break;
+                }
+            }
+        }
+        return deepest;
+    }
+
+    /** How high the top of a door's sprite is drawn half way along it, in levels. A level for a sprite painted that high. */
+    private float doorTop(Texture texture, float a, float b, float da, float db) {
+        float perPixel = 1f / (96f * frame.scale);
+        for (float h = 1f; h > LOWEST_DOOR; h -= perPixel) {
+            if (paintedOnWall(texture, a, b, da, db, 0.5f, h, 0f)) {
+                return Math.min(h + perPixel / 2f, 1f);
+            }
+        }
+        return 1f;
     }
 
     /**
      * What the far skin of the wall on the north or west edge of the square being added is
-     * painted over in, as WallSides packs it, and into farMaterial what it is made of. 0 where
-     * it shows the sprite as the near skin does: a partition between two rooms, a fence or a
-     * wall in the open, a building whose other wall is not to be found, and a sprite the
-     * picture has not read yet.
+     * painted over in, as WallSides packs it, and into farLight where the light of the place
+     * beyond it is. 0 where the far skin shows the sprite as the near skin does: a wall within
+     * one room, a fence or a wall in the open, a wall whose far side shows the same sprite, a
+     * building with no wall that shows its finish, and a sprite the picture has not read yet.
      */
     private int farTint(Texture texture, int x, int y, int z, boolean north) {
-        int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1, far = north ? own - 1 : own - LIGHT_SPAN;
-        if (lightOpen[far] < 0 || lightOpen[far] == lightOpen[own]) {
+        int beyondX = north ? x : x - 1, beyondY = north ? y - 1 : y;
+        IsoGridSquare beyond = cell.getGridSquare(beyondX, beyondY, z);
+        long own = here.getRoomID(), far = beyond == null ? -1L : beyond.getRoomID();
+        farLight = -1;
+        if (own == far) {
             return 0;
         }
-        OtherSide other = otherSide(x, y, z, north, lightOpen[own] == 0);
-        if (other == NO_OTHER_SIDE || other.texture == texture) {
+        // Above the ground a square of open air is often no square at all. On the ground it is map not loaded yet.
+        if (beyond == null && cell.getGridSquare(beyondX, beyondY, 0) == null) {
             return 0;
         }
-        float[] here = SpriteColours.of(texture), there = SpriteColours.of(other.texture);
-        if (here == null || there == null) {
+        int ownLight = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
+        farLight = north ? ownLight - 1 : ownLight - LIGHT_SPAN;
+        IsoBuilding building = far == -1L ? here.getBuilding() : beyond.getBuilding();
+        if (building == null) {
             return 0;
         }
-        farMaterial = other.material;
-        return WallSides.key(there[0], there[1], there[2], here[3]);
-    }
-
-    /**
-     * The wall whose sprite shows what the far side of the wall on the square's north or west
-     * edge is: for a wall with its own square indoors, the building's outside wall on the
-     * opposite side, and for one with its own square out of doors, the wall of the room beyond
-     * it. Kept by the square the walk starts from and the edge, since every wall asks each time
-     * its chunk is built, and thrown away every so often, since walls are built and knocked down.
-     */
-    private OtherSide otherSide(int x, int y, int z, boolean north, boolean ownIndoors) {
-        if (frames - walkedFrame >= WALKS_KEPT || walkedCount * 2 > walked.length) {
-            java.util.Arrays.fill(walked, null);
-            walkedCount = 0;
-            walkedFrame = frames;
-        }
-        long key = (long) x << 36 ^ (y & 0xFFFFFFFL) << 8 ^ (z & 0x7F) << 1 ^ (north ? 1 : 0);
-        int mask = walked.length - 1;
-        int slot = (int) (key * 0x9E3779B97F4A7C15L >>> 40) & mask;
-        while (walked[slot] != null && walkedKey[slot] != key) {
-            slot = (slot + 1) & mask;
-        }
-        if (walked[slot] != null) {
-            return walked[slot];
-        }
-        // Indoors the walk leaves the wall behind it and crosses the building. Out of doors it
-        // starts on the square beyond the wall and crosses the room there.
-        walkX = north || ownIndoors ? x : x - 1;
-        walkY = !north || ownIndoors ? y : y - 1;
-        walkZ = z;
-        walkNorth = north;
-        walkStep = ownIndoors ? 1 : -1;
-        int step = ownIndoors ? WallSides.toOutsideWall(walk) : WallSides.toRoomWall(walk);
-        if (step == WallSides.UNKNOWN) {
-            return NO_OTHER_SIDE;
-        }
-        OtherSide found = NO_OTHER_SIDE;
-        if (step != WallSides.NOTHING) {
-            IsoObject wall = wallOn(walkSquare(step), north);
-            found = new OtherSide();
-            found.texture = wall.getSprite().getTextureForCurrentFrame(wall.getDir());
-            // A room's wall is painted or papered whatever sheet its sprite is from. Siding is
-            // what its own sheet says.
-            found.material = ownIndoors ? materialOf(wall.getSprite().getName(), false) : PAINT;
-        }
-        walkedKey[slot] = key;
-        walked[slot] = found;
-        walkedCount++;
-        return found;
-    }
-
-    private IsoGridSquare walkSquare(int step) {
-        return cell.getGridSquare(walkX + (walkNorth ? 0 : walkStep * step), walkY + (walkNorth ? walkStep * step : 0), walkZ);
-    }
-
-    private int walkAt(int step) {
-        IsoGridSquare square = walkSquare(step);
-        if (square == null) {
+        Texture shows = far == -1L ? WallFinish.outside(cell, building, z, frames) : WallFinish.room(cell, building, z, far, frames);
+        if (shows == null || shows == texture) {
             return 0;
         }
-        return WallSides.LOADED | (square.isOutside() ? 0 : WallSides.INDOORS) | (wallOn(square, walkNorth) != null ? WallSides.WALL : 0);
+        float[] colour = SpriteColours.of(shows);
+        if (colour == null) {
+            return 0;
+        }
+        return WallSides.key(colour[0], colour[1], colour[2], far == -1L ? WallSides.SIDING : WallSides.FLAT);
     }
 
     /** The wall standing on the square's north or west edge that has a sprite to show, or null. */
-    private static IsoObject wallOn(IsoGridSquare square, boolean north) {
+    static IsoObject wallOn(IsoGridSquare square, boolean north) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -2123,96 +2266,62 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /**
-     * A roof tile is a plane over its square, level along one axis and sloping along the other.
-     * Nothing the game holds says which way a tile slopes, but its sprite does. The sprite's
-     * top is where the square's north-west corner is drawn and its bottom where the south-east
-     * corner is, which gives the roof's height at both. The other two corners each share a
-     * height with one of those, and which one is read off the sprite: a slope along y has its
-     * south-west corner drawn at the south-east corner's height, a slope along x at the
-     * north-west corner's, and only one of the two places has the sprite's pixels in it.
+     * A roof tile, laid where its whole roof puts it: see Roofs. The sprite is drawn as its
+     * own outline reads, so that all of it shows, and stood on the plane the roof's fit gave
+     * the tile, so that it meets the tiles beside it.
      */
     private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
-        float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
-        float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
-        // Some roof sprites have more painted on them than the slope, the end of the roof or
-        // a board up its edge, and their outline then says the tile climbs a whole floor. No
-        // roof in the game does: a slope takes three tiles to a floor. Such a tile is taken
-        // to rise a third of a floor from its lowest drawn point, which is the roof's own.
-        if (Math.abs(northWest - southEast) > STEEPEST_ROOF) {
-            if (northWest > southEast) {
-                northWest = southEast + 1f / 3f;
-            } else {
-                southEast = northWest + 1f / 3f;
-            }
-        }
+        RoofFit.Tile own = Roofs.measure(frame, texture, x, y, z);
+        Roofs.Laid laid = Roofs.at(cell, x, y, z, frames, frame.scale);
+        // A square with two roof sprites has one of them fitted. The other lies as it reads.
+        RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : own;
+        roof = laid == null ? null : laid.roof;
+        float northWest = own.low - z, southEast = own.high - z;
         if (Math.abs(northWest - southEast) > steepest) {
             steepest = Math.abs(northWest - southEast);
             steepestSaid = String.format(Locale.ROOT, "%s at (%d, %d, %d) nw %.2f se %.2f frame %.0fx%.0f at (%.0f, %.0f) origin (%.0f, %.0f) scale %.0f",
                     roofName, x, y, z, northWest, southEast, frame.width, frame.height, frame.left, frame.top, frame.originU, frame.originV, frame.scale);
         }
-        if (Math.abs(northWest - southEast) < FLAT_ROOF) {
+        if (own.axis == RoofFit.LEVEL) {
             roofsFlat++;
+            float level = (northWest + southEast) / 2f;
             // A flat roof that lies on its level has the floor there under it already.
-            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f) > 0
-                    && (northWest + southEast) / 2f > 2f * UNDER_ROOF) {
-                underRoof(x, y, z, (northWest + southEast) / 2f, 0f, 0f);
+            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, level, 1f, 0f, 0f, 0f, 1f, 0f) > 0 && level > 2f * UNDER_ROOF) {
+                underRoof(x, y, z, level, 0f, 0f);
             }
             return;
         }
-        int alongY = 0, alongX = 0;
-        // South-west corner, then north-east: the two the slope's direction decides.
-        for (int i = 0; i < 2; i++) {
-            float a = i, b = 1 - i;
-            float inset = (i == 0 ? ROOF_CORNER_INSET : -ROOF_CORNER_INSET) * frame.scale;
-            int u = Math.round(SpriteGeometry.frameU(frame, a, b) + inset);
-            // Along y the height follows b, so this corner is at the height of the corner with its b.
-            boolean atY = texture.isMaskSet(u, Math.round(SpriteGeometry.frameV(frame, a, b, i == 0 ? southEast : northWest)));
-            boolean atX = texture.isMaskSet(u, Math.round(SpriteGeometry.frameV(frame, a, b, i == 0 ? northWest : southEast)));
-            if (atY && !atX) {
-                alongY++;
-            } else if (atX && !atY) {
-                alongX++;
-            }
+        boolean readAlongX = own.axis == RoofFit.ALONG_X, alongX = tile.fitAxis == RoofFit.ALONG_X;
+        float low = tile.fitLow - z, high = tile.fitHigh - z;
+        float[] lift = geometry.lift;
+        for (int corner = 0; corner < 4; corner++) {
+            boolean farA = corner == 1 || corner == 2, farB = corner >= 2;
+            float read = (readAlongX ? farA : farB) ? southEast : northWest;
+            float fitted = (alongX ? farA : farB) ? high : low;
+            heldLift[corner] = lift[corner];
+            lift[corner] += (fitted - read) * ViewCamera.LEVEL_HEIGHT;
         }
-        if (alongX == alongY && frame.width > WHOLE_TILE_WIDE * frame.scale) {
-            // The corners did not say. The sprite's two ends do: its left end is the tile's
-            // south-west corner and its right end the north-east one, and whichever end is
-            // painted higher up is the higher corner.
-            float left = paintedAt(texture, Math.round(frame.left + ROOF_CORNER_INSET * frame.scale));
-            float right = paintedAt(texture, Math.round(frame.left + frame.width - 1 - ROOF_CORNER_INSET * frame.scale));
-            if (!Float.isNaN(left) && !Float.isNaN(right) && Math.abs(left - right) > 2f * frame.scale) {
-                boolean southWestHigher = left < right;
-                if (southWestHigher == southEast > northWest) {
-                    alongY++;
-                } else {
-                    alongX++;
-                }
-            }
-        }
-        if (alongX > alongY) {
+        int added = readAlongX ? geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
+                : geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
+        System.arraycopy(heldLift, 0, lift, 0, 4);
+        boolean placed = tile.fitted || own.sure;
+        if (alongX) {
             roofsWestEast++;
-            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f) > 0) {
-                underRoof(x, y, z, northWest, southEast - northWest, 0f);
-            }
-            return;
-        }
-        boolean sure = alongY > alongX;
-        if (sure) {
+        } else if (placed) {
             roofsNorthSouth++;
         } else {
             roofsUnclear++;
         }
-        // Only where the tile's slope is sure: a sheet under a tile whose slope was guessed
-        // stands up out of the roof as a slab.
-        if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest) > 0) {
-            if (sure) {
-                underRoof(x, y, z, northWest, 0f, southEast - northWest);
-            } else if (frame.width > WHOLE_TILE_WIDE * frame.scale) {
-                // Which way this tile slopes is a guess, and a sheet laid to a wrong guess
-                // stands out of the roof. A level one at the tile's lowest height cannot: it
-                // is under the tile whichever way it slopes, and still closes the roof.
-                underRoof(x, y, z, Math.min(northWest, southEast), 0f, 0f);
-            }
+        if (added == 0) {
+            return;
+        }
+        if (placed) {
+            underRoof(x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low);
+        } else if (frame.width > Roofs.WHOLE_TILE_WIDE * frame.scale) {
+            // Which way this tile slopes is a guess, and a sheet laid to a wrong guess
+            // stands out of the roof. A level one at the tile's lowest height cannot: it
+            // is under the tile whichever way it slopes, and still closes the roof.
+            underRoof(x, y, z, Math.min(low, high), 0f, 0f);
         }
     }
 
@@ -2223,25 +2332,45 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * the grey of shingle, which is what shows wherever the sprite has nothing.
      */
     private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY) {
-        SpriteGeometry.Mesh plain = solid.get(PLAIN);
-        plain.open = frame.open + 32f * SHINGLES;
+        SpriteGeometry.Mesh sheet = roofSheet();
         float[] lift = geometry.lift;
-        SpriteGeometry.addPlainOver(plain, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
+        SpriteGeometry.addOver(sheet, x, y, under(z, atOrigin) + lift[0], under(z, atOrigin + alongX) + lift[1],
                 under(z, atOrigin + alongX + alongY) + lift[2], under(z, atOrigin + alongY) + lift[3],
-                frame.red, frame.green, frame.blue);
-        addEave(plain, x, y, z, atOrigin, alongX, alongY);
-        addRake(plain, x, y, z, atOrigin, alongX, alongY);
+                roofU, roofV, frame.red, frame.green, frame.blue);
+        addEave(sheet, x, y, z, atOrigin, alongX, alongY);
+        addRake(sheet, x, y, z, atOrigin, alongX, alongY);
+    }
+
+    /**
+     * The mesh the mod's own roofing goes in, and into roofU and roofV the texel all of it
+     * takes. It is the colour most of the roof's own sprite is, painted flat over a painted
+     * place on that sprite, so a slope the sprite shows nothing of is the colour of the
+     * slopes it does show. Until the picture has read that colour, and for a roof with no
+     * sprite to read, it is plain shingle grey.
+     */
+    private SpriteGeometry.Mesh roofSheet() {
+        float[] colour = roof == null || roof.finish == null ? null : SpriteColours.of(roof.finish);
+        SpriteGeometry.Mesh sheet;
+        if (colour == null) {
+            sheet = solid.get(PLAIN);
+            roofU = roofV = 0f;
+        } else {
+            sheet = solid.get(roof.finish.getID(), WallSides.key(colour[0], colour[1], colour[2], WallSides.FLAT));
+            roofU = roof.u;
+            roofV = roof.v;
+        }
+        sheet.open = frame.open + 32f * SHINGLES;
+        return sheet;
     }
 
     /**
      * At a gable the roof runs a little past the end wall too: where a sloping tile has no roof
      * beside it across its slope, a strip of roof carries its slope out over the wall.
      */
-    private void addRake(SpriteGeometry.Mesh plain, int x, int y, int z, float atOrigin, float alongX, float alongY) {
-        if (Math.abs(alongX + alongY) < FLAT_ROOF) {
+    private void addRake(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY) {
+        if (Math.abs(alongX + alongY) < Roofs.FLAT) {
             return;
         }
-        plain.open = frame.open + 32f * SHINGLES;
         float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
         float low = (z + atOrigin) * ViewCamera.LEVEL_HEIGHT + lift, high = (z + atOrigin + alongX + alongY) * ViewCamera.LEVEL_HEIGHT + lift;
         float[] c = eave;
@@ -2262,7 +2391,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 set(c, 2, x + edge + out, y + 1f, high);
                 set(c, 3, x + edge + out, y, low);
             }
-            SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+            SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
         }
     }
 
@@ -2271,17 +2400,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * no roof beyond its low edge, the slope runs on past the wall and a little down: the
      * eave, with a board closing its end.
      */
-    private void addEave(SpriteGeometry.Mesh plain, int x, int y, int z, float atOrigin, float alongX, float alongY) {
+    private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY) {
         float along = alongX != 0f ? alongX : alongY;
-        if (Math.abs(along) < FLAT_ROOF) {
+        if (Math.abs(along) < Roofs.FLAT) {
             return;
         }
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
-        if (hasRoof(beyondX, beyondY, z)) {
+        float low = lowAtFar ? atOrigin + along : atOrigin;
+        // A slope that comes down to the foot of its level goes on in the top of the level
+        // below: the tile beyond is there, and this is the middle of the roof and no eave.
+        if (hasRoof(beyondX, beyondY, z) || low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1)) {
             return;
         }
-        float low = lowAtFar ? atOrigin + along : atOrigin;
         float out = lowAtFar ? EAVE : -EAVE;
         float edge = lowAtFar ? 1f : 0f;
         float drop = -Math.abs(along) * EAVE;
@@ -2299,9 +2430,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             set(c, 2, x + 1f, y + edge + out, far);
             set(c, 3, x + 1f, y + edge, high);
         }
-        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
         // The soffit: the boarded underside of the eave, level from the fascia's foot back to
         // the wall, which is what is seen of a roof from the ground beside the house.
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
         plain.open = frame.open + 32f * CONCRETE;
         float under = far - FASCIA;
         float wx1 = c[0], wy1 = c[1], wx2 = c[9], wy2 = c[10], ex1 = c[3], ey1 = c[4], ex2 = c[6], ey2 = c[7];
@@ -2310,15 +2442,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 2, ex2, ey2, under);
         set(c, 3, wx2, wy2, under);
         SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
-        set(c, 0, wx1, wy1, high);
-        set(c, 1, ex1, ey1, far);
-        set(c, 2, ex2, ey2, far);
-        set(c, 3, wx2, wy2, high);
         // The board along the eave's end.
         plain.open = frame.open;
-        set(c, 0, c[3], c[4], far);
-        set(c, 3, c[6], c[7], far - FASCIA);
-        float x1 = c[3], y1 = c[4], x2 = c[6], y2 = c[7];
+        float x1 = ex1, y1 = ey1, x2 = ex2, y2 = ey2;
+        set(c, 0, x1, y1, far);
         set(c, 1, x2, y2, far);
         set(c, 2, x2, y2, far - FASCIA);
         set(c, 3, x1, y1, far - FASCIA);

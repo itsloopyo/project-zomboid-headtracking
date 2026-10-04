@@ -10,24 +10,13 @@ import java.nio.ByteBuffer;
  * the north and west of a house carry the wallpaper of the room behind them, and those on its
  * south and east, which stand on the squares just outside it, carry its siding. The skin of a
  * wall on the side its sprite was painted for shows the sprite. The other skin keeps the
- * sprite's outline and relief and is painted over in the colour of the surface that side has,
- * which is found by walking to the wall that does show it.
+ * sprite's outline, its windows and doors, and is painted over in the colour of the surface
+ * that side has: out of doors the finish of the whole building, which is the sprite most of
+ * its south and east walls show, and indoors the sprite most of that room's own walls show.
  */
 final class WallSides {
-    /** A square the walk came to is loaded, is under a roof, has a wall on the edge the walk asks about. */
-    static final int LOADED = 1, INDOORS = 2, WALL = 4;
-    /** The walk found no wall showing the other side's surface. */
-    static final int NOTHING = -1;
-    /** The walk ran into map that is not loaded, and may find a wall once it is. */
-    static final int UNKNOWN = -2;
-    /** The furthest a walk goes, in squares: across the widest building it is worth being right about. */
-    static final int FURTHEST = 30;
-
-    /** The squares a walk passes, by how many steps along it they are. */
-    interface Squares {
-        /** LOADED, INDOORS and WALL, added together, for the square that many steps along. */
-        int at(int step);
-    }
+    /** How a skin is painted over: plain paint, or boards lapped one over the next. */
+    static final int FLAT = 1, SIDING = 2;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
@@ -36,58 +25,53 @@ final class WallSides {
 
     private WallSides() {}
 
-    /**
-     * From an indoor square away from its wall, through the building, to the first square out
-     * of doors: step 1 is the square next to the wall's own. The wall on that square's near
-     * edge is the building's far outside wall, and its sprite is the building's siding.
-     * Returns the step of that square, or NOTHING or UNKNOWN.
-     */
-    static int toOutsideWall(Squares squares) {
-        for (int step = 1; step <= FURTHEST; step++) {
-            int square = squares.at(step);
-            if ((square & LOADED) == 0) {
-                return UNKNOWN;
+    /** What each of a set of walls shows, as numbers, and which number most of them agree on. */
+    static final class Votes {
+        private int[] cast = new int[16];
+        private int count;
+
+        void add(int vote) {
+            if (count == cast.length) {
+                cast = java.util.Arrays.copyOf(cast, count * 2);
             }
-            if ((square & INDOORS) == 0) {
-                return (square & WALL) != 0 ? step : NOTHING;
-            }
+            cast[count++] = vote;
         }
-        return NOTHING;
+
+        boolean isEmpty() {
+            return count == 0;
+        }
+
+        /** The vote cast most often, and of two cast equally often the one cast first. -1 when none was cast. */
+        int commonest() {
+            int best = -1, most = 0;
+            for (int i = 0; i < count; i++) {
+                int same = 0;
+                for (int j = 0; j < count; j++) {
+                    if (cast[j] == cast[i]) {
+                        same++;
+                    }
+                }
+                if (same > most) {
+                    most = same;
+                    best = cast[i];
+                }
+            }
+            return best;
+        }
     }
 
     /**
-     * From the indoor square beyond a wall on through its room to the first square with a wall
-     * on its far edge: step 0 is the square beyond the wall. That wall's sprite is the room's
-     * wallpaper. Returns the step of that square, or NOTHING or UNKNOWN.
-     */
-    static int toRoomWall(Squares squares) {
-        for (int step = 0; step < FURTHEST; step++) {
-            int square = squares.at(step);
-            if ((square & LOADED) == 0) {
-                return UNKNOWN;
-            }
-            if ((square & INDOORS) == 0) {
-                return NOTHING;
-            }
-            if ((square & WALL) != 0) {
-                return step;
-            }
-        }
-        return NOTHING;
-    }
-
-    /**
-     * A colour to paint a skin over in and the usual brightness of the sprite under it, each
-     * from 0 to 1, as one number that is never 0.
+     * A colour to paint a skin over in, each part from 0 to 1, and how it is painted, FLAT or
+     * SIDING, as one number that is never 0.
      *
      * Every different number is one more texture change and one more draw each frame, since
      * the colour is told to the picture once for all the triangles that share it. Rounded to
      * sixteen steps a channel, the walls of a street come to a few dozen colours and not to
-     * one for every pair of sprites. A house's far skins all take their colour from the same
-     * sprite, so the rounding is the same along a whole wall and never shows as a step.
+     * one for every sprite. A house's far skins all take their colour from the same sprite, so
+     * the rounding is the same along a whole wall and never shows as a step.
      */
-    static int key(float red, float green, float blue, float usual) {
-        return level(red) << 12 | level(green) << 8 | level(blue) << 4 | Math.max(level(usual), 1);
+    static int key(float red, float green, float blue, int how) {
+        return level(red) << 12 | level(green) << 8 | level(blue) << 4 | how;
     }
 
     private static int level(float value) {
@@ -95,8 +79,8 @@ final class WallSides {
     }
 
     /**
-     * What the picture is told for a range of triangles: into out the colour, then 1 over the
-     * sprite's usual brightness. All 0 for a key of 0, which is no colour.
+     * What the picture is told for a range of triangles: into out the colour, then FLAT or
+     * SIDING. All 0 for a key of 0, which is no colour.
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
@@ -106,7 +90,7 @@ final class WallSides {
         out[0] = (key >> 12 & 15) / (float) LEVELS;
         out[1] = (key >> 8 & 15) / (float) LEVELS;
         out[2] = (key >> 4 & 15) / (float) LEVELS;
-        out[3] = LEVELS / (float) (key & 15);
+        out[3] = key & 15;
     }
 
     /**

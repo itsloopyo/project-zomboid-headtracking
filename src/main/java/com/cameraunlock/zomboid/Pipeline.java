@@ -519,12 +519,21 @@ final class Pipeline {
                     texel = vec4(sum / max(solid, 0.001), solid / 9.0);
                 }
                 // The skin of a wall that faces away from the side its sprite was painted for
-                // keeps the sprite's outline and its light and dark, each dot as much lighter or
-                // darker than the sprite mostly is as it was painted, in the colour of the
-                // surface that side of the wall has. uTint.a is 1 over the sprite's usual
-                // brightness, and 0 for everything else.
+                // keeps the sprite's outline, its windows and doors, and nothing else of it:
+                // the sprite's light and dark are the other side's wallpaper or boards. It is
+                // the colour of the surface its own side has. uTint.a is 1 for paint, 2 for
+                // boards lapped one over the next, and 0 for everything else.
                 if (uTint.a > 0.5) {
-                    texel.rgb = min(uTint.rgb * min(dot(texel.rgb, vec3(0.299, 0.587, 0.114)) * uTint.a, 1.6), 1.0);
+                    texel.rgb = uTint.rgb;
+                    if (uTint.a > 1.5) {
+                        // Each board stands out at its foot and is in the shadow of the one
+                        // above at its head. Far off, where a board is under a pixel high,
+                        // the lines would crawl as the eye moves, and the wall is their mean.
+                        float board = vWorld.z / 0.144;
+                        float up = fract(board);
+                        float lapped = (0.62 + 0.38 * smoothstep(0.0, 0.14, 1.0 - up)) * (1.04 - 0.1 * up);
+                        texel.rgb *= mix(lapped, 0.94, smoothstep(0.35, 0.9, fwidth(board)));
+                    }
                 }
                 bool grass = vKind > 7.5;
                 // The game draws its furniture with a dark line round every part, which is what

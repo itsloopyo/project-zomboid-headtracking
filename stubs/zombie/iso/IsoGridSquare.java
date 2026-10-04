@@ -12,6 +12,7 @@ public final class IsoGridSquare {
 
     public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.areas.IsoBuilding getBuilding() { throw new UnsupportedOperationException("reference stub"); }
+    public long getRoomID() { throw new UnsupportedOperationException("reference stub"); }
     public IsoObject getFloor() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
