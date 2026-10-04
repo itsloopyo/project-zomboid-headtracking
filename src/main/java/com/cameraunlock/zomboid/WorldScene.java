@@ -177,6 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] corner = new float[2];
     private final float[] box = new float[4];
     private int overLayer;
+    /** How far under a roof tile its plain sheet lies, in levels. */
+    private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
     private static final float WALL_HALF = 0.06f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
@@ -1230,6 +1232,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
         if (Math.abs(northWest - southEast) < FLAT_ROOF) {
             roofsFlat++;
+            underRoof(x, y, z, (northWest + southEast) / 2f, 0f, 0f);
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, (northWest + southEast) / 2f, 1f, 0f, 0f, 0f, 1f, 0f);
             return;
         }
@@ -1250,6 +1253,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         if (alongX > alongY) {
             roofsWestEast++;
+            underRoof(x, y, z, northWest, southEast - northWest, 0f);
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f);
             return;
         }
@@ -1258,7 +1262,24 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         } else {
             roofsUnclear++;
         }
+        underRoof(x, y, z, northWest, 0f, southEast - northWest);
         geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
+    }
+
+    /**
+     * The game drew each roof tile from one side, and a slope that faces away from that side
+     * is a sliver of sprite, or none: seen from the other side the roof has holes with the
+     * rooms showing through. Under every tile of roof goes a plain sheet of the same slope, in
+     * the grey of shingle, which is what shows wherever the sprite has nothing.
+     */
+    private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        plain.open = frame.open + 32f * SHINGLES;
+        float base = (z + atOrigin - UNDER_ROOF) * ViewCamera.LEVEL_HEIGHT;
+        float riseX = alongX * ViewCamera.LEVEL_HEIGHT, riseY = alongY * ViewCamera.LEVEL_HEIGHT;
+        float[] lift = geometry.lift;
+        SpriteGeometry.addPlainOver(plain, x, y, base + lift[0], base + riseX + lift[1], base + riseX + riseY + lift[2], base + riseY + lift[3],
+                0.3f * frame.red, 0.3f * frame.green, 0.32f * frame.blue);
     }
 
     /**

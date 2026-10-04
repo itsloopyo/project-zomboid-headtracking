@@ -510,6 +510,20 @@ final class SpriteGeometry {
     }
 
     /**
+     * Adds an untextured face over the whole of a square, its corners (0, 0), (1, 0), (1, 1) and
+     * (0, 1) at the given heights in tiles.
+     */
+    static void addPlainOver(Mesh mesh, int x, int y, float h00, float h10, float h11, float h01, float red, float green, float blue) {
+        mesh.face(-(h10 - h00 + h11 - h01) / 2f, -(h01 - h00 + h11 - h10) / 2f, 1f);
+        mesh.add(x, y, h00, 0f, 0f, red, green, blue);
+        mesh.add(x + 1f, y, h10, 0f, 0f, red, green, blue);
+        mesh.add(x + 1f, y + 1f, h11, 0f, 0f, red, green, blue);
+        mesh.add(x, y, h00, 0f, 0f, red, green, blue);
+        mesh.add(x + 1f, y + 1f, h11, 0f, 0f, red, green, blue);
+        mesh.add(x, y + 1f, h01, 0f, 0f, red, green, blue);
+    }
+
+    /**
      * Adds an untextured upright rectangle centred on (x, y), from bottom to top above baseUp, with
      * (rightX, rightY) along its width. For things the game draws with a model and has no sprite for.
      */
