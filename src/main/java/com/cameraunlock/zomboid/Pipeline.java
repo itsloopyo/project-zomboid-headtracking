@@ -314,7 +314,11 @@ final class Pipeline {
                 // the next and the edge comes out straight.
                 vec2 half = vec2(0.5 * uTexel.x, 0.0);
                 float cover = uTexel.x > 0.0 && !small ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
-                if (cover < uCut) {
+                // A wire or an aerial painted one texel wide never covers more than half of two
+                // texels, and at the cut for solid things it comes out as a row of dashes. What
+                // stands as a card is cut lower, so a thin line stays whole.
+                bool upright = vColor.a > 1.5 && vColor.a < 3.5;
+                if (cover < (upright ? min(uCut, 0.22) : uCut)) {
                     discard;
                 }
                 vec3 toEye = uEye - vWorld;
