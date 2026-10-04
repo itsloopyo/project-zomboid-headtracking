@@ -53,6 +53,7 @@ public final class Tests {
         zoomScalesWhatMovesAcrossThePicture();
         fieldOfViewEasesToTheAimedZoomAndBack();
         firstPersonKeysReplaceTheStockOnes();
+        pointerComesOutForTheInventoryKeyAPanelAndAHeldButton();
         transformerHasNoGapOnceEveryPatchIsIn();
         transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
         transformerNamesAClassTheGameDoesNotHave();
@@ -1106,6 +1107,54 @@ public final class Tests {
         for (String name : KeySubstitutions.NAMES) {
             check(KeySubstitutions.substitute(name, 0, 0) != null, name + " is named as substituted and is");
         }
+    }
+
+    private static void pointerComesOutForTheInventoryKeyAPanelAndAHeldButton() {
+        PointerMode.Inventory leave = PointerMode.Inventory.LEAVE, open = PointerMode.Inventory.OPEN, close = PointerMode.Inventory.CLOSE;
+        PointerMode pointer = new PointerMode();
+        check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "the look has the mouse to begin with");
+        check("false".equals(pointer.describe()), "and the trace says so");
+
+        check(pointer.update(true, false, false, 0) == open && pointer.on() && pointer.byKey(),
+                "the inventory key opens the inventory and brings the pointer out");
+        check("true key".equals(pointer.describe()), "for the key");
+        check(pointer.update(false, false, false, 0) == leave && pointer.on(), "and it stays out");
+        check(pointer.update(true, false, false, 0) == close && !pointer.on(), "the key again closes the inventory and goes back to the look");
+
+        pointer.update(true, false, false, 0);
+        check(pointer.update(false, true, false, 0) == close && !pointer.on(), "Escape closes it too");
+        check(pointer.update(false, true, false, 0) == leave && !pointer.on(), "and Escape with the inventory shut is the game's own");
+
+        check(pointer.update(false, false, true, 0) == leave && pointer.on(), "the held button brings the pointer out and leaves the inventory alone");
+        check("true held".equals(pointer.describe()), "for being held");
+        pointer.update(false, false, true, 1);
+        check("true panel+held".equals(pointer.describe()), "a menu opened from it keeps the pointer");
+        check(pointer.update(false, false, false, 1) == leave && pointer.on(), "after the button is let go");
+        check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "until the menu closes");
+
+        pointer.update(false, false, false, 2);
+        check(pointer.on(), "two panels open");
+        pointer.update(false, false, false, 1);
+        check(pointer.on(), "one of them closed");
+        check(pointer.update(false, true, false, 1) == leave && pointer.on(), "Escape does not take the pointer from a panel");
+        check(pointer.update(true, false, false, 1) == open && "true key+panel".equals(pointer.describe()), "the inventory opens beside a panel");
+        check(pointer.update(true, false, false, 1) == close && !pointer.on(), "closing the inventory goes back to the look past the panel left open");
+        pointer.update(false, false, false, 1);
+        check(!pointer.on(), "which no longer brings the pointer out");
+        pointer.update(false, false, false, 2);
+        check(pointer.on(), "another panel opening does");
+        pointer.update(false, false, false, 1);
+        check(!pointer.on(), "until it closes");
+        pointer.update(false, false, false, 0);
+        pointer.update(false, false, false, 1);
+        check(pointer.on(), "a panel closed and opened again brings the pointer out again");
+
+        pointer.update(true, false, false, 1);
+        pointer.reset();
+        check(!pointer.on() && !pointer.byKey(), "turning the view off puts everything back");
+        check(pointer.update(false, false, false, 3) == leave && !pointer.on(), "panels already open when the view comes on do not take the look");
+        pointer.update(false, false, false, 4);
+        check(pointer.on(), "one more does");
     }
 
     private static byte[] subjectWithField(String name, ClassDesc type, int flags) {

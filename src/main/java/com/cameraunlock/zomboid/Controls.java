@@ -18,8 +18,9 @@ import zombie.iso.Vector2;
  *
  * Only the game's reading of its inputs changes. What an attack then does, and
  * every binding the player has saved, are the game's own. With the first
- * person view off, or the look not captured, every hook here hands back what
- * it was given.
+ * person view off, or the mouse out as a pointer, every hook here hands back
+ * what it was given, except that the keys stay the first person ones for as
+ * long as the view is played in.
  *
  * Everything runs on the game's logic thread.
  */
@@ -145,7 +146,7 @@ public final class Controls {
      */
     public static Core.KeyBinding binding(Core.KeyBinding stock, String name) {
         Substituted held = substituted.get(name);
-        if (held == null || !FirstPerson.lookCaptured() || GameTime.isGamePaused()) {
+        if (held == null || !FirstPerson.active() || GameTime.isGamePaused()) {
             return stock;
         }
         if (held.from != stock) {

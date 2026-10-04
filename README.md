@@ -11,6 +11,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
 - **First person controls** - left mouse attacks at once, right mouse aims down the sights, `Left Shift` sprints and `Left Ctrl` crouches
+- **A pointer when you need one** - the inventory key, any window or menu of the game's, or the middle mouse button held, hands the mouse back as a pointer without leaving first person
 - **A first person picture of its own** - sun, moon, shadows, clouds, rain, mirrored water, hills, standing grass and trees in leaf, drawn from the game's own map and sprites. The isometric view is left exactly as the game draws it, and no game file is changed
 
 ## Requirements
@@ -117,12 +118,29 @@ While the mouse is turning the first person view, these work differently from th
 
 - **Attack**: a left click raises your weapon and attacks with it, a firearm or a melee weapon. What the attack does is the game's own: ammunition, recoil, aiming time and hit chance are unchanged. A click also does what holding the aim does in the game: it stops a sprint and whatever your character was in the middle of.
 - **Aim**: with a firearm in hand, holding the aim narrows the view, to 50 degrees at the default field of view. A left click alone does not narrow it. Head tracking moves the picture as far through the sights as at the hip, and so does the mouse. The game is given the direction the view points as the aim, and the point the view is aimed at as the place to look for a target.
-- **Clicks** do not act on the doors, switches and containers of the game's own view, and a right click does not open its menu: there is no pointer to use them with while the mouse turns the view.
+- **Clicks** do not act on the doors, switches and containers of the game's own view, and a right click does not open its menu: there is no pointer to use them with while the mouse turns the view. Bring the pointer out for those (see [The pointer](#the-pointer)).
 - **Crouch** keeps your own key if you moved it, and gains `Left Ctrl`.
 - Reload, rack, shove, the weapon slots, the light and interact are on your own bindings, as in the game's own view.
 - `Left Alt` is also the game's default for an attack aimed at the ground, so an attack made with the jog held is aimed down.
 
 None of this is written to your key bindings. The game's own view, a paused game and the options screen all have your bindings as you saved them. If the game's **toggle to aim** option is on, the left mouse button works as it does in the game: set the aim first, then click.
+
+### The pointer
+
+The inventory, crafting, the health panel, the map and the game's menus all need a pointer. In first person the mouse becomes one when you ask for it or when one of them opens, and goes back to turning the view afterwards. While the pointer is out the first person picture stays where it was, head tracking carries on, the game is not paused, the movement keys still follow the view and keep their first person keys, and clicks do what they do in the game's own view.
+
+| What | Pointer |
+|------|---------|
+| Inventory key (`I`, or your own binding) | Shows the inventory and loot panels and brings the pointer out. Press it again, or `Escape`, to hide them and go back to the look |
+| A window, dialog, context menu or radial menu of the game's opens | Out for as long as it is open |
+| Middle mouse button, held | Out while it is held |
+
+- The inventory and loot panels are the game's own and behave as they do there: unless you have pinned them, each one unfolds when the pointer is over it.
+- A window you leave open would keep the pointer out. Pressing the inventory key twice goes back to the look past whatever is open, and the pointer comes out again the next time something opens. A window that was already open when you switched to first person does not bring it out.
+- Hold the middle mouse button and right click to get the game's menu for something in the world. The menu then keeps the pointer out until you pick from it or close it.
+- A click on the world goes to what the game's own view has under the pointer, which is drawn beneath the first person picture and is not what the picture shows there. `E` acts on what your character faces and is the surer way to use a door or a window.
+- `Tab` and every other key are as the game has them.
+- If you have bound something to the middle mouse button, it does both.
 
 ### Head tracking
 

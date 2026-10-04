@@ -5,6 +5,7 @@ import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.input.GameKeyboard;
+import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoUtils;
 import zombie.vehicles.BaseVehicle;
@@ -31,6 +32,14 @@ import zombie.network.GameClient;
 public final class FirstPerson {
     /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it. */
     private static final int TOGGLE_KEY = 66;
+    /** The name the game stores its inventory key under. */
+    private static final String INVENTORY_BINDING = "Toggle Inventory";
+    private static final int ESCAPE_KEY = 1;
+    /**
+     * The middle mouse button, which brings the pointer out for as long as it is held. Nothing
+     * in the game's default bindings uses it, and every letter key is taken.
+     */
+    private static final int POINT_BUTTON = 2;
 
     /** How far a pixel of mouse travel turns the view unzoomed. Zoomed it turns the view less, to move the picture as far. */
     private static final float RADIANS_PER_PIXEL = 0.0025f;
@@ -71,7 +80,10 @@ public final class FirstPerson {
 
     private static boolean on;
     private static boolean wasRiding, onForTheRide;
+    /** The view is on, the game is running and the character is alive. */
+    private static boolean active;
     private static boolean lookCaptured;
+    private static final PointerMode pointer = new PointerMode();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
      * the game goes on reading its keys there.
@@ -121,6 +133,11 @@ public final class FirstPerson {
         return lookCaptured && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
     }
 
+    /** Whether the first person view is being played in, with the mouse turning the view or out as a pointer. */
+    static boolean active() {
+        return active && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
+    }
+
     static void setLook(float newYaw, float newPitch) {
         // Turning one way all session would otherwise grow the yaw until a float no longer
         // holds a pixel's worth of turn.
@@ -157,6 +174,9 @@ public final class FirstPerson {
             return "split screen";
         }
         String gap = Agent.firstPersonGap();
+        if (gap == null) {
+            gap = Panels.gap();
+        }
         return gap != null ? gap : Pipeline.failure();
     }
 
@@ -186,7 +206,13 @@ public final class FirstPerson {
             on = false;
             Log.info("first person off: " + whyNot(player));
         }
-        lookCaptured = on && !GameTime.isGamePaused() && !player.isDead();
+        active = on && !GameTime.isGamePaused() && !player.isDead();
+        if (!on) {
+            pointer.reset();
+        } else if (active) {
+            point();
+        }
+        lookCaptured = active && !pointer.on();
         long now = System.nanoTime();
         float sinceLastFrame = Math.min((now - lastFrameNanos) / 1e9f, MAX_FRAME_SECONDS);
         lastFrameNanos = now;
@@ -268,7 +294,7 @@ public final class FirstPerson {
         }
         ViewCamera.clean(cleanView, eyeX, eyeY, eyeUp, yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
-        HeadTracking.view(lookCaptured, cleanView, yaw, world, trackedView);
+        HeadTracking.view(active, cleanView, yaw, world, trackedView);
         WorldScene scene = WorldScene.next();
         scene.build(player, trackedView, FieldOfView.tanHalfVertical());
         SpriteRenderer.instance.drawGeneric(scene);
@@ -322,6 +348,38 @@ public final class FirstPerson {
         int index = IsoPlayer.getInstance().getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
+    }
+
+    /**
+     * Lets go of the mouse or takes it back. The inventory key is handled here and kept from
+     * the game's own handler, which only flips the panels between shown and hidden: they are
+     * shown folded from the start, so its first press would hide them.
+     */
+    private static void point() {
+        Core.KeyBinding inventory = Core.getInstance().getKeyBinding(INVENTORY_BINDING);
+        boolean inventoryKey = pressed(inventory.keyValue()) | pressed(inventory.altKey());
+        boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY);
+        if (escape && pointer.byKey()) {
+            // Or the same press would go on to open the game's menu.
+            GameKeyboard.eatKeyPress(ESCAPE_KEY);
+        }
+        String was = pointer.describe();
+        PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, Mouse.isButtonDown(POINT_BUTTON), Panels.open());
+        if (inventoryPanels != PointerMode.Inventory.LEAVE) {
+            Panels.showInventory(inventoryPanels == PointerMode.Inventory.OPEN);
+        }
+        if (TRACE && !was.equals(pointer.describe())) {
+            Log.info("pointer " + pointer.describe());
+        }
+    }
+
+    /** Whether a key of a binding went down this frame. The game eats the press, so its own handlers never see the key come up. */
+    private static boolean pressed(int key) {
+        if (key == 0 || !GameKeyboard.isKeyPressed(key)) {
+            return false;
+        }
+        GameKeyboard.eatKeyPress(key);
+        return true;
     }
 
     /** Called where the game's reticle and aim cursor read the screen column to draw at. */
@@ -407,11 +465,11 @@ public final class FirstPerson {
         player.getAimVector(traceAim);
         Log.info(String.format(java.util.Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
-                        + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
+                        + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b pointer %s | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
                         + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
-                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, HeadTracking.describe(),
+                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), HeadTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
                 scene.describe(), Controls.describe()));
     }

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added a pointer to the first person view. The inventory key shows the inventory and loot panels and hands the mouse back as a pointer, and the same key or `Escape` puts them away and returns to the look. The pointer also comes out by itself while a window, dialog or menu of the game's is open, and for as long as the middle mouse button is held. The picture, head tracking and the game carry on meanwhile.
 - Added a first person view. `F8` switches between it and the game's own view: the mouse turns the camera, the movement keys follow it, and the world is drawn from the game's loaded tiles. It stays off in multiplayer and split screen.
 - Gave the first person view a picture of its own: a sun and moon that follow the game's clock and season, shadows, clouds, light shafts, rain, wet ground and water that mirror what stands over them, and the game's own characters and vehicles.
 - Gave the land in the first person view a shape: hills, valleys round water, level ground under buildings, kerbs along streets and quays over water. It is drawn only. Movement, paths and collisions use the game's flat map as before.
