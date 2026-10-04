@@ -893,8 +893,13 @@ final class Pipeline {
                 float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
                 return vec4(at.xy + uWind.xy * (take * lean), at.zw);
             }
+            varying float vLeaves;
+            varying vec3 vAt;
             void main() {
                 vUv = gl_MultiTexCoord0.xy;
+                float material = floor((gl_Color.a + 0.5) / 32.0);
+                vLeaves = material > 4.5 && material < 5.5 ? 1.0 : 0.0;
+                vAt = gl_Vertex.xyz;
                 gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
             }
             """;
@@ -903,9 +908,26 @@ final class Pipeline {
             #version 120
             uniform sampler2D uTexture;
             varying vec2 vUv;
+            varying float vLeaves;
+            varying vec3 vAt;
+            uniform vec3 uSunWay;
             void main() {
                 if (texture2D(uTexture, vUv).a < 0.5) {
                     discard;
+                }
+                // A crown is not a lid. The sun comes through the gaps between its boughs in
+                // patches the size of a hand to the size of a table, and the ground under a
+                // tree is dappled, not dark.
+                if (vLeaves > 0.5) {
+                    // A gap is where the ray of light meets the ground, so that it is a gap
+                    // through every bough the ray passes and not through one of them.
+                    vec2 lands = vAt.xy - uSunWay.xy * (vAt.z / max(uSunWay.z, 0.15));
+                    vec2 cell = floor(lands * 1.3), fine = floor(lands * 4.1);
+                    float gap = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453) * 0.6
+                            + fract(sin(dot(fine, vec2(39.346, 11.135))) * 43758.5453) * 0.4;
+                    if (gap > 0.6) {
+                        discard;
+                    }
                 }
                 gl_FragColor = vec4(1.0);
             }
@@ -2881,6 +2903,7 @@ final class Pipeline {
         shadow.use();
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
+        shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
         // The game magnifies its sprites pixel by pixel, which up close is a wall of squares.
         // This frame reads them through a sampler of its own that blends between pixels, and
         // leaves the textures' own settings as the game set them.
@@ -2940,6 +2963,7 @@ final class Pipeline {
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.use();
             shadow.set("uMatrix", beamMatrix);
+            shadow.set("uSunWay", 0f, 0f, 1f);
             GL13.glActiveTexture(GL_TEXTURE0);
             drawRanges(0, solidRanges);
             if (figures) {
@@ -2974,6 +2998,7 @@ final class Pipeline {
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.use();
             shadow.set("uMatrix", roofMatrix);
+            shadow.set("uSunWay", 0f, 0f, 1f);
             drawRanges(0, solidRanges);
         }
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);

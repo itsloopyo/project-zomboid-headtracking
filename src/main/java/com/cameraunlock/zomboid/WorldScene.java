@@ -95,6 +95,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static volatile float drawnAspect;
     private static float loggedTanHalfFieldOfView, loggedAspect;
     private static float eyeOpen = -1f;
+    private static float shaded;
+    /** How much further the eye opens deep in a wood than on open ground. */
+    private static final float WOODS_OPEN = 1.1f;
     private static long lastAdapt;
 
     /**
@@ -514,6 +517,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // By day an eye indoors opens up to a dim room. At night it has less to open with: an
         // unlit room stays dark, and one with a lamp on is seen by the lamp.
         float most = EXPOSURE_MOST + (EXPOSURE_MOST_AT_NIGHT - EXPOSURE_MOST) * sky.night;
+        // Among trees most of what the eye sees is in shade, and it opens up to that as it
+        // does indoors, though less.
+        int trees = 0;
+        if (under != null) {
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dy = -3; dy <= 3; dy++) {
+                    IsoGridSquare near = cell.getGridSquare(under.getX() + dx, under.getY() + dy, under.getZ());
+                    if (near != null && near.HasTree()) {
+                        trees++;
+                    }
+                }
+            }
+        }
+        float wooded = Math.min(trees / 9f, 1f);
+        shaded += (wooded - shaded) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
+        outdoors *= 1f + WOODS_OPEN * shaded;
         float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most);
         return indoors + (outdoors - indoors) * eyeOpen;
     }
