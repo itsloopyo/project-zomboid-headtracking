@@ -814,6 +814,9 @@ final class Pipeline {
 
             const int SAMPLES = 14;
             const float RADIUS = 0.5;
+            const int BOUNCE_SAMPLES = 10;
+            const float BOUNCE_RADIUS = 2.2;
+            uniform sampler2D uScene;
 
             // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 uv) {
@@ -825,7 +828,7 @@ final class Pipeline {
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 if (texture2D(uDepth, uv).r >= 0.9999995) {
-                    gl_FragColor = vec4(1.0);
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                     return;
                 }
                 vec3 p = placeAt(uv);
@@ -845,7 +848,24 @@ final class Pipeline {
                     blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0);
                 }
                 float open = clamp(1.0 - blocked * (1.5 / float(SAMPLES)), 0.0, 1.0);
-                gl_FragColor = vec4(vec3(mix(open, 1.0, smoothstep(35.0, 65.0, p.z))), 1.0);
+                // Light does not stop at the first thing it falls on. A sunlit lawn throws
+                // green up under the eaves, a red wall warms the path beside it. What stands
+                // in the picture within a few paces of this point, on the side it faces, lends
+                // it some of its own light.
+                vec3 lent = vec3(0.0);
+                float wide = BOUNCE_RADIUS / (p.z * uTan.y) * 0.5;
+                for (int i = 0; i < BOUNCE_SAMPLES; i++) {
+                    float along = (float(i) + 0.5) / float(BOUNCE_SAMPLES);
+                    float a = turn + 1.3 + along * 23.7;
+                    vec2 at = uv + vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * wide);
+                    vec3 v = placeAt(at) - p;
+                    float far2 = dot(v, v);
+                    float faces = max(dot(v, n), 0.0) / sqrt(far2 + 0.0001);
+                    lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * step(far2, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0) / (1.0 + far2));
+                }
+                lent *= 1.6 / float(BOUNCE_SAMPLES) * (1.0 - smoothstep(25.0, 50.0, p.z));
+                // Kept as a part of a whole: the target holds numbers from 0 to 1.
+                gl_FragColor = vec4(lent / (1.0 + lent), mix(open, 1.0, smoothstep(35.0, 65.0, p.z)));
             }
             """;
 
@@ -1190,7 +1210,13 @@ final class Pipeline {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                vec3 c = mirrored(uv, texture2D(uScene, uv)) * mix(1.0, texture2D(uOcclusion, uv).r, 0.62);
+                vec4 around = texture2D(uOcclusion, uv);
+                vec4 here = texture2D(uScene, uv);
+                vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
+                // The light lent by what stands near, taken on by the surface in its own colour.
+                vec3 lent = around.rgb / max(1.0 - around.rgb, vec3(0.02));
+                float own = max(here.r, max(here.g, here.b));
+                c += lent * (here.rgb / max(own, 0.02)) * 0.22;
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }
@@ -2091,8 +2117,12 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         occlusion.set("uDepth", 0);
+        occlusion.set("uScene", 1);
         occlusion.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
         occlusion.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         occlusion.set("uNear", near);
