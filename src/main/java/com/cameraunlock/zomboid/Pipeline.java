@@ -353,6 +353,14 @@ final class Pipeline {
                     }
                 }
                 bool card = !water && vColor.a > 1.5;
+                if (card && !grass) {
+                    // A card seen edge on is a streak of smeared leaves. It thins out and goes
+                    // before it gets there: the other cards of the fan are what is seen then.
+                    float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
+                    if (square < 0.2 + 0.25 * grain(gl_FragCoord.xy)) {
+                        discard;
+                    }
+                }
                 float open = grass ? vColor.a - 8.0 : water ? vColor.a - 4.0 : card ? vColor.a - 2.0 : vColor.a;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (card) {

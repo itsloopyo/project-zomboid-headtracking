@@ -399,7 +399,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private static int buildEvery(float distance, int slot) {
         if (distance < BUILT_EVERY_FRAME) {
-            return 1;
+            // The chunk the eye is in and those round it every frame: their cards turn fastest
+            // as the eye moves. The rest of the near ones every second or third.
+            return distance < CHUNK_TILES * 1.5f ? 1 : 2 + slot % 2;
         }
         return distance < BUILT_OFTEN ? 6 + slot % 4 : 18 + slot % 9;
     }
@@ -915,10 +917,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             boxes++;
             return;
         }
-        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, grows);
-        if (type == IsoObjectType.tree) {
-            geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -cardRightY, cardRightX, grows);
+        if (grows) {
+            // A tree or a bush is not a picture of one that turns to face whoever looks at it.
+            // It stands in the world: the sprite is set up several times through the plant's
+            // middle, fanned round it, every other one mirrored, so that from any side there
+            // are leaves in front of leaves and they pass each other as the eye moves. Which
+            // way the fan is turned comes from where the plant stands, so no two are alike.
+            int cards = type == IsoObjectType.tree ? 5 : 3;
+            double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
+            for (int card = 0; card < cards; card++) {
+                double angle = turn + card * Math.PI / cards;
+                float side = (card & 1) == 0 ? 1f : -1f;
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * (float) Math.cos(angle), side * (float) Math.sin(angle), true);
+            }
+            return;
         }
+        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
     }
 
     /**
