@@ -121,14 +121,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
          * pixel is.
          */
         final SpriteGeometry.MeshSet laid = new SpriteGeometry.MeshSet();
+        /** The furniture the mod has models of, each drawn from its model where it stands. */
+        final Models.Instances placed = new Models.Instances();
         private int wx, wy;
         private int builtFrame;
         /** The frames in flight that show this build, and one more while it is the chunk's latest. */
         private int users;
     }
 
-    /** How near the eye a piece of furniture has to be to be drawn as a model, in tiles. */
-    private static final float MODELLED_WITHIN = 14f;
     /** A chunk nearer the eye than this is built every frame. */
     private static final float BUILT_EVERY_FRAME = 20f;
     private static final float BUILT_OFTEN = 44f;
@@ -146,6 +146,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final ArrayList<ChunkMeshes> shown = new ArrayList<>();
     /** Where the chunk being built puts its triangles. */
     private SpriteGeometry.MeshSet solid, laid;
+    private Models.Instances placed;
     private final SpriteGeometry geometry = new SpriteGeometry();
     private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
@@ -397,12 +398,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     retired[slot] = null;
                     fresh.solid.clear();
                     fresh.laid.clear();
+                    fresh.placed.clear();
                     fresh.wx = chunk.wx;
                     fresh.wy = chunk.wy;
                     fresh.builtFrame = frames;
                     fresh.users = 1;
                     solid = fresh.solid;
                     laid = fresh.laid;
+                    placed = fresh.placed;
                     chunksBuilt++;
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
@@ -459,7 +462,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             unseenBlue = seenBlue / seenOutside;
         }
         for (int i = 0; i < shown.size(); i++) {
-            triangles += shown.get(i).solid.triangles() + shown.get(i).laid.triangles();
+            triangles += shown.get(i).solid.triangles() + shown.get(i).laid.triangles() + shown.get(i).placed.triangles();
         }
         buildMillis = (System.nanoTime() - start) / 1e6f;
     }
@@ -1605,9 +1608,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
     private static final java.util.IdentityHashMap<IsoSprite, Furniture> furniture = new java.util.IdentityHashMap<>();
     private final SpriteGeometry.Frame dyeFrame = new SpriteGeometry.Frame();
-    /** Where the piece last found ready takes its colours, and the mesh of the sprite that gives them. */
+    /** Where the piece last found ready takes its colours, and the texture of the sprite that gives them, PLAIN for a piece that takes none. */
     private float dyeU, dyeV, alsoU, alsoV;
-    private SpriteGeometry.Mesh dyeMesh;
+    private int dyeTexture;
 
     private static Furniture known(IsoSprite sprite) {
         if (!furniture.containsKey(sprite)) {
@@ -1777,7 +1780,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /**
      * Whether the piece the object is a square of can stand as its model: every square of it is
      * there, and the sprite that is to give it its colour is painted where the colour is
-     * taken. Leaves where the colour is taken in dyeU to alsoV and dyeMesh.
+     * taken. Leaves where the colour is taken in dyeU to alsoV and dyeTexture.
      */
     private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
         int originX = x - piece.gridX, originY = y - piece.gridY;
@@ -1795,7 +1798,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 }
             }
         }
-        dyeMesh = solid.get(PLAIN);
+        dyeTexture = PLAIN;
         if (piece.dyed == 0) {
             return true;
         }
@@ -1805,7 +1808,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         dyeFrame.scale = frame.scale;
         frameOf(dyeFrame, dyer, dye);
-        dyeMesh = solid.get(dye.getID());
+        dyeTexture = dye.getID();
         for (float share : DYE_TRIES) {
             float high = piece.dyeHigh * share;
             if (dye.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, piece.dyeA, piece.dyeB)),
@@ -1856,13 +1859,6 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (piece == null) {
             return false;
         }
-        // A model's every vertex is written into its chunk's mesh, and a street of furnished
-        // houses is more of them than the game's memory has room for. Beyond a room or two
-        // from the eye a piece is drawn from its sprite, as it was.
-        float awayX = x + 0.5f - camera.eyeX, awayY = y + 0.5f - camera.eyeY;
-        if (awayX * awayX + awayY * awayY > MODELLED_WITHIN * MODELLED_WITHIN) {
-            return false;
-        }
         if (piece.basin) {
             // Dealt with when the counter under it is: the counter's model has the basin in it.
             IsoObject counter = onSquare(x, y, z, false);
@@ -1877,9 +1873,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         float[] lift = geometry.lift;
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
-        Models.add(model, solid.get(PLAIN), dyeMesh, piece.dyed, dyeU, dyeV, dyeMesh, piece.alsoDyed, alsoU, alsoV,
-                frame, x, y, x + piece.centreX, y + piece.centreY,
-                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised, piece.turns, piece.scale, piece.scaleUp);
+        placed.add(model, frame, x, y, x + piece.centreX, y + piece.centreY,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised, piece.turns, piece.scale, piece.scaleUp,
+                dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
         furnished++;
         return true;
     }

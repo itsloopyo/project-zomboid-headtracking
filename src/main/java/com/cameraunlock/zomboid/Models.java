@@ -6,6 +6,8 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -61,6 +63,11 @@ final class Models {
     private static final int VERTEX_BYTES = 6 * Float.BYTES + 2;
     /** Floats per vertex of a Model: its position, then the way it looks. */
     static final int VERTEX_FLOATS = 6;
+    /**
+     * Floats per vertex in the buffer the graphics card keeps of every model: its position, the
+     * way it looks, its surface, and what the light it is given is multiplied by.
+     */
+    static final int BUFFER_FLOATS = 8;
 
     static final class Model {
         final String name;
@@ -71,12 +78,8 @@ final class Models {
         final byte[] surface;
         /** The first vertex of each surface, and after the last surface the number of vertices. */
         final int[] first = new int[SURFACES + 1];
-        /**
-         * The vertices as they stand on the map after each number of quarter turns, made the first
-         * time a piece is turned that way: turning five thousand vertices is the same sum for every
-         * bed that faces east, and a chunk near the eye is built again every frame.
-         */
-        private final float[][] turned = new float[4][];
+        /** The model's first vertex in the buffer of every model: see buffer. */
+        final int start;
         /** For each vertex, how much of the room's light reaches it, 0 to 1. */
         final float[] reached;
         /**
@@ -86,8 +89,9 @@ final class Models {
          */
         final float[] dimmed;
 
-        private Model(String name, float[] bounds, float[] vertices, byte[] surface, float[] reached) {
+        private Model(String name, int start, float[] bounds, float[] vertices, byte[] surface, float[] reached) {
             this.name = name;
+            this.start = start;
             minX = bounds[0];
             minY = bounds[1];
             minZ = bounds[2];
@@ -109,27 +113,6 @@ final class Models {
             }
         }
 
-        /** Position then the way it looks, for each vertex, in the map's axes after that many quarter turns. */
-        float[] turned(int quarterTurns) {
-            int turns = quarterTurns & 3;
-            if (turned[turns] == null) {
-                float[] made = new float[vertices.length];
-                float[] to = new float[2];
-                for (int at = 0; at < vertices.length; at += VERTEX_FLOATS) {
-                    turn(turns, vertices[at], vertices[at + 1], to);
-                    made[at] = to[0];
-                    made[at + 1] = to[1];
-                    made[at + 2] = vertices[at + 2];
-                    turn(turns, vertices[at + 3], vertices[at + 4], to);
-                    made[at + 3] = to[0];
-                    made[at + 4] = to[1];
-                    made[at + 5] = vertices[at + 5];
-                }
-                turned[turns] = made;
-            }
-            return turned[turns];
-        }
-
         int triangles() {
             return surface.length / 3;
         }
@@ -149,23 +132,25 @@ final class Models {
         }
     }
 
-    private static Map<String, Model> loaded;
+    /** Read by the logic thread, which stands the models, and by the render thread, which hands them to the graphics card. */
+    private static volatile Map<String, Model> loaded;
 
     private Models() {}
 
     /** The model of that name, read from the jar the first time one is asked for. */
     static Model get(String name) {
-        if (loaded == null) {
+        Map<String, Model> models = loaded;
+        if (models == null) {
             try (InputStream packed = Models.class.getResourceAsStream(RESOURCE)) {
                 if (packed == null) {
                     throw new IllegalStateException("the jar has no " + RESOURCE);
                 }
-                loaded = read(packed);
+                loaded = models = read(packed);
             } catch (IOException e) {
                 throw new UncheckedIOException(RESOURCE + " could not be read", e);
             }
         }
-        Model model = loaded.get(name);
+        Model model = models.get(name);
         if (model == null) {
             throw new IllegalStateException(RESOURCE + " has no model called " + name);
         }
@@ -185,6 +170,7 @@ final class Models {
         }
         int count = in.getInt();
         Map<String, Model> models = new LinkedHashMap<>();
+        int start = 0;
         for (int i = 0; i < count; i++) {
             need(in, 1, "a model's name");
             byte[] letters = new byte[in.get() & 0xff];
@@ -215,9 +201,10 @@ final class Models {
                     throw new IOException(name + " has its vertices out of the order of their surfaces");
                 }
             }
-            if (models.put(name, new Model(name, bounds, vertices, surface, reached)) != null) {
+            if (models.put(name, new Model(name, start, bounds, vertices, surface, reached)) != null) {
                 throw new IOException("two models are called " + name);
             }
+            start += surface.length;
         }
         if (in.hasRemaining()) {
             throw new IOException(in.remaining() + " bytes follow the last model");
@@ -260,58 +247,156 @@ final class Models {
         }
     }
 
+    /** Every model the jar holds, as the graphics card keeps them: see buffer. Asked for once a piece has been stood, so they are read by then. */
+    static float[] buffer() {
+        Map<String, Model> models = loaded;
+        if (models == null) {
+            throw new IllegalStateException("the models are asked for before any was stood");
+        }
+        return buffer(models.values());
+    }
+
+    /** The models one after another, each from its start, BUFFER_FLOATS to a vertex. */
+    static float[] buffer(Collection<Model> models) {
+        int vertices = 0;
+        for (Model model : models) {
+            vertices += model.surface.length;
+        }
+        float[] out = new float[vertices * BUFFER_FLOATS];
+        for (Model model : models) {
+            for (int vertex = 0, at = model.start * BUFFER_FLOATS; vertex < model.surface.length; vertex++, at += BUFFER_FLOATS) {
+                System.arraycopy(model.vertices, vertex * VERTEX_FLOATS, out, at, VERTEX_FLOATS);
+                out[at + 6] = model.surface[vertex];
+                out[at + 7] = model.dimmed[vertex];
+            }
+        }
+        return out;
+    }
+
     /**
-     * Adds a model standing with the centre of its footprint at (centreX, centreY) on the map
-     * and its foot at baseUp, turned by quarterTurns as turn says, one metre of it scale tiles
-     * along the ground and scaleUp tiles up.
-     *
-     * The surfaces whose bit is set in dyedSurfaces go into dyed, which is the mesh of a
-     * sprite's texture, and all look at the texel (dyeU, dyeV) of it. Those whose bit is set
-     * in alsoDyed go into the mesh also, and look at (alsoU, alsoV). The rest go into plain.
-     * Each vertex is lit as the square at (tileX, tileY) is, by where over that square it is:
-     * light holds that square's light.
+     * The quarter turns as the picture's programs are told them, into out from at: what a
+     * model's x and y are multiplied by to give the map's x, then what gives the map's y.
      */
-    static void add(Model model, SpriteGeometry.Mesh plain, SpriteGeometry.Mesh dyed, int dyedSurfaces, float dyeU, float dyeV,
-            SpriteGeometry.Mesh also, int alsoDyed, float alsoU, float alsoV,
-            SpriteGeometry.Frame light, int tileX, int tileY, float centreX, float centreY, float baseUp, int quarterTurns, float scale, float scaleUp) {
-        float[] from = model.turned(quarterTurns);
-        float[] dim = model.dimmed;
-        // The light at a place over the square is its first corner's, and what is added to that along each edge and across.
-        float red = light.cornerRed[0], redA = light.cornerRed[1] - red, redB = light.cornerRed[3] - red, redAB = light.cornerRed[2] - light.cornerRed[1] - redB;
-        float green = light.cornerGreen[0], greenA = light.cornerGreen[1] - green, greenB = light.cornerGreen[3] - green,
-                greenAB = light.cornerGreen[2] - light.cornerGreen[1] - greenB;
-        float blue = light.cornerBlue[0], blueA = light.cornerBlue[1] - blue, blueB = light.cornerBlue[3] - blue,
-                blueAB = light.cornerBlue[2] - light.cornerBlue[1] - blueB;
-        float originX = centreX - tileX, originY = centreY - tileY;
-        for (int surface = 0; surface < SURFACES; surface++) {
-            int start = model.first[surface], end = model.first[surface + 1];
-            if (start == end) {
-                continue;
+    static void turnRows(int quarterTurns, float[] out, int at) {
+        float[] to = new float[2];
+        turn(quarterTurns, 1f, 0f, to);
+        out[at] = to[0];
+        out[at + 2] = to[1];
+        turn(quarterTurns, 0f, 1f, to);
+        out[at + 1] = to[0];
+        out[at + 3] = to[1];
+    }
+
+    /**
+     * The pieces of furniture standing on one chunk. A piece is a few numbers here and its
+     * model is on the graphics card once: a street of furnished houses written out vertex by
+     * vertex, every frame for the chunks near the eye, was more than the game's memory holds.
+     *
+     * The floats of a piece are in the order the picture's programs are told them, each group
+     * one uniform.
+     */
+    static final class Instances {
+        /** The square that lights the piece, then tiles to a metre of the model along the ground and up. */
+        static final int PLACE = 0;
+        /** Where the model's origin is from that square's corner, and how high its foot is. */
+        static final int FOOT = 4;
+        /** The quarter turns, as turnRows gives them. */
+        static final int TURN = 7;
+        /** The light at the square's first corner, then what is added to it along each edge and across: red, green and blue of each. */
+        static final int LIGHT = 11;
+        /** How open to the sky the square is, then the surfaces dyed from the first place on the sprite and from the second, a bit for each. */
+        static final int SURFACES = 23;
+        /** Where on the sprite's texture the first colour is taken, then the second. */
+        static final int DYE = 26;
+        /** The middle of a ball that holds the whole piece, on the map, and how far the ball reaches. */
+        static final int BALL = 30;
+        static final int FLOATS = 34;
+        /** The model's first vertex in the buffer of every model, how many it has, and the texture that dyes the piece or 0. */
+        static final int FIRST = 0, COUNT = 1, TEXTURE = 2;
+        static final int INTS = 3;
+
+        float[] floats = new float[FLOATS * 8];
+        int[] ints = new int[INTS * 8];
+        int count;
+
+        void clear() {
+            count = 0;
+        }
+
+        int triangles() {
+            int vertices = 0;
+            for (int i = 0; i < count; i++) {
+                vertices += ints[i * INTS + COUNT];
             }
-            boolean takesDye = (dyedSurfaces >> surface & 1) != 0, takesOther = !takesDye && (alsoDyed >> surface & 1) != 0;
-            SpriteGeometry.Mesh mesh = takesDye ? dyed : takesOther ? also : plain;
-            float u = takesDye ? dyeU : takesOther ? alsoU : 0f, v = takesDye ? dyeV : takesOther ? alsoV : 0f;
-            float open = light.open + 32f * ((takesDye || takesOther ? FIRST_DYED_MATERIAL : FIRST_MATERIAL) + surface);
-            float[] to = mesh.room((end - start) * SpriteGeometry.VERTEX_FLOATS);
-            int out = mesh.floats;
-            for (int vertex = start, at = start * VERTEX_FLOATS; vertex < end; vertex++, at += VERTEX_FLOATS) {
-                float overX = originX + from[at] * scale, overY = originY + from[at + 1] * scale;
-                float a = Math.min(Math.max(overX, 0f), 1f), b = Math.min(Math.max(overY, 0f), 1f), ab = a * b, dims = dim[vertex];
-                to[out] = tileX + overX;
-                to[out + 1] = tileY + overY;
-                to[out + 2] = baseUp + from[at + 2] * scaleUp;
-                to[out + 3] = u;
-                to[out + 4] = v;
-                to[out + 5] = dims * (red + a * redA + b * redB + ab * redAB);
-                to[out + 6] = dims * (green + a * greenA + b * greenB + ab * greenAB);
-                to[out + 7] = dims * (blue + a * blueA + b * blueB + ab * blueAB);
-                to[out + 8] = open;
-                to[out + 9] = from[at + 3];
-                to[out + 10] = from[at + 4];
-                to[out + 11] = from[at + 5];
-                out += SpriteGeometry.VERTEX_FLOATS;
+            return vertices / 3;
+        }
+
+        /**
+         * Stands a model with the centre of its footprint at (centreX, centreY) on the map and
+         * its foot at baseUp, turned by quarterTurns as turn says, one metre of it scale tiles
+         * along the ground and scaleUp tiles up.
+         *
+         * The surfaces whose bit is set in dyedSurfaces look at the texel (dyeU, dyeV) of
+         * dyeTexture, and those whose bit is set in alsoDyed and not in dyedSurfaces at (alsoU,
+         * alsoV). The rest have their own colour. Each vertex is lit as the square at (tileX,
+         * tileY) is, by where over that square it is: light holds that square's light.
+         */
+        void add(Model model, SpriteGeometry.Frame light, int tileX, int tileY, float centreX, float centreY, float baseUp, int quarterTurns,
+                float scale, float scaleUp, int dyeTexture, int dyedSurfaces, float dyeU, float dyeV, int alsoDyed, float alsoU, float alsoV) {
+            if ((count + 1) * FLOATS > floats.length) {
+                floats = Arrays.copyOf(floats, floats.length * 2);
+                ints = Arrays.copyOf(ints, ints.length * 2);
             }
-            mesh.floats = out;
+            int at = count * FLOATS, whole = count * INTS;
+            float[] to = floats;
+            to[at + PLACE] = tileX;
+            to[at + PLACE + 1] = tileY;
+            to[at + PLACE + 2] = scale;
+            to[at + PLACE + 3] = scaleUp;
+            to[at + FOOT] = centreX - tileX;
+            to[at + FOOT + 1] = centreY - tileY;
+            to[at + FOOT + 2] = baseUp;
+            turnRows(quarterTurns, to, at + TURN);
+            corners(light.cornerRed, to, at + LIGHT);
+            corners(light.cornerGreen, to, at + LIGHT + 1);
+            corners(light.cornerBlue, to, at + LIGHT + 2);
+            to[at + SURFACES] = light.open;
+            to[at + SURFACES + 1] = dyedSurfaces;
+            to[at + SURFACES + 2] = alsoDyed & ~dyedSurfaces;
+            to[at + DYE] = dyeU;
+            to[at + DYE + 1] = dyeV;
+            to[at + DYE + 2] = alsoU;
+            to[at + DYE + 3] = alsoV;
+            ints[whole + FIRST] = model.start;
+            ints[whole + COUNT] = model.surface.length;
+            ints[whole + TEXTURE] = dyeTexture;
+            stand(count, (model.minX + model.maxX) / 2f, (model.minY + model.maxY) / 2f, (model.minZ + model.maxZ) / 2f, to, at + BALL);
+            float halfWide = model.width() * scale / 2f, halfDeep = model.depth() * scale / 2f, halfHigh = model.height() * scaleUp / 2f;
+            to[at + BALL + 3] = (float) Math.sqrt(halfWide * halfWide + halfDeep * halfDeep + halfHigh * halfHigh);
+            count++;
+        }
+
+        /** The light at the first corner, and what is added to it along each edge and across, into every third float from at. */
+        private static void corners(float[] corner, float[] to, int at) {
+            float down = corner[3] - corner[0];
+            to[at] = corner[0];
+            to[at + 3] = corner[1] - corner[0];
+            to[at + 6] = down;
+            to[at + 9] = corner[2] - corner[1] - down;
+        }
+
+        /**
+         * Where on the map the point (x, y, z) of the piece's model is, into out from at as x, y
+         * and height: the sum the picture's programs do for every vertex, in the same order.
+         */
+        void stand(int piece, float x, float y, float z, float[] out, int at) {
+            int from = piece * FLOATS;
+            float[] f = floats;
+            float overX = f[from + FOOT] + (f[from + TURN] * x + f[from + TURN + 1] * y) * f[from + PLACE + 2];
+            float overY = f[from + FOOT + 1] + (f[from + TURN + 2] * x + f[from + TURN + 3] * y) * f[from + PLACE + 2];
+            out[at] = f[from + PLACE] + overX;
+            out[at + 1] = f[from + PLACE + 1] + overY;
+            out[at + 2] = f[from + FOOT + 2] + z * f[from + PLACE + 3];
         }
     }
 }

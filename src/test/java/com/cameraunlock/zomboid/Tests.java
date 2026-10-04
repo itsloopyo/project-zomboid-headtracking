@@ -67,24 +67,32 @@ public final class Tests {
         packedModelIsReadBack();
         brokenModelFilesAreRefused();
         quarterTurnsCarryAModelsFrontRoundTheCompass();
-        modelStandsWhereItIsPutAndTakesItsDye();
-        modelTakesASecondDyeAndItsOwnHeight();
-        modelIsLitByWhereOverItsSquareItIs();
-        turnedModelIsTheModelTurned();
+        modelsAreLaidOutOneAfterAnotherForTheGraphicsCard();
+        pieceIsPackedAsThePictureIsToldIt();
+        pieceStandsWhereTheModelTurnedScaledAndMovedIs();
+        pieceCarriesTheLightOfItsSquaresCorners();
+        pieceIsHeldByItsBall();
         jarHoldsEveryModelStoodOnTheFloor();
         System.out.println("all tests passed");
     }
 
     /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */
     private static java.nio.ByteBuffer packedWedge() {
-        java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(256).order(java.nio.ByteOrder.LITTLE_ENDIAN);
-        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(2).putInt(1);
-        out.put((byte) 5).put("wedge".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-        out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
-        out.putInt(1);
-        out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
-        out.putFloat(0f).putFloat(2f).putFloat(1f).putFloat(0f).putFloat(0f).putFloat(1f).put((byte) Models.CLOTH).put((byte) 51);
-        out.putFloat(1f).putFloat(0f).putFloat(0.5f).putFloat(1f).putFloat(0f).putFloat(0f).put((byte) Models.METAL).put((byte) 0);
+        return packedWedges("wedge");
+    }
+
+    /** The same triangle under each of the names, one model after another. */
+    private static java.nio.ByteBuffer packedWedges(String... names) {
+        java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(256 * names.length).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(2).putInt(names.length);
+        for (String name : names) {
+            out.put((byte) name.length()).put(name.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
+            out.putInt(1);
+            out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
+            out.putFloat(0f).putFloat(2f).putFloat(1f).putFloat(0f).putFloat(0f).putFloat(1f).put((byte) Models.CLOTH).put((byte) 51);
+            out.putFloat(1f).putFloat(0f).putFloat(0.5f).putFloat(1f).putFloat(0f).putFloat(0f).put((byte) Models.METAL).put((byte) 0);
+        }
         return out.flip();
     }
 
@@ -165,96 +173,151 @@ public final class Tests {
         check(near(out[0], 1f) && near(out[1], 0f), "five quarter turns are one");
     }
 
-    private static void modelStandsWhereItIsPutAndTakesItsDye() throws java.io.IOException {
-        Models.Model wedge = wedge();
-        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh(), dyed = new SpriteGeometry.Mesh();
+    private static void modelsAreLaidOutOneAfterAnotherForTheGraphicsCard() throws java.io.IOException {
+        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
+        Models.Model first = models.get("first"), second = models.get("second");
+        check(first.start == 0 && second.start == 3, "each model starts where the one before it ends");
+        float[] buffer = Models.buffer(models.values());
+        check(buffer.length == 6 * Models.BUFFER_FLOATS, "every vertex of every model is there");
+        int cloth = (second.start + 1) * Models.BUFFER_FLOATS;
+        check(near(buffer[cloth], 0f) && near(buffer[cloth + 1], 2f) && near(buffer[cloth + 2], 1f), "a vertex is where the model has it, not turned or moved");
+        check(near(buffer[cloth + 3], 0f) && near(buffer[cloth + 4], 0f) && near(buffer[cloth + 5], 1f), "and looks the way the model has it look");
+        check(near(buffer[cloth + 6], Models.CLOTH), "it says what it is made of");
+        // The picture raises the light a vertex carries to the power 2.2, which leaves the fifth of it the vertex was packed with.
+        check(near(buffer[cloth + 7], (float) Math.pow(0.2, 1.0 / 2.2)), "and how much of its square's light the model lets through to it");
+        check(near(buffer[7], 1f) && near(buffer[2 * Models.BUFFER_FLOATS + 6], Models.METAL), "the first model's vertices are before it");
+    }
+
+    /** A wedge stood facing east at half size, its middle at (10.5, 20.5), on a floor 2.5 up, out of doors. Its cloth is dyed, and its metal from a second place. */
+    private static Models.Instances stoodWedge(Models.Model wedge) {
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         light.light(0.5f, 0.6f, 0.7f);
         light.open = 1f;
-        // Facing east at half size, its middle at (10.5, 20.5), on a floor 2.5 up. The cloth is dyed.
-        Models.add(wedge, plain, dyed, 1 << Models.CLOTH, 0.25f, 0.75f, dyed, 0, 0f, 0f, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f, 0.5f);
-        check(plain.floats == 2 * SpriteGeometry.VERTEX_FLOATS && dyed.floats == SpriteGeometry.VERTEX_FLOATS, "the dyed surface alone goes to the sprite's mesh");
-        float[] wood = plain.vertices;
-        // The model's (-1, -2, 0) faces east: its -y is the map's +x, its +x the map's -y.
-        check(near(wood[0], 11.5f) && near(wood[1], 21f) && near(wood[2], 2.5f), "a vertex is turned, scaled and moved to where the model stands");
-        check(near(wood[3], 0f) && near(wood[4], 0f), "a surface with a colour of its own looks at no texel");
-        check(near(wood[5], 0.5f) && near(wood[6], 0.6f) && near(wood[7], 0.7f), "it carries the square's light");
-        check(near(wood[8], 1f + 32f * (Models.FIRST_MATERIAL + Models.WOOD)), "and says what it is made of, and that it is out of doors");
-        check(near(wood[9], 1f) && near(wood[10], 0f) && near(wood[11], 0f), "the way it looks is turned with it: the front looks east");
-        float[] cloth = dyed.vertices;
-        check(near(cloth[0], 9.5f) && near(cloth[1], 20.5f) && near(cloth[2], 3f), "the dyed vertex stands with the rest");
-        check(near(cloth[3], 0.25f) && near(cloth[4], 0.75f), "and looks at the texel that dyes it");
-        // The picture raises the colour to the power 2.2, which leaves the fifth of the light the vertex was packed with.
-        float fifth = (float) Math.pow(0.2, 1.0 / 2.2);
-        check(near(cloth[5], 0.5f * fifth) && near(cloth[6], 0.6f * fifth) && near(cloth[7], 0.7f * fifth),
-                "what reaches a vertex of the square's light is what the model lets through");
-        check(near(cloth[8], 1f + 32f * (Models.FIRST_DYED_MATERIAL + Models.CLOTH)), "and is marked as taking its colour from the sprite");
-        check(near(cloth[11], 1f), "what looks up still looks up");
+        Models.Instances pieces = new Models.Instances();
+        pieces.add(wedge, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f, 0.25f, 77, 1 << Models.CLOTH, 0.25f, 0.75f,
+                1 << Models.METAL | 1 << Models.CLOTH, 0.3f, 0.4f);
+        return pieces;
     }
 
-    private static void modelTakesASecondDyeAndItsOwnHeight() throws java.io.IOException {
-        Models.Model wedge = wedge();
-        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh(), dyed = new SpriteGeometry.Mesh(), also = new SpriteGeometry.Mesh();
-        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
-        light.light(1f, 1f, 1f);
-        // Facing north, a metre to a tile along the ground and two tiles to a metre up. The wood takes one colour of the sprite and the metal another.
-        Models.add(wedge, plain, dyed, 1 << Models.WOOD, 0.1f, 0.2f, also, 1 << Models.METAL, 0.3f, 0.4f, light, 4, 6, 4.5f, 6.5f, 1f, 0, 1f, 2f);
-        check(plain.floats == SpriteGeometry.VERTEX_FLOATS && dyed.floats == SpriteGeometry.VERTEX_FLOATS && also.floats == SpriteGeometry.VERTEX_FLOATS,
-                "each surface goes to the mesh of the colour it takes, and the rest to the plain one");
-        check(near(dyed.vertices[3], 0.1f) && near(dyed.vertices[4], 0.2f) && near(also.vertices[3], 0.3f) && near(also.vertices[4], 0.4f),
-                "each dyed surface looks at its own place on the sprite");
-        check(near(dyed.vertices[8], 32f * (Models.FIRST_DYED_MATERIAL + Models.WOOD)) && near(also.vertices[8], 32f * (Models.FIRST_DYED_MATERIAL + Models.METAL)),
-                "and both are marked as taking their colour from the sprite");
+    private static void pieceIsPackedAsThePictureIsToldIt() throws java.io.IOException {
+        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
+        Models.Instances pieces = stoodWedge(models.get("second"));
+        check(pieces.count == 1 && pieces.triangles() == 1, "a piece is one record whatever its model holds");
+        float[] f = pieces.floats;
+        int[] whole = pieces.ints;
+        check(whole[Models.Instances.FIRST] == 3 && whole[Models.Instances.COUNT] == 3, "it says which vertices of the buffer are its model");
+        check(whole[Models.Instances.TEXTURE] == 77, "and which texture dyes it");
+        check(near(f[Models.Instances.PLACE], 10f) && near(f[Models.Instances.PLACE + 1], 20f), "it is lit by the square it was stood on");
+        check(near(f[Models.Instances.PLACE + 2], 0.5f) && near(f[Models.Instances.PLACE + 3], 0.25f), "it keeps its size along the ground and its size up apart");
+        check(near(f[Models.Instances.FOOT], 0.5f) && near(f[Models.Instances.FOOT + 1], 0.5f) && near(f[Models.Instances.FOOT + 2], 2.5f),
+                "its origin is given from that square's corner, and its foot is on the floor");
+        check(near(f[Models.Instances.SURFACES], 1f), "it is out of doors as its square is");
+        check(f[Models.Instances.SURFACES + 1] == (1 << Models.CLOTH), "the dyed surfaces are a bit each");
+        check(f[Models.Instances.SURFACES + 2] == (1 << Models.METAL), "a surface dyed from the first place is not also dyed from the second");
+        check(near(f[Models.Instances.DYE], 0.25f) && near(f[Models.Instances.DYE + 1], 0.75f) && near(f[Models.Instances.DYE + 2], 0.3f)
+                && near(f[Models.Instances.DYE + 3], 0.4f), "each dye looks at its own place on the sprite");
         check(Models.FIRST_DYED_MATERIAL - Models.FIRST_MATERIAL >= Models.SURFACES, "the dyed surfaces are numbered clear of the plain ones");
-        // The cloth vertex is the model's (0, 2, 1): facing north its +y is the map's +y.
-        check(near(plain.vertices[0], 4.5f) && near(plain.vertices[1], 8.5f), "along the ground the model is the size it was made");
-        check(near(plain.vertices[2], 3f), "and up it is as high as it is told to be: a metre of it is two tiles above its foot");
+        check((1 << Models.SURFACES) - 1 < 1 << 24, "every set of surfaces is a whole number a float holds exactly");
+
+        pieces.add(models.get("first"), new SpriteGeometry.Frame(), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        for (int i = 0; i < 20; i++) {
+            pieces.add(models.get("second"), new SpriteGeometry.Frame(), i, 0, i + 0.5f, 0.5f, 0f, i, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        }
+        f = pieces.floats;
+        whole = pieces.ints;
+        check(pieces.count == 22 && pieces.triangles() == 22, "pieces are kept however many there are");
+        check(near(f[Models.Instances.PLACE], 10f) && whole[Models.Instances.TEXTURE] == 77, "and the first is as it was");
+        check(whole[Models.Instances.INTS + Models.Instances.FIRST] == 0 && whole[Models.Instances.INTS + Models.Instances.TEXTURE] == 0,
+                "a piece that takes no dye names no texture");
+        check(near(f[21 * Models.Instances.FLOATS + Models.Instances.PLACE], 19f) && whole[21 * Models.Instances.INTS + Models.Instances.FIRST] == 3,
+                "the last is where the last was put");
+        pieces.clear();
+        check(pieces.count == 0 && pieces.triangles() == 0, "a chunk built again starts with none");
     }
 
-    private static void modelIsLitByWhereOverItsSquareItIs() throws java.io.IOException {
+    /**
+     * Each vertex of the model as it was written into a chunk's mesh before the graphics card
+     * stood the models: turned, then made the size it is told along the ground and up, then
+     * moved to where the model stands.
+     */
+    private static void pieceStandsWhereTheModelTurnedScaledAndMovedIs() throws java.io.IOException {
         Models.Model wedge = wedge();
-        SpriteGeometry.Mesh plain = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        float[] turned = new float[2], stood = new float[3], rows = new float[4];
+        float[][] sizes = {{1f, 1f}, {0.5f, 0.5f}, {0.97f, 1.4f}, {2f, 0.2f}};
+        for (int turns = 0; turns < 4; turns++) {
+            for (float[] size : sizes) {
+                int tileX = 10712, tileY = 9604;
+                float centreX = tileX + 1.5f, centreY = tileY + 0.31f, baseUp = 2.5f;
+                Models.Instances pieces = new Models.Instances();
+                pieces.add(wedge, light, tileX, tileY, centreX, centreY, baseUp, turns, size[0], size[1], 0, 0, 0f, 0f, 0, 0f, 0f);
+                String when = " at turn " + turns + " and size " + size[0] + " by " + size[1];
+                for (int at = 0; at < wedge.vertices.length; at += Models.VERTEX_FLOATS) {
+                    float[] v = wedge.vertices;
+                    Models.turn(turns, v[at], v[at + 1], turned);
+                    float overX = centreX - tileX + turned[0] * size[0], overY = centreY - tileY + turned[1] * size[0];
+                    pieces.stand(0, v[at], v[at + 1], v[at + 2], stood, 0);
+                    check(stood[0] == tileX + overX && stood[1] == tileY + overY && stood[2] == baseUp + v[at + 2] * size[1],
+                            "a vertex stands where it was written before," + when);
+                    // The way a vertex looks is turned with the model and nothing else.
+                    Models.turn(turns, v[at + 3], v[at + 4], turned);
+                    System.arraycopy(pieces.floats, Models.Instances.TURN, rows, 0, 4);
+                    check(rows[0] * v[at + 3] + rows[1] * v[at + 4] == turned[0] && rows[2] * v[at + 3] + rows[3] * v[at + 4] == turned[1],
+                            "and looks the way it did," + when);
+                }
+            }
+        }
+        Models.Instances east = stoodWedge(wedge);
+        // The model's (-1, -2, 0) faces east: its -y is the map's +x, its +x the map's -y.
+        east.stand(0, -1f, -2f, 0f, stood, 0);
+        check(near(stood[0], 11.5f) && near(stood[1], 21f) && near(stood[2], 2.5f), "a vertex is turned, scaled and moved to where the model stands");
+        east.stand(0, 0f, 2f, 1f, stood, 0);
+        check(near(stood[0], 9.5f) && near(stood[1], 20.5f) && near(stood[2], 2.75f), "and is as high as the model is told to be, whatever its size along the ground");
+    }
+
+    private static void pieceCarriesTheLightOfItsSquaresCorners() throws java.io.IOException {
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         // The square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1), each a light of its own.
-        float[] red = {0.1f, 0.5f, 0.9f, 0.3f}, green = {0.2f, 0.4f, 0.6f, 0.8f}, blue = {1f, 0f, 0.5f, 0.25f};
-        System.arraycopy(red, 0, light.cornerRed, 0, 4);
-        System.arraycopy(green, 0, light.cornerGreen, 0, 4);
-        System.arraycopy(blue, 0, light.cornerBlue, 0, 4);
-        // At a fifth of its size about (0.5, 0.5) of the square: the wood vertex, the model's (-1, -2, 0), is at (0.7, 0.1).
-        Models.add(wedge, plain, plain, 0, 0f, 0f, plain, 0, 0f, 0f, light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f);
-        float a = 0.7f, b = 0.1f;
-        float[] weights = {(1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b};
-        float wantRed = 0f, wantGreen = 0f, wantBlue = 0f;
-        for (int corner = 0; corner < 4; corner++) {
-            wantRed += weights[corner] * red[corner];
-            wantGreen += weights[corner] * green[corner];
-            wantBlue += weights[corner] * blue[corner];
+        float[][] corners = {{0.1f, 0.5f, 0.9f, 0.3f}, {0.2f, 0.4f, 0.6f, 0.8f}, {1f, 0f, 0.5f, 0.25f}};
+        System.arraycopy(corners[0], 0, light.cornerRed, 0, 4);
+        System.arraycopy(corners[1], 0, light.cornerGreen, 0, 4);
+        System.arraycopy(corners[2], 0, light.cornerBlue, 0, 4);
+        Models.Instances pieces = new Models.Instances();
+        pieces.add(wedge(), light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        float[] f = pieces.floats;
+        float[][] places = {{0f, 0f}, {1f, 0f}, {1f, 1f}, {0f, 1f}, {0.7f, 0.1f}, {0.5f, 0.9f}};
+        for (float[] place : places) {
+            float a = place[0], b = place[1];
+            float[] weights = {(1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b};
+            for (int colour = 0; colour < 3; colour++) {
+                float want = 0f;
+                for (int corner = 0; corner < 4; corner++) {
+                    want += weights[corner] * corners[colour][corner];
+                }
+                int at = Models.Instances.LIGHT + colour;
+                // The sum the picture does for a vertex that far along and down its square.
+                float got = f[at] + a * f[at + 3] + b * f[at + 6] + a * b * f[at + 9];
+                check(near(got, want), "a place over the square takes of each corner's light by how near that corner it is, at " + a + ", " + b);
+            }
         }
-        check(near(plain.vertices[0], a) && near(plain.vertices[1], b), "the vertex is where the sum puts it");
-        check(near(plain.vertices[5], wantRed) && near(plain.vertices[6], wantGreen) && near(plain.vertices[7], wantBlue),
-                "a vertex takes of each corner's light by how near that corner it is");
-        // The cloth vertex, the model's (0, 2, 1), is at (0.5, 0.9), and a fifth of its light gets past the model.
-        float fifth = (float) Math.pow(0.2, 1.0 / 2.2);
-        float clothRed = 0.5f * 0.1f * (0.1f + 0.5f) + 0.5f * 0.9f * (0.9f + 0.3f);
-        check(near(plain.vertices[SpriteGeometry.VERTEX_FLOATS + 5], fifth * clothRed), "and what the model lets through of it");
-        SpriteGeometry.Mesh outside = new SpriteGeometry.Mesh();
-        // Twice the size: the wood vertex is at (2.5, -3.5) from the square's corner, off the square, and is lit as the nearest place on it is.
-        Models.add(wedge, outside, outside, 0, 0f, 0f, outside, 0, 0f, 0f, light, 0, 0, 0.5f, 0.5f, 0f, 0, 2f, 2f);
-        check(near(outside.vertices[5], red[1]) && near(outside.vertices[6], green[1]) && near(outside.vertices[7], blue[1]),
-                "a vertex beyond the square takes the light of the square's nearest edge");
     }
 
-    private static void turnedModelIsTheModelTurned() throws java.io.IOException {
+    private static void pieceIsHeldByItsBall() throws java.io.IOException {
         Models.Model wedge = wedge();
-        float[] to = new float[2];
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        float[] stood = new float[3];
         for (int turns = 0; turns < 4; turns++) {
-            float[] turned = wedge.turned(turns);
-            check(turned == wedge.turned(turns + 4), "a model is turned once for each way it can face, and kept");
-            for (int at = 0; at < wedge.vertices.length; at += Models.VERTEX_FLOATS) {
-                Models.turn(turns, wedge.vertices[at], wedge.vertices[at + 1], to);
-                check(near(turned[at], to[0]) && near(turned[at + 1], to[1]) && near(turned[at + 2], wedge.vertices[at + 2]), "a turned vertex is the vertex turned, at turn " + turns);
-                Models.turn(turns, wedge.vertices[at + 3], wedge.vertices[at + 4], to);
-                check(near(turned[at + 3], to[0]) && near(turned[at + 4], to[1]) && near(turned[at + 5], wedge.vertices[at + 5]), "and looks the way it looked, turned");
+            Models.Instances pieces = new Models.Instances();
+            pieces.add(wedge, light, 5, 7, 5.2f, 7.9f, 1f, turns, 0.6f, 1.7f, 0, 0, 0f, 0f, 0, 0f, 0f);
+            float[] f = pieces.floats;
+            int ball = Models.Instances.BALL;
+            for (int corner = 0; corner < 8; corner++) {
+                pieces.stand(0, (corner & 1) == 0 ? wedge.minX : wedge.maxX, (corner & 2) == 0 ? wedge.minY : wedge.maxY,
+                        (corner & 4) == 0 ? wedge.minZ : wedge.maxZ, stood, 0);
+                float away = (float) Math.sqrt((stood[0] - f[ball]) * (stood[0] - f[ball]) + (stood[1] - f[ball + 1]) * (stood[1] - f[ball + 1])
+                        + (stood[2] - f[ball + 2]) * (stood[2] - f[ball + 2]));
+                check(away <= f[ball + 3] + 1e-4f, "every corner of the piece is inside the ball it is left out of the picture by, at turn " + turns);
+                check(away >= f[ball + 3] - 1e-4f, "and the ball is no bigger than that takes");
             }
         }
     }

@@ -49,6 +49,9 @@ public final class GL11 {
     public static void glTexCoordPointer(int size, int type, int stride, FloatBuffer pointer) { throw stub(); }
     public static void glColorPointer(int size, int type, int stride, FloatBuffer pointer) { throw stub(); }
     public static void glNormalPointer(int type, int stride, FloatBuffer pointer) { throw stub(); }
+    public static void glVertexPointer(int size, int type, int stride, long pointer) { throw stub(); }
+    public static void glTexCoordPointer(int size, int type, int stride, long pointer) { throw stub(); }
+    public static void glNormalPointer(int type, int stride, long pointer) { throw stub(); }
     public static void glPolygonOffset(float factor, float units) { throw stub(); }
     public static void glDrawBuffer(int buffer) { throw stub(); }
     public static void glReadBuffer(int buffer) { throw stub(); }

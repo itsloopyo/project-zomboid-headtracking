@@ -124,6 +124,7 @@ final class Pipeline {
     private static final int GL_VERTEX_ARRAY_BINDING = 0x85B5;
     private static final int GL_ARRAY_BUFFER = 0x8892;
     private static final int GL_ARRAY_BUFFER_BINDING = 0x8894;
+    private static final int GL_STATIC_DRAW = 0x88E4;
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC;
     private static final int GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
     private static final int GL_SAMPLER_BINDING = 0x8919;
@@ -191,6 +192,27 @@ final class Pipeline {
             }
             """;
 
+    /**
+     * Where a vertex of one of the mod's models stands: see Models.Instances, whose floats
+     * these uniforms are. The picture and every shadow map share it, so a piece's shadow is
+     * cast from where the piece is drawn.
+     */
+    private static final String MODEL_STANDS = """
+            uniform float uModel;
+            uniform vec4 uPlace;
+            uniform vec3 uFoot;
+            uniform vec4 uTurn;
+
+            vec2 turned(vec2 way) {
+                return vec2(dot(uTurn.xy, way), dot(uTurn.zw, way));
+            }
+
+            // Where over the square that lights the piece the vertex is, and how high.
+            vec3 over(vec3 at) {
+                return vec3(uFoot.xy + turned(at.xy) * uPlace.z, uFoot.z + at.z * uPlace.w);
+            }
+            """;
+
     private static final String WORLD_VERTEX = """
             #version 120
             varying vec2 vUv;
@@ -202,6 +224,20 @@ final class Pipeline {
             varying float vMaterial;
             uniform vec3 uWind;
             uniform float uLaid;
+            """ + MODEL_STANDS + """
+            uniform vec3 uLit;
+            uniform vec3 uLitAlong;
+            uniform vec3 uLitDown;
+            uniform vec3 uLitAcross;
+            uniform vec3 uSurfaces;
+            uniform vec4 uDye;
+
+            // Whether the surface's bit is set in a whole number of them. The half is there for a
+            // power of two worked out a hair too large, which would otherwise divide the
+            // surface's own bit to just under 1 and lose it.
+            bool has(float bits, float surface) {
+                return mod(floor((bits + 0.5) / exp2(surface)), 2.0) > 0.5;
+            }
 
             // Where the wind has moved a vertex to. The normal's length says how much of the
             // wind the vertex takes: nothing at a plant's root, all of it at its top.
@@ -215,19 +251,37 @@ final class Pipeline {
                 return vec4(at.xy + uWind.xy * (take * lean), at.zw);
             }
             void main() {
+                vec4 stands = gl_Vertex;
+                vec3 looks = gl_Normal;
                 vUv = gl_MultiTexCoord0.xy;
                 vColor = gl_Color;
-                vNormal = gl_Normal;
+                if (uModel > 0.5) {
+                    // A model's vertex is in the model's own metres, and carries its surface and
+                    // how much light gets to it past the rest of the model where a sprite's
+                    // carries a texel. It is made here into what a vertex of the frame's own
+                    // arrays is: stood on the map, lit by where over its square it is, and
+                    // marked with its surface, which a dyed one adds 16 more to.
+                    vec3 on = over(gl_Vertex.xyz);
+                    stands = vec4(uPlace.xy + on.xy, on.z, 1.0);
+                    looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
+                    vec2 share = clamp(on.xy, 0.0, 1.0);
+                    float surface = floor(gl_MultiTexCoord0.x + 0.5);
+                    bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
+                    vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
+                    vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
+                            uSurfaces.x + 32.0 * ((dyed || also ? 32.0 : 16.0) + surface));
+                }
+                vNormal = looks;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
                 // The colour's alpha carries what kind of thing the vertex is, and in the
                 // thirty-twos above that what it is made of.
-                vMaterial = floor((gl_Color.a + 0.5) / 32.0);
-                vKind = gl_Color.a - 32.0 * vMaterial;
+                vMaterial = floor((vColor.a + 0.5) / 32.0);
+                vKind = vColor.a - 32.0 * vMaterial;
                 bool still = uLaid > 0.5 && vKind < 7.5 || vKind > 3.5 && vKind < 7.5;
-                vec4 at = still ? gl_Vertex : blown(gl_Vertex, gl_Normal);
-                vCover = 2.0 - length(gl_Normal);
+                vec4 at = still ? stands : blown(stands, looks);
+                vCover = 2.0 - length(looks);
                 vWorld = at.xyz;
                 gl_Position = gl_ModelViewProjectionMatrix * at;
             }
@@ -1043,7 +1097,18 @@ final class Pipeline {
             }
             varying float vLeaves;
             varying vec3 vAt;
+            """ + MODEL_STANDS + """
             void main() {
+                if (uModel > 0.5) {
+                    // A model is solid all over and nothing of it blows about. It is drawn with
+                    // the white texture, of which any place will do.
+                    vec3 on = over(gl_Vertex.xyz);
+                    vUv = vec2(0.0);
+                    vLeaves = 0.0;
+                    vAt = vec3(uPlace.xy + on.xy, on.z);
+                    gl_Position = uMatrix * vec4(vAt, 1.0);
+                    return;
+                }
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
                 vLeaves = material > 4.5 && material < 5.5 ? 1.0 : 0.0;
@@ -2678,6 +2743,11 @@ final class Pipeline {
     private static int[] rangeTexture = new int[256], rangeFirst = new int[256], rangeCount = new int[256], rangeTint = new int[256];
     private static final float[] tint = new float[4];
     private static int ranges, solidRanges;
+    /** The chunk builds the frame draws, for the furniture standing on each. */
+    private static ArrayList<WorldScene.ChunkMeshes> drawn;
+    /** Every model the mod has, on the graphics card as Models.buffer lays them out. */
+    private static int modelBuffer;
+    private static final int MODEL_STRIDE = Models.BUFFER_FLOATS * Float.BYTES;
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private static final float[] beamMatrix = new float[16];
     private static int beamMap, beamTarget;
@@ -2872,6 +2942,7 @@ final class Pipeline {
      * draw however many chunks show it. What is solid comes first, then what is laid over it.
      */
     private static void load(ArrayList<WorldScene.ChunkMeshes> chunks) {
+        drawn = chunks;
         solidRuns.clear();
         laidRuns.clear();
         for (int i = 0; i < chunks.size(); i++) {
@@ -3048,6 +3119,96 @@ final class Pipeline {
         }
     }
 
+    /**
+     * Points OpenGL at the models, handing them to the graphics card the first time.
+     *
+     * A pointer is read as a place in whichever buffer is bound when it is set, and as memory
+     * of this process when none is. So the buffer is bound while these three are set and no
+     * longer: arrays() sets the frame's own with none bound, and one of them set with this
+     * still bound would be taken for a place in it, far past its end. The models carry no
+     * colour, and the frame's colours are too few for a model's vertices, so that array is off
+     * until arrays() puts it back.
+     */
+    private static void modelArrays() {
+        boolean made = modelBuffer != 0;
+        if (!made) {
+            modelBuffer = GL15.glGenBuffers();
+        }
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, modelBuffer);
+        if (!made) {
+            float[] models = Models.buffer();
+            GL15.glBufferData(GL_ARRAY_BUFFER, buffer(models.length).put(models).flip(), GL_STATIC_DRAW);
+        }
+        GL13.glClientActiveTexture(GL_TEXTURE0);
+        GL11.glVertexPointer(3, GL_FLOAT, MODEL_STRIDE, 0L);
+        GL11.glNormalPointer(GL_FLOAT, MODEL_STRIDE, 3L * Float.BYTES);
+        GL11.glTexCoordPointer(2, GL_FLOAT, MODEL_STRIDE, 6L * Float.BYTES);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    /**
+     * Draws the furniture standing on the chunks the frame shows, each piece from the one copy
+     * of its model the graphics card holds, and leaves the frame's own arrays set as it found
+     * them.
+     *
+     * @param lit     whether the program lights and colours what it draws, or only casts it into a map
+     * @param within  the eye of a picture that pieces wholly behind it or beyond far are left out of, or null to draw them all
+     */
+    private static void drawModels(Program program, boolean lit, ViewCamera.Pose within, float far) {
+        boolean any = false;
+        int bound = 0;
+        for (int chunk = 0; chunk < drawn.size(); chunk++) {
+            Models.Instances placed = drawn.get(chunk).placed;
+            float[] f = placed.floats;
+            int[] whole = placed.ints;
+            for (int piece = 0; piece < placed.count; piece++) {
+                int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
+                if (within != null) {
+                    int ball = at + Models.Instances.BALL;
+                    float ahead = (f[ball] - within.eyeX) * within.forwardX + (f[ball + 1] - within.eyeY) * within.forwardY
+                            + (f[ball + 2] - within.eyeUp) * within.forwardUp;
+                    if (ahead < -f[ball + 3] || ahead > far + f[ball + 3]) {
+                        continue;
+                    }
+                }
+                if (!any) {
+                    any = true;
+                    modelArrays();
+                    program.set("uModel", 1f);
+                    if (!lit) {
+                        GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
+                    }
+                }
+                int place = at + Models.Instances.PLACE, foot = at + Models.Instances.FOOT, turn = at + Models.Instances.TURN;
+                program.set("uPlace", f[place], f[place + 1], f[place + 2], f[place + 3]);
+                program.set("uFoot", f[foot], f[foot + 1], f[foot + 2]);
+                program.set("uTurn", f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
+                if (lit) {
+                    int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
+                    program.set("uLit", f[light], f[light + 1], f[light + 2]);
+                    program.set("uLitAlong", f[light + 3], f[light + 4], f[light + 5]);
+                    program.set("uLitDown", f[light + 6], f[light + 7], f[light + 8]);
+                    program.set("uLitAcross", f[light + 9], f[light + 10], f[light + 11]);
+                    program.set("uSurfaces", f[surfaces], f[surfaces + 1], f[surfaces + 2]);
+                    program.set("uDye", f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                    int texture = whole[ints + Models.Instances.TEXTURE] == 0 ? whiteTexture : whole[ints + Models.Instances.TEXTURE];
+                    if (texture != bound) {
+                        bound = texture;
+                        GL11.glBindTexture(GL_TEXTURE_2D, texture);
+                        program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
+                                1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
+                    }
+                }
+                GL11.glDrawArrays(GL_TRIANGLES, whole[ints + Models.Instances.FIRST], whole[ints + Models.Instances.COUNT]);
+            }
+        }
+        if (any) {
+            program.set("uModel", 0f);
+            arrays();
+        }
+    }
+
     private static void drawShadows(SkyState state, ViewCamera.Pose camera, boolean figures) {
         lightMatrix(nearMatrix, state, camera, NEAR_EXTENT, NEAR_RANGE);
         lightMatrix(farMatrix, state, camera, FAR_EXTENT, FAR_RANGE);
@@ -3081,6 +3242,7 @@ final class Pipeline {
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
             drawRanges(0, solidRanges);
+            drawModels(shadow, false, null, 0f);
         }
         if (figures) {
             // The game's own draw of each character, with the light's matrix where its camera
@@ -3133,6 +3295,7 @@ final class Pipeline {
             shadow.set("uSunWay", 0f, 0f, 1f);
             GL13.glActiveTexture(GL_TEXTURE0);
             drawRanges(0, solidRanges);
+            drawModels(shadow, false, null, 0f);
             if (figures) {
                 Characters.castCharacters(beamMatrix, camera);
                 arrays();
@@ -3167,6 +3330,7 @@ final class Pipeline {
             shadow.set("uMatrix", roofMatrix);
             shadow.set("uSunWay", 0f, 0f, 1f);
             drawRanges(0, solidRanges);
+            drawModels(shadow, false, null, 0f);
         }
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
@@ -3384,6 +3548,8 @@ final class Pipeline {
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
         drawRanges(0, solidRanges, world);
+        // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
+        drawModels(world, true, inMirror ? null : camera, far);
         // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
         // that stands on them.
         GL11.glEnable(GL_BLEND);

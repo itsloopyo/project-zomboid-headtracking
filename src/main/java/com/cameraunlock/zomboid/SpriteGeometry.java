@@ -126,18 +126,6 @@ final class SpriteGeometry {
             vertices[floats++] = normalY * (1f + sway);
             vertices[floats++] = normalUp * (1f + sway);
         }
-
-        /**
-         * Makes room for that many floats more and returns the array they go in, from floats on.
-         * For whoever adds thousands of vertices at once, a model: it writes them straight in and
-         * then moves floats past them, where add would look at the array's length for each one.
-         */
-        float[] room(int more) {
-            if (floats + more > vertices.length) {
-                vertices = Arrays.copyOf(vertices, Math.max(vertices.length * 2, floats + more));
-            }
-            return vertices;
-        }
     }
 
     /**
