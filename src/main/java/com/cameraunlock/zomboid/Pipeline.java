@@ -810,6 +810,14 @@ final class Pipeline {
                     float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
                     color = mix(color, atmosphere(mirrored) * (0.35 + 0.65 * open), glance * shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
+                    // Headlights on a wet road are a long streak of glare towards the eye.
+                    for (int i = 0; i < 2; i++) {
+                        if (uBeamAt[i].w > 0.0) {
+                            vec3 dir;
+                            float given = beamAt(i, vWorld, dir);
+                            color += vec3(1.0, 0.92, 0.76) * (given * shine * glossed(surface, view, -dir, water ? 0.09 : 0.2, 0.02));
+                        }
+                    }
                 }
 
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0035));

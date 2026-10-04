@@ -158,6 +158,15 @@ final class Sky {
                 return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
             }
 
+            float blotch(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash3(vec3(cell, 7.0)), b = hash3(vec3(cell + vec2(1.0, 0.0), 7.0));
+                float c = hash3(vec3(cell + vec2(0.0, 1.0), 7.0)), e = hash3(vec3(cell + vec2(1.0, 1.0), 7.0));
+                return mix(mix(a, b, f.x), mix(c, e, f.x), f.y);
+            }
+
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec2 ndc = uv * 2.0 - 1.0;
@@ -172,8 +181,20 @@ final class Sky {
                     float seed = hash3(floor(grid));
                     float star = step(0.9972, seed) * smoothstep(0.5, 0.0, length(fract(grid) - 0.5));
                     color += vec3(0.85, 0.9, 1.0) * star * lit * (0.65 + 0.35 * sin(uTime * 2.5 + seed * 90.0));
+                    // The moon is a ball of grey rock lit from the side: darker towards its rim,
+                    // with the seas of old lava as darker patches, and a glow in the air round it.
                     float moon = dot(d, uMoon);
-                    color += vec3(0.95, 0.96, 1.0) * uNight * (3.0 * smoothstep(0.99975, 0.99985, moon) + 0.1 * pow(max(moon, 0.0), 300.0));
+                    vec3 across = normalize(cross(uMoon, vec3(0.0, 0.0, 1.0)));
+                    vec2 on = vec2(dot(d, across), dot(d, cross(uMoon, across))) / 0.021;
+                    float out2 = dot(on, on);
+                    if (moon > 0.0 && out2 < 1.0) {
+                        float round = sqrt(1.0 - out2);
+                        float seas = smoothstep(0.45, 0.7, blotch(on * 2.1 + 4.0) * 0.65 + blotch(on * 5.3) * 0.35);
+                        float pits = blotch(on * 17.0);
+                        float face = (0.45 + 0.55 * round) * (1.0 - 0.38 * seas) * (0.9 + 0.2 * pits);
+                        color += vec3(0.95, 0.94, 0.9) * uNight * (2.4 * face * smoothstep(1.0, 0.9, out2));
+                    }
+                    color += vec3(0.95, 0.96, 1.0) * uNight * (0.1 * pow(max(moon, 0.0), 300.0) + 0.03 * pow(max(moon, 0.0), 40.0));
                 }
 
                 vec4 c = texture2D(uClouds, uv);
