@@ -297,8 +297,8 @@ public final class Characters {
     private static boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
-    /** In tiles: a forearm in a sleeve is about nine centimetres through at the cuff and eleven at the elbow. */
-    private static final float WIDEST_CUFF = 0.045f, WIDEST_ELBOW = 0.055f;
+    /** In tiles, by the size the hand is drawn at: a sleeve is a little wider than the hand in it. */
+    private static final float WIDEST_CUFF = 0.021f, WIDEST_ELBOW = 0.027f;
     /**
      * How much wider than the model's own the arm is drawn: at the wrist it closes over the
      * cut end of the hand as a cuff does, and the upper arm is thicker than the elbow.
