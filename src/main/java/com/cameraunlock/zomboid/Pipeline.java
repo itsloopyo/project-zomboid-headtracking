@@ -75,6 +75,7 @@ final class Pipeline {
     private static final int GL_NEAREST = 0x2600;
     private static final int GL_LINEAR = 0x2601;
     private static final int GL_REPEAT = 0x2901;
+    private static final int GL_LINEAR_MIPMAP_LINEAR = 0x2703;
     private static final int GL_CLAMP_TO_EDGE = 0x812F;
     private static final int GL_LEQUAL = 0x0203;
     private static final int GL_SRC_ALPHA = 0x0302;
@@ -131,7 +132,7 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 6;
+    private static final int UNITS = 8;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -208,6 +209,11 @@ final class Pipeline {
 
             const float RELIEF = 0.05;
             uniform float uRaining;
+            uniform sampler2D uAsphalt;
+            uniform sampler2D uGravel;
+            uniform sampler2D uSoil;
+            uniform sampler2D uLawn;
+            uniform vec4 uMaterialGain;
 
 
             float grain(vec2 p) {
@@ -321,6 +327,22 @@ final class Pipeline {
                     float least = min(texel.r, min(texel.g, texel.b));
                     // Stone, gravel and tarmac are grey; earth and grass are not.
                     float stony = 1.0 - smoothstep(0.12, 0.3, (most - least) / max(most, 0.001));
+                    // What the ground is made of is read off its colour, and a picture of that
+                    // stuff is laid over it by its place on the map: twice, at two sizes and
+                    // turned against each other, so that neither copy's repeat shows. The
+                    // game's own colour stays; the picture gives it its grain.
+                    float green = (1.0 - stony) * smoothstep(-0.06, 0.04, (texel.g - texel.r) / max(most, 0.001));
+                    float dark = stony * (1.0 - smoothstep(0.38, 0.56, most));
+                    vec2 one = p * 0.41;
+                    vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.17 + 0.37;
+                    float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
+                    vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
+                            + (stony - dark) * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
+                            + (1.0 - stony - green) * uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which)
+                            + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
+                    // Its light and dark only: the colour is the game's, or a dry lawn turns the
+                    // colour of the earth it was taken for.
+                    texel.rgb *= mix(1.0, dot(grain3, vec3(0.299, 0.587, 0.114)), 0.9);
                     float near = 1.0 - smoothstep(5.0, 16.0, range);
                     if (near > 0.0) {
                         float e = 0.012;
@@ -1042,6 +1064,10 @@ final class Pipeline {
             GL20.glUniform3f(at(name), x, y, z);
         }
 
+        void set(String name, float x, float y, float z, float w) {
+            GL20.glUniform4f(at(name), x, y, z, w);
+        }
+
         void set(String name, float[] matrix) {
             GL20.glUniformMatrix4fv(at(name), false, matrix);
         }
@@ -1060,6 +1086,18 @@ final class Pipeline {
     private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
     private static final int RAIN_DROPS = 9000;
     private static FloatBuffer rainDrops;
+    /**
+     * What open ground is made of, as pictures of the stuff itself that join up with themselves
+     * at their edges: tarmac, gravel, earth, grass. They are laid over the ground by where it
+     * is on the map, so the game's square of ground repeated a thousand times becomes one
+     * unbroken surface. Made for this mod and shipped in its jar.
+     */
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass"};
+    private static final int MATERIAL_SIZE = 1024;
+    private static final int FIRST_MATERIAL_UNIT = 3;
+    private static final int[] materialTexture = new int[MATERIALS.length];
+    /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
+    private static final float[] materialGain = new float[MATERIALS.length];
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     private static int occlusionTarget, occlusionColor, softTarget, softColor;
@@ -1537,6 +1575,15 @@ final class Pipeline {
         world.set("uTexture", 0);
         world.set("uShadowNear", 1);
         world.set("uShadowFar", 2);
+        for (int material = 0; material < MATERIALS.length; material++) {
+            GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
+            GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[material]);
+        }
+        world.set("uAsphalt", FIRST_MATERIAL_UNIT);
+        world.set("uGravel", FIRST_MATERIAL_UNIT + 1);
+        world.set("uSoil", FIRST_MATERIAL_UNIT + 2);
+        world.set("uLawn", FIRST_MATERIAL_UNIT + 3);
+        world.set("uMaterialGain", materialGain[0], materialGain[1], materialGain[2], materialGain[3]);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
@@ -1892,6 +1939,13 @@ final class Pipeline {
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
         filter(GL_NEAREST);
 
+        for (int material = 0; material < MATERIALS.length; material++) {
+            String missing = loadMaterial(material);
+            if (missing != null) {
+                return missing;
+            }
+        }
+
         spriteSampler = GL33.glGenSamplers();
         GL33.glSamplerParameteri(spriteSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         GL33.glSamplerParameteri(spriteSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -2018,6 +2072,38 @@ final class Pipeline {
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);
         filter(filter);
         return texture;
+    }
+
+    /** Reads a material's picture out of the jar and gives it to the graphics card. Null, or what went wrong. */
+    private static String loadMaterial(int material) {
+        String path = "/materials/" + MATERIALS[material] + ".rgb.gz";
+        ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * 3);
+        long light = 0;
+        try (java.io.InputStream packed = Pipeline.class.getResourceAsStream(path)) {
+            if (packed == null) {
+                return "the jar has no " + path;
+            }
+            byte[] bytes = new java.util.zip.GZIPInputStream(packed).readAllBytes();
+            if (bytes.length != pixels.capacity()) {
+                return path + " holds " + bytes.length + " bytes, not " + pixels.capacity();
+            }
+            for (int i = 0; i < bytes.length; i += 3) {
+                light += 299 * (bytes[i] & 0xff) + 587 * (bytes[i + 1] & 0xff) + 114 * (bytes[i + 2] & 0xff);
+            }
+            pixels.put(bytes).flip();
+        } catch (java.io.IOException e) {
+            return path + " could not be read: " + e;
+        }
+        materialGain[material] = 255f * 1000f * MATERIAL_SIZE * MATERIAL_SIZE / light;
+        materialTexture[material] = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[material]);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, MATERIAL_SIZE, MATERIAL_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+        GL30.glGenerateMipmap(GL_TEXTURE_2D);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        return null;
     }
 
     private static void filter(int filter) {

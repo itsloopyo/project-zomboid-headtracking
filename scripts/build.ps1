@@ -24,6 +24,8 @@ Invoke-Tool javac ($javac + @('-d', 'build/stubs') + (Get-JavaSources stubs))
 Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/classes') + (Get-JavaSources src/main/java))
 Invoke-Tool javac ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes') + (Get-JavaSources src/test/java))
 
+Copy-Item -Recurse -Force src/main/resources/* build/classes/
+
 @(
     'Premain-Class: com.cameraunlock.zomboid.Agent'
     'Agent-Class: com.cameraunlock.zomboid.Agent'
