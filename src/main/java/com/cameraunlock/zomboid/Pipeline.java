@@ -1246,6 +1246,18 @@ final class Pipeline {
             uniform vec4 uWheel;
             uniform vec3 uWheelAxis;
             uniform vec3 uMirror;
+            // The driver's place of the vehicle sat in: the wheel's size, its rim, the layout of
+            // its spokes and their width; the hub's half-size and roundness; the kind of
+            // instrument cluster, its dials' radius, how many, and the hood's half-size; the
+            // colours of dash and seats, the instruments' light, and the gear lever.
+            uniform vec4 uKit;
+            uniform vec3 uHub;
+            uniform vec3 uCluster;
+            uniform vec2 uHood;
+            uniform vec3 uDashColor;
+            uniform vec3 uSeatColor;
+            uniform vec3 uGlowColor;
+            uniform float uShift;
             uniform sampler2D uBehind;
             uniform vec3 uGauges;
             uniform sampler2D uVinyl;
@@ -1303,26 +1315,54 @@ final class Pipeline {
             // it and up; uWheel is the wheel's middle and radius and uWheelAxis the way its
             // column runs. Returns how far p is from the nearest of them, and in part which:
             // 1 rim, 2 hub, 3 spoke, 4 stalk, 5 shroud, 6 binnacle, 7 mirror.
+            // A spoke from the hub out to the rim at a turn, flat and dished like the rim.
+            float spokeAt(vec3 w, float turn, float radius, float dish) {
+                vec2 way = vec2(cos(turn), sin(turn));
+                float along = clamp(dot(w.xy, way), 0.0, radius);
+                vec2 off = w.xy - way * along;
+                return length(vec3(off, (w.z - dish) * 2.6)) - uKit.w;
+            }
+
             float cabinAt(vec3 p, out float part) {
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 vec3 w = vec3(q.y, dot(q, rise), dot(q, uWheelAxis));
+                float radius = uWheel.w * uKit.x;
                 float outward = length(w.xy);
-                // A rim deeper than it is wide, thicker where the hands hold it.
-                float bearing = atan(w.y, abs(w.x));
-                float held = 0.004 * smoothstep(0.35, 0.0, abs(bearing - 0.55));
-                float rim = length(vec2(outward - uWheel.w, w.z * 0.82)) - (0.021 + held);
-                float dish = 0.032 * (1.0 - min(outward / uWheel.w, 1.0));
-                float hub = block(vec3(w.x, w.y + 0.012, w.z - 0.02), vec3(0.066, 0.044, 0.012), 0.02);
-                float reach = clamp((abs(w.x) - 0.06) / (uWheel.w - 0.06), 0.0, 1.0);
-                float arms = block(vec3(abs(w.x) - 0.145, w.y + 0.012 - 0.012 * reach, w.z - dish), vec3(0.09, mix(0.036, 0.016, reach), 0.008), 0.006);
-                float leg = block(vec3(w.x, w.y + 0.14, w.z - dish), vec3(0.02, 0.092, 0.008), 0.006);
-                float spoke = min(arms, leg);
+                float rim = length(vec2(outward - radius, w.z * 0.82)) - uKit.y;
+                float dish = 0.032 * (1.0 - min(outward / radius, 1.0));
+                float hub = block(vec3(w.x, w.y + 0.012, w.z - 0.02), vec3(uHub.xy - uHub.z, 0.012), uHub.z);
+                vec3 s = vec3(w.x, w.y + 0.012, w.z);
+                float spoke;
+                if (uKit.z < 2.5) {
+                    spoke = min(spokeAt(s, -0.1, radius, dish), spokeAt(s, 3.2416, radius, dish));
+                } else if (uKit.z < 3.5) {
+                    spoke = min(min(spokeAt(s, 0.0, radius, dish), spokeAt(s, 3.1416, radius, dish)), spokeAt(s, 4.7124, radius, dish));
+                } else if (uKit.z < 4.5) {
+                    spoke = min(min(spokeAt(s, -0.3, radius, dish), spokeAt(s, 3.4416, radius, dish)), min(spokeAt(s, -1.0, radius, dish), spokeAt(s, 4.1416, radius, dish)));
+                } else if (uKit.z < 5.5) {
+                    spoke = min(min(spokeAt(s, 0.55, radius, dish), spokeAt(s, 2.59, radius, dish)), min(spokeAt(s, -0.55, radius, dish), spokeAt(s, 3.69, radius, dish)));
+                } else {
+                    spoke = min(min(spokeAt(s, 0.52, radius, dish), spokeAt(s, 2.62, radius, dish)), spokeAt(s, 4.7124, radius, dish));
+                }
                 vec3 mirrored = vec3(abs(w.x), w.y, w.z);
-                float stalk = min(rod(mirrored, vec3(0.05, 0.004, 0.09), vec3(0.2, 0.034, 0.074), 0.008), length(mirrored - vec3(0.2, 0.034, 0.074)) - 0.013);
+                float stalk = min(rod(mirrored, vec3(0.05, 0.004, 0.09), vec3(0.17, 0.03, 0.076), 0.006), length(mirrored - vec3(0.17, 0.03, 0.076)) - 0.01);
+                if (uShift > 0.5 && uShift < 1.5) {
+                    // A lever on the column, up and towards the middle of the vehicle, with a ball.
+                    stalk = min(stalk, min(rod(w, vec3(-0.04, 0.02, 0.11), vec3(-0.24, 0.12, 0.05), 0.007), length(w - vec3(-0.24, 0.12, 0.05)) - 0.02));
+                } else if (uShift > 1.5) {
+                    // A lever out of the floor beside the driver's knee, with a ball.
+                    stalk = min(stalk, min(rod(w, vec3(-0.42, -0.5, -0.05), vec3(-0.4, -0.22, -0.12), 0.01), length(w - vec3(-0.4, -0.22, -0.12)) - 0.028));
+                }
                 float shroud = max(length(vec2(w.x, w.y + 0.012)) - 0.058, abs(w.z - 0.14) - 0.1) - 0.006;
                 vec3 hood = w - vec3(0.0, 0.112, 0.2);
-                float binnacle = max(block(hood, vec3(0.185, 0.066, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(0.168, 0.05, 0.075), 0.012));
+                float binnacle;
+                if (uHood.y > 0.001) {
+                    binnacle = max(block(hood, vec3(uHood.x, uHood.y, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(uHood.x - 0.017, uHood.y - 0.016, 0.075), 0.012));
+                } else {
+                    // No hood: the instruments stand in a flat plate.
+                    binnacle = block(hood - vec3(0.0, 0.0, 0.075), vec3(uHood.x, 0.07, 0.006), 0.004);
+                }
                 float mirror = block(p - uMirror, vec3(0.01, 0.115, 0.032), 0.01);
                 float nearest = rim;
                 part = 1.0;
@@ -1345,27 +1385,31 @@ final class Pipeline {
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 vec3 w = vec3(q.y, dot(q, rise), dot(q, uWheelAxis));
-                vec3 paint = vec3(0.2, 0.195, 0.19);
+                float radius = uWheel.w * uKit.x;
+                vec3 paint = uDashColor;
                 if (part < 1.5) {
-                    // Leather sewn round the rim: the seam runs round its inner side.
+                    // A thick rim is leather sewn round it, the seam on its inner side. A thin
+                    // one is hard plastic in the colour of the dash.
                     float outward = length(w.xy);
-                    float round = atan(w.z, uWheel.w - outward);
-                    float seam = (1.0 - smoothstep(0.12, 0.2, abs(round))) * step(0.5, fract(atan(w.y, w.x) * uWheel.w / 0.011));
-                    paint = mix(vec3(0.19, 0.185, 0.18), vec3(0.5, 0.48, 0.44), seam);
+                    float round = atan(w.z, radius - outward);
+                    float seam = step(0.0195, uKit.y) * (1.0 - smoothstep(0.12, 0.2, abs(round))) * step(0.5, fract(atan(w.y, w.x) * radius / 0.011));
+                    paint = mix(uDashColor * 0.9, uDashColor * 2.2 + 0.08, seam);
                 } else if (part < 2.5) {
                     // The pad over the horn, with the maker's badge pressed into it.
                     float badge = abs(w.x) / 0.022 + abs(w.y + 0.012) / 0.015;
-                    paint = mix(vec3(0.17, 0.165, 0.16), vec3(0.42, 0.42, 0.44), step(0.78, badge) * step(badge, 1.0));
+                    paint = mix(uDashColor * 0.85, uDashColor * 1.6 + 0.12, step(0.78, badge) * step(badge, 1.0));
                 } else if (part < 3.5) {
-                    // Switches on the arms, and a bright strip along their lower edge.
-                    vec2 cell = fract(vec2(abs(w.x) - 0.078, w.y + 0.03) / 0.019) - 0.5;
-                    float keys = step(0.078, abs(w.x)) * step(abs(w.x), 0.135) * step(abs(w.y + 0.012), 0.028) * step(length(cell), 0.32);
-                    float strip = step(0.07, abs(w.x)) * smoothstep(-0.03, -0.036, w.y + 0.012 - 0.012 * clamp((abs(w.x) - 0.06) / (uWheel.w - 0.06), 0.0, 1.0)) * step(w.y, 0.0);
-                    paint = mix(mix(vec3(0.13, 0.13, 0.135), vec3(0.34, 0.34, 0.35), keys), vec3(0.72, 0.72, 0.74), strip * step(abs(w.x), 0.2));
+                    // Thin spokes are bare metal, drilled. Broad ones are padded like the hub.
+                    float holes = step(length(vec2(fract(length(w.xy) / 0.045) - 0.5, 0.0)), 0.22);
+                    paint = uKit.z > 5.5 ? mix(vec3(0.52, 0.52, 0.54), vec3(0.08), holes * step(0.06, length(w.xy))) : uDashColor * 0.8;
+                } else if (part < 4.5) {
+                    // Stalks and levers are black, with a pale ball on a gear lever.
+                    paint = length(w - vec3(-0.24, 0.12, 0.05)) < 0.024 && uShift > 0.5 && uShift < 1.5 ? vec3(0.7, 0.68, 0.62) : vec3(0.06, 0.06, 0.065);
                 } else if (part < 5.5) {
-                    paint = vec3(0.11, 0.11, 0.115);
+                    paint = uDashColor * 0.6;
                 } else if (part < 6.5) {
-                    paint = vec3(0.14, 0.14, 0.145);
+                    // A plate with no hood is bare metal; a hood is the dash's own stuff.
+                    paint = uHood.y > 0.001 ? uDashColor * 0.7 : vec3(0.5, 0.5, 0.52);
                 } else {
                     paint = vec3(0.07, 0.07, 0.075);
                 }
@@ -1383,6 +1427,33 @@ final class Pipeline {
             // column is the speedometer, right of it the rev counter with the fuel gauge in
             // its foot. uGauges is the road speed, the engine's speed and the fuel, each as a
             // part of the gauge's full scale. Glow is how much of the colour is lit from behind.
+            // A strip speedometer: a wide slot with its scale along the bottom and a needle
+            // that slides, a square fuel gauge at its left end, and warning lamps beneath.
+            // p runs -1 to 1 across the slot and up it.
+            vec3 stripFace(vec2 p, out float glow) {
+                glow = 0.0;
+                vec3 face = vec3(0.03, 0.03, 0.035);
+                float x = (p.x + 0.55) / 1.45;
+                if (x >= 0.0 && x <= 1.0 && p.y > -0.3) {
+                    float major = 1.0 - smoothstep(0.004, 0.008, abs(fract(x * 8.0 + 0.5) - 0.5) / 8.0);
+                    float minor = 1.0 - smoothstep(0.002, 0.005, abs(fract(x * 40.0 + 0.5) - 0.5) / 40.0);
+                    float marks = max(major * step(p.y, 0.5), minor * step(p.y, 0.1));
+                    face = mix(face, vec3(0.88, 0.92, 0.86), marks);
+                    float hand = 1.0 - smoothstep(0.006, 0.012, abs(x - clamp(uGauges.x, 0.0, 1.0)));
+                    face = mix(face, vec3(0.98, 0.38, 0.08), hand);
+                    glow = max(marks, hand);
+                } else if (p.x < -0.62 && p.y > -0.3) {
+                    vec2 q = vec2((p.x + 0.8) / 0.16, (p.y - 0.1) / 0.6);
+                    float level = step(q.y, clamp(uGauges.z, 0.0, 1.0) * 2.0 - 1.0) * step(abs(q.x), 0.5);
+                    face = mix(face, vec3(0.9, 0.6, 0.15), level * 0.9);
+                    glow = level;
+                } else if (p.y < -0.45) {
+                    float lamp = step(abs(fract(p.x * 4.0) - 0.5), 0.3) * step(-0.85, p.y) * step(abs(p.x), 0.5);
+                    face = mix(face, vec3(0.12, 0.04, 0.03), lamp);
+                }
+                return face;
+            }
+
             vec3 dialFace(vec2 p, float right, out float glow) {
                 float out2 = length(p);
                 glow = 0.0;
@@ -1402,6 +1473,14 @@ final class Pipeline {
                     vec3 ink = right > 0.5 && at > 0.8 ? vec3(0.95, 0.2, 0.1) : vec3(0.88, 0.92, 0.86);
                     face = mix(face, ink, marks);
                     glow = marks;
+                }
+                if (right > 1.5) {
+                    // A small gauge: one needle on a quarter of a turn across its top.
+                    float hand = 1.0 - smoothstep(0.05, 0.09, needle(p, 2.356 - 1.571 * clamp(right > 2.5 ? 0.5 : uGauges.z, 0.0, 1.0), 0.8));
+                    face = mix(vec3(0.035, 0.035, 0.04), vec3(0.88, 0.92, 0.86), step(0.7, out2) * (1.0 - smoothstep(0.03, 0.06, abs(fract((2.356 - turn) / 1.571 * 4.0 + 0.5) - 0.5) / 4.0 * 1.571 * out2)) * step(0.0, p.y));
+                    face = mix(face, vec3(0.98, 0.38, 0.08), hand);
+                    glow = max(hand, step(0.7, out2) * step(0.0, p.y) * 0.5);
+                    return face;
                 }
                 if (right > 0.5) {
                     // Fuel: a short scale in the foot of the dial, empty to the left.
@@ -1560,14 +1639,47 @@ final class Pipeline {
                         float t = dot(middle, uWheelAxis) * CABIN / towards;
                         vec3 q = line * t / CABIN - middle;
                         vec2 on = vec2(q.y, dot(q, rise));
-                        // Two faces, side by side.
-                        vec2 face = vec2(abs(on.x) - 0.085, on.y) / 0.046;
-                        if (dot(face, face) < 1.0) {
-                            dial = true;
-                            // Across the vehicle runs to the driver's left; a dial reads left to right.
-                            dialAt = vec2(-face.x, face.y);
-                            dialRight = on.x < 0.0 ? 0.0 : 1.0;
-                            dialFar = t;
+                        // Where the vehicle's instruments are: a strip, two dials side by
+                        // side, one large dial between two small, a row of small ones, or
+                        // one dial with a small one beside it.
+                        vec2 at = on;
+                        if (uCluster.x < 0.5) {
+                            vec2 face = at / vec2(uHood.x - 0.03, uHood.y - 0.018);
+                            if (abs(face.x) < 1.0 && abs(face.y) < 1.0) {
+                                dial = true;
+                                dialAt = face;
+                                dialRight = -1.0;
+                                dialFar = t;
+                            }
+                        } else {
+                            float count = uCluster.z;
+                            for (int i = 0; i < 6; i++) {
+                                if (float(i) >= count) {
+                                    break;
+                                }
+                                float size = uCluster.y;
+                                float gap = size * 2.0 + 0.016;
+                                float middleX = (float(i) - (count - 1.0) * 0.5) * gap;
+                                float kind = i == 0 ? 0.0 : i == 1 ? 1.0 : i == 2 ? 2.0 : 3.0;
+                                if (uCluster.x > 1.5 && uCluster.x < 2.5) {
+                                    // One large dial between two small.
+                                    size = i == 1 ? uCluster.y : uCluster.y * 0.68;
+                                    middleX = (float(i) - 1.0) * (uCluster.y * 1.68 + 0.014);
+                                    kind = i == 1 ? 0.0 : i == 0 ? 2.0 : 1.0;
+                                } else if (uCluster.x > 4.5) {
+                                    // One dial dead ahead and a small one beside it.
+                                    size = i == 0 ? uCluster.y : uCluster.y * 0.55;
+                                    middleX = i == 0 ? -0.02 : uCluster.y * 1.55 + 0.0;
+                                    kind = i == 0 ? 0.0 : 2.0;
+                                }
+                                vec2 face = (at - vec2(middleX, 0.0)) / size;
+                                if (dot(face, face) < 1.0) {
+                                    dial = true;
+                                    dialAt = face;
+                                    dialRight = kind;
+                                    dialFar = t;
+                                }
+                            }
                         }
                     }
                 }
@@ -1658,7 +1770,7 @@ final class Pipeline {
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     n = -vec3(uAhead * uWheelAxis.x + side * uWheelAxis.y, uWheelAxis.z);
                     close = 1.0;
-                    figure = vec4(dialFace(dialAt, dialRight, dialGlow), 1.0);
+                    figure = vec4(dialRight < -0.5 ? stripFace(dialAt, dialGlow) : dialFace(dialAt, dialRight, dialGlow), 1.0);
                 } else if (wheel) {
                     n = wheelFaces;
                     close = 1.0;
@@ -1671,7 +1783,7 @@ final class Pipeline {
                     vec3 q = vec3(dot(to.xy, uAhead), dot(to.xy, vec2(-uAhead.y, uAhead.x)), to.z) / CABIN - uWheel.xyz;
                     float deep = dot(q, uWheelAxis);
                     float outward = length(q - uWheelAxis * deep);
-                    ghost = abs(deep) < 0.07 && outward > uWheel.w - 0.07 && outward < uWheel.w + 0.07;
+                    ghost = abs(deep) < 0.07 && outward > uWheel.w - 0.07 && outward < uWheel.w + 0.07 && outward > uWheel.w * uKit.x - 0.1;
                     if (ghost) {
                         n = view;
                     }
@@ -1711,8 +1823,13 @@ final class Pipeline {
                     float woven = smoothstep(0.2, 0.35, (most - least) / max(most, 0.001)) * step(0.2, most);
                     vec3 grain = mix(texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x, texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y, woven);
                     // Pale parts are painted metal, the pillars and the door tops, and have no grain.
-                    if (!dial) {
-                        figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * (1.0 - smoothstep(0.4, 0.65, most)), 0.45, woven));
+                    if (!dial && !wheel) {
+                        // The game paints every cabin the same brown seats and black dash.
+                        // Each vehicle's are given their own colours, in the game's shading.
+                        float dark = 1.0 - smoothstep(0.4, 0.65, most);
+                        figure.rgb = mix(figure.rgb, uSeatColor * (most * 2.2), woven * 0.7);
+                        figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6);
+                        figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * dark, 0.45, woven));
                     }
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
@@ -1864,7 +1981,7 @@ final class Pipeline {
                 }
                 if (dial && uInstruments > 0.0) {
                     // Lit from behind when the engine runs: the numerals and needles glow.
-                    color += pow(figure.rgb, vec3(2.2)) * (4.0 * uInstruments * dialGlow);
+                    color += pow(figure.rgb, vec3(2.2)) * uGlowColor * (5.0 * uInstruments * dialGlow);
                 }
                 if (cabin > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
@@ -1873,7 +1990,7 @@ final class Pipeline {
                     vec3 to = dials - at;
                     float far2 = dot(to, to);
                     float given = 0.022 / (0.009 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));
-                    color += (pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * 0.6 + 0.12) * vec3(0.35, 1.0, 0.72) * (given * uInstruments);
+                    color += (pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * 0.6 + 0.12) * uGlowColor * (given * uInstruments);
                 }
                 // The trim of a cabin is cloth and dull plastic, whatever the body outside is.
                 float lacquer = uPainted * (1.0 - cabin);
@@ -3368,6 +3485,15 @@ final class Pipeline {
                 figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
                 figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
                 figureLight.set("uMirror", wheel[7], wheel[8], wheel[9]);
+                float[] kit = Cabins.kit(FirstPerson.seatedIn);
+                figureLight.set("uKit", kit[0], kit[1], kit[2], kit[3]);
+                figureLight.set("uHub", kit[4], kit[5], kit[6]);
+                figureLight.set("uCluster", kit[7], kit[8], kit[9]);
+                figureLight.set("uHood", kit[10], kit[11]);
+                figureLight.set("uDashColor", kit[12], kit[13], kit[14]);
+                figureLight.set("uSeatColor", kit[15], kit[16], kit[17]);
+                figureLight.set("uGlowColor", kit[18], kit[19], kit[20]);
+                figureLight.set("uShift", kit[21]);
                 GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
                 GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
                 GL13.glActiveTexture(GL_TEXTURE0);
