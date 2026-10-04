@@ -131,6 +131,25 @@ final class ViewModelMath {
         matrix[14] += pivotZ + moveZ;
     }
 
+    /** Puts what a matrix has placed through a second one: the matrix becomes the second times itself. */
+    static void onto(float[] second, float[] matrix) {
+        for (int column = 0; column < 4; column++) {
+            int at = column * 4;
+            float x = matrix[at], y = matrix[at + 1], z = matrix[at + 2], w = matrix[at + 3];
+            matrix[at] = second[0] * x + second[4] * y + second[8] * z + second[12] * w;
+            matrix[at + 1] = second[1] * x + second[5] * y + second[9] * z + second[13] * w;
+            matrix[at + 2] = second[2] * x + second[6] * y + second[10] * z + second[14] * w;
+        }
+    }
+
+    /** The way a matrix turns a direction. */
+    static void turned(float[] matrix, float[] direction, float[] out) {
+        float x = direction[0], y = direction[1], z = direction[2];
+        out[0] = matrix[0] * x + matrix[4] * y + matrix[8] * z;
+        out[1] = matrix[1] * x + matrix[5] * y + matrix[9] * z;
+        out[2] = matrix[2] * x + matrix[6] * y + matrix[10] * z;
+    }
+
     /** Where a matrix puts a point. */
     static void place(float[] matrix, float x, float y, float z, float[] out) {
         out[0] = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];

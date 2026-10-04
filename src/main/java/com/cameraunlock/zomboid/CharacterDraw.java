@@ -611,10 +611,22 @@ final class CharacterDraw {
         return drawn;
     }
 
+    /** Draws the left hand of one part of the viewer begun, and nothing else of it. */
+    static boolean leftHand(ModelInstanceRenderData part) {
+        if (part.model == null || !(part.model.tag instanceof SkinningData skeleton)) {
+            return false;
+        }
+        cutBones = armBones(skeleton)[4];
+        cutKeepsThem = true;
+        boolean drawn = part(part);
+        cutBones = null;
+        return drawn;
+    }
+
     private static float[][] armBones(SkinningData skeleton) {
         float[][] found = arms.get(skeleton);
         if (found == null) {
-            found = new float[4][BONES];
+            found = new float[5][BONES];
             int[] kinds = kinds(skeleton);
             for (int bone = 0; bone < BONES; bone++) {
                 if (kinds[bone] != 0) {
@@ -623,6 +635,7 @@ final class CharacterDraw {
                     found[0][bone] = right ? 1f : 0f;
                     found[3][bone] = hand ? 1f : 0f;
                     found[2][bone] = hand && right ? 1f : 0f;
+                    found[4][bone] = hand && !right ? 1f : 0f;
                 }
             }
             arms.put(skeleton, found);

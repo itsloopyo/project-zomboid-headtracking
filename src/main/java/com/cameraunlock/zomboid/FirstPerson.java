@@ -114,6 +114,12 @@ public final class FirstPerson {
 
     private static final ViewCamera.Pose cleanView = new ViewCamera.Pose();
     private static final ViewCamera.Pose trackedView = new ViewCamera.Pose();
+    /**
+     * The aim: the clean view from where the shot starts, which is the clean eye moved by
+     * whatever of a lean the weapon has. The weapon is drawn in this view and the shot is
+     * traced from it.
+     */
+    private static final ViewCamera.Pose aimView = new ViewCamera.Pose();
     private static final WorldQuery world = new WorldQuery();
     private static final float[] ndc = new float[2];
     private static int reticleX, reticleY;
@@ -304,8 +310,9 @@ public final class FirstPerson {
                 }
             }
         }
-        FieldOfView.ease(Controls.sightsUp(player), sinceLastFrame);
-        ViewModel.update(player, yaw, pitch, sinceLastFrame, Controls.sightsUp(player));
+        boolean sightsUp = Controls.sightsUp(player);
+        FieldOfView.ease(sightsUp, sinceLastFrame);
+        ViewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
         if (!zoomSaid) {
             zoomSaid = true;
             Log.info(String.format(java.util.Locale.ROOT,
@@ -315,9 +322,14 @@ public final class FirstPerson {
         }
         ViewCamera.clean(cleanView, eyeX, eyeY, eyeUp, yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
-        HeadTracking.view(active, cleanView, yaw, world, trackedView);
+        HeadTracking.view(active, cleanView, yaw, world, sightsUp, vehicle == null, trackedView);
+        float[] carried = HeadTracking.carried();
+        aimView.set(cleanView);
+        aimView.eyeX += carried[0];
+        aimView.eyeY += carried[1];
+        aimView.eyeUp += carried[2];
         WorldScene scene = WorldScene.next();
-        scene.build(player, trackedView, FieldOfView.tanHalfVertical());
+        scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical());
         SpriteRenderer.instance.drawGeneric(scene);
         placeReticle(scene, floorUp);
         // The game draws its own reticle while the aim is held, and nothing while it is not.
@@ -333,21 +345,21 @@ public final class FirstPerson {
     }
 
     /**
-     * The reticle marks a point, not a direction: where the clean aim, from the eye the mouse
-     * turns, first meets the world this frame. With the head leaned the picture is drawn from
+     * The reticle marks a point, not a direction: where the clean aim, from where the shot
+     * starts, first meets the world this frame. With the head leaned the picture is drawn from
      * another eye, and that point is no longer straight ahead of it. With nothing in reach the
      * aim is at infinity and only its direction is left to project.
      */
     private static void placeReticle(WorldScene scene, float floorUp) {
-        shotDistance = world.shotDistance(cleanView, floorUp, WorldScene.REACH,
+        shotDistance = world.shotDistance(aimView, floorUp, WorldScene.REACH,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         // The game looks for a shot's target along a line through this point. With nothing
         // in reach it is a point as far along the view as anything could have been. The
         // picture raises the land and the game's map is flat, so the point's height is
         // taken above the flat map, in floor levels.
         float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
-        float aimedX = cleanView.eyeX + cleanView.forwardX * aimed, aimedY = cleanView.eyeY + cleanView.forwardY * aimed;
-        float aimedUp = cleanView.eyeUp + cleanView.forwardUp * aimed;
+        float aimedX = aimView.eyeX + aimView.forwardX * aimed, aimedY = aimView.eyeY + aimView.forwardY * aimed;
+        float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
         float level = IsoPlayer.getInstance().getZ();
         Controls.aimAt(aimedX, aimedY, (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT);
 
@@ -359,14 +371,14 @@ public final class FirstPerson {
             return;
         }
         float along = shotDistance;
-        ViewCamera.Pose from = cleanView;
+        ViewCamera.Pose from = aimView;
         if (along == Float.POSITIVE_INFINITY) {
             along = 1f;
             from = trackedView;
         }
         boolean inFront = ViewCamera.project(trackedView, scene.tanHalfFieldOfView(), aspect,
-                from.eyeX + cleanView.forwardX * along, from.eyeY + cleanView.forwardY * along,
-                from.eyeUp + cleanView.forwardUp * along, ndc);
+                from.eyeX + aimView.forwardX * along, from.eyeY + aimView.forwardY * along,
+                from.eyeUp + aimView.forwardUp * along, ndc);
         if (!inFront) {
             reticleX = RETICLE_HIDDEN;
             reticleY = RETICLE_HIDDEN;

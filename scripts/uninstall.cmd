@@ -35,7 +35,7 @@ set "PLUGIN_SUBFOLDER="
 set "MOD_SEED_FILES="
 :: Config files the uninstall leaves in place so the player's settings survive a
 :: reinstall: paths relative to the game folder, quoted when one holds a space.
-set "PRESERVE_FILES="
+set "PRESERVE_FILES=CameraUnlock.ini"
 :: Config and log files the mod writes at runtime, removed from wherever the
 :: DLLs were deployed.
 set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log ProjectZomboidHeadTracking.dev"

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- Added four ways of aiming down a firearm's sights with head tracking on, cycled on `Insert` / `Ctrl+Shift+U` and saved when changed: sights locked (the default), free look with a marker, true free look and stock sights. In sights locked a lean across the aim moves the weapon and where the shot starts with your eye, so the sights stay lined up and you hit what you can see from where you leaned. In the free look modes the weapon stays put and your head moves round it. In stock sights your head's turn and lean ease out while the sights are up and only its tilt stays.
+- The weapon in your hands stays on your aim when you turn or lean your head, and at the hip its barrel points at the place the shot will land.
+- Leaning in reaches the full 0.40 m at the hip, and with the sights up stops just short of the rear sight.
 - In first person a weapon is held before the eye. A firearm sits low and to the right at the hip and comes up to the middle of the picture when the aim is held; a melee weapon is held up at the lower right and its swing is seen from the eye. The arms that hold it come with it. The weapon trails a turn of the view, sways with each step, drops while sprinting and dips on a crouch or a landing.
 - A shot in first person kicks the weapon back and up, throws a flash from its muzzle and lights the people and zombies near it for the length of the flash. Where the shot goes and what it hits are unchanged.
 - With a weapon in hand and the aim not held, first person draws a small crosshair where the shot would land. The game's own reticle takes over while the aim is held, as before.

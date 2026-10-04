@@ -35,6 +35,7 @@ public final class ViewModel {
      * @param bothHands whether it is held in the left hand too
      * @param swing     how far through a swing it is: 0 when it is not being swung, up to 1
      * @param aim       0 at the hip, 1 with the sights up
+     * @param nearness  one over how far off the aim meets the world, in tiles: 0 with nothing in reach
      * @param lowered   0 held ready, 1 lowered to run
      * @param swayYaw   how far the weapon is behind a turn of the view to the right, radians
      * @param swayPitch the same for a turn upwards
@@ -43,7 +44,7 @@ public final class ViewModel {
      * @param recoil    1 on the frame of a shot, falling to nought
      * @param dip       1 just after landing or crouching, falling to nought
      */
-    record Held(String item, boolean firearm, boolean bothHands, float swing, float aim, float lowered,
+    record Held(String item, boolean firearm, boolean bothHands, float swing, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float dip) {}
 
     /** What is held, or null with no weapon in hand. */
@@ -77,6 +78,12 @@ public final class ViewModel {
     static final float SWING_SECONDS = 0.5f;
     private static final float NOT_SWINGING = -1f;
 
+    /** The barrel turns to a new aim point over this long: the point jumps from a doorpost to the far wall behind it. */
+    private static final float CONVERGE_SECONDS = 0.1f;
+    /** Nearer than this the aim point is taken to be this far off: a muzzle against a wall does not point across the view. */
+    private static final float NEAREST_AIM = 1.5f;
+
+    private static float nearness;
     private static float aim, lowered, swayYaw, swayPitch, bobAmount, bobPhase, recoil, dipTo, dip;
     private static float swingFor = NOT_SWINGING;
     private static int kicks;
@@ -100,8 +107,9 @@ public final class ViewModel {
      * @param pitch    the clean view's pitch, radians
      * @param seconds  the length of the frame
      * @param sightsUp whether a firearm's sights are up
+     * @param aimedAt  how far off the aim meets the world, in tiles, or infinity
      */
-    static void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp) {
+    static void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
         InventoryItem item = player.getVehicle() == null ? player.getPrimaryHandItem() : null;
         if (!(item instanceof HandWeapon weapon)) {
             rest();
@@ -126,6 +134,7 @@ public final class ViewModel {
             wasFalling = falling;
         }
         aim = ViewModelMath.ease(aim, sightsUp ? 1f : 0f, seconds, FieldOfView.ZOOM_SECONDS);
+        nearness = ViewModelMath.ease(nearness, 1f / Math.max(aimedAt, NEAREST_AIM), seconds, CONVERGE_SECONDS);
         lowered = ViewModelMath.ease(lowered, player.isSprinting() ? 1f : 0f, seconds, LOWER_SECONDS);
         float speed = 0f;
         if (seconds > 1e-4f) {
@@ -168,7 +177,7 @@ public final class ViewModel {
         wasFalling = falling;
         wasAttacking = attacking;
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
-                swingFor == NOT_SWINGING ? 0f : swingFor / SWING_SECONDS, aim, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip);
+                swingFor == NOT_SWINGING ? 0f : swingFor / SWING_SECONDS, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip);
     }
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
@@ -176,6 +185,7 @@ public final class ViewModel {
         held = null;
         placed = false;
         aim = 0f;
+        nearness = 0f;
         lowered = 0f;
         swayYaw = 0f;
         swayPitch = 0f;
@@ -220,8 +230,14 @@ public final class ViewModel {
      */
     private static final float HIP_X = 0.13f, HIP_Y = -0.14f, HIP_AHEAD = 0.27f;
     private static final float AIMED_X = 0f, AIMED_Y = -0.06f, AIMED_AHEAD = 0.36f;
-    /** At the hip a firearm is tipped over towards the middle and points a little across it. */
-    private static final float HIP_CANT = (float) Math.toRadians(8), HIP_INWARD = (float) Math.toRadians(-3);
+    /** At the hip a firearm is tipped over towards the middle. */
+    private static final float HIP_CANT = (float) Math.toRadians(8);
+    /**
+     * How far a lean along the aim may take the eye towards the weapon while the sights are
+     * up: to the rear sight, which is over the grip, less the near plane the weapon is drawn
+     * with and a margin.
+     */
+    static final float FORWARD_STOP = AIMED_AHEAD - 0.08f - 0.02f;
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
     /**
@@ -241,6 +257,16 @@ public final class ViewModel {
 
     private static final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
     private static final float[] along = new float[3], grip = new float[3], swung = new float[6];
+    /**
+     * Where the left wrist is held on a firearm: this far from the grip to the muzzle, and this
+     * far under that line, in tiles. The game's animation moves the left hand about against
+     * the weapon as the character turns, steps and settles, and an arm drawn to it there goes
+     * wherever it goes.
+     */
+    private static final float FORE_END = 0.42f, FORE_END_BELOW = 0.035f;
+    /** Where the left wrist is held on the weapon last placed, in the view: only with a muzzle. */
+    static final float[] foreEnd = new float[3];
+    private static final float[] over = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
     static final float[] muzzle = new float[3];
     static boolean hasMuzzle;
@@ -256,10 +282,12 @@ public final class ViewModel {
      * @param finalScale the scale the game draws the character's parts at
      * @param instance   the weapon's model
      * @param scale      the model's units to tiles
+     * @param fromAim    the matrix from the aim's axes to those of the view the frame is drawn
+     *                   from: the weapon is held before the aim's eye, not the picture's
      * @param out        the matrix, from the model's axes to the view's
      * @return false while the game has no pose for the weapon
      */
-    static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, float[] out) {
+    static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, float[] fromAim, float[] out) {
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;
@@ -297,7 +325,11 @@ public final class ViewModel {
             atX = HIP_X + (AIMED_X - HIP_X) * raised;
             atY = HIP_Y + (AIMED_Y - HIP_Y) * raised - RAISE_DIPS * off;
             ahead = HIP_AHEAD + (AIMED_AHEAD - HIP_AHEAD) * raised + RAISE_REACHES * off;
-            yaw += HIP_INWARD * (1f - raised);
+            // With the sights up the line of the sights runs along the aim. Off that place the
+            // barrel is turned to point at where the aim meets the world, so a weapon at the
+            // hip points at the reticle and not past it.
+            yaw -= (float) Math.atan((atX - AIMED_X) * how.nearness);
+            pitch -= (float) Math.atan((atY - AIMED_Y) * how.nearness);
             roll = HIP_CANT * (1f - raised);
         } else {
             atX = SWUNG_X;
@@ -325,8 +357,16 @@ public final class ViewModel {
         ViewModelMath.turn(out, pitch, yaw, roll, gripX, gripY, -ahead,
                 moveX + how.bobX * steady, moveY + how.bobY * steady + how.recoil * KICK_UP - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN,
                 moveBack + how.recoil * KICK_BACK);
+        ViewModelMath.onto(fromAim, out);
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
+            ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * FORE_END, origin[1] + (end[1] - origin[1]) * FORE_END,
+                    origin[2] + (end[2] - origin[2]) * FORE_END, foreEnd);
+            ViewModelMath.turned(out, top, over);
+            float length = (float) Math.sqrt(over[0] * over[0] + over[1] * over[1] + over[2] * over[2]);
+            for (int axis = 0; axis < 3; axis++) {
+                foreEnd[axis] -= over[axis] / length * FORE_END_BELOW;
+            }
         }
         return true;
     }

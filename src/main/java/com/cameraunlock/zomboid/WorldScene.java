@@ -148,6 +148,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
     private final ViewCamera.Pose camera = new ViewCamera.Pose();
+    /** The aim the held weapon is drawn on: see FirstPerson. */
+    private final ViewCamera.Pose aim = new ViewCamera.Pose();
     private float rightX, rightY;
     /** The direction an upright sprite on the square being added runs along. */
     private float cardRightX, cardRightY;
@@ -317,11 +319,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     /**
      * @param view               the eye and orientation the frame is drawn from, head tracking included
+     * @param aimed              the aim, which the weapon in hand is held on
      * @param tanHalfFieldOfView the tangent of half the vertical field of view the frame is drawn with
      */
-    void build(IsoPlayer player, ViewCamera.Pose view, float tanHalfFieldOfView) {
+    void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView) {
         long start = System.nanoTime();
         camera.set(view);
+        aim.set(aimed);
         this.tanHalfFieldOfView = tanHalfFieldOfView;
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
         if (flat > 1e-3f) {
@@ -3077,6 +3081,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView)),
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3], near));
         }
+        Characters.aim.set(aim);
         Pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
         lastDrawMillis = Pipeline.lastMillis();
     }

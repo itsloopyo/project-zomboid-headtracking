@@ -27,4 +27,5 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isInvisible() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.BodyDamage.BodyDamage getBodyDamage() { throw new UnsupportedOperationException("reference stub"); }
     public void setAvoidDamage(boolean on) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.physics.BallisticsController getBallisticsController() { throw new UnsupportedOperationException("reference stub"); }
 }

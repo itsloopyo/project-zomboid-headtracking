@@ -7,8 +7,10 @@ import zombie.GameTime;
 import zombie.characters.CharacterInputKeyBinding;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
+import zombie.core.physics.BallisticsController;
 import zombie.iso.IsoUtils;
 import zombie.iso.Vector2;
+import zombie.iso.Vector3;
 
 /**
  * What the game is told was pressed while the first person view holds the
@@ -137,6 +139,24 @@ public final class Controls {
     /** Called where the game's ballistics read the screen row of the reticle. */
     public static int aimPointY(int stock) {
         return FirstPerson.lookCaptured() ? Math.round(IsoUtils.YToScreenExact(aimPointX, aimPointY, aimPointLevel, 0)) : stock;
+    }
+
+    /**
+     * Called where the game's ballistics have just worked out where the muzzle is, which is
+     * where they start a shot from. With a firearm's sights up a lean moves the weapon with
+     * the eye, and the shot starts from where the weapon is drawn: the muzzle is moved by
+     * what of the lean the weapon has. The way the shot points is not changed.
+     */
+    public static void muzzle(BallisticsController ballistics) {
+        IsoPlayer player = IsoPlayer.getInstance();
+        if (!FirstPerson.lookCaptured() || player == null || player.getBallisticsController() != ballistics) {
+            return;
+        }
+        float[] carried = HeadTracking.carried();
+        Vector3 muzzle = ballistics.getMuzzlePosition();
+        muzzle.x += carried[0];
+        muzzle.y += carried[1];
+        muzzle.z += carried[2] / ViewCamera.LEVEL_HEIGHT;
     }
 
     /**

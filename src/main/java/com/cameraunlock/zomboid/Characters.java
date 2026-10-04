@@ -230,17 +230,20 @@ public final class Characters {
                 ViewModel.Held hands = ViewModel.held;
                 if (hands != null && CharacterDraw.cuts()) {
                     ModelInstanceRenderData weapon = weaponOf(data);
+                    ViewCamera.between(aim, camera, fromAim);
                     if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
-                            CHARACTER_SCALE, heldView)) {
+                            CHARACTER_SCALE, fromAim, heldView)) {
                         holding = data;
                         arms[0] = reach(data, 0);
                         // A bat or an axe is swung from the right hand here: the game's left
                         // hand is placed for its own swing, and is nowhere near the handle in ours.
                         boolean both = hands.bothHands() && hands.firearm();
+                        System.arraycopy(heldView, 0, leftView, 0, 16);
                         arms[1] = both && reach(data, 1);
-                        // Something carried in both hands is not in both at every moment. A
+                        // A firearm with a muzzle has its left hand held on the fore-end.
+                        // Anything else carried in both hands is not in both at every moment: a
                         // left hand that is off it stays with the body, where the game has it.
-                        heldBoth = both && !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON);
+                        heldBoth = both && (ViewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
                         if (!arms[0] && !armless) {
                             armless = true;
                             Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
@@ -284,6 +287,15 @@ public final class Characters {
     /** The viewer's model while its weapon is held up, from drawViewer until the frame is done. */
     private static ModelSlotRenderData holding;
     private static final float[] weaponPlace = new float[16], heldView = new float[16];
+    /**
+     * The aim of the frame being drawn. The weapon, the hands on it and the shoulders behind
+     * them are placed in this view and drawn through the camera, so they stay on the aim
+     * while the head turns and leans the picture.
+     */
+    static final ViewCamera.Pose aim = new ViewCamera.Pose();
+    private static final float[] fromAim = new float[16], pole = new float[3];
+    /** The view the left hand on the weapon is drawn through: the weapon's, moved to hold the hand on the fore-end. */
+    private static final float[] leftView = new float[16];
     /** Whether the left hand is on the weapon held up, with the right. */
     private static boolean heldBoth;
     /**
@@ -326,9 +338,19 @@ public final class Characters {
         }
         ViewModelMath.place(heldView, joined[0], joined[1], joined[2], wrist);
         ViewModelMath.place(heldView, joined[3], joined[4], joined[5], rigid);
+        if (side == 1 && ViewModel.hasMuzzle) {
+            for (int axis = 0; axis < 3; axis++) {
+                float move = ViewModel.foreEnd[axis] - wrist[axis];
+                wrist[axis] += move;
+                rigid[axis] += move;
+                leftView[12 + axis] += move;
+            }
+        }
         float fore = apart(wrist, rigid);
-        System.arraycopy(side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER, 0, shoulder, 0, 3);
-        if (!ViewModelMath.elbow(shoulder, wrist, fore * UPPER_ARM, fore, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, elbow)) {
+        float[] at = side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER;
+        ViewModelMath.place(fromAim, at[0], at[1], at[2], shoulder);
+        ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
+        if (!ViewModelMath.elbow(shoulder, wrist, fore * UPPER_ARM, fore, pole, elbow)) {
             return false;
         }
         float[] arm = joints[side], bend = bends[side], wide = wides[side];
@@ -415,7 +437,16 @@ public final class Characters {
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
             if (model.model == null || !model.model.isStatic) {
-                CharacterDraw.piece(model, heldBoth, true);
+                CharacterDraw.piece(model, false, true);
+            }
+        }
+        if (heldBoth) {
+            CharacterDraw.begin(data, leftView, projection, false);
+            for (int part = 0; part < data.modelData.size(); part++) {
+                ModelInstanceRenderData model = data.modelData.get(part);
+                if (model.model == null || !model.model.isStatic) {
+                    CharacterDraw.leftHand(model);
+                }
             }
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {

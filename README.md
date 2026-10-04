@@ -130,7 +130,7 @@ None of this is written to your key bindings. The game's own view, a paused game
 
 With a weapon in hand and on foot, first person draws it and the arms that hold it before the eye instead of where the game's animation carries them:
 
-- **A firearm** sits low and to the right at the hip, pointing where the view points. Holding the aim brings it up to the middle of the picture as the view narrows. Your left arm comes with it when the weapon is held in both hands.
+- **A firearm** sits low and to the right at the hip, pointing at the place the shot will land. Holding the aim brings it up onto your aim as the view narrows. It stays on your aim when you turn your head: look away and it is off to one side, still pointing at the reticle. Your left arm comes with it when the weapon is held in both hands.
 - **A melee weapon** is held up at the lower right. A swing is the game's own attack animation, seen from the eye.
 - The weapon trails a turn of the view by a few degrees and catches up, sways with each step, drops across the body while you sprint, and dips when you crouch or land.
 - **A shot** kicks the weapon back and up for about a sixth of a second, throws a flash from the muzzle and lights the people and zombies round it for the length of the flash.
@@ -164,11 +164,14 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Toggle tracking | `End` | `Ctrl+Shift+Y` |
 | Cycle tracking mode | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode | `Page Down` | `Ctrl+Shift+H` |
+| Cycle aim mode | `Insert`    | `Ctrl+Shift+U` |
 
 - **Tracking mode** cycles rotation and position, rotation only, then position only. Rotation only is how you turn the positional lean off.
 - **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up.
 
-These last for the session. Each launch starts with tracking on, rotation and position, and yaw about straight up.
+- **Aim mode** is how head tracking behaves while a firearm's sights are up. See [Aiming down sights](#aiming-down-sights).
+
+Tracking, the tracking mode and the yaw mode last for the session. Each launch starts with tracking on, rotation and position, and yaw about straight up. The aim mode is saved when you change it.
 
 Tracking applies while the first person view is on, the game is not paused and your character is alive.
 
@@ -189,11 +192,43 @@ The mod has no settings file. Its values are built in:
 | Field of view, firearm aimed | `50` degrees | 0.73 of the field of view's half tangent, a magnification of 1.37 |
 | Carried light | `1.5` | How far a carried light turns relative to your head |
 
+The aim mode is the one setting the mod saves: three lines, `TrueFreeLook`, `FreeLookMarker` and `StockSights`, under `[Position]` in `CameraUnlock.ini` next to `ProjectZomboid64.exe`. The mod writes the file the first time you change the mode, and an uninstall leaves it in place.
+
 Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.
 
 A flashlight you carry follows your head and not your aim, and turns a little further than the view does. When you turn your head your eyes end up past the center of the screen, so a beam matched to the view alone lands short of what you are looking at.
 
 Sensitivity, axis inversion, deadzones and response curves are set in your tracker, so one profile behaves the same in every game.
+
+### Aiming down sights
+
+Head tracking stays on while you aim, unless you pick stock sights below. The
+weapon stays where your mouse points it, so with your head turned it sits off to
+one side with its sights still lined up, and your rounds land where those sights
+point. Head movement is scaled to the zoom, so the narrowed view does not
+magnify it.
+
+`Insert` / `Ctrl+Shift+U` cycles four ways of aiming, and the mod saves the one
+you pick, so it holds the next time you start the game:
+
+1. **Sights locked** (default) - leaning never takes your eye off the sights,
+   and leaning in towards them brings them closer.
+2. **Free look with a marker** - the weapon stays put and your head moves freely
+   around it, so the sights only line up with your head behind them. The game's
+   own reticle shows where your rounds will land while the sights are up.
+3. **True free look** - the same. The game draws its reticle whenever the aim is
+   held, so in this game the two free look modes look alike.
+4. **Stock sights** - while the sights are up your head stops turning and
+   leaning the view, so the sights sit in the centre as they do without head
+   tracking. Tilting your head still tilts the view. When you lower the weapon
+   the view goes back to where you are looking.
+
+Leaning carries on through the aim. As the sights come up, your arms and weapon
+move with your head, so the sights stay in front of your eye, and your rounds
+leave from where your eye is. Lean round a corner with the sights up and you can
+hit what you can see from there. Leaning in stops just short of the rear sight.
+
+The mode is logged each time it changes, as `Aim mode: sights locked` and so on.
 
 ## Troubleshooting
 
@@ -216,6 +251,12 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 - Send a noisy phone feed through OpenTrack and use its filter (see [Phone App Setup](#phone-app-setup)).
 - With a webcam, improve the lighting on your face and raise the filter strength in OpenTrack.
+
+**Aiming**
+
+- **The weapon is off to one side when I aim down sights.** Your head is turned: the weapon stays on your aim and you are looking past it. Turn back to it, or move your aim to where you are looking.
+- **I can't see down the sights, they are misaligned.** You are in one of the free look modes and your head is leaned off them. Move your head back behind them, or press `Insert` / `Ctrl+Shift+U` until the log says sights locked.
+- **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` / `Ctrl+Shift+U` for another mode if you want head tracking to carry on through the aim.
 
 **Wrong rotation axis or direction**
 

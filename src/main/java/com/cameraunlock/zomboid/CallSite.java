@@ -33,12 +33,17 @@ final class CallSite {
 
     /** As insertAfter, for a method that makes the call {@code expected} times and is to have the hook after each. */
     static byte[] insertAfterEach(byte[] classBytes, Method within, Method call, Method hook, int expected) {
+        return insertAfterEach(classBytes, within, call, code -> invokeStatic(code, hook), expected);
+    }
+
+    /** Inserts {@code code} straight after each of the {@code expected} calls to {@code call} inside {@code within}. */
+    static byte[] insertAfterEach(byte[] classBytes, Method within, Method call, Consumer<CodeBuilder> inserted, int expected) {
         int[] matches = {0};
         CodeTransform insert = (code, element) -> {
             code.with(element);
             if (element instanceof InvokeInstruction invoke && isCallTo(invoke, call)) {
                 matches[0]++;
-                invokeStatic(code, hook);
+                inserted.accept(code);
             }
         };
         byte[] transformed = transform(classBytes, within, insert);

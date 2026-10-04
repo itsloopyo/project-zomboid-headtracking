@@ -122,6 +122,31 @@ final class ViewCamera {
     }
 
     /**
+     * The matrix that takes a point from one view's axes to another's: x to the right, y up
+     * and z towards the viewer, each from its own eye. It is the second view's matrix times
+     * the inverse of the first's.
+     */
+    static void between(Pose from, Pose to, float[] out) {
+        out[0] = to.rightX * from.rightX + to.rightY * from.rightY + to.rightUp * from.rightUp;
+        out[1] = to.upX * from.rightX + to.upY * from.rightY + to.upUp * from.rightUp;
+        out[2] = -(to.forwardX * from.rightX + to.forwardY * from.rightY + to.forwardUp * from.rightUp);
+        out[3] = 0f;
+        out[4] = to.rightX * from.upX + to.rightY * from.upY + to.rightUp * from.upUp;
+        out[5] = to.upX * from.upX + to.upY * from.upY + to.upUp * from.upUp;
+        out[6] = -(to.forwardX * from.upX + to.forwardY * from.upY + to.forwardUp * from.upUp);
+        out[7] = 0f;
+        out[8] = -(to.rightX * from.forwardX + to.rightY * from.forwardY + to.rightUp * from.forwardUp);
+        out[9] = -(to.upX * from.forwardX + to.upY * from.forwardY + to.upUp * from.forwardUp);
+        out[10] = to.forwardX * from.forwardX + to.forwardY * from.forwardY + to.forwardUp * from.forwardUp;
+        out[11] = 0f;
+        float x = from.eyeX - to.eyeX, y = from.eyeY - to.eyeY, up = from.eyeUp - to.eyeUp;
+        out[12] = to.rightX * x + to.rightY * y + to.rightUp * up;
+        out[13] = to.upX * x + to.upY * y + to.upUp * up;
+        out[14] = -(to.forwardX * x + to.forwardY * y + to.forwardUp * up);
+        out[15] = 1f;
+    }
+
+    /**
      * Where a world point falls in the view, in normalised device coordinates
      * (x to the right, y up, the screen edges at -1 and 1). Returns false for a
      * point that is not in front of the eye, where the divide has no meaning.

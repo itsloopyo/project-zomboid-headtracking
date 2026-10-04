@@ -41,6 +41,7 @@ public final class Tests {
         leanClampTightensAtOnceAndReleasesSlowly();
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
+        AimTests.run();
         shotStopsOnACharacter();
         receiverRefusesAPoseNoTrackerSendsAndABadPort();
         windowIsCentredInItsWorkArea();
