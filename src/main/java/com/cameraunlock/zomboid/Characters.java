@@ -217,6 +217,14 @@ public final class Characters {
         draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
     }
 
+    /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
+    static void castCharacters(float[] lightMatrix, ViewCamera.Pose camera) {
+        System.arraycopy(IDENTITY, 0, projection, 0, 16);
+        only = ONLY_CHARACTERS;
+        draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
+        only = ALL;
+    }
+
     private static int draw(float[] view, boolean withViewer, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;

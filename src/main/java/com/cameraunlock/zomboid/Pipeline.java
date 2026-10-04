@@ -133,7 +133,9 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame uses, each of which the game may have left a sampler object on. */
-    private static final int UNITS = 16;
+    private static final int UNITS = 18;
+    /** The texture unit the headlights' shadow map stays bound to through the frame. */
+    private static final int BEAM_UNIT = 14;
 
     private static final String WORLD_VERTEX = """
             #version 120
@@ -248,6 +250,24 @@ final class Pipeline {
             uniform float uDark;
             uniform vec4 uBeamAt[2];
             uniform vec3 uBeamWay[2];
+            uniform sampler2DShadow uBeamShadow;
+            uniform mat4 uBeamMatrix;
+
+            // How much of the nearest vehicle's headlights reaches p past what stands in the
+            // beam, from a picture of the scene drawn from the lamps.
+            float beamReaches(vec3 p) {
+                vec4 c = uBeamMatrix * vec4(p, 1.0);
+                if (c.w <= 0.0) {
+                    return 1.0;
+                }
+                vec3 s = c.xyz / c.w * 0.5 + 0.5;
+                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
+                    return 1.0;
+                }
+                float e = 1.5 / 4096.0;
+                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
+                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
+            }
 
             // What the headlights that are on give the air at p: a broad spill and a hot
             // middle, thinning with the square of the distance.
@@ -257,7 +277,12 @@ final class Pipeline {
                 dir = to * inversesqrt(max(far2, 0.0001));
                 float within = dot(dir, uBeamWay[i]);
                 float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                if (i == 0 && given > 0.0) {
+                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
+                    given *= beamReaches(p - dir * 0.22);
+                }
+                return given;
             }
 
             // And what they give a surface there that faces n. Leaves and grass take light
@@ -1111,6 +1136,24 @@ final class Pipeline {
             uniform float uMist;
             uniform vec4 uBeamAt[2];
             uniform vec3 uBeamWay[2];
+            uniform sampler2DShadow uBeamShadow;
+            uniform mat4 uBeamMatrix;
+
+            // How much of the nearest vehicle's headlights reaches p past what stands in the
+            // beam, from a picture of the scene drawn from the lamps.
+            float beamReaches(vec3 p) {
+                vec4 c = uBeamMatrix * vec4(p, 1.0);
+                if (c.w <= 0.0) {
+                    return 1.0;
+                }
+                vec3 s = c.xyz / c.w * 0.5 + 0.5;
+                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
+                    return 1.0;
+                }
+                float e = 1.5 / 4096.0;
+                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
+                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
+            }
 
             // What the headlights that are on give the air at p: a broad spill and a hot
             // middle, thinning with the square of the distance.
@@ -1120,7 +1163,12 @@ final class Pipeline {
                 dir = to * inversesqrt(max(far2, 0.0001));
                 float within = dot(dir, uBeamWay[i]);
                 float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                if (i == 0 && given > 0.0) {
+                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
+                    given *= beamReaches(p - dir * 0.22);
+                }
+                return given;
             }
 
             // And what they give a surface there that faces n. Leaves and grass take light
@@ -1217,6 +1265,24 @@ final class Pipeline {
             uniform float uInstruments;
             uniform vec4 uBeamAt[2];
             uniform vec3 uBeamWay[2];
+            uniform sampler2DShadow uBeamShadow;
+            uniform mat4 uBeamMatrix;
+
+            // How much of the nearest vehicle's headlights reaches p past what stands in the
+            // beam, from a picture of the scene drawn from the lamps.
+            float beamReaches(vec3 p) {
+                vec4 c = uBeamMatrix * vec4(p, 1.0);
+                if (c.w <= 0.0) {
+                    return 1.0;
+                }
+                vec3 s = c.xyz / c.w * 0.5 + 0.5;
+                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
+                    return 1.0;
+                }
+                float e = 1.5 / 4096.0;
+                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
+                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
+            }
 
             // What the headlights that are on give the air at p: a broad spill and a hot
             // middle, thinning with the square of the distance.
@@ -1226,7 +1292,12 @@ final class Pipeline {
                 dir = to * inversesqrt(max(far2, 0.0001));
                 float within = dot(dir, uBeamWay[i]);
                 float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                return cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                if (i == 0 && given > 0.0) {
+                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
+                    given *= beamReaches(p - dir * 0.22);
+                }
+                return given;
             }
 
             // And what they give a surface there that faces n. Leaves and grass take light
@@ -1918,6 +1989,11 @@ final class Pipeline {
     private static int[] rangeTexture = new int[256], rangeFirst = new int[256], rangeCount = new int[256];
     private static int ranges, solidRanges;
     private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
+    private static final float[] beamMatrix = new float[16];
+    private static int beamMap, beamTarget;
+    private static final ViewCamera.Pose lamp = new ViewCamera.Pose();
+    /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */
+    private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
     private static final float[] sunNdc = new float[2];
     private static final int[] samplers = new int[UNITS];
     private static volatile float lastMillis;
@@ -2274,6 +2350,55 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
         }
+        // The scene as the nearest lit headlights see it, so that what stands in their beam
+        // throws its shadow down the road.
+        float[] beams = Headlights.beams;
+        if (beams[6] > 0f) {
+            lamp.eyeX = beams[0];
+            lamp.eyeY = beams[1];
+            lamp.eyeUp = beams[2];
+            lamp.forwardX = beams[3];
+            lamp.forwardY = beams[4];
+            lamp.forwardUp = beams[5];
+            float flat = (float) Math.hypot(beams[3], beams[4]);
+            lamp.rightX = beams[4] / flat;
+            lamp.rightY = -beams[3] / flat;
+            lamp.rightUp = 0f;
+            lamp.upX = lamp.rightY * lamp.forwardUp - lamp.rightUp * lamp.forwardY;
+            lamp.upY = lamp.rightUp * lamp.forwardX - lamp.rightX * lamp.forwardUp;
+            lamp.upUp = lamp.rightX * lamp.forwardY - lamp.rightY * lamp.forwardX;
+            float[] seen = ViewCamera.view(lamp), cast = ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR);
+            for (int column = 0; column < 4; column++) {
+                for (int row = 0; row < 4; row++) {
+                    float sum = 0f;
+                    for (int k = 0; k < 4; k++) {
+                        sum += cast[k * 4 + row] * seen[column * 4 + k];
+                    }
+                    beamMatrix[column * 4 + row] = sum;
+                }
+            }
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, beamTarget);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            shadow.use();
+            shadow.set("uMatrix", beamMatrix);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            drawRanges(0, solidRanges);
+            if (figures) {
+                Characters.castCharacters(beamMatrix, camera);
+                arrays();
+                GL13.glActiveTexture(GL_TEXTURE0);
+                GL11.glDisable(GL_CULL_FACE);
+                GL11.glDisable(GL_BLEND);
+                GL11.glDisable(GL_ALPHA_TEST);
+                GL11.glEnable(GL_DEPTH_TEST);
+                GL11.glDepthFunc(GL_LEQUAL);
+                GL11.glDepthMask(true);
+            }
+        }
+        GL13.glActiveTexture(GL_TEXTURE0 + BEAM_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, beamMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
         // Drawn whatever the weather: the rain is kept off by it, and the light of the sky is
         // traced against it.
         {
@@ -2919,6 +3044,8 @@ final class Pipeline {
             program.set("uBeamAt[" + i + "]", beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
             program.set("uBeamWay[" + i + "]", beams[at + 3], beams[at + 4], beams[at + 5]);
         }
+        program.set("uBeamShadow", BEAM_UNIT);
+        program.set("uBeamMatrix", beamMatrix);
     }
 
     private static void quad() {
@@ -3011,8 +3138,11 @@ final class Pipeline {
         String roof = shadowMap(made);
         roofMap = made[0];
         roofTarget = made[1];
-        if (near != null || far != null || roof != null) {
-            return near != null ? near : far != null ? far : roof;
+        String beam = shadowMap(made);
+        beamMap = made[0];
+        beamTarget = made[1];
+        if (near != null || far != null || roof != null || beam != null) {
+            return near != null ? near : far != null ? far : roof != null ? roof : beam;
         }
         // Where each drop starts in its box of air, and which corner of its streak each of its
         // six vertices is. The same every run: rain needs no surprises.
