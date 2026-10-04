@@ -1067,6 +1067,7 @@ final class Pipeline {
                 float reach = 0.12 + 0.02 * p.z;
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float along = reach * start;
+                vec2 last = uv;
                 for (int i = 0; i < MIRROR_STEPS; i++) {
                     along += reach;
                     reach *= 1.14;
@@ -1078,8 +1079,10 @@ final class Pipeline {
                     if (at.x < 0.0 || at.x > 1.0 || at.y < 0.0 || at.y > 1.0) {
                         break;
                     }
+                    last = at;
                     float behind = q.z - placeAt(at).z;
                     if (behind > 0.0) {
+                        last = uv;
                         if (behind < 0.6 + reach * 1.5) {
                             float edge = min(min(at.x, 1.0 - at.x), min(at.y, 1.0 - at.y));
                             vec4 found = texture2D(uScene, at);
@@ -1089,6 +1092,14 @@ final class Pipeline {
                         }
                         break;
                     }
+                }
+                // A ray that met nothing went on into the sky. The sky it went into is in the
+                // picture at the last place the ray was seen, clouds and all, and that is what
+                // the water shows: without this, water mirrors clouds far off and not near by,
+                // with a line across it where the one gives way to the other.
+                if (last != uv && texture2D(uDepth, last).r >= 0.9999995) {
+                    float edge = min(min(last.x, 1.0 - last.x), 1.0 - last.y);
+                    return mix(scene.rgb, texture2D(uScene, last).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge));
                 }
                 return scene.rgb;
             }
