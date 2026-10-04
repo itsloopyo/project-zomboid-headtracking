@@ -8,6 +8,7 @@ public final class BaseVehicle {
     public float getZ() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getHeadlightsOn() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isEngineRunning() { throw new UnsupportedOperationException("reference stub"); }
+    public String getScriptName() { throw new UnsupportedOperationException("reference stub"); }
     public float getY() { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getForwardVector(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public int getSeat(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }

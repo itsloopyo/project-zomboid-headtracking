@@ -1243,6 +1243,8 @@ final class Pipeline {
             uniform float uPainted;
             uniform float uGlassPass;
             uniform float uInstruments;
+            uniform vec4 uWheel;
+            uniform vec3 uWheelAxis;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
             uniform vec2 uCabinGain;
@@ -1273,6 +1275,26 @@ final class Pipeline {
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
             // as the car moves. on is the place on the pane, in tiles.
+            // How far p is from the steering wheel: a round rim, a hub and three spokes, where
+            // the game's model has a six-sided ring. p is measured from the eye along the
+            // vehicle, across it and up. uWheel is the wheel's middle and its radius, and
+            // uWheelAxis the way its column runs, away from the driver.
+            float wheelAt(vec3 p) {
+                vec3 q = p - uWheel.xyz;
+                float deep = dot(q, uWheelAxis);
+                float outward = length(q - uWheelAxis * deep);
+                float rim = length(vec2(outward - uWheel.w, deep)) - 0.036;
+                vec3 up = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
+                // The spokes dish in from the rim to the hub.
+                float sunk = deep - 0.03 * (1.0 - outward / uWheel.w);
+                float across = q.y, along = dot(q, up);
+                float thin = abs(sunk) - 0.011;
+                float bar = max(max(abs(along) - 0.024, thin), abs(across) - uWheel.w) - 0.006;
+                float down = max(max(abs(across) - 0.024, thin), max(along, -along - uWheel.w)) - 0.006;
+                float hub = max(outward - 0.062, abs(deep - 0.03) - 0.028) - 0.012;
+                return min(min(rim, hub), min(bar, down));
+            }
+
             float hash21(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
@@ -1389,7 +1411,38 @@ final class Pipeline {
                 vec4 figure = texture2D(uFigure, uv);
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
-                if (figure.a < 0.5) {
+                // The steering wheel is found by walking each line of sight up to it.
+                bool wheel = false;
+                float wheelFar = 0.0;
+                vec3 wheelFaces = vec3(0.0);
+                if (uInside > 0.5 && uWheel.w > 0.0) {
+                    vec3 d = normalize(ray);
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
+                    float t = 0.2;
+                    for (int i = 0; i < 48; i++) {
+                        float gap = wheelAt(line * t);
+                        if (gap < 0.0012) {
+                            wheel = true;
+                            break;
+                        }
+                        t += gap;
+                        if (t > 1.4) {
+                            break;
+                        }
+                    }
+                    if (wheel) {
+                        if (uGlassPass > 0.5) {
+                            discard;
+                        }
+                        vec3 p = line * t;
+                        vec2 e = vec2(0.002, 0.0);
+                        vec3 slope = normalize(vec3(wheelAt(p + e.xyy) - wheelAt(p - e.xyy), wheelAt(p + e.yxy) - wheelAt(p - e.yxy), wheelAt(p + e.yyx) - wheelAt(p - e.yyx)));
+                        wheelFaces = vec3(uAhead * slope.x + side * slope.y, slope.z);
+                        wheelFar = t;
+                    }
+                }
+                if (figure.a < 0.5 && !wheel) {
                     // From a seat the vehicle is all round the eye, so where the game drew
                     // none of it above the sills there is an opening with a pane in it.
                     vec3 out3 = normalize(ray);
@@ -1409,6 +1462,9 @@ final class Pipeline {
                 }
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                if (wheel) {
+                    ahead = wheelFar / length(ray);
+                }
                 vec3 at = uEye + ray * ahead;
 
                 // The game's models are few flat faces and the game lights them all alike, so
@@ -1426,6 +1482,11 @@ final class Pipeline {
                 float close = uInside * step(ahead * length(ray), 3.2);
                 vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
+                if (wheel) {
+                    n = wheelFaces;
+                    close = 1.0;
+                    figure = vec4(0.21, 0.2, 0.195, 1.0);
+                }
                 // The models' skins are flat paint. Their light and dark say where the cloth
                 // folds and the flesh is torn, and the surface is lit as raised where it is
                 // light, so a shirt has creases the sun rakes across and not a picture of them.
@@ -1443,7 +1504,7 @@ final class Pipeline {
                         vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
                         sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
                     }
-                    if (sum.a > 6.0) {
+                    if (sum.a > 6.0 && !wheel) {
                         figure = vec4(sum.rgb / sum.a, 1.0);
                     }
                     // The game paints a cabin in flat colours. What it is made of is laid over
@@ -1457,7 +1518,8 @@ final class Pipeline {
                     float most = max(figure.r, max(figure.g, figure.b)), least = min(figure.r, min(figure.g, figure.b));
                     float woven = smoothstep(0.2, 0.35, (most - least) / max(most, 0.001)) * step(0.2, most);
                     vec3 grain = mix(texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x, texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y, woven);
-                    figure.rgb *= mix(vec3(1.0), grain, mix(0.9, 0.45, woven));
+                    // Pale parts are painted metal, the pillars and the door tops, and have no grain.
+                    figure.rgb *= mix(vec3(1.0), grain, mix(0.9 * (1.0 - smoothstep(0.4, 0.65, most)), 0.45, woven));
                 } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
@@ -1494,7 +1556,7 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && at.z > uEye.z - 0.35) {
+                if (cabin > 0.5 && at.z > uEye.z - 0.35 && !wheel) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -3003,6 +3065,13 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", FirstPerson.instrumentsLit ? 0.9f * state.night : 0f);
+            float[] wheel = FirstPerson.seated ? Cabins.wheel(FirstPerson.seatedIn) : null;
+            if (wheel == null) {
+                figureLight.set("uWheel", 0f, 0f, 0f, 0f);
+            } else {
+                figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
+                figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
+            }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uTime", state.seconds);
             figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);

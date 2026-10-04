@@ -52,6 +52,8 @@ public final class FirstPerson {
     static volatile boolean seated;
     /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
     static volatile boolean instrumentsLit;
+    /** The script name of the vehicle the viewer sits in, or null. */
+    static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
 
@@ -192,6 +194,7 @@ public final class FirstPerson {
         BaseVehicle vehicle = player.getVehicle();
         seated = vehicle != null;
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
+        seatedIn = vehicle == null ? null : vehicle.getScriptName();
         if (vehicle != null) {
             int seat = vehicle.getSeat(player);
             if (seat >= 0) {
