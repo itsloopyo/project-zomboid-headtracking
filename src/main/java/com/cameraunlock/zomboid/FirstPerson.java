@@ -179,11 +179,11 @@ public final class FirstPerson {
         float zoom = Core.getInstance().getZoom(player.getIndex());
         // The game aims from its aim origin to the point under the cursor at the origin's own
         // height, so that is the height the cursor's point has to be taken at.
-        float aheadX = player.getAimOriginPosX() + cos * CURSOR_DISTANCE;
-        float aheadY = player.getAimOriginPosY() + sin * CURSOR_DISTANCE;
+        float cursorAtX = player.getAimOriginPosX() + cos * CURSOR_DISTANCE;
+        float cursorAtY = player.getAimOriginPosY() + sin * CURSOR_DISTANCE;
         float aimHeight = player.getAimOriginPosZ();
-        cursorX = Math.round(IsoUtils.XToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
-        cursorY = Math.round(IsoUtils.YToScreenExact(aheadX, aheadY, aimHeight, 0) / zoom);
+        cursorX = Math.round(IsoUtils.XToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
+        cursorY = Math.round(IsoUtils.YToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
 
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
         float eyeX = player.getX(), eyeY = player.getY(), eyeUp = floorUp + eyeHeight(player);

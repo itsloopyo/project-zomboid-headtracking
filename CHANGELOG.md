@@ -12,6 +12,7 @@
 - Added a view from the seat when you are in a vehicle: the dashboard, wheel, doors and roof with the road ahead, seen through glass that carries a little dust and mirrors the sky at a glancing angle.
 - Getting into a vehicle switches to first person, and getting out switches back to the view you had before.
 - Headlights that are on light the road, the verges, characters and the air in front of the vehicle in first person, and the instruments glow in the cabin when the engine runs at night. Whatever stands in the beam throws its shadow down the road and through the lit air.
+- Rain falling through headlights shows as bright streaks, stands as drops on a vehicle's windows, and is cleared from the front screen by the wipers.
 - Night in first person is darker: the eye no longer opens up until the ground looks as it does by day.
 - Rooms in first person are shaded in their corners.
 - The game's own isometric view is drawn exactly as before.

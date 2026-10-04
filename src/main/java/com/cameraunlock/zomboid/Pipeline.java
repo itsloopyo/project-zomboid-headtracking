@@ -137,6 +137,60 @@ final class Pipeline {
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
     private static final int BEAM_UNIT = 14;
 
+    /** The headlights that are on, for every shader they light: the world, the figures, the air and the rain. */
+    private static final String BEAMS = """
+            uniform vec4 uBeamAt[2];
+            uniform vec3 uBeamWay[2];
+            uniform sampler2DShadow uBeamShadow;
+            uniform mat4 uBeamMatrix;
+
+            // How much of the nearest vehicle's headlights reaches p past what stands in the
+            // beam, from a picture of the scene drawn from the lamps.
+            float beamReaches(vec3 p) {
+                vec4 c = uBeamMatrix * vec4(p, 1.0);
+                if (c.w <= 0.0) {
+                    return 1.0;
+                }
+                vec3 s = c.xyz / c.w * 0.5 + 0.5;
+                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
+                    return 1.0;
+                }
+                float e = 1.5 / 4096.0;
+                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
+                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
+            }
+
+            // What the headlights that are on give the air at p: a broad spill and a hot
+            // middle, thinning with the square of the distance.
+            float beamAt(int i, vec3 p, out vec3 dir) {
+                vec3 to = p - uBeamAt[i].xyz;
+                float far2 = dot(to, to);
+                dir = to * inversesqrt(max(far2, 0.0001));
+                float within = dot(dir, uBeamWay[i]);
+                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
+                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
+                if (i == 0 && given > 0.0) {
+                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
+                    given *= beamReaches(p - dir * 0.22);
+                }
+                return given;
+            }
+
+            // And what they give a surface there that faces n. Leaves and grass take light
+            // from any side.
+            vec3 beams(vec3 p, vec3 n, float leafy) {
+                vec3 sum = vec3(0.0);
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        vec3 dir;
+                        float given = beamAt(i, p, dir);
+                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
+                    }
+                }
+                return sum;
+            }
+            """;
+
     private static final String WORLD_VERTEX = """
             #version 120
             varying vec2 vUv;
@@ -248,56 +302,7 @@ final class Pipeline {
             }
             uniform float uRaining;
             uniform float uDark;
-            uniform vec4 uBeamAt[2];
-            uniform vec3 uBeamWay[2];
-            uniform sampler2DShadow uBeamShadow;
-            uniform mat4 uBeamMatrix;
-
-            // How much of the nearest vehicle's headlights reaches p past what stands in the
-            // beam, from a picture of the scene drawn from the lamps.
-            float beamReaches(vec3 p) {
-                vec4 c = uBeamMatrix * vec4(p, 1.0);
-                if (c.w <= 0.0) {
-                    return 1.0;
-                }
-                vec3 s = c.xyz / c.w * 0.5 + 0.5;
-                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
-                    return 1.0;
-                }
-                float e = 1.5 / 4096.0;
-                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
-                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
-            }
-
-            // What the headlights that are on give the air at p: a broad spill and a hot
-            // middle, thinning with the square of the distance.
-            float beamAt(int i, vec3 p, out vec3 dir) {
-                vec3 to = p - uBeamAt[i].xyz;
-                float far2 = dot(to, to);
-                dir = to * inversesqrt(max(far2, 0.0001));
-                float within = dot(dir, uBeamWay[i]);
-                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
-                if (i == 0 && given > 0.0) {
-                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
-                    given *= beamReaches(p - dir * 0.22);
-                }
-                return given;
-            }
-
-            // And what they give a surface there that faces n. Leaves and grass take light
-            // from any side.
-            vec3 beams(vec3 p, vec3 n, float leafy) {
-                vec3 sum = vec3(0.0);
-                for (int i = 0; i < 2; i++) {
-                    if (uBeamAt[i].w > 0.0) {
-                        vec3 dir;
-                        float given = beamAt(i, p, dir);
-                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
-                    }
-                }
-                return sum;
-            }
+            """ + BEAMS + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -906,16 +911,32 @@ final class Pipeline {
             uniform sampler2DShadow uRoof;
             uniform mat4 uRoofMatrix;
             uniform vec3 uTint;
+            uniform vec3 uEye;
+            uniform float uSeated;
             varying vec3 vWorld;
             varying vec2 vIn;
+            """ + BEAMS + """
 
             void main() {
+                // The vehicle the viewer sits in has a roof the map of roofs knows nothing of.
+                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 1.3 && vWorld.z < uEye.z + 0.45) {
+                    discard;
+                }
                 // The map of what is overhead, seen from straight above: a drop under a roof
                 // never fell there.
                 vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
                 float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
                 float body = (1.0 - vIn.x * vIn.x) * smoothstep(0.0, 0.25, vIn.y) * smoothstep(1.0, 0.5, vIn.y);
-                gl_FragColor = vec4(uTint, body * open * 0.55);
+                // A drop falling through a beam is a bright streak: it is most of what rain
+                // looks like from behind the wheel at night.
+                vec3 dir;
+                float lit = 0.0;
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        lit += beamAt(i, vWorld, dir);
+                    }
+                }
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * 0.55);
             }
             """;
 
@@ -1134,56 +1155,7 @@ final class Pipeline {
             uniform vec3 uLight;
             uniform vec3 uLightColor;
             uniform float uMist;
-            uniform vec4 uBeamAt[2];
-            uniform vec3 uBeamWay[2];
-            uniform sampler2DShadow uBeamShadow;
-            uniform mat4 uBeamMatrix;
-
-            // How much of the nearest vehicle's headlights reaches p past what stands in the
-            // beam, from a picture of the scene drawn from the lamps.
-            float beamReaches(vec3 p) {
-                vec4 c = uBeamMatrix * vec4(p, 1.0);
-                if (c.w <= 0.0) {
-                    return 1.0;
-                }
-                vec3 s = c.xyz / c.w * 0.5 + 0.5;
-                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
-                    return 1.0;
-                }
-                float e = 1.5 / 4096.0;
-                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
-                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
-            }
-
-            // What the headlights that are on give the air at p: a broad spill and a hot
-            // middle, thinning with the square of the distance.
-            float beamAt(int i, vec3 p, out vec3 dir) {
-                vec3 to = p - uBeamAt[i].xyz;
-                float far2 = dot(to, to);
-                dir = to * inversesqrt(max(far2, 0.0001));
-                float within = dot(dir, uBeamWay[i]);
-                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
-                if (i == 0 && given > 0.0) {
-                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
-                    given *= beamReaches(p - dir * 0.22);
-                }
-                return given;
-            }
-
-            // And what they give a surface there that faces n. Leaves and grass take light
-            // from any side.
-            vec3 beams(vec3 p, vec3 n, float leafy) {
-                vec3 sum = vec3(0.0);
-                for (int i = 0; i < 2; i++) {
-                    if (uBeamAt[i].w > 0.0) {
-                        vec3 dir;
-                        float given = beamAt(i, p, dir);
-                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
-                    }
-                }
-                return sum;
-            }
+            """ + BEAMS + """
 
             const int STEPS = 24;
             const float REACH = 48.0;
@@ -1263,56 +1235,9 @@ final class Pipeline {
             uniform float uPainted;
             uniform float uGlassPass;
             uniform float uInstruments;
-            uniform vec4 uBeamAt[2];
-            uniform vec3 uBeamWay[2];
-            uniform sampler2DShadow uBeamShadow;
-            uniform mat4 uBeamMatrix;
-
-            // How much of the nearest vehicle's headlights reaches p past what stands in the
-            // beam, from a picture of the scene drawn from the lamps.
-            float beamReaches(vec3 p) {
-                vec4 c = uBeamMatrix * vec4(p, 1.0);
-                if (c.w <= 0.0) {
-                    return 1.0;
-                }
-                vec3 s = c.xyz / c.w * 0.5 + 0.5;
-                if (s.x <= 0.0 || s.x >= 1.0 || s.y <= 0.0 || s.y >= 1.0 || s.z >= 1.0) {
-                    return 1.0;
-                }
-                float e = 1.5 / 4096.0;
-                return 0.25 * (shadow2D(uBeamShadow, s + vec3(e, e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, e, 0.0)).r
-                        + shadow2D(uBeamShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uBeamShadow, s + vec3(-e, -e, 0.0)).r);
-            }
-
-            // What the headlights that are on give the air at p: a broad spill and a hot
-            // middle, thinning with the square of the distance.
-            float beamAt(int i, vec3 p, out vec3 dir) {
-                vec3 to = p - uBeamAt[i].xyz;
-                float far2 = dot(to, to);
-                dir = to * inversesqrt(max(far2, 0.0001));
-                float within = dot(dir, uBeamWay[i]);
-                float cone = 0.5 * smoothstep(0.78, 0.96, within) + smoothstep(0.93, 0.995, within);
-                float given = cone * uBeamAt[i].w / (1.0 + 0.045 * far2) * (1.0 - smoothstep(20.0, 30.0, sqrt(far2)));
-                if (i == 0 && given > 0.0) {
-                    // Asked a little way back towards the lamps: a surface is not in its own shadow.
-                    given *= beamReaches(p - dir * 0.22);
-                }
-                return given;
-            }
-
-            // And what they give a surface there that faces n. Leaves and grass take light
-            // from any side.
-            vec3 beams(vec3 p, vec3 n, float leafy) {
-                vec3 sum = vec3(0.0);
-                for (int i = 0; i < 2; i++) {
-                    if (uBeamAt[i].w > 0.0) {
-                        vec3 dir;
-                        float given = beamAt(i, p, dir);
-                        sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
-                    }
-                }
-                return sum;
-            }
+            uniform float uRaining;
+            uniform float uTime;
+            """ + BEAMS + """
             uniform vec2 uAhead;
             uniform sampler2D uRepainted;
             uniform float uWriteNear;
@@ -1335,6 +1260,10 @@ final class Pipeline {
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
             // as the car moves. on is the place on the pane, in tiles.
+            float hash21(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
             vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
                 float dust = smoothstep(0.35, 0.85, noise2(on * 5.0) * 0.55 + noise2(on * 15.0 + 3.0) * 0.3 + noise2(on * 61.0) * 0.15);
                 float runs = smoothstep(0.62, 0.95, noise2(vec2(on.x * 46.0, on.y * 2.2)));
@@ -1358,7 +1287,49 @@ final class Pipeline {
                 vec3 grime = vec3(0.36, 0.33, 0.28) * sunLight * lit;
                 float dusty = (0.04 + 0.96 * dirt) * (0.16 + 0.2 * lit);
                 float cover = clamp(0.06 + 0.5 * glancing + dusty, 0.0, 0.8);
-                return vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
+                vec4 glass = vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
+                if (uRaining > 0.0) {
+                    // Rain stands on the glass as drops. On the front screen the wipers go to
+                    // and fro and the drops come back behind the blade.
+                    float fresh = 1.0;
+                    float blade = 0.0;
+                    if (swept > 0.5) {
+                        vec2 pivot = vec2(0.05, -0.12);
+                        if (length(on - vec2(0.75, -0.12)) < length(on - pivot)) {
+                            pivot = vec2(0.75, -0.12);
+                        }
+                        if (length(on - vec2(-0.65, -0.12)) < length(on - pivot)) {
+                            pivot = vec2(-0.65, -0.12);
+                        }
+                        vec2 rel = on - pivot;
+                        float reach = length(rel);
+                        if (reach < 0.52 && rel.y > 0.0) {
+                            const float BEAT = 1.5;
+                            float q = atan(rel.y, rel.x) / 3.14159;
+                            float phase = fract(uTime / BEAT);
+                            float at = phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase;
+                            float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
+                            fresh = clamp(since * BEAT / 1.1, 0.0, 1.0);
+                            blade = (1.0 - smoothstep(0.004, 0.011, abs(q - at) * 3.14159 * reach)) * step(0.06, reach);
+                        }
+                    }
+                    vec2 grid = on * 46.0;
+                    vec2 cell = floor(grid);
+                    float chance = hash21(cell);
+                    vec2 middle = (vec2(hash21(cell + 3.1), hash21(cell + 7.7)) - 0.5) * 0.5;
+                    float size = 0.14 + 0.22 * chance;
+                    float off = length(fract(grid) - 0.5 - middle);
+                    float there = step(1.0 - uRaining * fresh * 0.8, hash21(cell + floor(uTime * 0.3 + chance * 9.0)));
+                    float bead = there * (1.0 - smoothstep(size * 0.7, size, off));
+                    float rim = there * smoothstep(size * 0.45, size * 0.9, off) * step(off, size);
+                    float wet = bead * 0.22 + rim * 0.5;
+                    // A drop is a lens: it holds the sky and, at night, the glare of the lamps.
+                    vec3 held = atmosphere(vec3(0.0, 0.0, 1.0)) * 1.3 + vec3(1.0, 0.92, 0.76) * (0.1 * swept * step(0.5, uBeamAt[0].w));
+                    glass.rgb = mix(glass.rgb, held, wet / (wet + glass.a));
+                    glass.a = min(glass.a + wet * 0.6, 0.9);
+                    glass = mix(glass, vec4(0.004, 0.004, 0.005, 1.0), blade);
+                }
+                return glass;
             }
 
             // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
@@ -2496,6 +2467,8 @@ final class Pipeline {
         rain.set("uTime", state.seconds);
         rain.set("uWind", state.windX, state.windY);
         rain.set("uRain", state.rain);
+        rain.set("uSeated", FirstPerson.seated ? 1f : 0f);
+        setBeams(rain);
         // A drop shows the sky it falls through.
         rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
                 1.6f * (float) Math.pow(state.horizonBlue, 2.2));
@@ -2982,6 +2955,8 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", FirstPerson.instrumentsLit ? 0.9f * state.night : 0f);
+            figureLight.set("uRaining", state.rain);
+            figureLight.set("uTime", state.seconds);
             figureLight.set("uAhead", FirstPerson.aheadX, FirstPerson.aheadY);
             quad();
             glazed = FirstPerson.seated;
