@@ -177,7 +177,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final float[] box = new float[4];
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
-    private static final int TUFTS = 7;
+    private static final int TUFTS = 14;
+    private static final float TUFT_HALF_WIDTH = 0.3f;
     /** The ground of the chunk being built and of the ring of squares round it, laid out as the lights are. */
     private final byte[] groundKind = new byte[LIGHT_SPAN * LIGHT_SPAN];
     private final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
@@ -631,16 +632,28 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (groundKind[own] != Terrain.NATURAL || lightOpen[own] != 1 || groundTexture[own] == null || (groundRank[own] - 1) % 64 < 33) {
             return;
         }
+        // A tuft is wider than nothing, and one near the square's edge hangs over it. Over more
+        // grass that is as it should be. Over a path it is untidy, and through the wall of a
+        // house it is wrong, so unless every square round this one is open grass too the tufts
+        // keep to the middle.
+        boolean amongGrass = true;
+        for (int di = -1; di <= 1; di++) {
+            for (int dj = -1; dj <= 1; dj++) {
+                int at = own + di * LIGHT_SPAN + dj;
+                amongGrass &= groundKind[at] == Terrain.NATURAL && lightOpen[at] == 1 && (groundRank[at] - 1) % 64 >= 33;
+            }
+        }
+        float edge = amongGrass ? 0f : TUFT_HALF_WIDTH + 0.06f;
         frameOf(groundObject[own], groundTexture[own]);
         SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
         for (int tuft = 0; tuft < TUFTS; tuft++) {
             int hash = x * 73856093 ^ y * 19349663 ^ tuft * 83492791;
             hash = (hash ^ hash >>> 13) * 0x5bd1e995;
             hash ^= hash >>> 15;
-            float a = (hash & 0xff) / 255f, b = (hash >>> 8 & 0xff) / 255f;
+            float a = edge + (1f - 2f * edge) * (hash & 0xff) / 255f, b = edge + (1f - 2f * edge) * (hash >>> 8 & 0xff) / 255f;
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
-            float height = 0.2f + 0.22f * (hash >>> 24 & 0xff) / 255f;
-            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.42f, height);
+            float height = 0.16f + 0.26f * (hash >>> 24 & 0xff) / 255f;
+            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height);
         }
     }
 

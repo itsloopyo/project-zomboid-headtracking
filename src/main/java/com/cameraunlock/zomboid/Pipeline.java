@@ -232,14 +232,23 @@ final class Pipeline {
                     // and shade, narrowing to a point. Further off they are shorter, and at the
                     // edge of where grass stands they are gone, so no line shows where it ends.
                     float up = 1.0 - vCover;
-                    float along = dot(vWorld.xy, vec2(19.0, 27.0));
+                    // Blades are counted along the card, whichever way it is turned.
+                    vec2 run = normalize(vec2(-vNormal.y, vNormal.x));
+                    float along = dot(vWorld.xy, run) * 46.0;
                     float blade = floor(along);
-                    float tall = (0.3 + 0.7 * grain(vec2(blade, 7.0))) * (1.0 - smoothstep(9.0, 15.5, length(uEye - vWorld)));
-                    float lean = (grain(vec2(blade, 3.0)) - 0.5) * 0.7 * up;
-                    if (up > tall || abs(fract(along) - 0.5 + lean) > 0.5 * (1.0 - up / tall)) {
+                    float kind = grain(vec2(blade, 7.0));
+                    float tall = (0.25 + 0.75 * kind * kind) * (1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
+                    // A blade bows over further the higher up it, to one side or the other.
+                    float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
+                    float reach = up / max(tall, 0.001);
+                    if (reach > 1.0 || abs(fract(along) - 0.5 + bow) > 0.46 * (1.0 - reach * reach)) {
                         discard;
                     }
-                    texel.rgb *= (0.62 + 0.75 * up) * (0.85 + 0.3 * grain(vec2(blade, 11.0)));
+                    // Dark where the blades crowd at the root, light at the tip where the sun
+                    // gets to them, and here and there a blade gone to straw.
+                    float dry = smoothstep(0.82, 1.0, grain(vec2(blade, 11.0)));
+                    texel.rgb = mix(texel.rgb, vec3(0.62, 0.55, 0.3), dry * 0.6);
+                    texel.rgb *= (0.38 + 0.95 * reach) * (0.8 + 0.4 * grain(vec2(blade, 13.0)));
                     texel.a = 1.0;
                 }
                 // The sprites were drawn for a view in which every level line runs two pixels
