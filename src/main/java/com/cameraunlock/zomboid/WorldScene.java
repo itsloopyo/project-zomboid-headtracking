@@ -187,6 +187,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final java.util.IdentityHashMap<IsoSprite, int[]> ranks = new java.util.IdentityHashMap<>();
     private final int[] spreading = new int[8];
     private final float[] cover = new float[4];
+    /** The place in its chunk of the square being added. */
+    private int waterLocalX, waterLocalY;
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
     /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
@@ -680,6 +682,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             cardRightY = rightY;
         }
         floorLayer = westLayer = northLayer = eastLayer = southLayer = 0;
+        waterLocalX = localX;
+        waterLocalY = localY;
 
         IsoObject floor = square.getFloor();
         PZArrayList<IsoObject> objects = square.getObjects();
@@ -759,8 +763,23 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
             SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
             frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
+            if (frame.kind != 0f && z == 0 && floorLayer == 0) {
+                // Water knows where its bank is: each corner says whether land touches it.
+                for (int corner = 0; corner < 4; corner++) {
+                    int i = waterLocalX + (corner == 1 || corner == 2 ? 1 : 0), j = waterLocalY + (corner >= 2 ? 1 : 0);
+                    boolean land = false;
+                    for (int ci = 0; ci <= 1; ci++) {
+                        for (int cj = 0; cj <= 1; cj++) {
+                            land |= groundKind[(i + ci) * LIGHT_SPAN + j + cj] != Terrain.WATER;
+                        }
+                    }
+                    cover[corner] = land ? 0f : 1f;
+                }
+                geometry.cover = cover;
+            }
             geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.kind = 0f;
+            geometry.cover = null;
             return;
         }
 

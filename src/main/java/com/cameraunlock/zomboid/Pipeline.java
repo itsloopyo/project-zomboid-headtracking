@@ -157,7 +157,9 @@ final class Pipeline {
                 vNormal = gl_Normal;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
-                vec4 at = uLaid > 0.5 && gl_Color.a < 7.5 ? gl_Vertex : blown(gl_Vertex, gl_Normal);
+                // Nor does water: there the length says how far the vertex is from the bank.
+                bool still = uLaid > 0.5 && gl_Color.a < 7.5 || gl_Color.a > 3.5 && gl_Color.a < 7.5;
+                vec4 at = still ? gl_Vertex : blown(gl_Vertex, gl_Normal);
                 vCover = 2.0 - length(gl_Normal);
                 vWorld = at.xyz;
                 gl_Position = gl_ModelViewProjectionMatrix * at;
@@ -298,6 +300,23 @@ final class Pipeline {
                 // A card stands in for something with depth and leaves, a bush or a tree, which
                 // the sun gets into from any side: it is lit whichever way the card faces.
                 bool water = vColor.a > 3.5 && !grass;
+                float foam = 0.0;
+                if (water) {
+                    // Water is made here, not painted. It runs the way the land under it falls,
+                    // and as fast as the fall is steep: on level ground it is a still pond, on a
+                    // slope a stream. It is pale and clear in the shallows at the bank and dark
+                    // in the middle, froths where it runs fast, and laps white at its edge.
+                    float bank = 1.0 - vCover;
+                    vec2 fall = vNormal.xy / max(length(vNormal), 0.001);
+                    vec2 flow = fall * 32.0;
+                    float speed = length(flow);
+                    vec2 p = vWorld.xy - flow * uSeconds;
+                    float churn = patches(p * 2.6) * 0.6 + patches(p * 7.3 + 3.0) * 0.4;
+                    float lap = smoothstep(0.72, 0.98, bank + 0.12 * sin(uSeconds * 1.4 + churn * 9.0) + 0.1 * churn);
+                    foam = clamp(smoothstep(0.56, 0.8, churn) * smoothstep(0.2, 0.7, speed) + lap * 0.8, 0.0, 1.0);
+                    vec3 body = mix(vec3(0.16, 0.3, 0.33), vec3(0.45, 0.5, 0.4), smoothstep(0.15, 1.0, bank));
+                    texel.rgb = mix(body, vec3(0.95), foam) / 0.74;
+                }
                 // A sprite is paint on a flat sheet. Its light and dark say where the thing it
                 // shows stands proud and where it is sunk, the mortar between bricks, the gaps
                 // between boards, the blades of grass, so the sheet is lit as if it were
@@ -351,7 +370,7 @@ final class Pipeline {
                 float shine = 0.0;
                 float ripple = 0.0;
                 if (water) {
-                    shine = 1.0;
+                    shine = 1.0 - foam;
                     ripple = 0.05;
                     color *= 0.55;
                 } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
