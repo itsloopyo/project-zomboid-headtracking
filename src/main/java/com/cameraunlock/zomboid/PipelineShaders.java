@@ -1480,8 +1480,12 @@ final class PipelineShaders {
                         // A picture in its frame is the sprite's own painting of it. Where the
                         // sprite has nothing painted, at its ragged edge, the pane is the board
                         // behind a picture.
+                        // One of the mod's own pictures on a board with no moulding of its own is
+                        // laid a little inside the board's edge, and a place past the picture's edge
+                        // is the frame round it. A sprite's painting never looks outside its texture.
                         pictured = true;
-                        own = texel.a > 0.5 ? texel.rgb : vec3(0.2, 0.17, 0.14);
+                        bool round = vUv.x < -0.002 || vUv.x > 1.002 || vUv.y < -0.002 || vUv.y > 1.002;
+                        own = round ? vec3(0.33, 0.22, 0.15) : texel.a > 0.5 ? texel.rgb : vec3(0.2, 0.17, 0.14);
                     } else if (dyed) {
                         // Where the game's sprite of the piece is to say what colour it is, a green
                         // sofa or a blue fridge, the vertex looks at one place on that sprite and

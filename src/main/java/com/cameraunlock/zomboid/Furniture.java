@@ -66,6 +66,10 @@ final class Furniture {
     boolean pictured;
     /** See ownSize. */
     boolean ownSize;
+    /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
+    int picture = Decor.NONE;
+    /** How wide a frame is painted round that picture, in tiles: a painting on a board with no moulding has one. */
+    float rail;
 
     Furniture(IsoSprite sprite, String model, int turns) {
         this.model = model == null ? null : Models.get(model);
@@ -157,6 +161,21 @@ final class Furniture {
         return dye(surfaces, 0.5f + back[0] * BACK_DYE, 0.5f + back[1] * BACK_DYE, high);
     }
 
+    /**
+     * For a picture that hangs along several squares of a wall, how many lengths it is of. The
+     * game numbers them across its grid for some pictures and down it for others, whichever
+     * wall they hang on, and either way in the order they follow each other as the map's x or
+     * y grows.
+     */
+    int lengths() {
+        return Math.max(width, height);
+    }
+
+    /** Which of those lengths this sprite is. */
+    int lengthAt() {
+        return width > 1 ? gridX : gridY;
+    }
+
     Furniture hang(int wall, boolean pictured) {
         this.wall = wall;
         this.pictured = pictured;
@@ -223,7 +242,20 @@ final class Furniture {
             }
             // A picture's sprite shows its face only from the two sides the game's view sees.
             if (FRAMED.contains(called) && (facing == IsoDirections.S || facing == IsoDirections.E)) {
-                return new Furniture(sprite, grid == null ? null : "canvas", faces).hang(WallHung.behind(facing), true);
+                Furniture framed = new Furniture(sprite, grid == null ? null : "canvas", faces).hang(WallHung.behind(facing), true);
+                framed.picture = Decor.of(name, called, group, grid != null);
+                framed.rail = grid != null && called.startsWith("Painting") ? PAINTED_RAIL : 0f;
+                return framed;
+            }
+            // A poster is a sheet with no frame, and hangs as one only where the mod has a
+            // picture for it: laid on its wall as the game's sprite it needs no model.
+            if (PINNED.contains(called) && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+                int picture = Decor.of(name, called, group, grid != null);
+                if (picture != Decor.NONE) {
+                    Furniture pinned = new Furniture(sprite, "canvas", faces).hang(WallHung.behind(facing), true);
+                    pinned.picture = picture;
+                    return pinned;
+                }
             }
         }
         // A drum is round, and a crate the same from every side: the game gives most of them no front.
@@ -522,4 +554,8 @@ final class Furniture {
     private static final float KETTLE_LID = 0.36f, BOOTH_SEAT = 0.2f, BOOTH_BASE = 0.06f;
     /** What the game calls the things that hang in a frame, or as a board, with a picture on their face. */
     private static final Set<String> FRAMED = Set.of("Painting", "Paintings", "Certificate", "Whiteboard", "Noteboard", "Dartboard");
+    /** How wide the frame round a painting longer than a square is, in tiles. */
+    private static final float PAINTED_RAIL = 0.05f;
+    /** And the sheets pinned to a wall with one. */
+    private static final Set<String> PINNED = Set.of("Poster", "Banner");
 }

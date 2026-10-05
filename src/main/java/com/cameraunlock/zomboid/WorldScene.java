@@ -1224,7 +1224,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float nearer = overLayer * (CARD_LAYER + 4f * standOff);
         geometry.nudgeX = toX / away * nearer;
         geometry.nudgeY = toY / away * nearer;
-        if (!isFloor && addHung(over, texture, x, y, z)) {
+        if (!isFloor && addHung(object, over, texture, x, y, z)) {
             return;
         }
         // A poster or a notice the game has pinned to a wall is laid over the wall's own sprite,
@@ -2064,7 +2064,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
 
-        if (overLayer == 0 && addHung(sprite, texture, x, y, z)) {
+        if (overLayer == 0 && addHung(object, sprite, texture, x, y, z)) {
             return;
         }
         if (addFurniture(object, sprite, x, y, z)) {
@@ -2729,20 +2729,40 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The least and the most a clock is made of its model's size. */
     private static final float CLOCK_SMALLEST = 0.8f, CLOCK_LARGEST = 1.6f;
 
+    /** How near the end of its square the sprite of one length of a long picture stops for the length to be stood to the end. */
+    private static final float LENGTHS_MEET = 0.1f;
+
     private final float[] hungAt = new float[4], hungShows = new float[6], hungWay = new float[2];
 
     /**
      * Hangs the mod's model of a picture, a mirror or a clock on the wall the sprite was
      * painted for, where on that wall the sprite paints it and as big, and says whether the
-     * sprite is thereby dealt with. A picture's frame holds what the sprite shows.
+     * sprite is thereby dealt with. A picture's frame holds the mod's own picture for the
+     * sprite where it has one, and failing that what the sprite shows.
      *
      * False, which leaves the sprite to be drawn as it is, for a sprite that is no such thing
      * and for one not painted where something on that wall would be.
      */
-    private boolean addHung(IsoSprite sprite, Texture texture, int x, int y, int z) {
+    private boolean addHung(IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
         Furniture piece = Furniture.known(sprite);
         if (piece == null || piece.wall == WallHung.NONE || !WallHung.painted(frame, piece.wall, hungAt)) {
             return false;
+        }
+        if (piece.picture != Decor.NONE && piece.grid != null) {
+            // The sprite of one square's length of a picture stops a pixel short of the square's
+            // end, and the wall shows through between two lengths. Each is stood to the end
+            // of its square where another length follows it.
+            if (piece.lengthAt() > 0 && hungAt[WallHung.FROM] < LENGTHS_MEET) {
+                hungAt[WallHung.FROM] = 0f;
+            }
+            if (piece.lengthAt() < piece.lengths() - 1 && hungAt[WallHung.TO] > 1f - LENGTHS_MEET) {
+                hungAt[WallHung.TO] = 1f;
+            }
+            // And every length is as high as the whole picture: the sprites of two lengths
+            // differ by a pixel at the foot, which is a step in the picture's lower edge.
+            wholeOf(object, piece);
+            hungAt[WallHung.BOTTOM] = wholeAt[WallHung.BOTTOM];
+            hungAt[WallHung.TOP] = wholeAt[WallHung.TOP];
         }
         float wide = hungAt[WallHung.TO] - hungAt[WallHung.FROM];
         float high = (hungAt[WallHung.TOP] - hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT;
@@ -2767,14 +2787,64 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float[] lift = geometry.lift;
         placed.add(model, frame, x, y, x + a + hungWay[0] * out, y + b + hungWay[1] * out,
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + foot, piece.turns, scale, scaleUp,
-                piece.pictured ? texture.getID() : PLAIN, piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
-        if (piece.pictured) {
+                !piece.pictured ? PLAIN : piece.picture != Decor.NONE ? Decor.held(piece.picture) : texture.getID(),
+                piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
+        if (piece.picture != Decor.NONE && piece.grid == null) {
+            float[] pane = Decor.pane(model);
+            Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
+                    Decor.wideForHigh(piece.picture), hungShows);
+            placed.picture(hungShows);
+        } else if (piece.picture != Decor.NONE) {
+            // One square's length of a picture longer than a square shows its own part of it.
+            // Whoever faces a north wall has the map's x growing to their right, and whoever
+            // faces a west one has its y growing to their left.
+            boolean north = piece.wall == WallHung.NORTH;
+            float bottom = hungAt[WallHung.BOTTOM];
+            Decor.lay((north ? wholeAt[WallHung.FROM] - along : along - wholeAt[WallHung.TO]) / scale,
+                    (north ? wholeAt[WallHung.TO] - along : along - wholeAt[WallHung.FROM]) / scale,
+                    (wholeAt[WallHung.BOTTOM] - bottom) * ViewCamera.LEVEL_HEIGHT / scaleUp, (wholeAt[WallHung.TOP] - bottom) * ViewCamera.LEVEL_HEIGHT / scaleUp,
+                    wholeAt[WallHung.TO] - wholeAt[WallHung.FROM], (wholeAt[WallHung.TOP] - wholeAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT,
+                    piece.rail, Decor.wideForHigh(piece.picture), hungShows);
+            placed.picture(hungShows);
+        } else if (piece.pictured) {
             Models.turn(piece.turns, 1f, 0f, hungWay);
             WallHung.shows(frame, a, b, hungAt[WallHung.BOTTOM], hungWay[0] * scale, hungWay[1] * scale, scaleUp / ViewCamera.LEVEL_HEIGHT, hungShows);
             placed.picture(hungShows);
         }
         furnished++;
         return true;
+    }
+
+    private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
+    private final float[] partAt = new float[4], wholeAt = new float[4];
+
+    /**
+     * Finds the whole of a picture that hangs along several squares of one wall, from the
+     * sprites of all its squares: into wholeAt as WallHung.painted leaves one square's, with
+     * the places along the wall counted from the corner of the square the object is on. Each
+     * square's sprite is taken to stand on its square as the object's does on this one, and
+     * the lengths to follow each other along the wall the way the map's x or y grows.
+     */
+    private void wholeOf(IsoObject object, Furniture piece) {
+        wholeAt[WallHung.FROM] = wholeAt[WallHung.BOTTOM] = Float.MAX_VALUE;
+        wholeAt[WallHung.TO] = wholeAt[WallHung.TOP] = -Float.MAX_VALUE;
+        partFrame.scale = frame.scale;
+        for (int k = 0; k < piece.lengths(); k++) {
+            IsoSprite part = piece.width > 1 ? piece.grid.getSprite(k, piece.gridY) : piece.grid.getSprite(piece.gridX, k);
+            Texture painting = part == null ? null : part.getTextureForCurrentFrame(object.getDir());
+            if (!usable(painting)) {
+                continue;
+            }
+            frameOf(partFrame, object, painting);
+            if (!WallHung.painted(partFrame, piece.wall, partAt)) {
+                continue;
+            }
+            int from = k - piece.lengthAt();
+            wholeAt[WallHung.FROM] = Math.min(wholeAt[WallHung.FROM], from + partAt[WallHung.FROM]);
+            wholeAt[WallHung.TO] = Math.max(wholeAt[WallHung.TO], from + partAt[WallHung.TO]);
+            wholeAt[WallHung.BOTTOM] = Math.min(wholeAt[WallHung.BOTTOM], partAt[WallHung.BOTTOM]);
+            wholeAt[WallHung.TOP] = Math.max(wholeAt[WallHung.TOP], partAt[WallHung.TOP]);
+        }
     }
 
     /**

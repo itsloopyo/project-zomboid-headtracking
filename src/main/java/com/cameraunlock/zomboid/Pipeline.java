@@ -840,7 +840,9 @@ final class Pipeline {
                     if (toldOf == null || differ(f, picture, toldOf, told + Models.Instances.PICTURE, 4)) {
                         GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
                     }
-                    int texture = whole[ints + Models.Instances.TEXTURE] == 0 ? whiteTexture : whole[ints + Models.Instances.TEXTURE];
+                    // A number below zero is one of the mod's own pictures: see Decor.held.
+                    int named = whole[ints + Models.Instances.TEXTURE];
+                    int texture = named == 0 ? whiteTexture : named < 0 ? Decor.texture(named) : named;
                     if (texture != bound) {
                         bound = texture;
                         GL11.glBindTexture(GL_TEXTURE_2D, texture);
