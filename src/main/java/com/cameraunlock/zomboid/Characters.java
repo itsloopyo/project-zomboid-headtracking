@@ -383,6 +383,8 @@ public final class Characters {
 
     /** The game's light where the viewer stands, as their reflection was last drawn. */
     static float reflectedLight = 1f;
+    /** How far above the joint of the head the eyes are, in tiles. */
+    private static final float EYES_ABOVE_JOINT = 0.1f;
 
     /**
      * Draws the viewer as the glass of a window shows them, whole, into whatever target is
@@ -402,10 +404,22 @@ public final class Characters {
             OwnReflection.mirror(eyeView, glass);
             // Stood a little behind the eye, as the body the viewer looks down at is.
             float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
-            float x = data.x, y = data.y;
+            float x = data.x, y = data.y, z = data.z;
             if (flat > 1e-3f) {
                 data.x -= camera.forwardX / flat * EYES_AHEAD;
                 data.y -= camera.forwardY / flat * EYES_AHEAD;
+            }
+            // A mirror shows the eyes that look into it on their own line of sight. The view's
+            // eye is at a height of its own and the model's head is wherever the animation
+            // has it, so the model is stood as much higher or lower as brings its eyes to the
+            // view's.
+            float jointUp = ModelHead.jointUp;
+            if (!Float.isNaN(jointUp)) {
+                float eyesUp = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
+                data.z += (camera.eyeUp - eyesUp) / ViewCamera.LEVEL_HEIGHT;
+                if (TRACE && (liftSaid++ & 127) == 0) {
+                    Log.info(String.format(Locale.ROOT, "glass: the viewer is stood %.3f higher, head joint %.3f in the model, scale %.3f", camera.eyeUp - eyesUp, jointUp, data.finalScale));
+                }
             }
             float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
             reflectedLight = (red + green + blue) / 3f;
@@ -420,10 +434,13 @@ public final class Characters {
             data.ambientB = blue;
             data.x = x;
             data.y = y;
+            data.z = z;
             return true;
         }
         return false;
     }
+
+    private static int liftSaid;
 
     /** The bone the game hangs what is in the right hand from. */
     private static final String HAND_BONE = "Bip01_Prop1";

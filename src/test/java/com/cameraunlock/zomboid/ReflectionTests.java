@@ -18,6 +18,7 @@ final class ReflectionTests {
         OwnReflection.Glass glass = new OwnReflection.Glass();
         glass.found = true;
         glass.north = north;
+        glass.edge = (int) at;
         glass.at = at;
         glass.side = side;
         glass.count = along.length;
@@ -81,7 +82,7 @@ final class ReflectionTests {
         ViewCamera.Pose camera = eye();
         OwnReflection.Glass glass = wall(true, 34f, -1f, 20f, 22f);
         FloatBuffer corners = FloatBuffer.allocate(OwnReflection.MOST * 18);
-        check(OwnReflection.corners(glass, camera, corners) == 12, "two triangles to a window");
+        check(OwnReflection.corners(glass, camera, false, corners) == 12, "two triangles to a window");
         float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
         for (int corner = 0; corner < 12; corner++) {
             float y = corners.get(corner * 3 + 1) + camera.eyeY;
@@ -92,6 +93,14 @@ final class ReflectionTests {
             check(Math.abs(up) < 1e-4f || Math.abs(up - ViewCamera.LEVEL_HEIGHT) < 1e-4f, "from the floor to the floor above");
         }
         check(Math.abs(least - 20f) < 1e-4f && Math.abs(most - 23f) < 1e-4f, "over each window's own tile of the wall");
+        OwnReflection.corners(glass, camera, true, corners);
+        float lowest = Float.MAX_VALUE;
+        for (int corner = 0; corner < 12; corner++) {
+            float y = corners.get(corner * 3 + 1) + camera.eyeY;
+            check(y < 33.9f && y > 33.7f, "for what hangs on the wall they stand further out, before all of it");
+            lowest = Math.min(lowest, corners.get(corner * 3 + 2) + camera.eyeUp);
+        }
+        check(lowest > 0.2f, "and clear of the floor");
     }
 
     private static void check(boolean condition, String what) {

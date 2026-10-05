@@ -41,15 +41,20 @@ public final class ModelHead {
     private static final Vector3f joint = new Vector3f();
     private static final Quaternion turning = new Quaternion();
     private static boolean gapSaid, bonesSaid;
+    private static long said;
+    /**
+     * How high the joint of the player's head stood above their feet when they were last
+     * posed, in the model's own measure, or not a number before the first pose. Written by
+     * the thread that poses and read by the one that draws.
+     */
+    static volatile float jointUp = Float.NaN;
 
     private ModelHead() {}
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public static void pose(AnimationPlayer animation) {
-        float[] head = HeadTracking.headTurn();
         IsoPlayer player = IsoPlayer.getInstance();
-        if (head == null || player == null || player.getAnimationPlayer() != animation
-                || player.isDead() || GameClient.client || IsoPlayer.numPlayers != 1) {
+        if (player == null || player.getAnimationPlayer() != animation) {
             return;
         }
         SkinningData skeleton = animation.getSkinningData();
@@ -61,14 +66,27 @@ public final class ModelHead {
             }
             return;
         }
-        float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
-        float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
-        float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
-        float neckShare = FirstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
-        if (neckShare > 0f) {
-            turn(animation, neck, yaw * neckShare, pitch * neckShare, roll * neckShare);
+        float[] head = HeadTracking.headTurn();
+        if (head != null && !player.isDead() && !GameClient.client && IsoPlayer.numPlayers == 1) {
+            float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
+            float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
+            float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
+            float neckShare = FirstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
+            if (neckShare > 0f) {
+                turn(animation, neck, yaw * neckShare, pitch * neckShare, roll * neckShare);
+            }
+            turn(animation, top, yaw * (1f - neckShare), pitch * (1f - neckShare), roll * (1f - neckShare));
         }
-        turn(animation, top, yaw * (1f - neckShare), pitch * (1f - neckShare), roll * (1f - neckShare));
+        // The animation carries the head up and down as the character stands, crouches and
+        // readies a weapon, and the view's eye does not follow it. What shows the two side by
+        // side, the viewer in a window's glass, asks where the head is.
+        animation.getBoneModelTransform(top.index, inModel);
+        HelperFunctions.getPosition(inModel, joint);
+        jointUp = joint.y;
+        if (FirstPerson.TRACE && System.nanoTime() - said > 1_000_000_000L) {
+            said = System.nanoTime();
+            Log.info(String.format(java.util.Locale.ROOT, "head joint in the model at (%.3f, %.3f, %.3f)", joint.x, joint.y, joint.z));
+        }
     }
 
     /** Says once why the head is not turned on this build of the game, if it is not. */

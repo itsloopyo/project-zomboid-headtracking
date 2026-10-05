@@ -174,7 +174,7 @@ Tracking moves the view while the first person view is on, the game is not pause
 
 Your character's head turns with yours in both views, in single player. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
 
-In first person a window also shows your character in its glass, with their head turned as yours is. It shows in a shut, unbroken window on your own floor that you stand square in front of, faintly by day and plainly at night.
+In first person a window also shows your character in its glass, with their head turned as yours is and their eyes level with yours. It shows in a shut, unbroken window on the floor you are on that you stand square in front of, faintly by day and plainly at night. A mirror hung on a wall shows you the same way.
 
 ## Configuration
 

@@ -3,13 +3,15 @@ package com.cameraunlock.zomboid;
 import java.nio.FloatBuffer;
 import zombie.characters.IsoPlayer;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoWindow;
+import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
 
 /**
- * The viewer in the glass of a window.
+ * The viewer in the glass of a window or of a mirror on the wall.
  *
  * What a pane shows of the room is traced in the picture itself, so it can
  * only show what the picture has in it, and in first person the viewer is not
@@ -21,8 +23,17 @@ import zombie.util.list.PZArrayList;
  * throws back is added to what is seen through it, so by day the street
  * outside drowns it and at night it is plain.
  *
- * One plane a frame: the nearest wall the viewer stands square before a
- * window of, and every window in it.
+ * A mirror, and a window the picture draws as its sprite, hang on the wall
+ * and not in it, so there the wall hides nothing. The picture marks such a
+ * surface as a mirror for its own tracing of the room, and that mark says where
+ * the viewer is laid and how strongly. There they are not added but put in
+ * the place of what was there: a mirror shows a black coat black, where glass
+ * with the street behind it shows the street through it. Where they are laid
+ * the mark is taken off, so the traced room is not laid over them: they stand
+ * before it.
+ *
+ * One plane a frame: the nearest wall the viewer stands square before a pane
+ * of, and every pane in it.
  */
 final class OwnReflection {
     /** The most windows of one wall the viewer is shown in. */
@@ -43,6 +54,24 @@ final class OwnReflection {
      * hides it everywhere but in the opening.
      */
     private static final float BEFORE = 0.02f;
+    /** The sheet of sprites the game's wall mirrors are on, and what it calls one: as Furniture knows them. */
+    private static final String HUNG_SHEET = "walls_decoration", MIRROR_NAME = "Mirror";
+    /** How far out from its wall's edge a hung mirror's glass is, in tiles. */
+    private static final float MIRROR_OUT = 0.08f;
+    /**
+     * How far out from the wall's edge the reflection is laid for what hangs ON the wall, a
+     * mirror or a window drawn as its sprite: before all of it, and found again by what of
+     * the picture under it is marked as a mirror.
+     */
+    private static final float BEFORE_HUNG = 0.2f;
+    /** How far above the floor that begins: under it the floor itself, where it is polished, would take the reflection. */
+    private static final float ABOVE_THE_FLOOR = 0.3f;
+    /**
+     * How much of the viewer is shown for each part of a mirror the picture has a surface
+     * marked as: a mirror in its frame, marked at rather more than a half, shows nearly all.
+     * No surface is marked as more of a mirror than one over this.
+     */
+    static final float HUNG_THROWN = 1.5f;
 
     private static long said;
 
@@ -53,6 +82,8 @@ final class OwnReflection {
         boolean found;
         /** Whether the plane is one of constant y, the north edge of its squares. Otherwise of constant x, the west edge. */
         boolean north;
+        /** The edge of the squares the wall stands on, and where the glass itself is: a mirror hangs a little out from its wall. */
+        int edge;
         float at;
         /** Where each window starts along the wall, a tile long each. */
         final float[] along = new float[MOST];
@@ -63,7 +94,7 @@ final class OwnReflection {
     }
 
     /**
-     * Logic thread: the wall on the player's floor whose glass has the viewer in it, and the windows in that wall.
+     * Logic thread: the wall on the player's floor whose glass has the viewer in it, and the panes in that wall.
      *
      * @param tanHalfAcross the tangent of half the picture's field of view from side to side
      */
@@ -77,25 +108,34 @@ final class OwnReflection {
         float nearest = Float.MAX_VALUE;
         for (int x = fromX - REACH; x <= fromX + REACH; x++) {
             for (int y = fromY - REACH; y <= fromY + REACH; y++) {
-                IsoWindow window = glazed(cell.getGridSquare(x, y, level));
-                if (window == null) {
+                IsoGridSquare square = cell.getGridSquare(x, y, level);
+                if (square == null) {
                     continue;
                 }
-                // A flat mirror shows the viewer along the line that meets it squarely, so
-                // only a window that line passes through, or passes within a body's width of,
-                // has them in it, and only if the view is turned towards that wall.
-                boolean north = window.getNorth();
-                float off = north ? y - view.eyeY : x - view.eyeX;
-                float beside = north ? view.eyeX - x : view.eyeY - y;
-                float facing = (north ? view.forwardY : view.forwardX) * Math.signum(off);
-                if (Math.abs(off) < NEAREST || Math.abs(off) >= nearest || beside < -BESIDE || beside > 1f + BESIDE || facing < facingLeast) {
-                    continue;
+                PZArrayList<IsoObject> objects = square.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    int kind = pane(objects.get(i), x, y);
+                    if (kind == NONE) {
+                        continue;
+                    }
+                    // A flat mirror shows the viewer along the line that meets it squarely, so
+                    // only a pane that line passes through, or passes within a body's width
+                    // of, has them in it, and only if the view is turned towards that wall.
+                    float off = paneEdge - (paneNorth ? view.eyeY : view.eyeX);
+                    float side = off > 0f ? -1f : 1f;
+                    float beside = paneNorth ? view.eyeX - x : view.eyeY - y;
+                    float facing = (paneNorth ? view.forwardY : view.forwardX) * Math.signum(off);
+                    if (paneSide != 0f && paneSide != side || Math.abs(off) < NEAREST || Math.abs(off) >= nearest
+                            || beside < -BESIDE || beside > 1f + BESIDE || facing < facingLeast) {
+                        continue;
+                    }
+                    nearest = Math.abs(off);
+                    into.found = true;
+                    into.north = paneNorth;
+                    into.edge = paneEdge;
+                    into.side = side;
+                    into.at = paneEdge + (kind == MIRROR ? side * MIRROR_OUT : 0f);
                 }
-                nearest = Math.abs(off);
-                into.found = true;
-                into.north = north;
-                into.at = north ? y : x;
-                into.side = off > 0f ? -1f : 1f;
             }
         }
         if (!into.found) {
@@ -103,31 +143,77 @@ final class OwnReflection {
         }
         into.count = 0;
         into.foot = level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level);
-        for (int along = (into.north ? fromX : fromY) - REACH; along <= (into.north ? fromX : fromY) + REACH && into.count < MOST; along++) {
-            IsoWindow window = glazed(into.north ? cell.getGridSquare(along, (int) into.at, level) : cell.getGridSquare((int) into.at, along, level));
-            if (window != null && window.getNorth() == into.north) {
+        int middle = into.north ? fromX : fromY;
+        for (int along = middle - REACH; along <= middle + REACH && into.count < MOST; along++) {
+            // A window stands on the square the edge belongs to, and a mirror on whichever
+            // square it hangs in, which may be the one before.
+            if (paneOf(cell, along, into, level, 0) || paneOf(cell, along, into, level, -1)) {
                 into.along[into.count++] = along;
             }
         }
         if (FirstPerson.TRACE && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
-            Log.info(String.format(java.util.Locale.ROOT, "glass: the wall at %s = %.0f, %d windows from %.0f, eye (%.2f, %.2f) on side %.0f, looking (%.2f, %.2f)",
+            Log.info(String.format(java.util.Locale.ROOT, "glass: the wall at %s = %.2f, %d panes from %.0f, eye (%.2f, %.2f) on side %.0f, looking (%.2f, %.2f)",
                     into.north ? "y" : "x", into.at, into.count, into.count > 0 ? into.along[0] : 0f, view.eyeX, view.eyeY, into.side, view.forwardX, view.forwardY));
         }
     }
 
-    /** The window on a square that has its glass in it and is shut, or null. */
-    private static IsoWindow glazed(IsoGridSquare square) {
+    /** Whether the square a place along the found wall, on the edge's own row of squares or the one before, has a pane in that wall. */
+    private static boolean paneOf(IsoCell cell, int along, Glass wall, int level, int before) {
+        int x = wall.north ? along : wall.edge + before, y = wall.north ? wall.edge + before : along;
+        IsoGridSquare square = cell.getGridSquare(x, y, level);
         if (square == null) {
-            return null;
+            return false;
         }
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
-            if (objects.get(i) instanceof IsoWindow window && !window.isSmashed() && !window.isGlassRemoved() && !window.IsOpen()) {
-                return window;
+            if (pane(objects.get(i), x, y) != NONE && paneNorth == wall.north && paneEdge == wall.edge && (paneSide == 0f || paneSide == wall.side)) {
+                return true;
             }
         }
-        return null;
+        return false;
+    }
+
+    private static final int NONE = 0, WINDOW = 1, MIRROR = 2;
+    /** What pane last found: whether its wall is a north edge, which edge, and the side of it the pane faces, or nought for both. */
+    private static boolean paneNorth;
+    private static int paneEdge;
+    private static float paneSide;
+
+    /**
+     * What an object on the square (x, y) is that shows the viewer: a window with its glass
+     * in it and shut, which stands in the wall on the square's own north or west edge and is
+     * glass from both sides, or a mirror, which hangs on whichever of the square's four walls
+     * is behind the way its sprite faces and shows only the room it hangs in.
+     */
+    private static int pane(IsoObject object, int x, int y) {
+        if (object instanceof IsoWindow window) {
+            if (window.isSmashed() || window.isGlassRemoved() || window.IsOpen()) {
+                return NONE;
+            }
+            paneNorth = window.getNorth();
+            paneEdge = paneNorth ? y : x;
+            paneSide = 0f;
+            return WINDOW;
+        }
+        IsoSprite sprite = object.getSprite();
+        if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith(HUNG_SHEET)
+                || !MIRROR_NAME.equals(sprite.getProperties().get("CustomName"))) {
+            return NONE;
+        }
+        IsoDirections facing = sprite.getFacing();
+        if (facing == IsoDirections.S || facing == IsoDirections.N) {
+            paneNorth = true;
+            paneEdge = facing == IsoDirections.S ? y : y + 1;
+            paneSide = facing == IsoDirections.S ? 1f : -1f;
+        } else if (facing == IsoDirections.E || facing == IsoDirections.W) {
+            paneNorth = false;
+            paneEdge = facing == IsoDirections.E ? x : x + 1;
+            paneSide = facing == IsoDirections.E ? 1f : -1f;
+        } else {
+            return NONE;
+        }
+        return MIRROR;
     }
 
     /**
@@ -163,15 +249,17 @@ final class OwnReflection {
     }
 
     /**
-     * The openings the reflection is laid over, two triangles to a window from the floor to
-     * the floor above, measured from the eye. Returns how many corners were written.
+     * The openings the reflection is laid over, two triangles to a pane a tile wide, measured
+     * from the eye. In the wall they stand a hair before the glass from the floor to the floor
+     * above, and the wall's own face hides them outside the opening. Hung on the wall they
+     * stand before everything that hangs there. Returns how many corners were written.
      */
-    static int corners(Glass glass, ViewCamera.Pose camera, FloatBuffer into) {
+    static int corners(Glass glass, ViewCamera.Pose camera, boolean hung, FloatBuffer into) {
         into.clear();
-        float plane = glass.at + glass.side * BEFORE;
-        float foot = glass.foot - camera.eyeUp, head = foot + ViewCamera.LEVEL_HEIGHT;
-        for (int window = 0; window < glass.count; window++) {
-            float from = glass.along[window], to = from + 1f;
+        float plane = glass.edge + glass.side * (hung ? BEFORE_HUNG : BEFORE);
+        float foot = glass.foot - camera.eyeUp + (hung ? ABOVE_THE_FLOOR : 0f), head = glass.foot - camera.eyeUp + ViewCamera.LEVEL_HEIGHT;
+        for (int pane = 0; pane < glass.count; pane++) {
+            float from = glass.along[pane], to = from + 1f;
             corner(glass, camera, into, plane, from, foot);
             corner(glass, camera, into, plane, to, foot);
             corner(glass, camera, into, plane, to, head);
@@ -193,9 +281,14 @@ final class OwnReflection {
             uniform sampler2D uSelf;
             uniform vec2 uSize;
             uniform float uThrown;
+            uniform float uMark;
+            uniform float uOnly;
             void main() {
                 vec4 self = texture2D(uSelf, gl_FragCoord.xy / uSize);
-                gl_FragColor = vec4(self.rgb * (self.a * uThrown), 0.0);
+                if (uOnly > 0.5 && self.a < 0.5) {
+                    discard;
+                }
+                gl_FragColor = vec4(self.rgb * uThrown, uMark);
             }
             """;
 }

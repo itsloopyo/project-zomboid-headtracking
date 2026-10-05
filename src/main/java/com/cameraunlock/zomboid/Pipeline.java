@@ -88,6 +88,7 @@ final class Pipeline {
     private static final int GL_ALWAYS = 0x0207;
     private static final int GL_ONE = 1;
     private static final int GL_BLEND = 0x0BE2;
+    private static final int GL_DST_ALPHA = 0x0304, GL_ONE_MINUS_DST_ALPHA = 0x0305;
     private static final int GL_CONSTANT_ALPHA = 0x8003, GL_ONE_MINUS_CONSTANT_ALPHA = 0x8004;
     private static final int GL_ALPHA_TEST = 0x0BC0;
     private static final int GL_SCISSOR_TEST = 0x0C11;
@@ -489,13 +490,15 @@ final class Pipeline {
             if (figures) {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
-            if (inTheGlass) {
-                showReflection(camera, tanHalfFieldOfView, aspect, near, far);
-            }
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
             if (state.rain > 0f && !overhead) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
+            // After the sky and the rain, which are both beyond any glass: the sky is painted
+            // wherever nothing else is, over whatever was there.
+            if (inTheGlass) {
+                showReflection(camera, tanHalfFieldOfView, aspect, near, far);
             }
             if (!overhead) {
                 drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
@@ -2035,13 +2038,11 @@ final class Pipeline {
     }
 
     /**
-     * The picture of the viewer in the glass, added to the scene over the openings of the
-     * windows in the glass's wall. It is laid a hair before the panes, so whatever stands
-     * before a window hides it as it hides the window: the wall round the opening, a
-     * curtain, a chair, the viewer's own hands.
+     * The picture of the viewer in the glass, added to the scene over the panes of the
+     * glass's wall. It is laid before them, so whatever stands before a pane hides it as it
+     * hides the pane: a curtain, a chair, the viewer's own hands.
      */
     private static void showReflection(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
-        int corners = OwnReflection.corners(reflection, camera, selfCorners);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         arrays();
@@ -2055,20 +2056,46 @@ final class Pipeline {
         GL11.glLoadMatrixf(selfProjection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(selfView);
-        GL11.glVertexPointer(3, GL_FLOAT, 0, selfCorners);
         selfShown.use();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, selfColor);
         selfShown.set("uSelf", 0);
         selfShown.set("uSize", (float) width, (float) height);
-        selfShown.set("uThrown", OwnReflection.THROWN);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
+        // Glass set in the wall: added to what is seen through it, and the picture's mark of
+        // what is a mirror left as it is.
+        int corners = OwnReflection.corners(reflection, camera, false, selfCorners);
+        GL11.glVertexPointer(3, GL_FLOAT, 0, selfCorners);
+        selfShown.set("uThrown", OwnReflection.THROWN);
+        selfShown.set("uOnly", 0f);
         GL11.glBlendFunc(GL_ONE, GL_ONE);
         GL11.glColorMask(true, true, true, false);
+        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
+        // What hangs on the wall, where the viewer covers it, in three steps, since the
+        // picture's alpha is the only place to keep a number for each pixel between them.
+        // First the alpha is made how much of the pixel the viewer is to be: how much of a
+        // mirror the surface was marked as, times what a mirror shows for that.
+        corners = OwnReflection.corners(reflection, camera, true, selfCorners);
+        GL11.glVertexPointer(3, GL_FLOAT, 0, selfCorners);
+        selfShown.set("uOnly", 1f);
+        selfShown.set("uMark", OwnReflection.HUNG_THROWN);
+        GL11.glColorMask(false, false, false, true);
+        GL14.glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_ONE_MINUS_DST_ALPHA, GL_ZERO);
+        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
+        // Then the viewer is mixed into the colour by it,
+        selfShown.set("uThrown", 1f);
+        GL11.glColorMask(true, true, true, false);
+        GL11.glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
+        GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
+        // and last the alpha is set to no mirror at all, so the room traced in the mirror
+        // afterwards is not laid over them.
+        selfShown.set("uMark", 1f);
+        GL11.glColorMask(false, false, false, true);
+        GL11.glDisable(GL_BLEND);
         GL11.glDrawArrays(GL_TRIANGLES, 0, corners);
         GL11.glColorMask(true, true, true, true);
         GL11.glDisable(GL_BLEND);
