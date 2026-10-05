@@ -167,9 +167,14 @@ final class Sky {
                 // long streaks. It is there on most days and is half of what makes a sky look
                 // like one.
                 vec2 high = d.xy * (7.0 / d.z);
+                // Ruled dead straight from one side of the sky to the other, the streaks were
+                // the teeth of a comb. Real ones wander, and lie in patches with clear sky between.
+                vec3 wander = texture3D(uNoise, vec3(high * 0.009 + uDrift * 0.05, 0.37)).rgb;
+                float patchy = smoothstep(0.42, 0.66, texture3D(uNoise, vec3(high * 0.0045 + uDrift * 0.03, 0.9)).b);
+                high += (wander.xy - 0.5) * 22.0;
                 float streaks = texture3D(uNoise, vec3(high.x * 0.012 + uDrift.x * 0.2, high.y * 0.05, 0.71)).r * 0.6
                         + texture3D(uNoise, vec3(high.x * 0.04, high.y * 0.19 + uDrift.y * 0.2, 0.13)).g * 0.4;
-                float ice = smoothstep(0.5, 0.78, streaks) * 0.4 * smoothstep(0.03, 0.2, d.z) * (0.4 + 0.6 * uCover);
+                float ice = smoothstep(0.5, 0.78, streaks) * 0.4 * patchy * smoothstep(0.06, 0.3, d.z) * (0.4 + 0.6 * uCover);
                 vec3 lightAll = light * fade + through * ice * (sunLight * (0.35 + 0.5 * pow(mu, 6.0)) + skyLight * 0.5);
                 float throughAll = (1.0 - (1.0 - through) * fade) * (1.0 - ice * 0.55);
                 gl_FragColor = vec4(lightAll, throughAll);
