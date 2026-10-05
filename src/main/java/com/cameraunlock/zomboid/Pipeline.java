@@ -3318,6 +3318,34 @@ final class Pipeline {
             uniform float uKept;
             uniform float uOwnWithin;
 
+            // The picture kept from before, read at a place between its pixels. Read as the
+            // mean of the four pixels round the place, each frame of a moving head blurs what
+            // the last one kept, and the whole picture goes soft while the head moves and
+            // sharp when it stops: with a tracked head, which never quite stops, it pulses.
+            // Read through a curve fitted to the sixteen pixels round the place, it keeps
+            // its edges. The sixteen are had from nine reads by letting the card mix pairs.
+            vec3 sharply(vec2 at) {
+                vec2 place = at * uSize;
+                vec2 middle = floor(place - 0.5) + 0.5;
+                vec2 f = place - middle;
+                vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+                vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+                vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+                vec2 w3 = f * f * (-0.5 + 0.5 * f);
+                vec2 w12 = w1 + w2;
+                vec2 t0 = (middle - 1.0) / uSize, t3 = (middle + 2.0) / uSize, t12 = (middle + w2 / w12) / uSize;
+                vec3 sum = texture2D(uBefore, vec2(t0.x, t0.y)).rgb * (w0.x * w0.y)
+                        + texture2D(uBefore, vec2(t12.x, t0.y)).rgb * (w12.x * w0.y)
+                        + texture2D(uBefore, vec2(t3.x, t0.y)).rgb * (w3.x * w0.y)
+                        + texture2D(uBefore, vec2(t0.x, t12.y)).rgb * (w0.x * w12.y)
+                        + texture2D(uBefore, vec2(t12.x, t12.y)).rgb * (w12.x * w12.y)
+                        + texture2D(uBefore, vec2(t3.x, t12.y)).rgb * (w3.x * w12.y)
+                        + texture2D(uBefore, vec2(t0.x, t3.y)).rgb * (w0.x * w3.y)
+                        + texture2D(uBefore, vec2(t12.x, t3.y)).rgb * (w12.x * w3.y)
+                        + texture2D(uBefore, vec2(t3.x, t3.y)).rgb * (w3.x * w3.y);
+                return max(sum, vec3(0.0));
+            }
+
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec4 now = texture2D(uScene, uv);
@@ -3342,7 +3370,7 @@ final class Pipeline {
                         most = max(most, near);
                     }
                 }
-                vec3 held = clamp(texture2D(uBefore, before).rgb, least, most);
+                vec3 held = clamp(sharply(before), least, most);
                 gl_FragColor = vec4(mix(now.rgb, held, uKept), now.a);
             }
             """;
@@ -3361,6 +3389,7 @@ final class Pipeline {
             #version 120
             uniform sampler2D uImage;
             uniform vec2 uSize;
+            uniform vec2 uShown;
             uniform vec2 uOrigin;
 
             float luma(vec3 c) {
@@ -3369,7 +3398,7 @@ final class Pipeline {
 
             void main() {
                 vec2 px = 1.0 / uSize;
-                vec2 uv = (gl_FragCoord.xy - uOrigin) * px;
+                vec2 uv = (gl_FragCoord.xy - uOrigin) / uShown;
                 vec3 middle = texture2D(uImage, uv).rgb;
                 float nw = luma(texture2D(uImage, uv + vec2(-1.0, -1.0) * px).rgb);
                 float ne = luma(texture2D(uImage, uv + vec2(1.0, -1.0) * px).rgb);
@@ -3507,6 +3536,14 @@ final class Pipeline {
     private static int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
+    /**
+     * How many of the picture's pixels there are to each of the window's, each way. Leaves,
+     * blades of grass, fence wire and roof edges are finer than a pixel, and drawn one sample
+     * to a pixel each is there or not there as the head moves by a hair: the whole picture
+     * crawls. Drawn finer and brought down to the window, each pixel is the mean of several
+     * and changes by degrees.
+     */
+    private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
     private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth"};
@@ -3631,8 +3668,9 @@ final class Pipeline {
             prepared = true;
             failure = prepare();
         }
-        if (failure == null && (viewport[2] != width || viewport[3] != height)) {
-            failure = resize(viewport[2], viewport[3]);
+        int wide = Math.round(viewport[2] * SCALE), high = Math.round(viewport[3] * SCALE);
+        if (failure == null && (wide != width || high != height)) {
+            failure = resize(wide, high);
         }
         if (failure == null) {
             float aspect = (float) viewport[2] / viewport[3];
@@ -3700,6 +3738,7 @@ final class Pipeline {
             smooth.set("uImage", 0);
             smooth.set("uSize", (float) width, (float) height);
             smooth.set("uOrigin", (float) viewport[0], (float) viewport[1]);
+            smooth.set("uShown", (float) viewport[2], (float) viewport[3]);
             quad();
             Crosshair.draw(viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
