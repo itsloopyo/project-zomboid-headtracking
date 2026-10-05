@@ -10,5 +10,6 @@ public class IsoObject {
     public IsoSprite getOverlaySprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSprite getSprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoDirections getDir() { throw new UnsupportedOperationException("reference stub"); }
+    public float getRenderYOffset() { throw new UnsupportedOperationException("reference stub"); }
     public float getAlpha(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
 }

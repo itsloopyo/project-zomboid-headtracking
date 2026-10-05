@@ -16,6 +16,46 @@ final class ShapeTests {
         lampProudOfItsWallIsFoundWhereItIsFixed();
         newModelsAreInTheJar();
         footOfAPostIsItsCornerNearestTheView();
+        cardOnAnUpperFloorStopsAtTheFloor();
+    }
+
+    private static void cardOnAnUpperFloorStopsAtTheFloor() {
+        // A chair whose sprite covers its whole square: its near corner is drawn 32 pixels below the square's middle.
+        SpriteGeometry.Frame frame = frame();
+        frame.left = 20f;
+        frame.top = 120f;
+        frame.width = 88f;
+        frame.height = 136f;
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        float floor = ViewCamera.LEVEL_HEIGHT, lowest = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+        }
+        check(lowest < floor - 0.3f, "with no floor under it a card reaches below its square as far as its sprite does: " + lowest);
+        mesh.clear();
+        geometry.floored = true;
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        lowest = Float.MAX_VALUE;
+        float lowestV = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+            lowestV = Math.max(lowestV, mesh.vertices[at + 4]);
+        }
+        check(near(lowest, floor, 1e-4f), "on a floor it stops at the floor, and nothing of it hangs from the ceiling below: " + lowest);
+        check(near(lowestV, 1f - 32f / 136f, 1e-4f), "and shows its sprite from the row drawn at the floor up: " + lowestV);
+        check(mesh.triangles() == 2, "it is still one card");
+        mesh.clear();
+        geometry.raised = 0.5f;
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        lowest = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+        }
+        check(near(lowest, floor + 0.5f * ViewCamera.LEVEL_HEIGHT - 32f * ViewCamera.LEVEL_HEIGHT / 192f, 1e-4f), "what the game draws half a level up stands half a level up, whole: " + lowest);
+        check(SpriteGeometry.cutBelow(-1f, 3f, 0f) == 0.25f && SpriteGeometry.cutBelow(0.5f, 3f, 0f) == 0f && SpriteGeometry.cutBelow(-3f, -1f, 0f) >= 1f,
+                "the share of a card below a height is how far up it the height is");
     }
 
     private static void footOfAPostIsItsCornerNearestTheView() {

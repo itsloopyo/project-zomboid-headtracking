@@ -220,6 +220,7 @@ final class Pipeline {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            varying vec3 vPlace;
             uniform vec3 uWind;
             uniform float uLaid;
             """ + MODEL_STANDS + """
@@ -300,7 +301,12 @@ final class Pipeline {
                 // was drawn through the wall it hangs on in torn patches, and a clock's face
                 // through its hands. The eye's place is taken off first, which is exact, and the
                 // matrix only turns what is left. A model's vertex never is put on the map at all.
-                gl_Position = gl_ModelViewProjectionMatrix * vec4(uModel > 0.5 ? fromEye : at.xyz - uEye, 1.0);
+                vec3 seen = uModel > 0.5 ? fromEye : at.xyz - uEye;
+                // The same place counted from a corner of the map near the eye, for what is
+                // drawn finer than a millimetre: made from vWorld, a board's grain is steps.
+                // The corner moves sixty tiles at a time, which is a whole number of boards.
+                vPlace = seen + mod(uEye, 60.0);
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(seen, 1.0);
             }
             """;
 
@@ -336,6 +342,7 @@ final class Pipeline {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            varying vec3 vPlace;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
                 // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
@@ -468,6 +475,91 @@ final class Pipeline {
                 return 1.0 - hidden / 6.0 * 0.75;
             }
 
+            // A number from 0 to 1 that is different at every pixel and different again every
+            // frame, sixty-four frames round. What is let through by it at one pixel in so
+            // many, the picture's steadying of one frame into the next makes an even veil of.
+            float sifted() {
+                float frame = mod(floor(uSeconds * 60.0), 64.0);
+                return fract(52.9829189 * fract(dot(gl_FragCoord.xy + 5.588238 * frame, vec2(0.06711056, 0.00583715))));
+            }
+
+            // What a pane of glass throws back along a line: the sky, and below a ragged line
+            // a little over the horizon the roofs and trees across the street, dark against
+            // it. Which roofs depends on where the pane is, so the line moves over the glass
+            // as the eye walks past.
+            vec3 surroundings(vec3 line, vec3 at) {
+                vec3 above = normalize(vec3(line.xy, abs(line.z) + 0.02));
+                vec3 sky = ridges(above, atmosphere(above));
+                float round = atan(line.y, line.x) * 2.5 + dot(at.xy, vec2(0.23, 0.17));
+                float roofs = 0.26 * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
+                vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * vec3(0.2, 0.23, 0.17);
+                return mix(sky, land, smoothstep(roofs + 0.02, roofs - 0.02, line.z));
+            }
+
+            // Sawn boards stood side by side, in the colour given: where along the wall the
+            // place is, and how high. Each board is a hand and a half wide and its own shade
+            // of the colour, a little warmer or cooler than the next. Its grain is the tree's
+            // rings cut through: fine dark lines a few to the finger's width that wander up
+            // the board, close and straight in one board and opening into long arches in
+            // another, with the saw's fibres across them. Between two boards is a dark open
+            // joint, and each board's edge is eased off towards it: lean says how far the
+            // surface turns along the wall there, so the sun picks the edges out. Two nails
+            // hold each board to every rail. Whatever is finer than a pixel is left as its
+            // mean, since drawn it would only crawl as the eye moves.
+            vec3 timber(vec3 wood, float run, float up, out float lean) {
+                float board = run / BOARD_WIDE;
+                float which = mod(floor(board), 400.0), part = fract(board);
+                float wide = fwidth(board);
+                float r1 = grain(vec2(which, 3.0)), r2 = grain(vec2(which, 11.0)), r3 = grain(vec2(which, 23.0));
+                vec3 made = wood * (0.88 + 0.22 * r1) * mix(vec3(1.04, 1.0, 0.94), vec3(0.97, 1.0, 1.04), r2);
+                float along = up * 0.5 + r3 * 37.0;
+                // Heartwood and sapwood: broad soft bands of lighter and darker up the board.
+                made *= 0.93 + 0.14 * patches(vec2(part * 2.6 + which * 2.3, along * 0.6));
+                // A knot now and then.
+                float length0 = 2.3 + 1.5 * r1;
+                float span = up / length0 + r2 * 9.0;
+                float knotted = step(0.72, grain(vec2(which + 31.0, floor(span))));
+                vec2 from = vec2((part - 0.3 - 0.4 * grain(vec2(floor(span), which + 5.0))) * BOARD_WIDE, (fract(span) - 0.5) * length0 * 0.5);
+                float away = length(from);
+                float near = 1.0 - smoothstep(0.2, 0.6, wide * 6.0);
+                // The rings. A board cut from the side of the log shows them as arches about
+                // a line up the board: the further the cut from the heart, the wider they
+                // open. No two are the same distance apart, and they bend out round a knot.
+                float heart = part - 0.5 + (r2 - 0.5) * 0.8;
+                float bow = patches(vec2(along * 0.7, which * 7.13)) - 0.5;
+                float open = mix(0.2, 1.8, r3 * r3);
+                float rings = sqrt(heart * heart + 0.004) * mix(13.0, 26.0, r1) * (1.0 + 0.3 * bow)
+                        + open * (patches(vec2(along * 1.9, which * 3.7)) + 0.5 * patches(vec2(along * 5.3 + 9.0, which * 1.9 + heart * 3.0)))
+                        + 1.6 * patches(vec2(heart * 7.0 + which, along * 0.3)) + knotted * near * 2.5 * exp(-away * away * 900.0);
+                float ring = fract(rings);
+                float strong = 0.35 + 0.9 * patches(vec2(rings * 0.37 + which, along * 0.8));
+                // A ring a few pixels wide is drawn as a soft wave and not as a line: a line
+                // that fine breaks into dashes down the board.
+                float fine = fwidth(rings);
+                float late = mix(smoothstep(0.55, 0.92, ring) * (1.0 - smoothstep(0.94, 1.0, ring)),
+                        0.2 + 0.2 * cos(6.2831853 * (ring - 0.75)), smoothstep(0.1, 0.24, fine)) * strong;
+                late = mix(late, 0.16, smoothstep(0.26, 0.5, fine));
+                float fibre = (patches(vec2(part * 67.0 + which * 5.0, up * 3.0)) - 0.5) * (1.0 - smoothstep(0.2, 0.5, wide * 67.0));
+                made *= (1.0 - 0.2 * late) * (1.0 + 0.09 * fibre);
+                made *= 1.0 - 0.5 * knotted * near * (1.0 - smoothstep(0.006, 0.02, away));
+                float edge = min(part, 1.0 - part);
+                float seen = 1.0 - smoothstep(0.3, 0.8, wide);
+                float joint = 1.0 - smoothstep(0.018, 0.018 + wide, edge);
+                float eased = 1.0 - smoothstep(0.0, 0.09, edge);
+                lean = (part < 0.5 ? -1.0 : 1.0) * eased * seen;
+                made *= mix(0.95, (1.0 - 0.8 * joint) * (1.0 - 0.1 * eased), seen);
+                // The nails: two to a board at every rail, a rail a little over a pace above the last.
+                float rail = (fract(up / 1.15 + 0.3) - 0.5) * 1.15;
+                float nail = length(vec2((abs(part - 0.5) - 0.3) * BOARD_WIDE, rail));
+                float soft = fwidth(up);
+                float head = (1.0 - smoothstep(0.005, 0.005 + soft, nail)) * (1.0 - smoothstep(0.004, 0.012, soft));
+                // Under each nail the rain has drawn a little rust down the board.
+                float streak = (1.0 - smoothstep(0.003, 0.006 + soft, abs(abs(part - 0.5) - 0.3) * BOARD_WIDE)) * smoothstep(0.0, 0.01, -rail)
+                        * (1.0 - smoothstep(0.0, 0.11, -rail)) * (1.0 - smoothstep(0.004, 0.012, soft));
+                made = mix(made, made * vec3(0.8, 0.66, 0.52), 0.35 * streak);
+                return mix(made, vec3(0.2, 0.19, 0.18), 0.85 * head);
+            }
+
             // Where rain lands. The ground is cut into cells and each cell is hit again and
             // again, at a place and a moment of its own. x is the height of the ring that
             // spreads from the hit, y the splash thrown up at the hit itself.
@@ -567,36 +659,31 @@ final class Pipeline {
                 // and a few long strokes of grain, and from a pace away each stroke is a
                 // streak as long as an arm. The sprite gives the wood its colour, taken from
                 // well round the place so the strokes are gone, and the boards are made here:
-                // a hand and a half wide, each a little lighter or darker than the next, a
-                // dark joint between them, and the grain of a picture of sawn boards. Only
-                // where the sprite is wood: a window's frame and its glass stay as painted.
-                // Far off, where a board is under a pixel wide, the joints would crawl as the
-                // eye moves, and the wall is their mean.
+                // see timber. Only where the sprite is wood: a window's frame and its glass
+                // stay as painted.
+                // How far the surface leans along the wall at a board's edge, and how much of
+                // the place is board: both are used once the surface's facing is known.
+                float lean = 0.0, timbered = 0.0;
                 if (vMaterial > 51.5 && vMaterial < 52.5 && uTint.a < 0.5 && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
+                    // The strokes run up the boards, so the colour is taken from far to either
+                    // side of the place and a little above and below it.
                     vec3 round = texel.rgb;
                     float found = 1.0;
-                    for (int i = 0; i < 6; i++) {
-                        vec2 off = (i == 0 ? vec2(2.5, 0.0) : i == 1 ? vec2(-2.5, 0.0) : i == 2 ? vec2(5.0, 0.0) : i == 3 ? vec2(-5.0, 0.0)
-                                : i == 4 ? vec2(0.0, 4.0) : vec2(0.0, -4.0)) * uTexel;
+                    for (int i = 0; i < 12; i++) {
+                        float far = i < 8 ? (i < 2 ? 3.0 : i < 4 ? 7.0 : i < 6 ? 11.0 : 16.0) : (i < 10 ? 6.0 : 14.0);
+                        vec2 off = (i < 8 ? vec2(far, 0.0) : vec2(0.0, far)) * (mod(float(i), 2.0) < 0.5 ? 1.0 : -1.0) * uTexel;
                         vec4 beside = texture2D(uTexture, vUv + off);
                         float counts = step(0.5, beside.a);
                         round += beside.rgb * counts;
                         found += counts;
                     }
                     round /= found;
-                    float wooden = step(0.03, round.r - round.b) * step(round.b, round.g + 0.02)
-                            * (1.0 - smoothstep(0.1, 0.2, abs(dot(texel.rgb - round, tone))));
+                    timbered = step(0.03, round.r - round.b) * step(round.b, round.g + 0.02)
+                            * (1.0 - smoothstep(0.2, 0.34, abs(dot(texel.rgb - round, tone))));
                     vec3 facing = normalize(vNormal);
-                    float run = dot(vWorld.xy, vec2(facing.y, -facing.x));
-                    float board = run / BOARD_WIDE;
-                    float which = floor(board), part = fract(board);
-                    float wide = fwidth(board);
-                    float joint = 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.05 + wide, min(part, 1.0 - part)));
-                    float shade = 0.92 + 0.16 * grain(vec2(which, 3.0));
-                    float fine = dot(texture2D(uPlanks, vec2(run * 0.7 + which * 0.37, vWorld.z * 0.7)).rgb, tone) * uTimberGain.y;
-                    vec3 boarded = round * mix(joint * shade, 0.97, smoothstep(0.35, 0.9, wide)) * mix(1.0, fine, 0.45);
-                    texel.rgb = mix(texel.rgb, boarded, wooden);
+                    texel.rgb = mix(texel.rgb, timber(round, dot(vPlace.xy, vec2(facing.y, -facing.x)), vPlace.z, lean), timbered);
+                    lean *= timbered;
                 }
                 bool grass = vKind > 7.5;
                 // The game draws its furniture with a dark line round every part, which is what
@@ -887,13 +974,57 @@ final class Pipeline {
                 // which up close are a black lattice: here the wire is half as thick and the
                 // grey of zinc.
                 if (vMaterial > 14.5 && vMaterial < 15.5) {
-                    // Far off, where a pixel takes in several wires, the fence is a veil and is
-                    // let through by how much of the pixel is wire.
-                    if (cover < (small ? 0.12 + 0.3 * grain(gl_FragCoord.xy) : 0.72)) {
+                    // Far off, where a pixel takes in several wires, the fence is a veil: each
+                    // pixel is wire as often as that much of it is wire, a different set of
+                    // pixels every frame, and the frames together are an even grey gauze. Cut
+                    // at one level, the wires that happened to fall on a pixel's middle were a
+                    // coarse lattice of dots that crawled.
+                    float spread = uTexel.x > 0.0 ? sqrt(max(dot(stepX, stepX), dot(stepY, stepY))) / uTexel.x : 0.0;
+                    if (cover < mix(0.55, max(sifted(), 0.04), smoothstep(0.7, 1.5, spread))) {
                         discard;
                     }
                     cover = 1.0;
                     texel.rgb = mix(texel.rgb, vec3(0.52, 0.54, 0.55), 0.75);
+                }
+                // Glass. The game paints a pane as a pale blue film half seen through, and cut
+                // out at one level a pane was either nothing at all or a flat blue card. A
+                // pane lets most of the light behind it through and throws back a little of
+                // what is in front of it, more the more it is seen on the slant: so of the
+                // pixels on a pane some are the glass, showing the sky and the roofs across
+                // the street, and the rest are let through to what is behind, a different set
+                // every frame. Out of doors by day what is behind is a dim room, and the
+                // glass takes more of the pixels, which is how a window looks dark from the
+                // street. A window's sheet faces into its room.
+                bool lamplit = vMaterial > 64.5;
+                bool window = lamplit || vMaterial > 12.5 && vMaterial < 13.5;
+                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0;
+                bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
+                        && abs(vNormal.z) < 0.5 * length(vNormal);
+                if (film && small) {
+                    // Far off, where a pixel is a mean of many dots, only a window is taken for glass.
+                    film = window;
+                } else if (film) {
+                    // A pane is film all over. The soft edge of anything pale and blue is as
+                    // thin a film for a dot's width, with something solid or nothing beside it.
+                    for (int i = 0; i < 4; i++) {
+                        vec2 off = (i == 0 ? vec2(1.5, 0.0) : i == 1 ? vec2(-1.5, 0.0) : i == 2 ? vec2(0.0, 1.5) : vec2(0.0, -1.5)) * uTexel;
+                        float beside = texture2D(uTexture, vUv + off).a;
+                        film = film && beside > 0.2 && beside < 0.85;
+                    }
+                }
+                if (film) {
+                    vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
+                    float outside = window ? step(dot(face, sight), 0.0) : 0.5;
+                    thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - abs(dot(face, sight)), 5.0)));
+                    float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
+                    glow = lamplit ? outside * uDark : 0.0;
+                    veil = max(thrown + (1.0 - thrown) * (1.0 - through), 0.34 * glow);
+                    if (sifted() >= veil) {
+                        discard;
+                    }
+                    glazed = 1.0;
+                    cover = 1.0;
+                    texel = vec4(0.02, 0.025, 0.03, 1.0);
                 }
                 // The mod's own furniture is a model and has no sprite. Its surface says what it
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
@@ -998,6 +1129,10 @@ final class Pipeline {
                     n = normalize(vec3(n.xy * 0.2, 1.0));
                 }
                 n = normalize(n - dent);
+                if (lean != 0.0) {
+                    // A board's eased edge turns the surface along the wall, towards the joint.
+                    n = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.55 * lean));
+                }
 
                 // Open ground. The game has a handful of squares of each ground and lays them
                 // side by side, so a road or a yard is the same square over and over. Real
@@ -1087,7 +1222,7 @@ final class Pipeline {
                 }
                 // A kerb is cast in lengths: pale concrete, a little uneven in its grey, with
                 // a joint where one length ends and the next begins.
-                if (vMaterial > 63.5) {
+                if (vMaterial > 63.5 && vMaterial < 64.5) {
                     float along = dot(vWorld.xy, vec2(n.y, -n.x));
                     float poured = patches(vec2(along * 2.3, vWorld.z * 11.0)) * 0.6 + patches(vec2(along * 19.0, vWorld.z * 37.0) + 3.0) * 0.4;
                     float toJoint = abs(fract(along / 1.5) - 0.5) * 1.5;
@@ -1161,7 +1296,7 @@ final class Pipeline {
                 // raised where it is light. The sun then picks the surface out as it moves, and
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
-                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range));
+                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {
@@ -1382,6 +1517,21 @@ final class Pipeline {
                     }
                 }
 
+                if (glazed > 0.5) {
+                    // No pane is quite flat or quite square in its frame, so each throws back
+                    // a slightly different piece of the street, and it slides over the glass
+                    // as the eye moves.
+                    vec2 bowed = vec2(patches(vPlace.xy * 1.3 + vPlace.z * 2.1), patches(vPlace.xy * 1.7 + vPlace.z * 1.3 + 11.0)) - 0.5;
+                    vec3 pane = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.07 * bowed.x) + vec3(0.0, 0.0, 0.07 * bowed.y));
+                    // Only the pixels that are glass carry what the whole pane throws back, so
+                    // each carries the more for being one of few.
+                    color = (surroundings(reflect(-view, pane), vPlace) * thrown
+                            + pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
+                    // A window with a lamp burning behind it is a warm bright shape in the
+                    // night: the lamp's light is in the glass itself, in the dust on it and
+                    // the curtain behind.
+                    color += vec3(1.0, 0.72, 0.4) * (1.5 * glow);
+                }
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
                 float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
@@ -1409,7 +1559,7 @@ final class Pipeline {
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
                 // So does a mirror in its frame, and more than either.
-                float pane = vMaterial > 12.5 && vMaterial < 13.5 ? 0.45 : surface > 9.5 && surface < 10.5 ? 0.4
+                float pane = glazed > 0.5 ? 0.6 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
                 gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }

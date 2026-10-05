@@ -198,12 +198,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int floorLayer, westLayer, northLayer, eastLayer, southLayer;
 
     /**
-     * The light of the squares the character has seen that are out of doors, summed over this
-     * frame, and its mean over the last frame that had any. A square the character has not
-     * seen has no light of its own yet: the game holds it black until it is seen.
+     * The light of the squares the character has seen that are out of doors, counted over this
+     * frame, and the light most of them had in the last frame that had any: see OpenLight. A
+     * square the character has not seen has no light of its own yet: the game holds it black
+     * until it is seen.
      */
-    private float seenRed, seenGreen, seenBlue;
-    private int seenOutside;
+    private final OpenLight seenOutside = new OpenLight();
+    private final float[] openLight = new float[3];
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] corner = new float[2];
@@ -237,7 +238,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
-    private static final float WALL_HALF = 0.025f;
+    private static final float WALL_HALF = 0.04f;
     private static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     private static final float SURFACE_PIXELS_PER_LEVEL = 96f;
@@ -410,8 +411,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         unseenLight.r = unseenRed;
         unseenLight.g = unseenGreen;
         unseenLight.b = unseenBlue;
-        seenRed = seenGreen = seenBlue = 0f;
-        seenOutside = 0;
+        seenOutside.clear();
 
         // The loaded map is a square of chunks around the player, and it ends in nothing. The
         // picture fades into the sky before the nearest of its four edges, so the edge is never seen.
@@ -524,10 +524,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 }
             }
         }
-        if (seenOutside > 0) {
-            unseenRed = seenRed / seenOutside;
-            unseenGreen = seenGreen / seenOutside;
-            unseenBlue = seenBlue / seenOutside;
+        if (!seenOutside.isEmpty()) {
+            seenOutside.commonest(openLight);
+            unseenRed = openLight[0];
+            unseenGreen = openLight[1];
+            unseenBlue = openLight[2];
         }
         for (int i = 0; i < shown.size(); i++) {
             triangles += shown.get(i).solid.triangles() + shown.get(i).laid.triangles() + shown.get(i).placed.triangles();
@@ -704,10 +705,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 } else if (inChunk) {
                     squaresSeen++;
                     if (outside) {
-                        seenRed += light.r;
-                        seenGreen += light.g;
-                        seenBlue += light.b;
-                        seenOutside++;
+                        seenOutside.add(light.r, light.g, light.b);
                     }
                 }
                 lightRed[at] = light.r;
@@ -785,6 +783,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         frameOf(object, texture);
+        standOn(object);
         frame.material = under.getType() == IsoObjectType.tree ? LEAVES : frame.material;
         sprites++;
         // Leaves stand on the same card as their trunk. Each layer is moved a little towards
@@ -839,6 +838,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     private void frameOf(IsoObject object, Texture texture) {
         frameOf(frame, object, texture);
+    }
+
+    /**
+     * Sets how high above its square's floor the object's sprite is to be stood: the game
+     * draws a thing higher up the picture than its frame has it by an offset the thing
+     * carries, a lamp put on a higher table than the one it was painted for.
+     */
+    private void standOn(IsoObject object) {
+        geometry.raised = object.getRenderYOffset() / SURFACE_PIXELS_PER_LEVEL;
     }
 
     static void frameOf(SpriteGeometry.Frame frame, IsoObject object, Texture texture) {
@@ -1171,6 +1179,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
     /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
     private static final float KERB_STONE = 64f;
+    /** A window pane with a lamp burning in the room behind it. */
+    private static final float LIT_GLASS = 65f;
     /** A wall of upright boards. */
     private static final float BOARDS = 52f;
     /** The cap along a ridge or a hip: the roof's own covering, which the picture draws a shade darker. */
@@ -1412,6 +1422,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         here = square;
         IsoObject floor = square.getFloor();
         hangsInAir = floor == null;
+        geometry.floored = !hangsInAir;
         wallNorth = wallWest = edgeNorth = edgeWest = false;
         boolean openAbove = false;
         PZArrayList<IsoObject> here = square.getObjects();
@@ -1442,6 +1453,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 continue;
             }
             frameOf(object, texture);
+            standOn(object);
             frame.material = Ground.of(sprite.getProperties().get("FloorMaterial"), sprite.getProperties().get("FootstepMaterial"), object == floor);
             if (frame.material == 0f) {
                 frame.material = object == floor ? materialOf(sprite.getName(), true) : materialOf(sprite);
@@ -1471,6 +1483,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
             geometry.nudgeX = geometry.nudgeY = 0f;
         }
+        geometry.raised = 0f;
         frame.material = 0f;
         if (wiredHere) {
             stringWires(x, y, z);
@@ -1549,7 +1562,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     boolean land = false;
                     for (int ci = 0; ci <= 1; ci++) {
                         for (int cj = 0; cj <= 1; cj++) {
-                            land |= groundKind[(i + ci) * LIGHT_SPAN + j + cj] != Terrain.WATER;
+                            // A square the map has not loaded is not land: counted as land,
+                            // the last water the map holds has a bank along its far side,
+                            // pale shallows and a line of foam where the water goes on.
+                            byte kind = groundKind[(i + ci) * LIGHT_SPAN + j + cj];
+                            land |= kind != Terrain.WATER && kind != Terrain.UNKNOWN;
                         }
                     }
                     cover[corner] = land ? 0f : 1f;
@@ -1580,7 +1597,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
-        if (addStair(mesh, type, x, y, z)) {
+        if (addStair(mesh, texture, type, x, y, z)) {
             return;
         }
 
@@ -1593,11 +1610,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
         boolean west;
         boolean north;
+        doorSwung = false;
         if (object instanceof IsoDoor door) {
-            north = door.north != door.IsOpen();
+            // A door on hinges stands across its doorway when it is open. A garage door
+            // rolls up in its own plane, and what is left of it showing is still in the wall.
+            doorSwung = door.IsOpen() && !properties.has("GarageDoor");
+            north = door.north != doorSwung;
             west = !north;
         } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
-            north = thumpable.north != thumpable.IsOpen();
+            doorSwung = thumpable.IsOpen() && !properties.has("GarageDoor");
+            north = thumpable.north != doorSwung;
             west = !north;
         } else {
             boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE);
@@ -1617,6 +1639,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean door = object instanceof IsoDoor || object instanceof IsoThumpable hinged && hinged.isDoor();
         wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                 || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
+        seeThrough = isSheet(properties);
+        // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
+        doorLeaf = door && !(sprite.getName() != null && sprite.getName().startsWith("fixtures_doors_fences"));
+        casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
         if (west) {
             addEdge(mesh, texture, isWall(properties, type), door, x, y, z, westLayer++ * standOff, 0f, 0f, 1f);
         }
@@ -1663,14 +1689,18 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // edge on and unseen, but the sun sees it, so the tree's shadow has a width whichever
         // way the eye looks at the tree.
         boolean grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
+        // What goes on a table top is painted in its frame at the height of a table, not on
+        // the floor, so its outline says nothing of where a box of it would stand: read as
+        // one, a computer on a desk against a wall was a box a pace away outside the wall.
+        boolean onTop = properties.has("IsTableTop");
         // What the game says nothing about at all, and whose outline is a sheet on the grid's
         // line or a beam along it: the slab over a shop front, a sill, a pipe, a billboard.
-        if (!grows && overLayer == 0 && addShaped(mesh, object, sprite, texture, x, y, z)) {
+        if (!grows && !onTop && overLayer == 0 && addShaped(mesh, object, sprite, texture, x, y, z)) {
             return;
         }
         // What the game counts as filling its square, or as something to sit or lie on, is
         // furniture, and furniture is a solid thing with sides and a top.
-        if (!grows && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
+        if (!grows && !onTop && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed))
                 && !(sprite.getName() != null && sprite.getName().startsWith("furniture_bedding"))
                 && SpriteGeometry.boxOf(frame, box) && fillsBox(texture)) {
             geometry.addBox(mesh, frame, x, y, z, box);
@@ -1714,7 +1744,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // its lid tipped towards whoever looks. As a body with a top and sides it stands
         // upright. Only what is painted through the middle of its top and both the sides it
         // shows: a chair or a table has air there.
-        if (!grows && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
+        if (!grows && !onTop && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
             return;
@@ -2811,24 +2841,38 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addFoldEaves(SpriteGeometry.Mesh sheet, RoofFit.Tile tile) {
         int[] order = RoofFit.TRIANGLES[tile.crease];
         float[] at = tile.corners;
-        for (int edge = 0; edge < 4; edge++) {
-            int first = EDGES[edge][0], second = EDGES[edge][1];
-            if (Math.abs(at[first] - at[second]) > RoofFit.SAME) {
-                continue;
+        for (int pass = 0; pass < 2; pass++) {
+            for (int edge = 0; edge < 4; edge++) {
+                int first = EDGES[edge][0], second = EDGES[edge][1];
+                if (pass == 0) {
+                    foldEave[edge] = false;
+                }
+                if (Math.abs(at[first] - at[second]) > RoofFit.SAME) {
+                    continue;
+                }
+                // The triangle against this edge is the one whose corner off the fold is one of the edge's own.
+                int off = order[2] == first || order[2] == second ? order[2] : order[5];
+                int high = order[0] == first || order[0] == second ? order[1] : order[0];
+                float rise = at[high] - at[first];
+                if (off != first && off != second || rise < Roofs.FLAT) {
+                    continue;
+                }
+                boolean alongX = edge < 2, lowAtFar = edge == 1 || edge == 3;
+                float atOrigin = at[first] - tile.z + (lowAtFar ? rise : 0f), along = lowAtFar ? -rise : rise;
+                if (pass == 0) {
+                    foldEave[edge] = isEave(tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along);
+                    continue;
+                }
+                // Two eaves of one tile meet at the tile's outer corner, each cut on the slant
+                // to the other. One pipe to a corner: the eave along x gives it.
+                addEave(sheet, tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along, !alongX,
+                        foldEave[alongX ? 2 : 0], foldEave[alongX ? 3 : 1]);
             }
-            // The triangle against this edge is the one whose corner off the fold is one of the edge's own.
-            int off = order[2] == first || order[2] == second ? order[2] : order[5];
-            int high = order[0] == first || order[0] == second ? order[1] : order[0];
-            float rise = at[high] - at[first];
-            if (off != first && off != second || rise < Roofs.FLAT) {
-                continue;
-            }
-            boolean alongX = edge < 2, lowAtFar = edge == 1 || edge == 3;
-            float atOrigin = at[first] - tile.z + (lowAtFar ? rise : 0f), along = lowAtFar ? -rise : rise;
-            // One pipe to a corner: the eave along x gives it.
-            addEave(sheet, tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along, !alongX);
         }
     }
+
+    /** Which of a folded tile's west, east, north and south edges is an eave. */
+    private final boolean[] foldEave = new boolean[4];
 
     /**
      * The cap along a ridge or down a hip: a low strip with a level crown and two sides that
@@ -2856,20 +2900,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /**
-     * A floor over a room is that room's ceiling. Seen from below it is lit by the room, not
+     * A floor over a room is that room's ceiling, and one that juts out over a pavement or a
+     * porch is the underside of a canopy. Seen from below it is lit by the place beneath, not
      * by whatever falls on the floor above, so its underside is a face of its own just under
-     * the floor, carrying the light of the square beneath.
+     * the floor, carrying the light of the square beneath: left to the floor's own back, a
+     * canopy's underside is lit by the room upstairs. Over open air with no square in it, it
+     * has the light of the open ground.
      */
     private void addCeiling(SpriteGeometry.Mesh mesh, int x, int y, int z) {
         IsoGridSquare below = cell.getGridSquare(x, y, z - 1);
-        if (below == null || below.isOutside()) {
-            return;
-        }
         float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open;
         System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
         System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
         System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
-        ColorInfo light = below.isSeen(playerIndex) ? below.lighting[playerIndex].lightInfo() : unseenLight;
+        ColorInfo light = below != null && below.isSeen(playerIndex) ? below.lighting[playerIndex].lightInfo() : unseenLight;
         frame.light(light.r, light.g, light.b);
         frame.open = 0f;
         geometry.addFace(mesh, frame, x, y, z, 0f, 0f, -standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
@@ -2898,16 +2942,40 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // behind the near one, which is the depth of the opening. What hangs on the wall
         // hangs on the skin inside the square.
         float inX = db * WALL_HALF, inY = da * WALL_HALF;
+        if (wall && seeThrough) {
+            // A fence of wire or of rails is one sheet on the line between its squares. As two
+            // skins a wall's thickness apart, the eye saw one lattice through the other and
+            // the two beat against each other as it moved.
+            geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+            return;
+        }
         if (!wall) {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
             // drawn through each other.
             // More of it the further off, where the picture's depth is coarser.
             geometry.shownA = inX + db * (HUNG_CLEAR + 3f * standOff);
             geometry.shownB = inY + da * (HUNG_CLEAR + 3f * standOff);
+            float material = frame.material;
+            if (material == GLASS) {
+                faceIntoRoom(x, y, z, da != 0f);
+            }
+            if (door && doorLeaf && overLayer == 0 && addDoor(mesh, texture, x, y, z, a, b, da, db)) {
+                geometry.shownA = geometry.shownB = 0f;
+                return;
+            }
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
             geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, door ? doorTop(texture, a, b, da, db) : 1f);
+            if (casing && overLayer == 0) {
+                // A door's frame goes round the doorway on both sides of the wall. The game
+                // has it on the side its view saw, and from the other the doorway was bare.
+                geometry.shownA = -geometry.shownA;
+                geometry.shownB = -geometry.shownB;
+                geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, 1f);
+            }
             geometry.shownA = geometry.shownB = 0f;
+            geometry.turned = false;
+            frame.material = material;
             return;
         }
         float fromStart = unpainted(texture, a, b, da, db);
@@ -2916,9 +2984,25 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean startIsLow = SpriteGeometry.frameU(frame, a, b) < SpriteGeometry.frameU(frame, a + da, b + db);
         float[] opening = openingOf(texture, a, b, da, db);
         int at = da != 0f ? 0 : OPENING_FLOATS;
+        // Where the wall's own sprite is painted to its end, the end is the wall's: a corner
+        // post's sprite is a sliver at one end of its square and nothing at the other.
+        float pixels = Math.abs(SpriteGeometry.frameU(frame, a + da, b + db) - SpriteGeometry.frameU(frame, a, b));
+        boolean startPainted = paintedOnWall(texture, a, b, da, db, (fromStart + 1.5f) / pixels, SEAL_HEIGHT, 0f);
+        boolean endPainted = paintedOnWall(texture, a, b, da, db, 1f - (fromEnd + 1.5f) / pixels, SEAL_HEIGHT, 0f);
+        int startJoin = 0, endJoin = 0;
+        if (overLayer == 0) {
+            joinLevel = z;
+            int joins = WallJoins.of(standing, x, y, da != 0f);
+            startJoin = startPainted ? joins & 7 : 0;
+            endJoin = endPainted ? joins >> 3 : 0;
+        }
         geometry.shownA = inX;
         geometry.shownB = inY;
+        skinStart = (startJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
+        skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
         addSkin(mesh, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        skinStart = (startJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
+        skinEnd = (endJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
         geometry.shownA = -inX;
         geometry.shownB = -inY;
         // The sprite is painted for the side inside the square. Where the far side is another
@@ -2995,10 +3079,177 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             System.arraycopy(heldBlue, 0, frame.cornerBlue, 0, 4);
         }
         frame.material = material;
+        skinStart = skinEnd = 0f;
         geometry.shownA = geometry.shownB = 0f;
         geometry.sealLow = geometry.sealHigh = geometry.sealTop = 0f;
         if (overLayer == 0 && opening[at + OPENING_START] >= 0f) {
             addReveals(opening, at, x, y, z, a, b, da, db, inX, inY);
+        }
+        if (overLayer == 0) {
+            addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0,
+                    startPainted && endPainted, x, y, z, a, b, da, db, inX, inY);
+        }
+    }
+
+    /** Half the thickness of a door's leaf, in tiles. */
+    private static final float DOOR_HALF = 0.022f;
+    /** How high up a door its width is read, in levels, and how far in from its edge the colour of its edges is taken, in frame pixels at tile scale 1. */
+    private static final float DOOR_READ_AT = 0.4f, DOOR_STILE = 2.5f;
+    /** Whether the door being added stands open across its doorway, and whether it is a leaf with a thickness. */
+    private boolean doorSwung, doorLeaf;
+    /** Whether the sprite being added is the frame round a doorway. */
+    private boolean casing;
+    /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
+    private final java.util.IdentityHashMap<Texture, float[]> doorSpans = new java.util.IdentityHashMap<>();
+    private static final int SPAN_FLOATS = 4;
+
+    /**
+     * A door as a leaf with a thickness: its sprite on both faces, and its two edges and its
+     * top closed in the colour of its stile. Shut, it hangs in the middle of the wall's
+     * thickness, behind the doorway's reveals. Open, it stands clear of the wall it has swung
+     * back against. False, adding nothing, for a sprite with no door painted across the edge.
+     */
+    private boolean addDoor(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z, float a, float b, float da, float db) {
+        int at = da != 0f ? 0 : SPAN_FLOATS;
+        float[] span = doorSpans.get(texture);
+        if (span == null) {
+            span = new float[2 * SPAN_FLOATS];
+            java.util.Arrays.fill(span, Float.NaN);
+            doorSpans.put(texture, span);
+        }
+        if (span[at] != frame.originU || span[at + 1] != frame.originV) {
+            span[at] = frame.originU;
+            span[at + 1] = frame.originV;
+            int pixels = Math.round(Math.abs(SpriteGeometry.frameU(frame, a + da, b + db) - SpriteGeometry.frameU(frame, a, b)));
+            int first = -1, last = -1;
+            for (int pixel = 0; pixel < pixels; pixel++) {
+                if (paintedOnWall(texture, a, b, da, db, (pixel + 0.5f) / pixels, DOOR_READ_AT, 0f)) {
+                    first = first < 0 ? pixel : first;
+                    last = pixel + 1;
+                }
+            }
+            span[at + 2] = first < 0 ? -1f : (float) first / pixels;
+            span[at + 3] = (float) last / pixels;
+        }
+        float from = span[at + 2], to = span[at + 3];
+        if (from < 0f) {
+            return false;
+        }
+        float top = doorTop(texture, a, b, da, db);
+        float out = doorSwung ? WALL_HALF + HUNG_CLEAR + DOOR_HALF : 0f;
+        for (int side = -1; side <= 1; side += 2) {
+            geometry.shownA = db * (out + side * DOOR_HALF);
+            geometry.shownB = da * (out + side * DOOR_HALF);
+            geometry.addFace(mesh, frame, x, y, z, a, b, 0f, da, db, 0f, 0f, 0f, top);
+        }
+        geometry.shownA = geometry.shownB = 0f;
+        // A tile along a wall is 32 frame pixels across at tile scale 1.
+        float stile = from + DOOR_STILE / 32f;
+        if (!paintedOnWall(texture, a, b, da, db, stile, DOOR_READ_AT, 0f)) {
+            return true;
+        }
+        float u = SpriteGeometry.textureU(frame, a + da * stile, b + db * stile), v = SpriteGeometry.textureV(frame, a + da * stile, b + db * stile, DOOR_READ_AT);
+        mesh.open = frame.open + 32f * frame.material;
+        mesh.sway = 0f;
+        float nearX = db * (out - DOOR_HALF), nearY = da * (out - DOOR_HALF), farX = db * (out + DOOR_HALF), farY = da * (out + DOOR_HALF);
+        float x0 = x + a + da * from, y0 = y + b + db * from, x1 = x + a + da * to, y1 = y + b + db * to;
+        float foot = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a + da * 0.5f, b + db * 0.5f), head = foot + top * ViewCamera.LEVEL_HEIGHT;
+        float[] c = reveal;
+        for (int end = 0; end < 2; end++) {
+            float ex = end == 0 ? x0 : x1, ey = end == 0 ? y0 : y1;
+            set(c, 0, ex + nearX, ey + nearY, foot);
+            set(c, 1, ex + farX, ey + farY, foot);
+            set(c, 2, ex + farX, ey + farY, head);
+            set(c, 3, ex + nearX, ey + nearY, head);
+            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+        }
+        set(c, 0, x0 + nearX, y0 + nearY, head);
+        set(c, 1, x0 + farX, y0 + farY, head);
+        set(c, 2, x1 + farX, y1 + farY, head);
+        set(c, 3, x1 + nearX, y1 + nearY, head);
+        SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+        return true;
+    }
+
+    /** How bright the game's light in a room has to be for the room's windows to count as lit from inside. */
+    private static final float LAMPLIT = 0.55f;
+
+    /**
+     * Turns the window on the north or west edge of the square being added to face into its
+     * room, which is how the picture tells the street side of a pane from the room side, and
+     * marks it as lit from inside when the room's light is a lamp's. A window between two
+     * rooms, or between two places out of doors, faces into its own square.
+     */
+    private void faceIntoRoom(int x, int y, int z, boolean north) {
+        IsoGridSquare beyond = cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
+        boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
+        // A face on a north edge looks north, out of its square, and one on a west edge east, into it.
+        geometry.turned = north == ownIsRoom;
+        IsoGridSquare room = ownIsRoom ? here : beyond;
+        ColorInfo light = room.lighting[playerIndex].lightInfo();
+        if (room.isSeen(playerIndex) && Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT) {
+            frame.material = LIT_GLASS;
+        }
+    }
+
+    /** How high a wall has to stand short of its level for its top to be closed: a full wall's top is under the floor or the roof over it. */
+    private static final float CAPPED_BELOW = 0.97f;
+    /** Where along a wall its colour is looked for, for the faces that close it. */
+    private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
+
+    /**
+     * Closes a wall where the eye could see in between its two skins: across an end that
+     * nothing meets, a doorway with no frame or the last panel of a fence; over the top of one
+     * that stops short of its level, a fence, a garden wall, a parapet; and under the foot of
+     * one that stands on an upper floor, which is seen from below where the floor juts out.
+     * Each is the colour the wall's sprite has low down on it.
+     */
+    private void addCaps(SpriteGeometry.Mesh mesh, Texture texture, float top, boolean openStart, boolean openEnd, boolean whole,
+            int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
+        boolean overTop = whole && top > 0f && top < CAPPED_BELOW, underFoot = whole && z > 0;
+        if (top <= 0f || !openStart && !openEnd && !overTop && !underFoot) {
+            return;
+        }
+        float u = 0f, v = 0f;
+        boolean found = false;
+        for (float along : CAP_COLOUR_AT) {
+            if (paintedOnWall(texture, a, b, da, db, along, SEAL_HEIGHT, 0f)) {
+                u = SpriteGeometry.textureU(frame, a + da * along, b + db * along);
+                v = SpriteGeometry.textureV(frame, a + da * along, b + db * along, SEAL_HEIGHT);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return;
+        }
+        mesh.open = frame.open + 32f * frame.material;
+        mesh.sway = 0f;
+        float x0 = x + a, y0 = y + b, x1 = x0 + da, y1 = y0 + db;
+        float foot0 = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b), foot1 = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a + da, b + db);
+        float high = top * ViewCamera.LEVEL_HEIGHT;
+        float[] c = reveal;
+        for (int end = 0; end < 2; end++) {
+            if (end == 0 ? !openStart : !openEnd) {
+                continue;
+            }
+            float ex = end == 0 ? x0 : x1, ey = end == 0 ? y0 : y1, foot = end == 0 ? foot0 : foot1;
+            set(c, 0, ex - inX, ey - inY, foot);
+            set(c, 1, ex + inX, ey + inY, foot);
+            set(c, 2, ex + inX, ey + inY, foot + high);
+            set(c, 3, ex - inX, ey - inY, foot + high);
+            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+        }
+        for (int side = 0; side < 2; side++) {
+            if (side == 0 ? !overTop : !underFoot) {
+                continue;
+            }
+            float up = side == 0 ? high : 0f;
+            set(c, 0, x0 - inX, y0 - inY, foot0 + up);
+            set(c, 1, x0 + inX, y0 + inY, foot0 + up);
+            set(c, 2, x1 + inX, y1 + inY, foot1 + up);
+            set(c, 3, x1 - inX, y1 - inY, foot1 + up);
+            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
         }
     }
 
@@ -3010,13 +3261,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addSkin(SpriteGeometry.Mesh mesh, float[] opening, int at, int x, int y, int z, float a, float b, float da, float db,
             float fromStart, float fromEnd, float fromTop, boolean startIsLow) {
         float start = opening[at + OPENING_START], end = opening[at + OPENING_END];
+        // A skin carried on past its wall's end to the outside of a corner takes its texels
+        // from as far inside the sprite as it would have, the sprite having nothing out there.
+        float perTile = 32f * frame.scale;
+        float first = -skinStart, last = 1f + skinEnd;
+        fromStart += skinStart * perTile;
+        fromEnd += skinEnd * perTile;
         if (start < 0f) {
-            addPiece(mesh, x, y, z, a, b, da, db, 0f, 1f, 0f, 1f, fromStart, fromEnd, fromTop, startIsLow);
+            addPiece(mesh, x, y, z, a, b, da, db, first, last, 0f, 1f, fromStart, fromEnd, fromTop, startIsLow);
             return;
         }
         float foot = opening[at + OPENING_FOOT], head = opening[at + OPENING_HEAD];
-        addPiece(mesh, x, y, z, a, b, da, db, 0f, start, 0f, 1f, fromStart, 0f, fromTop, startIsLow);
-        addPiece(mesh, x, y, z, a, b, da, db, end, 1f, 0f, 1f, 0f, fromEnd, fromTop, startIsLow);
+        addPiece(mesh, x, y, z, a, b, da, db, first, start, 0f, 1f, fromStart, 0f, fromTop, startIsLow);
+        addPiece(mesh, x, y, z, a, b, da, db, end, last, 0f, 1f, 0f, fromEnd, fromTop, startIsLow);
         if (head < 1f) {
             addPiece(mesh, x, y, z, a, b, da, db, start, end, head, 1f, 0f, 0f, fromTop, startIsLow);
         }
@@ -3068,7 +3325,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
-    private static final int OPENING_FLOATS = 6, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5;
+    private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
+    /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
+    private static final float[] TOP_READ_AT = {0.15f, 0.5f, 0.85f};
+    private static final float LOWEST_TOP = 0.05f;
 
     /**
      * Where the door or window through a wall is, read off the wall's sprite: at at + OPENING_START
@@ -3091,6 +3351,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         known[at + OPENING_ORIGIN] = frame.originU;
         known[at + OPENING_ORIGIN + 1] = frame.originV;
         known[at + OPENING_START] = -1f;
+        known[at + OPENING_TOP] = wallTop(texture, a, b, da, db);
         int pixels = Math.round(Math.abs(SpriteGeometry.frameU(frame, a + da, b + db) - SpriteGeometry.frameU(frame, a, b)));
         int first = -1, last = -1, gaps = 0, run = -1;
         for (int pixel = 0; pixel <= pixels; pixel++) {
@@ -3139,6 +3400,26 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         known[at + OPENING_FOOT] = foot;
         known[at + OPENING_HEAD] = head;
         return known;
+    }
+
+    /**
+     * How high a wall stands, in levels: the lowest its sprite's top is drawn at three places
+     * along it, so that the top of a fence whose boards are cut to a curve is closed below
+     * the lowest of them. 0 for a sprite with nothing painted at any of the three.
+     */
+    private float wallTop(Texture texture, float a, float b, float da, float db) {
+        float perPixel = 1f / (96f * frame.scale);
+        float lowest = 0f;
+        for (float along : TOP_READ_AT) {
+            for (float h = 1f; h > LOWEST_TOP; h -= perPixel) {
+                if (paintedOnWall(texture, a, b, da, db, along, h, 0f)) {
+                    float top = Math.min(h + perPixel / 2f, 1f);
+                    lowest = lowest == 0f ? top : Math.min(lowest, top);
+                    break;
+                }
+            }
+        }
+        return lowest;
     }
 
     /** Whether the sprite is painted where it shows the point a share along the wall and up levels high, down frame pixels lower. */
@@ -3218,6 +3499,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         return WallSides.key(colour[0], colour[1], colour[2], far == -1L ? WallSides.SIDING : WallSides.FLAT);
     }
+
+    /** The level the walls that meet the wall being added are looked for on. */
+    private int joinLevel;
+    /** Whether a wall with a thickness stands on the north or west edge of a square of joinLevel. */
+    private final WallJoins.Walls standing = (wallX, wallY, north) -> {
+        IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
+        IsoObject wall = square == null ? null : wallOn(square, north);
+        return wall != null && !isSheet(wall.getSprite().getProperties());
+    };
+    /** Whether the wall being added is a sheet: see isSheet. */
+    private boolean seeThrough;
+    /** How far the skin being added runs on past its wall's two ends, in tiles: see WallJoins. */
+    private float skinStart, skinEnd;
 
     /** The wall standing on the square's north or west edge that has a sprite to show, or null. */
     static IsoObject wallOn(IsoGridSquare square, boolean north) {
@@ -3442,34 +3736,59 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * eave, with a board closing its end. piped is whether the gutter may empty into a pipe here.
      */
     private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped) {
+        addEave(sheet, x, y, z, atOrigin, alongX, alongY, piped, false, false);
+    }
+
+    /**
+     * Whether the low edge of a sloping tile is an eave: the slope has a fall, and no roof
+     * goes on beyond it. A slope that comes down to the foot of its level goes on in the top
+     * of the level below: the tile beyond is there, and this is the middle of the roof.
+     */
+    private boolean isEave(int x, int y, int z, float atOrigin, float alongX, float alongY) {
         float along = alongX != 0f ? alongX : alongY;
         if (Math.abs(along) < Roofs.FLAT) {
-            return;
+            return false;
         }
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        // A slope that comes down to the foot of its level goes on in the top of the level
-        // below: the tile beyond is there, and this is the middle of the roof and no eave.
-        if (hasRoof(beyondX, beyondY, z) || low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1)) {
+        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1));
+    }
+
+    /**
+     * As addEave, for an eave that meets another at one or both ends of its run, the end at
+     * the square's north or west and the one at its south or east: see Eaves.
+     */
+    private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped,
+            boolean meetsAtStart, boolean meetsAtEnd) {
+        if (!isEave(x, y, z, atOrigin, alongX, alongY)) {
             return;
         }
+        float along = alongX != 0f ? alongX : alongY;
+        boolean lowAtFar = along < 0f;
+        float low = lowAtFar ? atOrigin + along : atOrigin;
         float out = lowAtFar ? EAVE : -EAVE;
         float edge = lowAtFar ? 1f : 0f;
         float drop = -Math.abs(along) * EAVE;
         float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
         float high = (z + low) * ViewCamera.LEVEL_HEIGHT + lift, far = (z + low + drop) * ViewCamera.LEVEL_HEIGHT + lift;
+        boolean runsY = alongX != 0f;
+        int startEnd = Eaves.end(meetsAtStart, hasRoof(runsY ? x : x - 1, runsY ? y - 1 : y, z));
+        int endEnd = Eaves.end(meetsAtEnd, hasRoof(runsY ? x : x + 1, runsY ? y + 1 : y, z));
+        // The run's two ends, at the wall and at the eave's edge: where it starts and stops along the run.
+        float wallFrom = -Eaves.atWall(startEnd, RAKE), edgeFrom = -Eaves.atEdge(startEnd, EAVE, RAKE);
+        float wallTo = 1f + Eaves.atWall(endEnd, RAKE), edgeTo = 1f + Eaves.atEdge(endEnd, EAVE, RAKE);
         float[] c = eave;
-        if (alongX != 0f) {
-            set(c, 0, x + edge, y, high);
-            set(c, 1, x + edge + out, y, far);
-            set(c, 2, x + edge + out, y + 1f, far);
-            set(c, 3, x + edge, y + 1f, high);
+        if (runsY) {
+            set(c, 0, x + edge, y + wallFrom, high);
+            set(c, 1, x + edge + out, y + edgeFrom, far);
+            set(c, 2, x + edge + out, y + edgeTo, far);
+            set(c, 3, x + edge, y + wallTo, high);
         } else {
-            set(c, 0, x, y + edge, high);
-            set(c, 1, x, y + edge + out, far);
-            set(c, 2, x + 1f, y + edge + out, far);
-            set(c, 3, x + 1f, y + edge, high);
+            set(c, 0, x + wallFrom, y + edge, high);
+            set(c, 1, x + edgeFrom, y + edge + out, far);
+            set(c, 2, x + edgeTo, y + edge + out, far);
+            set(c, 3, x + wallTo, y + edge, high);
         }
         SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
         // The soffit: the boarded underside of the eave, level from the fascia's foot back to
@@ -3491,6 +3810,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 2, x2, y2, far - FASCIA);
         set(c, 3, x1, y1, far - FASCIA);
         SpriteGeometry.addPlainQuad(plain, c, 0.55f * frame.red, 0.55f * frame.green, 0.53f * frame.blue);
+        // Where the roof stops at a gable the eave is a hollow wedge seen end on, and is
+        // closed with a board of its own.
+        for (int end = 0; end < 2; end++) {
+            if ((end == 0 ? startEnd : endEnd) != Eaves.GABLE) {
+                continue;
+            }
+            float wx = end == 0 ? wx1 : wx2, wy = end == 0 ? wy1 : wy2, ex = end == 0 ? ex1 : ex2, ey = end == 0 ? ey1 : ey2;
+            set(c, 0, wx, wy, high);
+            set(c, 1, ex, ey, far);
+            set(c, 2, ex, ey, under);
+            set(c, 3, wx, wy, under);
+            SpriteGeometry.addPlainQuad(plain, c, 0.55f * frame.red, 0.55f * frame.green, 0.53f * frame.blue);
+        }
         // The gutter along the eave: a trough standing out from the board, its outer face and
         // its underside.
         float ox = alongX != 0f ? Math.signum(out) * GUTTER : 0f, oy = alongX != 0f ? 0f : Math.signum(out) * GUTTER;
@@ -3508,8 +3840,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // Where the eave ends, at the corner of the building, the gutter empties into a pipe
         // down the wall to the ground.
         // Of the gutter's dark metal: pale, it reads as a post standing at the foot of the gable.
-        if (piped && !hasRoof(alongX != 0f ? x : x - 1, alongX != 0f ? y - 1 : y, z)) {
-            float px = x1 + ox * 0.5f - (alongX != 0f ? Math.signum(out) * EAVE : 0f), py = y1 + oy * 0.5f - (alongX != 0f ? 0f : Math.signum(out) * EAVE);
+        if (piped && startEnd != Eaves.RUNS_ON) {
+            // Against the wall at the building's corner, whatever the eave does past it.
+            float px = runsY ? x + edge + ox * 0.5f : x, py = runsY ? y : y + edge + oy * 0.5f;
             float foot = lift;
             for (int turn = 0; turn < 2; turn++) {
                 float wx = turn == 0 ? PIPE : 0f, wy = turn == 0 ? 0f : PIPE;
@@ -3540,7 +3873,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * A flight is three squares, each a third of a level, rising towards -x (W) or -y (N).
      * Returns false, adding nothing, for a sprite that is not a stair.
      */
-    private boolean addStair(SpriteGeometry.Mesh mesh, IsoObjectType type, int x, int y, int z) {
+    private boolean addStair(SpriteGeometry.Mesh mesh, Texture texture, IsoObjectType type, int x, int y, int z) {
         int third = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
                 : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
                 : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
@@ -3548,10 +3881,41 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return false;
         }
         float top = (third + 1) / 3f;
-        if (type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW) {
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f);
-        } else {
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
+        boolean west = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
+        int added = west ? geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f)
+                : geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
+        // A flight is solid under its treads: left as the slope alone it is a ramp of paper
+        // seen from the side, with the room showing under it. Each square is closed down
+        // to the floor along both its sides, and the top one across its back, in the colour
+        // the stair has half way up the square. Against a wall the side is inside the wall.
+        float middle = top - 1f / 6f;
+        if (added == 0 || !painted(texture, 0.5f, 0.5f, middle)) {
+            return true;
+        }
+        float u = SpriteGeometry.textureU(frame, 0.5f, 0.5f), v = SpriteGeometry.textureV(frame, 0.5f, 0.5f, middle);
+        mesh.open = frame.open + 32f * frame.material;
+        mesh.sway = 0f;
+        float floor = z * ViewCamera.LEVEL_HEIGHT;
+        float high = top * ViewCamera.LEVEL_HEIGHT, low = (top - 1f / 3f) * ViewCamera.LEVEL_HEIGHT;
+        float[] c = reveal;
+        for (int side = 0; side <= 1; side++) {
+            // The high end of the slope, then the low end, along this side of the square.
+            float hx = west ? 0f : side, hy = west ? side : 0f, lx = west ? 1f : side, ly = west ? side : 1f;
+            float highFoot = floor + geometry.liftAt(hx, hy), lowFoot = floor + geometry.liftAt(lx, ly);
+            set(c, 0, x + hx, y + hy, highFoot + high);
+            set(c, 1, x + lx, y + ly, lowFoot + low);
+            set(c, 2, x + lx, y + ly, lowFoot);
+            set(c, 3, x + hx, y + hy, highFoot);
+            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+        }
+        if (third == 2) {
+            float foot0 = floor + geometry.liftAt(0f, 0f), foot1 = floor + (west ? geometry.liftAt(0f, 1f) : geometry.liftAt(1f, 0f));
+            float bx = west ? 0f : 1f, by = west ? 1f : 0f;
+            set(c, 0, x, y, foot0 + high);
+            set(c, 1, x + bx, y + by, foot1 + high);
+            set(c, 2, x + bx, y + by, foot1);
+            set(c, 3, x, y, foot0);
+            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
         }
         return true;
     }
@@ -3561,6 +3925,17 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 || properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE)
                 || properties.has(IsoFlagType.DoorWallW) || properties.has(IsoFlagType.DoorWallN)
                 || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.WindowN);
+    }
+
+    /**
+     * Whether what the game calls a wall is one it can be seen through: a fence of wire, of
+     * rails or of pickets, a partition of glass. It is a sheet and no thickness of masonry.
+     */
+    private static boolean isSheet(PropertyContainer properties) {
+        return (properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.WallNTrans))
+                && !properties.has(IsoFlagType.WallW) && !properties.has(IsoFlagType.WallN) && !properties.has(IsoFlagType.WallNW)
+                && !properties.has(IsoFlagType.DoorWallW) && !properties.has(IsoFlagType.DoorWallN)
+                && !properties.has(IsoFlagType.WindowW) && !properties.has(IsoFlagType.WindowN);
     }
 
     private static boolean standsOnWestEdge(PropertyContainer properties, IsoObjectType type) {

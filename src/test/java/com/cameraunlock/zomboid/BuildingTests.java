@@ -24,6 +24,125 @@ final class BuildingTests {
         farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey();
         roofWithBothItsSlopesGetsNoMore();
         pavementIsNotLooseStone();
+        skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner();
+        wallThatEndsAloneIsClosedAcrossItsEnd();
+        eavesMeetAtAHipAndRunOutOverAGable();
+        openGroundHasTheLightMostOfItHas();
+    }
+
+    private static void openGroundHasTheLightMostOfItHas() {
+        OpenLight light = new OpenLight();
+        check(light.isEmpty(), "nothing is counted to begin with");
+        // A street at night: most of it in the dark, a few squares under a lamp.
+        for (int i = 0; i < 90; i++) {
+            light.add(0.2f, 0.2f, 0.25f);
+        }
+        for (int i = 0; i < 10; i++) {
+            light.add(0.9f, 0.8f, 0.6f);
+        }
+        float[] out = new float[3];
+        light.commonest(out);
+        check(near(out[0], 0.2f) && near(out[1], 0.2f) && near(out[2], 0.25f),
+                "an unseen square is as dark as the street is, and not the mean of the street and its lamps: " + out[0]);
+        light.clear();
+        check(light.isEmpty(), "and cleared it holds nothing");
+        light.add(1f, 1f, 1f);
+        light.commonest(out);
+        check(near(out[0], 1f), "full light is counted, in the last band");
+    }
+
+    /** The walls round a set of squares: a west wall on a square whose west neighbour is not in the set, and so on round. */
+    private static WallJoins.Walls wallsRound(java.util.Set<Long> squares) {
+        return (x, y, north) -> squares.contains(key(x, y)) != squares.contains(north ? key(x, y - 1) : key(x - 1, y));
+    }
+
+    private static long key(int x, int y) {
+        return (long) x << 32 | y & 0xffffffffL;
+    }
+
+    /** Where a skin of the wall on an edge of a square ends: into out the x and y of its start and of its end. */
+    private static void skin(int x, int y, boolean north, boolean near, int joins, float half, float[] out) {
+        int which = near ? WallJoins.NEAR : WallJoins.FAR;
+        float before = (joins & which) != 0 ? half : 0f, after = (joins >> 3 & which) != 0 ? half : 0f;
+        float side = near ? half : -half;
+        if (north) {
+            out[0] = x - before;
+            out[1] = y + side;
+            out[2] = x + 1 + after;
+            out[3] = y + side;
+        } else {
+            out[0] = x + side;
+            out[1] = y - before;
+            out[2] = x + side;
+            out[3] = y + 1 + after;
+        }
+    }
+
+    private static void skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner() {
+        // An L: a block four by three with a wing two by two on its south side, so five corners point out and one in.
+        java.util.Set<Long> house = new java.util.HashSet<>();
+        for (int x = 0; x < 4; x++) {
+            for (int y = 0; y < 3; y++) {
+                house.add(key(x, y));
+            }
+        }
+        for (int x = 0; x < 2; x++) {
+            for (int y = 3; y < 5; y++) {
+                house.add(key(x, y));
+            }
+        }
+        WallJoins.Walls walls = wallsRound(house);
+        float half = 0.04f;
+        float[] one = new float[4], other = new float[4];
+        int corners = 0;
+        for (int cx = -1; cx <= 5; cx++) {
+            for (int cy = -1; cy <= 6; cy++) {
+                // The walls that end at the grid point (cx, cy): two along x and two along y.
+                boolean east = walls.stands(cx, cy, true), west = walls.stands(cx - 1, cy, true);
+                boolean south = walls.stands(cx, cy, false), north = walls.stands(cx, cy - 1, false);
+                int count = (east ? 1 : 0) + (west ? 1 : 0) + (south ? 1 : 0) + (north ? 1 : 0);
+                if (count != 2 || east == west) {
+                    continue;
+                }
+                corners++;
+                int alongX = east ? cx : cx - 1, alongY = south ? cy : cy - 1;
+                int joinsX = WallJoins.of(walls, alongX, cy, true), joinsY = WallJoins.of(walls, cx, alongY, false);
+                // The skins on the side of the quarter between the two walls are the ones inside the corner.
+                boolean quarterIsNearX = south, quarterIsNearY = east;
+                skin(alongX, cy, true, !quarterIsNearX, joinsX, half, one);
+                skin(cx, alongY, false, !quarterIsNearY, joinsY, half, other);
+                float oneX = east ? one[0] : one[2], oneY = one[1], otherX = other[0], otherY = south ? other[1] : other[3];
+                check(near(oneX, otherX) && near(oneY, otherY), "the two skins outside the corner at " + cx + ", " + cy + " end at one point: "
+                        + oneX + ", " + oneY + " and " + otherX + ", " + otherY);
+                check(near(Math.abs(oneX - cx), half) && near(Math.abs(oneY - cy), half), "which is half a wall out from the corner both ways");
+                skin(alongX, cy, true, quarterIsNearX, joinsX, half, one);
+                skin(cx, alongY, false, quarterIsNearY, joinsY, half, other);
+                check(near(east ? one[0] : one[2], cx) && near(south ? other[1] : other[3], cy), "the two inside it stop at the corner");
+            }
+        }
+        check(corners == 6, "an L has six corners: " + corners);
+    }
+
+    private static void wallThatEndsAloneIsClosedAcrossItsEnd() {
+        check(WallJoins.end(false, false, false) == WallJoins.OPEN, "a wall with nothing at its end is closed there");
+        check(WallJoins.end(true, false, false) == 0 && WallJoins.end(true, true, false) == 0, "one that runs on is not, whatever joins it");
+        check(WallJoins.end(false, true, true) == 0, "nor one that ends against a wall crossing it: its end is inside that wall");
+        check(WallJoins.end(false, true, false) == WallJoins.FAR && WallJoins.end(false, false, true) == WallJoins.NEAR,
+                "at a corner the skin on the other side from the wall it meets runs on");
+        // A wall along x with a doorway's width missing from it: both lengths end open at the gap.
+        WallJoins.Walls gapped = (x, y, north) -> north && y == 0 && x >= 0 && x <= 4 && x != 2;
+        check(WallJoins.of(gapped, 1, 0, true) >> 3 == WallJoins.OPEN && (WallJoins.of(gapped, 3, 0, true) & 7) == WallJoins.OPEN, "the jambs of a gap in a wall are closed");
+        check((WallJoins.of(gapped, 1, 0, true) & 7) == 0 && WallJoins.of(gapped, 3, 0, true) >> 3 == 0, "and the wall runs on at its other ends");
+    }
+
+    private static void eavesMeetAtAHipAndRunOutOverAGable() {
+        float eave = 0.22f, rake = 0.14f;
+        int hip = Eaves.end(true, false), gable = Eaves.end(false, false), on = Eaves.end(false, true);
+        check(Eaves.atWall(on, rake) == 0f && Eaves.atEdge(on, eave, rake) == 0f, "an eave that goes on in the next square stops at its own square's side");
+        check(Eaves.atWall(hip, rake) == 0f && Eaves.atEdge(hip, eave, rake) == eave,
+                "at a hip the eave's edge runs on as far as the other eave stands out, so the two meet on the diagonal");
+        check(Eaves.atWall(gable, rake) == rake && Eaves.atEdge(gable, eave, rake) == rake, "at a gable it runs on as far as the roof's edge over the gable does");
+        check(Eaves.end(true, true) == Eaves.MEETS, "two eaves of one tile meet whatever is beside it");
     }
 
     private static void pavementIsNotLooseStone() {

@@ -265,6 +265,24 @@ final class SpriteGeometry {
     float keep = 1f;
     /** When above 0, half the box's footprint along b where it is not square: see addBox. */
     float boxHalfB;
+    /**
+     * How far above its square's floor the thing being added stands, in levels: what stands on
+     * a table is painted as if it stood on the floor, and the game draws it that much higher.
+     */
+    float raised;
+    /**
+     * Whether the square has a floor under what stands on it. A sprite shows what is nearer
+     * the game's view than the middle of its square lower down the picture, so a card stood on
+     * the middle reaches below the floor by that much. On the ground that part is in the
+     * earth. Upstairs it hung out of the ceiling of the room below.
+     */
+    boolean floored;
+    /**
+     * Whether an upright face being added looks the other way from the one its edges give
+     * it. A sheet is lit from whichever side it is seen, so this changes nothing but what the
+     * picture can tell from it: which side of a window its room is on.
+     */
+    boolean turned;
 
     float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
@@ -334,7 +352,8 @@ final class SpriteGeometry {
             float turn = Math.signum(da1 * db2 - db1 * da2);
             mesh.face(-turn * (lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -turn * (lift[3] - lift[0] + lift[2] - lift[1]) / 2f, turn);
         } else {
-            mesh.face(db1 * up2 - up1 * db2, up1 * da2 - da1 * up2, da1 * db2 - db1 * da2);
+            float way = turned ? -1f : 1f;
+            mesh.face(way * (db1 * up2 - up1 * db2), way * (up1 * da2 - da1 * up2), way * (da1 * db2 - db1 * da2));
         }
         float[] from = result;
         for (int i = 1; i < count - 1; i++) {
@@ -506,10 +525,20 @@ final class SpriteGeometry {
         float bottomHeight = (anchorV - frame.top - frame.height) * up;
         float topHeight = bottomHeight + frame.height * up * keep;
         float vTop = frame.vEnd + (frame.vStart - frame.vEnd) * keep;
+        float vBottom = frame.vEnd;
+        if (floored) {
+            float lowest = -(h + raised) * ViewCamera.LEVEL_HEIGHT;
+            float cut = cutBelow(bottomHeight, bottomHeight + frame.height * up, lowest);
+            if (cut >= keep) {
+                return;
+            }
+            vBottom = frame.vEnd + (frame.vStart - frame.vEnd) * cut;
+            bottomHeight = Math.max(bottomHeight, lowest);
+        }
 
         float baseX = tileX + a + nudgeX;
         float baseY = tileY + b + nudgeY;
-        float baseUp = (tileZ + h) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
+        float baseUp = (tileZ + h + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         float x0 = baseX + rightX * leftOffset, y0 = baseY + rightY * leftOffset;
         float x1 = baseX + rightX * rightOffset, y1 = baseY + rightY * rightOffset;
 
@@ -521,16 +550,24 @@ final class SpriteGeometry {
         float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
         float high = sways ? Math.clamp(topHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
         mesh.sway = low;
-        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
-        mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, frame.vEnd, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = low;
-        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, frame.vEnd, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
         mesh.add(x0, y0, baseUp + topHeight, frame.uStart, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
+    }
+
+    /**
+     * How much of a card that stands from bottom to top is below lowest, as a share of its
+     * height: 0 for a card that stands clear, 1 or more for one that is all below.
+     */
+    static float cutBelow(float bottom, float top, float lowest) {
+        return bottom >= lowest ? 0f : (lowest - bottom) / (top - bottom);
     }
 
     /**
@@ -582,7 +619,7 @@ final class SpriteGeometry {
      */
     void addBlock(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float high, float a, float b, float h) {
         float u = textureU(frame, a, b), v = textureV(frame, a, b, h);
-        float foot = tileZ * ViewCamera.LEVEL_HEIGHT + liftAt(0.5f, 0.5f), top = foot + high * ViewCamera.LEVEL_HEIGHT;
+        float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(0.5f, 0.5f), top = foot + high * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + 32f * frame.material;
         mesh.sway = 0f;
         float x0 = tileX, y0 = tileY, x1 = tileX + 1f, y1 = tileY + 1f;
@@ -700,7 +737,7 @@ final class SpriteGeometry {
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
-                (tileZ + polygon[at + 2] + shownUp) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
+                (tileZ + polygon[at + 2] + shownUp + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
                 frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
                 frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
                 frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
