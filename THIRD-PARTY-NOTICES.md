@@ -65,11 +65,32 @@ Copyright (c) 2026 itsloopyo
 
 ---
 
+## JOML
+
+- **Version:** the copy Project Zomboid ships
+- **License:** MIT
+- **Upstream:** https://github.com/JOML-CI/JOML
+- **Usage:** The agent reads and fills the `org.joml.Matrix4f` and `org.joml.Vector3f` values that the game's own fields and methods hold, take and return.
+- **Bundled:** no. The names resolve to the copy inside the game's jar at run time.
+
+---
+
+## Kahlua
+
+- **Version:** the copy Project Zomboid ships
+- **License:** MIT
+- **Upstream:** https://github.com/krka/kahlua2
+- **Usage:** The agent reads the game's Lua tables as `se.krka.kahlua.vm.KahluaTable` and calls the game's Lua functions through its `LuaCaller`, to tell the game's panels apart and to show and hide them.
+- **Bundled:** no. The names resolve to the copy inside the game's jar at run time.
+
+---
+
 ## Generated material textures
 
 - **Files:** every `materials/*.rgb.gz` and `materials/*.rgba.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, wood, bark, planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond and ivy
-- **Made with:** Stable Diffusion XL base 1.0 (stabilityai/stable-diffusion-xl-base-1.0), from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
-- **Model license:** CreativeML Open RAIL++-M, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md
+- **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
+- **License:** the model's, CreativeML Open RAIL++-M, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md
+- **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 - **Usage:** The first person view lays them over open ground, roofs, walls, wooden floors and the crowns of trees to give each the grain of what it is made of, and draws the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them.
 - **Bundled:** the textures, yes. The model is not.
 - **Not among them:** `materials/paint.rgb.gz` is filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it.
