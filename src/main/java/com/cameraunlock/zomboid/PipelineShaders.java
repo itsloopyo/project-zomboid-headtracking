@@ -2214,18 +2214,24 @@ final class PipelineShaders {
                 // or the leg of a chair throws where it meets the ground. A ray is walked from
                 // this point towards the sun through the picture's depth, and if it passes
                 // behind something near by, that something is in the sun's way.
-                if (uSunEye.z > -2.0) {
+                // Not on a surface the sun only grazes. A ray along such a wall runs a finger's
+                // width off it for its whole length, and every board and brick course of the
+                // wall is then in its way or not by a hair, differently in each frame: the
+                // wall flickered in patches. Such a surface has next to no sun on it to lose.
+                float sunOn = smoothstep(0.08, 0.3, dot(n, uSunEye));
+                if (uSunEye.z > -2.0 && sunOn > 0.0) {
                     float reach = min(0.5, 0.03 * p.z + 0.12) * small;
                     float begin = fract(turn * 0.159 + 0.37);
+                    float shaded = 0.0;
                     for (int i = 0; i < 10; i++) {
                         vec3 q = p + n * (0.03 * small) + uSunEye * (reach * (float(i) + begin) / 10.0);
                         vec2 at = q.xy / (q.z * uTan) * 0.5 + 0.5;
                         float behind = (q.z - placeAt(at).z) / small;
-                        if (behind > 0.02 && behind < 0.35 && shown(at) > 0.5) {
-                            open *= 0.62;
-                            break;
-                        }
+                        // By how far behind, and not by whether: a ray that only just passes
+                        // behind something shades a little, so the shade has no edge to jump.
+                        shaded = max(shaded, smoothstep(0.02, 0.07, behind) * (1.0 - smoothstep(0.25, 0.35, behind)) * step(0.5, shown(at)));
                     }
+                    open *= 1.0 - 0.38 * shaded * sunOn;
                 }
                 // Kept as a part of a whole: the target holds numbers from 0 to 1.
                 gl_FragColor = vec4(lent / (1.0 + lent), mix(open, 1.0, smoothstep(35.0, 65.0, p.z)));
