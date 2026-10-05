@@ -30,11 +30,10 @@ import zombie.network.GameClient;
  * Everything here runs on the game's logic thread.
  */
 public final class FirstPerson {
-    /** F8 in the key codes the game's keyboard uses. It is pressed with Ctrl held, as F9 is. */
+    /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it. */
     private static final int TOGGLE_KEY = 66;
     /** F9. Pressed in the game's own view, it has the picture draw that view. */
     private static final int OVERHEAD_KEY = 67;
-    private static final int LEFT_CONTROL = 29, RIGHT_CONTROL = 157;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
@@ -231,13 +230,12 @@ public final class FirstPerson {
 
     /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */
     public static void afterWorldRender() {
-        boolean ctrl = GameKeyboard.isKeyDown(LEFT_CONTROL) || GameKeyboard.isKeyDown(RIGHT_CONTROL);
-        if (ctrl && GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
+        if (GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
             toggle();
         }
         HeadTracking.pollHotkeys();
         DevKeys.poll();
-        if (!on && ctrl && GameKeyboard.isKeyPressed(OVERHEAD_KEY)) {
+        if (!on && GameKeyboard.isKeyPressed(OVERHEAD_KEY)) {
             overhead = !overhead && allowed(IsoPlayer.getInstance());
             Log.info("the game's own view is drawn by " + (overhead ? "the picture" : "the game"));
         }
