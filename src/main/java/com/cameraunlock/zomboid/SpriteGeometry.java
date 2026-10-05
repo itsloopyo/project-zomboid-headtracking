@@ -592,7 +592,9 @@ final class SpriteGeometry {
         int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
         float da1 = points[3] - points[0], db1 = points[4] - points[1], up1 = (points[5] - points[2]) * ViewCamera.LEVEL_HEIGHT;
         float da2 = points[6] - points[0], db2 = points[7] - points[1], up2 = (points[8] - points[2]) * ViewCamera.LEVEL_HEIGHT;
-        float turn = Math.signum(da1 * db2 - db1 * da2);
+        // Turned to face up. A triangle that stands upright, in a wall, faces neither up nor
+        // down: it keeps the way its corners give it, and is lit from whichever side it is seen.
+        float turn = da1 * db2 - db1 * da2 < 0f ? -1f : 1f;
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         mesh.face(turn * (db1 * up2 - up1 * db2), turn * (up1 * da2 - da1 * up2), turn * (da1 * db2 - db1 * da2));
         float[] from = result;

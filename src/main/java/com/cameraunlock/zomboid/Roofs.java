@@ -31,6 +31,8 @@ final class Roofs {
     static final float WHOLE_TILE_WIDE = 50f;
     /** This many rows of a sprite with nothing painted on them end what is painted above them, in frame pixels at tile scale 1. */
     private static final float PAINT_GAP = 3f;
+    /** How wide the sprite of half a tile is, in unscaled pixels, and how far in from its frame's left edge the east half starts at the least. */
+    private static final float HALF_NARROWEST = 47f, HALF_WIDEST = 54f, HALF_INSET = 8f;
     private static final int KEPT = 600, RETRIED = 30;
     /** The most tiles read as one roof. */
     private static final int MOST = 4000;
@@ -183,6 +185,7 @@ final class Roofs {
                 highest = Math.max(highest, tile.z);
             }
             List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest));
+            RoofFit.peaks(tiles, backs);
             for (RoofFit.Tile back : backs) {
                 keep(new Laid(back, null, roof));
             }
@@ -360,6 +363,16 @@ final class Roofs {
     static RoofFit.Tile measure(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
+        // Half a tile, the top of a slope under a ridge along the middle of a square: its
+        // sprite is three quarters of a tile's wide, and its foot is the square's south-east
+        // corner. Its top row is not read: some carry a board above the slope.
+        float wide = frame.width / frame.scale;
+        if (wide >= HALF_NARROWEST && wide <= HALF_WIDEST) {
+            RoofFit.Tile half = tile(x, y, z, RoofFit.LEVEL, true, z + southEast, z + southEast, true);
+            half.half = frame.left > HALF_INSET * frame.scale ? RoofFit.EAST_HALF : RoofFit.SOUTH_HALF;
+            half.halfEdge = z + southEast;
+            return half;
+        }
         boolean fitting = frame.width <= WHOLE_TILE_WIDE * frame.scale;
         // A few sprites have a stray pixel or two far from the tile, at the foot of the
         // frame, and their outline then runs from the tile to the stray. The tile is the

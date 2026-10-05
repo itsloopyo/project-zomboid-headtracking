@@ -384,6 +384,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int lifted;
     private int chunksDrawn, squaresLoaded, squaresSeen, sprites, triangles;
     private int roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, roofsFolded;
+    /** The gable walls made in the last build: in the sprite of the building's face, in its colour alone, and those left open for want of either. */
+    private int gablesFaced, gablesPainted, gablesBare;
     /** The gap between two sprites on one plane of the square being added. */
     private float standOff;
     private int floorLayer, westLayer, northLayer, eastLayer, southLayer;
@@ -404,18 +406,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int overLayer;
     private int remakes;
     private static final int REMAKES_A_FRAME = 12;
-    private boolean wiredHere;
     private final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
     private static final int MESH_CHANGES = 12;
     private boolean wallNorth, wallWest;
     /** Whether anything of a wall's kind, a fence or a low wall too, stands on the north and the west edge of the square being added. */
     private boolean edgeNorth, edgeWest;
     private static final float SWITCH_WIDEST = 12f;
-    private static final HashMap<Long, Integer> strung = new HashMap<>();
+    /** For each sprite hung in the air: the wires it shows, see Wires.read. */
+    private static final IdentityHashMap<Texture, float[]> wires = new IdentityHashMap<>();
     /** The map the kept builds and everything kept by place were read from. */
     private static WeakReference<IsoCell> builtIn = new WeakReference<>(null);
-    private static final int WIRE_SPAN = 12;
-    private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
+    /** How thick an overhead wire is drawn, in tiles: thicker than one is, or a street away it is finer than a pixel and comes and goes. */
+    private static final float WIRE_THICK = 0.03f;
     private float steepest;
     private String steepestSaid = "", roofName = "";
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
@@ -556,7 +558,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 chunksDrawn, chunksBuilt, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
-                + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded;
+                + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
+                + " | gables faced " + gablesFaced + " painted " + gablesPainted + " bare " + gablesBare;
     }
 
     static float drawnAspect() {
@@ -620,6 +623,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         roofsFlat = 0;
         roofsUnclear = 0;
         roofsFolded = 0;
+        gablesFaced = gablesPainted = gablesBare = 0;
 
         viewer = player;
         float daylight = GameTime.getInstance().getAmbient();
@@ -635,7 +639,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // by one of the game's sprites is of the world before.
             builtIn = new WeakReference<>(cell);
             forgetAll();
-            strung.clear();
             canopies.clear();
             openings.clear();
             feet.clear();
@@ -1911,99 +1914,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /**
-     * The game paints a short length of wire on a square here and there along a line of poles.
-     * A wire runs the whole way: from each square that holds some, a cable is strung to the
-     * next such square along each of the four ways a line can run on the map, sagging a little
-     * between them.
-     */
-    private void stringWires(int x, int y, int z) {
-        // Where the cable from this square goes is worked out once and kept: the lines do not
-        // move, and working it out looks at a hundred squares.
-        long key = ((long) x << 36) ^ ((long) y << 8) ^ z;
-        Integer kept = strung.get(key);
-        if (kept == null) {
-            kept = wireFrom(x, y, z);
-            // Kept only once the map is loaded as far as the search reaches: before that the
-            // answer may be short of the truth.
-            if (cell.getGridSquare(x - WIRE_SPAN, y - WIRE_SPAN, 0) != null && cell.getGridSquare(x + WIRE_SPAN, y + WIRE_SPAN, 0) != null
-                    && cell.getGridSquare(x - WIRE_SPAN, y + WIRE_SPAN, 0) != null && cell.getGridSquare(x + WIRE_SPAN, y - WIRE_SPAN, 0) != null) {
-                strung.put(key, kept);
-            }
-        }
-        if (kept == 0) {
-            return;
-        }
-        int way = kept >> 8, far = kept & 0xff;
-        int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
-        int toX = x + stepX * far, toY = y + stepY * far;
-        float fromUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x + 0.5f, y + 0.5f);
-        float toUp = (z + WIRE_HEIGHT) * ViewCamera.LEVEL_HEIGHT + Terrain.height(toX + 0.5f, toY + 0.5f);
-        float midX = x + 0.5f + stepX * far / 2f, midY = y + 0.5f + stepY * far / 2f;
-        float midUp = (fromUp + toUp) / 2f - WIRE_SAG * far;
-        cable(x + 0.5f, y + 0.5f, fromUp, midX, midY, midUp);
-        cable(midX, midY, midUp, toX + 0.5f, toY + 0.5f, toUp);
-    }
-
-    /**
-     * Which way the cable from a square runs and how many squares on the next wire square is,
-     * as way * 256 + far, or 0 for none. Several wires run side by side, so the squares that
-     * hold wire are a band a few squares wide: the cable goes the way the band runs, which is
-     * the way along which the most of them lie, and not across it from wire to wire.
-     */
-    private int wireFrom(int x, int y, int z) {
-        int most = 0, along = 0;
-        for (int way = 0; way < 4; way++) {
-            int stepX = way == 1 ? 0 : 1, stepY = way == 0 ? 0 : way == 3 ? -1 : 1;
-            int count = 0;
-            for (int far = -WIRE_SPAN; far <= WIRE_SPAN; far++) {
-                if (far != 0 && holdsWire(x + stepX * far, y + stepY * far, z)) {
-                    count++;
-                }
-            }
-            if (count > most) {
-                most = count;
-                along = way;
-            }
-        }
-        if (most == 0) {
-            return 0;
-        }
-        int stepX = along == 1 ? 0 : 1, stepY = along == 0 ? 0 : along == 3 ? -1 : 1;
-        for (int far = 1; far <= WIRE_SPAN; far++) {
-            if (holdsWire(x + stepX * far, y + stepY * far, z)) {
-                return along << 8 | far;
-            }
-        }
-        return 0;
-    }
-
-    private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
-        SpriteGeometry.Mesh plain = solid.get(PLAIN);
-        plain.open = frame.open + SpriteGeometry.CARD + 32f * WIRE;
-        float[] c = eave;
-        set(c, 0, x0, y0, up0);
-        set(c, 1, x1, y1, up1);
-        set(c, 2, x1, y1, up1 + WIRE_THICK);
-        set(c, 3, x0, y0, up0 + WIRE_THICK);
-        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
-    }
-
-    private boolean holdsWire(int x, int y, int z) {
-        IsoGridSquare square = cell.getGridSquare(x, y, z);
-        if (square == null || square.getFloor() != null) {
-            return false;
-        }
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * Whether a fence's sprite is chain link or wire and not boards: along a line across it the
      * sprite goes from painted to clear and back many times, where a board fence does so at
      * its ends and between a few boards. Counted once for each sprite, along three lines.
@@ -2029,20 +1939,47 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         return known;
     }
 
-    private boolean overPole(int x, int y) {
-        IsoGridSquare ground = cell.getGridSquare(x, y, 0);
-        if (ground == null) {
-            return false;
-        }
-        PZArrayList<IsoObject> objects = ground.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoSprite sprite = objects.get(i).getSprite();
-            String name = sprite == null ? null : sprite.getName();
-            if (name != null && (name.startsWith("street_decoration") || name.startsWith("lighting_outdoor") || name.startsWith("appliances_com"))) {
-                return true;
+    /**
+     * The wires a sprite of overhead wire shows, each strung where it is painted: from the
+     * place on the square its one end is drawn over to the place its other end is, at the
+     * height of the insulators on a pole's arm. The game's view cannot tell how high a line in
+     * the air is, only where it is drawn, and at that one height the lines of a run come out
+     * over their poles' arms, each square's meeting the next square's end to end. False,
+     * adding nothing, for a sprite that is no wire: a length of the pole.
+     */
+    private boolean addWires(Texture texture, String name, int x, int y, int z) {
+        float[] lines = wires.get(texture);
+        if (lines == null) {
+            lines = Wires.hangs(name) ? Wires.read(texture::isMaskSet, frame) : Wires.NONE;
+            wires.put(texture, lines);
+            if (FirstPerson.TRACE) {
+                Log.info("wires read off " + texture.getName() + ": " + Arrays.toString(lines));
             }
         }
-        return false;
+        for (int i = 0; i < lines.length; i += 4) {
+            float x0 = x + lines[i], y0 = y + lines[i + 1], x1 = x + lines[i + 2], y1 = y + lines[i + 3];
+            cable(x0, y0, (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x0, y0), x1, y1, (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT + Terrain.height(x1, y1));
+        }
+        return lines.length > 0;
+    }
+
+    /** A wire from one point to another: two strips crossed, so that it has a width from below as from the side. */
+    private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        plain.open = frame.open + SpriteGeometry.CARD + 32f * WIRE;
+        float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+        float sideX = -(y1 - y0) / length * WIRE_THICK / 2f, sideY = (x1 - x0) / length * WIRE_THICK / 2f;
+        float[] c = eave;
+        set(c, 0, x0, y0, up0 - WIRE_THICK / 2f);
+        set(c, 1, x1, y1, up1 - WIRE_THICK / 2f);
+        set(c, 2, x1, y1, up1 + WIRE_THICK / 2f);
+        set(c, 3, x0, y0, up0 + WIRE_THICK / 2f);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        set(c, 0, x0 - sideX, y0 - sideY, up0);
+        set(c, 1, x1 - sideX, y1 - sideY, up1);
+        set(c, 2, x1 + sideX, y1 + sideY, up1);
+        set(c, 3, x0 + sideX, y0 + sideY, up0);
+        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
     }
 
     private boolean spreads(int at, int own, int mine) {
@@ -2093,7 +2030,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 wallWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
             }
         }
-        wiredHere = false;
         // A room the game has not shown the player yet is black in the game's own view. Here
         // the house still stands, and what is in the room is left out until the game has it seen.
         boolean unexplored = unexplored(square);
@@ -2114,6 +2050,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (frame.material == 0f) {
                 frame.material = object == floor ? materialOf(sprite.getName(), true) : materialOf(sprite);
             }
+            laidWall = Masonry.suits(sprite.getName());
+            gableSheet = laidWall && sprite.getName().startsWith("walls_exterior_roofs");
             if (frame.material == PLANKS && isMesh(sprite, texture)) {
                 frame.material = MESH;
             }
@@ -2148,9 +2086,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         geometry.raised = 0f;
         frame.material = 0f;
-        if (wiredHere) {
-            stringWires(x, y, z);
-        }
         if (!openAbove && square.getRoomID() != -1L) {
             addRoomCeiling(x, y, z, localX, localY);
         }
@@ -2248,21 +2183,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
 
-        if (z > 0 && hangsInAir && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
-            wiredHere = true;
-        }
         // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
-        // a length of wire painted as its view sees it run along the ground's grid. Laid flat
-        // at that height the painted line is a straight wire again, from square to square. Stood
-        // up to face the eye, as other loose things are, they were a fan of dashes in the sky.
-        // The upper lengths of the pole hang there too: those have the foot of the pole on the
-        // ground under them.
-        if (z > 0 && hangsInAir && !overPole(x, y) && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
-            frame.kind = SpriteGeometry.CARD;
-            frame.material = WIRE;
-            geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-            frame.kind = 0f;
-            frame.material = 0f;
+        // the lengths of wire that cross its square, painted as its view sees them. The upper
+        // lengths of the pole hang there too, and are no wire.
+        if (z > 0 && hangsInAir && sprite.getName() != null && sprite.getName().startsWith("appliances_com") && addWires(texture, sprite.getName(), x, y, z)) {
             return;
         }
 
@@ -3235,9 +3159,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
+            addGable(tile.x, tile.y, tile.z, tile.corners[0] - tile.z, tile.corners[1] - tile.z, tile.corners[3] - tile.z, tile.peak, tile.peakAxis);
             if (tile.shaped) {
                 addFolded(sheet, tile, 3, false);
                 addFoldEaves(sheet, tile);
+                continue;
+            }
+            if (tile.peak > 0f) {
+                addPeak(sheet, tile);
                 continue;
             }
             float[] at = tile.corners;
@@ -3255,6 +3184,195 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     Math.clamp((int) Math.floor((cap.y0 + cap.y1) / 2f) - chunkY, 0, CHUNK_TILES - 1));
             roof = caps.get(i).roof;
             addCap(cap);
+        }
+    }
+
+    private final float[] gable = new float[4];
+    /** The level buildingUnder last found a building on, and the room it found there. */
+    private int foundOn;
+    private long foundIn;
+
+    /** The building that stands under a square of a roof on level z, on the lowest level it is found on, or null for a roof over open ground. */
+    private IsoBuilding buildingUnder(int x, int y, int z) {
+        for (int level = 0; level <= z; level++) {
+            IsoGridSquare under = cell.getGridSquare(x, y, level);
+            IsoBuilding standing = under == null ? null : under.getBuilding();
+            if (standing != null) {
+                foundOn = level;
+                foundIn = under.getRoomID();
+                return standing;
+            }
+        }
+        return null;
+    }
+
+    /** A roof's edge lower than this over the floor of its level, in levels, has no wall made under it. */
+    private static final float GABLE_LEAST = 0.05f;
+
+    /**
+     * The wall under the end of a roof. The game's view sees a house from the south-east, and
+     * its maps have the walls that close a roof's ends, the gables, only where that view
+     * sees them: at the east and south ends. A roof that ends at the west or the north has
+     * nothing under its edge, and from that side one looks in under the slopes. So under the
+     * west and the north edge of a roof tile, where the building under it goes no further and
+     * the map has no wall, the wall is made: from the floor of the tile's level up to the roof, in the
+     * sprite the building's east or south face shows. The heights are the roof's over that
+     * floor, in levels, at the tile's north-west, north-east and south-west corners. peak is how
+     * far a ridge along the middle of the tile stands over them, and peakAxis the axis the
+     * roof climbs to it along: see RoofFit.peaks.
+     */
+    private void addGable(int x, int y, int z, float northWest, float northEast, float southWest, float peak, int peakAxis) {
+        // A roof that runs out past its building's wall has no wall under its own edge: the
+        // gable is under the last tile that has the building beneath it.
+        IsoBuilding standing = buildingUnder(x, y, z);
+        if (standing == null) {
+            return;
+        }
+        int ground = foundOn;
+        long room = foundIn;
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        // The wall is out of doors and is lit as the open air is. The roof tile's own square
+        // is the loft under it, which is dark.
+        float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open;
+        System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
+        System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
+        System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
+        frame.light(unseenLight.r, unseenLight.g, unseenLight.b);
+        frame.open = 1f;
+        addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
+        frame.red = red;
+        frame.green = green;
+        frame.blue = blue;
+        frame.open = open;
+        System.arraycopy(heldRed, 0, frame.cornerRed, 0, 4);
+        System.arraycopy(heldGreen, 0, frame.cornerGreen, 0, 4);
+        System.arraycopy(heldBlue, 0, frame.cornerBlue, 0, 4);
+    }
+
+    private void addGableWalls(IsoGridSquare square, IsoBuilding standing, int ground, long room, int x, int y, int z, float northWest, float northEast, float southWest,
+            float peak, int peakAxis) {
+        for (int edge = 0; edge < 2; edge++) {
+            boolean north = edge == 1;
+            float second = north ? northEast : southWest;
+            if (Math.max(northWest, second) < GABLE_LEAST || buildingUnder(north ? x : x - 1, north ? y - 1 : y, z) != null
+                    || square != null && wallOn(square, north) != null) {
+                continue;
+            }
+            // The building's lowest level, and no other: on the roof's own level its walls are
+            // the gables of its other ends, cut to the roof's slope, and a gable's sprite laid
+            // on this wall would be mostly air.
+            WallFinish.Facing facing = WallFinish.facing(cell, standing, ground, north, room, frames);
+            Texture finish = WallFinish.outside(cell, standing, ground, room, frames);
+            float alongA = north ? 1f : 0f, alongB = north ? 0f : 1f;
+            if (facing == null) {
+                // That face of the building has no plain wall to take the sprite of: the gable
+                // is built of what the building's outside walls are, as the far skin of a
+                // wall is.
+                float[] colour = finish == null ? null : SpriteColours.of(finish);
+                if (colour == null) {
+                    gablesBare++;
+                    if (finish != null) {
+                        building.signed = false;
+                    }
+                    continue;
+                }
+                gablesPainted++;
+                int built = Masonry.of(finish);
+                SpriteGeometry.Mesh painted = solid.get(PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
+                painted.open = frame.open + 32f * PAINT;
+                float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+                float farX = x + alongA, farY = y + alongB;
+                float[] c = eave;
+                set(c, 0, x, y, foot);
+                set(c, 1, farX, farY, foot);
+                set(c, 2, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
+                set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+                SpriteGeometry.addPlainQuad(painted, c, frame.red, frame.green, frame.blue);
+                if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
+                    set(c, 0, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+                    set(c, 1, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
+                    set(c, 2, x + alongA / 2f, y + alongB / 2f, foot + ((northWest + second) / 2f + peak) * ViewCamera.LEVEL_HEIGHT);
+                    set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+                    SpriteGeometry.addPlainQuad(painted, c, frame.red, frame.green, frame.blue);
+                }
+                continue;
+            }
+            gablesFaced++;
+            held.left = frame.left;
+            held.top = frame.top;
+            held.width = frame.width;
+            held.height = frame.height;
+            held.uStart = frame.uStart;
+            held.uEnd = frame.uEnd;
+            held.vStart = frame.vStart;
+            held.vEnd = frame.vEnd;
+            float material = frame.material;
+            frame.left = facing.texture.getOffsetX();
+            frame.top = facing.texture.getOffsetY();
+            frame.width = facing.texture.getWidth();
+            frame.height = facing.texture.getHeight();
+            frame.uStart = facing.texture.getXStart();
+            frame.uEnd = facing.texture.getXEnd();
+            frame.vStart = facing.texture.getYStart();
+            frame.vEnd = facing.texture.getYEnd();
+            frame.material = materialOf(facing.sprite);
+            SpriteGeometry.Mesh mesh = laid(solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()));
+            if (second >= GABLE_LEAST) {
+                set(folded, 0, 0f, 0f, 0f);
+                set(folded, 1, alongA, alongB, 0f);
+                set(folded, 2, alongA, alongB, second);
+                geometry.addTriangle(mesh, frame, x, y, z, folded);
+            }
+            if (northWest >= GABLE_LEAST) {
+                set(folded, 0, 0f, 0f, 0f);
+                set(folded, 1, alongA, alongB, second);
+                set(folded, 2, 0f, 0f, northWest);
+                geometry.addTriangle(mesh, frame, x, y, z, folded);
+            }
+            if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
+                set(folded, 0, 0f, 0f, northWest);
+                set(folded, 1, alongA, alongB, second);
+                set(folded, 2, alongA / 2f, alongB / 2f, (northWest + second) / 2f + peak);
+                geometry.addTriangle(mesh, frame, x, y, z, folded);
+            }
+            frame.left = held.left;
+            frame.top = held.top;
+            frame.width = held.width;
+            frame.height = held.height;
+            frame.uStart = held.uStart;
+            frame.uEnd = held.uEnd;
+            frame.vStart = held.vStart;
+            frame.vEnd = held.vEnd;
+            frame.material = material;
+        }
+    }
+
+    /**
+     * A tile under a ridge that runs along its middle: two half slopes from its edges up to
+     * the ridge, and at a gable, where no roof lies beside it along the ridge, both carried out
+     * over the wall as the slopes below them are.
+     */
+    private void addPeak(SpriteGeometry.Mesh sheet, RoofFit.Tile tile) {
+        boolean alongX = tile.peakAxis == RoofFit.ALONG_X;
+        float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        float edge = tile.fitLow * ViewCamera.LEVEL_HEIGHT + lift, top = (tile.fitLow + tile.peak) * ViewCamera.LEVEL_HEIGHT + lift;
+        float from = hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z) ? 0f : -RAKE;
+        float to = hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z) ? 1f : 1f + RAKE;
+        float[] c = eave;
+        for (int side = 0; side < 2; side++) {
+            float low = side, high = 0.5f;
+            if (alongX) {
+                set(c, 0, tile.x + low, tile.y + from, edge);
+                set(c, 1, tile.x + high, tile.y + from, top);
+                set(c, 2, tile.x + high, tile.y + to, top);
+                set(c, 3, tile.x + low, tile.y + to, edge);
+            } else {
+                set(c, 0, tile.x + from, tile.y + low, edge);
+                set(c, 1, tile.x + from, tile.y + high, top);
+                set(c, 2, tile.x + to, tile.y + high, top);
+                set(c, 3, tile.x + to, tile.y + low, edge);
+            }
+            SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
         }
     }
 
@@ -3637,7 +3755,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         geometry.shownB = inY;
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
-        addSkin(mesh, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        addSkin(laid(mesh, texture, laidWall), opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
         geometry.shownA = -inX;
@@ -3694,8 +3812,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 frame.open = lightOpen[farLight];
             }
         }
-        addSkin(faced != null ? solid.get(faced.texture.getID()) : tint != 0 ? solid.get(texture.getID(), tint) : mesh, opening, at, x, y, z, a, b, da, db,
-                fromStart, fromEnd, fromTop, startIsLow);
+        addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName())) : tint != 0 ? solid.get(texture.getID(), tint)
+                : laid(mesh, texture, laidWall),
+                opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
         // Out of doors, on a whole wall in one colour.
         if (tint != 0 && farColour != null && frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, a, b, da, db, -Math.signum(inX), -Math.signum(inY));
@@ -3730,6 +3849,65 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0,
                     startPainted && endPainted, x, y, z, a, b, da, db, inX, inY);
         }
+    }
+
+    /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
+    private boolean laidWall, gableSheet;
+    /** How far a low wall's colour may be from that of its building's walls, summed over red, green and blue, for it to be built as they are. */
+    private static final float SAME_FINISH = 0.3f;
+    private final float[] laidTint = new float[4];
+
+    /**
+     * The mesh a wall's skin goes in: the sprite's own, or for a wall of brick, lapped boards
+     * or stone the one the picture lays as that over the sprite. See Masonry. What is drawn
+     * over a wall, ivy or a stain, stays as painted. suits is whether the sprite is of a
+     * sheet of outside walls.
+     */
+    private SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits) {
+        if (overLayer != 0 || !suits) {
+            return mesh;
+        }
+        // The wall under a roof's end is a sprite cut to the roof's slope, with a vent in it
+        // or a board up its edge, and reads as anything. It is built of what the walls under
+        // it are: the sprite most of the building's outside walls show says how it is laid.
+        int how = gableSheet ? 0 : Masonry.of(texture);
+        boolean unread = !gableSheet && Masonry.unread(texture);
+        if (how == 0 && !unread) {
+            // So is a wall too low to read, a parapet, where it is the colour of those walls.
+            // A wall on a building's south or east side stands on the square outside it, so the
+            // building is looked for under the square and then under the two the wall may face.
+            Texture finish = null;
+            for (int side = 0; side < 3 && finish == null; side++) {
+                int underX = here.getX() - (side == 2 ? 1 : 0), underY = here.getY() - (side == 1 ? 1 : 0);
+                for (int level = 0; level <= here.getZ() && finish == null; level++) {
+                    IsoGridSquare under = cell.getGridSquare(underX, underY, level);
+                    IsoBuilding standing = under == null ? null : under.getBuilding();
+                    if (standing != null) {
+                        finish = WallFinish.outside(cell, standing, level, under.getRoomID(), frames);
+                    }
+                }
+            }
+            if (finish != null && finish != texture) {
+                int built = Masonry.of(finish);
+                unread = Masonry.unread(finish);
+                if (built != 0 && !gableSheet) {
+                    float[] own = SpriteColours.of(texture);
+                    WallSides.tint(built, laidTint);
+                    unread = own == null;
+                    built = own != null && Math.abs(own[0] - laidTint[0]) + Math.abs(own[1] - laidTint[1]) + Math.abs(own[2] - laidTint[2]) <= SAME_FINISH ? built : 0;
+                }
+                how = built;
+            }
+        }
+        if (how == 0) {
+            // A sprite is read by the next frame drawn. A build that went without is made
+            // again when next due, though nothing it read of the map has changed.
+            if (unread) {
+                building.signed = false;
+            }
+            return mesh;
+        }
+        return solid.get(texture.getID(), how);
     }
 
     /** Half the thickness of a door's leaf, in tiles. */
@@ -4670,7 +4848,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return 0;
         }
         farColour = colour;
-        return WallSides.key(colour[0], colour[1], colour[2], far == -1L ? WallSides.SIDING : WallSides.FLAT);
+        // Out of doors the skin is built of what the building's outside walls are: brick or
+        // stone where their sprite reads so, and boards lapped along it otherwise.
+        int laid = far == -1L ? Masonry.of(shows) : 0;
+        return laid != 0 ? WallSides.over(laid) : WallSides.key(colour[0], colour[1], colour[2], far == -1L ? WallSides.SIDING : WallSides.FLAT);
     }
 
     /** The colour farTint last gave a far skin, or null where it gave none. */
@@ -4779,10 +4960,20 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      */
     private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
         RoofFit.Tile own = Roofs.measure(frame, texture, x, y, z);
+        // Half a tile at a ridge is not where the map has it: the ridge is made, see RoofFit.peaks.
+        if (own.half != 0) {
+            return;
+        }
         Roofs.Laid laid = Roofs.at(cell, x, y, z, frames, frame.scale);
         // A square with two roof sprites has one of them fitted. The other lies as it reads.
         RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : own;
         roof = laid == null ? null : laid.roof;
+        if (tile.shaped) {
+            addGable(x, y, z, tile.corners[0] - z, tile.corners[1] - z, tile.corners[3] - z, 0f, 0);
+        } else {
+            RoofFit.cornersOf(own.axis == RoofFit.LEVEL ? RoofFit.LEVEL : tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
+            addGable(x, y, z, gable[0], gable[1], gable[3], 0f, 0);
+        }
         float northWest = own.low - z, southEast = own.high - z;
         if (Math.abs(northWest - southEast) > steepest) {
             steepest = Math.abs(northWest - southEast);

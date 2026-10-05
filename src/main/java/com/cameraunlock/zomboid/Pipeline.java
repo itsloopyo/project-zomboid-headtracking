@@ -659,7 +659,7 @@ final class Pipeline {
      * colour it is painted over in, and leaves it told that nothing is painted over.
      */
     private static void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
-        int texel = program.at("uTexel"), painted = program.at("uTint");
+        int texel = program.at("uTexel"), painted = program.at("uTint"), joints = program.at("uJoint");
         boolean told = false;
         int toldKey = 0;
         for (int i = from; i < to; i++) {
@@ -668,6 +668,8 @@ final class Pipeline {
             tellTexel(texel, texture);
             int key = listed.tint(i);
             if (!told || key != toldKey) {
+                WallSides.joint(key, tint);
+                GL20.glUniform3f(joints, tint[0], tint[1], tint[2]);
                 WallSides.tint(key, tint);
                 GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
                 told = true;

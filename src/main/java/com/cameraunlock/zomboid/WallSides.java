@@ -19,6 +19,10 @@ import java.util.HashMap;
 final class WallSides {
     /** How a skin is painted over: plain paint, or boards lapped one over the next. */
     static final int FLAT = 1, SIDING = 2;
+    /** How a wall that shows its own sprite is laid over it: bricks, boards lapped along it, or cut stone. See Masonry and laid. */
+    static final int BRICK = 4, LAPPED = 5, STONE = 6;
+    private static final int BODY_LEVELS = 31, JOINT_LEVELS = 15;
+    private static final int OVER = 8;
     /** In place of a colour: the triangles are the panes of windows, which the picture draws after everything else. No colour packs to this, a painted one being FLAT or SIDING with a colour above it. */
     static final int PANES = 3;
 
@@ -133,6 +137,43 @@ final class WallSides {
         return level(red) << 12 | level(green) << 8 | level(blue) << 4 | how;
     }
 
+    /**
+     * As key, for a wall the picture lays: the colour of its bricks, boards or stones, the
+     * colour of its joints, and BRICK, LAPPED or STONE. The first colour is kept twice as
+     * finely as a painted skin's. A wall is many sprites, with a window in one and a door in
+     * the next, each read on its own, and two that came a sixteenth apart would show as a step
+     * down the wall where they meet.
+     */
+    static int laid(float red, float green, float blue, float jointRed, float jointGreen, float jointBlue, int how) {
+        return part(jointRed, JOINT_LEVELS) << 27 | part(jointGreen, JOINT_LEVELS) << 23 | part(jointBlue, JOINT_LEVELS) << 19
+                | part(red, BODY_LEVELS) << 14 | part(green, BODY_LEVELS) << 9 | part(blue, BODY_LEVELS) << 4 | how;
+    }
+
+    /**
+     * As a number laid gives, for a skin on the far side of a wall from the one its sprite was
+     * painted for: the sprite is the room's wallpaper, and gives the skin its outline alone.
+     */
+    static int over(int laid) {
+        return laid | OVER;
+    }
+
+    private static int part(float value, int levels) {
+        return Math.round(Math.clamp(value, 0f, 1f) * levels);
+    }
+
+    /** Whether a key is one laid gives. */
+    private static boolean isLaid(int key) {
+        return (key & 15) >= BRICK;
+    }
+
+    /** Into out the colour of the joints of a wall the picture lays, or 0 for any other key. */
+    static void joint(int key, float[] out) {
+        boolean laid = isLaid(key);
+        out[0] = laid ? (key >> 27 & JOINT_LEVELS) / (float) JOINT_LEVELS : 0f;
+        out[1] = laid ? (key >> 23 & JOINT_LEVELS) / (float) JOINT_LEVELS : 0f;
+        out[2] = laid ? (key >> 19 & JOINT_LEVELS) / (float) JOINT_LEVELS : 0f;
+    }
+
     private static int level(float value) {
         return Math.round(Math.clamp(value, 0f, 1f) * LEVELS);
     }
@@ -144,6 +185,13 @@ final class WallSides {
     static void tint(int key, float[] out) {
         if (key == 0) {
             out[0] = out[1] = out[2] = out[3] = 0f;
+            return;
+        }
+        if (isLaid(key)) {
+            out[0] = (key >> 14 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[1] = (key >> 9 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[2] = (key >> 4 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[3] = key & 15;
             return;
         }
         out[0] = (key >> 12 & 15) / (float) LEVELS;

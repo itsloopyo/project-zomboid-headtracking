@@ -276,6 +276,7 @@ final class PipelineShaders {
             uniform float uCut;
             uniform vec2 uTexel;
             uniform vec4 uTint;
+            uniform vec3 uJoint;
             uniform float uLaid;
             uniform float uWet;
             varying vec2 vUv;
@@ -317,6 +318,10 @@ final class PipelineShaders {
             const float RELIEF = 0.05;
             // How wide a board of a boarded wall is, in tiles: about 15 cm.
             const float BOARD_WIDE = 0.15;
+            // A brick and the mortar round it, a lapped board's show, and half the width of a
+            // joint in brick and in stone, in tiles. Each divides sixty tiles a whole number
+            // of times: see vPlace.
+            const float BRICK_LONG = 0.2, BRICK_HIGH = 0.0625, BRICK_JOINT = 0.0045, LAP_HIGH = 0.125, STONE_JOINT = 0.008;
             // 1 while timber() is making a post or a brace and not a wall of boards.
             float arcWhole = 0.0;
 
@@ -580,6 +585,134 @@ final class PipelineShaders {
                 return mix(0.74 + 0.3 * fold * fold, 0.86, smoothstep(0.5, 1.6, fwidth(turn)));
             }
 
+            // A number from 0 to 1 for each brick of a wall, with no pattern from one brick to
+            // the next: grain's, taken at whole numbers, falls into slanting rows.
+            float facHash(vec2 p) {
+                vec3 q = fract(vec3(p.xyx) * 0.1031);
+                q += dot(q, q.yzx + 33.33);
+                return fract((q.x + q.y) * q.z);
+            }
+
+            // What every masonry wall has had from the weather, far coarser than a brick: broad
+            // patches a shade lighter and darker, and the rain's runs down it.
+            float facWeather(float run, float up) {
+                return 1.0 + 0.12 * (patches(vec2(run * 0.43, up * 0.37)) - 0.5) + 0.06 * (patches(vec2(run * 2.3, up * 0.21) + 5.0) - 0.5);
+            }
+
+            // A wall of brick, laid here and not painted: where along the wall the place is,
+            // and how high. The game's picture of one is a few dots to a brick, and stood a
+            // pace away each brick is a blurred slab the size of a shoe box. These are bricks
+            // of a brick's size, a hand long and three fingers high, each course half a brick
+            // along from the one under it. No two bricks were fired alike: each is its own
+            // shade of the wall's colour, a little warmer or cooler, and one in ten was nearer
+            // the fire and is dark. A brick's face is mottled and pitted, and its edges are
+            // worn round. The mortar lies back between them. lean says how far the surface
+            // turns at a brick's edge, along the wall and up it, so the sun picks the courses
+            // out. Whatever is finer than a pixel is left as its mean.
+            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, out vec2 lean) {
+                vec2 soft = vec2(fwidth(run), fwidth(up));
+                float course = up / BRICK_HIGH;
+                float row = floor(course);
+                float along = run / BRICK_LONG + 0.5 * mod(row, 2.0);
+                float which = mod(floor(along), 300.0), tier = mod(row, 960.0);
+                vec2 part = vec2(fract(along), fract(course));
+                vec2 edge = min(part, 1.0 - part) * vec2(BRICK_LONG, BRICK_HIGH);
+                // A joint under a pixel wide would be drawn in some pixels and missed in the
+                // next: it thins out as it gets there, and the wall takes its share of it.
+                vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / vec2(BRICK_LONG, BRICK_HIGH));
+                vec2 gap = 1.0 - smoothstep(vec2(BRICK_JOINT) - 0.5 * soft, vec2(BRICK_JOINT) + 0.5 * soft + 0.001, edge);
+                float joint = max(gap.x * seen.x, gap.y * seen.y);
+                float r1 = facHash(vec2(which, tier)), r2 = facHash(vec2(which + 17.0, tier + 5.0)), r3 = facHash(vec2(which + 41.0, tier + 29.0));
+                float own = min(seen.x, seen.y);
+                vec3 made = body * mix(1.0, (0.9 + 0.2 * r1) * (1.0 - 0.2 * step(0.93, r3)), own)
+                        * mix(vec3(1.0), mix(vec3(1.05, 0.99, 0.93), vec3(0.96, 1.0, 1.05), r2), own);
+                float near = 1.0 - smoothstep(0.003, 0.014, max(soft.x, soft.y));
+                float mottle = patches(vec2(run * 27.0 + r1 * 9.0, up * 41.0 + r2 * 9.0)) * 0.6 + patches(vec2(run * 113.0, up * 131.0) + 7.0) * 0.4;
+                float pit = smoothstep(0.74, 0.9, patches(vec2(run * 230.0 + r2 * 50.0, up * 250.0)));
+                made *= 1.0 + near * (0.2 * (mottle - 0.5) - 0.2 * pit);
+                vec2 eased = (1.0 - smoothstep(vec2(BRICK_JOINT), vec2(BRICK_JOINT + 0.007), edge)) * seen;
+                lean = vec2(part.x < 0.5 ? -eased.x : eased.x, part.y < 0.5 ? -eased.y : eased.y) * (1.0 - joint);
+                vec3 bed = mortar * (0.8 + 0.16 * patches(vec2(run * 61.0, up * 67.0) + 3.0));
+                // What the joints that are too fine to draw take from the wall's colour.
+                float lost = 0.3 * (1.0 - seen.y) + 0.09 * (1.0 - seen.x);
+                return mix(mix(made, bed, joint), mortar * 0.88, lost * (1.0 - joint)) * facWeather(run, up);
+            }
+
+            // A wall of boards laid along it, each lapped over the one below: its foot stands
+            // out and throws a line of shadow on the board under it, and its face leans back
+            // from there to where the next board covers it. Each board is a few paces long,
+            // and where two meet end to end there is a fine dark joint. The paint on it has
+            // the brush's strokes along the board and a little dirt held under each lap.
+            vec3 facLapped(vec3 body, float run, float up, out vec2 lean) {
+                float board = up / LAP_HIGH;
+                float tier = mod(floor(board), 480.0), part = fract(board);
+                float soft = fwidth(up) / LAP_HIGH, softRun = fwidth(run);
+                float seen = 1.0 - smoothstep(0.2, 0.55, soft);
+                float r1 = facHash(vec2(tier, 3.0)), r2 = facHash(vec2(tier, 11.0));
+                vec3 made = body * mix(1.0, 0.98 + 0.04 * r1, seen);
+                // Under the foot of the board above: its shadow, and under that what the rain left.
+                float shadow = smoothstep(1.0 - 0.1 - soft, 1.0 - 0.03, part);
+                float grime = smoothstep(0.55, 1.0, part) * (0.5 + 0.5 * patches(vec2(run * 3.1, tier * 1.7)));
+                float foot = 1.0 - smoothstep(0.0, 0.06 + soft, part);
+                float butt = run / 7.5 + r2;
+                float end = abs(fract(butt) - 0.5) * 7.5;
+                float joint = (1.0 - smoothstep(0.0015, 0.0015 + softRun, 3.75 - end)) * (1.0 - smoothstep(0.004, 0.012, softRun)) * seen;
+                float near = 1.0 - smoothstep(0.003, 0.014, max(softRun, fwidth(up)));
+                float stroke = patches(vec2(run * 6.0 + tier * 3.3, part * 9.0 + tier)) * 0.6 + patches(vec2(run * 31.0, part * 23.0 + tier * 7.0)) * 0.4;
+                made *= 1.0 + near * 0.07 * (stroke - 0.5);
+                made *= mix(0.9, (1.0 - 0.5 * shadow) * (1.0 - 0.1 * grime) * (1.0 + 0.07 * foot) * (1.0 - 0.3 * joint), seen);
+                lean = vec2(0.0, (0.22 - 0.9 * foot) * seen);
+                return made * (1.0 + 0.5 * (facWeather(run, up) - 1.0));
+            }
+
+            // A wall of cut stone in courses, a deep course and a shallow one by turns, each
+            // stone as long as it happened to be cut. No stone is the colour of the next, and
+            // a stone's face is left rough from the chisel. The joints are wide and lie back.
+            vec3 facStone(vec3 body, vec3 mortar, float run, float up, out vec2 lean) {
+                vec2 soft = vec2(fwidth(run), fwidth(up));
+                float band = up / 0.5;
+                float within = fract(band) * 0.5;
+                bool deep = within < 0.3;
+                float high = deep ? 0.3 : 0.2, at = deep ? within : within - 0.3;
+                float tier = mod(floor(band), 120.0) * 2.0 + (deep ? 0.0 : 1.0);
+                float wide = deep ? 0.5 : 0.4, count = deep ? 120.0 : 150.0;
+                float along = run / wide + facHash(vec2(tier, 7.0));
+                float which = floor(along), x = fract(along);
+                // Each joint between two stones stands a little to one side of where an even
+                // spacing would put it.
+                float left = (facHash(vec2(mod(which, count), tier)) - 0.5) * 0.5;
+                float right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
+                if (x < left) {
+                    which -= 1.0;
+                    x += 1.0;
+                    right = 1.0 + left;
+                    left = (facHash(vec2(mod(which, count), tier)) - 0.5) * 0.5;
+                } else if (x > right) {
+                    which += 1.0;
+                    x -= 1.0;
+                    left = right - 1.0;
+                    right = 1.0 + (facHash(vec2(mod(which + 1.0, count), tier)) - 0.5) * 0.5;
+                }
+                which = mod(which, count);
+                vec2 low = vec2((x - left) * wide, at), far = vec2((right - x) * wide, high - at);
+                vec2 edge = min(low, far);
+                vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / vec2(wide, high));
+                vec2 gap = 1.0 - smoothstep(vec2(STONE_JOINT) - 0.5 * soft, vec2(STONE_JOINT) + 0.5 * soft + 0.001, edge);
+                float joint = max(gap.x * seen.x, gap.y * seen.y);
+                float r1 = facHash(vec2(which + 3.0, tier)), r2 = facHash(vec2(which + 19.0, tier + 7.0));
+                float own = min(seen.x, seen.y);
+                vec3 made = body * mix(1.0, 0.86 + 0.26 * r1, own) * mix(vec3(1.0), mix(vec3(1.03, 1.0, 0.95), vec3(0.97, 1.0, 1.03), r2), own);
+                float near = 1.0 - smoothstep(0.004, 0.02, max(soft.x, soft.y));
+                float tooled = patches(vec2(run * 9.0 + r1 * 31.0, up * 11.0 + r2 * 31.0)) * 0.5 + patches(vec2(run * 37.0, up * 43.0) + r1 * 17.0) * 0.3
+                        + patches(vec2(run * 150.0, up * 170.0)) * 0.2;
+                made *= 1.0 + near * 0.34 * (tooled - 0.5);
+                vec2 eased = (1.0 - smoothstep(vec2(STONE_JOINT), vec2(STONE_JOINT + 0.016), edge)) * seen;
+                lean = vec2(low.x < far.x ? -eased.x : eased.x, low.y < far.y ? -eased.y : eased.y) * (1.0 - joint);
+                vec3 bed = mortar * (0.78 + 0.16 * patches(vec2(run * 53.0, up * 59.0) + 3.0));
+                float lost = 0.12 * (1.0 - own);
+                return mix(mix(made, bed, joint), mortar * 0.85, lost * (1.0 - joint)) * facWeather(run, up);
+            }
+
             // Where rain lands. The ground is cut into cells and each cell is hit again and
             // again, at a place and a moment of its own. x is the height of the ring that
             // spreads from the hit, y the splash thrown up at the hit itself.
@@ -785,7 +918,7 @@ final class PipelineShaders {
                 // the sprite's light and dark are the other side's wallpaper or boards. It is
                 // the colour of the surface its own side has. uTint.a is 1 for paint, 2 for
                 // boards lapped one over the next, and 0 for everything else.
-                if (uTint.a > 0.5) {
+                if (uTint.a > 0.5 && uTint.a < 3.5) {
                     texel.rgb = arcTone(uTint.rgb, vWorld);
                     if (uTint.a > 1.5) {
                         // Each board stands out at its foot and is in the shadow of the one
@@ -813,6 +946,26 @@ final class PipelineShaders {
                 float lean = 0.0, timbered = 0.0;
                 // Which way a board's surface leans for the groove at its edge.
                 vec3 bent = vec3(0.0);
+                // A wall of brick, of lapped boards or of stone is laid here and not shown as
+                // the game painted it: see facBrick. uTint.a is 4 for brick, 5 for lapped
+                // boards and 6 for stone, uTint.rgb the colour most of the wall's sprite is
+                // and uJoint the colour of its joints. What on the sprite is neither colour,
+                // the casing round a window, stays as painted. climb is lean up the wall.
+                float climb = 0.0;
+                if (uTint.a > 3.5) {
+                    vec3 facing = normalize(vNormal);
+                    float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
+                    vec2 turned;
+                    // From 8 up the sprite is another wall's, the paper of the room behind: it
+                    // gives the wall its outline and none of its colour.
+                    float how = uTint.a > 7.5 ? uTint.a - 8.0 : uTint.a;
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, vPlace.z, turned)
+                            : how < 5.5 ? facLapped(uTint.rgb, run, vPlace.z, turned) : facStone(uTint.rgb, uJoint, run, vPlace.z, turned);
+                    float own = uTint.a > 7.5 ? 1.0 : 1.0 - smoothstep(0.3, 0.45, min(length(texel.rgb - uTint.rgb), length(texel.rgb - uJoint)));
+                    texel.rgb = mix(texel.rgb, laid, own);
+                    lean = turned.x * own;
+                    climb = turned.y * own;
+                }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
                 if ((vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
@@ -1581,6 +1734,9 @@ final class PipelineShaders {
                 if (lean != 0.0) {
                     // A board's eased edge turns the surface along the wall, towards the joint.
                     n = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.55 * lean));
+                }
+                if (climb != 0.0) {
+                    n = normalize(n + vec3(0.0, 0.0, 0.55 * climb));
                 }
 
                 // Open ground. The game has a handful of squares of each ground and lays them

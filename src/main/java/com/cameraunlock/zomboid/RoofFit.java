@@ -41,6 +41,9 @@ final class RoofFit {
     static final float ACCEPT = 0.2f;
     /** What the game's roofs rise by over a tile, in levels, and how near a slope has to come to it to be taken as that. */
     static final float PITCH = 1f / 3f, PITCH_SLACK = 0.07f;
+    static final int EAST_HALF = 1, SOUTH_HALF = 2;
+    /** How many squares towards the map's origin, and thirds of a level down, a half tile is looked for its place: see peaks. */
+    private static final int FURTHEST_SHIFT = 2;
     /** A plane of that pitch nearer than this to meeting the tile edges at whole thirds of a level is taken to meet them there. */
     static final float THIRD_SLACK = 0.1f;
 
@@ -68,6 +71,20 @@ final class RoofFit {
         boolean shaped;
         /** Which of a shaped tile's two triangles its own sprite lies on: bit 0 the first of TRIANGLES, bit 1 the second. */
         int own;
+        /**
+         * For a piece half a tile wide, the top of a slope whose ridge runs along the middle of a
+         * square: EAST_HALF or SOUTH_HALF, the half of its square it lies on, and its height at
+         * its low edge, the square's, in levels from the ground. 0 for any other tile. See peaks.
+         */
+        int half;
+        float halfEdge;
+        /**
+         * For a level tile under a ridge that runs along its middle: how far the ridge stands
+         * over the tile's two edges, in levels, and the axis the roof climbs to it along. 0 for a
+         * tile that is level.
+         */
+        float peak;
+        int peakAxis;
         private int group = -1;
 
         Tile(int x, int y, int z, int axis, boolean sure, float low, float high) {
@@ -707,15 +724,71 @@ final class RoofFit {
                     Tile before = facing(at, tile.x - (alongX ? 1 : 0), tile.y - (alongX ? 0 : 1), tile.z, axis, 1, level);
                     Tile after = facing(at, tile.x + (alongX ? 1 : 0), tile.y + (alongX ? 0 : 1), tile.z, axis, -1, level);
                     if (before != null && after != null) {
-                        float high = Math.max(level, Math.max(before.fitHigh, after.fitLow));
-                        // The roof is level under this one from side to side.
-                        caps.add(alongX ? new Cap(tile.x + 0.5f, tile.y, high, tile.x + 0.5f, tile.y + 1f, high, 0f)
-                                : new Cap(tile.x, tile.y + 0.5f, high, tile.x + 1f, tile.y + 0.5f, high, 0f));
+                        boolean peaked = tile.peak > 0f && tile.peakAxis == axis;
+                        float high = Math.max(level, Math.max(before.fitHigh, after.fitLow)) + (peaked ? tile.peak : 0f);
+                        // The roof is level under this one from side to side, unless it peaks there.
+                        float fall = peaked ? 2f * tile.peak : 0f;
+                        caps.add(alongX ? new Cap(tile.x + 0.5f, tile.y, high, tile.x + 0.5f, tile.y + 1f, high, fall)
+                                : new Cap(tile.x, tile.y + 0.5f, high, tile.x + 1f, tile.y + 0.5f, high, fall));
                     }
                 }
             }
         }
         return caps;
+    }
+
+    /**
+     * The ridges that run along the middle of a row of squares. A roof an odd number of squares
+     * across has its ridge over the middle of one, and the map tops each slope there with a
+     * piece half a tile wide. Only the east and south halves are on the map, as with whole
+     * slopes. And the game's view cannot tell a thing from the same thing a square nearer the
+     * map's origin each way and a third of a level lower, so where the piece would have to be
+     * more than a level over its square's floor the map holds it a level up and a square
+     * further off each way, which in that view is the same place. Stood where the map has
+     * it, such a piece is a strip of roof in the air over the ridge.
+     *
+     * So a half tile is put where it joins the slope below it: on its own square, or one or
+     * two squares towards the origin and as many thirds of a level down. The square it comes
+     * to is the ridge's: it is level from edge to edge at the height the two slopes reach,
+     * as backs made it or as made here, and peaks along its middle half a tile's climb higher.
+     */
+    static void peaks(List<Tile> tiles, List<Tile> made) {
+        HashMap<Long, Tile> slopes = new HashMap<>(), ridges = new HashMap<>();
+        for (Tile tile : tiles) {
+            if (tile.slopes()) {
+                slopes.put(key(tile.x, tile.y, 0), tile);
+            }
+        }
+        for (Tile tile : made) {
+            ridges.put(key(tile.x, tile.y, 0), tile);
+        }
+        for (Tile half : tiles) {
+            if (half.half == 0) {
+                continue;
+            }
+            boolean east = half.half == EAST_HALF;
+            for (int shift = 0; shift <= FURTHEST_SHIFT; shift++) {
+                int x = half.x - shift, y = half.y - shift;
+                float edge = half.halfEdge - shift * PITCH;
+                Tile below = slopes.get(key(x + (east ? 1 : 0), y + (east ? 0 : 1), 0));
+                if (below == null || below.fitAxis != (east ? ALONG_X : ALONG_Y) || below.up() != -1 || Math.abs(below.fitLow - edge) > SAME + PITCH_SLACK) {
+                    continue;
+                }
+                Tile ridge = ridges.get(key(x, y, 0));
+                if (ridge == null && !slopes.containsKey(key(x, y, 0))) {
+                    ridge = new Tile(x, y, (int) Math.floor(below.fitLow + LEAST_RISE), LEVEL, true, below.fitLow, below.fitLow);
+                    ridge.fitted = true;
+                    cornersOf(LEVEL, below.fitLow, below.fitLow, ridge.corners);
+                    made.add(ridge);
+                    ridges.put(key(x, y, 0), ridge);
+                }
+                if (ridge != null && !ridge.shaped && ridge.fitAxis == LEVEL && Math.abs(ridge.fitLow - below.fitLow) <= SAME + PITCH_SLACK) {
+                    ridge.peak = PITCH / 2f;
+                    ridge.peakAxis = east ? ALONG_X : ALONG_Y;
+                }
+                break;
+            }
+        }
     }
 
     static float cornerX(int corner) {
