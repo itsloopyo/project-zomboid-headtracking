@@ -6,10 +6,10 @@ wall to be ruled with when it is seen close.
 
 Run: python tools/materials/paint.py
 """
-import gzip
 import pathlib
 
 import numpy
+from PIL import Image
 
 SIZE = 1024
 # The stipple's bumps are a few texels across: at the scale the view lays the picture, a few millimetres.
@@ -31,9 +31,8 @@ def main():
     stipple = (stipple - stipple.mean()) / stipple.std()
     grey = numpy.clip(0.5 + CONTRAST * stipple, 0.0, 1.0)
     rgb = numpy.repeat((grey * 255.0 + 0.5).astype(numpy.uint8)[:, :, None], 3, axis=2)
-    out = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'materials' / 'paint.rgb.gz'
-    with gzip.open(out, 'wb', compresslevel=9) as packed:
-        packed.write(rgb.tobytes())
+    out = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'materials' / 'paint.jpg'
+    Image.fromarray(rgb, 'RGB').save(out, quality=94, subsampling=0)
     print('wrote', out, out.stat().st_size, 'bytes')
 
 

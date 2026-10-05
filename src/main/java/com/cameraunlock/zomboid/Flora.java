@@ -136,6 +136,165 @@ final class Flora {
         return unit(mix(x, y, 16), 0) < 0.4f;
     }
 
+    /**
+     * A crown's sprigs: CROWN and the six numbers after it, one for each kind of sprig in the
+     * picture of them, and SHADE for what is only there to throw the crown's shadow. The world
+     * and shadow shaders have the same numbers.
+     */
+    static final float CROWN = 72f, SHADE = 80f;
+    /** The sprigs in their picture, four to a row. */
+    static final int LINDEN = 0, MAPLE = 1, BIRCH = 2, PINE = 3, HEMLOCK = 4, HOLLY = 5, SHRUB = 6;
+    /** How many places are tried on a plant's sprite for where it paints leaves. */
+    private static final int CROWN_TRIES = 2400;
+    /** A sprig's texture coordinate holds where on the plant's sprite it takes its colour, in this many steps across the texture, under where on the sprig the vertex is. */
+    static final float CROWN_STEPS = 2048f;
+    /** A sprig's corners are this far in from the whole numbers either side, so that neither end of it rounds into the next step. */
+    private static final float CROWN_INSET = 0.25f;
+    private static final float SPRIG_SMALLEST = 0.3f, SPRIG_LARGEST = 0.8f, SHRUB_SMALLEST = 0.2f, SHRUB_LARGEST = 0.42f;
+    private static final float CROWN_FILL = 13f;
+    private static final int CROWN_LEAST = 12;
+    /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
+    private static final float CROWN_MOST_OF_PLACES = 0.6f;
+    /** How much of a sprig is behind the place it grows from, and how far its tip moves in the wind beyond what its height gives it. */
+    private static final float SPRIG_BEHIND = 0.3f, SPRIG_FLUTTER = 0.05f;
+    /**
+     * How much of the wind a sprig takes for each tile it is above the plant's foot, and at most.
+     * Far less than the game's whole card takes: a sprig is leaves a few pixels across, and
+     * the picture is steadied over several frames, so leaves that travel far in a frame are a smear.
+     */
+    private static final float SWAY_PER_TILE = 0.08f, SWAY_MOST = 0.3f;
+
+    /**
+     * Where a plant's sprite paints leaves: frame pixels across and down, two numbers a place,
+     * spread evenly over what is painted. Empty for a sprite painted nowhere.
+     */
+    static float[] leafPlaces(SpriteShape.Painted painted, SpriteGeometry.Frame frame) {
+        int across = Math.max(1, Math.round((float) Math.sqrt(CROWN_TRIES * frame.width / Math.max(frame.height, 1f))));
+        int down = Math.max(1, CROWN_TRIES / across);
+        float[] found = new float[across * down * 2];
+        int count = 0;
+        for (int i = 0; i < across; i++) {
+            for (int j = 0; j < down; j++) {
+                int hash = mix(i, j, 90);
+                float u = frame.left + (i + unit(hash, 0)) * frame.width / across, v = frame.top + (j + unit(hash, 8)) * frame.height / down;
+                if (painted.at((int) u, (int) v)) {
+                    found[count++] = u;
+                    found[count++] = v;
+                }
+            }
+        }
+        return java.util.Arrays.copyOf(found, count);
+    }
+
+    /**
+     * A crown of leaves in place of the sprite that paints one: sprigs growing outward all
+     * round the plant's middle, each a card with a branch tip in leaf cut out of it, standing
+     * where the sprite turned about the plant's upright shows leaves and taking its colour from
+     * the sprite there. So the crown has the game's shape, size and season, and from any side
+     * is leaves in front of leaves against the sky.
+     *
+     * places is leafPlaces of the frame; (x, y, base) the plant's foot, which the sprite shows
+     * at the frame pixel (footU, footV). detail is 1 for a plant near the eye and less for one
+     * further off, which is made of fewer and larger sprigs that cover as much. False, and
+     * nothing made, when the sprite shows too little to make a crown of.
+     */
+    static boolean addCrown(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
+            float detail, int sprig, int seed) {
+        int count = places.length / 2;
+        if (count < CROWN_LEAST) {
+            return false;
+        }
+        float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
+        float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
+        float widest = 0f, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+        for (int i = 0; i < count; i++) {
+            widest = Math.max(widest, Math.abs(places[i * 2] - footU) * across);
+            lowest = Math.min(lowest, (footV - places[i * 2 + 1]) * up);
+            highest = Math.max(highest, (footV - places[i * 2 + 1]) * up);
+        }
+        if (widest < 0.05f) {
+            return false;
+        }
+        boolean shrub = sprig == SHRUB;
+        float size = (shrub ? Math.clamp(widest * 0.8f, SHRUB_SMALLEST, SHRUB_LARGEST) : Math.clamp(widest * 0.36f, SPRIG_SMALLEST, SPRIG_LARGEST))
+                / (float) Math.sqrt(detail);
+        // As many as cover the crown's outside CROWN_FILL times over, were they laid flat on it.
+        float wanted = CROWN_FILL * widest * Math.max(highest - lowest, widest) / (size * size);
+        // A great crown asks for more sprigs than its sprite has places for: then each is larger, and they cover as much.
+        if (wanted > count * CROWN_MOST_OF_PLACES) {
+            size *= (float) Math.sqrt(wanted / (count * CROWN_MOST_OF_PLACES));
+            wanted = count * CROWN_MOST_OF_PLACES;
+        }
+        float middle = lowest + (highest - lowest) * 0.45f;
+        float reach = Math.max(widest, (highest - lowest) / 2f);
+        mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
+        for (int i = 0; i < count; i++) {
+            int hash = mix(seed, i, 91);
+            float out = Math.abs(places[i * 2] - footU) * across, high = (footV - places[i * 2 + 1]) * up;
+            // More of them towards the outside, where the leaves of a tree are.
+            if (unit(hash, 0) > 1.25f * wanted / count * (0.45f + 0.55f * out / widest)) {
+                continue;
+            }
+            double round = unit(hash, 8) * 2.0 * Math.PI;
+            float px = out * (float) Math.cos(round), py = out * (float) Math.sin(round), pz = high - middle;
+            float far = (float) Math.sqrt(px * px + py * py + pz * pz);
+            float ox = far > 0.01f ? px / far : 0f, oy = far > 0.01f ? py / far : 0f, oz = far > 0.01f ? pz / far : 1f;
+            // The sprig grows outward, give or take, and is turned about its own length any way round.
+            int turn = mix(hash, i, 92);
+            float ax = ox + 0.9f * (unit(turn, 0) - 0.5f), ay = oy + 0.9f * (unit(turn, 8) - 0.5f), az = oz + 0.9f * (unit(turn, 16) - 0.5f);
+            float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+            ax /= length;
+            ay /= length;
+            az /= length;
+            // Two directions square to its length and to each other.
+            float bx = -ay, by = ax;
+            float flat = (float) Math.sqrt(bx * bx + by * by);
+            if (flat < 0.05f) {
+                bx = 1f;
+                by = 0f;
+                flat = 1f;
+            }
+            bx /= flat;
+            by /= flat;
+            float cx = -az * by, cy = az * bx, cz = ax * by - ay * bx;
+            double roll = unit(turn, 24) * 2.0 * Math.PI;
+            float cos = (float) Math.cos(roll), sin = (float) Math.sin(roll);
+            float each = size * (0.75f + 0.5f * unit(hash, 16));
+            float rx = (bx * cos + cx * sin) * each / 2f, ry = (by * cos + cy * sin) * each / 2f, rz = cz * sin * each / 2f;
+            float stemX = x + px - ax * each * SPRIG_BEHIND, stemY = y + py - ay * each * SPRIG_BEHIND, stemUp = base + high - az * each * SPRIG_BEHIND;
+            float tipX = stemX + ax * each, tipY = stemY + ay * each, tipUp = stemUp + az * each;
+            // Lit as the round crown it is part of, not as the flat card it is: from the side
+            // the crown's middle is on, a little turned up.
+            mesh.face(ox, oy, oz + 0.35f);
+            // The middle of a crown is in the shade of its outside.
+            float shade = 0.72f + 0.28f * Math.min(far / reach, 1f);
+            float red = frame.red * shade, green = frame.green * shade, blue = frame.blue * shade;
+            float u = (float) Math.rint((frame.uStart + (places[i * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS);
+            float v = (float) Math.rint((frame.vStart + (places[i * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS);
+            boolean mirrored = (hash >>> 28 & 1) == 1;
+            float swayStem = Math.clamp((stemUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST);
+            float swayTip = Math.clamp((tipUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST) + SPRIG_FLUTTER;
+            for (int corner : QUAD) {
+                boolean right = corner == 1 || corner == 2, tip = corner >= 2;
+                float side = right ? 1f : -1f;
+                mesh.sway = tip ? swayTip : swayStem;
+                mesh.add((tip ? tipX : stemX) + rx * side, (tip ? tipY : stemY) + ry * side, (tip ? tipUp : stemUp) + rz * side,
+                        u + (right != mirrored ? 1f - CROWN_INSET : CROWN_INSET), v + (tip ? CROWN_INSET : 1f - CROWN_INSET), red, green, blue);
+            }
+        }
+        mesh.sway = 0f;
+        return true;
+    }
+
+    /** Which sprig a plant bears, by its sprite's name: the game names a tree's sprites for its species. */
+    static int sprigOf(String name, boolean bush) {
+        if (bush) {
+            return SHRUB;
+        }
+        return name.contains("holly") ? HOLLY : name.contains("hemlock") ? HEMLOCK : name.contains("pine") ? PINE : name.contains("maple") ? MAPLE
+                : name.contains("birch") || name.contains("hawthorn") || name.contains("dogwood") ? BIRCH : LINDEN;
+    }
+
     private static void mark(Mesh mesh, float open, float kind, float material) {
         mesh.open = open + kind + 32f * material;
     }

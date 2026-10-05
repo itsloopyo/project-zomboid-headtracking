@@ -166,6 +166,11 @@ final class PipelineShaders {
                 // thirty-twos above that what it is made of.
                 vMaterial = floor((vColor.a + 0.5) / 32.0);
                 vKind = vColor.a - 32.0 * vMaterial;
+                // What stands only to throw a crown's shadow is in no picture but the sun's.
+                if (vMaterial > 79.5 && vMaterial < 80.5) {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    return;
+                }
                 // Nor what lies under trees or clings to a bole, though a fern, a weed and a
                 // flower growing out of the ground do.
                 bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
@@ -295,6 +300,7 @@ final class PipelineShaders {
             uniform sampler2D uRock;
             uniform sampler2D uFrond;
             uniform sampler2D uIvy;
+            uniform sampler2D uSprigs;
             uniform vec2 uNatureGain;
 
             // The light and dark of a material's picture on a rounded thing. A sprite's face is
@@ -493,7 +499,7 @@ final class PipelineShaders {
 
             """;
 
-    static final String WORLD_FRAGMENT_MAIN = """
+    static final String WORLD_FRAGMENT_MAIN_START = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
                 // A wall's sprite is drawn on the slant, each column of its dots a step below the
@@ -633,6 +639,65 @@ final class PipelineShaders {
                 // and not to the screen: the picture is shifted a little each frame to smooth it,
                 // and a pattern on the screen would leave out different leaves every frame.
                 bool bushy = vMaterial > 62.5 && vMaterial < 63.5;
+                bool crown = vMaterial > 71.5 && vMaterial < 79.5;
+                if (crown) {
+                    // A sprig of a crown: a branch tip in leaf, cut out of its card. Its texture
+                    // coordinate is two things at once. The whole number is where on the
+                    // plant's sprite the sprig takes its colour, so the crown is the green,
+                    // gold or red the game has the tree at this time of year, and the part
+                    // over it is where on the sprig the pixel is. See Flora.addCrown.
+                    vec2 cell = floor(vUv);
+                    vec2 on = clamp((vUv - cell - 0.25) * 2.0, 0.0, 1.0);
+                    float each = grain(cell);
+                    // Standing in a tree, the sprigs within reach are gone, a whole sprig at
+                    // a time, and the view is of the wood beyond them.
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.45 + 0.8 * each) {
+                        discard;
+                    }
+                    // A card seen along its own flat is a smear of leaves a pixel deep. It is left
+                    // out before it gets there: the sprigs turned other ways are the crown from here.
+                    vec3 lies = cross(dFdx(vPlace), dFdy(vPlace));
+                    if (abs(dot(normalize(lies + vec3(1e-12)), normalize(uEye - vWorld))) < 0.22 + 0.16 * each) {
+                        discard;
+                    }
+                    float which = floor(vMaterial - 71.5);
+                    vec4 sprig = texture2D(uSprigs, (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5));
+                    // Far off, the smaller copies of the picture have every leaf part solid,
+                    // and cut at half the crown would thin to twigs.
+                    float fine = max(fwidth(on.x), fwidth(on.y));
+                    if (sprig.a < mix(0.5, 0.4, smoothstep(0.004, 0.02, fine))) {
+                        discard;
+                    }
+                    vec2 at = (cell + 0.5) / 2048.0;
+                    vec2 wide = uTexel * 4.0;
+                    vec4 sum = vec4(0.0);
+                    for (int i = 0; i < 5; i++) {
+                        vec2 off = i == 0 ? vec2(0.0) : i == 1 ? vec2(wide.x, 0.0) : i == 2 ? vec2(-wide.x, 0.0) : i == 3 ? vec2(0.0, wide.y) : vec2(0.0, -wide.y);
+                        vec4 painted = texture2D(uTexture, at + off);
+                        sum += vec4(painted.rgb * painted.a, painted.a);
+                    }
+                    // A sprig whose place on the sprite turns out to have nothing painted round it
+                    // has no colour to take, and is not drawn black: it is not drawn.
+                    if (sum.a < 0.5) {
+                        discard;
+                    }
+                    vec3 season = sum.rgb / sum.a;
+                    // The game paints a crown in a few flat tones, darker at each mass's rim
+                    // and foot. Here the light does that, so the tone is evened out and only
+                    // the hue is taken.
+                    float painted = dot(season, vec3(0.299, 0.587, 0.114));
+                    season *= mix(1.0, 0.4 / max(painted, 0.05), 0.6);
+                    // The sprig's own light and dark, its veins and its twig, over that colour:
+                    // every sprig's picture is the same green on average, which is divided out.
+                    vec3 own = sprig.rgb / vec3(0.26, 0.42, 0.12);
+                    float tone = dot(own, vec3(0.299, 0.587, 0.114));
+                    vec3 leafy = season * mix(vec3(tone), own, 0.55) * (0.8 + 0.4 * each);
+                    // No two sprigs quite one colour: some yellower, some bluer.
+                    leafy *= mix(vec3(1.08, 1.0, 0.8), vec3(0.92, 1.0, 1.1), grain(cell + 17.0));
+                    float grey = dot(leafy, vec3(0.299, 0.587, 0.114));
+                    texel = vec4(clamp(mix(vec3(grey), leafy, 1.18), 0.0, 1.0), 1.0);
+                    small = false;
+                }
                 if (vMaterial > 4.5 && vMaterial < 5.5 || bushy) {
                     // The leaves of a tree. The game's sprite gives the tree its outline and the
                     // colour it is at this time of year, taken broadly so that the painted
@@ -878,7 +943,7 @@ final class PipelineShaders {
                 // as the mean of two samples one texel apart across, each step is averaged with
                 // the next and the edge comes out straight.
                 vec2 half = vec2(0.5 * uTexel.x, 0.0);
-                float cover = uTexel.x > 0.0 && !small ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
+                float cover = uTexel.x > 0.0 && !small && !crown ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
                 // A wire or an aerial painted one texel wide never covers more than half of two
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
@@ -1081,13 +1146,18 @@ final class PipelineShaders {
                         discard;
                     }
                 }
+            """;
+
+    /** The rest of main: the whole of it in one constant is longer than a class file can hold. */
+    static final String WORLD_FRAGMENT_MAIN_REST = """
                 vec3 toEye = uEye - vWorld;
                 float away = length(toEye);
                 vec3 view = toEye / away;
                 float range = max(away - uRangeFrom, 0.0);
                 // A sprite is one sheet with no back: the side being looked at is the lit one.
                 vec3 n = normalize(vNormal);
-                if (dot(n, view) < 0.0) {
+                // A sprig of a crown faces the way the crown's outside does there, whichever side of its card is seen.
+                if (dot(n, view) < 0.0 && !crown) {
                     n = -n;
                 }
                 // A tuft of grass is lit as the ground it grows from is, from above. Lit as the
@@ -1287,7 +1357,7 @@ final class PipelineShaders {
                     }
                 }
                 bool card = !water && vKind > 1.5;
-                if (card && !grass && !grown && length(vNormal.xy) > 0.1 * length(vNormal)) {
+                if (card && !grass && !grown && !crown && length(vNormal.xy) > 0.1 * length(vNormal)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
                     float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
@@ -1297,7 +1367,12 @@ final class PipelineShaders {
                 }
                 float open = grass ? vKind - (vKind > 15.5 ? 16.0 : 8.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
-                if (card) {
+                if (crown) {
+                    // A crown is a round mass of leaves: bright where it is turned to the sun,
+                    // going over to shade round its side, and never black, for the light
+                    // comes through and round the leaves.
+                    facing = 0.3 + 0.7 * pow(clamp(0.5 + 0.5 * dot(n, uLight), 0.0, 1.0), 1.5);
+                } else if (card) {
                     facing = 0.5 + 0.4 * facing;
                 }
                 float sun = 0.0;
@@ -1335,6 +1410,11 @@ final class PipelineShaders {
                     vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
                     float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
                     reached *= 1.0 - 0.65 * smoothstep(-0.06, 0.06, body - (1.12 - uCover));
+                    if (crown) {
+                        // Inside a crown the sun still arrives, through the leaves above and
+                        // between them: the shade a tree gives itself is green and never deep.
+                        reached = mix(0.42, 1.0, reached);
+                    }
                     sun = reached * facing;
                 }
 
@@ -1342,7 +1422,8 @@ final class PipelineShaders {
                 // falling straight on it. Out of doors that light comes from the sky, more of it
                 // onto what faces up and bluer than the sun.
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
-                if (open > 0.5 && range < 40.0) {
+                // A crown is the leaves the sky is seen through, not something under them.
+                if (open > 0.5 && range < 40.0 && !crown) {
                     // Under trees the sky's light is thinned and green, not gone.
                     fromSky *= mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range));
                 }
@@ -1538,6 +1619,8 @@ final class PipelineShaders {
             }
             """;
 
+    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(WORLD_FRAGMENT_MAIN_REST);
+
     static final String SHADOW_VERTEX = """
             #version 120
             uniform mat4 uMatrix;
@@ -1571,7 +1654,12 @@ final class PipelineShaders {
                 }
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
-                vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
+                vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 || material > 79.5 && material < 80.5 ? 1.0 : 0.0;
+                // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
+                if (material > 71.5 && material < 79.5) {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    return;
+                }
                 vAt = gl_Vertex.xyz;
                 gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
             }

@@ -992,6 +992,7 @@ public final class Tests {
         BuildingTests.run();
         RoofTests.run();
         ShapeTests.run();
+        CrownTests.run();
         WindowTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         System.out.println("all tests passed");

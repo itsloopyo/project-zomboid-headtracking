@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -9,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Random;
-import java.util.zip.GZIPInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -187,7 +185,6 @@ final class Pipeline {
     private static final int WOOD = 6, CARPET = 9;
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
-    private static final int MATERIAL_SIZE = 1024;
     private static final int FIRST_MATERIAL_UNIT = 3;
     private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
@@ -198,6 +195,9 @@ final class Pipeline {
     private static final int FIRST_NATURE_UNIT = 24;
     private static final int[] natureTexture = new int[NATURE.length];
     private static final float[] natureGain = new float[NATURE.length];
+    /** The sprigs a crown is made of, all in one picture: see Flora.addCrown. */
+    private static final int SPRIG_UNIT = 28;
+    private static int sprigs;
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
@@ -1299,6 +1299,9 @@ final class Pipeline {
         world.set("uFrond", FIRST_NATURE_UNIT + 2);
         world.set("uIvy", FIRST_NATURE_UNIT + 3);
         world.set("uNatureGain", natureGain[0], natureGain[1]);
+        GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
+        world.set("uSprigs", SPRIG_UNIT);
     }
 
     private static void setBasis(Program program, ViewCamera.Pose pose) {
@@ -2195,6 +2198,11 @@ final class Pipeline {
                 return missing;
             }
         }
+        try {
+            sprigs = Pictures.load("/materials/sprigs.png", false);
+        } catch (IOException e) {
+            return "the sprigs could not be read: " + e.getMessage();
+        }
 
         return null;
     }
@@ -2457,41 +2465,12 @@ final class Pipeline {
      * texture and its gain at index. Null, or what went wrong.
      */
     private static String loadPicture(String name, boolean cutout, int[] textures, float[] gains, int index) {
-        int each = cutout ? 4 : 3;
-        String path = "/materials/" + name + (cutout ? ".rgba.gz" : ".rgb.gz");
-        ByteBuffer pixels = ByteBuffer.allocateDirect(MATERIAL_SIZE * MATERIAL_SIZE * each);
-        long light = 0;
-        long solid;
-        try (InputStream packed = Pipeline.class.getResourceAsStream(path)) {
-            if (packed == null) {
-                return "the jar has no " + path;
-            }
-            byte[] bytes = new GZIPInputStream(packed).readAllBytes();
-            if (bytes.length != pixels.capacity()) {
-                return path + " holds " + bytes.length + " bytes, not " + pixels.capacity();
-            }
-            long counted = 0;
-            for (int i = 0; i < bytes.length; i += each) {
-                // A cut-out's mean is over what is solid.
-                if (!cutout || (bytes[i + 3] & 0xff) > 127) {
-                    light += 299 * (bytes[i] & 0xff) + 587 * (bytes[i + 1] & 0xff) + 114 * (bytes[i + 2] & 0xff);
-                    counted++;
-                }
-            }
-            solid = counted;
-            pixels.put(bytes).flip();
+        try {
+            textures[index] = Pictures.load("/materials/" + name + (cutout ? ".png" : ".jpg"), true);
         } catch (IOException e) {
-            return path + " could not be read: " + e;
+            return e.getMessage();
         }
-        gains[index] = 255f * 1000f * solid / light;
-        textures[index] = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, textures[index]);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, cutout ? GL_RGBA8 : GL_RGB8, MATERIAL_SIZE, MATERIAL_SIZE, 0, cutout ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, pixels);
-        GL30.glGenerateMipmap(GL_TEXTURE_2D);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        gains[index] = Pictures.gain;
         return null;
     }
 

@@ -2298,6 +2298,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (grown != null && type != IsoObjectType.tree) {
             frame.material = bush ? Flora.BUSH : LEAVES;
         }
+        // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
+        // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
+        float fanned = frame.material;
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && overLayer > 0) && addCrown(texture, grown, bush, x, y, z);
+        if (crowned) {
+            frame.material = Flora.SHADE;
+        }
         double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
         for (int card = 0; card < cards; card++) {
             double angle = turn + card * Math.PI / cards;
@@ -2313,8 +2320,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.nudgeY = squareY * clear;
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
         }
+        frame.material = fanned;
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        if (bush && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
+        if (bush && !crowned && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
             // middle, each across the way out to it, so there are leaves on every side.
@@ -2328,6 +2336,41 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
         }
         geometry.nudgeX = geometry.nudgeY = 0f;
+    }
+
+    /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
+    private final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
+    /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
+    private static final float CROWN_REACH = 40f, CROWN_NEAR = 12f;
+    /** How coarse the crown of a plant at CROWN_REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
+    private static final float CROWN_FAR_DETAIL = 0.3f;
+    private static final int CROWN_LEAST_PLACES = 12;
+
+    /**
+     * Stands a crown of sprigs for the plant whose leaves the frame is set to, in the mesh of
+     * the leaves' own texture, which gives the sprigs their colour. False when the plant is
+     * too far off for one or its texture shows too little to make one of.
+     */
+    private boolean addCrown(Texture texture, String name, boolean bush, int x, int y, int z) {
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        float away2 = toX * toX + toY * toY;
+        if (away2 > CROWN_REACH * CROWN_REACH) {
+            return false;
+        }
+        float[] places = leafPlaces.get(texture);
+        if (places == null) {
+            places = Flora.leafPlaces(texture::isMaskSet, frame);
+            // A texture that shows nothing yet may only not have its outline read yet.
+            if (places.length < CROWN_LEAST_PLACES * 2) {
+                return false;
+            }
+            leafPlaces.put(texture, places);
+        }
+        return Flora.addCrown(solid.get(texture.getID()), frame, places, x + 0.5f, y + 0.5f,
+                z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f) + geometry.raised * ViewCamera.LEVEL_HEIGHT,
+                SpriteGeometry.frameU(frame, 0.5f, 0.5f), SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f),
+                1f + (CROWN_FAR_DETAIL - 1f) * Math.clamp(((float) Math.sqrt(away2) - CROWN_NEAR) / (CROWN_REACH - CROWN_NEAR), 0f, 1f),
+                Flora.sprigOf(name, bush), Flora.mix(x, y, 83));
     }
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
