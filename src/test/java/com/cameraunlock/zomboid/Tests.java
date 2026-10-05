@@ -388,6 +388,7 @@ public final class Tests {
         fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
         tuftCarriesHowWellItsGrassDoes();
         boleIsClosedAboveItsFoot();
+        barkIsAsLargeRoundABoleAsUpIt();
         ivyKeepsToTheBoleAndSaysHowFarUpItIs();
         boulderIsClosed();
         fernGrowsFromItsRoot();
@@ -503,7 +504,7 @@ public final class Tests {
         SpriteGeometry.Frame frame = wholeFrame();
         for (int seed : new int[] {7, 0x12345678, -99}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            int triangles = new Flora().addTrunk(mesh, 10.5f, 20.5f, 1f, 0.15f, 2f, true, seed, frame);
+            int triangles = new Flora().addTrunk(mesh, 10.5f, 20.5f, 1f, 0.15f, 2f, true, Flora.BARK_PINE, seed, frame);
             check(triangles == mesh.triangles() && triangles == 3 * Flora.TRUNK_SIDES * 2 + Flora.TRUNK_SIDES, "a bole near the eye is three bands and a point");
             int open = 0;
             for (Map.Entry<String, Integer> edge : edges(mesh).entrySet()) {
@@ -527,8 +528,44 @@ public final class Tests {
             check(widest > 0.28f && widest < 0.4f, "its longest root runs out to about twice its radius or a little more");
         }
         SpriteGeometry.Mesh far = new SpriteGeometry.Mesh();
-        check(new Flora().addTrunk(far, 10.5f, 20.5f, 1f, 0.15f, 2f, false, 7, frame) == Flora.TRUNK_SIDES_FAR * 2 && far.triangles() == Flora.TRUNK_SIDES_FAR * 2,
+        check(new Flora().addTrunk(far, 10.5f, 20.5f, 1f, 0.15f, 2f, false, Flora.BARK_OAK, 7, frame) == Flora.TRUNK_SIDES_FAR * 2 && far.triangles() == Flora.TRUNK_SIDES_FAR * 2,
                 "a bole far off is one band of six sides");
+    }
+
+    private static void barkIsAsLargeRoundABoleAsUpIt() {
+        SpriteGeometry.Frame frame = wholeFrame();
+        for (float radius : new float[] {0.05f, 0.11f, 0.2f, 0.4f}) {
+            for (int seed : new int[] {7, 0x12345678, -99}) {
+                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                new Flora().addTrunk(mesh, 10.5f, 20.5f, 1f, radius, 2f, false, Flora.BARK_HEMLOCK, seed, frame);
+                float[] f = mesh.vertices;
+                float steps = (float) Math.floor(f[3] / Flora.BARK_ACROSS);
+                float wraps = (steps % Flora.BARK_WRAPS_MOST + 1f) / 4f;
+                float least = Float.MAX_VALUE, most = -Float.MAX_VALUE, low = Float.MAX_VALUE, high = -Float.MAX_VALUE;
+                for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    check(Math.floor(f[at + 3] / Flora.BARK_ACROSS) == steps, "every vertex of a bole says the same of how its bark is laid");
+                    check(Math.floor(f[at + 4] / Flora.BARK_UP) == Flora.BARK_HEMLOCK, "and which bark it is");
+                    least = Math.min(least, f[at + 3] - Flora.BARK_ACROSS * steps);
+                    most = Math.max(most, f[at + 3] - Flora.BARK_ACROSS * steps);
+                    low = Math.min(low, f[at + 4] - Flora.BARK_UP * Flora.BARK_HEMLOCK);
+                    high = Math.max(high, f[at + 4] - Flora.BARK_UP * Flora.BARK_HEMLOCK);
+                }
+                check(near(least, 0f) && near(most, wraps), "the bark goes round a bole as many quarters of its picture as the bole says");
+                float span = 2f * (float) Math.PI * radius / wraps;
+                check(span > 0.35f && span < 0.65f, "a picture of bark covers about as much of a sapling as of a great tree");
+                // A bole far off is one band, from 1.1 of its radius under the ground to 0.78 of it at its top.
+                float run = (float) Math.hypot(2f + 0.12f, radius * (1.1f - 0.78f));
+                check(Math.abs((high - low) * span - run) < 0.01f, "and is as large up the bole as round it");
+            }
+        }
+        check(Flora.barkOf("e_americanholly_1_3", 7) == Flora.BARK_HOLLY && Flora.barkOf("e_riverbirch_1_0", 7) == Flora.BARK_BIRCH
+                && Flora.barkOf("e_virginiapine_1_2", 7) == Flora.BARK_PINE && Flora.barkOf("e_canadianhemlock_1_2", 7) == Flora.BARK_HEMLOCK,
+                "a tree has the bark of its species");
+        boolean[] seen = new boolean[8];
+        for (int seed = 0; seed < 4096; seed += 37) {
+            seen[Flora.barkOf("e_americanlinden_1_1", Flora.mix(seed, 3, 81))] = true;
+        }
+        check(seen[Flora.BARK_OAK] && seen[Flora.BARK_MAPLE] && seen[Flora.BARK_LINDEN], "and where its species has none of its own, one of several");
     }
 
     private static void ivyKeepsToTheBoleAndSaysHowFarUpItIs() {

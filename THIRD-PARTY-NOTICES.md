@@ -88,11 +88,11 @@ Copyright (c) 2026 itsloopyo
 
 ## Generated material textures
 
-- **Files:** every `materials/*.jpg` and `materials/*.png` inside the mod's jar but `paint.jpg`: asphalt, gravel, soil, grass, shingles, wood, bark, planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond, ivy and sprigs
+- **Files:** every `materials/*.jpg` and `materials/*.png` inside the mod's jar but `paint.jpg`: asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond, ivy and sprigs
 - **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
 - **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The textures are grain for surfaces in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
-- **Usage:** The first person view lays them over open ground, roofs, walls and wooden floors to give each the grain of what it is made of, and draws the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them. `sprigs.png` holds eight pictures of leaves, each cut out of the white ground it was generated on by `tools/materials/pack.py`: the crowns of trees and bushes are built of them. The prompts are in `tools/materials/generate.py`.
+- **Usage:** The first person view lays them over open ground, roofs, walls and wooden floors to give each the grain of what it is made of, and draws tree trunks, each in the bark of its species, the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them. `sprigs.png` holds eight pictures of leaves, each cut out of the white ground it was generated on by `tools/materials/pack.py`: the crowns of trees and bushes are built of them. The prompts are in `tools/materials/generate.py`.
 - **Bundled:** the textures, yes. The model is not.
 - **Not among them:** `materials/paint.jpg` is filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it.
 

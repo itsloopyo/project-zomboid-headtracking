@@ -194,7 +194,7 @@ final class PipelineShaders {
             """;
 
     /** In two parts joined when the class loads: as one constant the shader is longer than a class file can hold. */
-    static final String WORLD_FRAGMENT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + """
+    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -289,7 +289,7 @@ final class PipelineShaders {
             uniform sampler2D uWood;
             uniform vec3 uSurfaceGain;
             uniform sampler2D uLeaves;
-            uniform sampler2D uBark;
+            uniform sampler2DArray uBark;
             uniform sampler2D uPlanks;
             uniform sampler2D uCarpet;
             uniform vec3 uTimberGain;
@@ -330,6 +330,42 @@ final class PipelineShaders {
                 f = f * f * (3.0 - 2.0 * f);
                 return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
                         mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
+            // The light and dark of a picture of boards or of courses of shingle at a place on a
+            // wall, a floor or a roof. Laid on as it is, the picture comes round again every pace
+            // or two, and the same knot is seen all the way down a fence. So it is cut into
+            // strips along its grain, at cut, which is a joint between two of its boards, and
+            // each strip is slid along the grain its own amount, half of them turned end for
+            // end, and is a shade lighter or darker than the next. upright is for a picture
+            // whose grain runs up it. A strip is the same again every strips of them: the place
+            // is counted from a corner that moves a whole number of pictures at a time.
+            float laid(sampler2D picture, vec2 at, float cut, bool upright, float strips) {
+                vec2 grain = upright ? at.yx : at;
+                float strip = mod(floor(grain.y - cut), strips);
+                vec2 own = fract(sin(vec2(strip * 12.9898 + 4.1, strip * 78.233 + 1.7)) * 43758.5453);
+                grain.x = (own.y > 0.5 ? -grain.x : grain.x) + own.x;
+                // How fast the place changes is asked of the place as it was: slid, it jumps from one strip to the next.
+                vec3 seen = texture2DGradARB(picture, upright ? grain.yx : grain, dFdx(at), dFdy(at)).rgb;
+                return dot(seen, vec3(0.299, 0.587, 0.114)) * (0.93 + 0.14 * fract(own.x * 5.0));
+            }
+
+            // Whichever of two pictures of bark is the lighter at a place, where share is a half,
+            // and all one or all the other where it is 0 or 1: bark gives way to other bark
+            // along the edges of its ridges, and one faded into another is neither.
+            vec3 ridged(vec3 one, vec3 other, float share) {
+                float lighter = dot(other - one, vec3(0.299, 0.587, 0.114));
+                return mix(one, other, smoothstep(-0.12, 0.12, (share - 0.5) * 1.24 + lighter * (1.0 - abs(2.0 * share - 1.0))));
+            }
+
+            // The bark which at a place on its picture. The picture comes round again every hand
+            // or two up the bole, so in patches a second piece of it, larger and from elsewhere,
+            // takes its place, and no stretch of the bole is the stretch below it again. With
+            // soft above 0 it is the picture as it is so many halvings smaller: its ridges
+            // without the grain on them.
+            vec3 barkAt(vec2 on, float which, float soft) {
+                return ridged(texture2DArray(uBark, vec3(on, which), soft).rgb, texture2DArray(uBark, vec3(on * 0.71 + vec2(0.37, 0.19), which), soft).rgb,
+                        smoothstep(0.3, 0.7, patches(on * vec2(2.3, 1.1) + which * 7.0)));
             }
 
             // The height of a bed of stones of three sizes, from coarse to fine.
@@ -837,23 +873,46 @@ final class PipelineShaders {
                         float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
                         texel = vec4(clamp(mix(vec3(tone), fallen, 0.7) * (0.25 + 0.13 * patches(p * 0.31 + 9.0)), 0.0, 1.0), 1.0);
                     } else if (vMaterial < 57.5) {
-                        // A bole. The bark's picture runs round it and up it, and its light and
-                        // dark are the bark's ridges and furrows: the surface is tilted by how
-                        // fast the picture gets lighter round and up.
-                        vec3 weights = vec3(0.299, 0.587, 0.114);
-                        float e = 1.0 / 256.0;
-                        vec3 bark = texture2D(uBark, vUv).rgb * uTimberGain.x;
-                        float here = dot(bark, weights);
-                        float beside = dot(texture2D(uBark, vUv + vec2(e, 0.0)).rgb, weights) * uTimberGain.x;
-                        float above = dot(texture2D(uBark, vUv + vec2(0.0, e)).rgb, weights) * uTimberGain.x;
+                        // A bole. Its texture coordinates say, in whole steps above where on
+                        // the bark's picture the place is, which bark it has, how much of the
+                        // picture goes round it, which way up the picture is and where on it
+                        // the bole starts: see Flora.addTrunk.
+                        float across = floor(vUv.x / 8.0);
+                        float along = vUv.x - 8.0 * across;
+                        float which = floor(vUv.y / 32.0);
+                        float climbed = vUv.y - 32.0 * which;
+                        float shifted = floor(across / 32.0);
+                        across -= 32.0 * shifted;
+                        float turned = step(15.5, across);
+                        float wraps = (across - 16.0 * turned + 1.0) * 0.25;
+                        vec2 own = fract(sin(vec2(which * 12.9898 + across * 78.233 + shifted * 37.719, which * 39.346 + across * 11.135 + shifted * 83.155)) * 43758.5453);
+                        float way = 1.0 - 2.0 * turned;
+                        vec2 on = (vec2(along, climbed) + own) * way;
+                        // Where the picture's end comes round to its start it is not the start
+                        // that follows: over a hand's width before the join the bark that would
+                        // have followed is laid in, ridge by ridge.
+                        vec2 next = on - vec2(wraps * way, 0.0);
+                        float join = smoothstep(wraps - min(0.11, 0.4 * wraps), wraps, along);
+                        vec3 bark = ridged(barkAt(on, which, 0.0), barkAt(next, which, 0.0), join);
+                        float here = dot(bark, vec3(0.299, 0.587, 0.114));
+                        // Its light and dark are the bark's ridges and furrows: the surface is
+                        // tilted by how fast the bark gets lighter over it, which is read off
+                        // the pixels beside this one. The picture is read softened for it:
+                        // sharp, its grain is taken for pits a finger deep. Only near: further
+                        // off the ridges are finer than a pixel.
+                        float high = dot(ridged(barkAt(on, which, 3.0), barkAt(next, which, 3.0), join), vec3(0.299, 0.587, 0.114));
                         vec3 outward = normalize(vNormal);
-                        vec3 round = normalize(cross(vec3(0.0, 0.0, 1.0), outward) + vec3(1e-4, 0.0, 0.0));
-                        vec3 rise = cross(outward, round);
-                        // Only near: further off the ridges are finer than a pixel.
-                        dent = (round * (beside - here) + rise * (above - here)) * (0.02 / e * (1.0 - smoothstep(10.0, 28.0, (length(uEye - vWorld) - uRangeFrom))));
-                        // Moss on the roots and the foot of the bole, in patches.
-                        float mossy = (1.0 - smoothstep(0.1, 0.75, vUv.y)) * smoothstep(0.4, 0.7, patches(vUv * vec2(4.0, 2.5) + 2.0));
-                        texel = vec4(clamp(mix(bark * vec3(0.42, 0.35, 0.29), vec3(0.24, 0.3, 0.12) * (0.5 + 0.5 * here), 0.7 * mossy), 0.0, 1.0), 1.0);
+                        vec3 acrossScreen = dFdx(vPlace), downScreen = dFdy(vPlace);
+                        vec3 one = cross(downScreen, outward), other = cross(outward, acrossScreen);
+                        float area = dot(acrossScreen, one);
+                        dent = (dFdx(high) * one + dFdy(high) * other) * (sign(area) / max(abs(area), 1e-9))
+                                * (0.004 * (1.0 - smoothstep(10.0, 28.0, (length(uEye - vWorld) - uRangeFrom))));
+                        // Moss on the roots and the foot of the bole, in patches, higher up
+                        // some trees than others, and each tree a little lighter or darker
+                        // and warmer or greyer than the next of its kind.
+                        float mossy = (1.0 - smoothstep(0.15, 0.5 + 1.4 * own.x * own.x, climbed)) * smoothstep(0.4, 0.7, patches(vec2(along, climbed) * vec2(2.6, 1.6) + own * 9.0));
+                        vec3 toned = bark * (0.7 + 0.32 * own.y) * mix(vec3(1.03, 1.0, 0.95), vec3(1.1, 1.0, 0.86), fract(own.x * 7.0));
+                        texel = vec4(clamp(mix(toned, vec3(0.24, 0.3, 0.12) * (0.5 + 1.3 * here), 0.7 * mossy), 0.0, 1.0), 1.0);
                     } else if (vMaterial < 58.5) {
                         // Ivy: leaves cut out of a sleeve round the bole. It is thick at the foot
                         // and gives out towards its top a spray at a time, never at a line: the
@@ -1273,11 +1332,11 @@ final class PipelineShaders {
                     // read at such places is ruled with stripes a pixel or two wide. Every
                     // picture here repeats a whole number of times in sixty tiles.
                     vec2 across = abs(n.z) > 0.7 ? vPlace.xy : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
-                    float fine = roofing ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
+                    float fine = roofing ? laid(uShingles, across * 0.55, 0.1, false, 33.0) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
-                            : vMaterial < 3.5 ? dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z
-                            : vMaterial < 6.5 ? dot(texture2D(uBark, across * vec2(1.6, 0.8)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
-                            : vMaterial < 7.5 ? dot(texture2D(uPlanks, across * 0.7).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.y
+                            : vMaterial < 3.5 ? laid(uWood, across * 0.45, 0.44, false, 27.0) * uSurfaceGain.z
+                            : vMaterial < 6.5 ? dot(texture2DArray(uBark, vec3(across * vec2(1.6, 0.8), 0.0)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
+                            : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, 0.648, true, 42.0) * uTimberGain.y
                             : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
                     float much = roofing ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
                     // What is painted white is paint over the wood: its grain barely shows.

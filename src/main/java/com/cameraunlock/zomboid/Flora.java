@@ -40,8 +40,23 @@ final class Flora {
     /** How much thinner a bole is at its top than at its foot, and how far past its top it runs on to a point, as a share of its height. */
     private static final float TAPER = 0.78f;
     static final float SPIRE = 0.45f;
-    /** How much of a tile one repeat of the bark's or the ivy's picture covers. */
-    private static final float BARK_SPAN = 0.7f, IVY_SPAN = 0.55f;
+    /** How much of a tile one repeat of the bark's or the ivy's picture covers, give or take what makes it fit round the bole. */
+    private static final float BARK_SPAN = 0.45f, IVY_SPAN = 0.55f;
+    /**
+     * The barks, in the order the jar's pictures of them are laid in one texture: see
+     * Pipeline.BARKS. The first is also the grain of a tree left as the game's sprite.
+     */
+    static final int BARK_OAK = 0, BARK_LINDEN = 1, BARK_MAPLE = 2, BARK_BIRCH = 3, BARK_PINE = 4, BARK_HEMLOCK = 5, BARK_HOLLY = 6, BARK_DOGWOOD = 7;
+    /**
+     * A bole's texture coordinates carry more than where on the bark's picture a vertex is,
+     * in whole steps above it that are the same all over one bole. Across: BARK_ACROSS for
+     * each quarter of the picture past the first that goes round the bole, BARK_WRAPS_MOST
+     * of them more for a picture laid upside down, and twice that for each of the
+     * BARK_SHIFTS places it may start from. Up: BARK_UP for each bark after the first. The
+     * world shader has the same numbers.
+     */
+    static final float BARK_ACROSS = 8f, BARK_UP = 32f;
+    static final int BARK_WRAPS_MOST = 16, BARK_SHIFTS = 4;
     private static final float IVY_STANDS_OFF = 0.02f;
     /** Where across the frond's picture its stem meets the bottom edge. The picture is packed so. */
     static final float FROND_ROOT = 0.75f;
@@ -52,7 +67,7 @@ final class Flora {
     private static final int RINGS = 4;
     private final float[] ringX = new float[RINGS * (TRUNK_SIDES + 1)], ringY = new float[RINGS * (TRUNK_SIDES + 1)];
     private final float[] ringSlope = new float[RINGS * (TRUNK_SIDES + 1)];
-    private final float[] ringUp = new float[RINGS];
+    private final float[] ringUp = new float[RINGS], ringRun = new float[RINGS];
     private final float[] rock = new float[BALL.length];
 
     /** A number that is the same every time for one place and one purpose, and unlike its neighbours'. */
@@ -286,6 +301,20 @@ final class Flora {
         return true;
     }
 
+    /**
+     * Which bark a tree has, by its sprite's name and which tree of its kind it is: most
+     * species have one of their own, and the rest have one of two or three.
+     */
+    static int barkOf(String name, int seed) {
+        int one = (seed >>> 9 & 0xff) % 3;
+        return name.contains("holly") ? BARK_HOLLY : name.contains("hemlock") ? BARK_HEMLOCK : name.contains("pine") ? BARK_PINE
+                : name.contains("birch") ? BARK_BIRCH : name.contains("hawthorn") || name.contains("dogwood") ? BARK_DOGWOOD
+                : name.contains("maple") ? (one == 0 ? BARK_OAK : BARK_MAPLE)
+                : name.contains("yellowwood") ? (one == 0 ? BARK_LINDEN : BARK_HOLLY)
+                : name.contains("redbud") ? (one == 0 ? BARK_MAPLE : BARK_DOGWOOD)
+                : one == 0 ? BARK_OAK : one == 1 ? BARK_MAPLE : BARK_LINDEN;
+    }
+
     /** Which sprig a plant bears, by its sprite's name: the game names a tree's sprites for its species. */
     static int sprigOf(String name, boolean bush) {
         if (bush) {
@@ -421,24 +450,48 @@ final class Flora {
      * The bole of a tree standing on (x, y), its foot on ground at height base: round, radius
      * thick a little way up and thinner at its top, height tall. Near the eye it spreads into
      * roots at the ground and runs on above its height to a point; further off it is a plain
-     * six-sided post. The bark's
-     * picture is wrapped round it a whole number of times. Returns the triangles added.
+     * six-sided post.
+     *
+     * It is covered in the bark that is bark's picture, at the same size round it as up it
+     * and near enough the same size on a sapling as on a great tree: so many quarters of the
+     * picture go round as come nearest BARK_SPAN, and the shader joins the two ends where they
+     * meet. No two boles show the same piece of it the same way: where round the bole the
+     * picture starts, which way up it is and where on it the foot is are each tree's own.
+     * Returns the triangles added.
      */
-    int addTrunk(Mesh mesh, float x, float y, float base, float radius, float height, boolean near, int seed, SpriteGeometry.Frame frame) {
+    int addTrunk(Mesh mesh, float x, float y, float base, float radius, float height, boolean near, int bark, int seed, SpriteGeometry.Frame frame) {
         int sides = near ? TRUNK_SIDES : TRUNK_SIDES_FAR;
         int rings = rings(x, y, radius, height, near, seed, 0f);
-        int repeats = Math.max(1, Math.round(2f * (float) Math.PI * radius / BARK_SPAN));
+        float around = 2f * (float) Math.PI * radius;
+        int quarters = Math.clamp(Math.round(around / BARK_SPAN * 4f), 1, BARK_WRAPS_MOST);
+        float wraps = quarters / 4f, span = around / wraps;
+        int own = mix(seed, bark, 19);
+        int turn = (own >>> 8 & 0xff) * sides >>> 8;
+        float across = BARK_ACROSS * (quarters - 1 + BARK_WRAPS_MOST * (own >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (own >>> 17 & BARK_SHIFTS - 1));
+        // How far up the bark each ring is, measured along the bole's own surface: the roots run out more than they rise.
+        float out = 0f;
+        for (int ring = 0; ring < rings; ring++) {
+            float mean = 0f;
+            for (int side = 0; side < sides; side++) {
+                int at = ring * (TRUNK_SIDES + 1) + side;
+                mean += (float) Math.hypot(ringX[at] - x, ringY[at] - y) / sides;
+            }
+            ringRun[ring] = ring == 0 ? 0f : ringRun[ring - 1] + (float) Math.hypot(ringUp[ring] - ringUp[ring - 1], mean - out);
+            out = mean;
+        }
+        float up = BARK_UP * bark;
         float[] cos = near ? NEAR_COS : FAR_COS, sin = near ? NEAR_SIN : FAR_SIN;
         mark(mesh, frame.open, 0f, TRUNK);
         mesh.sway = 0f;
         for (int ring = 0; ring + 1 < rings; ring++) {
             for (int side = 0; side < sides; side++) {
                 for (int corner : QUAD) {
-                    int at = (ring + (corner >= 2 ? 1 : 0)) * (TRUNK_SIDES + 1) + side + (corner == 1 || corner == 2 ? 1 : 0);
-                    int around = side + (corner == 1 || corner == 2 ? 1 : 0);
-                    float climb = ringUp[ring + (corner >= 2 ? 1 : 0)];
-                    mesh.face(cos[around], sin[around], ringSlope[at]);
-                    mesh.add(ringX[at], ringY[at], base + climb, (float) around * repeats / sides, climb / BARK_SPAN, frame.red, frame.green, frame.blue);
+                    int on = corner == 1 || corner == 2 ? 1 : 0, above = corner >= 2 ? 1 : 0;
+                    int place = (side + turn) % sides + on;
+                    int at = (ring + above) * (TRUNK_SIDES + 1) + place;
+                    mesh.face(cos[place], sin[place], ringSlope[at]);
+                    mesh.add(ringX[at], ringY[at], base + ringUp[ring + above], across + (side + on) * wraps / sides, up + ringRun[ring + above] / span,
+                            frame.red, frame.green, frame.blue);
                 }
             }
         }
@@ -451,13 +504,15 @@ final class Flora {
         int top = (rings - 1) * (TRUNK_SIDES + 1);
         float topUp = ringUp[rings - 1], tip = topUp + height * SPIRE;
         float lean = radius * TAPER / (height * SPIRE);
+        float tipRun = ringRun[rings - 1] + (float) Math.hypot(height * SPIRE, radius * TAPER);
         for (int side = 0; side < sides; side++) {
-            mesh.face(SPIRE_COS[side], SPIRE_SIN[side], lean);
-            mesh.add(x, y, base + tip, (side + 0.5f) * repeats / sides, tip / BARK_SPAN, frame.red, frame.green, frame.blue);
+            int place = (side + turn) % sides;
+            mesh.face(SPIRE_COS[place], SPIRE_SIN[place], lean);
+            mesh.add(x, y, base + tip, across + (side + 0.5f) * wraps / sides, up + tipRun / span, frame.red, frame.green, frame.blue);
             for (int next = 0; next <= 1; next++) {
-                mesh.face(cos[side + next], sin[side + next], lean);
-                mesh.add(ringX[top + side + next], ringY[top + side + next], base + topUp, (float) (side + next) * repeats / sides, topUp / BARK_SPAN,
-                        frame.red, frame.green, frame.blue);
+                mesh.face(cos[place + next], sin[place + next], lean);
+                mesh.add(ringX[top + place + next], ringY[top + place + next], base + topUp, across + (side + next) * wraps / sides,
+                        up + ringRun[rings - 1] / span, frame.red, frame.green, frame.blue);
             }
         }
         return (rings - 1) * sides * 2 + sides;
@@ -470,7 +525,10 @@ final class Flora {
      */
     int addIvy(Mesh mesh, float x, float y, float base, float radius, float height, float tall, int seed, SpriteGeometry.Frame frame) {
         int rings = rings(x, y, radius, height, true, seed, IVY_STANDS_OFF);
-        int repeats = Math.max(1, Math.round(2f * (float) Math.PI * radius / IVY_SPAN));
+        float girth = 2f * (float) Math.PI * radius;
+        int repeats = Math.max(1, Math.round(girth / IVY_SPAN));
+        // The picture goes round a whole number of times, and is as large up the bole as that makes it round it.
+        float span = girth / repeats;
         mark(mesh, frame.open, 0f, IVY);
         float foot = ringUp[1];
         for (int ring = 1; ring + 1 < rings; ring++) {
@@ -486,7 +544,7 @@ final class Flora {
                     float py = upper == 1 ? ringY[below] + (ringY[at] - ringY[below]) * share : ringY[at];
                     mesh.face(NEAR_COS[around], NEAR_SIN[around], ringSlope[at]);
                     mesh.sway = Math.clamp((climb - foot) / (tall - foot), 0f, 1f);
-                    mesh.add(px, py, base + climb, (float) around * repeats / TRUNK_SIDES, climb / IVY_SPAN, frame.red, frame.green, frame.blue);
+                    mesh.add(px, py, base + climb, (float) around * repeats / TRUNK_SIDES, climb / span, frame.red, frame.green, frame.blue);
                 }
             }
         }

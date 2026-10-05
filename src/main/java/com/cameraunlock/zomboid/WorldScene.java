@@ -2626,7 +2626,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         boolean near = away2 < TRUNK_NEAR * TRUNK_NEAR;
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f);
-        flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, seed, frame);
+        flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, Flora.barkOf(sprite.getName(), seed), seed, frame);
         if (near && Flora.ivied(x, y)) {
             flora.addIvy(laid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, frame);
         }

@@ -9,7 +9,7 @@ edges for a surface. The picture is taken out of and put into the model's own sp
 overlap and wrap, since done whole at 2048 it needs more memory than the card has.
 
 Run with the venv that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
-    python tools/materials/generate.py --out DIR [--only bark leaves ...] [--seeds 1993 7] [--size 2048]
+    python tools/materials/generate.py --out DIR [--only bark-oak litter ...] [--seeds 1993 7] [--size 2048]
 Writes DIR/<name>-<seed>.png. tools/materials/pack.py puts the chosen ones into the mod.
 """
 import argparse
@@ -23,6 +23,8 @@ from PIL import Image
 
 MODEL = 'stabilityai/stable-diffusion-xl-base-1.0'
 EVEN = 'flat even overcast lighting, seamless texture, photorealistic, sharp focus, highly detailed, 8k'
+BARK = 'close-up photograph of '
+WHOLE = ' filling the whole frame, '
 SURFACES = {
     'asphalt': 'top down photograph of old weathered asphalt road surface, fine dark aggregate with pale flecks of stone, hairline cracks, ' + EVEN,
     'gravel': 'top down photograph of a compacted gravel and crushed stone driveway, small pale angular stones and grit, ' + EVEN,
@@ -30,7 +32,14 @@ SURFACES = {
     'grass': 'top down photograph of a lush mown lawn seen from directly above, short dense fresh green grass blades with a little clover, ' + EVEN,
     'shingles': 'front view photograph of a roof covered in rectangular grey asphalt shingles laid in perfectly horizontal rows, each row offset by half a shingle, granular mineral surface, slight weathering, ' + EVEN,
     'wood': 'top down photograph of worn varnished oak floor boards running straight, warm visible wood grain, fine scratches, ' + EVEN,
-    'bark': 'close-up photograph of rough mature oak tree bark filling the whole frame, deep vertical furrows and thick corky ridges, grey brown with traces of green lichen, ' + EVEN,
+    'bark-oak': BARK + 'rough mature oak tree bark' + WHOLE + 'deep vertical furrows and thick corky ridges, grey brown with traces of green lichen, ' + EVEN,
+    'bark-linden': BARK + 'rough old linden tree bark' + WHOLE + 'many fine shallow vertical fissures between long flat grey brown ridges that cross and join, ' + EVEN,
+    'bark-maple': BARK + 'rough mature maple tree bark' + WHOLE + 'deep irregular furrows and thick scaly ridges, dark grey brown with patches of moss, ' + EVEN,
+    'bark-birch': BARK + 'paper birch tree bark' + WHOLE + 'white and cream papery bark peeling in thin curls, dark horizontal lenticel lines, patches of tan, ' + EVEN,
+    'bark-pine': BARK + 'rough mature pine tree bark' + WHOLE + 'deep vertical furrows and thick flaky ridges, reddish brown, ' + EVEN,
+    'bark-hemlock': BARK + 'rough old spruce tree bark' + WHOLE + 'dark brown with narrow vertical furrows and small flaky ridges, hints of red, ' + EVEN,
+    'bark-holly': BARK + 'smooth grey beech tree bark' + WHOLE + 'thin pale silver grey bark with faint horizontal wrinkles and patches of pale lichen, ' + EVEN,
+    'bark-dogwood': BARK + 'rough mature elm tree bark' + WHOLE + 'deep vertical furrows and blocky corky ridges broken by cross cracks, dark grey, ' + EVEN,
     'planks': 'front view photograph of an old weathered wooden fence, vertical grey brown planks side by side, visible wood grain, knots, nail heads and cracks, ' + EVEN,
     'carpet': 'top down macro photograph of plain wall to wall carpet, short dense loop pile fibres, uniform beige, ' + EVEN,
     'vinyl': 'close-up photograph of dark charcoal grey leather, fine natural pebbled grain, soft matte surface, uniform, ' + EVEN,
@@ -48,9 +57,12 @@ OWN_NEGATIVE = {
     'litter': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, green grass, stones, mushrooms, moss',
     'rock': 'shadows, perspective, horizon, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, bricks, mortar, pebbles, leaves, objects, concrete, sand',
     'grass': 'shadows, perspective, horizon, objects, fallen leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, lines, flowers, soil, path',
-    'bark': 'perspective, horizon, objects, leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, sky, branches, whole tree',
 }
 FOLIAGE_NEGATIVE = 'sky, trunk, branches, flowers, fruit, text, watermark, blurry, bokeh, depth of field, painting, illustration, vignette, border, brown, yellow, autumn, wall, bricks, ground'
+BARK_NEGATIVE = 'perspective, horizon, objects, leaves, text, watermark, blurry, painting, illustration, vignette, border, tiles, sky, branches, whole tree, planks, sawn timber, diagonal, stones, scales, 3d render'
+for _name in SURFACES:
+    if _name.startswith('bark-'):
+        OWN_NEGATIVE[_name] = BARK_NEGATIVE
 for _name in ('canopy', 'hedge', 'needles', 'ivy'):
     OWN_NEGATIVE[_name] = FOLIAGE_NEGATIVE
 

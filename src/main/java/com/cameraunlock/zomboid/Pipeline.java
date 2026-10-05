@@ -184,6 +184,9 @@ final class Pipeline {
     private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
     /** Which of the materials is planed wood. */
     private static final int WOOD = 6, CARPET = 9;
+    /** Bark is several pictures in one texture, one behind another in the order Flora counts them. */
+    private static final int BARK = 7;
+    private static final String[] BARKS = {"bark-oak", "bark-linden", "bark-maple", "bark-birch", "bark-pine", "bark-hemlock", "bark-holly", "bark-dogwood"};
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int FIRST_MATERIAL_UNIT = 3;
@@ -1286,7 +1289,7 @@ final class Pipeline {
     private static void bindMaterials() {
         for (int material = 0; material < MATERIALS.length; material++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
-            GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[material]);
+            GL11.glBindTexture(material == BARK ? Pictures.GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D, materialTexture[material]);
         }
         world.set("uAsphalt", FIRST_MATERIAL_UNIT);
         world.set("uGravel", FIRST_MATERIAL_UNIT + 1);
@@ -2373,7 +2376,7 @@ final class Pipeline {
     /** Null, or the picture that could not be loaded. */
     private static String loadMaterials() {
         for (int material = 0; material < MATERIALS.length; material++) {
-            String missing = loadPicture(MATERIALS[material], material == FIRST_CUTOUT, materialTexture, materialGain, material);
+            String missing = material == BARK ? loadBarks() : loadPicture(MATERIALS[material], material == FIRST_CUTOUT, materialTexture, materialGain, material);
             if (missing != null) {
                 return missing;
             }
@@ -2662,6 +2665,20 @@ final class Pipeline {
             return e.getMessage();
         }
         gains[index] = Pictures.gain;
+        return null;
+    }
+
+    private static String loadBarks() {
+        String[] paths = new String[BARKS.length];
+        for (int bark = 0; bark < BARKS.length; bark++) {
+            paths[bark] = "/materials/" + BARKS[bark] + ".jpg";
+        }
+        try {
+            materialTexture[BARK] = Pictures.loadLayers(paths);
+        } catch (IOException e) {
+            return e.getMessage();
+        }
+        materialGain[BARK] = Pictures.gain;
         return null;
     }
 
