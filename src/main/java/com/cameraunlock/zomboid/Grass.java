@@ -19,6 +19,11 @@ final class Grass {
     /** How well grass does at a point of the square being grown, 0 where it barely grows and 1 on open lawn. */
     interface Ground {
         float vigour(float a, float b);
+
+        /** Whether anything grows at the point (a, b) of the square. Nothing does on a part of it that is street. */
+        default boolean grows(float a, float b) {
+            return true;
+        }
     }
 
     /** Places a plant can stand on a square of lawn, along each side, and on a square of long grass. */
@@ -106,7 +111,7 @@ final class Grass {
                 float a = (i + Flora.unit(hash, 8)) / LAWN_SITES, b = (j + Flora.unit(hash, 16)) / LAWN_SITES;
                 float kept = (kept00 * (1f - a) + kept10 * a) * (1f - b) + (kept01 * (1f - a) + kept11 * a) * b;
                 float rank = Flora.unit(hash, 0);
-                if (rank >= kept || a < lowA || a > highA || b < lowB || b > highB) {
+                if (rank >= kept || a < lowA || a > highA || b < lowB || b > highB || !ground.grows(a, b)) {
                     continue;
                 }
                 float vigour = ground.vigour(a, b);
@@ -175,6 +180,9 @@ final class Grass {
                 float a = lowA + (highA - lowA) * (i + Flora.unit(hash, 8)) / RANK_SITES, b = lowB + (highB - lowB) * (j + Flora.unit(hash, 16)) / RANK_SITES;
                 // Past the square's edge the clump is ragged: shorter the further out a plant stands.
                 float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
+                if (!ground.grows(Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f))) {
+                    continue;
+                }
                 float vigour = ground.vigour(Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f));
                 float size = Math.min((kept - rank) / (0.25f * kept), 1f) * (out > 0f ? 1f - 1.8f * out : 1f) * (0.6f + 0.4f * vigour) * lasts;
                 if (size < 0.05f) {

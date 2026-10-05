@@ -58,8 +58,10 @@ final class Terrain {
         final float[] heights = new float[CORNERS * CORNERS];
         /** The height of water at each corner, which where a quay meets it is not the land's. */
         final float[] water = new float[CORNERS * CORNERS];
-        /** How far each square lies below its corners: a street, by its kerb. */
-        final float[] drop = new float[CHUNK_TILES * CHUNK_TILES];
+        /** Where the kerbs of the chunk's streets run, as Kerbs keeps it. Null where it has no street. */
+        float[] kerb;
+        /** What the squares the kerbs were worked out from are, and the kerbs, each as one number. */
+        long kerbFrom, kerbSum;
     }
 
     private static final class Kinds {
@@ -75,6 +77,8 @@ final class Terrain {
     private static final Kinds passing = new Kinds();
     private static final byte[] around = new byte[SPAN * SPAN];
     private static final float[] padsAround = new float[SPAN * SPAN];
+    private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
+    private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
     private static final int VALLEY_CHUNKS = 4;
     private static final float VALLEY = VALLEY_CHUNKS * CHUNK_TILES;
@@ -114,7 +118,17 @@ final class Terrain {
         float[] h = grid.heights;
         int at = i * CORNERS + j;
         return (h[at] * (1f - a) + h[at + CORNERS] * a) * (1f - b) + (h[at + 1] * (1f - a) + h[at + CORNERS + 1] * a) * b
-                - grid.drop[i * CHUNK_TILES + j];
+                - (grid.kerb != null && Kerbs.at(grid.kerb, x - wx * CHUNK_TILES, y - wy * CHUNK_TILES) > 0f ? KERB : 0f);
+    }
+
+    /** Where the kerbs of a chunk run, as Kerbs keeps it, and null where the chunk has no street. After corners. */
+    static float[] kerb(int wx, int wy) {
+        return grids.get(slot(wx, wy)).kerb;
+    }
+
+    /** The kerbs of a chunk as one number, which is another when they run otherwise. After corners. */
+    static long kerbSum(int wx, int wy) {
+        return grids.get(slot(wx, wy)).kerbSum;
     }
 
     /** The height of water at the corners of a chunk, laid out as corners gives the land's. After corners. */
@@ -145,13 +159,59 @@ final class Terrain {
                 fresh.water[i * CORNERS + j] = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY) - WATER_BELOW;
             }
         }
-        for (int i = 0; i < CHUNK_TILES; i++) {
-            for (int j = 0; j < CHUNK_TILES; j++) {
-                fresh.drop[i * CHUNK_TILES + j] = around[(i + REACH) * SPAN + j + REACH] == STREET ? KERB : 0f;
-            }
-        }
+        kerbs(cell, fresh, grid != null && grid.wx == wx && grid.wy == wy ? grid : null);
         grids.set(slot, fresh);
         return fresh.heights;
+    }
+
+    /**
+     * Works out where the kerbs of a chunk run. After gather. The line of a kerb is shaped by
+     * the squares a long way along it, so it is only worked out anew when one of those has
+     * changed since it last was.
+     */
+    private static void kerbs(IsoCell cell, Grid fresh, Grid last) {
+        boolean street = false;
+        for (int i = REACH - 1; i <= REACH + CHUNK_TILES && !street; i++) {
+            for (int j = REACH - 1; j <= REACH + CHUNK_TILES && !street; j++) {
+                street = around[i * SPAN + j] == STREET;
+            }
+        }
+        if (!street) {
+            return;
+        }
+        int reach = Kerbs.MARGIN / CHUNK_TILES;
+        long from = 0x9E3779B97F4A7C15L;
+        for (int cx = -reach; cx <= reach; cx++) {
+            for (int cy = -reach; cy <= reach; cy++) {
+                Kinds kinds = known[slot(fresh.wx + cx, fresh.wy + cy)];
+                if (kinds == null || kinds.wx != fresh.wx + cx || kinds.wy != fresh.wy + cy) {
+                    kinds = cell.getGridSquare((fresh.wx + cx) * CHUNK_TILES + CHUNK_TILES / 2, (fresh.wy + cy) * CHUNK_TILES + CHUNK_TILES / 2, 0) == null
+                            ? null : kinds(cell, fresh.wx + cx, fresh.wy + cy);
+                }
+                for (int i = 0; i < CHUNK_TILES; i++) {
+                    for (int j = 0; j < CHUNK_TILES; j++) {
+                        int at = ((cx + reach) * CHUNK_TILES + i) * Kerbs.SPAN + (cy + reach) * CHUNK_TILES + j;
+                        kerbKinds[at] = kinds == null ? UNKNOWN : kinds.kinds[i * CHUNK_TILES + j];
+                        kerbHard[at] = kinds != null && !Float.isNaN(kinds.pads[i * CHUNK_TILES + j]);
+                        from = (from ^ kerbKinds[at] + (kerbHard[at] ? 8 : 0)) * 0x100000001B3L;
+                    }
+                }
+            }
+        }
+        fresh.kerbFrom = from;
+        if (last != null && last.kerbFrom == from) {
+            fresh.kerb = last.kerb;
+            fresh.kerbSum = last.kerbSum;
+            return;
+        }
+        fresh.kerb = Kerbs.field(kerbKinds, kerbHard, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
+        if (fresh.kerb != null) {
+            long sum = 0x9E3779B97F4A7C15L;
+            for (float value : fresh.kerb) {
+                sum = (sum ^ Float.floatToRawIntBits(value)) * 0x100000001B3L;
+            }
+            fresh.kerbSum = sum;
+        }
     }
 
     /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. */

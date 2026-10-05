@@ -1691,10 +1691,13 @@ final class PipelineShaders {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
                 // A kerb is cast in lengths: pale concrete, a little uneven in its grey, with
-                // a joint where one length ends and the next begins.
+                // a joint where one length ends and the next begins. It goes round corners,
+                // so how far along it a point is cannot be had from the way it faces there:
+                // the joints are where the map's own lines cross it, by whichever of the two
+                // ways it runs more along, and its grey is taken from where it stands.
                 if (vMaterial > 63.5 && vMaterial < 64.5) {
-                    float along = dot(vWorld.xy, vec2(n.y, -n.x));
-                    float poured = patches(vec2(along * 2.3, vWorld.z * 11.0)) * 0.6 + patches(vec2(along * 19.0, vWorld.z * 37.0) + 3.0) * 0.4;
+                    float along = abs(n.x) > abs(n.y) ? vWorld.y : vWorld.x;
+                    float poured = patches(vWorld.xy * 2.3 + vec2(0.0, vWorld.z * 11.0)) * 0.6 + patches(vWorld.xy * 19.0 + vec2(3.0, vWorld.z * 37.0 + 3.0)) * 0.4;
                     float toJoint = abs(fract(along / 1.5) - 0.5) * 1.5;
                     float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along), 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
                     texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);

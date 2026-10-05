@@ -801,6 +801,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     // loaded its corners are worked out afresh at every asking.
                     float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
                     float[] water = Terrain.water(chunk.wx, chunk.wy);
+                    kerbs = Terrain.kerb(chunk.wx, chunk.wy);
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
                         if (z == 0) {
@@ -818,7 +819,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                                 // Water lies at its own height, and a street below its kerb.
                                 byte kind = z == 0 ? groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] : Terrain.MADE;
                                 float[] heights = kind == Terrain.WATER ? water : ground;
-                                float drop = kind == Terrain.STREET ? Terrain.KERB : 0f;
+                                float drop = z == 0 && kind != Terrain.WATER && kerbs != null ? kerbOver(kind, localX, localY) : noKerb();
                                 geometry.lift[0] = heights[corner] - drop;
                                 geometry.lift[1] = heights[corner + Terrain.CORNERS] - drop;
                                 geometry.lift[2] = heights[corner + Terrain.CORNERS + 1] - drop;
@@ -830,6 +831,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                             }
                         }
                     }
+                    noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.acrossView = acrossView;
                     fresh.fill(solid, laid);
@@ -935,6 +937,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         for (int i = 0; i < ground.length; i++) {
             sum = sum(sum(sum, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
         }
+        sum = sum(sum, Terrain.kerbSum(chunk.wx, chunk.wy));
         for (int z = from; z <= to; z++) {
             readLights(chunk, chunkX, chunkY, z);
             if (z == 0) {
@@ -1243,8 +1246,19 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 return;
             }
         }
+        // Where a street steps along a verge the map paints grass over half of the street's
+        // square, to slant the edge, from the ground's own sheet or from the sheet of painted
+        // kerbs that have grass behind them. That grass is the verge's, and the verge ends at the kerb:
+        // it lies on the land's side of a kerb that crosses the square and nowhere on a street.
+        vergeOver = isFloor && z == 0 && groundKind[(waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1] == Terrain.STREET
+                && over.getName() != null && (over.getName().startsWith("blends_natural") || over.getName().startsWith("street_curbs") && over.getName().contains("grass"));
+        if (vergeOver && geometry.kerb == null) {
+            vergeOver = false;
+            return;
+        }
         int before = FirstPerson.TRACE ? worn(texture) : 0;
         addSprite(solid.get(texture.getID()), object, under, texture, isFloor, x, y, z);
+        vergeOver = false;
         if (FirstPerson.TRACE) {
             tally(under, worn(texture) - before);
         }
@@ -1376,9 +1390,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
                 frameOf(groundObject[at], groundTexture[at]);
                 geometry.cover = cover;
+                // Grass does not spread down a kerb onto the street.
+                geometry.kerbKeep = SpriteGeometry.LAND;
                 spreadFaces++;
                 geometry.addFace(laid.get(groundTexture[at].getID()), frame, x, y, 0, 0f, 0f, (floorLayer + spread) * standOff / ViewCamera.LEVEL_HEIGHT,
                         1f, 0f, 0f, 0f, 1f, 0f);
+                geometry.kerbKeep = SpriteGeometry.BOTH;
                 geometry.cover = null;
             }
         }
@@ -1451,6 +1468,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         return (1f - grownUnder * woodedAt(grownLocalX, grownLocalY, a, b)) * (0.2f + 0.8f * edge * edge * (3f - 2f * edge));
     }
 
+    @Override
+    public boolean grows(float a, float b) {
+        return geometry.kerb == null || !geometry.onStreet(a, b);
+    }
+
     /**
      * What stands in and lies on open ground besides its grass. Under trees the ground is
      * fallen leaves, thick in a wood and a thin scatter round one tree on a lawn, with ferns
@@ -1488,6 +1510,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             for (int fern = 0; fern < ferns; fern++) {
                 int seed = Flora.mix(x, y, 40 + fern);
                 float a = 0.15f + 0.7f * Flora.unit(seed, 0), b = 0.15f + 0.7f * Flora.unit(seed, 8);
+                if (geometry.kerb != null && geometry.onStreet(a, b)) {
+                    continue;
+                }
                 int fronds = away2 < FERN_NEAR * FERN_NEAR ? 5 + (seed >>> 24 & 1) : 4;
                 Flora.addFern(cards, x + a, y + b, geometry.liftAt(a, b), 0.4f + 0.3f * Flora.unit(seed, 16), fronds, seed, frame);
             }
@@ -1514,6 +1539,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (Flora.weed(x, y)) {
                 int seed = Flora.mix(x, y, 70);
                 float a = 0.2f + 0.6f * Flora.unit(seed, 0), b = 0.2f + 0.6f * Flora.unit(seed, 8);
+                if (geometry.kerb != null && geometry.onStreet(a, b)) {
+                    return;
+                }
                 for (int leaf = 0; leaf < Flora.WEED_LEAVES; leaf++) {
                     int each = Flora.mix(seed, leaf, 71);
                     float length = 0.13f + 0.07f * Flora.unit(each, 0);
@@ -1531,14 +1559,189 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         for (int flower = 0; flower < flowers; flower++) {
             int seed = Flora.mix(x, y, 60 + flower);
             float a = 0.08f + 0.84f * Flora.unit(seed, 0), b = 0.08f + 0.84f * Flora.unit(seed, 8);
+            if (geometry.kerb != null && geometry.onStreet(a, b)) {
+                continue;
+            }
             Flora.addFlower(cards, x + a, y + b, geometry.liftAt(a, b) + lowest + taller * Flora.unit(seed, 16), least * (1f + 0.65f * Flora.unit(seed, 24)),
                     Flora.unit(seed, 4) * 2.0 * Math.PI, Flora.flowerKind(x, y, flower), frame);
         }
     }
 
+    /** Where the kerbs of the chunk being built run, as Kerbs keeps it. Null where it has no street. */
+    private float[] kerbs;
+    /** Whether the square being added has a kerb on it or along its edge. */
+    private boolean kerbed;
+    /** The square beside the one being added whose ground lies beyond the kerb that crosses it, as a place in groundKind, or -1. */
+    private int beyondKerb;
+
+    /** Whether what is being laid is grass the map paints over the edge of a street's square. */
+    private boolean vergeOver;
+
+    /** For a square with no kerb to do with it. */
+    private float noKerb() {
+        geometry.kerb = null;
+        kerbed = false;
+        return 0f;
+    }
+
     /**
-     * Where a square stands above the one beside it there is a face between them: the kerb
-     * along a street, and the wall of a quay or a boardwalk over water.
+     * How far a square of the ground lies below its corners, which is by a kerb where it is on
+     * the street's side of one. A kerb does not keep to the edges of the squares, so a square
+     * it crosses is in two parts, and geometry is told of it: the square then lies at the
+     * height of what it is itself, street or land, and the part beyond the kerb a kerb lower
+     * or higher.
+     */
+    private float kerbOver(byte kind, int localX, int localY) {
+        boolean street = false, land = false, onLine = false;
+        float beyondX = 0f, beyondY = 0f;
+        int beyond = 0;
+        for (int p = 0; p <= Kerbs.FINE; p++) {
+            for (int q = 0; q <= Kerbs.FINE; q++) {
+                float value = kerbs[(localX * Kerbs.FINE + p) * Kerbs.POINTS + localY * Kerbs.FINE + q];
+                street |= value > 0f;
+                land |= value < 0f;
+                onLine |= value == 0f;
+                if (value != 0f && value > 0f != (kind == Terrain.STREET)) {
+                    beyondX += p;
+                    beyondY += q;
+                    beyond++;
+                }
+            }
+        }
+        geometry.kerb = null;
+        if (!street || !land) {
+            // A kerb along the square's edge stands on the street's square.
+            kerbed = street && onLine;
+            return street ? Terrain.KERB : 0f;
+        }
+        kerbed = true;
+        geometry.kerb = kerbs;
+        geometry.kerbX = localX;
+        geometry.kerbY = localY;
+        geometry.kerbStreet = kind == Terrain.STREET;
+        // The ground beyond the kerb is the ground of the square beside this one that is nearest that part.
+        beyondKerb = -1;
+        float nearest = Float.MAX_VALUE;
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        for (int di = -1; di <= 1; di++) {
+            for (int dj = -1; dj <= 1; dj++) {
+                int at = own + di * LIGHT_SPAN + dj;
+                byte beside = groundKind[at];
+                boolean other = geometry.kerbStreet ? beside == Terrain.NATURAL || beside == Terrain.MADE : beside == Terrain.STREET;
+                if (!other || groundTexture[at] == null) {
+                    continue;
+                }
+                float awayX = beyondX / beyond / Kerbs.FINE - 0.5f - di, awayY = beyondY / beyond / Kerbs.FINE - 0.5f - dj;
+                if (awayX * awayX + awayY * awayY < nearest) {
+                    nearest = awayX * awayX + awayY * awayY;
+                    beyondKerb = at;
+                }
+            }
+        }
+        return geometry.kerbStreet ? Terrain.KERB : 0f;
+    }
+
+    /**
+     * The face of the kerb on a square: a strip standing along the line where the kerbs'
+     * field crosses nothing, from the land's height down to the street's. Each block between
+     * four points of the field is two triangles, and the line runs straight through each.
+     */
+    private void addKerb(int x, int y, int localX, int localY) {
+        SpriteGeometry.Mesh mesh = solid.get(PLAIN);
+        // The colour given is the light on it. What colour the thing is, the picture knows by
+        // what it is made of.
+        mesh.open = frame.open + 32f * KERB_STONE;
+        for (int p = 0; p < Kerbs.FINE; p++) {
+            for (int q = 0; q < Kerbs.FINE; q++) {
+                int at = (localX * Kerbs.FINE + p) * Kerbs.POINTS + localY * Kerbs.FINE + q;
+                float here = kerbs[at], across = kerbs[at + Kerbs.POINTS], opposite = kerbs[at + Kerbs.POINTS + 1], along = kerbs[at + 1];
+                boolean street = here > 0f;
+                if (street == across > 0f && street == opposite > 0f && street == along > 0f) {
+                    continue;
+                }
+                addKerbLength(mesh, x, y, localX, localY, p, q, here, 1, 0, across, 1, 1, opposite);
+                addKerbLength(mesh, x, y, localX, localY, p, q, here, 1, 1, opposite, 0, 1, along);
+            }
+        }
+    }
+
+    private final float[] kerbEnds = new float[4];
+
+    /** The length of kerb in one triangle of a block of the field: its corner (p, q) and two more, each with the field there. */
+    private void addKerbLength(SpriteGeometry.Mesh mesh, int x, int y, int localX, int localY, int p, int q,
+            float here, int p1, int q1, float first, int p2, int q2, float second) {
+        int ends = 0;
+        ends = kerbEnd(ends, 0, 0, here, p1, q1, first);
+        ends = kerbEnd(ends, p1, q1, first, p2, q2, second);
+        ends = kerbEnd(ends, p2, q2, second, 0, 0, here);
+        if (ends != 2 || kerbEnds[0] == kerbEnds[2] && kerbEnds[1] == kerbEnds[3]) {
+            return;
+        }
+        float[] lift = geometry.lift;
+        // The square's own height is the street's where it is street, or all on the street's side.
+        float raise = geometry.kerb == null || geometry.kerbStreet ? Terrain.KERB : 0f;
+        for (int corner : KERB_CORNERS) {
+            int end = corner >> 1;
+            float a = (p + kerbEnds[2 * end]) / Kerbs.FINE, b = (q + kerbEnds[2 * end + 1]) / Kerbs.FINE;
+            float top = (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b + raise;
+            // It faces the street, and round a corner turns with the line.
+            float step = 1f / Kerbs.FINE;
+            float towardsX = Kerbs.at(kerbs, localX + a + step, localY + b) - Kerbs.at(kerbs, localX + a - step, localY + b);
+            float towardsY = Kerbs.at(kerbs, localX + a, localY + b + step) - Kerbs.at(kerbs, localX + a, localY + b - step);
+            float length = (float) Math.sqrt(towardsX * towardsX + towardsY * towardsY);
+            if (length < 1e-4f) {
+                // Hard against a house the field is level on the house's side, and the length's own lie says which way it faces.
+                towardsX = kerbEnds[3] - kerbEnds[1];
+                towardsY = kerbEnds[0] - kerbEnds[2];
+                float streetP = here > 0f ? 0f : first > 0f ? p1 : p2, streetQ = here > 0f ? 0f : first > 0f ? q1 : q2;
+                if ((streetP - kerbEnds[0]) * towardsX + (streetQ - kerbEnds[1]) * towardsY < 0f) {
+                    towardsX = -towardsX;
+                    towardsY = -towardsY;
+                }
+                length = (float) Math.sqrt(towardsX * towardsX + towardsY * towardsY);
+            }
+            mesh.face(towardsX / length, towardsY / length, 0.9f);
+            mesh.add(x + a, y + b, (corner & 1) == 0 ? top - Terrain.KERB - 0.02f : top, 0f, 0f, frame.red, frame.green, frame.blue);
+        }
+    }
+
+    /** Two triangles of a strip between two ends: each corner is an end, and whether it is the top there. */
+    private static final int[] KERB_CORNERS = {0, 2, 3, 0, 3, 1};
+
+    /** Notes where the kerb's line crosses one side of a triangle, if it does: between a point on the street's side and one that is not. */
+    private int kerbEnd(int ends, int p0, int q0, float from, int p1, int q1, float to) {
+        if (from > 0f == to > 0f || ends == 2) {
+            return ends;
+        }
+        float t = from / (from - to);
+        kerbEnds[2 * ends] = p0 + (p1 - p0) * t;
+        kerbEnds[2 * ends + 1] = q0 + (q1 - q0) * t;
+        return ends + 1;
+    }
+
+    /**
+     * The ground beyond a kerb that crosses a square: the pavement's on the part of a street's
+     * square the kerb leaves standing, and the street's on the part of a pavement's square it
+     * takes. It is the ground of the square beside, laid here as far as the kerb.
+     */
+    private void addBeyondKerb(int x, int y) {
+        IsoObject floor = groundObject[beyondKerb];
+        Texture texture = groundTexture[beyondKerb];
+        PropertyContainer properties = floor.getSprite().getProperties();
+        frameOf(floor, texture);
+        frame.material = Ground.of(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), true);
+        if (frame.material == 0f) {
+            frame.material = materialOf(floor.getSprite().getName(), true);
+        }
+        geometry.kerbKeep = geometry.kerbStreet ? SpriteGeometry.LAND : SpriteGeometry.STREET;
+        geometry.addFace(solid.get(texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        geometry.kerbKeep = SpriteGeometry.BOTH;
+        frame.material = 0f;
+    }
+
+    /**
+     * Where a square stands above water beside it there is a face between them: the wall of
+     * a quay or a boardwalk.
      */
     private void addEdges(int x, int y, int localX, int localY) {
         int own = (localX + 1) * LIGHT_SPAN + localY + 1;
@@ -1557,10 +1760,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         SpriteGeometry.Mesh mesh = solid.get(PLAIN);
         // The colour given is the light on it. What colour the thing is, the picture knows by
         // what it is made of.
-        if (beside == Terrain.STREET) {
-            mesh.open = frame.open + 32f * KERB_STONE;
-            SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -Terrain.KERB - 0.02f, 0f, frame.red, frame.green, frame.blue);
-        } else if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
+        if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
             mesh.open = frame.open + 32f * QUAY;
             SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f, frame.red, frame.green, frame.blue);
         }
@@ -1955,6 +2155,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             addRoomCeiling(x, y, z, localX, localY);
         }
         if (z == 0) {
+            if (geometry.kerb != null && beyondKerb >= 0) {
+                addBeyondKerb(x, y);
+            }
+            if (kerbed) {
+                addKerb(x, y, localX, localY);
+            }
             addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
             if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
@@ -2322,7 +2528,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             geometry.cover = cover;
         }
+        // A floor a kerb crosses ends at the kerb, and the ground of the square beside goes on beyond
+        // it. What the game paints over the floor, an edging or a line, ends there with it.
+        if (z == 0 && geometry.kerb != null && (!isFloor || beyondKerb >= 0)) {
+            geometry.kerbKeep = geometry.kerbStreet && !vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
+        }
         geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
+        geometry.kerbKeep = SpriteGeometry.BOTH;
         frame.kind = 0f;
         geometry.cover = null;
     }

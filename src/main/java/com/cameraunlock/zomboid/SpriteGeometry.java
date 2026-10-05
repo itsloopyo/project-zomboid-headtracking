@@ -342,10 +342,39 @@ final class SpriteGeometry {
      */
     boolean turned;
 
+    /**
+     * Where the kerbs of the chunk run, as Kerbs keeps it, when one crosses the square being
+     * added, and null when none does. The square is then at two heights: lift is its ground
+     * on the side it is itself, street or land, and the other side lies a kerb below that or
+     * above it.
+     */
+    float[] kerb;
+    /** The square's place in its chunk, for reading kerb. */
+    int kerbX, kerbY;
+    /** Whether the square a kerb crosses is itself street. */
+    boolean kerbStreet;
+    /** Which side of the kerb a face laid on the ground is added on: both, the land's alone or the street's alone. */
+    int kerbKeep;
+    /** The side the corners now being added are on, where that is known and not read from where they are. */
+    private int kerbSide;
+    static final int BOTH = 0, LAND = 1, STREET = 2;
+
+    /** Whether the point (a, b) of the square is on the street's side of a kerb that crosses it. */
+    boolean onStreet(float a, float b) {
+        return Kerbs.at(kerb, kerbX + a, kerbY + b) > 0f;
+    }
+
     float liftAt(float a, float b) {
         a = Math.clamp(a, 0f, 1f);
         b = Math.clamp(b, 0f, 1f);
-        return (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b;
+        float up = (lift[0] * (1f - a) + lift[1] * a) * (1f - b) + (lift[3] * (1f - a) + lift[2] * a) * b;
+        if (kerb != null) {
+            boolean street = kerbSide == BOTH ? onStreet(a, b) : kerbSide == STREET;
+            if (street != kerbStreet) {
+                up += street ? -Terrain.KERB : Terrain.KERB;
+            }
+        }
+        return up;
     }
 
     /** Frame pixel across of a point on the tile. */
@@ -414,12 +443,129 @@ final class SpriteGeometry {
             mesh.face(way * (db1 * up2 - up1 * db2), way * (up1 * da2 - da1 * up2), way * (da1 * db2 - db1 * da2));
         }
         float[] from = result;
+        if (kerb != null && tileZ == 0 && up1 == 0f && up2 == 0f && h < LAID_BELOW) {
+            int before = mesh.triangles();
+            System.arraycopy(from, 0, split[0], 0, count * CORNER_FLOATS);
+            split(mesh, frame, tileX, tileY, 0, count, 0, 0, Kerbs.FINE);
+            return mesh.triangles() - before;
+        }
         for (int i = 1; i < count - 1; i++) {
             emit(mesh, frame, tileX, tileY, tileZ, from, 0);
             emit(mesh, frame, tileX, tileY, tileZ, from, i);
             emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
         }
         return count - 2;
+    }
+
+    /** A face this near the floor, in levels, lies on the ground and steps down a kerb with it. A table's top does not. */
+    private static final float LAID_BELOW = 0.05f;
+    private static final int SPLIT_CORNERS = 24;
+    /** The face being cut along a kerb, at each halving of the square, and the pieces of it. */
+    private final float[][] split = new float[7][SPLIT_CORNERS * CORNER_FLOATS];
+
+    /**
+     * Adds the part of a face laid on the ground that is in one block of the square, the block
+     * given in points of kerb: all of it at one height where the block is all on one side of
+     * the kerb, and otherwise by quarters, down to a block between four points, which is cut
+     * in two triangles and each of those along the line of the kerb through it.
+     */
+    private void split(Mesh mesh, Frame frame, int tileX, int tileY, int depth, int count, int p, int q, int size) {
+        if (count < 3) {
+            return;
+        }
+        boolean street = false, land = false;
+        for (int i = p; i <= p + size; i++) {
+            for (int j = q; j <= q + size; j++) {
+                float value = kerb[(kerbX * Kerbs.FINE + i) * Kerbs.POINTS + kerbY * Kerbs.FINE + j];
+                street |= value > 0f;
+                land |= value < 0f;
+            }
+        }
+        float[] face = split[depth];
+        if (!street || !land) {
+            addSide(mesh, frame, tileX, tileY, face, count, street ? STREET : LAND);
+            return;
+        }
+        float a = (float) p / Kerbs.FINE, b = (float) q / Kerbs.FINE, side = (float) size / Kerbs.FINE;
+        if (size > 1) {
+            int half = size / 2;
+            float[] inner = split[depth + 1];
+            for (int quarter = 0; quarter < 4; quarter++) {
+                boolean far = (quarter & 1) != 0, down = (quarter & 2) != 0;
+                int kept = cut(face, count, split[6], 1f, 0f, -a - side / 2f, far);
+                kept = cut(split[6], kept, inner, 0f, 1f, -b - side / 2f, down);
+                split(mesh, frame, tileX, tileY, depth + 1, kept, p + (far ? half : 0), q + (down ? half : 0), half);
+            }
+            return;
+        }
+        int at = (kerbX * Kerbs.FINE + p) * Kerbs.POINTS + kerbY * Kerbs.FINE + q;
+        float here = kerb[at], across = kerb[at + Kerbs.POINTS], opposite = kerb[at + Kerbs.POINTS + 1], along = kerb[at + 1];
+        float[] half = split[depth + 1], part = split[depth + 2];
+        for (int triangle = 0; triangle < 2; triangle++) {
+            // The diagonal of the block from (a, b) parts the two, and in each the field runs evenly.
+            int kept = cut(face, count, half, 1f, -1f, b - a, triangle == 0);
+            float perA = (triangle == 0 ? across - here : opposite - along) * Kerbs.FINE, perB = (triangle == 0 ? opposite - across : along - here) * Kerbs.FINE;
+            float atOrigin = here - perA * a - perB * b;
+            float third = triangle == 0 ? across : along;
+            if (here > 0f == third > 0f && here > 0f == opposite > 0f) {
+                addSide(mesh, frame, tileX, tileY, half, kept, here > 0f ? STREET : LAND);
+                continue;
+            }
+            addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, true), STREET);
+            addSide(mesh, frame, tileX, tileY, part, cut(half, kept, part, perA, perB, atOrigin, false), LAND);
+        }
+    }
+
+    /** Adds a piece of a face laid on the ground, all of it on one side of the kerb, if that side is kept. */
+    private void addSide(Mesh mesh, Frame frame, int tileX, int tileY, float[] piece, int count, int side) {
+        if (count < 3 || kerbKeep != BOTH && kerbKeep != side) {
+            return;
+        }
+        float twice = 0f;
+        for (int i = 1; i < count - 1; i++) {
+            int one = i * CORNER_FLOATS, other = one + CORNER_FLOATS;
+            twice += (piece[one] - piece[0]) * (piece[other + 1] - piece[1]) - (piece[one + 1] - piece[1]) * (piece[other] - piece[0]);
+        }
+        // What a cut leaves along its own line is no piece at all.
+        if (Math.abs(twice) < 1e-6f) {
+            return;
+        }
+        kerbSide = side;
+        for (int i = 1; i < count - 1; i++) {
+            emit(mesh, frame, tileX, tileY, 0, piece, 0);
+            emit(mesh, frame, tileX, tileY, 0, piece, i);
+            emit(mesh, frame, tileX, tileY, 0, piece, i + 1);
+        }
+        kerbSide = BOTH;
+    }
+
+    /**
+     * Sutherland-Hodgman against the line where perA * a + perB * b + atOrigin is nothing,
+     * keeping the side where it is above nothing or the side where it is not.
+     */
+    private static int cut(float[] from, int count, float[] to, float perA, float perB, float atOrigin, boolean keepAbove) {
+        int out = 0;
+        for (int i = 0; i < count; i++) {
+            int current = i * CORNER_FLOATS;
+            int next = ((i + 1) % count) * CORNER_FLOATS;
+            float currentValue = perA * from[current] + perB * from[current + 1] + atOrigin;
+            float nextValue = perA * from[next] + perB * from[next + 1] + atOrigin;
+            boolean currentIn = currentValue > 0f == keepAbove;
+            boolean nextIn = nextValue > 0f == keepAbove;
+            if (currentIn) {
+                System.arraycopy(from, current, to, out * CORNER_FLOATS, CORNER_FLOATS);
+                out++;
+            }
+            if (currentIn != nextIn) {
+                float t = currentValue / (currentValue - nextValue);
+                int at = out * CORNER_FLOATS;
+                for (int k = 0; k < CORNER_FLOATS; k++) {
+                    to[at + k] = from[current + k] + (from[next + k] - from[current + k]) * t;
+                }
+                out++;
+            }
+        }
+        return out;
     }
 
     /**
@@ -643,6 +789,10 @@ final class SpriteGeometry {
      */
     void addTuft(Mesh mesh, Frame frame, int tileX, int tileY, float a, float b, float rightX, float rightY,
             float halfWidth, float height, float kind, float vigour) {
+        // Nothing grows on the part of a verge's square that a kerb has given to the street.
+        if (kerb != null && onStreet(a, b)) {
+            return;
+        }
         // The colour is taken from inside the square, wherever the tuft stands: past the
         // square's edge the ground's sprite is its empty corner.
         float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
