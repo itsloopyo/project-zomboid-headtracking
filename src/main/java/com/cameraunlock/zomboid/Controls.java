@@ -48,6 +48,11 @@ public final class Controls {
 
     private Controls() {}
 
+    /** Called with whether the game allows its own cheats: see DevKeys, which the game's classes cannot reach. */
+    public static boolean cheatsAllowed(boolean stock) {
+        return DevKeys.cheatsAllowed(stock);
+    }
+
     /**
      * Called with what the game's aim input reads. The attack button holds
      * the aim input down, because the game takes an attack only from a

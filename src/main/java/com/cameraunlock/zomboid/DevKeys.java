@@ -63,10 +63,22 @@ final class DevKeys {
     private static boolean armed;
     private static boolean invincible, wasInvincible;
     private static java.lang.reflect.Field cannotDie;
+    private static java.lang.reflect.Field godModes;
+    private static Object godMode;
     private static boolean looked;
     private static boolean enabled;
 
     private DevKeys() {}
+
+    /**
+     * Called with whether the game allows its own cheats, which outside its debug mode and off
+     * a server it does not: its god mode then reads as off whatever is set. While F6 has the
+     * player invincible in a development install they are allowed. A game joined to a server
+     * allows them by its own rules already, so this never adds anything there.
+     */
+    static boolean cheatsAllowed(boolean stock) {
+        return stock || invincible;
+    }
 
     /**
      * Logic thread, once a frame. The marker is looked for here and not as the agent starts:
@@ -101,13 +113,28 @@ final class DevKeys {
                     cannotDie.setAccessible(true);
                 }
                 cannotDie.setBoolean(safe, invincible);
+                // The game's own god mode is one of a set of cheats, and every way the game
+                // has of setting one asks first whether cheats are allowed, which they are not
+                // outside its debug mode. The set itself is written to.
+                if (godModes == null) {
+                    Object cheats = zombie.characters.IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
+                    java.lang.reflect.Field held = cheats.getClass().getDeclaredField("cheats");
+                    held.setAccessible(true);
+                    godModes = held;
+                    godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
+                }
+                @SuppressWarnings("unchecked")
+                java.util.Set<Object> set = (java.util.Set<Object>) godModes.get(
+                        zombie.characters.IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
+                if (invincible) {
+                    set.add(godMode);
+                } else {
+                    set.remove(godMode);
+                }
             } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException("the game's character has no invincible field: " + e, e);
+                throw new IllegalStateException("the game's character cannot be made invincible this way: " + e, e);
             }
             safe.setAvoidDamage(invincible);
-            // The game's own god mode, by the door that has no check of who is asking: with
-            // the field and the damage switch alone a crowd still killed in seconds.
-            safe.setInvulnerable(invincible);
             if (invincible && !safe.isDead()) {
                 safe.getBodyDamage().RestoreToFullHealth();
             }
