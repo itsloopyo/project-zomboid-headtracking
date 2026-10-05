@@ -4446,9 +4446,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (building == null) {
             return 0;
         }
-        Texture shows = far == -1L ? WallFinish.outside(cell, building, z, frames) : WallFinish.room(cell, building, z, far, frames);
+        Texture shows = far == -1L ? WallFinish.outside(cell, building, z, own, frames) : WallFinish.room(cell, building, z, far, frames);
         if (far == -1L) {
-            farFacing = WallFinish.facing(cell, building, z, north, frames);
+            farFacing = WallFinish.facing(cell, building, z, north, own, frames);
         }
         if (shows == null || shows == texture) {
             return 0;

@@ -88,6 +88,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Stopped the back and the west side of a building in first person from being drawn in the wrong material. A house that is part brick and part boards, a brick block with a boarded garage or porch on it, say, had every wall on its north in whatever most of its south front showed and every wall on its west in whatever most of its east side showed, so the back of the wooden garage came out brick, or the side of the brick block boards downstairs and brick upstairs. Each part of a building now shows on its north and west what it shows on its south and east.
 - Stopped ceilings, and walls looked along, from flickering light and dark in the first person view, and a wall the sun only grazes from flickering in patches. The pass that shades corners and crevices took such a surface to face the other way on some frames.
 - Stopped a flat roof's covering from flickering against the floor it lies on in the first person view.
 - Fixed the game running out of memory on a long trip in first person. The mod kept every building it had drawn, and with each one all of its squares after the game had unloaded them. Crossing a few towns filled the game's 3 GB.

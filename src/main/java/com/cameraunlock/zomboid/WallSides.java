@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * What the two sides of a wall show.
@@ -64,6 +65,58 @@ final class WallSides {
             }
             return best;
         }
+    }
+
+    /**
+     * What each room of one level of a building shows outside, as numbers. A room shows what
+     * most of its own outside walls show. One with none shows what the nearest outside wall
+     * seen from it through the building shows.
+     */
+    static final class Outsides {
+        private final HashMap<Long, Votes> shown = new HashMap<>();
+        /** For each room how far off the nearest wall seen from it is, and what that shows. */
+        private final HashMap<Long, int[]> seen = new HashMap<>();
+
+        /** An outside wall of the room's own shows that. */
+        void shows(long room, int finish) {
+            shown.computeIfAbsent(room, unused -> new Votes()).add(finish);
+        }
+
+        /** From the room an outside wall that shows that is seen, so many squares off. */
+        void sees(long room, int far, int finish) {
+            int[] nearest = seen.get(room);
+            if (nearest == null || far < nearest[0]) {
+                seen.put(room, new int[] {far, finish});
+            }
+        }
+
+        /** What the room shows outside, and -1 for a room with no outside wall of its own that sees none. */
+        int of(long room) {
+            Votes own = shown.get(room);
+            if (own != null) {
+                return own.commonest();
+            }
+            int[] nearest = seen.get(room);
+            return nearest == null ? -1 : nearest[1];
+        }
+    }
+
+    /**
+     * The name of the sprite so many places on from the named one on its sheet: a sprite is
+     * named for its sheet and its place on it, "walls_exterior_house_01_17". The name itself
+     * where it does not end in a number.
+     */
+    static String sheetmate(String name, int on) {
+        int cut = name.lastIndexOf('_') + 1;
+        if (cut == name.length()) {
+            return name;
+        }
+        for (int i = cut; i < name.length(); i++) {
+            if (name.charAt(i) < '0' || name.charAt(i) > '9') {
+                return name;
+            }
+        }
+        return name.substring(0, cut) + (Integer.parseInt(name.substring(cut)) + on);
     }
 
     /**

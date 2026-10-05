@@ -13,6 +13,8 @@ final class BuildingTests {
         plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor();
         canopyIsLinedWithPanelsAndALightEveryThirdSquare();
         finishIsWhatMostWallsShow();
+        roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen();
+        sheetmateIsNamedByItsPlaceOnTheSheet();
         slopeOfUnevenTilesIsOnePlane();
         twoSlopesMeetAtTheirRidge();
         slopeClimbsFromOneLevelIntoTheNext();
@@ -339,6 +341,33 @@ final class BuildingTests {
             many.add(i % 3 == 0 ? 9 : i);
         }
         check(many.commonest() == 9, "a long wall's votes are all counted");
+    }
+
+    private static void roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen() {
+        int brick = 0, boards = 1;
+        long hall = 11L, garage = 12L, corner = 13L, cellar = 14L;
+        WallSides.Outsides outsides = new WallSides.Outsides();
+        for (int i = 0; i < 4; i++) {
+            outsides.shows(hall, brick);
+            outsides.shows(garage, boards);
+        }
+        outsides.shows(hall, boards);
+        outsides.sees(garage, 1, brick);
+        outsides.sees(corner, 13, boards);
+        outsides.sees(corner, 7, brick);
+        outsides.sees(corner, 9, boards);
+        check(outsides.of(hall) == brick, "a room shows outside what most of its own outside walls show, a chimney breast among them or not");
+        check(outsides.of(garage) == boards, "a boarded garage on a brick house is boarded behind too, whatever is seen from it");
+        check(outsides.of(corner) == brick, "a room with no outside wall to read shows what the nearest one seen through the building shows");
+        check(outsides.of(cellar) == -1, "a room that has none and sees none has no finish of its own");
+    }
+
+    private static void sheetmateIsNamedByItsPlaceOnTheSheet() {
+        check(WallSides.sheetmate("walls_exterior_house_01_17", -1).equals("walls_exterior_house_01_16"), "the wall before a north wall on its sheet is the west wall of the same finish");
+        check(WallSides.sheetmate("walls_exterior_house_01_16", 1).equals("walls_exterior_house_01_17"), "and the one after a west wall the north wall");
+        check(WallSides.sheetmate("walls_exterior_house_01_9", 1).equals("walls_exterior_house_01_10"), "a place is a number, not a digit");
+        check(WallSides.sheetmate("carpentry_wall", -1).equals("carpentry_wall"), "a sprite not named for a place has no sheetmate");
+        check(WallSides.sheetmate("odd_", 1).equals("odd_"), "nor has a name that ends at its last underscore");
     }
 
     private static RoofFit.Tile tile(List<RoofFit.Tile> roof, int x, int y, int z, int axis, boolean sure, float low, float high) {

@@ -7,24 +7,39 @@ import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteManager;
 
 /**
  * What a building is finished in outside, and each of its rooms inside.
  *
- * A building has one finish outside. The walls that show it are those on its south and east
- * faces, which stand on the squares just outside it and are painted for the side out of doors:
- * the sprite most of them show is the building's. Of the plain walls among them, the one most
- * of the south face shows and the one most of the east face shows are kept as well: those are
- * what the far side of a wall on the north or the west of the building is drawn with, a
- * north face with the south face's sprite and a west face with the east's. A room's finish is the sprite most of the
- * walls on its own squares show, which are painted for the room. Both are read once for a
- * level of a building and kept, since every wall of it asks each time its chunk is built, and
- * read again every so often, since walls are built and knocked down.
+ * The walls that show a building's outside are those on its south and east faces, which stand
+ * on the squares just outside it and are painted for the side out of doors. The walls on its
+ * north and west carry the wallpaper of the rooms behind them, and their far side is drawn
+ * with a sprite taken from the other two faces.
+ *
+ * Not one sprite for the whole building. Two buildings in five are more than one thing
+ * outside: a brick block with a boarded porch and a boarded garage on its side, a shop with a
+ * brick front and a tin store behind. Given the sprite most of the south face shows, the back
+ * of the garage was brick, and the west side of the block was boards downstairs and brick
+ * upstairs. The parts of such a building are its rooms, the garage being one. So each room has
+ * an outside of its own: what most of its own south and east walls show, and for a room in the
+ * north-west corner, which has neither, what the nearest such wall shows looking through the
+ * building from each of its north walls southward and each of its west walls eastward. A wall
+ * on the north needs that finish as a sprite of a north edge and one on the west as a sprite
+ * of a west edge, whichever face it was read from: the game's sheets hold a finish as a west
+ * wall, then a north wall, then the corner of the two, and where the building itself does
+ * not show the one wanted it is taken from the sheet.
+ *
+ * A room's finish inside is the sprite most of the walls on its own squares show, which are
+ * painted for the room. All of it is read once for a level of a building and kept, since
+ * every wall of it asks each time its chunk is built, and read again every so often, since
+ * walls are built and knocked down.
  */
 final class WallFinish {
     /** How many frames a level's finishes are kept for, and for how many when part of the building was not loaded. */
@@ -40,6 +55,8 @@ final class WallFinish {
         Texture outside;
         Facing south, east;
         final HashMap<Long, Texture> rooms = new HashMap<>();
+        /** What the outside of each room's walls shows, on a north edge and on a west edge. One of the two may be null, never both. */
+        final HashMap<Long, Facing[]> outsides = new HashMap<>();
     }
 
     /** A plain wall of a building's outside: its sprite, for what it is made of, and the picture of it. */
@@ -67,6 +84,13 @@ final class WallFinish {
     private static final WeakHashMap<IsoBuilding, Level[]> known = new WeakHashMap<>();
     private static final ArrayList<Texture> shown = new ArrayList<>();
     private static final ArrayList<IsoSprite> shownBy = new ArrayList<>();
+    /** The finishes met on the level being read, each named as its west wall is, */
+    private static final ArrayList<String> styles = new ArrayList<>();
+    /** and for each the wall of it met on a north edge, on a west edge, and as the corner of the two. */
+    private static final ArrayList<Facing[]> styled = new ArrayList<>();
+    /** Which of them the wall along the south and along the east of a square of the building shows. */
+    private static final HashMap<Long, Integer> southOf = new HashMap<>(), eastOf = new HashMap<>();
+    private static final int NORTH = 0, WEST = 1, CORNER = 2;
 
     private WallFinish() {}
 
@@ -75,18 +99,32 @@ final class WallFinish {
         known.clear();
     }
 
-    /** The sprite the building's outside walls show on that level, or on the ground where that level has none. Null if none is found. */
-    static Texture outside(IsoCell cell, IsoBuilding building, int z, int frame) {
-        Texture finish = of(cell, building, z, frame).outside;
-        return finish == null && z != 0 ? of(cell, building, 0, frame).outside : finish;
+    /**
+     * The sprite the outside of that room's walls shows. For a room none could be read for, the
+     * one most of the building's outside walls show on that level, or on the ground where that
+     * level has none. Null if none is found.
+     */
+    static Texture outside(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
+        Level level = of(cell, building, z, frame);
+        Facing[] own = level.outsides.get(room);
+        if (own != null) {
+            return (own[NORTH] != null ? own[NORTH] : own[WEST]).texture;
+        }
+        return level.outside == null && z != 0 ? of(cell, building, 0, frame).outside : level.outside;
     }
 
     /**
-     * The plain wall most of the building's south face shows on that level, for a wall on a
-     * north edge, or most of its east face, for one on a west edge. Null if that face has none.
+     * The plain wall the outside of that room shows, as a wall on a north edge or as one on a
+     * west edge. Null where its finish has no such wall. For a room none could be read for, the
+     * plain wall most of the building's south face shows on that level, for a north edge, or
+     * most of its east face, and null if that face has none.
      */
-    static Facing facing(IsoCell cell, IsoBuilding building, int z, boolean north, int frame) {
+    static Facing facing(IsoCell cell, IsoBuilding building, int z, boolean north, long room, int frame) {
         Level level = of(cell, building, z, frame);
+        Facing[] own = level.outsides.get(room);
+        if (own != null) {
+            return own[north ? NORTH : WEST];
+        }
         return north ? level.south : level.east;
     }
 
@@ -118,6 +156,11 @@ final class WallFinish {
         }
         shown.clear();
         shownBy.clear();
+        styles.clear();
+        styled.clear();
+        southOf.clear();
+        eastOf.clear();
+        WallSides.Outsides outsides = new WallSides.Outsides();
         Tally outside = new Tally(), southFace = new Tally(), eastFace = new Tally();
         HashMap<Long, Tally> rooms = new HashMap<>();
         for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
@@ -139,11 +182,50 @@ final class WallFinish {
                 if (south != null && south.getRoomID() == -1L) {
                     vote(outside, south, true);
                     vote(southFace, south, true);
+                    int style = styleOn(south, true);
+                    if (style >= 0) {
+                        southOf.put(at(x, y), style);
+                        outsides.shows(square.getRoomID(), style);
+                    }
                 }
                 if (east != null && east.getRoomID() == -1L) {
                     vote(outside, east, false);
                     vote(eastFace, east, false);
+                    int style = styleOn(east, false);
+                    if (style >= 0) {
+                        eastOf.put(at(x, y), style);
+                        outsides.shows(square.getRoomID(), style);
+                    }
                 }
+            }
+        }
+        for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
+            for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                if (square == null || square.getBuilding() != building) {
+                    continue;
+                }
+                if (WorldScene.wallOn(square, true) != null && isOutside(cell.getGridSquare(x, y - 1, z))) {
+                    look(cell, building, outsides, square.getRoomID(), x, y, z, true);
+                }
+                if (WorldScene.wallOn(square, false) != null && isOutside(cell.getGridSquare(x - 1, y, z))) {
+                    look(cell, building, outsides, square.getRoomID(), x, y, z, false);
+                }
+            }
+        }
+        for (int style = 0; style < styles.size(); style++) {
+            Facing[] walls = styled.get(style);
+            for (int edge = NORTH; edge <= WEST; edge++) {
+                if (walls[edge] == null) {
+                    Facing sheet = fromSheet(styles.get(style), edge == NORTH);
+                    walls[edge] = sheet != null ? sheet : walls[CORNER];
+                }
+            }
+        }
+        for (long room : rooms.keySet()) {
+            int style = outsides.of(room);
+            if (style >= 0 && (styled.get(style)[NORTH] != null || styled.get(style)[WEST] != null)) {
+                level.outsides.put(room, styled.get(style));
             }
         }
         level.outside = commonest(outside);
@@ -156,6 +238,81 @@ final class WallFinish {
             }
         }
         return level;
+    }
+
+    private static long at(int x, int y) {
+        return (long) x << 32 | y & 0xffffffffL;
+    }
+
+    /** Above the ground a square of open air is often no square at all. */
+    private static boolean isOutside(IsoGridSquare square) {
+        return square == null || square.getRoomID() == -1L;
+    }
+
+    private static boolean opens(PropertyContainer properties) {
+        return properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
+                || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
+    }
+
+    /**
+     * Which finish the plain wall on the square's north or west edge shows, as a place in
+     * styles, and -1 where no plain wall stands there. The wall is kept as its finish's wall
+     * of that edge if it is the first met.
+     */
+    private static int styleOn(IsoGridSquare square, boolean north) {
+        IsoObject wall = WorldScene.wallOn(square, north);
+        if (wall == null || wall.getSprite().getName() == null || opens(wall.getSprite().getProperties())) {
+            return -1;
+        }
+        IsoSprite sprite = wall.getSprite();
+        PropertyContainer properties = sprite.getProperties();
+        boolean corner = properties.has(IsoFlagType.WallNW), onNorth = properties.has(IsoFlagType.WallN), onWest = properties.has(IsoFlagType.WallW);
+        String name = WallSides.sheetmate(sprite.getName(), corner ? -2 : onNorth ? -1 : 0);
+        int style = styles.indexOf(name);
+        if (style < 0) {
+            style = styles.size();
+            styles.add(name);
+            styled.add(new Facing[3]);
+        }
+        int edge = corner ? CORNER : onNorth ? NORTH : onWest ? WEST : north ? NORTH : WEST;
+        if (styled.get(style)[edge] == null) {
+            styled.get(style)[edge] = new Facing(sprite, sprite.getTextureForCurrentFrame(wall.getDir()));
+        }
+        return style;
+    }
+
+    /**
+     * Tells outsides what a wall on the north or west edge of the square at (x, y) has behind
+     * it: the first plain wall of the building's south or east face met going through the
+     * building from there, and how many squares off.
+     */
+    private static void look(IsoCell cell, IsoBuilding building, WallSides.Outsides outsides, long room, int x, int y, int z, boolean north) {
+        for (int far = 0;; far++) {
+            int atX = north ? x : x + far, atY = north ? y + far : y;
+            IsoGridSquare square = cell.getGridSquare(atX, atY, z);
+            if (square == null || square.getBuilding() != building) {
+                return;
+            }
+            Integer style = (north ? southOf : eastOf).get(at(atX, atY));
+            if (style != null) {
+                outsides.sees(room, far, style);
+                return;
+            }
+        }
+    }
+
+    /** The plain wall of a finish on a north or a west edge as the game's sheet has it, or null where the sheet has no such wall there. */
+    private static Facing fromSheet(String style, boolean north) {
+        IsoSprite sprite = IsoSpriteManager.instance.namedMap.get(north ? WallSides.sheetmate(style, 1) : style);
+        if (sprite == null) {
+            return null;
+        }
+        PropertyContainer properties = sprite.getProperties();
+        if (!properties.has(north ? IsoFlagType.WallN : IsoFlagType.WallW) || opens(properties)) {
+            return null;
+        }
+        Texture texture = sprite.getTextureForCurrentFrame(IsoDirections.N);
+        return WorldScene.usable(texture) ? new Facing(sprite, texture) : null;
     }
 
     private static void vote(Tally tally, IsoGridSquare square, boolean north) {
@@ -173,8 +330,7 @@ final class WallFinish {
         tally.any.add(index);
         PropertyContainer properties = wall.getSprite().getProperties();
         // A wall with a door or a window in it is mostly frame and glass, not finish.
-        if (!properties.has(IsoFlagType.DoorWallN) && !properties.has(IsoFlagType.DoorWallW)
-                && !properties.has(IsoFlagType.WindowN) && !properties.has(IsoFlagType.WindowW)) {
+        if (!opens(properties)) {
             tally.plain.add(index);
         }
     }
