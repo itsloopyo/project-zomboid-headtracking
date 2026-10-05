@@ -141,41 +141,7 @@ final class DevKeys {
         // The game's own god mode is refused outside its debug mode, so the player is made
         // whole again every frame instead: wounds, bites and infection are gone as they land.
         if (safe != null && (invincible || wasInvincible)) {
-            // Health put back each frame is not enough: a crowd pulls a player down and kills
-            // outright. The game's own switch for a character that cannot die is behind a
-            // role check, so the field is set directly.
-            try {
-                if (cannotDie == null) {
-                    cannotDie = IsoGameCharacter.class.getDeclaredField("invincible");
-                    cannotDie.setAccessible(true);
-                }
-                cannotDie.setBoolean(safe, invincible);
-                // The game's own god mode is one of a set of cheats, and every way the game
-                // has of setting one asks first whether cheats are allowed, which they are not
-                // outside its debug mode. The set itself is written to.
-                if (godModes == null) {
-                    Object cheats = IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
-                    Field held = cheats.getClass().getDeclaredField("cheats");
-                    held.setAccessible(true);
-                    godModes = held;
-                    godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
-                }
-                @SuppressWarnings("unchecked")
-                Set<Object> set = (Set<Object>) godModes.get(
-                        IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
-                if (invincible) {
-                    set.add(godMode);
-                } else {
-                    set.remove(godMode);
-                }
-            } catch (ReflectiveOperationException e) {
-                throw new IllegalStateException("the game's character cannot be made invincible this way: " + e, e);
-            }
-            safe.setAvoidDamage(invincible);
-            if (invincible && !safe.isDead()) {
-                safe.getBodyDamage().RestoreToFullHealth();
-            }
-            wasInvincible = invincible;
+            keepWhole(safe);
         }
         if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
             cleared = !cleared;
@@ -214,9 +180,50 @@ final class DevKeys {
             held.setJammed(false);
             held.setCondition(held.getConditionMax());
         }
-        if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
-            return;
+        if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
+            takeNearestVehicle();
         }
+    }
+
+    private static void keepWhole(IsoPlayer safe) {
+        // Health put back each frame is not enough: a crowd pulls a player down and kills
+        // outright. The game's own switch for a character that cannot die is behind a
+        // role check, so the field is set directly.
+        try {
+            if (cannotDie == null) {
+                cannotDie = IsoGameCharacter.class.getDeclaredField("invincible");
+                cannotDie.setAccessible(true);
+            }
+            cannotDie.setBoolean(safe, invincible);
+            // The game's own god mode is one of a set of cheats, and every way the game
+            // has of setting one asks first whether cheats are allowed, which they are not
+            // outside its debug mode. The set itself is written to.
+            if (godModes == null) {
+                Object cheats = IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
+                Field held = cheats.getClass().getDeclaredField("cheats");
+                held.setAccessible(true);
+                godModes = held;
+                godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
+            }
+            @SuppressWarnings("unchecked")
+            Set<Object> set = (Set<Object>) godModes.get(
+                    IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
+            if (invincible) {
+                set.add(godMode);
+            } else {
+                set.remove(godMode);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's character cannot be made invincible this way: " + e, e);
+        }
+        safe.setAvoidDamage(invincible);
+        if (invincible && !safe.isDead()) {
+            safe.getBodyDamage().RestoreToFullHealth();
+        }
+        wasInvincible = invincible;
+    }
+
+    private static void takeNearestVehicle() {
         IsoPlayer player = IsoPlayer.getInstance();
         if (player == null || player.getVehicle() != null) {
             return;

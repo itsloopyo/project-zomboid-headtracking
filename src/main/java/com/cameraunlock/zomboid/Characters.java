@@ -216,98 +216,113 @@ public final class Characters {
         IsoPlayer viewer = IsoPlayer.getInstance();
         holding = null;
         if (Ride.seated) {
-            // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
-            // apart from the world, so that the picture can leave out what of it is in the
-            // way without leaving a hole in the world behind it.
-            for (int i = 0; i < noted.size(); i++) {
-                ModelSlotRenderData data = noted.get(i);
-                float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
-                if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
-                    System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
-                    // Drawn in full light, whatever the hour: which of its pixels are glass is
-                    // told from their colour, and the picture lights the cabin itself, by the
-                    // light the game would have given it.
-                    int at = i * 4;
-                    float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
-                    place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-                    String script = Ride.seatedIn;
-                    if (script != null && !data.modelData.isEmpty()) {
-                        multiply(projection, ViewCamera.view(camera), combined);
-                        VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
-                                data.centerOfMassY, combined);
-                    }
-                    ownAmbient[0] = data.ambientR;
-                    ownAmbient[1] = data.ambientG;
-                    ownAmbient[2] = data.ambientB;
-                    data.ambientR = 1f;
-                    data.ambientG = 1f;
-                    data.ambientB = 1f;
-                    fromSeat = true;
-                    vehicle(data, i * 4, ViewCamera.view(camera));
-                    fromSeat = false;
-                    data.ambientR = ownAmbient[0];
-                    data.ambientG = ownAmbient[1];
-                    data.ambientB = ownAmbient[2];
-                    return true;
-                }
-            }
-            return false;
+            return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             if (data.character != null && data.character == viewer && !data.inVehicle) {
-                // Whether the weapon can be held up is settled before the body is drawn: the
-                // body is drawn without the arms that hold it only if they are then drawn
-                // with the weapon.
-                ViewModel.Held hands = ViewModel.held;
-                if (hands != null && CharacterDraw.cuts()) {
-                    ModelInstanceRenderData weapon = weaponOf(data);
-                    ViewCamera.between(aim, camera, fromAim);
-                    if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
-                            CHARACTER_SCALE, fromAim, heldView)) {
-                        holding = data;
-                        arms[0] = reach(data, 0);
-                        // A bat or an axe is swung from the right hand here: the game's left
-                        // hand is placed for its own swing, and is nowhere near the handle in ours.
-                        boolean both = hands.bothHands() && hands.firearm();
-                        arms[1] = both && reach(data, 1);
-                        // A firearm with a muzzle has its left hand held on the fore-end.
-                        // Anything else carried in both hands is not in both at every moment: a
-                        // left hand that is off it stays with the body, where the game has it.
-                        heldBoth = both && (ViewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
-                        if (!arms[0] && !armless) {
-                            armless = true;
-                            Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
-                        }
-                    }
-                }
-                System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
-                // A person's eyes are at the front of the head, ahead of the neck. The view's
-                // eye is on the model's axis, so the model is stood a little behind it: looking
-                // down, the chest is below the eye and not the hole of the collar.
-                float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
-                float x = data.x, y = data.y;
-                if (flat > 1e-3f) {
-                    data.x -= camera.forwardX / flat * EYES_AHEAD;
-                    data.y -= camera.forwardY / flat * EYES_AHEAD;
-                }
-                // In full light, as everyone else is: the picture does the lighting, once,
-                // by the light the game gives where the viewer stands.
-                float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
-                ownLight = (red + green + blue) / 3f;
-                data.ambientR = 1f;
-                data.ambientG = 1f;
-                data.ambientB = 1f;
-                character(data, ViewCamera.view(camera), true, false, holding != null, heldBoth);
-                data.ambientR = red;
-                data.ambientG = green;
-                data.ambientB = blue;
-                data.x = x;
-                data.y = y;
+                settleTheWeapon(data, camera);
+                drawOwnBody(data, camera, tanHalfFieldOfView, aspect, nearFrom, far);
                 return true;
             }
         }
         return false;
+    }
+
+    /** False if the vehicle sat in is not among the models. */
+    private static boolean drawOwnVehicle(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
+        // apart from the world, so that the picture can leave out what of it is in the
+        // way without leaving a hole in the world behind it.
+        for (int i = 0; i < noted.size(); i++) {
+            ModelSlotRenderData data = noted.get(i);
+            float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
+            if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+                System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+                // Drawn in full light, whatever the hour: which of its pixels are glass is
+                // told from their colour, and the picture lights the cabin itself, by the
+                // light the game would have given it.
+                int at = i * 4;
+                float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
+                place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+                String script = Ride.seatedIn;
+                if (script != null && !data.modelData.isEmpty()) {
+                    multiply(projection, ViewCamera.view(camera), combined);
+                    VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
+                            data.centerOfMassY, combined);
+                }
+                ownAmbient[0] = data.ambientR;
+                ownAmbient[1] = data.ambientG;
+                ownAmbient[2] = data.ambientB;
+                data.ambientR = 1f;
+                data.ambientG = 1f;
+                data.ambientB = 1f;
+                fromSeat = true;
+                vehicle(data, i * 4, ViewCamera.view(camera));
+                fromSeat = false;
+                data.ambientR = ownAmbient[0];
+                data.ambientG = ownAmbient[1];
+                data.ambientB = ownAmbient[2];
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the weapon can be held up is settled before the body is drawn: the
+     * body is drawn without the arms that hold it only if they are then drawn
+     * with the weapon.
+     */
+    private static void settleTheWeapon(ModelSlotRenderData data, ViewCamera.Pose camera) {
+        ViewModel.Held hands = ViewModel.held;
+        if (hands != null && CharacterDraw.cuts()) {
+            ModelInstanceRenderData weapon = weaponOf(data);
+            ViewCamera.between(aim, camera, fromAim);
+            if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
+                    CHARACTER_SCALE, fromAim, heldView)) {
+                holding = data;
+                arms[0] = reach(data, 0);
+                // A bat or an axe is swung from the right hand here: the game's left
+                // hand is placed for its own swing, and is nowhere near the handle in ours.
+                boolean both = hands.bothHands() && hands.firearm();
+                arms[1] = both && reach(data, 1);
+                // A firearm with a muzzle has its left hand held on the fore-end.
+                // Anything else carried in both hands is not in both at every moment: a
+                // left hand that is off it stays with the body, where the game has it.
+                heldBoth = both && (ViewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
+                if (!arms[0] && !armless) {
+                    armless = true;
+                    Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
+                }
+            }
+        }
+    }
+
+    private static void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+        // A person's eyes are at the front of the head, ahead of the neck. The view's
+        // eye is on the model's axis, so the model is stood a little behind it: looking
+        // down, the chest is below the eye and not the hole of the collar.
+        float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
+        float x = data.x, y = data.y;
+        if (flat > 1e-3f) {
+            data.x -= camera.forwardX / flat * EYES_AHEAD;
+            data.y -= camera.forwardY / flat * EYES_AHEAD;
+        }
+        // In full light, as everyone else is: the picture does the lighting, once,
+        // by the light the game gives where the viewer stands.
+        float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+        ownLight = (red + green + blue) / 3f;
+        data.ambientR = 1f;
+        data.ambientG = 1f;
+        data.ambientB = 1f;
+        character(data, ViewCamera.view(camera), true, false, holding != null, heldBoth);
+        data.ambientR = red;
+        data.ambientG = green;
+        data.ambientB = blue;
+        data.x = x;
+        data.y = y;
     }
 
     /** The bone the game hangs what is in the right hand from. */
