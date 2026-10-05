@@ -17,6 +17,7 @@ public final class IsoGridSquare {
     public boolean isBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSolid() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean haveElectricity() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isOutside() { throw new UnsupportedOperationException("reference stub"); }
     public boolean has(zombie.iso.SpriteDetails.IsoFlagType flag) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSeen(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }

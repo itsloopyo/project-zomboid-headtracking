@@ -253,10 +253,13 @@ public final class ViewModel {
      */
     static final float[] RIGHT_SHOULDER = {0.34f, -0.62f, 0.16f}, LEFT_SHOULDER = {-0.34f, -0.62f, 0.16f};
     /**
-     * The way each elbow drops: down, and half as far out from the body. A forearm then comes
-     * up to the grip from below and behind it, and leaves the picture by its foot.
+     * The way each elbow drops. The right: down, and half as far out from the body, so the
+     * forearm comes up to the grip from below and behind it. The left hand is out on the
+     * fore-end, across the body: an elbow dropped straight down from there sits under the
+     * hand, and the forearm is seen end on, a dome in the middle of the picture. It goes
+     * out to the side.
      */
-    static final float[] RIGHT_ELBOW = {0.5f, -1f, 0f}, LEFT_ELBOW = {-0.5f, -1f, 0f};
+    static final float[] RIGHT_ELBOW = {0.5f, -1f, 0f}, LEFT_ELBOW = {-1f, -0.6f, 0f};
 
     /**
      * Where a firearm is held, in tiles from the eye: the line of its barrel to the right and

@@ -120,16 +120,18 @@ public final class Tests {
     }
 
     private static void elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints() {
-        float[] shoulder = ViewModel.RIGHT_SHOULDER.clone(), wrist = {0.17f, -0.2f, -0.3f}, elbow = new float[3];
-        check(ViewModelMath.elbow(shoulder, wrist, 0.42f, 0.3f, ViewModel.RIGHT_ELBOW, elbow), "an arm within reach has an elbow");
-        check(apart(shoulder, ViewModel.RIGHT_SHOULDER) < 1e-5f, "its shoulder stays where it is");
-        check(near(apart(shoulder, elbow), 0.42f) && near(apart(elbow, wrist), 0.3f), "both bones are their own lengths");
+        float[] rightShoulder = {0.2f, -0.26f, 0.05f}, leftShoulder = {-0.2f, -0.26f, 0.05f};
+        float[] rightPole = {0.45f, -1f, 0.1f}, leftPole = {-0.45f, -1f, 0.1f};
+        float[] shoulder = rightShoulder.clone(), wrist = {0.17f, -0.2f, -0.3f}, elbow = new float[3];
+        check(ViewModelMath.elbow(shoulder, wrist, 0.3f, 0.27f, rightPole, elbow), "an arm within reach has an elbow");
+        check(apart(shoulder, rightShoulder) < 1e-5f, "its shoulder stays where it is");
+        check(near(apart(shoulder, elbow), 0.3f) && near(apart(elbow, wrist), 0.27f), "both bones are their own lengths");
         float alongLine = ((elbow[2] - shoulder[2]) / (wrist[2] - shoulder[2]));
         float lineY = shoulder[1] + (wrist[1] - shoulder[1]) * alongLine, lineX = shoulder[0] + (wrist[0] - shoulder[0]) * alongLine;
         check(elbow[1] < lineY - 0.05f, "the elbow is below the line from shoulder to wrist");
         check(elbow[0] > lineX, "and the right elbow is out to the right of it");
-        float[] left = ViewModel.LEFT_SHOULDER.clone(), leftWrist = {-0.17f, -0.2f, -0.3f}, leftElbow = new float[3];
-        check(ViewModelMath.elbow(left, leftWrist, 0.42f, 0.3f, ViewModel.LEFT_ELBOW, leftElbow), "the left arm has one too");
+        float[] left = leftShoulder.clone(), leftWrist = {-0.17f, -0.2f, -0.3f}, leftElbow = new float[3];
+        check(ViewModelMath.elbow(left, leftWrist, 0.3f, 0.27f, leftPole, leftElbow), "the left arm has one too");
         check(near(leftElbow[0], -elbow[0]) && near(leftElbow[1], elbow[1]) && near(leftElbow[2], elbow[2]), "the mirror of the right arm's");
     }
 

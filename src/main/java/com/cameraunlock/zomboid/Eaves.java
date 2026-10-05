@@ -37,4 +37,34 @@ final class Eaves {
     static float atEdge(int end, float eave, float rake) {
         return end == GABLE ? rake : end == MEETS ? eave : 0f;
     }
+
+    /** What is on a square past an eave at some level: nothing, a floor out of doors, or a room or a roof. */
+    static final int AIR = 0, FLOOR = 1, ROOM = 2;
+    /** The shortest pipe worth hanging, in tiles, how high its shoe is and how far out it turns. */
+    static final float SHORTEST_PIPE = 0.6f, SHOE_HIGH = 0.16f, SHOE_OUT = 0.12f;
+
+    /** What is on the square past the eave at a level. */
+    interface Under {
+        int at(int level);
+    }
+
+    /**
+     * How high above the ground's own level the foot of a gutter's pipe stands, in tiles, for
+     * an eave at level z: on the ground, or on a floor out of doors it comes to on the way, a
+     * balcony or a lower flat roof. NaN where the pipe would have to come down through a room
+     * or a roof: an eave round a skylight in the middle of a roof has a room under every side
+     * of it, and a pipe from it stood from floor to ceiling in the middle of that room.
+     */
+    static float pipeFoot(int z, Under under) {
+        for (int level = z; level >= 0; level--) {
+            int found = under.at(level);
+            if (found == ROOM) {
+                return Float.NaN;
+            }
+            if (found == FLOOR && level > 0) {
+                return level * ViewCamera.LEVEL_HEIGHT;
+            }
+        }
+        return 0f;
+    }
 }

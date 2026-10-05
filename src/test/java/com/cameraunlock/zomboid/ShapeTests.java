@@ -17,6 +17,210 @@ final class ShapeTests {
         newModelsAreInTheJar();
         footOfAPostIsItsCornerNearestTheView();
         cardOnAnUpperFloorStopsAtTheFloor();
+        squarePostIsReadWithItsSidesAlongTheGrid();
+        columnIsReadRoundWithItsBaseAndItsAxis();
+        postWithBracesHasAnArmEachWay();
+        spireAndCrateAreNoPosts();
+        postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear();
+        strutIsABoxAlongItsLine();
+        headOfAPostIsTheCardAboveItsShaft();
+        pipeWithABendAtItsFootIsAPostFromTheBendUp();
+        litterAndLowSlabsLieFlat();
+    }
+
+    private static void pipeWithABendAtItsFootIsAPostFromTheBendUp() {
+        SpriteGeometry.Frame frame = frame();
+        SpriteGeometry.Frame whole = frame;
+        float a = 0.3f, b = 0.3f;
+        SpriteShape.Painted painted = (u, v) -> {
+            for (float h = 0.16f; h <= 1f; h += 0.004f) {
+                float du = (u + 0.5f - SpriteGeometry.frameU(whole, a, b)) / (0.07f * 1.4142f * 64f);
+                float dv = (v + 0.5f - SpriteGeometry.frameV(whole, a, b, h)) / (0.07f * 1.4142f * 32f);
+                if (du * du + dv * dv <= 1f) {
+                    return true;
+                }
+            }
+            // The bend: the pipe turned out along x at the floor.
+            for (float t = 0f; t <= 1f; t += 0.02f) {
+                float du = u + 0.5f - SpriteGeometry.frameU(whole, a + 0.3f * t, b), dv = v + 0.5f - SpriteGeometry.frameV(whole, a + 0.3f * t, b, 0.16f - 0.1f * t);
+                if (du * du + dv * dv <= 36f) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        trim(frame, painted);
+        Posts post = Posts.read(painted, frame, false);
+        check(post != null && post.kind == Posts.ROUND, "a pipe with a bend at its foot is a round post");
+        check(post.footShare > 0.08f && post.footShare < 0.3f, "whose foot is the bend, left as its sprite paints it: " + post.footShare);
+        check(post.heights[0] > 0.08f && post.heights[0] < 0.3f && near(post.top(), 1f, 0.06f), "and whose shaft starts above the bend: " + post.heights[0] + " to " + post.top());
+        check(near(post.half, 0.07f, 0.012f) && near(post.a - post.b, a - b, 0.04f), "as thick as the pipe, on its line across the view: " + post.half + " at " + post.a + ", " + post.b);
+    }
+
+    private static void litterAndLowSlabsLieFlat() {
+        check(Flat.lies("Floor", null) && Flat.lies(null, "FloorRug") && !Flat.lies(null, "WallObject") && !Flat.lies(null, null),
+                "what the game draws with the floor or lets be moved as a rug lies on the ground");
+        check(Flat.isSlab(0.4f, 0.1f), "a vent on a roof is a slab");
+        check(!Flat.isSlab(0.4f, 0.5f) && !Flat.isSlab(0.1f, 0.05f) && !Flat.isSlab(0.25f, 0.2f), "a crate, a pebble and a stool are not");
+    }
+
+    /** The picture the game's view has of something turned about an upright axis at (a, b): radius(h) tiles thick at h levels, up to high. */
+    private static SpriteShape.Painted turned(SpriteGeometry.Frame frame, float a, float b, float high, java.util.function.DoubleUnaryOperator radius) {
+        SpriteShape.Painted painted = (u, v) -> {
+            for (float h = 0f; h <= high; h += 0.004f) {
+                float across = (float) radius.applyAsDouble(h) * (float) Math.sqrt(2.0) * 64f;
+                float du = (u + 0.5f - SpriteGeometry.frameU(frame, a, b)) / across, dv = (v + 0.5f - SpriteGeometry.frameV(frame, a, b, h)) / (across / 2f);
+                if (du * du + dv * dv <= 1f) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        trim(frame, painted);
+        return painted;
+    }
+
+    private static void squarePostIsReadWithItsSidesAlongTheGrid() {
+        SpriteGeometry.Frame frame = frame();
+        Posts post = Posts.read(box(frame, 0.4f, 0.3f, 0f, 0.6f, 0.5f, 1f), frame, false);
+        check(post != null && post.kind == Posts.SQUARE, "a box much taller than it is wide is a square post");
+        check(near(post.a, 0.5f, 0.03f) && near(post.b, 0.4f, 0.03f), "its axis is the middle of the box: " + post.a + ", " + post.b);
+        check(near(post.half, 0.1f, 0.012f) && near(post.top(), 1f, 0.03f), "half as thick as the box is wide, and as high: " + post.half + ", " + post.top());
+        check(post.arms.length == 0 && !post.headed, "with nothing above its shaft");
+        frame = frame();
+        check(Posts.read(box(frame, 0.4f, 0.3f, 0f, 0.6f, 0.5f, 1f), frame, true).kind == Posts.ROUND, "what the game says is a trunk is round whatever its foot");
+    }
+
+    private static void columnIsReadRoundWithItsBaseAndItsAxis() {
+        SpriteGeometry.Frame frame = frame();
+        Posts post = Posts.read(turned(frame, 0.45f, 0.5f, 1f, h -> h < 0.08 ? 0.5 : 0.36), frame, false);
+        check(post != null && post.kind == Posts.ROUND, "a column is a round post");
+        check(near(post.a, 0.45f, 0.03f) && near(post.b, 0.5f, 0.03f), "on its axis: " + post.a + ", " + post.b);
+        check(near(post.half, 0.36f, 0.015f) && near(post.halves[0], 0.5f, 0.02f), "its shaft and its base each as thick as they are: " + post.half + ", " + post.halves[0]);
+        check(near(post.top(), 1f, 0.03f) && post.heights.length >= 3 && post.heights.length <= 8, "a level high, in a few stations: " + post.top() + ", " + post.heights.length);
+        float baseEnds = 0f;
+        for (int i = 0; i < post.heights.length; i++) {
+            if (post.halves[i] > 0.45f) {
+                baseEnds = post.heights[i];
+            }
+        }
+        // The far rim of the base shows over its top, so its outline narrows to the shaft over a little more height than the base has.
+        check(baseEnds >= 0.06f && baseEnds <= 0.2f, "the base is about as high as it is drawn: " + baseEnds);
+    }
+
+    private static void postWithBracesHasAnArmEachWay() {
+        SpriteGeometry.Frame frame = frame();
+        SpriteGeometry.Frame whole = frame;
+        float a = 0.5f, b = 0.15f;
+        SpriteShape.Painted shaft = box(frame, a - 0.08f, b - 0.08f, 0f, a + 0.08f, b + 0.08f, 0.8f);
+        SpriteShape.Painted painted = (u, v) -> {
+            if (shaft.at(u, v)) {
+                return true;
+            }
+            for (int way = -1; way <= 1; way += 2) {
+                for (float t = 0f; t <= 1f; t += 0.01f) {
+                    float du = u + 0.5f - SpriteGeometry.frameU(whole, a + way * 0.6f * t, b);
+                    float dv = v + 0.5f - SpriteGeometry.frameV(whole, a + way * 0.6f * t, b, 0.78f + 0.22f * t);
+                    if (du * du + dv * dv <= 49f) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        trim(frame, painted);
+        Posts post = Posts.read(painted, frame, false);
+        check(post != null && post.kind == Posts.SQUARE && post.arms.length == 8, "a post with a brace each side is a square post with two arms");
+        check(near(post.a, a, 0.04f) && near(post.b, b, 0.04f), "on its own axis, not the middle of its sprite: " + post.a + ", " + post.b);
+        check(post.armsAlongX(), "braces that rise alike along x lie along x");
+        float[] to = new float[3];
+        post.armTo(0, true, to);
+        check(to[0] < -0.5f && to[0] > -0.75f && to[1] == 0f && near(post.armsFrom + to[2], 1f, 0.1f), "the first reaches west and up to the beam: " + to[0] + ", " + to[2]);
+        post.armTo(1, true, to);
+        check(to[0] > 0.5f && to[0] < 0.75f && near(post.armsFrom + to[2], 1f, 0.1f), "the second east: " + to[0] + ", " + to[2]);
+    }
+
+    private static void spireAndCrateAreNoPosts() {
+        SpriteGeometry.Frame frame = frame();
+        check(Posts.read(turned(frame, 0.5f, 0.5f, 1.1f, h -> 0.4 * (1.0 - h / 1.1) + 0.005), frame, false) == null, "a spire is no post: it has no one thickness");
+        frame = frame();
+        check(Posts.read(box(frame, 0.1f, 0.1f, 0f, 0.9f, 0.9f, 0.5f), frame, false) == null, "nor is a crate");
+        frame = frame();
+        check(Posts.read(box(frame, 0.45f, 0.45f, 0f, 0.55f, 0.55f, 0.2f), frame, false) == null, "nor a peg too low to be one");
+    }
+
+    private static void postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear() {
+        SpriteGeometry.Frame frame = frame();
+        Posts post = Posts.read(turned(frame, 0.5f, 0.5f, 1f, h -> 0.2), frame, false);
+        frame.light(1f, 1f, 1f);
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        geometry.addPost(mesh, frame, 3, 4, 1, post, 0.5f, 0.5f, 0f, true, false, 0f, 0f);
+        check(mesh.triangles() == 12 * 2 * (post.heights.length - 1) + 12, "a round post is a ring of sides between each two stations and a top: " + mesh.triangles());
+        float lowest = Float.MAX_VALUE, highest = 0f, furthest = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float dx = mesh.vertices[at] - 3.5f, dy = mesh.vertices[at + 1] - 4.5f;
+            furthest = Math.max(furthest, (float) Math.sqrt(dx * dx + dy * dy));
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+            highest = Math.max(highest, mesh.vertices[at + 2]);
+            check(mesh.vertices[at + 3] >= 0f && mesh.vertices[at + 3] <= 1f && mesh.vertices[at + 4] >= 0f && mesh.vertices[at + 4] <= 1f, "every texel is on the sprite");
+        }
+        check(near(furthest, 0.2f, 0.015f), "its surface is its radius from its axis: " + furthest);
+        check(near(lowest, ViewCamera.LEVEL_HEIGHT, 1e-4f) && near(highest, 2f * ViewCamera.LEVEL_HEIGHT, 0.08f), "from its floor to its top: " + lowest + ", " + highest);
+        float[] u = new float[1], mirrored = new float[1];
+        float v = SpriteGeometry.postTexel(frame, 0.5f, 0.5f, -0.15f, -0.05f, 0.5f, 1f, u);
+        float mirroredV = SpriteGeometry.postTexel(frame, 0.5f, 0.5f, 0.05f, 0.15f, 0.5f, 1f, mirrored);
+        check(u[0] == mirrored[0] && v == mirroredV, "a point the view did not see shows what its mirror image across the view shows");
+        float edgeV = SpriteGeometry.postTexel(frame, 0.5f, 0.5f, -0.1f, 0.1f, 0.5f, 1f, u);
+        float beside = SpriteGeometry.postTexel(frame, 0.5f, 0.5f, -0.101f, 0.099f, 0.5f, 1f, mirrored);
+        check(near(u[0], mirrored[0], 0.02f) && near(edgeV, beside, 0.02f), "so the two sides meet at the outline with no seam");
+        mesh.clear();
+        frame = frame();
+        Posts square = Posts.read(box(frame, 0.4f, 0.4f, 0f, 0.6f, 0.6f, 1f), frame, false);
+        frame.light(1f, 1f, 1f);
+        geometry.addPost(mesh, frame, 3, 4, 0, square, square.a, square.b, 1.3f, true, true, 0.25f, 0.75f);
+        check(mesh.triangles() == 4 * 2 + 4, "a square post is four sides and a top");
+        highest = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            highest = Math.max(highest, mesh.vertices[at + 2]);
+            check(mesh.vertices[at + 3] == 0.25f && mesh.vertices[at + 4] == 0.75f, "timber takes the one texel it is given");
+            float dx = Math.abs(mesh.vertices[at] - 3f - square.a), dy = Math.abs(mesh.vertices[at + 1] - 4f - square.b);
+            check(dx < square.half + 1e-3f && dy < square.half + 1e-3f, "its sides lie along the grid");
+        }
+        check(near(highest, 1.3f * ViewCamera.LEVEL_HEIGHT, 1e-4f), "and it is made as high as its braces reach when that is higher than its shaft");
+    }
+
+    private static void strutIsABoxAlongItsLine() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        float[] from = {1f, 2f, 1f}, to = {1.6f, 2f, 1.5f};
+        SpriteGeometry.addStrut(mesh, from, to, 0.05f, 0.5f, 0.5f, 1f, 1f, 1f);
+        check(mesh.triangles() == 12, "a strut is four sides and two ends");
+        float length = (float) Math.sqrt(0.6f * 0.6f + 0.5f * 0.5f);
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float dx = mesh.vertices[at] - 1f, dy = mesh.vertices[at + 1] - 2f, dz = mesh.vertices[at + 2] - 1f;
+            float along = (dx * 0.6f + dz * 0.5f) / length;
+            float off = (float) Math.sqrt(Math.max(0f, dx * dx + dy * dy + dz * dz - along * along));
+            check(along > -1e-4f && along < length + 1e-4f && near(off, 0.05f * (float) Math.sqrt(2.0), 1e-4f), "every corner is half a thickness each way off its line");
+        }
+    }
+
+    private static void headOfAPostIsTheCardAboveItsShaft() {
+        SpriteGeometry.Frame frame = frame();
+        frame.left = 40f;
+        frame.top = 0f;
+        frame.width = 48f;
+        frame.height = 224f;
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        geometry.skipped = 0.75f;
+        geometry.addUpright(mesh, frame, 0, 0, 0, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        float lowest = Float.MAX_VALUE, lowestV = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+            lowestV = Math.max(lowestV, mesh.vertices[at + 4]);
+        }
+        float foot = (224f - 224f) * ViewCamera.LEVEL_HEIGHT / 192f;
+        check(near(lowest, foot + 0.75f * 224f * ViewCamera.LEVEL_HEIGHT / 192f, 1e-3f) && near(lowestV, 0.25f, 1e-4f), "a card with its shaft left out starts where the shaft ends: " + lowest + ", " + lowestV);
     }
 
     private static void cardOnAnUpperFloorStopsAtTheFloor() {

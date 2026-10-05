@@ -318,6 +318,8 @@ final class SpriteGeometry {
     float nudgeX, nudgeY;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
+    /** How much of an upright card is left out, from its foot up: the shaft of a post that stands there as a solid, under the head the card still shows. */
+    float skipped;
     /** When above 0, half the box's footprint along b where it is not square: see addBox. */
     float boxHalfB;
     /**
@@ -581,14 +583,18 @@ final class SpriteGeometry {
         float topHeight = bottomHeight + frame.height * up * keep;
         float vTop = frame.vEnd + (frame.vStart - frame.vEnd) * keep;
         float vBottom = frame.vEnd;
+        float cut = skipped, lowestKept = bottomHeight + frame.height * up * skipped;
         if (floored) {
             float lowest = -(h + raised) * ViewCamera.LEVEL_HEIGHT;
-            float cut = cutBelow(bottomHeight, bottomHeight + frame.height * up, lowest);
+            cut = Math.max(cut, cutBelow(bottomHeight, bottomHeight + frame.height * up, lowest));
+            lowestKept = Math.max(lowestKept, lowest);
+        }
+        if (cut > 0f) {
             if (cut >= keep) {
                 return;
             }
             vBottom = frame.vEnd + (frame.vStart - frame.vEnd) * cut;
-            bottomHeight = Math.max(bottomHeight, lowest);
+            bottomHeight = Math.max(bottomHeight, lowestKept);
         }
 
         float baseX = tileX + a + nudgeX;
@@ -698,6 +704,245 @@ final class SpriteGeometry {
         mesh.add(ax, ay, az, u, v, frame.red, frame.green, frame.blue);
         mesh.add(cx, cy, cz, u, v, frame.red, frame.green, frame.blue);
         mesh.add(dx, dy, dz, u, v, frame.red, frame.green, frame.blue);
+    }
+
+    /** How far in from a post's outline its texels are taken, as a share of its thickness: the outline itself is the sprite's dark line. */
+    private static final float POST_TEXELS_IN = 0.86f;
+    private static final float DIAGONAL = (float) (Math.PI / 4.0);
+
+    /**
+     * Stands a post as the solid Posts read off its sprite: a round one turned about its axis
+     * to the radius its outline has at every height, a square one with its sides along the
+     * grid. Each point of its surface the game's view saw is painted with what the sprite
+     * shows there. The far side shows the near side again, mirrored in the plane across the
+     * view through the axis, so that the two meet without a seam.
+     *
+     * (a, b) is where the axis stands, top how high the post is made, in levels, where that is
+     * above what its sprite shows of the shaft, and capped whether its top is closed. With
+     * oneTexel every vertex takes the texel (texelU, texelV): timber, whose grain the picture makes.
+     */
+    void addPost(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, Posts post, float a, float b, float top, boolean capped,
+            boolean oneTexel, float texelU, float texelV) {
+        boolean round = post.kind == Posts.ROUND;
+        int sides = !round ? 4 : post.half >= 0.2f ? 20 : post.half >= 0.05f ? 12 : 8;
+        float out = round ? 1f : (float) Math.sqrt(2.0);
+        float inA = Math.clamp(a, 0f, 1f), inB = Math.clamp(b, 0f, 1f);
+        float w0 = (1f - inA) * (1f - inB), w1 = inA * (1f - inB), w2 = inA * inB, w3 = (1f - inA) * inB;
+        float red = frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3;
+        float green = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
+        float blue = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
+        float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
+        float x = tileX + a, y = tileY + b;
+        mesh.open = frame.open + frame.kind + 32f * frame.material;
+        mesh.sway = 0f;
+        int stations = post.heights.length;
+        float highest = Math.max(top, post.heights[stations - 1]);
+        for (int station = 0; station < stations - 1; station++) {
+            float h0 = post.heights[station], h1 = station == stations - 2 ? highest : post.heights[station + 1];
+            float r0 = post.halves[station] * out, r1 = post.halves[station + 1] * out;
+            // How far the surface leans back between the two: a step in the profile is a ledge.
+            float rise = (h1 - h0) * ViewCamera.LEVEL_HEIGHT, lean = r0 - r1;
+            float length = (float) Math.sqrt(rise * rise + lean * lean);
+            if (length < 1e-5f) {
+                continue;
+            }
+            float flat = rise / length, upward = lean / length;
+            for (int side = 0; side < sides; side++) {
+                float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
+                float middle = (from + to) / 2f;
+                for (int corner = 0; corner < 6; corner++) {
+                    // Two triangles: low from, low to, high to, then low from, high to, high from.
+                    boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
+                    float angle = far ? to : from, faces = round ? angle : middle;
+                    float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
+                    float r = high ? r1 : r0, h = high ? h1 : h0;
+                    mesh.face((float) Math.cos(faces) * flat, (float) Math.sin(faces) * flat, upward);
+                    postVertex(mesh, frame, x, y, foot, a, b, cos * r, sin * r, h, highest, oneTexel, texelU, texelV, red, green, blue);
+                }
+            }
+        }
+        if (!capped) {
+            return;
+        }
+        float r = post.halves[stations - 1] * out;
+        mesh.face(0f, 0f, 1f);
+        for (int side = 0; side < sides; side++) {
+            float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
+            postVertex(mesh, frame, x, y, foot, a, b, 0f, 0f, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+            postVertex(mesh, frame, x, y, foot, a, b, (float) Math.cos(from) * r, (float) Math.sin(from) * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+            postVertex(mesh, frame, x, y, foot, a, b, (float) Math.cos(to) * r, (float) Math.sin(to) * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+        }
+    }
+
+    private void postVertex(Mesh mesh, Frame frame, float x, float y, float foot, float a, float b, float da, float db, float h, float highest,
+            boolean oneTexel, float texelU, float texelV, float red, float green, float blue) {
+        float u = texelU, v = texelV;
+        if (!oneTexel) {
+            v = postTexel(frame, a, b, da, db, h, highest, postAt);
+            u = postAt[0];
+        }
+        mesh.add(x + da, y + db, foot + h * ViewCamera.LEVEL_HEIGHT, u, v, red, green, blue);
+    }
+
+    private final float[] postAt = new float[1];
+
+    /**
+     * The texel a point of a post's surface shows: the one the sprite paints at that point if
+     * the game's view saw it, and at its mirror image in the plane across the view if not.
+     * Returns the texture's v and leaves its u in into.
+     */
+    static float postTexel(Frame frame, float a, float b, float da, float db, float h, float highest, float[] into) {
+        float ea = da * POST_TEXELS_IN, eb = db * POST_TEXELS_IN;
+        if (ea + eb < 0f) {
+            float swap = ea;
+            ea = -eb;
+            eb = -swap;
+        }
+        float edge = Math.min(0.02f, highest / 4f);
+        into[0] = textureU(frame, a + ea, b + eb);
+        return textureV(frame, a + ea, b + eb, Math.clamp(h, edge, highest - edge));
+    }
+
+    /**
+     * Adds a square timber from one point to another, each (x, y, up) in tiles, half thick each
+     * way from its middle line, closed at both ends, every vertex with the one texel (u, v): a
+     * brace from a post up to the beam it carries.
+     */
+    static void addStrut(Mesh mesh, float[] from, float[] to, float half, float u, float v, float red, float green, float blue) {
+        float ax = to[0] - from[0], ay = to[1] - from[1], az = to[2] - from[2];
+        float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+        ax /= length;
+        ay /= length;
+        az /= length;
+        // Across it, level, and then square to both.
+        float flat = (float) Math.sqrt(ax * ax + ay * ay);
+        float sx = flat < 1e-4f ? 1f : -ay / flat, sy = flat < 1e-4f ? 0f : ax / flat;
+        float tx = -az * sy, ty = az * sx, tz = ax * sy - ay * sx;
+        float[] c = new float[12];
+        for (int side = 0; side < 4; side++) {
+            float s0 = side == 0 || side == 3 ? -half : half, t0 = side < 2 ? -half : half;
+            float s1 = side < 2 ? half : -half, t1 = side == 0 || side == 3 ? -half : half;
+            strutCorner(c, 0, from, s0, t0, sx, sy, tx, ty, tz);
+            strutCorner(c, 1, from, s1, t1, sx, sy, tx, ty, tz);
+            strutCorner(c, 2, to, s1, t1, sx, sy, tx, ty, tz);
+            strutCorner(c, 3, to, s0, t0, sx, sy, tx, ty, tz);
+            addQuad(mesh, c, u, v, red, green, blue);
+        }
+        for (int end = 0; end < 2; end++) {
+            float[] at = end == 0 ? from : to;
+            strutCorner(c, 0, at, -half, -half, sx, sy, tx, ty, tz);
+            strutCorner(c, 1, at, half, -half, sx, sy, tx, ty, tz);
+            strutCorner(c, 2, at, half, half, sx, sy, tx, ty, tz);
+            strutCorner(c, 3, at, -half, half, sx, sy, tx, ty, tz);
+            addQuad(mesh, c, u, v, red, green, blue);
+        }
+    }
+
+    private static void strutCorner(float[] c, int corner, float[] at, float s, float t, float sx, float sy, float tx, float ty, float tz) {
+        c[corner * 3] = at[0] + sx * s + tx * t;
+        c[corner * 3 + 1] = at[1] + sy * s + ty * t;
+        c[corner * 3 + 2] = at[2] + tz * t;
+    }
+
+    /** What a timber post and its braces are made of: sawn wood the picture gives its grain, with no joints in it. */
+    static final float TIMBER = 66f;
+    /** A brace is this much of its post's thickness, and stops this many of its own thicknesses short of where its sprite's tip is. */
+    private static final float BRACE_THICK = 0.82f;
+    /** A column this thick or thicker, in tiles of radius, has a capital. */
+    static final float CAPITAL_FROM = 0.25f;
+    /** A capital: how far below the column's top it starts, in levels, how far its swelling and its slab stand out, as shares of the radius, and how much of it is the slab. */
+    private static final float CAPITAL_HIGH = 0.11f, CAPITAL_SWELL = 1.16f, CAPITAL_SLAB = 1.3f, CAPITAL_SLAB_SHARE = 0.4f;
+
+    private final float[] armTo = new float[3], strutFrom = new float[3], strutTo = new float[3];
+
+    /**
+     * Stands all of a post: its shaft as a solid, the braces of a timber one as timbers of
+     * their own, a capital on a column, and whatever else its sprite shows above the shaft, a
+     * lamp's head or a sign's plate, as the part of the sprite it is, on the post's axis and
+     * across the way to the eye (rightX, rightY).
+     *
+     * timber is for a post of sawn wood: it takes one colour from its sprite and the picture
+     * gives it grain. bracesAlongX is which upright plane its braces lie in. capital is
+     * whether a column's top is its own and not the foot of another length of it.
+     */
+    void standPost(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, Posts post, float a, float b, boolean timber, boolean bracesAlongX,
+            boolean capital, float rightX, float rightY) {
+        float material = frame.material;
+        float half = post.half;
+        float u = textureU(frame, a + half * POST_TEXELS_IN, b), v = textureV(frame, a + half * POST_TEXELS_IN, b, post.top() / 2f);
+        int braces = timber ? post.arms.length / 4 : 0;
+        float top = post.top();
+        for (int brace = 0; brace < braces; brace++) {
+            post.armTo(brace, bracesAlongX, armTo);
+            top = Math.max(top, post.armsFrom + armTo[2]);
+        }
+        if (timber) {
+            frame.material = TIMBER;
+        }
+        boolean headed = post.headed || braces == 0 && post.arms.length > 0;
+        addPost(mesh, frame, tileX, tileY, tileZ, post, a, b, top, !headed, timber, u, v);
+        float inA = Math.clamp(a, 0f, 1f), inB = Math.clamp(b, 0f, 1f);
+        float w0 = (1f - inA) * (1f - inB), w1 = inA * (1f - inB), w2 = inA * inB, w3 = (1f - inA) * inB;
+        float red = frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3;
+        float green = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
+        float blue = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
+        float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
+        for (int brace = 0; brace < braces; brace++) {
+            post.armTo(brace, bracesAlongX, armTo);
+            float thick = half * BRACE_THICK;
+            float rise = armTo[2] * ViewCamera.LEVEL_HEIGHT, reach = (float) Math.sqrt(armTo[0] * armTo[0] + armTo[1] * armTo[1] + rise * rise);
+            // The sprite's tip is the far corner of the brace's end: its middle line stops a thickness short of it.
+            float kept = Math.max(0.2f, 1f - thick / reach);
+            strutFrom[0] = tileX + a;
+            strutFrom[1] = tileY + b;
+            strutFrom[2] = foot + post.armsFrom * ViewCamera.LEVEL_HEIGHT - thick;
+            strutTo[0] = strutFrom[0] + armTo[0] * kept;
+            strutTo[1] = strutFrom[1] + armTo[1] * kept;
+            strutTo[2] = strutFrom[2] + rise * kept;
+            addStrut(mesh, strutFrom, strutTo, thick, u, v, red, green, blue);
+        }
+        if (capital && post.kind == Posts.ROUND && half >= CAPITAL_FROM) {
+            float r = post.halves[post.halves.length - 1];
+            float under = foot + (top - CAPITAL_HIGH) * ViewCamera.LEVEL_HEIGHT, over = foot + top * ViewCamera.LEVEL_HEIGHT;
+            float slab = over - (over - under) * CAPITAL_SLAB_SHARE;
+            float[] c = strutCorners;
+            int sides = 20;
+            for (int side = 0; side < sides; side++) {
+                float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
+                float cos0 = (float) Math.cos(from), sin0 = (float) Math.sin(from), cos1 = (float) Math.cos(to), sin1 = (float) Math.sin(to);
+                float x = tileX + a, y = tileY + b, wide = r * CAPITAL_SWELL;
+                putCorner(c, 0, x + cos0 * r, y + sin0 * r, under);
+                putCorner(c, 1, x + cos1 * r, y + sin1 * r, under);
+                putCorner(c, 2, x + cos1 * wide, y + sin1 * wide, slab);
+                putCorner(c, 3, x + cos0 * wide, y + sin0 * wide, slab);
+                addQuad(mesh, c, u, v, red, green, blue);
+            }
+            strutFrom[0] = strutTo[0] = tileX + a;
+            strutFrom[1] = strutTo[1] = tileY + b;
+            strutFrom[2] = slab;
+            strutTo[2] = over;
+            addStrut(mesh, strutFrom, strutTo, r * CAPITAL_SLAB, u, v, red, green, blue);
+        }
+        frame.material = material;
+        if (headed) {
+            skipped = post.shaftShare;
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, false);
+            skipped = 0f;
+        }
+        if (post.footShare > 0f) {
+            float kept = keep;
+            keep = post.footShare;
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, false);
+            keep = kept;
+        }
+    }
+
+    private final float[] strutCorners = new float[12];
+
+    private static void putCorner(float[] c, int corner, float x, float y, float up) {
+        c[corner * 3] = x;
+        c[corner * 3 + 1] = y;
+        c[corner * 3 + 2] = up;
     }
 
     private void setCorner(Frame frame, int index, float a, float b, float h) {

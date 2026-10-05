@@ -8,6 +8,8 @@ final class BuildingTests {
     private BuildingTests() {}
 
     static void run() {
+        plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor();
+        canopyIsLinedWithPanelsAndALightEveryThirdSquare();
         finishIsWhatMostWallsShow();
         slopeOfUnevenTilesIsOnePlane();
         twoSlopesMeetAtTheirRidge();
@@ -28,6 +30,74 @@ final class BuildingTests {
         wallThatEndsAloneIsClosedAcrossItsEnd();
         eavesMeetAtAHipAndRunOutOverAGable();
         openGroundHasTheLightMostOfItHas();
+    }
+
+    private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        Courses.add(mesh, 4f, 9f, 0.5f, 5f, 9f, 0.5f, 0f, -1f, -1f, -1f, 1f, 0.5f, 0.25f);
+        check(mesh.triangles() == 8, "a plain wall has a plinth and a course, each a face and a ledge: " + mesh.triangles());
+        float lowest = Float.MAX_VALUE, highest = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float y = mesh.vertices[at + 1], up = mesh.vertices[at + 2];
+            check(y <= 9f && y >= 9f - Courses.PROUD - 1e-5f && mesh.vertices[at] >= 4f && mesh.vertices[at] <= 5f, "on the side asked for, as long as the wall");
+            check(up <= 0.5f + Courses.PLINTH + 1e-5f || up >= 0.5f + ViewCamera.LEVEL_HEIGHT - Courses.COURSE - 1e-5f, "one at the wall's foot and one under its top");
+            check(mesh.vertices[at + 5] < 1f && mesh.vertices[at + 5] > 0.7f && near(mesh.vertices[at + 6] * 2f, mesh.vertices[at + 5]), "a shade darker than the wall, in its colour");
+            lowest = Math.min(lowest, up);
+            highest = Math.max(highest, up);
+        }
+        check(near(lowest, 0.5f) && near(highest, 0.5f + ViewCamera.LEVEL_HEIGHT), "from the ground the wall stands on to its top");
+        mesh.clear();
+        Courses.add(mesh, 4f, 9f, 0f, 5f, 9f, 0f, 0f, -1f, 0.3f, 0.7f, 1f, 1f, 1f);
+        check(mesh.triangles() == 12, "at a doorway the plinth is two lengths");
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float x = mesh.vertices[at], up = mesh.vertices[at + 2];
+            check(up > 1f || x <= 4.3f + 1e-5f || x >= 4.7f - 1e-5f, "and none of it crosses the doorway");
+        }
+    }
+
+    private static void canopyIsLinedWithPanelsAndALightEveryThirdSquare() {
+        int fittings = 0;
+        for (int x = -6; x < 6; x++) {
+            for (int y = -6; y < 6; y++) {
+                fittings += Soffits.fitted(x, y) ? 1 : 0;
+            }
+        }
+        check(fittings == 16 && Soffits.fitted(-2, 4) && !Soffits.fitted(0, 0), "one square in nine has a light, west and north of the map's corner as east and south of it");
+        float[] light = {0.5f, 0.5f, 0.5f, 0.5f};
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        Soffits.add(mesh, 7, 9, 4f, light, light, light, 288f, 448f, false, true);
+        check(mesh.triangles() == 2 + 4 * 2, "a square of lining is its panel and four joints: " + mesh.triangles());
+        mesh.clear();
+        Soffits.add(mesh, 7, 9, 4f, light, light, light, 288f, 448f, true, true);
+        check(mesh.triangles() == 4 * 2 + 4 * 2 + 2 + 4 * 2, "one with a light is the lining round the opening, the recess, the lens and the joints: " + mesh.triangles());
+        int lens = 0;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float a = mesh.vertices[at] - 7f, b = mesh.vertices[at + 1] - 9f, up = mesh.vertices[at + 2];
+            check(a >= 0f && a <= 1f && b >= 0f && b <= 1f && up >= 4f - Soffits.JOINT_PROUD - 1e-5f && up <= 4f + Soffits.RECESS + 1e-5f, "all of it on its own square, at the lining or let into it");
+            check(mesh.vertices[at + 11] < 0f, "and all of it faces down");
+            if (mesh.vertices[at + 8] == 448f) {
+                lens++;
+                check(up == 4f + Soffits.RECESS && mesh.vertices[at + 5] == 1f && Math.abs(a - 0.5f) <= Soffits.LENS_HALF + 1e-5f, "a lit lens is let in over the middle of the square and is as bright as a light is");
+            } else {
+                check(mesh.vertices[at + 5] <= 0.5f, "the lining has the light of what is under it");
+            }
+        }
+        check(lens == 6, "the lens is one face");
+        mesh.clear();
+        Soffits.strip(mesh, 3, 5, 2.4f, true, 0.8f, 0.8f, 0.8f, 0f, 448f);
+        check(mesh.triangles() == 2 * 2 + 3 * 2, "a square of strip light is two sides and an underside in three bands: " + mesh.triangles());
+        int lensFloats = 0;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float a = mesh.vertices[at] - 3f, b = mesh.vertices[at + 1] - 5f, up = mesh.vertices[at + 2];
+            check(a >= 0f && a <= 1f && Math.abs(b - 0.5f) <= Soffits.STRIP_HALF + 1e-5f && up <= 2.4f && up >= 2.4f - Soffits.STRIP_DEEP - 1e-5f,
+                    "it runs the whole square along x, under the ceiling, so that the next length meets it");
+            if (mesh.vertices[at + 8] == 448f) {
+                lensFloats++;
+                check(mesh.vertices[at + 5] == 0.8f && Math.abs(b - 0.5f) <= Soffits.STRIP_LENS_HALF + 1e-5f, "its lens has the whole of the room's light");
+            }
+        }
+        check(lensFloats == 6, "and is one face");
+        check(Soffits.under(0.1f, Soffits.GLOW_RED) == Soffits.GLOW_RED && Soffits.under(1f, Soffits.GLOW_RED) == 1f, "a lit canopy lights the ground under it at night and takes nothing from daylight");
     }
 
     private static void openGroundHasTheLightMostOfItHas() {
@@ -143,6 +213,12 @@ final class BuildingTests {
                 "at a hip the eave's edge runs on as far as the other eave stands out, so the two meet on the diagonal");
         check(Eaves.atWall(gable, rake) == rake && Eaves.atEdge(gable, eave, rake) == rake, "at a gable it runs on as far as the roof's edge over the gable does");
         check(Eaves.end(true, true) == Eaves.MEETS, "two eaves of one tile meet whatever is beside it");
+        check(Eaves.pipeFoot(1, level -> Eaves.AIR) == 0f && Eaves.pipeFoot(2, level -> level == 0 ? Eaves.FLOOR : Eaves.AIR) == 0f,
+                "a gutter's pipe comes down open air to the ground");
+        check(Eaves.pipeFoot(2, level -> level == 1 ? Eaves.FLOOR : Eaves.AIR) == ViewCamera.LEVEL_HEIGHT, "or to a flat roof it meets on the way");
+        check(Float.isNaN(Eaves.pipeFoot(2, level -> level == 0 ? Eaves.ROOM : Eaves.AIR)) && Float.isNaN(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.ROOM : Eaves.AIR)),
+                "and there is none where it would come down through a room: round a skylight");
+        check(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.FLOOR : Eaves.AIR) == 2f * ViewCamera.LEVEL_HEIGHT, "an eave onto a deck at its own level has its foot there, too short to hang");
     }
 
     private static void pavementIsNotLooseStone() {

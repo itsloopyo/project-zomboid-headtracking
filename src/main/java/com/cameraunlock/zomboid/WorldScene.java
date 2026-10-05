@@ -535,6 +535,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         exposure = adaptEye(player);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
+        mainsOn = IsoWorld.instance.isHydroPowerOn();
         IsoChunkMap map = cell.getChunkMap(playerIndex);
         int level = (int) Math.floor(player.getZ());
         // From an upper floor the ground is in the picture; from the ground, only the level under it.
@@ -967,6 +968,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 lightGreen[at] = light.g;
                 lightBlue[at] = light.b;
                 lightOpen[at] = (byte) (outside ? 1 : 0);
+                // The game has no lamp in a canopy. A lit one lights what is under it.
+                if (outside && z >= 0 && underLitCanopy(chunkX + i - 1, chunkY + j - 1, z)) {
+                    lightRed[at] = Soffits.under(light.r, Soffits.GLOW_RED);
+                    lightGreen[at] = Soffits.under(light.g, Soffits.GLOW_GREEN);
+                    lightBlue[at] = Soffits.under(light.b, Soffits.GLOW_BLUE);
+                }
             }
         }
     }
@@ -1835,6 +1842,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
 
+        // What the game draws with the floor though it is no floor: railway track, and the
+        // litter it calls a rug. Each is painted lying on the ground, and stood up to face the
+        // eye a sheet of newspaper is a hoarding and a length of track a fence.
+        if (!hangsInAir && Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"))) {
+            geometry.addFace(laid.get(texture.getID()), frame, x, y, z, -Flat.REACH, -Flat.REACH, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT,
+                    1f + 2f * Flat.REACH, 0f, 0f, 0f, 1f + 2f * Flat.REACH, 0f);
+            return;
+        }
+
         if (z > 0 && hangsInAir && sprite.getName() != null && sprite.getName().startsWith("appliances_com")) {
             wiredHere = true;
         }
@@ -1863,6 +1879,17 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (addFurniture(object, sprite, x, y, z)) {
             return;
         }
+        // A strip light on a ceiling, a square of it at a time. The game paints it lying
+        // under the ceiling, and stood up to face the eye it hung in the room as a slat.
+        if (overLayer == 0 && sprite.getSpriteGrid() != null && properties.has("IsHigh") && "Lamp".equals(properties.get("CustomName"))
+                && !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
+                && !properties.has(IsoFlagType.attachedS)) {
+            SpriteGeometry.Mesh plain = solid.get(PLAIN);
+            float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+            Soffits.strip(plain, x, y, (z + 1) * ViewCamera.LEVEL_HEIGHT + lift - 2f * standOff, sprite.getSpriteGrid().getWidth() > 1,
+                    frame.red, frame.green, frame.blue, frame.open, frame.open + 32f * LAMP);
+            return;
+        }
 
         boolean west;
         boolean north;
@@ -1878,7 +1905,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             north = thumpable.north != doorSwung;
             west = !north;
         } else {
-            boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE);
+            // The corner length of a skirting board or a cornice is marked for both walls of
+            // its corner by a name of its own, which says nothing to a test for either wall:
+            // it stood in every corner of every room as a card turned to the eye.
+            boolean cornerTrim = (properties.has("attachedNW") || properties.has("attachedSE")) && !Roofs.isTile(type)
+                    && !(sprite.getName() != null && sprite.getName().startsWith("roofs_"));
+            boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE) || cornerTrim;
             west = both || standsOnWestEdge(properties, type);
             north = both || standsOnNorthEdge(properties, type);
         }
@@ -1926,6 +1958,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // and its edges. Their sprites do not say which way they lie, and stood upright like
         // furniture they are boxes floating over the house.
         if (Roofs.isTile(type)) {
+            // The game marks a few things that are no roof as one, so that they are cut away
+            // with the roof when the player walks under: a church's columns. Laid as a roof
+            // tile a column is a slab leaning on the wall.
+            if (overLayer == 0 && sprite.getName() != null && !sprite.getName().startsWith("roofs_") && addPost(mesh, object, sprite, texture, x, y, z)) {
+                return;
+            }
             roofName = sprite.getName();
             addRoof(mesh, texture, x, y, z);
             return;
@@ -1949,6 +1987,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // the floor, so its outline says nothing of where a box of it would stand: read as
         // one, a computer on a desk against a wall was a box a pace away outside the wall.
         boolean onTop = properties.has("IsTableTop");
+        // What stands upright on one spot and is no furniture: a column, a porch post, a lamp
+        // post, a pole, a timber post with its braces.
+        if (!grows && !onTop && overLayer == 0 && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans)
+                && !properties.has(IsoFlagType.bed) && !properties.isTable() && properties.getSurface() <= 0 && properties.get("container") == null
+                && addPost(mesh, object, sprite, texture, x, y, z)) {
+            return;
+        }
         // What the game says nothing about at all, and whose outline is a sheet on the grid's
         // line or a beam along it: the slab over a shop front, a sill, a pipe, a billboard.
         if (!grows && !onTop && overLayer == 0 && addShaped(mesh, object, sprite, texture, x, y, z)) {
@@ -2001,6 +2046,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // upright. Only what is painted through the middle of its top and both the sides it
         // shows: a chair or a table has air there.
         if (!grows && !onTop && SpriteGeometry.boxOf(frame, box) && box[2] <= 0.5f && box[3] <= 1f && fillsMiddle(texture)) {
+            geometry.addBox(mesh, frame, x, y, z, box);
+            boxes++;
+            return;
+        }
+        // Something low and wide the game says nothing of: a vent on a flat roof, a shower's
+        // tray, a hatch. It is a slab, whatever holes its sprite has in it: a fan's blades
+        // show the roof between them, and the test above takes that for a chair's legs.
+        if (!grows && !onTop && overLayer == 0 && !properties.isTable() && properties.getSurface() <= 0 && !properties.has(IsoFlagType.bed)
+                && SpriteGeometry.boxOf(frame, box) && Flat.isSlab(box[2], box[3])) {
             geometry.addBox(mesh, frame, x, y, z, box);
             boxes++;
             return;
@@ -2134,6 +2188,88 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             geometry.addFace(mesh, frame, x, y, z, -BRACED_REACH, foot[1] / 2f, 0f, 1f + 2f * BRACED_REACH, 0f, 0f, 0f, 0f, BRACED_HIGH);
         }
         frame.kind = 0f;
+        return true;
+    }
+
+    /** What each sprite has been read as by Posts: NO_POST for one that is none. */
+    private static final java.util.IdentityHashMap<IsoSprite, Object> posts = new java.util.IdentityHashMap<>();
+    private static final Object NO_POST = new Object();
+    /** How far apart, in tiles, the axes of two lengths of one post may be read on the squares one above the other. */
+    private static final float SAME_POST = 0.2f;
+
+    /** The post an object's sprite is a picture of, read the first time the sprite is met, or null. */
+    private Posts postOf(IsoObject object, IsoSprite sprite, Texture texture) {
+        Object post = posts.get(sprite);
+        if (post == null) {
+            shapeFrame.scale = frame.scale;
+            frameOf(shapeFrame, object, texture);
+            // A pole the game takes for a trunk is round, though its foot is drawn to a point.
+            post = Posts.read(texture::isMaskSet, shapeFrame, "Tree".equals(sprite.getProperties().get("PhysicsShape")));
+            if (post == null) {
+                post = NO_POST;
+            }
+            posts.put(sprite, post);
+        }
+        return post == NO_POST ? null : (Posts) post;
+    }
+
+    /** The length of post on a square whose axis is within SAME_POST of (a, b), or null. */
+    private Posts postAt(int x, int y, int z, float a, float b) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0) {
+                continue;
+            }
+            Posts post = postOf(object, sprite, texture);
+            if (post != null && Math.abs(post.a - a) < SAME_POST && Math.abs(post.b - b) < SAME_POST) {
+                return post;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Stands a sprite as the post its outline is, and says whether the sprite is thereby
+     * dealt with: see Posts. A post taller than a storey is a sprite on each level, and every
+     * length of it stands on the axis of the lowest, since each sprite's own reading of where
+     * it stands is a little different.
+     */
+    private boolean addPost(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        Posts post = postOf(object, sprite, texture);
+        // A flat sign seen on the slant has upright sides and rows all of one width, as a
+        // shaft has: its outline says it is a sheet, and it stays one.
+        if (post == null || shapeOf(object, sprite, texture).kind == SpriteShape.PANEL) {
+            return false;
+        }
+        float a = post.a, b = post.b;
+        for (int under = z - 1; under >= lowestLevel; under--) {
+            Posts below = postAt(x, y, under, a, b);
+            if (below == null) {
+                break;
+            }
+            a = below.a;
+            b = below.b;
+        }
+        PropertyContainer properties = sprite.getProperties();
+        String made = properties.get("Material"), kind = properties.get("MaterialType");
+        boolean wooden = made != null && (made.startsWith("Wood") || made.equals("Log")) || kind != null && kind.startsWith("Wood")
+                || sprite.getName() != null && sprite.getName().startsWith("carpentry_");
+        // Braces lie along the wall or the fence their post stands against, where there is one.
+        boolean bracesAlongX = edgeWest && a < IN_WALL_LINE && !(edgeNorth && b < a) ? false
+                : edgeNorth && b < IN_WALL_LINE ? true : post.armsAlongX();
+        geometry.standPost(mesh, frame, x, y, z, post, a, b, wooden && post.kind == Posts.SQUARE, bracesAlongX,
+                postAt(x, y, z + 1, a, b) == null, cardRightX, cardRightY);
+        boxes++;
         return true;
     }
 
@@ -3155,6 +3291,174 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
     }
 
+    /** Whether the mains are on: read once a frame. */
+    private boolean mainsOn;
+    /** How deep the canopy over each square of one is, in tiles, by the square's place: 0 for a floor in the air with no band round it. */
+    private static final java.util.HashMap<Long, Float> canopies = new java.util.HashMap<>();
+    /** How far a canopy is looked across for its edge, in squares, and the least and most deep one is made, in tiles. */
+    private static final int CANOPY_SPAN = 24;
+    private static final float CANOPY_SHALLOWEST = 0.25f, CANOPY_DEEPEST = 1.2f;
+    /** How far past the canopy's edge its lining runs, to meet the band hung just outside the edge. */
+    private static final float CANOPY_LIP = 0.1f;
+    private final SpriteGeometry.Frame bandFrame = new SpriteGeometry.Frame();
+    private final float[] canopyRed = new float[4], canopyGreen = new float[4], canopyBlue = new float[4];
+    /** Where fasciaOf last found a band: the square it hangs on. */
+    private int bandX, bandY;
+
+    /** Whether a square with a floor is roof over open air and no room's floor: nothing is built on it, nor under it on the level below. */
+    private static boolean isCanopy(IsoGridSquare square, IsoGridSquare below) {
+        return square != null && square.getFloor() != null && square.getRoomID() == -1L && square.getZ() >= 1
+                && (below == null || below.getRoomID() == -1L && below.getFloor() == null);
+    }
+
+    /**
+     * The band hung along the south edge of the canopy a square is part of, or along its east
+     * edge: the sprite the map hangs, a level down, on the first square past the canopy that
+     * way. Null where the canopy has none there. Leaves the band's square in bandX and bandY.
+     */
+    private IsoObject fasciaOf(int x, int y, int z, boolean south) {
+        for (int step = 1; step <= CANOPY_SPAN; step++) {
+            int atX = south ? x : x + step, atY = south ? y + step : y;
+            if (isCanopy(cell.getGridSquare(atX, atY, z), cell.getGridSquare(atX, atY, z - 1))) {
+                continue;
+            }
+            IsoGridSquare under = cell.getGridSquare(atX, atY, z - 1);
+            if (under == null) {
+                return null;
+            }
+            PZArrayList<IsoObject> objects = under.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite == null) {
+                    continue;
+                }
+                PropertyContainer properties = sprite.getProperties();
+                if (properties.has(south ? IsoFlagType.attachedN : IsoFlagType.attachedW) && !isWall(properties, sprite.getType()) && textureOf(objects.get(i)) != null) {
+                    bandX = atX;
+                    bandY = atY;
+                    return objects.get(i);
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /**
+     * How deep the canopy a square is part of is: as deep as the band the map hangs along its
+     * south or its east edge is high. 0 for a floor with no such band, which is no canopy
+     * but a balcony or a bridge, and keeps the underside it has.
+     */
+    private float canopyDrop(int x, int y, int z) {
+        long key = ((long) x << 36) ^ ((long) y << 8) ^ z;
+        Float known = canopies.get(key);
+        if (known != null) {
+            return known;
+        }
+        float drop = 0f;
+        for (int way = 0; way < 2 && drop == 0f; way++) {
+            IsoObject band = fasciaOf(x, y, z, way == 0);
+            if (band == null) {
+                continue;
+            }
+            bandFrame.scale = frame.scale;
+            frameOf(bandFrame, band, textureOf(band));
+            if (WallHung.painted(bandFrame, way == 0 ? WallHung.NORTH : WallHung.WEST, hungAt)) {
+                drop = Math.clamp((1f - hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT, CANOPY_SHALLOWEST, CANOPY_DEEPEST);
+            }
+        }
+        // Kept only once the map is loaded as far as the search reaches: before that the answer may be short of the truth.
+        if (cell.getGridSquare(x + CANOPY_SPAN, y, 0) != null && cell.getGridSquare(x, y + CANOPY_SPAN, 0) != null) {
+            canopies.put(key, drop);
+        }
+        return drop;
+    }
+
+    /** Whether a square out of doors has a canopy over it, one or two levels up, whose lights are on. */
+    private boolean underLitCanopy(int x, int y, int z) {
+        for (int up = z + 1; up <= z + 2; up++) {
+            IsoGridSquare over = cell.getGridSquare(x, y, up);
+            if (over == null || over.getFloor() == null) {
+                continue;
+            }
+            return isCanopy(over, cell.getGridSquare(x, y, up - 1)) && (mainsOn || over.haveElectricity()) && canopyDrop(x, y, up) > 0f;
+        }
+        return false;
+    }
+
+    /**
+     * Lines one square of a canopy and closes its edges: see Soffits. Its underside is as far
+     * under the floor as the band round it is deep, lit by the ground beneath. Along its south
+     * and east edges the map hangs the band. Its north and west edges, which the game's view
+     * never saw, get the band from the far end of the same row or column of the canopy.
+     */
+    private void addCanopy(int x, int y, int z, float drop) {
+        IsoGridSquare ground = null;
+        for (int under = z - 1; under >= 0 && ground == null; under--) {
+            ground = cell.getGridSquare(x, y, under);
+        }
+        ColorInfo light = ground != null && ground.isSeen(playerIndex) ? ground.lighting[playerIndex].lightInfo() : unseenLight;
+        boolean lit = mainsOn || here.haveElectricity();
+        float red = lit ? Soffits.under(light.r, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(light.g, Soffits.GLOW_GREEN) : light.g;
+        float blue = lit ? Soffits.under(light.b, Soffits.GLOW_BLUE) : light.b;
+        java.util.Arrays.fill(canopyRed, red);
+        java.util.Arrays.fill(canopyGreen, green);
+        java.util.Arrays.fill(canopyBlue, blue);
+        float up = z * ViewCamera.LEVEL_HEIGHT - drop;
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        Soffits.add(plain, x, y, up, canopyRed, canopyGreen, canopyBlue, 32f * CONCRETE, 32f * LAMP, Soffits.fitted(x, y), lit);
+        plain.open = 32f * CONCRETE;
+        float[] c = eave;
+        for (int side = 0; side < 4; side++) {
+            int stepX = side == 0 ? -1 : side == 1 ? 1 : 0, stepY = side == 2 ? -1 : side == 3 ? 1 : 0;
+            if (isCanopy(cell.getGridSquare(x + stepX, y + stepY, z), cell.getGridSquare(x + stepX, y + stepY, z - 1))) {
+                continue;
+            }
+            // The lining runs a little past the edge, under the foot of the band.
+            float x0 = stepX < 0 ? x - CANOPY_LIP : stepX > 0 ? x + 1f : x, x1 = stepX < 0 ? x : stepX > 0 ? x + 1f + CANOPY_LIP : x + 1f;
+            float y0 = stepY < 0 ? y - CANOPY_LIP : stepY > 0 ? y + 1f : y, y1 = stepY < 0 ? y : stepY > 0 ? y + 1f + CANOPY_LIP : y + 1f;
+            set(c, 0, x0, y0, up);
+            set(c, 1, x1, y0, up);
+            set(c, 2, x1, y1, up);
+            set(c, 3, x0, y1, up);
+            SpriteGeometry.addPlainQuad(plain, c, red, green, blue);
+            if (stepX > 0 || stepY > 0) {
+                continue;
+            }
+            // The north or the west edge: the band of the edge across the canopy, stood here.
+            boolean north = stepY < 0;
+            IsoObject band = fasciaOf(x, y, z, north);
+            Texture texture = band == null ? null : textureOf(band);
+            if (texture == null) {
+                // No band to borrow: a plain one, the lining's colour, as deep as the canopy.
+                float top = z * ViewCamera.LEVEL_HEIGHT;
+                set(c, 0, x, y, up);
+                set(c, 1, north ? x + 1f : x, north ? y : y + 1f, up);
+                set(c, 2, north ? x + 1f : x, north ? y : y + 1f, top);
+                set(c, 3, x, y, top);
+                SpriteGeometry.addPlainQuad(plain, c, red, green, blue);
+                continue;
+            }
+            bandFrame.scale = frame.scale;
+            frameOf(bandFrame, band, texture);
+            bandFrame.light(unseenLight.r, unseenLight.g, unseenLight.b);
+            bandFrame.open = 1f;
+            bandFrame.material = materialOf(band.getSprite());
+            float raised = geometry.raised;
+            geometry.raised = 0f;
+            if (north) {
+                geometry.shownB = y - CANOPY_LIP - bandY;
+                geometry.addFace(solid.get(texture.getID()), bandFrame, x, bandY, z - 1, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+                geometry.shownB = 0f;
+            } else {
+                geometry.shownA = x - CANOPY_LIP - bandX;
+                geometry.addFace(solid.get(texture.getID()), bandFrame, bandX, y, z - 1, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+                geometry.shownA = 0f;
+            }
+            geometry.raised = raised;
+        }
+    }
+
     /**
      * A floor over a room is that room's ceiling, and one that juts out over a pavement or a
      * porch is the underside of a canopy. Seen from below it is lit by the place beneath, not
@@ -3165,6 +3469,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void addCeiling(SpriteGeometry.Mesh mesh, int x, int y, int z) {
         IsoGridSquare below = cell.getGridSquare(x, y, z - 1);
+        if (isCanopy(here, below)) {
+            float drop = canopyDrop(x, y, z);
+            if (drop > 0f) {
+                addCanopy(x, y, z, drop);
+                return;
+            }
+        }
         float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open;
         System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
         System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
@@ -3315,6 +3626,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         addSkin(faced != null ? solid.get(faced.texture.getID()) : tint != 0 ? solid.get(texture.getID(), tint) : mesh, opening, at, x, y, z, a, b, da, db,
                 fromStart, fromEnd, fromTop, startIsLow);
+        // Out of doors, on a whole wall in one colour.
+        if (tint != 0 && farColour != null && frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
+            addCourses(opening, at, x, y, z, a, b, da, db, -Math.signum(inX), -Math.signum(inY));
+        }
         if (faced != null) {
             frame.left = held.left;
             frame.top = held.top;
@@ -3724,6 +4039,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * building with no wall that shows its finish, and a sprite the picture has not read yet.
      */
     private int farTint(Texture texture, int x, int y, int z, boolean north) {
+        farColour = null;
         int beyondX = north ? x : x - 1, beyondY = north ? y - 1 : y;
         IsoGridSquare beyond = cell.getGridSquare(beyondX, beyondY, z);
         long own = here.getRoomID(), far = beyond == null ? -1L : beyond.getRoomID();
@@ -3753,7 +4069,32 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         if (colour == null) {
             return 0;
         }
+        farColour = colour;
         return WallSides.key(colour[0], colour[1], colour[2], far == -1L ? WallSides.SIDING : WallSides.FLAT);
+    }
+
+    /** The colour farTint last gave a far skin, or null where it gave none. */
+    private float[] farColour;
+
+    /**
+     * The outside of a wall that is one flat colour has the two lines every storey of a
+     * building has: a plinth along its foot and a course under its top, each a shade off the
+     * wall and standing a finger proud of it. They are what says, from down the street, where
+     * one floor ends and the next begins. The plinth stops either side of a doorway.
+     */
+    private void addCourses(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float outX, float outY) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        plain.open = frame.open;
+        plain.sway = 0f;
+        float doorFrom = -1f, doorTo = -1f;
+        if (opening[at + OPENING_START] >= 0f && opening[at + OPENING_FOOT] < Courses.DOORWAY_FOOT) {
+            doorFrom = opening[at + OPENING_START];
+            doorTo = opening[at + OPENING_END];
+        }
+        float x0 = x + a + outX, y0 = y + b + outY, base = z * ViewCamera.LEVEL_HEIGHT;
+        float lift0 = geometry.liftAt(a, b), lift1 = geometry.liftAt(a + da, b + db);
+        Courses.add(plain, x0, y0, base + lift0, x0 + da, y0 + db, base + lift1, outX, outY, doorFrom, doorTo,
+                farColour[0] * frame.red, farColour[1] * frame.green, farColour[2] * frame.blue);
     }
 
     /** The level the walls that meet the wall being added are looked for on. */
@@ -4097,18 +4438,39 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // down the wall to the ground.
         // Of the gutter's dark metal: pale, it reads as a post standing at the foot of the gable.
         if (piped && startEnd != Eaves.RUNS_ON) {
+            int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
+            float foot = Eaves.pipeFoot(z, level -> under(beyondX, beyondY, level));
             // Against the wall at the building's corner, whatever the eave does past it.
             float px = runsY ? x + edge + ox * 0.5f : x, py = runsY ? y : y + edge + oy * 0.5f;
-            float foot = lift;
-            for (int turn = 0; turn < 2; turn++) {
-                float wx = turn == 0 ? PIPE : 0f, wy = turn == 0 ? 0f : PIPE;
-                set(c, 0, px - wx, py - wy, foot);
-                set(c, 1, px + wx, py + wy, foot);
-                set(c, 2, px + wx, py + wy, far - GUTTER);
-                set(c, 3, px - wx, py - wy, far - GUTTER);
-                SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+            float head = far - GUTTER;
+            if (!Float.isNaN(foot) && head - foot - lift >= Eaves.SHORTEST_PIPE) {
+                foot += lift;
+                pipeFrom[0] = pipeTo[0] = px;
+                pipeFrom[1] = pipeTo[1] = py;
+                pipeFrom[2] = foot + Eaves.SHOE_HIGH;
+                pipeTo[2] = head;
+                SpriteGeometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, frame.red, frame.green, frame.blue);
+                // The shoe: the pipe's foot turned out from the wall, to throw the water clear of it.
+                pipeTo[0] = px + Math.signum(ox) * Eaves.SHOE_OUT;
+                pipeTo[1] = py + Math.signum(oy) * Eaves.SHOE_OUT;
+                pipeTo[2] = foot + PIPE;
+                SpriteGeometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, frame.red, frame.green, frame.blue);
             }
         }
+    }
+
+    private final float[] pipeFrom = new float[3], pipeTo = new float[3];
+
+    /** What is under an eave on the square past it, a level at a time going down: see Eaves.pipeFoot. */
+    private int under(int x, int y, int level) {
+        IsoGridSquare square = cell.getGridSquare(x, y, level);
+        if (square == null) {
+            return Eaves.AIR;
+        }
+        if (square.getRoomID() != -1L || Roofs.roofing(square) || Roofs.madeAt(x, y, level, frames) != null) {
+            return Eaves.ROOM;
+        }
+        return square.getFloor() != null ? Eaves.FLOOR : Eaves.AIR;
     }
 
     private static void set(float[] c, int corner, float x, float y, float h) {

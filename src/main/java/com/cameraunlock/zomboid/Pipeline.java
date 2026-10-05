@@ -366,6 +366,8 @@ final class Pipeline {
             const float RELIEF = 0.05;
             // How wide a board of a boarded wall is, in tiles: about 15 cm.
             const float BOARD_WIDE = 0.15;
+            // 1 while timber() is making a post or a brace and not a wall of boards.
+            float arcWhole = 0.0;
 
             // How much of the sun a surface throws at the eye: the microfacet model every
             // modern renderer uses (GGX facets, Schlick's Fresnel, Smith's shadowing). rough
@@ -509,6 +511,12 @@ final class Pipeline {
             vec3 timber(vec3 wood, float run, float up, out float lean) {
                 float board = run / BOARD_WIDE;
                 float which = mod(floor(board), 400.0), part = fract(board);
+                // A post or a brace is one piece of wood however wide: no joints, no nails,
+                // and its rings go on across it without a break.
+                if (arcWhole > 0.5) {
+                    which = 7.0;
+                    part = abs(fract(board * 0.5) * 2.0 - 1.0);
+                }
                 float wide = fwidth(board);
                 float r1 = grain(vec2(which, 3.0)), r2 = grain(vec2(which, 11.0)), r3 = grain(vec2(which, 23.0));
                 vec3 made = wood * (0.88 + 0.22 * r1) * mix(vec3(1.04, 1.0, 0.94), vec3(0.97, 1.0, 1.04), r2);
@@ -543,7 +551,7 @@ final class Pipeline {
                 made *= (1.0 - 0.2 * late) * (1.0 + 0.09 * fibre);
                 made *= 1.0 - 0.5 * knotted * near * (1.0 - smoothstep(0.006, 0.02, away));
                 float edge = min(part, 1.0 - part);
-                float seen = 1.0 - smoothstep(0.3, 0.8, wide);
+                float seen = (1.0 - smoothstep(0.3, 0.8, wide)) * (1.0 - arcWhole);
                 float joint = 1.0 - smoothstep(0.018, 0.018 + wide, edge);
                 float eased = 1.0 - smoothstep(0.0, 0.09, edge);
                 lean = (part < 0.5 ? -1.0 : 1.0) * eased * seen;
@@ -552,12 +560,33 @@ final class Pipeline {
                 float rail = (fract(up / 1.15 + 0.3) - 0.5) * 1.15;
                 float nail = length(vec2((abs(part - 0.5) - 0.3) * BOARD_WIDE, rail));
                 float soft = fwidth(up);
-                float head = (1.0 - smoothstep(0.005, 0.005 + soft, nail)) * (1.0 - smoothstep(0.004, 0.012, soft));
+                float head = (1.0 - smoothstep(0.005, 0.005 + soft, nail)) * (1.0 - smoothstep(0.004, 0.012, soft)) * (1.0 - arcWhole);
                 // Under each nail the rain has drawn a little rust down the board.
                 float streak = (1.0 - smoothstep(0.003, 0.006 + soft, abs(abs(part - 0.5) - 0.3) * BOARD_WIDE)) * smoothstep(0.0, 0.01, -rail)
-                        * (1.0 - smoothstep(0.0, 0.11, -rail)) * (1.0 - smoothstep(0.004, 0.012, soft));
+                        * (1.0 - smoothstep(0.0, 0.11, -rail)) * (1.0 - smoothstep(0.004, 0.012, soft)) * (1.0 - arcWhole);
                 made = mix(made, made * vec3(0.8, 0.66, 0.52), 0.35 * streak);
                 return mix(made, vec3(0.2, 0.19, 0.18), 0.85 * head);
+            }
+
+            // A wall seen from the side its sprite was not painted for is given that side's
+            // colour, and one flat colour over a whole building is a cut-out of card. Paint
+            // weathers: broad patches a shade lighter and darker, and faint runs down it. All
+            // of it is far coarser than a pixel at any distance a wall is seen from, so
+            // none of it crawls as the eye moves.
+            vec3 arcTone(vec3 tint, vec3 at) {
+                float broad = patches(at.xy * 0.45 + at.z * 0.31) - 0.5;
+                float run = patches(vec2((at.x + at.y) * 1.7, at.z * 0.18)) - 0.5;
+                return tint * (1.0 + 0.1 * broad + 0.05 * run);
+            }
+
+            // Cloth that hangs, hangs in folds: a curtain drawn as one flat sheet is a blind.
+            // How light the cloth is at a place along it, the folds a hand apart and none
+            // quite like the next: light on each fold's crown and dark in the hollow between.
+            // Where a fold is finer than a pixel the cloth is the mean of the two.
+            float arcFolds(float run) {
+                float turn = run * 34.0 + 1.6 * sin(run * 9.0) + 0.7 * sin(run * 23.0 + 2.0);
+                float fold = 0.5 + 0.5 * cos(turn);
+                return mix(0.74 + 0.3 * fold * fold, 0.86, smoothstep(0.5, 1.6, fwidth(turn)));
             }
 
             // Where rain lands. The ground is cut into cells and each cell is hit again and
@@ -644,7 +673,7 @@ final class Pipeline {
                 // the colour of the surface its own side has. uTint.a is 1 for paint, 2 for
                 // boards lapped one over the next, and 0 for everything else.
                 if (uTint.a > 0.5) {
-                    texel.rgb = uTint.rgb;
+                    texel.rgb = arcTone(uTint.rgb, vWorld);
                     if (uTint.a > 1.5) {
                         // Each board stands out at its foot and is in the shadow of the one
                         // above at its head. Far off, where a board is under a pixel high,
@@ -655,6 +684,11 @@ final class Pipeline {
                         texel.rgb *= mix(lapped, 0.94, smoothstep(0.35, 0.9, fwidth(board)));
                     }
                 }
+                // Cloth standing upright in a sheet is a curtain, or the valance of a bed.
+                if (vMaterial > 7.5 && vMaterial < 8.5 && vKind < 1.5 && abs(normalize(vNormal).z) < 0.3) {
+                    vec3 hangs = normalize(vNormal);
+                    texel.rgb *= arcFolds(dot(vWorld.xy, vec2(hangs.y, -hangs.x)));
+                }
                 // A wall of upright boards. The game paints one with four boards to a square
                 // and a few long strokes of grain, and from a pace away each stroke is a
                 // streak as long as an arm. The sprite gives the wood its colour, taken from
@@ -664,7 +698,8 @@ final class Pipeline {
                 // How far the surface leans along the wall at a board's edge, and how much of
                 // the place is board: both are used once the surface's facing is known.
                 float lean = 0.0, timbered = 0.0;
-                if (vMaterial > 51.5 && vMaterial < 52.5 && uTint.a < 0.5 && uTexel.x > 0.0) {
+                arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
+                if ((vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
                     // The strokes run up the boards, so the colour is taken from far to either
                     // side of the place and a little above and below it.
@@ -995,7 +1030,7 @@ final class Pipeline {
                 // every frame. Out of doors by day what is behind is a dim room, and the
                 // glass takes more of the pixels, which is how a window looks dark from the
                 // street. A window's sheet faces into its room.
-                bool lamplit = vMaterial > 64.5;
+                bool lamplit = vMaterial > 64.5 && vMaterial < 65.5;
                 bool window = lamplit || vMaterial > 12.5 && vMaterial < 13.5;
                 float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
