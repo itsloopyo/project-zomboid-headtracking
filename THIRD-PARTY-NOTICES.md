@@ -1,6 +1,7 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds only this project's own classes, and
+ProjectZomboidHeadTracking.jar holds only this project's own classes, two of
+which carry the pieces of shader code listed under Shader code below, and
 ProjectZomboidHeadTracking.dll this project's own code and cameraunlock-core's.
 The components below are what they ship beside, link against at run time, or
 interoperate with. Each remains the property of its authors and is used under
@@ -89,10 +90,106 @@ Copyright (c) 2026 itsloopyo
 
 - **Files:** every `materials/*.rgb.gz` and `materials/*.rgba.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, wood, bark, planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond and ivy
 - **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
-- **License:** the model's, CreativeML Open RAIL++-M, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md
+- **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The textures are grain for surfaces in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 - **Usage:** The first person view lays them over open ground, roofs, walls, wooden floors and the crowns of trees to give each the grain of what it is made of, and draws the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them.
 - **Bundled:** the textures, yes. The model is not.
 - **Not among them:** `materials/paint.rgb.gz` is filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it.
+
+---
+
+## Furniture models
+
+- **Files:** `models/furniture.bin.gz` inside the mod's jar
+- **License:** MIT, this project's own
+- **Usage:** The first person view draws them where the game stands a piece of furniture.
+- **Bundled:** yes.
+
+Every model is built from nothing by `tools/models/furniture.py` in this
+repository, a Blender script. No mesh, texture or measurement is read from
+Project Zomboid or from anywhere else.
+
+---
+
+## Shader code
+
+The jar's shaders are this project's own, with two exceptions. Both are in the
+jar as shader source text.
+
+### Hash without Sine
+
+- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`
+- **License:** MIT
+- **Upstream:** https://www.shadertoy.com/view/4djSRW
+- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth.
+- **Bundled:** yes.
+
+Copyright (c) 2014 David Hoskins.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### FXAA pass
+
+- **Where:** the edge blend in the `SMOOTH` shader of `PipelineShaders.java`
+- **License:** BSD-3-Clause
+- **Upstream:** https://github.com/mattdesl/glsl-fxaa (`fxaa.glsl`), whose header says it is based on the code on geeks3d.com and comes from https://github.com/mitsuhiko/webgl-meincraft
+- **Usage:** Smooths the stair-steps of edges in the finished first person picture.
+- **Bundled:** yes, changed: the names are this project's, the constants are written out as numbers, it reads the picture at this project's own coordinates, and the sharpening that follows it is this project's own.
+
+Copyright (c) 2011 by Armin Ronacher.
+
+Some rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+
+    * The names of the contributors may not be used to endorse or
+      promote products derived from this software without specific
+      prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+### Acknowledgement
+
+The dither that spreads the picture's samples from pixel to pixel is the
+interleaved gradient noise formula Jorge Jimenez presented in "Next Generation
+Post Processing in Call of Duty: Advanced Warfare" (SIGGRAPH 2014,
+https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/).
+It is a published formula of three constants. No code was taken.
 
 ---

@@ -3766,7 +3766,11 @@ final class PipelineShaders {
             }
             """;
 
-    /** Smooths the stair-steps of edges, looking along each edge for how far to blend. */
+    /**
+     * Smooths the stair-steps of edges, looking along each edge for how far to blend. The blend
+     * is the FXAA pass of glsl-fxaa, used under its BSD licence: the notice is in
+     * THIRD-PARTY-NOTICES.md. The sharpening after it is this project's own.
+     */
     static final String SMOOTH = """
             #version 120
             uniform sampler2D uImage;

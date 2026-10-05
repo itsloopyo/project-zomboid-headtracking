@@ -456,6 +456,9 @@ final class CharacterDraw {
      * as it was made, before any bone moved it: it is fixed to the surface, moves as the
      * surface moves and never swims or sparkles. Each is left out once it is finer than the
      * pixels it would be drawn with.
+     *
+     * chance and chanceAt are hash13 and hash11 of David Hoskins's Hash without Sine, used
+     * under its MIT licence: the notice is in THIRD-PARTY-NOTICES.md.
      */
     private static final String GRAIN = """
             float chance(vec3 p) {

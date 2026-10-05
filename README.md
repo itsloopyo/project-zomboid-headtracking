@@ -426,6 +426,11 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
 - [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the settings file reader and hotkey handling compiled into the mod's DLL, and the shared installer scripts
+- [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth
+- [glsl-fxaa](https://github.com/mattdesl/glsl-fxaa) (BSD-3-Clause) - the FXAA pass that smooths edges in the first person picture
+- [Stable Diffusion XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) - the model the surface textures were generated with, from text prompts alone
+
+The licence notices for these are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Disclaimer
 
