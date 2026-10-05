@@ -51,7 +51,7 @@ import zombie.util.list.PZArrayList;
  * map. The scenes are reused in turn, and there are more of them than the game
  * keeps frames in flight between its two threads.
  */
-final class WorldScene extends TextureDraw.GenericDrawer {
+final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground {
     /**
      * How far the view draws, in tiles. The game keeps at most 19 chunks of 8 tiles a side
      * around the player, so nothing further than this from the player is ever in memory.
@@ -473,8 +473,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float BOLE = 0.42f;
     /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
     private static final float GRASS_REACH = 16f;
-    private static final int TUFTS = 14;
-    private static final float TUFT_HALF_WIDTH = 0.3f;
+    /** How far in from a side where the lawn ends its plants keep, in tiles. */
+    private static final float LAWN_KEEPS_IN = 0.05f;
+    /** The square whose grass is being grown: where in the chunk it is, which of its sides run on into more lawn, and how much standing under trees takes from its grass. */
+    private int grownLocalX, grownLocalY;
+    private boolean lawnWest = true, lawnEast = true, lawnNorth = true, lawnSouth = true;
+    private float grownUnder;
     /** The ground of the chunk being built and of the ring of squares round it, laid out as the lights are. */
     private final byte[] groundKind = new byte[LIGHT_SPAN * LIGHT_SPAN];
     private final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
@@ -1374,52 +1378,50 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     /**
-     * Grass the game paints flat on the ground stands up near the eye: tufts of blades on every
-     * square of open grass, each the colour of the ground it stands on. Where each tuft stands
-     * and how it is turned comes from the square's own place on the map, so the same tufts are
-     * there every time the square is built.
+     * Grass the game paints flat on the ground stands up near the eye: every square of open
+     * grass grows its own plants, each the colour of the ground it stands on. See Grass.
      */
     private void growGrass(int x, int y, int localX, int localY) {
         int own = (localX + 1) * LIGHT_SPAN + localY + 1;
         if (!isLawn(own)) {
             return;
         }
-        // A tuft is wider than nothing, and one near the square's edge hangs over it. Over more
-        // grass that is as it should be. Over a path it is untidy, and through the wall of a
-        // house it is wrong, so on a side where the lawn ends the tufts keep in from the edge.
-        boolean west = isLawn(own - LIGHT_SPAN), east = isLawn(own + LIGHT_SPAN), north = isLawn(own - 1), south = isLawn(own + 1);
-        float keepIn = TUFT_HALF_WIDTH + 0.06f;
-        float lowA = west ? 0f : keepIn, highA = east ? 1f : 1f - keepIn, lowB = north ? 0f : keepIn, highB = south ? 1f : 1f - keepIn;
+        // Over more grass a blade may hang past its square. Over a path it is untidy, and
+        // through the wall of a house it is wrong, so on a side where the lawn ends the
+        // plants keep in from the edge.
+        lawnWest = isLawn(own - LIGHT_SPAN);
+        lawnEast = isLawn(own + LIGHT_SPAN);
+        lawnNorth = isLawn(own - 1);
+        lawnSouth = isLawn(own + 1);
+        grownLocalX = localX;
+        grownLocalY = localY;
+        grownUnder = 0.85f;
         frameOf(groundObject[own], groundTexture[own]);
-        SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
-        for (int tuft = 0; tuft < TUFTS; tuft++) {
-            int hash = x * 73856093 ^ y * 19349663 ^ tuft * 83492791;
-            hash = (hash ^ hash >>> 13) * 0x5bd1e995;
-            hash ^= hash >>> 15;
-            float a = lowA + (highA - lowA) * (hash & 0xff) / 255f, b = lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f;
-            // A lawn does not stop at a line. Towards a path or a wall, and under trees, its
-            // grass is shorter, thinner and browner, and the further in or under the more so.
-            float edge = 1f;
-            if (!west) {
-                edge = Math.min(edge, a / LAWN_EDGE);
-            }
-            if (!east) {
-                edge = Math.min(edge, (1f - a) / LAWN_EDGE);
-            }
-            if (!north) {
-                edge = Math.min(edge, b / LAWN_EDGE);
-            }
-            if (!south) {
-                edge = Math.min(edge, (1f - b) / LAWN_EDGE);
-            }
-            float vigour = (1f - 0.85f * woodedAt(localX, localY, a, b)) * (0.2f + 0.8f * edge * edge * (3f - 2f * edge));
-            if (Flora.unit(Flora.mix(x, y, 31 + tuft), 0) > 0.3f + 0.7f * vigour) {
-                continue;
-            }
-            double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
-            float height = (0.16f + 0.26f * (hash >>> 24 & 0xff) / 255f) * (0.55f + 0.45f * vigour);
-            geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), TUFT_HALF_WIDTH, height, SpriteGeometry.GRASS, vigour);
+        Grass.lawn(geometry, laid.get(groundTexture[own].getID()), frame, x, y, camera.eyeX, camera.eyeY, camera.forwardX, camera.forwardY,
+                lawnWest ? 0f : LAWN_KEEPS_IN, lawnEast ? 1f : 1f - LAWN_KEEPS_IN, lawnNorth ? 0f : LAWN_KEEPS_IN, lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, this);
+    }
+
+    /**
+     * How well grass does at a point of the square being grown. A lawn does not stop at a
+     * line: towards a path or a wall, and under trees, its grass is shorter, thinner and
+     * browner, and the further in or under the more so.
+     */
+    @Override
+    public float vigour(float a, float b) {
+        float edge = 1f;
+        if (!lawnWest) {
+            edge = Math.min(edge, a / LAWN_EDGE);
         }
+        if (!lawnEast) {
+            edge = Math.min(edge, (1f - a) / LAWN_EDGE);
+        }
+        if (!lawnNorth) {
+            edge = Math.min(edge, b / LAWN_EDGE);
+        }
+        if (!lawnSouth) {
+            edge = Math.min(edge, (1f - b) / LAWN_EDGE);
+        }
+        return (1f - grownUnder * woodedAt(grownLocalX, grownLocalY, a, b)) * (0.2f + 0.8f * edge * edge * (3f - 2f * edge));
     }
 
     /**
@@ -1552,7 +1554,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float lowA = spillsTo(own - LIGHT_SPAN) ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + LIGHT_SPAN) ? 1f + GRASS_SPILL : 0.88f;
         float lowB = spillsTo(own - 1) ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) ? 1f + GRASS_SPILL : 0.88f;
         SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
-        for (int tuft = 0; tuft < LONG_TUFTS; tuft++) {
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        float away = (float) Math.sqrt(toX * toX + toY * toY);
+        // Near the eye it is grown plant by plant. Far off, where a blade is finer than the
+        // picture can draw, it is cards with the blades cut out of them, and between the two
+        // the cards rise out of the ground as the plants sink into it.
+        if (away < Grass.RANK_ENDS) {
+            lawnWest = lawnEast = lawnNorth = lawnSouth = true;
+            grownLocalX = waterLocalX;
+            grownLocalY = waterLocalY;
+            grownUnder = 0.7f;
+            Grass.rank(geometry, mesh, frame, x, y, camera.eyeX, camera.eyeY, camera.forwardX, camera.forwardY, lowA, highA, lowB, highB, this);
+        }
+        float carded = Math.clamp((away - Grass.RANK_THINS) / (Grass.RANK_ENDS - Grass.RANK_THINS), 0f, 1f);
+        for (int tuft = 0; tuft < LONG_TUFTS && carded > 0f; tuft++) {
             int hash = x * 19349663 ^ y * 83492791 ^ tuft * 73856093;
             hash = (hash ^ hash >>> 13) * 0x5bd1e995;
             hash ^= hash >>> 15;
@@ -1563,12 +1578,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             float a = lowA + (highA - lowA) * (hash & 0xff) / 255f, b = lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f;
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
             float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
-            float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f);
+            float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f) * carded;
             float vigour = 1f - 0.7f * woodedAt(waterLocalX, waterLocalY, Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f));
             geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS, vigour);
         }
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        if (toX * toX + toY * toY < FLOWER_REACH * FLOWER_REACH) {
+        if (away < FLOWER_REACH) {
             // Flowers in long grass stand as tall as it does, on stems lost among the blades.
             addFlowers(laid.get(PLAIN), x, y, 0.4f, 0.35f, 0.03f);
         }

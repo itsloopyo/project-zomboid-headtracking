@@ -28,10 +28,10 @@ final class SpriteGeometry {
     static final float CARD = 2f;
     /** Added to a vertex's openness to mark it as the surface of water. */
     static final float WATER = 4f;
-    /** Added to a vertex's openness: a card of grass blades, cut out of it by the picture. */
-    static final float GRASS = 8f;
-    /** In place of GRASS for long grass, which is grown as far as the eye sees and so does not die away with distance. */
+    /** Added to a vertex's openness: a card of long grass far from the eye, its blades cut out of it by the picture. */
     static final float LONG_GRASS = 16f;
+    /** Added to a vertex's openness: a strip of what Grass grows, which is a blade, a stem or a head of its own shape and not cut out of a card. */
+    static final float BLADES = 24f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
     /** The up share of a tuft's normal where grass barely grows, and how much more it is where it thrives. The world shader has the same two numbers. */
@@ -667,6 +667,115 @@ final class SpriteGeometry {
         mesh.add(x1, y1, base + height, u, v, frame.red, frame.green, frame.blue);
         mesh.add(x0, y0, base + height, u, v, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
+    }
+
+    /** The outline of a strip: see addStrip. */
+    static final int POINTED = 0, EVEN = 1, FAN = 2;
+    /** How wide a fan is at its foot, as a share of its width at its end. The world shader has the same number. */
+    static final float FAN_FOOT = 0.3f;
+    /** Where the plant being grown stands on the map, and where on the ground's sprite it takes its colour. */
+    private float plantX, plantY, plantUp, plantU, plantV;
+    /** Where the strip added last ended, along its own way and up from the plant's root, and how far over it leant there: a head starts where its stem stops. */
+    float endAlong, endUp, endLean;
+
+    /** Stands the plant whose strips are added next on the point (a, b) of the ground sprite in frame. */
+    void plant(Frame frame, int tileX, int tileY, float a, float b) {
+        // The colour is taken from inside the square, wherever the plant stands: past the
+        // square's edge the ground's sprite is its empty corner.
+        float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
+        float pixelU = Math.clamp(frameU(frame, inA, inB), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        float pixelV = Math.clamp(frameV(frame, inA, inB, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        plantU = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+        plantV = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        plantX = tileX + a;
+        plantY = tileY + b;
+        plantUp = liftAt(a, b);
+    }
+
+    /**
+     * Adds one strip of the plant last stood: a blade, a stem, or the card a head is cut from.
+     * It starts fromAlong out from the root along (dirX, dirY) and fromUp above it, leaning
+     * lean from upright, and has bent over by curl more at its end, length further on. It
+     * turns about its own length by twist from foot to tip. A POINTED strip narrows to
+     * nothing, an EVEN one is as wide at its end as at its foot, and a FAN is FAN_FOOT of its
+     * width at its foot and all of it at its end.
+     *
+     * Its vertices carry no facing. Where one would be they carry what the picture needs to
+     * shape and move the strip: which edge the vertex is on (-2 and 2, 0 at a point) with the
+     * strip's own random number added; twice what the strip is, with how far along it the
+     * vertex is added; and how well the grass does there in sixteenths, with the vertex's
+     * height over the root added, which is how far the wind moves it.
+     */
+    void addStrip(Mesh mesh, Frame frame, float dirX, float dirY, float fromAlong, float fromUp, float lean, float curl, float length, float width,
+            float twist, int steps, int shape, int form, float seed, float vigour) {
+        float half = 0.5f * length;
+        float midAlong = fromAlong + half * Grass.sin(lean), midUp = fromUp + half * Grass.cos(lean);
+        float tipAlong = midAlong + half * Grass.sin(lean + curl), tipUp = Math.max(midUp + half * Grass.cos(lean + curl), 0.004f);
+        endAlong = tipAlong;
+        endUp = tipUp;
+        endLean = lean + curl;
+        float level = (float) Math.floor(Math.clamp(vigour, 0f, 1f) * 15.99f);
+        seed = Math.min(seed, 0.999f);
+        // Written straight into the mesh: a lawn is a hundred thousand of these corners a frame.
+        int need = mesh.floats + steps * 6 * VERTEX_FLOATS;
+        if (need > mesh.vertices.length) {
+            mesh.vertices = Arrays.copyOf(mesh.vertices, Math.max(mesh.vertices.length * 2, need));
+        }
+        float[] to = mesh.vertices;
+        int at = mesh.floats;
+        float open = frame.open + BLADES;
+        float red = frame.red, green = frame.green, blue = frame.blue;
+        float leftEdge = -2f + seed, rightEdge = 2f + seed;
+        float lastLeftX = 0f, lastLeftY = 0f, lastRightX = 0f, lastRightY = 0f, lastUp = 0f, lastCode = 0f, lastHigh = 0f;
+        for (int step = 0; step <= steps; step++) {
+            float s = step / (float) steps;
+            // More of the strip's corners towards its tip, where it bends most.
+            float t = s * (1.28f - 0.28f * s), k = 1f - t;
+            float along = k * k * fromAlong + 2f * t * k * midAlong + t * t * tipAlong;
+            float up = k * k * fromUp + 2f * t * k * midUp + t * t * tipUp;
+            float halfWidth = 0.5f * width * (shape == POINTED ? 1f - t * t : shape == FAN ? FAN_FOOT + (1f - FAN_FOOT) * t : 1f);
+            float turned = twist * t;
+            float sideX = (-dirY + dirX * turned) * halfWidth, sideY = (dirX + dirY * turned) * halfWidth;
+            float midX = plantX + dirX * along, midY = plantY + dirY * along;
+            float leftX = midX - sideX, leftY = midY - sideY, rightX = midX + sideX, rightY = midY + sideY;
+            float code = form * 2f + t, high = level + Math.min(up, 0.999f);
+            if (step > 0) {
+                boolean point = shape == POINTED && step == steps;
+                at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh);
+                at = corner(to, at, lastRightX, lastRightY, plantUp + lastUp, red, green, blue, open, rightEdge, lastCode, lastHigh);
+                at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, point ? seed : rightEdge, code, high);
+                if (!point) {
+                    at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh);
+                    at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, rightEdge, code, high);
+                    at = corner(to, at, leftX, leftY, plantUp + up, red, green, blue, open, leftEdge, code, high);
+                }
+            }
+            lastLeftX = leftX;
+            lastLeftY = leftY;
+            lastRightX = rightX;
+            lastRightY = rightY;
+            lastUp = up;
+            lastCode = code;
+            lastHigh = high;
+        }
+        mesh.floats = at;
+    }
+
+    private int corner(float[] to, int at, float x, float y, float up, float red, float green, float blue, float open, float edge, float code,
+            float high) {
+        to[at] = x;
+        to[at + 1] = y;
+        to[at + 2] = up;
+        to[at + 3] = plantU;
+        to[at + 4] = plantV;
+        to[at + 5] = red;
+        to[at + 6] = green;
+        to[at + 7] = blue;
+        to[at + 8] = open;
+        to[at + 9] = edge;
+        to[at + 10] = code;
+        to[at + 11] = high;
+        return at + VERTEX_FLOATS;
     }
 
     /** The part of a tuft's unit normal that points up, for grass doing as well as vigour says: the picture reads vigour back off it. */

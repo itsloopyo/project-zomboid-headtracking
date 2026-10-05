@@ -86,6 +86,33 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * The wind in grass. A blade is stiff at its root and limp at its tip, so it is pushed
+     * over by the square of its height near the ground and evenly above that, and sinks as it
+     * goes over, since it is no longer than it was. The wind does not blow evenly: gusts cross
+     * a field as fronts, one after another, with the grass lying over under each and standing
+     * again behind it, finer ripples run over those, and every blade shivers at its own rate.
+     */
+    private static final String GRASS_WIND = """
+            vec3 swayed(vec3 at, float high, float seed) {
+                float strength = length(uWind.xy);
+                if (strength < 0.001 || high <= 0.0) {
+                    return at;
+                }
+                vec2 way = uWind.xy / strength;
+                vec2 beside = vec2(-way.y, way.x);
+                float along = dot(at.xy, way), over = dot(at.xy, beside);
+                float front = 0.5 + 0.5 * sin(along * 0.42 - uWind.z * 1.5 + 1.8 * sin(over * 0.23 + uWind.z * 0.17));
+                float ripple = sin(along * 2.9 - uWind.z * 4.1 + over * 1.3 + seed * 2.0);
+                float shiver = sin(uWind.z * (6.0 + 5.0 * seed) + seed * 37.0);
+                float limp = high * high / (high + 0.12);
+                float push = min(strength, 1.5) * (0.14 + 0.62 * front * front + 0.1 * ripple) * 0.75 * limp;
+                at.xy += way * push + beside * (shiver * 0.035 * min(strength, 1.5) * limp);
+                at.z -= min(push * push / (2.0 * max(high, 0.02)), 0.6 * high);
+                return at;
+            }
+            """;
+
     static final String WORLD_VERTEX = """
             #version 120
             varying vec2 vUv;
@@ -98,9 +125,10 @@ final class PipelineShaders {
             varying float vHung;
             uniform float uCutAbove;
             varying vec3 vPlace;
+            varying vec4 vBlade;
             uniform vec3 uWind;
             uniform float uLaid;
-            """ + MODEL_STANDS + """
+            """ + GRASS_WIND + MODEL_STANDS + """
             uniform vec3 uLit;
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
@@ -157,6 +185,24 @@ final class PipelineShaders {
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                 }
+                // A strip of grass has no facing. What its vertex carries in a facing's place is
+                // taken apart here: see SpriteGeometry.addStrip.
+                vBlade = vec4(0.0);
+                bool strip = uModel < 0.5 && mod(gl_Color.a, 32.0) > 23.5;
+                float high = 0.0;
+                if (strip) {
+                    float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
+                    float form = floor(gl_Normal.y * 0.5);
+                    float level = floor(gl_Normal.z);
+                    high = gl_Normal.z - level;
+                    float along = gl_Normal.y - 2.0 * form;
+                    // How far to one side the vertex is, as a share of the strip's full width:
+                    // a strip that narrows or widens is then cut and shaded along true lines
+                    // from foot to tip, where the edge alone would bend them at every corner.
+                    float breadth = form > 6.5 ? 0.3 + 0.7 * along : form < 2.5 ? 1.0 - along * along : 1.0;
+                    vBlade = vec4(edge * breadth, along, gl_Normal.x - 2.0 * edge, form + 0.05 + 0.06 * level);
+                    looks = vec3(0.0, 0.0, 1.0);
+                }
                 vNormal = looks;
                 vHung = uModel > 0.5 && uFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
                 // What is laid on the ground does not blow about: there the normal's length says
@@ -174,8 +220,20 @@ final class PipelineShaders {
                 // Nor what lies under trees or clings to a bole, though a fern, a weed and a
                 // flower growing out of the ground do.
                 bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
-                vec4 at = still ? stands : blown(stands, looks);
-                vCover = 2.0 - length(looks);
+                vec4 at = strip ? vec4(swayed(stands.xyz, high, vBlade.z), 1.0) : still ? stands : blown(stands, looks);
+                if (strip) {
+                    // Grass parts round whoever stands in it. The eye is over the viewer's
+                    // feet: what grows within a pace of them is pressed outward and down, the
+                    // more the nearer, so a look down shows the grass trodden where one stands
+                    // and springing back behind as one walks on.
+                    vec2 from = at.xy - uEye.xy;
+                    float off = length(from);
+                    float under = uEye.z - at.z;
+                    float trodden = (1.0 - smoothstep(0.12, 0.6, off)) * step(0.8, under) * step(under, 2.3);
+                    at.xy += from / max(off, 0.02) * (trodden * high * 1.1);
+                    at.z -= trodden * high * 0.65;
+                }
+                vCover = strip ? 1.0 - vBlade.y : 2.0 - length(looks);
                 vWorld = at.xyz;
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
@@ -235,6 +293,7 @@ final class PipelineShaders {
             uniform float uHoleUp;
             uniform vec4 uHoleFrom;
             varying vec3 vPlace;
+            varying vec4 vBlade;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
                 // The sun is not a point, so a shadow has a soft edge. Sixteen samples in a
@@ -784,8 +843,162 @@ final class PipelineShaders {
                 // how far up the blade, which way it is turned, and the way its card runs.
                 float bladeUp = 0.0, bladeTurn = 0.5;
                 vec2 bladeRun = vec2(1.0, 0.0);
-                if (grass) {
-                    // A card of grass: blades side by side along it, each its own height, width,
+            """;
+
+    /** The world's fragment shader from its grass on, up to where the light is worked out. */
+    static final String WORLD_FRAGMENT_MAIN_GROWN = """
+                // A strip of what Grass grows: the strip is the blade, and its own shape. Which
+                // way its flat faces, and how much it shines.
+                bool strip = vKind > 23.5;
+                vec3 stripFace = vec3(0.0, 0.0, 1.0);
+                float stripGloss = 1.0;
+                if (strip) {
+                    // A blade right against the eye is a green wall across the picture. Within
+                    // arm's reach the grass thins away to nothing, a whole blade at a time.
+                    float across = vBlade.x, up = vBlade.y, own = vBlade.z;
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.4 + 0.45 * own) {
+                        discard;
+                    }
+                    float form = floor(vBlade.w);
+                    float vigour = clamp((vBlade.w - form - 0.05) / 0.9, 0.0, 1.0);
+                    if (form < 2.5) {
+                        across /= max(1.0 - up * up, 0.02);
+                    }
+                    if (form > 6.5) {
+                        across /= 0.3 + 0.7 * up;
+                        // A fan of turf: blades from one root, spreading as the strip widens,
+                        // each its own height and each bowed its own way. Where a blade would
+                        // be finer than a pixel the fan is fewer and broader blades, halving in
+                        // number each time, since a blade under a pixel is there in one frame
+                        // and gone in the next.
+                        float slots = 12.0;
+                        float fine = fwidth(across) * slots * 0.5;
+                        slots = max(slots * exp2(-ceil(log2(max(fine / 0.3, 1.0)))), 1.0);
+                        float place = (across * 0.5 + 0.5) * slots;
+                        // The strip is 0.3 of its width at its foot: SpriteGeometry.FAN_FOOT.
+                        float spread = 0.3 + 0.7 * up;
+                        float each = floor(own * 4096.0);
+                        bool found = false;
+                        for (int k = -1; k <= 1; k++) {
+                            float slot = floor(place) + float(k);
+                            if (slot < 0.0 || slot > slots - 0.5 || found) {
+                                continue;
+                            }
+                            float r = grain(vec2(slot + slots * 13.0, each));
+                            float r2 = fract(r * 17.3 + 0.2), r3 = fract(r * 31.7 + 0.6);
+                            // The tallest is as tall as the strip, the rest anything down to two fifths of it.
+                            float reach = up / (0.4 + 0.6 * r2 * r2 + 0.3 * step(0.8, r3));
+                            if (reach >= 1.0) {
+                                continue;
+                            }
+                            float middle = slot + 0.5 + (r - 0.5) * 0.6 + (r3 - 0.5) * 2.2 * up * up / spread;
+                            float wide = (0.15 + 0.09 * r3) / spread * (1.0 - reach * reach) * (1.0 + 0.5 * (1.0 - slots / 12.0));
+                            if (abs(place - middle) < wide) {
+                                found = true;
+                                across = (place - middle) / wide;
+                                up = reach;
+                                own = r;
+                            }
+                        }
+                        if (!found) {
+                            discard;
+                        }
+                        form = 0.0;
+                    }
+                    // Three more numbers of the strip's own, from its one.
+                    float ownA = fract(own * 7.31 + 0.13), ownB = fract(own * 13.7 + 0.57), ownC = fract(own * 29.3 + 0.31);
+                    stripFace = normalize(cross(dFdx(vPlace), dFdy(vPlace)) + vec3(0.0, 0.0, 1e-9));
+                    // The colour of the lawn here: the game's own green for the square and the
+                    // season, pulled towards one green so a lawn is not a quilt of its squares,
+                    // paler in drifts and browner where it does poorly.
+                    float lit = dot(texel.rgb, vec3(0.3, 0.55, 0.15));
+                    vec3 lawn = ownA < 0.33 ? vec3(0.3, 0.47, 0.17) : ownA < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
+                    lawn = mix(lawn, vec3(0.44, 0.47, 0.2), 0.6 * smoothstep(0.5, 0.85, patches(vWorld.xy * 0.9 + 13.0)));
+                    lawn = mix(lawn, vec3(0.5, 0.42, 0.24), 0.55 * (1.0 - vigour));
+                    vec3 green = mix(texel.rgb, lawn * (lit / 0.38), 0.4);
+                    vec3 strawy = vec3(0.66, 0.58, 0.34) * (lit / 0.38);
+                    // Dark where the blades crowd at the root, light at the tip where the sun gets to them.
+                    float risen = 0.8 + 0.5 * up;
+                    if (form < 2.5) {
+                        // A blade. It is folded along its middle, a shallow V: the rib is a
+                        // dark line, and one half is turned a little more to the light than
+                        // the other. Its tip is often scorched, and some blades are going over
+                        // to straw from the tip down.
+                        float rib = smoothstep(0.0, 0.22, abs(across));
+                        float fold = 1.0 + 0.07 * across * (ownB > 0.5 ? 1.0 : -1.0);
+                        float dry = smoothstep(0.86 - 0.4 * (1.0 - vigour), 1.0, ownC);
+                        float scorched = smoothstep(0.55 + 0.4 * ownB, 1.0, up) * step(0.45, ownA);
+                        vec3 blade = green;
+                        if (form > 1.5) {
+                            // Dead: bleached, greyer where it has lain longest.
+                            blade = mix(strawy, vec3(0.5, 0.47, 0.38) * (lit / 0.38), ownA * 0.7);
+                            stripGloss = 0.3;
+                        } else if (form > 0.5) {
+                            // Coarse grass is a bluer, darker green than turf, with pale veins along it.
+                            blade = green * vec3(0.8, 0.95, 0.92) * (0.9 + 0.1 * sin(across * 14.0));
+                        }
+                        blade = mix(blade, strawy, max(dry * 0.75, scorched * 0.6));
+                        texel.rgb = blade * (0.9 + 0.1 * rib) * fold * risen * (0.84 + 0.32 * ownB);
+                    } else if (form < 3.5) {
+                        // A stem in seed: green at the foot and straw from the middle up.
+                        texel.rgb = mix(green * 0.9, strawy, smoothstep(0.15, 0.7, up)) * (0.75 + 0.4 * up) * (1.0 - 0.25 * abs(across));
+                        stripGloss = 0.5;
+                    } else if (form < 4.5) {
+                        // A spike: a tight head rounded at both ends, its grains in slanting
+                        // rows, with a fringe of bristles standing out all round on the kinds
+                        // that have them.
+                        float body = 0.5 * sqrt(max(sin(3.14159 * pow(clamp(up, 0.0, 1.0), 0.85)), 0.0));
+                        float bristled = step(0.4, ownA);
+                        float hair = step(0.62, fract(up * 26.0 - abs(across) * 3.0 + ownB)) * step(abs(across), min(body * 1.9, 0.98)) * bristled;
+                        if (abs(across) > body && hair < 0.5) {
+                            discard;
+                        }
+                        float grainy = 0.78 + 0.22 * sin((up * 30.0 + across * 5.0) * 2.0);
+                        vec3 head = mix(vec3(0.6, 0.55, 0.3), vec3(0.52, 0.44, 0.36), ownC) * (lit / 0.38);
+                        head = mix(head, green * 1.1, 0.5 * step(0.7, ownB));
+                        texel.rgb = abs(across) > body ? head * 1.25 : head * grainy * (1.0 - 0.45 * abs(across) / max(body, 0.01));
+                        stripGloss = 0.2;
+                    } else if (form < 5.5) {
+                        // A panicle: spikelets hanging by turns to either side of a hair-thin
+                        // stalk, larger and further out towards the middle of the head.
+                        float rows = 11.0;
+                        float row = floor(up * rows), within = fract(up * rows);
+                        float side = mod(row, 2.0) < 0.5 ? 1.0 : -1.0;
+                        float reachOut = (0.25 + 0.6 * sin(3.14159 * clamp(up * 0.9 + 0.08, 0.0, 1.0))) * (0.7 + 0.3 * grain(vec2(row, floor(own * 91.0))));
+                        vec2 from = vec2(across * side - reachOut, (within - 0.5) * 0.9);
+                        float spikelet = length(vec2(from.x + from.y * 0.5, from.y) * vec2(1.0 / 0.13, 1.0 / 0.42));
+                        float twig = step(abs(within - 0.5 - (across * side - reachOut) * 0.5), 0.07) * step(0.0, across * side) * step(across * side, reachOut);
+                        float stalk = step(abs(across), 0.045);
+                        if (spikelet > 1.0 && twig < 0.5 && stalk < 0.5) {
+                            discard;
+                        }
+                        vec3 head = mix(vec3(0.68, 0.6, 0.36), vec3(0.56, 0.5, 0.4), ownC) * (lit / 0.38);
+                        texel.rgb = spikelet <= 1.0 ? head * (1.15 - 0.4 * spikelet) : head * 0.8;
+                        stripGloss = 0.2;
+                    } else {
+                        // Clover: three round leaflets about the end of the stem, each with the
+                        // pale chevron across it.
+                        vec2 p = vec2(across, up * 2.0 - 1.0);
+                        float round = atan(p.y, p.x) + own * 6.2831853;
+                        float third = mod(round, 2.0943951) - 1.0471976;
+                        float far = length(p);
+                        vec2 leaf = vec2(far * cos(third) - 0.5, far * sin(third));
+                        float edge = length(leaf * vec2(1.0 / 0.44, 1.0 / 0.4));
+                        if (edge > 1.0) {
+                            discard;
+                        }
+                        float chevron = smoothstep(0.1, 0.0, abs(leaf.x + 0.02 + abs(leaf.y) * 0.55)) * 0.3;
+                        float vein = 0.94 + 0.06 * smoothstep(0.0, 0.04, abs(leaf.y));
+                        texel.rgb = mix(green * vec3(0.56, 0.8, 0.54), vec3(0.6, 0.72, 0.5) * (lit / 0.38), chevron) * vein * (1.1 - 0.3 * edge * edge);
+                        up = 0.6;
+                        stripGloss = 0.6;
+                    }
+                    texel.a = 1.0;
+                    bladeUp = up;
+                    bladeTurn = ownB;
+                }
+                if (grass && !strip) {
+                    // A card of long grass far off: blades side by side along it, each its own height, width,
                     // lean and shade, narrowing to a point. Further off they are shorter, and at
                     // the edge of where grass stands they are gone, so no line shows where it ends.
                     // A blade right against the eye is a green wall across the picture. Within
@@ -813,12 +1026,9 @@ final class PipelineShaders {
                     if (grain(vec2(blade, 19.0)) > 0.3 + 0.7 * vigour) {
                         discard;
                     }
-                    bool rank = vKind > 15.5;
                     // Grass grows in clumps a hand or two across, taller in the middle of one.
                     float clump = patches(vWorld.xy * 2.7 + 5.0);
-                    // Lawn dies away with distance and is gone where it stops being grown. Long grass,
-                    // which is grown as far as the eye sees, only thins.
-                    float tall = (0.25 + 0.75 * kind * kind) * (0.72 + 0.28 * clump) * (rank ? 1.0 : 1.0 - smoothstep(8.0, 15.5, (length(uEye - vWorld) - uRangeFrom)));
+                    float tall = (0.25 + 0.75 * kind * kind) * (0.72 + 0.28 * clump);
                     // A blade bows over further the higher up it, to one side or the other.
                     float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
                     float reach = up / max(tall, 0.001);
@@ -826,9 +1036,8 @@ final class PipelineShaders {
                     // three quarters of the widest: a finer one would be under a pixel sooner.
                     float wide = 0.36 + 0.14 * grain(vec2(blade, 17.0));
                     // The tallest have gone to seed: the top quarter of such a blade is a head,
-                    // broader than the stalk under it and the colour of straw. Few on a lawn,
-                    // more in grass left to grow.
-                    float head = kind > (rank ? 0.88 : 0.965) ? sin(3.14159 * clamp((reach - 0.74) / 0.26, 0.0, 1.0)) : 0.0;
+                    // broader than the stalk under it and the colour of straw.
+                    float head = kind > 0.88 ? sin(3.14159 * clamp((reach - 0.74) / 0.26, 0.0, 1.0)) : 0.0;
                     if (reach > 1.0 || abs(fract(along) - 0.5 + bow) > max(wide * (1.0 - reach * reach), 0.24 * head)) {
                         discard;
                     }
@@ -1225,6 +1434,10 @@ final class PipelineShaders {
                 if (grass) {
                     n = normalize(vec3(n.xy * 0.2, 1.0));
                 }
+                // A blade that is its own strip leans a little to the light as it really faces, so each stands out from the next.
+                if (strip) {
+                    n = normalize(vec3((dot(stripFace, view) < 0.0 ? -stripFace.xy : stripFace.xy) * 0.3, 1.0));
+                }
                 n = normalize(n - dent);
                 if (lean != 0.0) {
                     // A board's eased edge turns the surface along the wall, towards the joint.
@@ -1424,7 +1637,7 @@ final class PipelineShaders {
                         discard;
                     }
                 }
-                float open = grass ? vKind - (vKind > 15.5 ? 16.0 : 8.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
+                float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (crown) {
                     // A crown is a round mass of leaves: bright where it is turned to the sun,
@@ -1519,11 +1732,17 @@ final class PipelineShaders {
                             flatWay = -flatWay;
                         }
                         vec3 facet = normalize(flatWay * 0.7 + vec3(bladeRun * ((bladeTurn - 0.5) * 1.2), 0.35 + 0.5 * bladeUp));
-                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (0.25 + 0.75 * bladeUp) * glossed(facet, view, uLight, 0.42, 0.04));
+                        if (strip) {
+                            // The strip's own flat, rounded a little from one edge to the other as a folded blade is.
+                            vec3 flatOf = dot(stripFace, view) < 0.0 ? -stripFace : stripFace;
+                            vec3 breadth = normalize(cross(flatOf, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
+                            facet = normalize(flatOf + breadth * (vBlade.x * 0.45));
+                        }
+                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (strip ? stripGloss : 1.0) * (0.25 + 0.75 * bladeUp) * glossed(facet, view, uLight, 0.42, 0.04));
                     }
                     // Deep in the plant the leaves stand in each other's light: darker towards
                     // the foot of a card than at its top.
-                    color *= 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
+                    color *= strip ? 1.0 : 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
                 }
 
                 // Water, and ground that rain has wetted, show the sky: little of it looking
@@ -1678,7 +1897,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(WORLD_FRAGMENT_MAIN_REST);
+    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);
 
     static final String SHADOW_VERTEX = """
             #version 120
@@ -1699,7 +1918,7 @@ final class PipelineShaders {
             }
             varying float vLeaves;
             varying vec3 vAt;
-            """ + MODEL_STANDS + """
+            """ + GRASS_WIND + MODEL_STANDS + """
             void main() {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
@@ -1720,6 +1939,12 @@ final class PipelineShaders {
                     return;
                 }
                 vAt = gl_Vertex.xyz;
+                // A strip of grass carries its height over its root, not a facing: see SpriteGeometry.addStrip.
+                if (mod(gl_Color.a, 32.0) > 23.5) {
+                    float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
+                    gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
+                    return;
+                }
                 gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
             }
             """;

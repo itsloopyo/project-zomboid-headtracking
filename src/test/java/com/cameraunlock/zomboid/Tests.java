@@ -470,7 +470,7 @@ public final class Tests {
     private static void tuftCarriesHowWellItsGrassDoes() {
         for (float vigour : new float[] {0f, 0.35f, 1f}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            new SpriteGeometry().addTuft(mesh, wholeFrame(), 3, 4, 0.5f, 0.5f, 0.6f, 0.8f, 0.3f, 0.4f, SpriteGeometry.GRASS, vigour);
+            new SpriteGeometry().addTuft(mesh, wholeFrame(), 3, 4, 0.5f, 0.5f, 0.6f, 0.8f, 0.3f, 0.4f, SpriteGeometry.LONG_GRASS, vigour);
             check(mesh.triangles() == 2, "a tuft is two triangles");
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 float[] f = mesh.vertices;
@@ -1030,6 +1030,7 @@ public final class Tests {
         RoofTests.run();
         ShapeTests.run();
         CrownTests.run();
+        GrassTests.run();
         WindowTests.run();
         ReflectionTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
