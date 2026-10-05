@@ -43,7 +43,7 @@ set "JVM_MAIN_CLASS=com/cameraunlock/zomboid/Boot"
 :: unconditionally and would reset every key on every update.
 set "MOD_SEED_FILES="
 :: Post-install help text. `&echo ` starts each further line.
-set "MOD_CONTROLS=Controls (nav cluster / chord):&echo   F8                       Toggle the first person view&echo   End      / Ctrl+Shift+Y  Toggle head tracking&echo   PageUp   / Ctrl+Shift+G  Cycle tracking mode: full, rotation only, position only&echo   PageDown / Ctrl+Shift+H  Toggle yaw mode: world-locked or camera-local&echo   Insert   / Ctrl+Shift+U  Cycle aim mode: sights locked, free look with a marker, true free look, stock sights"
+set "MOD_CONTROLS=Controls (nav cluster / chord):&echo   F8                       Toggle the first person view&echo   F9                       In the game's own view, switch the mod's graphics on and off&echo   End      / Ctrl+Shift+Y  Toggle head tracking&echo   PageUp   / Ctrl+Shift+G  Cycle tracking mode: full, rotation only, position only&echo   PageDown / Ctrl+Shift+H  Toggle yaw mode: world-locked or camera-local&echo   Insert   / Ctrl+Shift+U  Cycle aim mode: sights locked, free look with a marker, true free look, stock sights"
 :: --- END CONFIG BLOCK ---
 
 :: Pin delayed expansion off before `%*` is expanded on the `call` below.
