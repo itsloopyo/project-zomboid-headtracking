@@ -1890,6 +1890,21 @@ final class PipelineShaders {
                     }
                     texel.rgb *= mix(1.0, fine, much);
                 }
+                // Wallpaper with a figure: a sprig printed over and over, each row half a step along
+                // from the one below, a little darker than the paper and a little greener or redder.
+                // Further off than the print can be drawn, the paper is the mean of it.
+                if (vMaterial > 69.5 && vMaterial < 70.5) {
+                    vec2 run = vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z) / 0.17;
+                    float row = floor(run.y);
+                    vec2 cell = vec2(fract(run.x + 0.5 * mod(row, 2.0)), fract(run.y)) - 0.5;
+                    float stem = (1.0 - smoothstep(0.012, 0.03, abs(cell.x + 0.06 * sin(cell.y * 9.0)))) * step(abs(cell.y + 0.05), 0.3);
+                    float bloom = 1.0 - smoothstep(0.07, 0.1, length(cell - vec2(0.0, 0.27)) * (1.0 + 0.25 * cos(5.0 * atan(cell.y - 0.27, cell.x))));
+                    float leaves = 1.0 - smoothstep(0.035, 0.055, length(vec2((abs(cell.x) - 0.1) * 0.6 + 0.6 * (cell.y + 0.02), cell.y + 0.02 - 0.5 * (abs(cell.x) - 0.1))));
+                    float drawn = 1.0 - smoothstep(0.08, 0.3, fwidth(run.x) + fwidth(run.y));
+                    texel.rgb = mix(texel.rgb, texel.rgb * vec3(0.72, 0.84, 0.7), max(stem, leaves) * drawn);
+                    texel.rgb = mix(texel.rgb, texel.rgb * vec3(1.0, 0.72, 0.76), bloom * drawn);
+                    texel.rgb *= mix(0.97, 1.0, drawn) * mix(1.0, dot(texture2D(uPaint, run * 0.14).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y, 0.3);
+                }
                 // A curtain the picture has hung has folds of its own, and is its weave close to.
                 if (vMaterial > 68.5 && vMaterial < 69.5) {
                     texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 23.0) * uClothGain, 0.22);

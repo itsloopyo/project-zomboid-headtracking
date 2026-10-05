@@ -2069,6 +2069,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             int before = FirstPerson.TRACE ? worn(texture) : 0;
             addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+            if (FirstPerson.TRACE) {
+                tally(sprite, worn(texture) - before);
+            }
             if (unexplored && object == floor) {
                 cornerLights(localX, localY);
             }
@@ -2256,6 +2259,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         boolean door = object instanceof IsoDoor || object instanceof IsoThumpable hinged && hinged.isDoor();
         glazedWall = object instanceof IsoWindow;
+        paperedWall = sprite.getName() != null && sprite.getName().startsWith("walls_interior_house");
         wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                 || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
         seeThrough = isSheet(properties);
@@ -3755,7 +3759,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         geometry.shownB = inY;
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
-        addSkin(laid(mesh, texture, laidWall), opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        // An inside wall is its paper's stripes, each a face of its own: see Papers.
+        paper = overLayer == 0 && paperedWall ? Papers.of(texture, frame, da != 0f) : null;
+        if (paper == null && overLayer == 0 && paperedWall && Papers.unread(texture)) {
+            building.signed = false;
+        }
+        SpriteGeometry.Mesh near = laid(mesh, texture, laidWall);
+        if (paper != null) {
+            int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
+            WallSides.tint(key, paperTint);
+            near = solid.get(texture.getID(), key);
+        }
+        addSkin(near, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
         geometry.shownA = -inX;
@@ -3812,9 +3827,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 frame.open = lightOpen[farLight];
             }
         }
-        addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName())) : tint != 0 ? solid.get(texture.getID(), tint)
-                : laid(mesh, texture, laidWall),
-                opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        // The far skin is papered as the near one only where it shows the same sprite.
+        paper = faced == null && tint == 0 ? paper : null;
+        addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName())) : tint != 0 ? solid.get(texture.getID(), tint) : near, opening, at, x, y, z, a, b, da, db,
+                fromStart, fromEnd, fromTop, startIsLow);
+        paper = null;
         // Out of doors, on a whole wall in one colour.
         if (tint != 0 && farColour != null && frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, a, b, da, db, -Math.signum(inX), -Math.signum(inY));
@@ -4202,8 +4219,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, foot, foot + thick, proud, mr, mg, mb);
                         addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, head - thick, head, proud, mr, mg, mb);
                         // The field of the panel, raised in its middle.
-                        addJoinery(wood, from + 2.6f * MOULDING_WIDE, to - 2.6f * MOULDING_WIDE, foot + 2.6f * thick, head - 2.6f * thick,
-                                face + Math.signum(face) * MOULDING_PROUD * 0.5f, r, g, b);
+                        addJoinery(wood, from + 2f * MOULDING_WIDE, to - 2f * MOULDING_WIDE, foot + 2f * thick, head - 2f * thick,
+                                face + Math.signum(face) * MOULDING_PROUD * 0.5f, r * FIELD_SHADE, g * FIELD_SHADE, b * FIELD_SHADE);
                     }
                 }
             }
@@ -4322,7 +4339,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // A frame with no stile at one end runs on into the window on the next square.
             windowLit = side;
             if (shape.startWide > 0f) {
-                addJoinery(joinery, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
+                addMember(joinery, wall, x, y, z, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b, open[side]);
             }
             if (shape.endWide > 0f) {
                 addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, open[side]);
@@ -4332,8 +4349,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
             }
-            addJoinery(joinery, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
-            addJoinery(joinery, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b);
             // Rain is thrown clear of the wall by a sill, which a window has on the side that is out of doors.
             if (shape.foot > SILL_LOWEST && (side == 0 ? !ownIsRoom : ownIsRoom && !beyondIsRoom)) {
                 float pastStart = shape.startWide > 0f ? SILL_PAST + FRAME_LAP : 0f, pastEnd = shape.endWide > 0f ? SILL_PAST + FRAME_LAP : 0f;
@@ -4360,6 +4375,22 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
             } else {
                 addShards(glass, t0, t1, h0, h1, shape.panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
+            }
+        }
+        if (shape.arch != null) {
+            // The light under the arch, from where it springs up to the frame's inside.
+            int places = shape.arch.length / 3;
+            float rise = Math.max(shape.arch[(places / 2) * 3 + 1] - shape.head, 0.001f);
+            for (int place = 0; place + 1 < places; place++) {
+                int at = place * 3;
+                if (shape.arch[at + 2] < 0.5f || shape.arch[at + 5] < 0.5f) {
+                    continue;
+                }
+                float t0 = shape.start + (shape.end - shape.start) * place / (places - 1), t1 = shape.start + (shape.end - shape.start) * (place + 1) / (places - 1);
+                float u0 = (float) place / (places - 1), u1 = (float) (place + 1) / (places - 1);
+                float in0 = shape.arch[at + 1], in1 = shape.arch[at + 4];
+                addGlass(glass, t0, shape.head, u0, 0f, t1, shape.head, u1, 0f, t1, in1, u1, (in1 - shape.head) / rise);
+                addGlass(glass, t0, shape.head, u0, 0f, t1, in1, u1, (in1 - shape.head) / rise, t0, in0, u0, (in0 - shape.head) / rise);
             }
         }
         return true;
@@ -4634,11 +4665,60 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The part of a wall from one share of its length to another and from one height to another, in levels. */
     private void addPiece(SpriteGeometry.Mesh mesh, int x, int y, int z, float a, float b, float da, float db,
             float from, float to, float foot, float head, float sealFrom, float sealTo, float sealTop, boolean startIsLow) {
-        geometry.sealLow = startIsLow ? sealFrom : sealTo;
-        geometry.sealHigh = startIsLow ? sealTo : sealFrom;
         geometry.sealTop = sealTop;
-        geometry.addFace(mesh, frame, x, y, z, a + da * from, b + db * from, foot, da * (to - from), db * (to - from), 0f, 0f, 0f, head - foot);
+        if (paper == null) {
+            geometry.sealLow = startIsLow ? sealFrom : sealTo;
+            geometry.sealHigh = startIsLow ? sealTo : sealFrom;
+            geometry.addFace(mesh, frame, x, y, z, a + da * from, b + db * from, foot, da * (to - from), db * (to - from), 0f, 0f, 0f, head - foot);
+            return;
+        }
+        // The mesh is painted over in the paper's colour as a whole, and each stripe is lit by
+        // as much more or less as its own colour is of that.
+        float made = frame.material;
+        frame.material = paper.figured ? FIGURED_PAPER : made;
+        float red = frame.red, green = frame.green, blue = frame.blue;
+        System.arraycopy(frame.cornerRed, 0, paperRed, 0, 4);
+        System.arraycopy(frame.cornerGreen, 0, paperGreen, 0, 4);
+        System.arraycopy(frame.cornerBlue, 0, paperBlue, 0, 4);
+        float begin = 0f;
+        for (int stripe = 0; stripe < paper.ends.length; stripe++) {
+            float end = paper.ends[stripe];
+            float low = stripe == 0 ? from : Math.max(from, begin), high = stripe == paper.ends.length - 1 ? to : Math.min(to, end);
+            begin = end;
+            if (high <= low) {
+                continue;
+            }
+            float r = paper.colours[stripe * 3] / Math.max(paperTint[0], 0.02f), g = paper.colours[stripe * 3 + 1] / Math.max(paperTint[1], 0.02f),
+                    bl = paper.colours[stripe * 3 + 2] / Math.max(paperTint[2], 0.02f);
+            frame.red = red * r;
+            frame.green = green * g;
+            frame.blue = blue * bl;
+            for (int corner = 0; corner < 4; corner++) {
+                frame.cornerRed[corner] = paperRed[corner] * r;
+                frame.cornerGreen[corner] = paperGreen[corner] * g;
+                frame.cornerBlue[corner] = paperBlue[corner] * bl;
+            }
+            float sealStart = low == from ? sealFrom : 0f, sealEnd = high == to ? sealTo : 0f;
+            geometry.sealLow = startIsLow ? sealStart : sealEnd;
+            geometry.sealHigh = startIsLow ? sealEnd : sealStart;
+            geometry.addFace(mesh, frame, x, y, z, a + da * low, b + db * low, foot, da * (high - low), db * (high - low), 0f, 0f, 0f, head - foot);
+        }
+        frame.material = made;
+        frame.red = red;
+        frame.green = green;
+        frame.blue = blue;
+        System.arraycopy(paperRed, 0, frame.cornerRed, 0, 4);
+        System.arraycopy(paperGreen, 0, frame.cornerGreen, 0, 4);
+        System.arraycopy(paperBlue, 0, frame.cornerBlue, 0, 4);
     }
+
+    /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
+    private static final float FIGURED_PAPER = 70f;
+    /** The paper of the wall being added, or null for a wall that shows its sprite, and whether the sprite being added is an inside wall of a house. */
+    private Papers.Paper paper;
+    private boolean paperedWall;
+    /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
+    private final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4];
 
     /**
      * The sides of an opening through a wall, from one skin to the other: the jambs, the

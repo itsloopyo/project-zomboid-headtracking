@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /** Tests of what is measured off a window's sprite laid flat on its wall. */
 final class WindowTests {
     private WindowTests() {}
@@ -15,6 +17,8 @@ final class WindowTests {
         curtainDrawnAcrossIsOneLengthOfCloth();
         curtainPulledBackIsTwo();
         sheetRolledUpHangsNowhere();
+        wallpaperIsItsStripes();
+        plainWallWithADoorInItIsOneStripe();
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */
@@ -253,6 +257,39 @@ final class WindowTests {
                 "            ",
                 "            ");
         check(shape != null && shape.hangs.length == 0, "a sheet rolled up over a window is all roll");
+    }
+
+    private static void wallpaperIsItsStripes() {
+        // Two colours, eight columns each, with one mixed column where they meet.
+        float[] columns = new float[32 * 3];
+        boolean[] told = new boolean[32];
+        for (int column = 0; column < 32; column++) {
+            int within = column % 16;
+            float shade = within < 7 ? 0.9f : within == 7 ? 0.8f : within < 15 ? 0.7f : 0.8f;
+            columns[column * 3] = shade;
+            columns[column * 3 + 1] = shade;
+            columns[column * 3 + 2] = 0.6f;
+            told[column] = true;
+        }
+        Papers.Paper paper = Papers.striped(columns, told);
+        check(paper.ends.length == 4, "two colours twice over, the mixed column at the end being no stripe: " + paper.ends.length);
+        check(near(paper.ends[0], 7.5f / 32f) && near(paper.ends[1], 15.5f / 32f) && near(paper.ends[3], 1f), "a mixed column is shared by the stripes it lies between: " + paper.ends[0]);
+        check(near(paper.colours[0], 0.9f) && near(paper.colours[3], 0.7f) && near(paper.colours[2], 0.6f), "each stripe in its own colour");
+        check(near(paper.red, 0.8f), "and the whole in the mean of them: " + paper.red);
+    }
+
+    private static void plainWallWithADoorInItIsOneStripe() {
+        float[] columns = new float[32 * 3];
+        boolean[] told = new boolean[32];
+        for (int column = 0; column < 32; column++) {
+            told[column] = column < 6 || column > 26;
+            columns[column * 3] = columns[column * 3 + 1] = columns[column * 3 + 2] = told[column] ? 0.5f : 0f;
+        }
+        Papers.Paper paper = Papers.striped(columns, told);
+        check(paper.ends.length == 1 && near(paper.ends[0], 1f) && near(paper.colours[0], 0.5f), "a wall of one colour is one stripe, across its doorway too");
+        Arrays.fill(told, 8, 32, false);
+        Arrays.fill(told, 0, 2, false);
+        check(Papers.striped(columns, told) == null, "and a sliver of wall says too little");
     }
 
     private static void check(boolean condition, String what) {

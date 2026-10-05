@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Rebuilt the wallpaper of inside walls in the first person view. A striped paper is its stripes, each with a straight edge, in the colours the game paints them, where it was the game's sixty dots of wall magnified into soft smears. A paper with flowers on it is printed sprig by sprig. This is so far on the two walls of a room that the game draws from inside it, the north and the west.
 - Gave the hunting rifle (`Base.HuntingRifle`) a model of the mod's own in first person: a bolt action sporting rifle with a walnut stock checkered at the grip and the fore-end, a dark fore-end tip, a blued barrel and receiver, and open sights. After a shot its bolt is worked: the handle turns up, the bolt comes back, the fired case is thrown out to the right, and the bolt shuts.
 - Left the game's own reticle out behind a scope in sights locked and in stock sights, where the scope's reticle is on the point the rounds go to. It stays in the two free look modes.
 - Made kerbs in the first person view go round corners and bends. A street that turns or curves is drawn on the game's map as a stair of squares, and the kerb followed it step by step. Now the kerb runs as the street's edge would: straight where the squares run straight, at a slant where they step evenly, and round a corner in a curve. The ground on both sides is cut along the same line, and what stands or grows beside it keeps to its own side. A kerb along the wall of a building still turns the building's corner square.
