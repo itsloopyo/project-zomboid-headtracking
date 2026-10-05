@@ -32,8 +32,10 @@ final class Tiles {
     /** One sprite's floor. */
     static final class Shape {
         float originU, originV, scale;
-        /** How many tiles to a side of the square. */
+        /** How many tiles to a side of the square, or 0 for a floor that is no grid of tiles, of which only its colour and its evenness are known. */
         int count;
+        /** How far the square's dots lie from its one colour, squared: a carpet's is small, a pattern's is not. */
+        float uneven;
         /** Each tile's red, green and blue, the tile at x and y at (x * count + y) * 3. */
         float[] colours;
         /** The colour of the joints, and of the floor as a whole. */
@@ -49,8 +51,9 @@ final class Tiles {
     private Tiles() {}
 
     /**
-     * The tiles the floor sprite paints. Null until a frame has been drawn since it was first
-     * asked for, and for a floor that is no grid of plain tiles.
+     * The tiles the floor sprite paints, or with a count of 0 the colour of a floor that is no
+     * grid of plain tiles. Null until a frame has been drawn since it was first asked for, and
+     * for a sprite that is not a whole square of floor.
      */
     static Shape of(Texture texture, SpriteGeometry.Frame frame) {
         Shape shape = known.get(texture);
@@ -100,8 +103,15 @@ final class Tiles {
             }
         }
         Shape shape = painted >= PAINTED * side * side ? laid(dots, side) : null;
+        if (shape == null && painted >= PAINTED * side * side) {
+            shape = new Shape();
+            shape.colours = new float[3];
+            shape.uneven = uneven(dots, side, 1, shape);
+            shape.count = 0;
+        }
         if (FirstPerson.TRACE) {
-            Log.info("floor " + texture.getName() + (shape == null ? " is no grid of plain tiles" : " is " + shape.count + " tiles a side"));
+            Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor" : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
+                    : " is " + shape.count + " tiles a side"));
         }
         if (shape == null) {
             known.put(texture, NONE);
@@ -136,6 +146,7 @@ final class Tiles {
         Shape shape = new Shape();
         shape.count = COUNTS[picked];
         shape.colours = new float[shape.count * shape.count * 3];
+        shape.uneven = uneven[picked];
         uneven(dots, side, shape.count, shape);
         return shape;
     }

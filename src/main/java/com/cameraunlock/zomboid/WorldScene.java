@@ -2468,8 +2468,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             geometry.kerbKeep = geometry.kerbStreet && !vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
         }
         String name = sprite.getName();
-        if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && name != null && name.startsWith("floors_") && name.contains("tile")
-                && Own.textures() && addTiles(texture, x, y, z)) {
+        boolean carpet = name != null && name.startsWith("floors_interior_carpet");
+        if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && name != null && (carpet || name.startsWith("floors_") && name.contains("tile"))
+                && Own.textures() && addTiles(texture, carpet, x, y, z)) {
             return;
         }
         geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
@@ -2481,6 +2482,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** Half the width of the joint between two tiles, in tiles of the map, and how much darker than the sprite paints it the joint is drawn. */
     private static final float JOINT_HALF = 0.006f, JOINT_DARK = 0.8f;
     private final float[] tileTint = new float[4];
+    /** A carpet no more uneven than this is one colour all over. A carpet with a figure woven in it is more, and keeps its sprite. */
+    private static final float CARPET_UNEVEN = 0.006f;
 
     /**
      * A square of tiled floor, laid: a bed the colour of the joints, and on it each tile as a
@@ -2488,7 +2491,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * is measured off the sprite: see Tiles. False, adding nothing, for a sprite not measured
      * yet or a floor that is no grid of plain tiles.
      */
-    private boolean addTiles(Texture texture, int x, int y, int z) {
+    private boolean addTiles(Texture texture, boolean carpet, int x, int y, int z) {
         Tiles.Shape tiles = Tiles.of(texture, frame);
         if (tiles == null) {
             if (Tiles.unread(texture)) {
@@ -2496,6 +2499,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             return false;
         }
+        // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
+        // lighter and darker the game scatters on it are blots when magnified.
+        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0) {
+            return false;
+        }
+        int count = carpet ? 1 : tiles.count;
         int key = WallSides.key(tiles.red, tiles.green, tiles.blue, WallSides.FLAT);
         WallSides.tint(key, tileTint);
         SpriteGeometry.Mesh on = solid.get(texture.getID(), key);
@@ -2503,19 +2512,19 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         System.arraycopy(frame.cornerRed, 0, paperRed, 0, 4);
         System.arraycopy(frame.cornerGreen, 0, paperGreen, 0, 4);
         System.arraycopy(frame.cornerBlue, 0, paperBlue, 0, 4);
-        frame.material = TILE;
-        float joint = tiles.count > 1 ? JOINT_HALF : 0f, each = 1f / tiles.count;
-        if (tiles.count > 1) {
+        frame.material = carpet ? CARPET : TILE;
+        float joint = count > 1 ? JOINT_HALF : 0f, each = 1f / count;
+        if (count > 1) {
             shade(red, green, blue, JOINT_DARK * tiles.jointRed / Math.max(tileTint[0], 0.02f), JOINT_DARK * tiles.jointGreen / Math.max(tileTint[1], 0.02f),
                     JOINT_DARK * tiles.jointBlue / Math.max(tileTint[2], 0.02f));
             geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
         }
         float lifted = floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT;
-        for (int i = 0; i < tiles.count; i++) {
-            for (int j = 0; j < tiles.count; j++) {
-                int at = (i * tiles.count + j) * 3;
-                shade(red, green, blue, tiles.colours[at] / Math.max(tileTint[0], 0.02f), tiles.colours[at + 1] / Math.max(tileTint[1], 0.02f),
-                        tiles.colours[at + 2] / Math.max(tileTint[2], 0.02f));
+        for (int i = 0; i < count; i++) {
+            for (int j = 0; j < count; j++) {
+                int at = (i * count + j) * 3;
+                float r = carpet ? tiles.red : tiles.colours[at], g = carpet ? tiles.green : tiles.colours[at + 1], b = carpet ? tiles.blue : tiles.colours[at + 2];
+                shade(red, green, blue, r / Math.max(tileTint[0], 0.02f), g / Math.max(tileTint[1], 0.02f), b / Math.max(tileTint[2], 0.02f));
                 geometry.addFace(on, frame, x, y, z, i * each + joint, j * each + joint, lifted, each - 2f * joint, 0f, 0f, 0f, each - 2f * joint, 0f);
             }
         }
