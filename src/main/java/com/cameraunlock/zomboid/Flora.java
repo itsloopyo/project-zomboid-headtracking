@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import com.cameraunlock.zomboid.SpriteGeometry.Mesh;
+import java.util.HashMap;
 
 /**
  * What grows on open ground in the first-person picture and what lies on it, where the game
@@ -447,7 +448,7 @@ final class Flora {
         for (int vertex = 0; vertex < 12; vertex++) {
             put(ball, vertex, twelve[vertex][0], twelve[vertex][1], twelve[vertex][2]);
         }
-        java.util.HashMap<Integer, Integer> middles = new java.util.HashMap<>();
+        HashMap<Integer, Integer> middles = new HashMap<>();
         int[] fine = new int[COARSE_FACES.length * 4];
         int count = 12, at = 0;
         for (int face = 0; face < COARSE_FACES.length; face += 3) {

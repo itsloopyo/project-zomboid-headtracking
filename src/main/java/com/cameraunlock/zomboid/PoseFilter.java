@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * Takes the tracker's samples to the frame rate: interpolates between samples,
  * smooths by the value the connection selects, and keeps the position inside
@@ -49,7 +51,7 @@ final class PoseFilter {
         hasFirstSample = false;
         hasSecondSample = false;
         hasSmoothed = false;
-        java.util.Arrays.fill(smoothed, 0f);
+        Arrays.fill(smoothed, 0f);
     }
 
     static float effectiveSmoothing(float local, float remote, boolean remoteConnection) {

@@ -295,7 +295,7 @@ final class Roofs {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
-            if (texture == null || texture.getID() <= 0 || texture.getWidth() <= 0 || texture.getHeight() <= 0) {
+            if (!WorldScene.usable(texture)) {
                 continue;
             }
             WorldScene.frameOf(frame, object, texture);

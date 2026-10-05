@@ -107,8 +107,20 @@ public final class Agent {
 
         HeadTracking.start(gameDirectory);
 
-        CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
-        instrumentation.addTransformer(new PatchTransformer(List.of(
+        instrumentation.addTransformer(new PatchTransformer(basePatches()));
+        firstPerson = new PatchTransformer(firstPersonPatches());
+        instrumentation.addTransformer(firstPerson);
+
+        fineSkins = new PatchTransformer(fineSkinPatches());
+        instrumentation.addTransformer(fineSkins);
+
+        shot = new PatchTransformer(shotPatches());
+        instrumentation.addTransformer(shot);
+    }
+
+    /** The patches for the window's place, the carried light and the log. */
+    private static List<Patch> basePatches() {
+        return List.of(
                 after(new CallSite.Method(DISPLAY, "create", "()V"),
                         new CallSite.Method(GLFW, "glfwSetWindowPos", "(JII)V"),
                         new CallSite.Method(WINDOW_PLACEMENT, "centreNewWindow", "()V")),
@@ -126,11 +138,15 @@ public final class Agent {
                         new CallSite.Method(EXCEPTION_LOGGER, "logException",
                                 "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;Lzombie/debug/DebugType;Lzombie/debug/LogSeverity;)V"),
                         code -> CallSite.passFirstStaticArgument(code, new CallSite.Method("com/cameraunlock/zomboid/Agent", "caughtByTheGame",
-                                "(Ljava/lang/Throwable;)V")))))));
+                                "(Ljava/lang/Throwable;)V")))));
+    }
+
+    private static List<Patch> firstPersonPatches() {
+        CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
         CallSite.Method aiming = new CallSite.Method(PLAYER, "isAiming", "()Z");
         CallSite.Method clickAiming = new CallSite.Method(CONTROLS, "aimingForWorldClicks", BOOLEAN_FILTER);
         CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
-        firstPerson = new PatchTransformer(List.of(
+        return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
                         new CallSite.Method(FIRST_PERSON, "afterWorldRender", "()V")),
@@ -178,30 +194,34 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "x", new CallSite.Method(FIRST_PERSON, "cursorX", "(I)I"));
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(FIRST_PERSON, "cursorY", "(I)I"));
                     });
-                })));
-        instrumentation.addTransformer(firstPerson);
+                }));
+    }
 
-        // Apart from the first person view's patches: without these the view still draws,
-        // with the game's own skins.
-        fineSkins = new PatchTransformer(List.of(
+    /**
+     * Apart from the first person view's patches: without these the view still draws, with the
+     * game's own skins.
+     */
+    private static List<Patch> fineSkinPatches() {
+        return List.of(
                 new Patch(COMBINER, "combine before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(COMBINER, "combine", "(Ljava/util/ArrayList;)" + TEXTURE),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "combined",
                                 "(" + TEXTURE + "Ljava/util/ArrayList;)" + TEXTURE)))),
                 new Patch(COMBINER, "releaseTexture before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
-                        code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V"))))));
-        instrumentation.addTransformer(fineSkins);
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V")))));
+    }
 
-        // Apart again: without it the weapon in hand is held up all the same, with no kick
-        // and no flash. The game starts its own muzzle flash at the one place a firearm's
-        // shot is taken.
-        shot = new PatchTransformer(List.of(
+    /**
+     * Apart again: without it the weapon in hand is held up all the same, with no kick and no
+     * flash. The game starts its own muzzle flash at the one place a firearm's shot is taken.
+     */
+    private static List<Patch> shotPatches() {
+        return List.of(
                 after(new CallSite.Method("zombie/CombatManager", "attackCollisionCheck",
                                 "(Lzombie/characters/IsoGameCharacter;Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
                         new CallSite.Method("zombie/EffectsManager", "startMuzzleFlash", "(Lzombie/characters/IsoGameCharacter;I)V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/ViewModel", "shot", "()V"))));
-        instrumentation.addTransformer(shot);
+                        new CallSite.Method("com/cameraunlock/zomboid/ViewModel", "shot", "()V")));
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */

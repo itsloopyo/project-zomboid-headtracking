@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
@@ -329,7 +330,7 @@ final class Terrain {
             grids.set(slot, null);
         }
         // What a building's floor stands at is kept with what its chunk is made of.
-        java.util.Arrays.fill(known, null);
+        Arrays.fill(known, null);
     }
 
     /** What is drawn at (x, y), on any floor, stands this much above where the flat map has it. */

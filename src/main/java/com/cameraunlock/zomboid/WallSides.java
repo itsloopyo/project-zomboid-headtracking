@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * What the two sides of a wall show.
@@ -32,7 +33,7 @@ final class WallSides {
 
         void add(int vote) {
             if (count == cast.length) {
-                cast = java.util.Arrays.copyOf(cast, count * 2);
+                cast = Arrays.copyOf(cast, count * 2);
             }
             cast[count++] = vote;
         }

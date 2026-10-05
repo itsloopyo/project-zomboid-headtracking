@@ -5,6 +5,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
@@ -360,7 +361,7 @@ final class ChunkBuffers {
         int used;
 
         void clear() {
-            java.util.Arrays.fill(taken, false);
+            Arrays.fill(taken, false);
             used = 0;
         }
 

@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -186,7 +187,7 @@ public final class Controls {
         return held.to;
     }
 
-    private static java.lang.reflect.Field[] ballisticsFields;
+    private static Field[] ballisticsFields;
     private static long ballisticsSaid;
 
     /**
@@ -204,7 +205,7 @@ public final class Controls {
         try {
             if (ballisticsFields == null) {
                 String[] names = {"muzzlePosition", "muzzleDirection", "isoAimingPosition", "targetPosition", "numberOfTargets", "numberOfCameraTargets"};
-                java.lang.reflect.Field[] found = new java.lang.reflect.Field[names.length];
+                Field[] found = new Field[names.length];
                 for (int i = 0; i < names.length; i++) {
                     found[i] = BallisticsController.class.getDeclaredField(names[i]);
                     found[i].setAccessible(true);
@@ -212,7 +213,7 @@ public final class Controls {
                 ballisticsFields = found;
             }
             StringBuilder said = new StringBuilder("ballistics");
-            for (java.lang.reflect.Field field : ballisticsFields) {
+            for (Field field : ballisticsFields) {
                 Object value = field.get(ballistics);
                 said.append(' ').append(field.getName()).append(' ');
                 if (value instanceof Vector3 v) {

@@ -1,5 +1,8 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Random;
+import java.util.function.DoubleUnaryOperator;
+
 /** Tests of what is read off a sprite's outline, and of the depth a place far across the map is drawn at. */
 final class ShapeTests {
     private ShapeTests() {}
@@ -65,7 +68,7 @@ final class ShapeTests {
     }
 
     /** The picture the game's view has of something turned about an upright axis at (a, b): radius(h) tiles thick at h levels, up to high. */
-    private static SpriteShape.Painted turned(SpriteGeometry.Frame frame, float a, float b, float high, java.util.function.DoubleUnaryOperator radius) {
+    private static SpriteShape.Painted turned(SpriteGeometry.Frame frame, float a, float b, float high, DoubleUnaryOperator radius) {
         SpriteShape.Painted painted = (u, v) -> {
             for (float h = 0f; h <= high; h += 0.004f) {
                 float across = (float) radius.applyAsDouble(h) * (float) Math.sqrt(2.0) * 64f;
@@ -497,7 +500,7 @@ final class ShapeTests {
         // house ten thousand tiles from the map's corner, seen from across the room.
         ViewCamera.Pose pose = new ViewCamera.Pose();
         float[] projection = ViewCamera.projection(0.7f, 16f / 9f, 0.05f, 200f);
-        java.util.Random random = new java.util.Random(4);
+        Random random = new Random(4);
         int wrongOnTheMap = 0, wrongFromTheEye = 0;
         for (int i = 0; i < 2000; i++) {
             float yaw = (float) (Math.PI + (random.nextFloat() - 0.5f) * 0.6f);

@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
+
 /**
  * The keys the first person view answers with in place of the player's own
  * bindings, so that it plays like a first person game: Left Shift sprints,
@@ -13,7 +15,7 @@ final class KeySubstitutions {
     static final int LEFT_CONTROL = 29, LEFT_SHIFT = 42, C = 46, LEFT_ALT = 56, RIGHT_MOUSE = 10001;
 
     /** The bindings that have a first person answer, by the names the game stores them under. */
-    static final java.util.List<String> NAMES = java.util.List.of("Sprint", "Run", "Aim", "Crouch");
+    static final List<String> NAMES = List.of("Sprint", "Run", "Aim", "Crouch");
 
     /** A binding's key and its alternative. */
     record Keys(int key, int alt) {}

@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Arrays;
 
 /**
  * The memory a chunk's vertices cross from the logic thread to the render thread in.
@@ -60,7 +61,7 @@ final class VertexLoans {
         int length = power - SMALLEST;
         lentBytes -= (long) Float.BYTES << power;
         if (idleCount[length] == idle[length].length) {
-            idle[length] = java.util.Arrays.copyOf(idle[length], idleCount[length] * 2);
+            idle[length] = Arrays.copyOf(idle[length], idleCount[length] * 2);
         }
         idle[length][idleCount[length]++] = buffer;
         idleBytes += (long) Float.BYTES << power;

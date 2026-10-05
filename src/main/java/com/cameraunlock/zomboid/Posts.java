@@ -89,7 +89,7 @@ final class Posts {
     /** Reads a sprite as a post, or null for one that is none. knownRound is for a thing the game says is a trunk: a pole's foot is drawn to a point. */
     static Posts read(SpriteShape.Painted painted, SpriteGeometry.Frame frame, boolean knownRound) {
         int left = Math.round(frame.left), top = Math.round(frame.top), width = Math.round(frame.width), height = Math.round(frame.height);
-        float across = 32f * frame.scale, down = 16f * frame.scale, level = 96f * frame.scale;
+        float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale, level = SpriteGeometry.PIXELS_PER_LEVEL * frame.scale;
         if (width < 3 || height < LOWEST * level) {
             return null;
         }
@@ -331,16 +331,16 @@ final class Posts {
      */
     void armTo(int arm, boolean alongX, float[] out) {
         float acrossPixels = arms[arm * 4], upPixels = arms[arm * 4 + 1];
-        float run = acrossPixels / 32f;
+        float run = acrossPixels / SpriteGeometry.PIXELS_ACROSS_PER_TILE;
         if (alongX) {
             // A step along +x is drawn 32 across and 16 down.
             out[0] = run;
             out[1] = 0f;
-            out[2] = (upPixels + 16f * run) / 96f;
+            out[2] = (upPixels + SpriteGeometry.PIXELS_DOWN_PER_TILE * run) / SpriteGeometry.PIXELS_PER_LEVEL;
         } else {
             out[0] = 0f;
             out[1] = -run;
-            out[2] = (upPixels - 16f * run) / 96f;
+            out[2] = (upPixels - SpriteGeometry.PIXELS_DOWN_PER_TILE * run) / SpriteGeometry.PIXELS_PER_LEVEL;
         }
     }
 

@@ -1,7 +1,9 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Tests of what makes a building one thing: its walls' finish, its roof's planes, and what hangs along its walls. */
 final class BuildingTests {
@@ -122,7 +124,7 @@ final class BuildingTests {
     }
 
     /** The walls round a set of squares: a west wall on a square whose west neighbour is not in the set, and so on round. */
-    private static WallJoins.Walls wallsRound(java.util.Set<Long> squares) {
+    private static WallJoins.Walls wallsRound(Set<Long> squares) {
         return (x, y, north) -> squares.contains(key(x, y)) != squares.contains(north ? key(x, y - 1) : key(x - 1, y));
     }
 
@@ -150,7 +152,7 @@ final class BuildingTests {
 
     private static void skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner() {
         // An L: a block four by three with a wing two by two on its south side, so five corners point out and one in.
-        java.util.Set<Long> house = new java.util.HashSet<>();
+        Set<Long> house = new HashSet<>();
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 3; y++) {
                 house.add(key(x, y));

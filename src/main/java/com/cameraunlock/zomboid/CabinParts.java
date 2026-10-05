@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -145,7 +146,7 @@ final class CabinParts {
                 }
             }
             float[] sides = {high[0] - low[0], high[1] - low[1], high[2] - low[2]};
-            java.util.Arrays.sort(sides);
+            Arrays.sort(sides);
             float unlike = sides[2] / Math.max(sides[1], 1e-6f);
             float before = (low[0] + high[0]) / 2f - (seat == null ? 0f : seat[0]), out = Math.abs((low[1] + high[1]) / 2f - middleLine);
             boolean placed = seat != null && before > 0f && before < WHEEL_BEFORE && out > WHEEL_OUT * seat[1];
@@ -165,7 +166,7 @@ final class CabinParts {
                 found[size++] = i;
             }
         }
-        return java.util.Arrays.copyOf(found, size);
+        return Arrays.copyOf(found, size);
     }
 
     /**

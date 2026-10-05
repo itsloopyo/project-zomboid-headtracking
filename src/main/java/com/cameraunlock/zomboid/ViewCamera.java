@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * The first-person camera: an eye position and an orientation in the game's
  * world, and the one place they become view and projection matrices.
@@ -214,7 +216,7 @@ final class ViewCamera {
     /** As projection, into a matrix the caller keeps. */
     static void projection(float tanHalfVerticalFov, float aspect, float near, float far, float[] out) {
         float f = 1f / tanHalfVerticalFov;
-        java.util.Arrays.fill(out, 0f);
+        Arrays.fill(out, 0f);
         out[0] = f / aspect;
         out[5] = f;
         out[10] = (far + near) / (near - far);

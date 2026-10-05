@@ -1,5 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import zombie.core.properties.PropertyContainer;
+import zombie.iso.IsoDirections;
+import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.sprite.IsoSprite;
+
 /**
  * What hangs flat on a wall: a picture, a mirror, a clock. The game has each as a sprite
  * painted on the slant its view sees the wall at. Here it is found where on the wall that
@@ -23,6 +28,26 @@ final class WallHung {
     private static final float EDGE = 0.5f;
 
     private WallHung() {}
+
+    /**
+     * Which wall of its square a sprite laid over a wall was painted for: the one the game
+     * says it is attached to, or failing that the one behind it, facing the way it does.
+     * NONE for one that says neither.
+     */
+    static int wallOf(IsoSprite over) {
+        PropertyContainer properties = over.getProperties();
+        boolean north = properties.has(IsoFlagType.attachedN), west = properties.has(IsoFlagType.attachedW);
+        if (north != west) {
+            return north ? NORTH : WEST;
+        }
+        return behind(over.getFacing());
+    }
+
+    /** The wall of its square that is behind something facing that way. */
+    static int behind(IsoDirections facing) {
+        return facing == IsoDirections.S ? NORTH : facing == IsoDirections.E ? WEST
+                : facing == IsoDirections.N ? SOUTH : facing == IsoDirections.W ? EAST : NONE;
+    }
 
     /** Where across its square a place on a wall is. */
     static float a(int wall, float along) {

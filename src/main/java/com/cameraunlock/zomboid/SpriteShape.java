@@ -118,7 +118,7 @@ final class SpriteShape {
             if (first < 0) {
                 continue;
             }
-            float across = 32f * frame.scale, down = 16f * frame.scale;
+            float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
             float difference = (left + (first + last + 1) / 2f - frame.originU) / across;
             float sum = (top + row + 1 - frame.originV) / down;
             out[0] = (sum + difference) / 2f;

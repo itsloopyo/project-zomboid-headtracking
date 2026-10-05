@@ -1,10 +1,25 @@
 package com.cameraunlock.zomboid;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.classfile.ClassFile;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.GZIPOutputStream;
 
 public final class Tests {
     public static int hookCalls;
@@ -464,8 +479,8 @@ public final class Tests {
     }
 
     /** How many triangles of a mesh meet along each of its edges, by the two ends of the edge. */
-    private static java.util.HashMap<String, Integer> edges(SpriteGeometry.Mesh mesh) {
-        java.util.HashMap<String, Integer> edges = new java.util.HashMap<>();
+    private static HashMap<String, Integer> edges(SpriteGeometry.Mesh mesh) {
+        HashMap<String, Integer> edges = new HashMap<>();
         int triangle = 3 * SpriteGeometry.VERTEX_FLOATS;
         for (int at = 0; at < mesh.floats; at += triangle) {
             for (int corner = 0; corner < 3; corner++) {
@@ -488,7 +503,7 @@ public final class Tests {
             int triangles = new Flora().addTrunk(mesh, 10.5f, 20.5f, 1f, 0.15f, 2f, true, seed, frame);
             check(triangles == mesh.triangles() && triangles == 3 * Flora.TRUNK_SIDES * 2 + Flora.TRUNK_SIDES, "a bole near the eye is three bands and a point");
             int open = 0;
-            for (java.util.Map.Entry<String, Integer> edge : edges(mesh).entrySet()) {
+            for (Map.Entry<String, Integer> edge : edges(mesh).entrySet()) {
                 check(edge.getValue() <= 2, "no edge of a bole has three faces on it");
                 if (edge.getValue() == 1) {
                     open++;
@@ -586,16 +601,16 @@ public final class Tests {
     }
 
     /** One triangle called "wedge": a wooden corner on the floor, a cloth one a metre up and a metal one to the side. */
-    private static java.nio.ByteBuffer packedWedge() {
+    private static ByteBuffer packedWedge() {
         return packedWedges("wedge");
     }
 
     /** The same triangle under each of the names, one model after another. */
-    private static java.nio.ByteBuffer packedWedges(String... names) {
-        java.nio.ByteBuffer out = java.nio.ByteBuffer.allocate(256 * names.length).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+    private static ByteBuffer packedWedges(String... names) {
+        ByteBuffer out = ByteBuffer.allocate(256 * names.length).order(ByteOrder.LITTLE_ENDIAN);
         out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(2).putInt(names.length);
         for (String name : names) {
-            out.put((byte) name.length()).put(name.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            out.put((byte) name.length()).put(name.getBytes(StandardCharsets.US_ASCII));
             out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
             out.putInt(1);
             out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
@@ -605,20 +620,20 @@ public final class Tests {
         return out.flip();
     }
 
-    private static java.io.InputStream gzipped(java.nio.ByteBuffer plain) throws java.io.IOException {
-        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-        try (java.util.zip.GZIPOutputStream packed = new java.util.zip.GZIPOutputStream(bytes)) {
+    private static InputStream gzipped(ByteBuffer plain) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (GZIPOutputStream packed = new GZIPOutputStream(bytes)) {
             packed.write(plain.array(), 0, plain.limit());
         }
-        return new java.io.ByteArrayInputStream(bytes.toByteArray());
+        return new ByteArrayInputStream(bytes.toByteArray());
     }
 
-    private static Models.Model wedge() throws java.io.IOException {
+    private static Models.Model wedge() throws IOException {
         return Models.read(gzipped(packedWedge())).get("wedge");
     }
 
-    private static void packedModelIsReadBack() throws java.io.IOException {
-        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedge()));
+    private static void packedModelIsReadBack() throws IOException {
+        Map<String, Models.Model> models = Models.read(gzipped(packedWedge()));
         check(models.size() == 1 && models.containsKey("wedge"), "the file's one model is read under its name");
         Models.Model wedge = models.get("wedge");
         check(wedge.triangles() == 1, "it has the one triangle");
@@ -632,31 +647,31 @@ public final class Tests {
         check(near(wedge.reached[0], 1f) && near(wedge.reached[1], 0.2f) && near(wedge.reached[2], 0f), "and how much light reaches it, as a share");
     }
 
-    private static void brokenModelFilesAreRefused() throws java.io.IOException {
-        java.nio.ByteBuffer otherFile = packedWedge();
+    private static void brokenModelFilesAreRefused() throws IOException {
+        ByteBuffer otherFile = packedWedge();
         otherFile.put(0, (byte) 'X');
         refused(otherFile, "does not start with CUFM");
-        java.nio.ByteBuffer laterFormat = packedWedge();
+        ByteBuffer laterFormat = packedWedge();
         laterFormat.putInt(4, 3);
         refused(laterFormat, "format 3");
-        java.nio.ByteBuffer cutShort = packedWedge();
+        ByteBuffer cutShort = packedWedge();
         cutShort.limit(cutShort.limit() - 10);
         refused(cutShort, "the file ends before that many");
-        java.nio.ByteBuffer unknownSurface = packedWedge();
+        ByteBuffer unknownSurface = packedWedge();
         unknownSurface.put(unknownSurface.limit() - 2, (byte) Models.SURFACES);
         refused(unknownSurface, "surface " + Models.SURFACES);
-        java.nio.ByteBuffer shuffled = packedWedge();
+        ByteBuffer shuffled = packedWedge();
         shuffled.put(shuffled.limit() - 2, (byte) Models.WOOD);
         refused(shuffled, "out of the order of their surfaces");
-        java.nio.ByteBuffer trailing = packedWedge();
+        ByteBuffer trailing = packedWedge();
         trailing.limit(trailing.limit() + 3);
         refused(trailing, "3 bytes follow the last model");
     }
 
-    private static void refused(java.nio.ByteBuffer plain, String why) throws java.io.IOException {
+    private static void refused(ByteBuffer plain, String why) throws IOException {
         try {
             Models.read(gzipped(plain));
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             check(e.getMessage().contains(why), "a broken file of models is refused for what is wrong with it, got: " + e.getMessage());
             return;
         }
@@ -682,8 +697,8 @@ public final class Tests {
         check(near(out[0], 1f) && near(out[1], 0f), "five quarter turns are one");
     }
 
-    private static void modelsAreLaidOutOneAfterAnotherForTheGraphicsCard() throws java.io.IOException {
-        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
+    private static void modelsAreLaidOutOneAfterAnotherForTheGraphicsCard() throws IOException {
+        Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
         Models.Model first = models.get("first"), second = models.get("second");
         check(first.start == 0 && second.start == 3, "each model starts where the one before it ends");
         float[] buffer = Models.buffer(models.values());
@@ -708,8 +723,8 @@ public final class Tests {
         return pieces;
     }
 
-    private static void pieceIsPackedAsThePictureIsToldIt() throws java.io.IOException {
-        java.util.Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
+    private static void pieceIsPackedAsThePictureIsToldIt() throws IOException {
+        Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
         Models.Instances pieces = stoodWedge(models.get("second"));
         check(pieces.count == 1 && pieces.triangles() == 1, "a piece is one record whatever its model holds");
         float[] f = pieces.floats;
@@ -749,7 +764,7 @@ public final class Tests {
      * stood the models: turned, then made the size it is told along the ground and up, then
      * moved to where the model stands.
      */
-    private static void pieceStandsWhereTheModelTurnedScaledAndMovedIs() throws java.io.IOException {
+    private static void pieceStandsWhereTheModelTurnedScaledAndMovedIs() throws IOException {
         Models.Model wedge = wedge();
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         float[] turned = new float[2], stood = new float[3], rows = new float[4];
@@ -784,7 +799,7 @@ public final class Tests {
         check(near(stood[0], 9.5f) && near(stood[1], 20.5f) && near(stood[2], 2.75f), "and is as high as the model is told to be, whatever its size along the ground");
     }
 
-    private static void pieceCarriesTheLightOfItsSquaresCorners() throws java.io.IOException {
+    private static void pieceCarriesTheLightOfItsSquaresCorners() throws IOException {
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         // The square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1), each a light of its own.
         float[][] corners = {{0.1f, 0.5f, 0.9f, 0.3f}, {0.2f, 0.4f, 0.6f, 0.8f}, {1f, 0f, 0.5f, 0.25f}};
@@ -811,7 +826,7 @@ public final class Tests {
         }
     }
 
-    private static void pieceIsHeldByItsBall() throws java.io.IOException {
+    private static void pieceIsHeldByItsBall() throws IOException {
         Models.Model wedge = wedge();
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         float[] stood = new float[3];
@@ -886,7 +901,7 @@ public final class Tests {
         check(!WallHung.painted(speck, WallHung.NORTH, at), "a sliver of paint is nothing hung on a wall");
     }
 
-    private static void pictureLiesOverItsFrameAsTheSpritePaintsIt() throws java.io.IOException {
+    private static void pictureLiesOverItsFrameAsTheSpritePaintsIt() throws IOException {
         for (int wall : new int[] {WallHung.NORTH, WallHung.WEST}) {
             SpriteGeometry.Frame frame = paintedOn(wall);
             float[] at = new float[4], shows = new float[6], way = new float[2];
@@ -1011,7 +1026,7 @@ public final class Tests {
 
     private static void usualColourIsWhatMostOfTheSpriteIsPaintedIn() {
         int width = 8, height = 6;
-        java.nio.ByteBuffer pixels = java.nio.ByteBuffer.allocate(width * height * 4);
+        ByteBuffer pixels = ByteBuffer.allocate(width * height * 4);
         // A sheet of red, with the sprite on it from (2, 1) to before (7, 5): 20 pixels, of
         // which 12 are a pale blue, 4 a dark frame, 2 unpainted and 2 a little lighter blue.
         for (int i = 0; i < width * height; i++) {
@@ -1069,7 +1084,7 @@ public final class Tests {
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body//MaleBody01.png") == null, "nor does one with an empty piece");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/MaleBody01.txt") == null, "only pictures are in the pack");
         check(FineSkins.Pack.relative("C:/pz/media/textures/.png") == null, "a picture has a name");
-        check(FineSkins.Pack.folder().endsWith(java.nio.file.Path.of("Zomboid", "CameraUnlock", "skins")),
+        check(FineSkins.Pack.folder().endsWith(Path.of("Zomboid", "CameraUnlock", "skins")),
                 "the pack is in the game's own folder of the player's");
     }
 
@@ -1347,7 +1362,7 @@ public final class Tests {
     }
 
     private static void lightLeadsTheHeadsYawAndIgnoresTheRest() throws Exception {
-        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         ViewCamera.Pose level = cleanPose(0f, 0f, 1.6f, radians(200), 0f);
         ViewCamera.Pose down = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.Pose up = cleanPose(0f, 0f, 1.6f, radians(200), radians(89));
@@ -1391,7 +1406,7 @@ public final class Tests {
     }
 
     private static byte[] packet(double x, double y, double z, double yaw, double pitch, double roll) {
-        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(48).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buffer = ByteBuffer.allocate(48).order(ByteOrder.LITTLE_ENDIAN);
         for (double value : new double[] {x, y, z, yaw, pitch, roll}) {
             buffer.putDouble(value);
         }
@@ -1409,10 +1424,10 @@ public final class Tests {
     }
 
     private static void receiverTakesOnlyChangedPosesAndReadsLocality() throws Exception {
-        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
-        java.net.InetAddress loopback = java.net.InetAddress.getByName("127.0.0.1");
-        java.net.InetAddress lan = java.net.InetAddress.getByName("192.168.1.20");
+        InetAddress loopback = InetAddress.getByName("127.0.0.1");
+        InetAddress lan = InetAddress.getByName("192.168.1.20");
         check(receiver.latest() == null && !receiver.isFresh(), "nothing before the first packet");
         receiver.accept(packet(0, 0, 0, 5, 0, 0), 48, loopback, System.nanoTime());
         OpenTrackReceiver.Sample first = receiver.latest();
@@ -1565,9 +1580,9 @@ public final class Tests {
     }
 
     private static void receiverRefusesAPoseNoTrackerSends() throws Exception {
-        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
-        java.nio.ByteBuffer wire = java.nio.ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
-                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
+        ByteBuffer wire = ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
+                .order(ByteOrder.LITTLE_ENDIAN);
         double limit = OpenTrackReceiver.MAX_MAGNITUDE;
         for (int channel = 0; channel < OpenTrackReceiver.PACKET_BYTES / Double.BYTES; channel++) {
             for (double sign : new double[] {1, -1}) {
@@ -1587,11 +1602,11 @@ public final class Tests {
         OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
         int pitch = 4 * Double.BYTES;
         wire.putDouble(pitch, 5);
-        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("127.0.0.1"), System.nanoTime());
+        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, InetAddress.getByName("127.0.0.1"), System.nanoTime());
         OpenTrackReceiver.Sample kept = receiver.latest();
         check(kept != null && kept.pitch() == 5f, "a pose a tracker sends is taken");
         wire.putDouble(pitch, -3e38);
-        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("192.168.1.20"), System.nanoTime());
+        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, InetAddress.getByName("192.168.1.20"), System.nanoTime());
         check(receiver.latest() == kept && !receiver.isRemote(), "a pose out of range changes neither the pose nor the connection's locality");
     }
 
@@ -1754,7 +1769,7 @@ public final class Tests {
         CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectReturningBoolean", "same", "(Z)Z");
         CallSite.Method filter = new CallSite.Method("com/cameraunlock/zomboid/Tests", "opposite", "(Z)Z");
         Class<?> defined = MethodHandles.lookup().defineClass(CallSite.filterReturn(subject, within, filter));
-        java.lang.reflect.Method same = defined.getMethod("same", boolean.class);
+        Method same = defined.getMethod("same", boolean.class);
         check(Boolean.FALSE.equals(same.invoke(null, true)) && Boolean.TRUE.equals(same.invoke(null, false)),
                 "every return of the method hands back what the filter made of its value");
         boolean refused = false;
@@ -1968,8 +1983,8 @@ public final class Tests {
     }
 
     private static void transformerHasNoGapOnceEveryPatchIsIn() throws Throwable {
-        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
-        Agent.PatchTransformer transformer = new Agent.PatchTransformer(java.util.List.of(hookAfterTarget(RUN.owner())));
+        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(List.of(hookAfterTarget(RUN.owner())));
         if (transformer.transform(null, "com/cameraunlock/zomboid/Other", null, null, subjectCallingTarget(1)) != null) {
             throw new AssertionError("a class no patch names is left alone");
         }
@@ -1983,7 +1998,7 @@ public final class Tests {
     }
 
     private static void exceptionTheGameCaughtFromTheModIsWrittenOnce() throws Exception {
-        java.nio.file.Path directory = java.nio.file.Files.createTempDirectory("zomboid-headtracking-test");
+        Path directory = Files.createTempDirectory("zomboid-headtracking-test");
         Log.open(directory);
         RuntimeException theGames = new RuntimeException("the game's own");
         theGames.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
@@ -1995,7 +2010,7 @@ public final class Tests {
                     new StackTraceElement("zombie.gameStates.IngameState", "renderFrameInternal", "IngameState.java", 1)});
             Log.caughtByTheGame(new IllegalStateException("wrapped by the game", fromTheMod));
         }
-        String written = java.nio.file.Files.readString(directory.resolve(Log.FILE_NAME));
+        String written = Files.readString(directory.resolve(Log.FILE_NAME));
         check(!written.contains("the game's own"), "an exception none of which came through the mod is left to the game's log");
         check(written.split("the game caught this from the mod", -1).length == 2, "a fault that comes every frame is written once, got: " + written);
         check(written.contains("thrown in a hook") && written.contains("FirstPerson.afterWorldRender"), "it is written with its cause and where in the mod it was thrown");
@@ -2021,14 +2036,14 @@ public final class Tests {
     }
 
     private static void transformerLeavesAClassItCannotPatchAloneAndNamesTheGap() throws Throwable {
-        Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
+        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         // Two patches on a class that is really loaded, so the gap is not "no class". The first
         // fits and the second does not: nothing that went in before makes up for the one missing.
         String loaded = "com/cameraunlock/zomboid/Tests";
         Agent.Patch fits = hookAfterTarget(loaded);
         Agent.Patch doesNotFit = new Agent.Patch(loaded, "missing after target", classBytes ->
                 CallSite.insertAfter(classBytes, new CallSite.Method(RUN.owner(), "missing", "()V"), TARGET, HOOK));
-        Agent.PatchTransformer transformer = new Agent.PatchTransformer(java.util.List.of(fits, doesNotFit));
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(List.of(fits, doesNotFit));
         byte[] hooked = transformer.transform(null, loaded, null, null, subjectCallingTarget(1));
         if (hooked == null) {
             throw new AssertionError("the patch that fits still goes in");
@@ -2038,7 +2053,7 @@ public final class Tests {
             throw new AssertionError("the gap names the patch that is not in, got: " + gap);
         }
 
-        Agent.PatchTransformer alone = new Agent.PatchTransformer(java.util.List.of(hookAfterTarget(loaded)));
+        Agent.PatchTransformer alone = new Agent.PatchTransformer(List.of(hookAfterTarget(loaded)));
         if (alone.transform(null, loaded, null, null, subjectCallingTarget(2)) != null) {
             throw new AssertionError("a class whose only patch does not fit is loaded unchanged");
         }
@@ -2049,7 +2064,7 @@ public final class Tests {
 
     private static void transformerNamesAClassTheGameDoesNotHave() {
         Agent.PatchTransformer transformer = new Agent.PatchTransformer(
-                java.util.List.of(hookAfterTarget("com/cameraunlock/zomboid/NoSuchClass")));
+                List.of(hookAfterTarget("com/cameraunlock/zomboid/NoSuchClass")));
         String gap = transformer.gap();
         if (gap == null || !gap.contains("no class com/cameraunlock/zomboid/NoSuchClass")) {
             throw new AssertionError("a class that cannot be found is a gap, got: " + gap);

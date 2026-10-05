@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -40,10 +41,10 @@ final class SpriteGeometry {
     private static final float MIN_BOX_HEIGHT = 0.04f;
 
     /** The game's projection at tile scale 1: a tile along x or y is this many frame pixels across and down. */
-    private static final float PIXELS_ACROSS_PER_TILE = 32f;
-    private static final float PIXELS_DOWN_PER_TILE = 16f;
+    static final float PIXELS_ACROSS_PER_TILE = 32f;
+    static final float PIXELS_DOWN_PER_TILE = 16f;
     /** Frame pixels a level rises by at tile scale 1. */
-    private static final float PIXELS_PER_LEVEL = 96f;
+    static final float PIXELS_PER_LEVEL = 96f;
 
     /** Tiles per frame pixel across the screen at tile scale 1: a tile's diagonal is 64 pixels. */
     static final float TILES_PER_PIXEL_ACROSS = (float) (Math.sqrt(2.0) / (2.0 * PIXELS_ACROSS_PER_TILE));
@@ -139,9 +140,9 @@ final class SpriteGeometry {
      */
     static final class MeshSet {
         private Mesh[] byTexture = new Mesh[64];
-        private final java.util.ArrayList<Mesh> all = new java.util.ArrayList<>();
+        private final ArrayList<Mesh> all = new ArrayList<>();
         /** The meshes asked for since the set was last emptied, in the order they were first asked for. */
-        final java.util.ArrayList<Mesh> used = new java.util.ArrayList<>();
+        final ArrayList<Mesh> used = new ArrayList<>();
         private int round = 1;
 
         Mesh get(int texture) {
@@ -274,9 +275,9 @@ final class SpriteGeometry {
             red = r;
             green = g;
             blue = b;
-            java.util.Arrays.fill(cornerRed, r);
-            java.util.Arrays.fill(cornerGreen, g);
-            java.util.Arrays.fill(cornerBlue, b);
+            Arrays.fill(cornerRed, r);
+            Arrays.fill(cornerGreen, g);
+            Arrays.fill(cornerBlue, b);
         }
     }
 
@@ -298,7 +299,7 @@ final class SpriteGeometry {
     float shownUp;
     /**
      * How many frame pixels in from the face's low and high edge across the sprite its texels
-     * are taken, beyond the usual inset: see WorldScene.addWall.
+     * are taken, beyond the usual inset: see WorldScene.addPiece.
      */
     float sealLow, sealHigh;
     /** The same down from the top edge of a face that stands straight up. */

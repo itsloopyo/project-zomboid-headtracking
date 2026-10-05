@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import zombie.characters.IsoPlayer;
@@ -214,7 +215,7 @@ public final class Characters {
     static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         holding = null;
-        if (FirstPerson.seated) {
+        if (Ride.seated) {
             // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
             // apart from the world, so that the picture can leave out what of it is in the
             // way without leaving a hole in the world behind it.
@@ -229,7 +230,7 @@ public final class Characters {
                     int at = i * 4;
                     float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                     place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-                    String script = FirstPerson.seatedIn;
+                    String script = Ride.seatedIn;
                     if (script != null && !data.modelData.isEmpty()) {
                         multiply(projection, ViewCamera.view(camera), combined);
                         VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
@@ -450,9 +451,9 @@ public final class Characters {
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             said.append(side == 0 ? "right" : "; left");
             if (arms[side]) {
-                said.append(String.format(java.util.Locale.ROOT, " wrist bent %.0f, as posed %.0f, cuff %.3f by %.3f",
+                said.append(String.format(Locale.ROOT, " wrist bent %.0f, as posed %.0f, cuff %.3f by %.3f",
                         Math.toDegrees(wristSaid[side][1]), Math.toDegrees(wristSaid[side][0]), wides[side][0], wides[side][1]));
-                said.append(String.format(java.util.Locale.ROOT, " joints wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f) shoulder (%.2f, %.2f, %.2f)", joints[side][0], joints[side][1], joints[side][2], joints[side][3], joints[side][4], joints[side][5], joints[side][6], joints[side][7], joints[side][8]));
+                said.append(String.format(Locale.ROOT, " joints wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f) shoulder (%.2f, %.2f, %.2f)", joints[side][0], joints[side][1], joints[side][2], joints[side][3], joints[side][4], joints[side][5], joints[side][6], joints[side][7], joints[side][8]));
             } else {
                 said.append(" hand has no arm");
             }
@@ -553,13 +554,13 @@ public final class Characters {
      * Draws the models within reach of the eye as the light sees them, into a shadow map. The
      * viewer is among them: a first-person view has no body yet, but it has a shadow.
      */
-    static void cast(float[] lightMatrix, ViewCamera.Pose camera) {
+    static void cast(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
     }
 
     /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
-    static void castCharacters(float[] lightMatrix, ViewCamera.Pose camera) {
+    static void castCharacters(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         only = ONLY_CHARACTERS;
         draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
@@ -607,9 +608,9 @@ public final class Characters {
                 }
                 said.append(data.character == null ? "none" : data.character.getClass().getSimpleName()).append(data.character == viewer ? "(viewer)" : "")
                         .append(" parts ").append(data.modelData.size()).append(" away ")
-                        .append(String.format(java.util.Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
+                        .append(String.format(Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
             }
-            described = said.append("ambient ").append(String.format(java.util.Locale.ROOT, "%.2f", ambient)).toString();
+            described = said.append("ambient ").append(String.format(Locale.ROOT, "%.2f", ambient)).toString();
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
@@ -624,7 +625,7 @@ public final class Characters {
                 continue;
             }
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
-            if (!withViewer && FirstPerson.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+            if (!withViewer && Ride.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                 continue;
             }
             if (mirrored) {

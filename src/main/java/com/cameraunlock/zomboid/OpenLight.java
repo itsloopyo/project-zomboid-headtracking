@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * The light of the open ground, found from the squares out of doors that have a light.
  *
@@ -16,10 +18,10 @@ final class OpenLight {
     private int counted;
 
     void clear() {
-        java.util.Arrays.fill(count, 0);
-        java.util.Arrays.fill(red, 0f);
-        java.util.Arrays.fill(green, 0f);
-        java.util.Arrays.fill(blue, 0f);
+        Arrays.fill(count, 0);
+        Arrays.fill(red, 0f);
+        Arrays.fill(green, 0f);
+        Arrays.fill(blue, 0f);
         counted = 0;
     }
 

@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.List;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
@@ -81,7 +82,7 @@ final class Panels {
         for (String function : INVENTORY_PANELS) {
             Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(function), Double.valueOf(0));
             if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)) {
-                throw new IllegalStateException(function + "(0) gave no panel: " + java.util.Arrays.toString(found));
+                throw new IllegalStateException(function + "(0) gave no panel: " + Arrays.toString(found));
             }
             LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, visible);
         }

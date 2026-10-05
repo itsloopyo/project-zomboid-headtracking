@@ -3,7 +3,9 @@ package com.cameraunlock.zomboid;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.IdentityHashMap;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -11,6 +13,7 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelMesh;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
+import zombie.core.textures.Texture;
 
 /**
  * Where the steering wheel is in each vehicle, read from the vehicle's own model. Every body
@@ -38,13 +41,13 @@ final class VehicleMeshes {
      * The panes of each model, as loose triangles in the model's own space: the vehicle's mask
      * texture says which of its triangles are glass. Empty for a model with none found.
      */
-    private static final IdentityHashMap<ModelMesh, java.nio.FloatBuffer> panes = new IdentityHashMap<>();
+    private static final IdentityHashMap<ModelMesh, FloatBuffer> panes = new IdentityHashMap<>();
     /**
      * The panes of the vehicle the viewer sits in, and the matrix that puts them on the screen.
      * Null with none. The first seatedRearPanes vertices are the panes behind the front of the
      * glasshouse; the rest are the screen and the front windows, where the picture builds its own.
      */
-    static java.nio.FloatBuffer seatedPanes;
+    static FloatBuffer seatedPanes;
     static int seatedRearPanes;
     private static final IdentityHashMap<ModelMesh, Integer> rearPanes = new IdentityHashMap<>();
     static final float[] paneMatrix = new float[16];
@@ -52,7 +55,7 @@ final class VehicleMeshes {
 
     /** The triangles of a body that are not glass, sorted by what part of the cabin each is, in the model's own space. */
     static final class Parts {
-        final java.nio.FloatBuffer triangles;
+        final FloatBuffer triangles;
         /** For each kind CabinParts tells, where its vertices begin and how many they are. */
         final int[] first = new int[CabinParts.KINDS], count = new int[CabinParts.KINDS];
         /** Whether the seats were found as pieces of their own. Where they were not, they are not told from the shell. */
@@ -68,7 +71,7 @@ final class VehicleMeshes {
         /** For each triangle of the body, whether it is a pane of the front of the glasshouse. */
         final boolean[] front;
 
-        Parts(java.nio.FloatBuffer triangles, boolean seats, float[] measures, boolean[] front) {
+        Parts(FloatBuffer triangles, boolean seats, float[] measures, boolean[] front) {
             this.triangles = triangles;
             this.seats = seats;
             this.measures = measures;
@@ -117,7 +120,7 @@ final class VehicleMeshes {
         }
         multiply(shifted, xfrm, stands);
         multiply(eye, stands, paneMatrix);
-        float aheadX = FirstPerson.aheadX, aheadY = FirstPerson.aheadY;
+        float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
         float[] middle = middles.get(mesh);
         if (middle == null) {
             if (!mesh.isReady() || mesh.vb == null) {
@@ -132,7 +135,7 @@ final class VehicleMeshes {
             middle = find(mesh, instance, body.modelInstance.model.name);
             middles.put(mesh, middle);
         }
-        java.nio.FloatBuffer glass = panes.get(mesh);
+        FloatBuffer glass = panes.get(mesh);
         if (glass != null && glass.capacity() > 0) {
             seatedPanes = glass;
             seatedRearPanes = rearPanes.get(mesh);
@@ -156,7 +159,7 @@ final class VehicleMeshes {
         float across = -(x - standsX) * aheadY + (y - standsY) * aheadX;
         float[] known = wheels.get(script);
         if (known == null) {
-            Log.info(String.format(java.util.Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up", script, body.modelInstance.model.name, along, across, up - groundUp));
+            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up", script, body.modelInstance.model.name, along, across, up - groundUp));
         }
         wheels.put(script, new float[] {along, across, up - groundUp});
     }
@@ -210,7 +213,7 @@ final class VehicleMeshes {
                 parts.put(mesh, made);
                 front = made.front;
             }
-            java.nio.FloatBuffer loose = loose(raw, stride, elements, glass, front);
+            FloatBuffer loose = loose(raw, stride, elements, glass, front);
             panes.put(mesh, loose);
             int rear = 0;
             for (int t = 0; t < glass.length; t++) {
@@ -236,7 +239,7 @@ final class VehicleMeshes {
                 at[i * 3 + row] = place;
             }
         }
-        float[] seats = FirstPerson.seats;
+        float[] seats = Ride.seats;
         int[] ring = CabinParts.wheelOf(at, elements, seats == null || seats.length < 3 ? null : new float[] {frame[3] + seats[2], Math.abs(seats[0])}, frame[7]);
         if (ring == null) {
             Log.info("the vehicle model " + name + " has no steering wheel the picture can find (" + elements.length / 3 + " triangles, none a piece of " + WHEEL_TRIANGLES
@@ -317,12 +320,12 @@ final class VehicleMeshes {
      * The panes of a body as loose triangles in the model's own space, those of the front of
      * the glasshouse after the rest. Empty for a body with none found.
      */
-    private static java.nio.FloatBuffer loose(ByteBuffer raw, int stride, int[] elements, boolean[] glass, boolean[] front) {
+    private static FloatBuffer loose(ByteBuffer raw, int stride, int[] elements, boolean[] glass, boolean[] front) {
         int found = 0;
         for (boolean pane : glass) {
             found += pane ? 1 : 0;
         }
-        java.nio.FloatBuffer out = ByteBuffer.allocateDirect(found * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        FloatBuffer out = ByteBuffer.allocateDirect(found * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
         for (int pass = 0; pass < 2; pass++) {
             for (int t = 0; t < glass.length; t++) {
                 if (glass[t] && front[t] == (pass == 1)) {
@@ -359,7 +362,7 @@ final class VehicleMeshes {
         for (int row = 0; row < 3; row++) {
             middle[row] = frame[row * 4] * wheel[0] + frame[row * 4 + 1] * wheel[1] + frame[row * 4 + 2] * wheel[2] + frame[row * 4 + 3];
         }
-        float[] seats = CabinParts.seats(FirstPerson.seats, frame[3], frame[7], middle[1]);
+        float[] seats = CabinParts.seats(Ride.seats, frame[3], frame[7], middle[1]);
         CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
@@ -379,7 +382,7 @@ final class VehicleMeshes {
             made.count[kind] = made.triangles.position() / 3 - made.first[kind];
         }
         made.triangles.flip();
-        Log.info(String.format(java.util.Locale.ROOT,
+        Log.info(String.format(Locale.ROOT,
                 "cabin of %s: %d seat pieces, and %d seat, %d dashboard, %d door and %d bonnet vertices; the driver sits %.3f behind the wheel and %.3f beside it;"
                         + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f, door mirror %.3f ahead, %.3f out, %.3f above",
                 name, found.seatPieces, made.count[CabinParts.SEAT], made.count[CabinParts.DASH], made.count[CabinParts.DOOR], made.count[CabinParts.BONNET],
@@ -391,7 +394,7 @@ final class VehicleMeshes {
         return made;
     }
 
-    private static final IdentityHashMap<zombie.core.textures.Texture, float[]> means = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> means = new IdentityHashMap<>();
     /** A picture bigger than this many texels is not read back for its colour. */
     private static final int MOST_TEXELS = 4096 * 4096;
 
@@ -400,7 +403,7 @@ final class VehicleMeshes {
      * back from the graphics card once. Null while the picture is not loaded, and for one
      * that is empty or too big to read. A picture may be one piece of a larger sheet.
      */
-    static float[] meanOf(zombie.core.textures.Texture picture) {
+    static float[] meanOf(Texture picture) {
         if (means.containsKey(picture)) {
             return means.get(picture);
         }

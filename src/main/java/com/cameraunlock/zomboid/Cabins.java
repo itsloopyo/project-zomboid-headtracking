@@ -1,5 +1,17 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
+import zombie.characterTextures.BloodBodyPartType;
+import zombie.characters.IsoPlayer;
+import zombie.characters.WornItems.WornItems;
+import zombie.core.ImmutableColor;
+import zombie.core.skinnedmodel.visual.ItemVisual;
+import zombie.core.textures.Texture;
+import zombie.inventory.types.Clothing;
+import zombie.scripting.objects.VehicleScript;
+import zombie.vehicles.BaseVehicle;
+import zombie.vehicles.VehiclePart;
+
 /**
  * The driver's place the picture builds in a vehicle, in tiles along the vehicle, across it
  * and up.
@@ -146,9 +158,9 @@ final class Cabins {
      *
      * @param wheelAcross how far across from the vehicle's middle its steering wheel is
      */
-    static float[] fromDriver(zombie.scripting.objects.VehicleScript script, int seat, float wheelAcross) {
-        zombie.scripting.objects.VehicleScript.Position driver = script.getPassenger(0).getPositionById("inside");
-        zombie.scripting.objects.VehicleScript.Position place = script.getPassenger(seat).getPositionById("inside");
+    static float[] fromDriver(VehicleScript script, int seat, float wheelAcross) {
+        VehicleScript.Position driver = script.getPassenger(0).getPositionById("inside");
+        VehicleScript.Position place = script.getPassenger(seat).getPositionById("inside");
         if (driver == null || place == null) {
             return null;
         }
@@ -179,11 +191,11 @@ final class Cabins {
      * Whether a door of the cabin stands open: the driver's, the passenger's beside the
      * driver, or the viewer's own. The lamp in the roof is lit by them.
      */
-    static boolean doorOpen(zombie.vehicles.BaseVehicle vehicle, int seat) {
+    static boolean doorOpen(BaseVehicle vehicle, int seat) {
         return open(vehicle.getPassengerDoor(0)) || open(vehicle.getPassengerDoor(1)) || seat > 1 && open(vehicle.getPassengerDoor(seat));
     }
 
-    private static boolean open(zombie.vehicles.VehiclePart part) {
+    private static boolean open(VehiclePart part) {
         return part != null && part.getDoor() != null && part.getDoor().isOpen();
     }
 
@@ -200,7 +212,7 @@ final class Cabins {
      * What covers the viewer's arm or hand: the picture the game shows the garment by in the
      * inventory, whose colours are the garment's own, and the dye the game lays over it.
      */
-    record Garment(zombie.core.textures.Texture picture, float red, float green, float blue) {}
+    record Garment(Texture picture, float red, float green, float blue) {}
 
     /**
      * What the viewer wears on the arms and the hands. The sleeve is null on a bare arm and
@@ -216,22 +228,22 @@ final class Cabins {
      * Notes what the viewer wears on the arms and hands. The game keeps what is worn from the
      * skin outwards, so of the garments over a part the last is the one that shows.
      */
-    static void noteWear(zombie.characters.IsoPlayer player) {
-        zombie.characters.WornItems.WornItems items = player.getWornItems();
+    static void noteWear(IsoPlayer player) {
+        WornItems items = player.getWornItems();
         Garment upper = null, fore = null, glove = null;
         for (int i = 0; i < items.size(); i++) {
-            if (!(items.getItemByIndex(i) instanceof zombie.inventory.types.Clothing clothing)) {
+            if (!(items.getItemByIndex(i) instanceof Clothing clothing)) {
                 continue;
             }
-            java.util.ArrayList<zombie.characterTextures.BloodBodyPartType> covers = clothing.getCoveredParts();
-            boolean hand = covers.contains(zombie.characterTextures.BloodBodyPartType.Hand_L);
-            boolean lower = covers.contains(zombie.characterTextures.BloodBodyPartType.ForeArm_L);
-            boolean higher = covers.contains(zombie.characterTextures.BloodBodyPartType.UpperArm_L);
+            ArrayList<BloodBodyPartType> covers = clothing.getCoveredParts();
+            boolean hand = covers.contains(BloodBodyPartType.Hand_L);
+            boolean lower = covers.contains(BloodBodyPartType.ForeArm_L);
+            boolean higher = covers.contains(BloodBodyPartType.UpperArm_L);
             if (!hand && !lower && !higher) {
                 continue;
             }
-            zombie.core.skinnedmodel.visual.ItemVisual visual = clothing.getVisual();
-            zombie.core.ImmutableColor dye = visual == null ? null : visual.getTint(visual.getClothingItem());
+            ItemVisual visual = clothing.getVisual();
+            ImmutableColor dye = visual == null ? null : visual.getTint(visual.getClothingItem());
             Garment garment = dye == null ? new Garment(clothing.getTex(), 1f, 1f, 1f) : new Garment(clothing.getTex(), dye.r, dye.g, dye.b);
             glove = hand ? garment : glove;
             fore = lower ? garment : fore;

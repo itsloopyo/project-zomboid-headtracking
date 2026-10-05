@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 /** Tests of the room kept for each chunk's triangles in the one buffer the graphics card holds them in. */
@@ -163,7 +165,7 @@ final class BufferTests {
         check(build.runTexture[0] == 4 && build.runTexture[1] == 3 && build.runTint[1] == 0x21 && build.runTexture[2] == 4, "the runs are the meshes in the order asked for, solid first");
         check(build.runFloats[0] == 6 * vertex && build.runFloats[1] == 15 * vertex && build.runFloats[2] == 3 * vertex, "each as long as its mesh");
         check(build.floats == 24 * vertex && build.triangles() == 8, "and the build as long as all of them");
-        java.nio.FloatBuffer vertices = build.vertices;
+        FloatBuffer vertices = build.vertices;
         check(vertices.position() == 0 && vertices.remaining() == build.floats, "the vertices are ready to be read from the start");
         check(vertices.get(0) == 1f && vertices.get(6 * vertex) == 2f && vertices.get(21 * vertex) == 3f && vertices.get(21 * vertex + 1) == 0f
                 && vertices.get(23 * vertex + 1) == 2f, "each run's vertices where the runs before it end");
@@ -192,11 +194,11 @@ final class BufferTests {
     }
 
     private static void loansGoRoundAndTheIdleOnesAreCapped() {
-        java.nio.FloatBuffer first = VertexLoans.take(5000);
+        FloatBuffer first = VertexLoans.take(5000);
         check(first.capacity() == 8192 && first.position() == 0 && first.limit() == 8192 && first.isDirect(), "a loan is a power of two long, empty and outside the heap");
         first.put(1f).flip();
         VertexLoans.give(first);
-        java.nio.FloatBuffer again = VertexLoans.take(8192);
+        FloatBuffer again = VertexLoans.take(8192);
         check(again == first && again.position() == 0 && again.limit() == 8192, "what was given back is lent again, empty");
         VertexLoans.give(again);
         check(VertexLoans.take(100).capacity() == 4096, "no loan is shorter than the shortest");
@@ -208,30 +210,30 @@ final class BufferTests {
         check(VertexLoans.idleBytes() == 0, "what lies idle from one trim to the next is let go");
         int each = 1 << 16;
         long bytes = each * 4L;
-        ArrayList<java.nio.FloatBuffer> burst = new ArrayList<>();
+        ArrayList<FloatBuffer> burst = new ArrayList<>();
         for (int i = 0; i < 9; i++) {
             burst.add(VertexLoans.take(each));
         }
-        for (java.nio.FloatBuffer loan : burst) {
+        for (FloatBuffer loan : burst) {
             VertexLoans.give(loan);
         }
         VertexLoans.trim();
         check(VertexLoans.idleBytes() == 9 * bytes, "what came back since the last trim is kept for now");
         for (int frame = 0; frame < 5; frame++) {
-            java.nio.FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each - 100);
+            FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each - 100);
             check(burst.contains(one) && burst.contains(other), "a steady pace takes what the burst left");
             VertexLoans.give(one);
             VertexLoans.give(other);
         }
         VertexLoans.trim();
         check(VertexLoans.idleBytes() == 2 * bytes, "the seven no frame took are let go, the two in use kept");
-        java.nio.FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each);
+        FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each);
         check(burst.contains(one) && burst.contains(other), "and they still go round");
         VertexLoans.give(one);
         VertexLoans.give(other);
         boolean refused = false;
         try {
-            VertexLoans.give(java.nio.FloatBuffer.allocate(1000));
+            VertexLoans.give(FloatBuffer.allocate(1000));
         } catch (IllegalArgumentException expected) {
             refused = true;
         }
@@ -302,7 +304,7 @@ final class BufferTests {
             if (!held.isEmpty() && random.nextInt(100) < 48) {
                 int[] block = held.remove(random.nextInt(held.size()));
                 space.give(block[0], block[1]);
-                java.util.Arrays.fill(used, block[0], block[0] + block[1], false);
+                Arrays.fill(used, block[0], block[0] + block[1], false);
                 inUse -= block[1];
             } else {
                 int size = 12 * (1 + random.nextInt(300));

@@ -4,8 +4,10 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.lwjgl.opengl.GL11;
@@ -1085,7 +1087,7 @@ final class CharacterDraw {
      * @param composedForBody whether the texture is the game's composition of a whole character's skin
      */
     static int wearOf(String model, String texture, boolean composedForBody) {
-        String named = (within(model) + " " + within(texture)).toLowerCase(java.util.Locale.ROOT);
+        String named = (within(model) + " " + within(texture)).toLowerCase(Locale.ROOT);
         if (has(named, "hair", "beard")) {
             return HAIR;
         }
@@ -1118,7 +1120,7 @@ final class CharacterDraw {
             return "";
         }
         String path = name.replace('\\', '/');
-        int media = path.toLowerCase(java.util.Locale.ROOT).lastIndexOf("media/");
+        int media = path.toLowerCase(Locale.ROOT).lastIndexOf("media/");
         return media < 0 ? path : path.substring(media + 6);
     }
 
@@ -1138,7 +1140,7 @@ final class CharacterDraw {
 
     private static int[] dressingOf(int program) {
         if (program >= dressing.length) {
-            dressing = java.util.Arrays.copyOf(dressing, program + 1);
+            dressing = Arrays.copyOf(dressing, program + 1);
         }
         if (dressing[program] == null) {
             dressing[program] = new int[] {GL20.glGetUniformLocation(program, "uWear"), GL20.glGetUniformLocation(program, "uThread"),
@@ -1749,7 +1751,7 @@ final class CharacterDraw {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         int indices = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-        GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.length == count ? elements : java.util.Arrays.copyOf(elements, count), GL_STATIC_DRAW);
+        GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.length == count ? elements : Arrays.copyOf(elements, count), GL_STATIC_DRAW);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         return new Copy(buffer, modification, ours, indices, count, limbs, handBone, laid(places, uvs, elements, count));
     }

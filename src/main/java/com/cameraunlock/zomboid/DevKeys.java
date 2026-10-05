@@ -1,16 +1,20 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Set;
 import zombie.GameTime;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoWorld;
-import zombie.network.GameClient;
 import zombie.iso.weather.ClimateManager;
+import zombie.network.GameClient;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
 
@@ -91,8 +95,8 @@ final class DevKeys {
 
     private static boolean armed;
     private static boolean invincible, wasInvincible;
-    private static java.lang.reflect.Field cannotDie;
-    private static java.lang.reflect.Field godModes;
+    private static Field cannotDie;
+    private static Field godModes;
     private static Object godMode;
     private static boolean looked;
     private static boolean enabled;
@@ -142,7 +146,7 @@ final class DevKeys {
             // role check, so the field is set directly.
             try {
                 if (cannotDie == null) {
-                    cannotDie = zombie.characters.IsoGameCharacter.class.getDeclaredField("invincible");
+                    cannotDie = IsoGameCharacter.class.getDeclaredField("invincible");
                     cannotDie.setAccessible(true);
                 }
                 cannotDie.setBoolean(safe, invincible);
@@ -150,15 +154,15 @@ final class DevKeys {
                 // has of setting one asks first whether cheats are allowed, which they are not
                 // outside its debug mode. The set itself is written to.
                 if (godModes == null) {
-                    Object cheats = zombie.characters.IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
-                    java.lang.reflect.Field held = cheats.getClass().getDeclaredField("cheats");
+                    Object cheats = IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
+                    Field held = cheats.getClass().getDeclaredField("cheats");
                     held.setAccessible(true);
                     godModes = held;
                     godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
                 }
                 @SuppressWarnings("unchecked")
-                java.util.Set<Object> set = (java.util.Set<Object>) godModes.get(
-                        zombie.characters.IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
+                Set<Object> set = (Set<Object>) godModes.get(
+                        IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
                 if (invincible) {
                     set.add(godMode);
                 } else {
@@ -178,7 +182,7 @@ final class DevKeys {
             Log.info("0: zombies cleared " + cleared);
         }
         if (cleared && IsoWorld.instance.currentCell != null) {
-            java.util.ArrayList<IsoZombie> zombies = IsoWorld.instance.currentCell.getZombieList();
+            ArrayList<IsoZombie> zombies = IsoWorld.instance.currentCell.getZombieList();
             for (int i = zombies.size() - 1; i >= 0; i--) {
                 IsoZombie zombie = zombies.get(i);
                 zombie.removeFromWorld();

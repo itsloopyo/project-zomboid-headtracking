@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Locale;
 import zombie.GameTime;
 import zombie.iso.weather.ClimateManager;
 
@@ -68,7 +69,7 @@ final class SkyState {
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(java.util.Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f", sunUp, night, cover, mist, windX, windY, rain, wet);
+        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f", sunUp, night, cover, mist, windX, windY, rain, wet);
     }
 
     void capture() {
