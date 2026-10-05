@@ -251,7 +251,7 @@ public final class ViewModel {
      * ViewModelMath's: x to the right, y up, z towards the viewer, in tiles. Below the eye, to
      * either side of it and a little behind it.
      */
-    static final float[] RIGHT_SHOULDER = {0.36f, -0.4f, 0.1f}, LEFT_SHOULDER = {-0.36f, -0.4f, 0.1f};
+    static final float[] RIGHT_SHOULDER = {0.34f, -0.62f, 0.16f}, LEFT_SHOULDER = {-0.34f, -0.62f, 0.16f};
     /**
      * The way each elbow drops: down, and half as far out from the body. A forearm then comes
      * up to the grip from below and behind it, and leaves the picture by its foot.
