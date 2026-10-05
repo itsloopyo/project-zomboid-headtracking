@@ -350,6 +350,9 @@ final class Pipeline {
             varying float vHung;
             uniform vec4 uCutBox;
             uniform float uCutNear;
+            uniform vec3 uHole;
+            uniform float uHoleUp;
+            uniform vec4 uHoleFrom;
             varying vec3 vPlace;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
@@ -1159,6 +1162,12 @@ final class Pipeline {
                 }
                 // Seen from overhead with the viewer indoors, the walls of that floor are cut
                 // down to a low course, or the room is hidden behind its own near walls.
+                // Whatever stands between the overhead eye and the viewer is opened in a round
+                // window about them, or a building across the street hides them altogether.
+                if (uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
+                        && distance(gl_FragCoord.xy, uHole.xy) < uHole.z * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
+                    discard;
+                }
                 // Only in the building the viewer is in, and only what is of the walls or hangs on
                 // them: a wardrobe or a fridge stands whole, as do the things drawn as cards.
                 // And only what stands between the viewer and the eye: the walls behind them
@@ -4052,6 +4061,9 @@ final class Pipeline {
     /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
     static float cutAbove = Float.MAX_VALUE;
     static final float[] cutBox = new float[4];
+    private static final float[] holeAt = new float[2];
+    /** The window opened about the viewer: its radius as a share of the picture's height, how far before them it starts, and how far under their eye its middle is, in tiles. */
+    private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
     /** How far behind the viewer, along the map's diagonal, the cut begins, in tiles of x and y together. */
     private static final float CUT_BEHIND = 1.5f;
     /**
@@ -4965,6 +4977,15 @@ final class Pipeline {
         world.set("uRangeFrom", rangeFrom);
         world.set("uCutAbove", cutAbove);
         world.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
+        if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, focusX, focusY, focusUp - HOLE_BELOW_EYE, holeAt)) {
+            world.set("uHole", (holeAt[0] * 0.5f + 0.5f) * width, (holeAt[1] * 0.5f + 0.5f) * height, HOLE_OF_HEIGHT * height);
+            float along = camera.forwardX * focusX + camera.forwardY * focusY + camera.forwardUp * focusUp;
+            // The ground they stand on is not in the way.
+            world.set("uHoleUp", focusUp - HOLE_FLOOR_BELOW_EYE);
+            world.set("uHoleFrom", camera.forwardX, camera.forwardY, camera.forwardUp, along - HOLE_BEFORE);
+        } else {
+            world.set("uHole", 0f, 0f, 0f);
+        }
         // The overhead eye is to the south-east: nearer it is a greater x and y together.
         world.set("uCutNear", focusX + focusY - CUT_BEHIND);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);

@@ -578,11 +578,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // game leaves those out and so does the picture, and the walls of the floor are cut
         // low: see Pipeline.cutAbove.
         IsoGridSquare stoodOn = player.getCurrentSquare();
-        boolean indoors = FirstPerson.overhead() && stoodOn != null && !stoodOn.isOutside();
+        // Under an arcade or a canopy the viewer is out of doors and still under a floor.
+        IsoGridSquare roofed = FirstPerson.overhead() && stoodOn != null && !stoodOn.isOutside() ? stoodOn : null;
+        for (int over = level + 1; FirstPerson.overhead() && roofed == null && stoodOn != null && over <= level + 8; over++) {
+            IsoGridSquare above = cell.getGridSquare(stoodOn.getX(), stoodOn.getY(), over);
+            if (above != null && above.getFloor() != null) {
+                roofed = above;
+            }
+        }
+        boolean indoors = roofed != null;
         int top = indoors ? level : Integer.MAX_VALUE;
         int minX = 0, minY = 0, maxX = 0, maxY = 0;
         if (indoors) {
-            zombie.iso.BuildingDef def = stoodOn.getBuilding() == null ? null : stoodOn.getBuilding().getDef();
+            zombie.iso.BuildingDef def = roofed.getBuilding() == null ? null : roofed.getBuilding().getDef();
             if (def == null) {
                 top = Integer.MAX_VALUE;
             } else {
