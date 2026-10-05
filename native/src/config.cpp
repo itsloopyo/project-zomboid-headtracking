@@ -30,6 +30,28 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "field of view setting of its own. Aiming a firearm still narrows the view by the\n"
                 "same ratio. Read again while the game runs, so a change shows as soon as the file\n"
                 "is saved.");
+    table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
+                "What the mod made itself and shows in the first person view in place of the game's\n"
+                "own. Set a row to false and the game's own is drawn there instead, as the game or\n"
+                "another mod has it. These rows are read again while the game runs, so a change\n"
+                "shows as soon as the file is saved. The game's own view is never changed.\n"
+                "true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.\n"
+                "false: the game's own weapon and scope models, and no picture through the scope.");
+    table.Local("Content", "OwnFurniture", &Config::own_furniture, cameraunlock::config::BoolCodec(),
+                "true: the mod's models of furniture, appliances, street lamps, clocks and picture\n"
+                "frames. false: the game's sprites of them.");
+    table.Local("Content", "OwnPictures", &Config::own_pictures, cameraunlock::config::BoolCodec(),
+                "true: the mod's photographs, paintings and posters on walls. false: the game's.");
+    table.Local("Content", "OwnPlants", &Config::own_plants, cameraunlock::config::BoolCodec(),
+                "true: the mod's leaves, tree trunks, boulders, grass, ferns, flowers and fallen\n"
+                "leaves. false: the game's sprites of trees, bushes and grass.");
+    table.Local("Content", "OwnTextures", &Config::own_textures, cameraunlock::config::BoolCodec(),
+                "true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,\n"
+                "paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.");
+    table.Local("Content", "OwnBuildings", &Config::own_buildings, cameraunlock::config::BoolCodec(),
+                "true: windows, doors and curtains built by the mod, and the outside of a wall\n"
+                "finished as its building is. false: the game's sprites of them, on both sides of\n"
+                "the wall.");
     return table;
 }
 

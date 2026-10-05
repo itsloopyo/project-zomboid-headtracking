@@ -743,6 +743,8 @@ final class PipelineShaders {
             // changes. Only near the eye: further off than a few paces a board's joint is
             // under a pixel deep.
             uniform float uRelief;
+            // 1 where the mod's own textures are laid over the game's surfaces, 0 where a surface shows its sprite alone.
+            uniform float uOwnTextures;
             // What the surface is: 1 boards side by side, 2 shingles, 3 a wooden floor, 4 planks, 5 open ground.
             float reliefKind = 0.0;
             // Where on the surface the pixel is, and how fast that changes over the screen.
@@ -967,7 +969,7 @@ final class PipelineShaders {
                     climb = turned.y * own;
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
-                if ((vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
+                if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
                     // The strokes run up the boards, so the colour is taken from far to either
                     // side of the place and a little above and below it.
@@ -1747,7 +1749,7 @@ final class PipelineShaders {
                 float grit = 0.0;
                 // How much of the ground's depth relieve has drawn: so much less is left to the lumps made up below.
                 float raisedGround = 0.0;
-                if (!model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
+                if (uOwnTextures > 0.5 && !model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
                     texel.rgb *= 0.78 + 0.44 * wide;
@@ -1858,7 +1860,7 @@ final class PipelineShaders {
                     float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along), 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
                     texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);
                 }
-                if (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
+                if (uOwnTextures > 0.5 && (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5)) {
                     // The place is taken within sixty tiles, not on the whole map: ten thousand
                     // tiles out a number holds a thousandth of a tile and no finer, and a grain
                     // read at such places is ruled with stripes a pixel or two wide. Every
@@ -2808,6 +2810,8 @@ final class PipelineShaders {
             uniform sampler2D uCloth;
             uniform sampler2D uJersey;
             uniform vec2 uWearGain;
+            // 1 where the mod's own textures give skin and cloth their grain, 0 where a figure shows the game's texture alone.
+            uniform float uWornGrain;
             uniform vec4 uRoot[16];
             uniform float uRoots;
             uniform vec2 uCabinGain;
@@ -3980,7 +3984,7 @@ final class PipelineShaders {
                     float north = mix(texture2D(uJersey, fine + vec2(0.0, e)).g * uWearGain.x, texture2D(uVinyl, fine + vec2(0.0, e)).g * uWearGain.y, flesh);
                     // Close by it is all there, and it thins out with distance, where it would
                     // only be noise.
-                    float shown = 1.0 - smoothstep(4.0, 11.0, ahead * length(ray));
+                    float shown = uWornGrain * (1.0 - smoothstep(4.0, 11.0, ahead * length(ray)));
                     figure.rgb *= mix(1.0, here, 0.55 * shown);
                     vec3 slope = uRight * (east - here) + uUp * (north - here);
                     n = normalize(n - slope * (5.0 * shown));

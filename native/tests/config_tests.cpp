@@ -195,6 +195,33 @@ void TestFieldOfViewIsReadAgainWhileTheGameRuns() {
     }
 }
 
+void TestContentRowsAreOnAndReadAgainWhileTheGameRuns() {
+    const Scratch s(L"content");
+    cfg::ConfigOwner<Config> owner(s.Options());
+    const auto loaded = owner.Load();
+    const Config& c = loaded.config;
+    Check(c.own_weapons && c.own_furniture && c.own_pictures && c.own_plants && c.own_textures && c.own_buildings,
+          "a first start shows everything the mod made");
+    const std::string created = ReadBytes(s.ConfigPath());
+    for (const char* row : {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings"}) {
+        Check(Holds(created, std::string(row) + "=true"), std::string("and the file it creates holds ") + row);
+    }
+
+    std::string bytes = created;
+    const std::string row = "OwnWeapons=true";
+    bytes.replace(bytes.find(row), row.size(), "OwnWeapons=false");
+    WriteBytes(s.ConfigPath(), bytes);
+    // The watch goes by the file's write time, and two writes can land on one tick of it.
+    fs::last_write_time(s.ConfigPath(), fs::last_write_time(s.ConfigPath()) + std::chrono::seconds(2));
+    Check(owner.FileChanged(), "an edit is seen");
+    const auto reloaded = owner.Reload();
+    Check(reloaded.status == cfg::ConfigReloadStatus::Applied && reloaded.config && !reloaded.config->own_weapons,
+          "and the reload gives the row switched off");
+    Check(reloaded.config && reloaded.config->own_furniture && reloaded.config->own_pictures && reloaded.config->own_plants &&
+              reloaded.config->own_textures && reloaded.config->own_buildings,
+          "with the rows nobody touched still on");
+}
+
 void TestEndNeverSaves() {
     const Scratch s(L"end");
     const std::string committed = Committed();
@@ -230,6 +257,7 @@ int main(int argc, char** argv) {
         TestCommittedConfigIsRendered();
         TestTheModesSave();
         TestFieldOfViewIsReadAgainWhileTheGameRuns();
+        TestContentRowsAreOnAndReadAgainWhileTheGameRuns();
         TestEndNeverSaves();
     } catch (const std::exception& e) {
         std::printf("FAIL: %s\n", e.what());

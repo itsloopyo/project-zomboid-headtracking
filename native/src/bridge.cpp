@@ -55,6 +55,12 @@ std::int32_t Save(const char* what, const std::function<void(pzht::Config&)>& ch
     });
 }
 
+std::int32_t OwnBits(const pzht::Config& c) {
+    return (c.own_weapons ? kPzhtOwnWeapons : 0) | (c.own_furniture ? kPzhtOwnFurniture : 0) |
+           (c.own_pictures ? kPzhtOwnPictures : 0) | (c.own_plants ? kPzhtOwnPlants : 0) |
+           (c.own_textures ? kPzhtOwnTextures : 0) | (c.own_buildings ? kPzhtOwnBuildings : 0);
+}
+
 void Register(const char* row, const std::string& keys, std::int32_t bit) {
     const input::KeyBindingsParseResult parsed = input::ParseKeyBindings(keys);
     if (!parsed.ok()) throw std::runtime_error(std::string(row) + "=" + keys + ": " + parsed.error);
@@ -97,18 +103,20 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->collision_release_smoothing = c.lean_clamp.release_smoothing;
         out->light_multiplier = c.light.multiplier;
         out->field_of_view = c.field_of_view;
+        out->own = OwnBits(c);
         return static_cast<std::int32_t>(loaded.status);
     });
 }
 
-std::int32_t PzhtConfigReloadFieldOfView(float* degrees) {
-    return Guarded("reading the field of view again", [&]() -> std::int32_t {
+std::int32_t PzhtConfigReloadLive(PzhtLive* out) {
+    return Guarded("reading the settings again", [&]() -> std::int32_t {
         if (!g_owner) throw std::logic_error("PzhtConfigLoad has not run");
         if (!g_owner->FileChanged()) return 0;
         const cfg::ConfigReloadResult<pzht::Config> reloaded = g_owner->Reload();
         AppendLog(reloaded.log);
         if (!reloaded.config) return 0;
-        *degrees = reloaded.config->field_of_view;
+        out->field_of_view = reloaded.config->field_of_view;
+        out->own = OwnBits(*reloaded.config);
         return 1;
     });
 }

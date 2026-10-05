@@ -128,8 +128,11 @@ final class HeadTracking {
      */
     static void start(Path gameDirectory) {
         config = new NativeConfig(jarDirectory().resolve(NativeConfig.LIBRARY));
-        Settings settings = config.load(gameDirectory.resolve(NativeConfig.FILE_NAME)).settings();
+        NativeConfig.Loaded loaded = config.load(gameDirectory.resolve(NativeConfig.FILE_NAME));
+        Settings settings = loaded.settings();
         Settings.current = settings;
+        Own.set(loaded.own());
+        Log.info("the mod's own in first person: " + Own.described(Own.on()));
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
         worldYaw = settings.worldSpaceYaw();
@@ -141,24 +144,27 @@ final class HeadTracking {
         receiver = new OpenTrackReceiver(settings.udpPort(), settings.dataFreshnessMs());
         receiver.start();
         config.startHotkeys();
-        saver.scheduleWithFixedDelay(HeadTracking::watchFieldOfView, WATCH_MILLISECONDS, WATCH_MILLISECONDS,
+        saver.scheduleWithFixedDelay(HeadTracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS,
                 TimeUnit.MILLISECONDS);
     }
 
-    private static final float[] reloaded = new float[1];
-
-    /** FieldOfView is the one setting read again while the game runs: every other row is read at the start. */
-    private static void watchFieldOfView() {
+    /** FieldOfView and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    private static void watchSettings() {
         try {
-            if (config.reloadFieldOfView(reloaded) && reloaded[0] != FieldOfView.degrees()) {
-                FieldOfView.set(reloaded[0]);
-                Log.info(NativeConfig.FILE_NAME + " changed: first person field of view set to " + reloaded[0]
+            NativeConfig.Live live = config.reloadLive();
+            if (live != null && live.fieldOfView() != FieldOfView.degrees()) {
+                FieldOfView.set(live.fieldOfView());
+                Log.info(NativeConfig.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView()
                         + " degrees vertical");
+            }
+            if (live != null && live.own() != Own.on()) {
+                Own.set(live.own());
+                Log.info(NativeConfig.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
             }
         } catch (RuntimeException failure) {
             // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
             // Thrown on, it ends the watch, so a fault that stays is logged once and not every second.
-            Log.error(NativeConfig.FILE_NAME + " is no longer watched for a new field of view", failure);
+            Log.error(NativeConfig.FILE_NAME + " is no longer watched for changes", failure);
             throw failure;
         }
     }

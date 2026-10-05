@@ -180,7 +180,11 @@ In first person a window also shows your character in its glass, with their head
 
 ## Configuration
 
-Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. It is the one setting the mod reads again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
+Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
+
+The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, and windows, doors and curtains built as shapes. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures` and `OwnBuildings`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
+
+What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `F8` is the switch for that.
 
 Aiming a firearm narrows the view to 0.73 of that angle's half tangent, a magnification of 1.37, which is 50 degrees at the default. That ratio is built in and is not a setting.
 
@@ -325,6 +329,30 @@ TrueFreeLookKey=default
 ; How far the light turns for each degree your head turns.
 ; 1 matches the view, 0 keeps the light on your aim.
 LightMultiplier=default
+
+[Content]
+; What the mod made itself and shows in the first person view in place of the game's
+; own. Set a row to false and the game's own is drawn there instead, as the game or
+; another mod has it. These rows are read again while the game runs, so a change
+; shows as soon as the file is saved. The game's own view is never changed.
+; true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.
+; false: the game's own weapon and scope models, and no picture through the scope.
+OwnWeapons=true
+; true: the mod's models of furniture, appliances, street lamps, clocks and picture
+; frames. false: the game's sprites of them.
+OwnFurniture=true
+; true: the mod's photographs, paintings and posters on walls. false: the game's.
+OwnPictures=true
+; true: the mod's leaves, tree trunks, boulders, grass, ferns, flowers and fallen
+; leaves. false: the game's sprites of trees, bushes and grass.
+OwnPlants=true
+; true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,
+; paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.
+OwnTextures=true
+; true: windows, doors and curtains built by the mod, and the outside of a wall
+; finished as its building is. false: the game's sprites of them, on both sides of
+; the wall.
+OwnBuildings=true
 ```
 <!-- /cameraunlock:config -->
 

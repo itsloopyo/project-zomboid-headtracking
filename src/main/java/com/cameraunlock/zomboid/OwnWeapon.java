@@ -246,7 +246,7 @@ final class OwnWeapon {
 
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
-        return program != null && ITEM.equals(item);
+        return program != null && Own.weapons() && ITEM.equals(item);
     }
 
     /** Reads the model out of the jar and gives it to the graphics card. Null, or what went wrong. */

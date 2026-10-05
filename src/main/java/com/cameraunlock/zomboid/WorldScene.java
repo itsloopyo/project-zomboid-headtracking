@@ -634,6 +634,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         exposure = adaptEye(player, fromOutside);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
+        if (Own.taken()) {
+            // A row of [Content] was switched: every build holds what the rows were.
+            forgetAll();
+        }
         if (cell != builtIn.get()) {
             // Another save, loaded without leaving the game: what is kept by place on the map or
             // by one of the game's sprites is of the world before.
@@ -1220,7 +1224,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         frameOf(object, texture);
         standOn(object);
-        frame.material = under.getType() == IsoObjectType.tree ? LEAVES : frame.material;
+        frame.material = under.getType() == IsoObjectType.tree && Own.plants() ? LEAVES : frame.material;
         sprites++;
         // Leaves stand on the same card as their trunk. Each layer is moved a little towards
         // the eye from the one under it, or the two would be drawn through each other.
@@ -2101,10 +2105,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
-            if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
-                growGrass(x, y, localX, localY);
+            if (Own.plants()) {
+                if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
+                    growGrass(x, y, localX, localY);
+                }
+                strew(x, y, localX, localY, toX * toX + toY * toY);
             }
-            strew(x, y, localX, localY, toX * toX + toY * toY);
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -2216,7 +2222,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
 
         if (overLayer == 0 && (type == IsoObjectType.curtainN || type == IsoObjectType.curtainS || type == IsoObjectType.curtainW || type == IsoObjectType.curtainE)
-                && addCurtain(texture, type, x, y, z)) {
+                && Own.buildings() && addCurtain(texture, type, x, y, z)) {
             return;
         }
         boolean west;
@@ -2310,7 +2316,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         // A boulder. The game's picture of one stood up as a card is a cut-out of a boulder,
         // and wrapped on a box it is a crate painted as one.
-        if (sprite.getName() != null && sprite.getName().startsWith("boulders_") && addRock(x, y, z)) {
+        if (sprite.getName() != null && sprite.getName().startsWith("boulders_") && Own.plants() && addRock(x, y, z)) {
             return;
         }
         // What the game itself moves with the wind, and what it lets the player clear as
@@ -2412,7 +2418,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // Long grass. The game has it as a small picture of a clump, which up close is a
         // handful of coarse painted strokes. Here it is grown instead: tall blades, the
         // colour of the ground they stand in, thick on the square.
-        if (z == 0 && sprite.getName() != null && sprite.getName().startsWith("e_newgrass") && growLongGrass(x, y)) {
+        if (z == 0 && sprite.getName() != null && sprite.getName().startsWith("e_newgrass") && Own.plants() && growLongGrass(x, y)) {
             return;
         }
         if (grows) {
@@ -2463,7 +2469,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         String name = sprite.getName();
         if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && name != null && name.startsWith("floors_") && name.contains("tile")
-                && addTiles(texture, x, y, z)) {
+                && Own.textures() && addTiles(texture, x, y, z)) {
             return;
         }
         geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
@@ -2546,7 +2552,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int cards = type == IsoObjectType.tree ? 5 : 3;
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
         // so the bole stands in for all its cards; a bare one keeps them for its branches.
-        if (type == IsoObjectType.tree && overLayer == 0 && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
+        if (type == IsoObjectType.tree && overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
             return;
         }
         // A bush is leaves all over, as a tree's crown is.
@@ -2556,13 +2562,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
         // So is every other plant the game paints with a dark line round each leaf: the
         // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
-        if (grown != null && type != IsoObjectType.tree) {
+        if (grown != null && type != IsoObjectType.tree && Own.plants()) {
             frame.material = bush ? Flora.BUSH : LEAVES;
         }
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = frame.material;
-        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && overLayer > 0) && addCrown(texture, grown, bush, x, y, z);
+        boolean crowned = grown != null && (bush || type == IsoObjectType.tree && overLayer > 0) && Own.plants() && addCrown(texture, grown, bush, x, y, z);
         if (crowned) {
             frame.material = Flora.SHADE;
         }
@@ -2583,7 +2589,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         frame.material = fanned;
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        if (bush && !crowned && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
+        if (bush && !crowned && Own.plants() && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
             // middle, each across the way out to it, so there are leaves on every side.
@@ -2953,10 +2959,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      */
     private boolean addHung(IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
         Furniture piece = Furniture.known(sprite);
-        if (piece == null || piece.wall == WallHung.NONE || !WallHung.painted(frame, piece.wall, hungAt)) {
+        // The mod's picture for the sprite, where its pictures are on. A poster hangs as the
+        // mod's sheet only to show one, and a frame, a clock or a lamp only where the mod's
+        // furniture is on or it has a picture to show.
+        int picture = piece != null && Own.pictures() ? piece.picture : Decor.NONE;
+        if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
+                || !WallHung.painted(frame, piece.wall, hungAt)) {
             return false;
         }
-        if (piece.picture != Decor.NONE && piece.grid != null) {
+        if (picture != Decor.NONE && piece.grid != null) {
             // The sprite of one square's length of a picture stops a pixel short of the square's
             // end, and the wall shows through between two lengths. Each is stood to the end
             // of its square where another length follows it.
@@ -2995,14 +3006,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float[] lift = geometry.lift;
         placed.add(model, frame, x, y, x + a + hungWay[0] * out, y + b + hungWay[1] * out,
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + foot, piece.turns, scale, scaleUp,
-                !piece.pictured ? PLAIN : piece.picture != Decor.NONE ? Decor.held(piece.picture) : texture.getID(),
+                !piece.pictured ? PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
                 piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
-        if (piece.picture != Decor.NONE && piece.grid == null) {
+        if (picture != Decor.NONE && piece.grid == null) {
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
-                    Decor.wideForHigh(piece.picture), hungShows);
+                    Decor.wideForHigh(picture), hungShows);
             placed.picture(hungShows);
-        } else if (piece.picture != Decor.NONE) {
+        } else if (picture != Decor.NONE) {
             // One square's length of a picture longer than a square shows its own part of it.
             // Whoever faces a north wall has the map's x growing to their right, and whoever
             // faces a west one has its y growing to their left.
@@ -3012,7 +3023,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     (north ? wholeAt[WallHung.TO] - along : along - wholeAt[WallHung.FROM]) / scale,
                     (wholeAt[WallHung.BOTTOM] - bottom) * ViewCamera.LEVEL_HEIGHT / scaleUp, (wholeAt[WallHung.TOP] - bottom) * ViewCamera.LEVEL_HEIGHT / scaleUp,
                     wholeAt[WallHung.TO] - wholeAt[WallHung.FROM], (wholeAt[WallHung.TOP] - wholeAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT,
-                    piece.rail, Decor.wideForHigh(piece.picture), hungShows);
+                    piece.rail, Decor.wideForHigh(picture), hungShows);
             placed.picture(hungShows);
         } else if (piece.pictured) {
             Models.turn(piece.turns, 1f, 0f, hungWay);
@@ -3133,7 +3144,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * the same answer, so none of it is drawn twice or left out.
      */
     private boolean addFurniture(IsoObject object, IsoSprite sprite, int x, int y, int z) {
-        Furniture piece = Furniture.known(sprite);
+        Furniture piece = Own.furniture() ? Furniture.known(sprite) : null;
         // What hangs on a wall is addHung's: one it could not hang is drawn as it was.
         if (piece == null || piece.wall != WallHung.NONE) {
             return false;
@@ -3349,7 +3360,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     continue;
                 }
                 gablesPainted++;
-                int built = Masonry.of(finish);
+                int built = Own.textures() ? Masonry.of(finish) : 0;
                 SpriteGeometry.Mesh painted = solid.get(PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
                 painted.open = frame.open + 32f * PAINT;
                 float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
@@ -3765,7 +3776,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // behind the near one, which is the depth of the opening. What hangs on the wall
         // hangs on the skin inside the square.
         // A window that is a whole length of wall, a shop's front or the side of a sun room, is glass in a frame too.
-        if (overLayer == 0 && (frame.material == GLASS && addWindow(null, texture, x, y, z, da, db) || glazedWall && frame.material != GLASS && addWindow(mesh, texture, x, y, z, da, db))) {
+        if (overLayer == 0 && Own.buildings()
+                && (frame.material == GLASS && addWindow(null, texture, x, y, z, da, db) || glazedWall && frame.material != GLASS && addWindow(mesh, texture, x, y, z, da, db))) {
             return;
         }
         float inX = db * WALL_HALF, inY = da * WALL_HALF;
@@ -3786,7 +3798,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (material == GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);
             }
-            if (door && doorLeaf && overLayer == 0 && (addBuiltDoor(texture, x, y, z, da, db) || addDoor(mesh, texture, x, y, z, a, b, da, db))) {
+            if (door && doorLeaf && overLayer == 0 && (Own.buildings() && addBuiltDoor(texture, x, y, z, da, db) || addDoor(mesh, texture, x, y, z, a, b, da, db))) {
                 geometry.shownA = geometry.shownB = 0f;
                 return;
             }
@@ -3828,7 +3840,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         skinStart = (startJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.NEAR) != 0 ? WALL_HALF : 0f;
         // An inside wall is its paper's stripes, each a face of its own: see Papers.
-        paper = overLayer == 0 && paperedWall ? Papers.of(texture, frame, da != 0f) : null;
+        paper = overLayer == 0 && paperedWall && Own.textures() ? Papers.of(texture, frame, da != 0f) : null;
         if (paper == null && overLayer == 0 && paperedWall && Papers.unread(texture)) {
             building.signed = false;
         }
@@ -3847,7 +3859,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // place, the skin on it is that side's surface. Only the wall itself: ivy or a
         // stain over it is on the side it was painted on, and is no part of the wall's colour.
         float material = frame.material;
-        int tint = overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
+        int tint = overLayer == 0 && Own.buildings() ? farTint(texture, x, y, z, da != 0f) : 0;
         // Out of doors the far skin is the building's own outside wall, the sprite its other
         // faces show, where the pieces round this wall's opening can take it: a wall whose
         // opening is cut out of its sprite alone would be closed by a sprite with none, and
@@ -3949,7 +3961,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * sheet of outside walls.
      */
     private SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits) {
-        if (overLayer != 0 || !suits) {
+        if (overLayer != 0 || !suits || !Own.textures()) {
             return mesh;
         }
         // The wall under a roof's end is a sprite cut to the roof's slope, with a vent in it

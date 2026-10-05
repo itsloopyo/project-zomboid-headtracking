@@ -68,6 +68,8 @@ final class Furniture {
     boolean ownSize;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
     int picture = Decor.NONE;
+    /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
+    boolean pinned;
     /** How wide a frame is painted round that picture, in tiles: a painting on a board with no moulding has one. */
     float rail;
 
@@ -254,6 +256,7 @@ final class Furniture {
                 if (picture != Decor.NONE) {
                     Furniture pinned = new Furniture(sprite, "canvas", faces).hang(WallHung.behind(facing), true);
                     pinned.picture = picture;
+                    pinned.pinned = true;
                     return pinned;
                 }
             }

@@ -1034,6 +1034,7 @@ public final class Tests {
         WindowTests.run();
         ReflectionTests.run();
         DecorTests.run();
+        OwnTests.run();
         ScopeTests.run();
         RifleTests.run();
         KerbTests.run();

@@ -38,6 +38,7 @@ final class ConfigTests {
         firstStartCreatesTheCommittedFileAndRunsOnTheBuiltInValues(config, file, defaults);
         changedModesAreSavedAndReadAtTheNextStart(config, file);
         fieldOfViewIsReadAgainWhenTheFileChanges(config, file);
+        contentRowsAreReadAgainWhenTheFileChanges(config, file);
         zoomCompensationIsCores();
     }
 
@@ -62,6 +63,7 @@ final class ConfigTests {
         NativeConfig.Loaded loaded = config.load(file);
         check(loaded.status() == NativeConfig.CREATED, "a first start with no file creates it");
         check(loaded.settings().equals(Settings.BUILT_IN), "Settings.BUILT_IN is what core gives a first start: " + loaded.settings());
+        check(loaded.own() == Own.ALL, "and everything of the mod's own is on: " + Own.described(loaded.own()));
         check(Arrays.equals(Files.readAllBytes(file), Files.readAllBytes(Path.of("config", NativeConfig.FILE_NAME))),
                 "the file a first start creates is config/CameraUnlock.ini byte for byte");
         check(Files.exists(defaults), "and the Defaults.ini it was pointed at is created");
@@ -88,18 +90,39 @@ final class ConfigTests {
     }
 
     private static void fieldOfViewIsReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
-        float[] degrees = {-1f};
-        check(!config.reloadFieldOfView(degrees) && degrees[0] == -1f, "a file nobody has edited is not read again");
+        check(config.reloadLive() == null, "a file nobody has edited is not read again");
         String text = Files.readString(file, StandardCharsets.US_ASCII);
         check(text.contains("\r\nFieldOfView=65.0\r\n"), "the file holds the field of view");
-        Files.writeString(file, text.replace("FieldOfView=65.0", "FieldOfView=90"), StandardCharsets.US_ASCII);
-        // The watch goes by the file's write time, and two writes can land on one tick of it.
-        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 2000));
-        check(config.reloadFieldOfView(degrees) && degrees[0] == 90f, "an edited field of view is read while the game runs");
-        check(!config.reloadFieldOfView(degrees), "and only once");
+        edit(file, text.replace("FieldOfView=65.0", "FieldOfView=90"));
+        NativeConfig.Live live = config.reloadLive();
+        check(live != null && live.fieldOfView() == 90f, "an edited field of view is read while the game runs");
+        check(config.reloadLive() == null, "and only once");
         check(config.saveAimMode(AimMode.SIGHTS_LOCKED), "a save after it still saves");
         check(Files.readString(file, StandardCharsets.US_ASCII).contains("\r\nFieldOfView=90\r\n"),
                 "and leaves the edited field of view in the file");
+    }
+
+    private static void contentRowsAreReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.US_ASCII);
+        for (String row : new String[] {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings"}) {
+            check(text.contains("\r\n" + row + "=true\r\n"), "the file holds " + row + ", on");
+        }
+        edit(file, text.replace("OwnWeapons=true", "OwnWeapons=false").replace("OwnPlants=true", "OwnPlants=false"));
+        NativeConfig.Live live = config.reloadLive();
+        check(live != null && live.own() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS),
+                "rows switched off are read while the game runs, and the rest stay on: " + (live == null ? "not read" : Own.described(live.own())));
+        check(live.fieldOfView() == 90f, "with the field of view as it was");
+        NativeConfig.Loaded next = config.load(file);
+        check(next.own() == live.own(), "and the next start runs on the same rows");
+        edit(file, text);
+        live = config.reloadLive();
+        check(live != null && live.own() == Own.ALL, "switched back on, they are on again");
+    }
+
+    private static void edit(Path file, String text) throws IOException {
+        Files.writeString(file, text, StandardCharsets.US_ASCII);
+        // The watch goes by the file's write time, and two writes can land on one tick of it.
+        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 2000));
     }
 
     /** Core has no Java, so ZoomCompensation is a port of its zoom_compensation.h. This holds the two together. */

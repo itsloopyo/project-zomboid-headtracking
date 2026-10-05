@@ -380,7 +380,7 @@ final class Scope {
     /** Logic thread: the firearm in the viewer's hands, or null with none. */
     static void fitted(HandWeapon weapon) {
         WeaponPart part = weapon == null ? null : weapon.getWeaponPart(PART);
-        fitted = part == null ? null : ScopeOptics.of(part.getFullType());
+        fitted = part == null || !Own.weapons() ? null : ScopeOptics.of(part.getFullType());
     }
 
     /** The scope the firearm in hand is fitted with, or null. */

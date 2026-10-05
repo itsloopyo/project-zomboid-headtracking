@@ -31,7 +31,23 @@ struct PzhtSettings {
     float collision_release_smoothing;
     float light_multiplier;
     float field_of_view;
+    // The rows of [Content] that are on, as the kPzhtOwn bits below.
+    std::int32_t own;
 };
+
+// What the rows read again while the game runs hold. NativeConfig.java reads this by offset.
+struct PzhtLive {
+    float field_of_view;
+    std::int32_t own;
+};
+
+// The bits of PzhtSettings::own and PzhtLive::own. Own.java holds the same numbers.
+inline constexpr std::int32_t kPzhtOwnWeapons = 1;
+inline constexpr std::int32_t kPzhtOwnFurniture = 2;
+inline constexpr std::int32_t kPzhtOwnPictures = 4;
+inline constexpr std::int32_t kPzhtOwnPlants = 8;
+inline constexpr std::int32_t kPzhtOwnTextures = 16;
+inline constexpr std::int32_t kPzhtOwnBuildings = 32;
 
 // The bits PzhtHotkeysTake answers with.
 inline constexpr std::int32_t kPzhtToggle = 1;
@@ -45,11 +61,11 @@ PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 // fills `out` with the settings the session runs on.
 PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out);
 
-// FieldOfView is the one row read again while the game runs. When the file or Defaults.ini has
-// changed since the owner last read or wrote it, reads both again, puts the field of view they
-// give in `degrees` and answers 1. Answers 0, and leaves `degrees` alone, when nothing changed or
-// the file cannot be read.
-PZHT_EXPORT std::int32_t PzhtConfigReloadFieldOfView(float* degrees);
+// FieldOfView and the rows of [Content] are read again while the game runs. When the file or
+// Defaults.ini has changed since the owner last read or wrote it, reads both again, puts what
+// they give those rows in `out` and answers 1. Answers 0, and leaves `out` alone, when nothing
+// changed or the file cannot be read.
+PZHT_EXPORT std::int32_t PzhtConfigReloadLive(PzhtLive* out);
 
 // Each answers the owner's ConfigSaveStatus.
 PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::int32_t position);

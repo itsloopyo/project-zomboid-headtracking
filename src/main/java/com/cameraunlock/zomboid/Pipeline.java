@@ -1355,7 +1355,8 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
         world.set("uSprigs", SPRIG_UNIT);
-        world.set("uRelief", WITHOUT.contains("relief") ? 0f : 1f);
+        world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() ? 0f : 1f);
+        world.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
     private static void setBasis(Program program, ViewCamera.Pose pose) {
@@ -1679,6 +1680,7 @@ final class Pipeline {
             figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uWearGain", materialGain[13], materialGain[11]);
+            figureLight.set("uWornGrain", Own.textures() ? 1f : 0f);
             figureLight.set("uRoots", pass == 0 ? (float) Characters.rootsFound : 0f);
             for (int root = 0; root < Characters.rootsFound && pass == 0; root++) {
                 figureLight.set(ROOT_AT[root], Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
@@ -2093,6 +2095,7 @@ final class Pipeline {
         figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
         figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
         figureLight.set("uWearGain", materialGain[13], materialGain[11]);
+        figureLight.set("uWornGrain", Own.textures() ? 1f : 0f);
         figureLight.set("uRoots", 0f);
         atmosphere(figureLight, state);
         figureLight.set("uPainted", 0f);

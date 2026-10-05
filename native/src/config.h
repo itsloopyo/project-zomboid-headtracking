@@ -21,6 +21,14 @@ inline constexpr float kMaxFieldOfView = 110.0f;
 
 struct Config : cameraunlock::HeadTrackingConfig {
     float field_of_view = kDefaultFieldOfView;
+    // What the mod made itself and shows in first person in place of the game's own. Each is
+    // a row of [Content], and with a row off the game's own is drawn there.
+    bool own_weapons = true;
+    bool own_furniture = true;
+    bool own_pictures = true;
+    bool own_plants = true;
+    bool own_textures = true;
+    bool own_buildings = true;
 
     Config() {
         // Map tiles. It has to exceed the distance from the eye to the corners of the first
@@ -30,8 +38,8 @@ struct Config : cameraunlock::HeadTrackingConfig {
 };
 
 // The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
-// rows are Writable: their hotkeys save. End changes the session only. FieldOfView is the mod's
-// own row, and the one row read again while the game runs.
+// rows are Writable: their hotkeys save. End changes the session only. FieldOfView and the rows
+// of [Content] are the mod's own, and the ones read again while the game runs.
 cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 
 // The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test
