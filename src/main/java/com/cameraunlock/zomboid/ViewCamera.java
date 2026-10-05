@@ -110,15 +110,17 @@ final class ViewCamera {
     }
 
     static float[] view(Pose pose) {
-        return new float[] {
-            pose.rightX, pose.upX, -pose.forwardX, 0f,
-            pose.rightY, pose.upY, -pose.forwardY, 0f,
-            pose.rightUp, pose.upUp, -pose.forwardUp, 0f,
-            -(pose.rightX * pose.eyeX + pose.rightY * pose.eyeY + pose.rightUp * pose.eyeUp),
-            -(pose.upX * pose.eyeX + pose.upY * pose.eyeY + pose.upUp * pose.eyeUp),
-            pose.forwardX * pose.eyeX + pose.forwardY * pose.eyeY + pose.forwardUp * pose.eyeUp,
-            1f,
-        };
+        float[] out = new float[16];
+        view(pose, out);
+        return out;
+    }
+
+    /** As view, into a matrix the caller keeps: a frame that makes one each time it draws makes garbage. */
+    static void view(Pose pose, float[] out) {
+        turned(pose, out);
+        out[12] = -(pose.rightX * pose.eyeX + pose.rightY * pose.eyeY + pose.rightUp * pose.eyeUp);
+        out[13] = -(pose.upX * pose.eyeX + pose.upY * pose.eyeY + pose.upUp * pose.eyeUp);
+        out[14] = pose.forwardX * pose.eyeX + pose.forwardY * pose.eyeY + pose.forwardUp * pose.eyeUp;
     }
 
     /**
@@ -152,12 +154,29 @@ final class ViewCamera {
      * through, the last digits of both are lost: see the world's vertex program.
      */
     static float[] turned(Pose pose) {
-        return new float[] {
-            pose.rightX, pose.upX, -pose.forwardX, 0f,
-            pose.rightY, pose.upY, -pose.forwardY, 0f,
-            pose.rightUp, pose.upUp, -pose.forwardUp, 0f,
-            0f, 0f, 0f, 1f,
-        };
+        float[] out = new float[16];
+        turned(pose, out);
+        return out;
+    }
+
+    /** As turned, into a matrix the caller keeps. */
+    static void turned(Pose pose, float[] out) {
+        out[0] = pose.rightX;
+        out[1] = pose.upX;
+        out[2] = -pose.forwardX;
+        out[3] = 0f;
+        out[4] = pose.rightY;
+        out[5] = pose.upY;
+        out[6] = -pose.forwardY;
+        out[7] = 0f;
+        out[8] = pose.rightUp;
+        out[9] = pose.upUp;
+        out[10] = -pose.forwardUp;
+        out[11] = 0f;
+        out[12] = 0f;
+        out[13] = 0f;
+        out[14] = 0f;
+        out[15] = 1f;
     }
 
     /**
@@ -187,12 +206,19 @@ final class ViewCamera {
 
     /** OpenGL perspective projection, depth -1 at the near plane to +1 at the far plane. */
     static float[] projection(float tanHalfVerticalFov, float aspect, float near, float far) {
+        float[] out = new float[16];
+        projection(tanHalfVerticalFov, aspect, near, far, out);
+        return out;
+    }
+
+    /** As projection, into a matrix the caller keeps. */
+    static void projection(float tanHalfVerticalFov, float aspect, float near, float far, float[] out) {
         float f = 1f / tanHalfVerticalFov;
-        return new float[] {
-            f / aspect, 0f, 0f, 0f,
-            0f, f, 0f, 0f,
-            0f, 0f, (far + near) / (near - far), -1f,
-            0f, 0f, 2f * far * near / (near - far), 0f,
-        };
+        java.util.Arrays.fill(out, 0f);
+        out[0] = f / aspect;
+        out[5] = f;
+        out[10] = (far + near) / (near - far);
+        out[11] = -1f;
+        out[14] = 2f * far * near / (near - far);
     }
 }

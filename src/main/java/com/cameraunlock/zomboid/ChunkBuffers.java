@@ -6,20 +6,22 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL31;
 
 /**
  * The world's triangles on the graphics card.
  *
  * Most chunk builds a frame shows are the ones the frame before showed, so a build's vertices
  * are handed to the graphics card once, the first time a frame draws it, and stay there until
- * no frame shows the build any more. All of them live in one buffer, each build in a block of
- * its own, so that every triangle wearing one texture is still one draw however many chunks
- * it is spread over: the draw is given the list of places in the buffer where those triangles
- * are, chunk after chunk in the order the frame lists its chunks.
+ * no frame shows the build any more. From then on the graphics card's is the only copy: the
+ * memory the vertices came in goes back to carry the next build. All of them live in one
+ * buffer, each build in a block of its own, so that every triangle wearing one texture is
+ * still one draw however many chunks it is spread over: the draw is given the list of places
+ * in the buffer where those triangles are, chunk after chunk in the order the frame lists its
+ * chunks.
  *
  * Everything here runs on the render thread but forget.
  *
@@ -32,25 +34,26 @@ final class ChunkBuffers {
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_FLOAT = 0x1406;
     private static final int GL_ARRAY_BUFFER = 0x8892;
+    private static final int GL_COPY_READ_BUFFER = 0x8F36;
+    private static final int GL_COPY_WRITE_BUFFER = 0x8F37;
     private static final int GL_DYNAMIC_DRAW = 0x88E8;
     private static final int STRIDE = SpriteGeometry.VERTEX_FLOATS * Float.BYTES;
     /** The buffer is made in whole numbers of this many floats: 16 MB. */
     private static final int GRAIN = 1 << 22;
 
-    /** Builds no frame shows any more, whose blocks the render thread has yet to free. */
-    private static final ConcurrentLinkedQueue<WorldScene.ChunkMeshes> forgotten = new ConcurrentLinkedQueue<>();
+    /**
+     * Builds no frame shows any more, whose blocks the render thread has yet to free: the list
+     * the logic thread adds to, and the one the render thread last emptied, which it swaps for
+     * the first to take what has been added. Both threads hold the lists' lock to touch either.
+     */
+    private static final Object forgottenLock = new Object();
+    private static ArrayList<WorldScene.ChunkMeshes> forgotten = new ArrayList<>(), freed = new ArrayList<>();
     private static final BufferSpace space = new BufferSpace();
     private static int buffer;
     /** How long the buffer is, in floats. */
     private static int capacity;
-    /** Which making of the buffer this is. A block is of the buffer only while the build holding it names this one: making the buffer anew empties it. Never 0, which a build names when it holds no block. */
-    private static int epoch = 1;
-    private static FloatBuffer staging = ByteBuffer.allocateDirect(1 << 20).order(ByteOrder.nativeOrder()).asFloatBuffer();
-    /** For each range, one after the other, the first vertex and the number of vertices of each run of the buffer it draws. */
-    private static IntBuffer firsts = ints(1 << 12), counts = ints(1 << 12);
-    private static int[] rangeTexture = new int[256], rangeTint = new int[256], rangeFrom = new int[256], rangeRuns = new int[256];
-    private static int ranges, solidRanges;
-    private static final Runs solidRuns = new Runs(), laidRuns = new Runs();
+    /** Every build with a block, in no order: each knows its place here. They are what is carried over when the buffer is made anew. */
+    private static final ArrayList<WorldScene.ChunkMeshes> holders = new ArrayList<>();
     private static int sentBuilds;
     private static long sentFloats;
     /** What the last frame came to, for the logic thread's log: megabytes in use and in all, builds sent and megabytes sent. */
@@ -68,45 +71,36 @@ final class ChunkBuffers {
      * logic thread, before the build is filled again or let go for good.
      */
     static void forget(WorldScene.ChunkMeshes build) {
-        if (build.heldEpoch != 0) {
-            forgotten.add(build);
+        if (build.held) {
+            synchronized (forgottenLock) {
+                forgotten.add(build);
+            }
         }
     }
 
-    /** How many ranges the frame draws, and how many of them, the first ones, are solid. */
-    static int ranges() {
-        return ranges;
-    }
-
-    static int solidRanges() {
-        return solidRanges;
-    }
-
-    /** The OpenGL name of the texture a range's triangles wear, 0 for none. */
-    static int texture(int range) {
-        return rangeTexture[range];
-    }
-
-    static int tint(int range) {
-        return rangeTint[range];
-    }
-
     static String describe() {
-        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB", usedMegabytes, allMegabytes, sent, sentMegabytes);
+        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB, %.0f MB on the way there and %.0f MB kept for the next",
+                usedMegabytes, allMegabytes, sent, sentMegabytes, VertexLoans.lentBytes() / 1048576f, VertexLoans.idleBytes() / 1048576f);
     }
 
     /**
      * Makes ready to draw a frame's chunks: hands the graphics card the builds it does not hold
-     * as they now are, and lists the triangles by texture and tint, what is solid first and
-     * then what is laid over it. Leaves no buffer bound.
+     * as they now are. Leaves no buffer bound.
      */
     static void load(ArrayList<WorldScene.ChunkMeshes> chunks) {
         if (buffer == 0) {
             buffer = GL15.glGenBuffers();
         }
-        for (WorldScene.ChunkMeshes gone = forgotten.poll(); gone != null; gone = forgotten.poll()) {
-            drop(gone);
+        ArrayList<WorldScene.ChunkMeshes> gone;
+        synchronized (forgottenLock) {
+            gone = forgotten;
+            forgotten = freed;
+            freed = gone;
         }
+        for (int i = 0; i < gone.size(); i++) {
+            drop(gone.get(i));
+        }
+        gone.clear();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         sentBuilds = 0;
         sentFloats = 0;
@@ -114,20 +108,15 @@ final class ChunkBuffers {
         // that a chunk's new build can go where its last one was.
         for (int i = 0; i < chunks.size(); i++) {
             WorldScene.ChunkMeshes build = chunks.get(i);
-            if (build.heldEpoch == epoch && build.heldVersion != build.version) {
+            if (build.held && build.heldVersion != build.version) {
                 drop(build);
             }
         }
-        boolean fits = true;
-        for (int i = 0; i < chunks.size() && fits; i++) {
-            if (chunks.get(i).heldEpoch != epoch) {
-                fits = send(chunks.get(i));
-            }
-        }
-        if (!fits) {
-            remake(chunks);
-            for (int i = 0; i < chunks.size(); i++) {
-                if (!send(chunks.get(i))) {
+        for (int i = 0; i < chunks.size(); i++) {
+            WorldScene.ChunkMeshes build = chunks.get(i);
+            if (!build.held && !send(build)) {
+                remake(chunks, i);
+                if (!send(build)) {
                     throw new IllegalStateException("a buffer of " + capacity + " floats made for this frame does not hold it");
                 }
             }
@@ -137,115 +126,108 @@ final class ChunkBuffers {
         allMegabytes = (long) capacity * Float.BYTES / 1048576f;
         sentMegabytes = sentFloats * Float.BYTES / 1048576f;
         sent = sentBuilds;
-
-        solidRuns.clear();
-        laidRuns.clear();
-        for (int i = 0; i < chunks.size(); i++) {
-            solidRuns.count(chunks.get(i).solid.all);
-            laidRuns.count(chunks.get(i).laid.all);
-        }
-        int most = solidRuns.used + laidRuns.used;
-        if (most > rangeTexture.length) {
-            rangeTexture = new int[most * 2];
-            rangeTint = new int[most * 2];
-            rangeFrom = new int[most * 2];
-            rangeRuns = new int[most * 2];
-        }
-        ranges = 0;
-        int runs = solidRuns.place(0);
-        solidRanges = ranges;
-        runs = laidRuns.place(runs);
-        if (runs > firsts.capacity()) {
-            firsts = ints(Integer.highestOneBit(runs) * 2);
-            counts = ints(Integer.highestOneBit(runs) * 2);
-        }
-        // A draw leaves the two lists' limits at the end of its range.
-        firsts.clear();
-        counts.clear();
-        for (int i = 0; i < chunks.size(); i++) {
-            WorldScene.ChunkMeshes build = chunks.get(i);
-            // The order a build's meshes were sent in: see send.
-            int at = solidRuns.list(build.solid.all, build.heldAt);
-            laidRuns.list(build.laid.all, at);
-        }
     }
 
     private static void drop(WorldScene.ChunkMeshes build) {
-        if (build.heldEpoch == epoch && build.heldFloats > 0) {
+        if (!build.held) {
+            return;
+        }
+        if (build.heldFloats > 0) {
             space.give(build.heldAt, build.heldFloats);
         }
-        build.heldEpoch = 0;
+        WorldScene.ChunkMeshes last = holders.remove(holders.size() - 1);
+        if (last != build) {
+            holders.set(build.heldIndex, last);
+            last.heldIndex = build.heldIndex;
+        }
+        build.held = false;
     }
 
-    private static int floats(WorldScene.ChunkMeshes build) {
-        int floats = 0;
-        for (int i = 0; i < build.solid.all.size(); i++) {
-            floats += build.solid.all.get(i).floats;
-        }
-        for (int i = 0; i < build.laid.all.size(); i++) {
-            floats += build.laid.all.get(i).floats;
-        }
-        return floats;
-    }
-
-    /** Hands the graphics card a build's vertices, its solid meshes and then its laid ones, each in the order the build lists them. False when the buffer has no room. */
+    /**
+     * Hands the graphics card a build's vertices and gives back the memory they came in. False
+     * when the buffer has no room, and the build is then as it was.
+     */
     private static boolean send(WorldScene.ChunkMeshes build) {
-        // Read before the vertices are: the logic thread raised it after writing them.
+        // Read before the runs and the vertices are: the logic thread raised it after writing them.
         int version = build.version;
-        int floats = floats(build);
+        int floats = build.floats;
         int at = 0;
         if (floats > 0) {
             at = space.take(floats);
             if (at < 0) {
                 return false;
             }
-            if (floats > staging.capacity()) {
-                staging = ByteBuffer.allocateDirect(Integer.highestOneBit(floats) * 2 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            FloatBuffer vertices = build.vertices;
+            if (vertices == null || vertices.remaining() != floats) {
+                throw new IllegalStateException("a build of " + floats + " floats that the graphics card does not hold came with "
+                        + (vertices == null ? "no vertices" : vertices.remaining() + " floats of them"));
             }
-            staging.clear();
-            for (int i = 0; i < build.solid.all.size(); i++) {
-                staging.put(build.solid.all.get(i).vertices, 0, build.solid.all.get(i).floats);
-            }
-            for (int i = 0; i < build.laid.all.size(); i++) {
-                staging.put(build.laid.all.get(i).vertices, 0, build.laid.all.get(i).floats);
-            }
-            staging.flip();
-            GL15.glBufferSubData(GL_ARRAY_BUFFER, (long) at * Float.BYTES, staging);
+            GL15.glBufferSubData(GL_ARRAY_BUFFER, (long) at * Float.BYTES, vertices);
+            build.vertices = null;
+            VertexLoans.give(vertices);
             sentBuilds++;
             sentFloats += floats;
         }
         build.heldAt = at;
         build.heldFloats = floats;
         build.heldVersion = version;
-        build.heldEpoch = epoch;
+        build.heldIndex = holders.size();
+        holders.add(build);
+        build.held = true;
         return true;
     }
 
     /**
-     * Makes the buffer anew, empty, with room for the frame and half as much again. Run when a
-     * build finds no gap long enough: the buffer is too short, or what is free in it is in
-     * pieces, which starting over puts right as well.
+     * Makes the buffer anew with room for what it holds and for the builds of the frame, from
+     * this one on, that it does not yet hold, and half as much again, and carries every block
+     * over, one after another with no gaps. Run when a build finds no gap long enough: the
+     * buffer is too short, or what is free in it is in pieces, which this puts right as well.
+     * The blocks are copied on the graphics card. Nothing else has them.
      */
-    private static void remake(ArrayList<WorldScene.ChunkMeshes> chunks) {
-        long shown = 0;
-        for (int i = 0; i < chunks.size(); i++) {
-            shown += floats(chunks.get(i));
+    private static void remake(ArrayList<WorldScene.ChunkMeshes> chunks, int from) {
+        long kept = 0;
+        for (int i = 0; i < holders.size(); i++) {
+            kept += holders.get(i).heldFloats;
         }
-        long wanted = (shown + shown / 2 + GRAIN - 1) / GRAIN * GRAIN;
+        long coming = 0;
+        for (int i = from; i < chunks.size(); i++) {
+            if (!chunks.get(i).held) {
+                coming += chunks.get(i).floats;
+            }
+        }
+        long wanted = (kept + coming + (kept + coming) / 2 + GRAIN - 1) / GRAIN * GRAIN;
         if (wanted > Integer.MAX_VALUE / GRAIN * GRAIN) {
-            throw new IllegalStateException("the frame's chunks hold " + shown + " floats, more than one buffer can");
+            throw new IllegalStateException("the world in sight is " + (kept + coming) + " floats, more than one buffer can hold");
         }
         boolean longer = wanted > capacity;
         if (longer) {
             capacity = (int) wanted;
         }
+        int old = buffer;
+        buffer = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         GL15.glBufferData(GL_ARRAY_BUFFER, (long) capacity * Float.BYTES, GL_DYNAMIC_DRAW);
-        epoch++;
+        GL15.glBindBuffer(GL_COPY_READ_BUFFER, old);
+        GL15.glBindBuffer(GL_COPY_WRITE_BUFFER, buffer);
+        int next = 0;
+        for (int i = 0; i < holders.size(); i++) {
+            WorldScene.ChunkMeshes build = holders.get(i);
+            if (build.heldFloats > 0) {
+                GL31.glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, (long) build.heldAt * Float.BYTES, (long) next * Float.BYTES,
+                        (long) build.heldFloats * Float.BYTES);
+                build.heldAt = next;
+                next += build.heldFloats;
+            }
+        }
+        GL15.glBindBuffer(GL_COPY_READ_BUFFER, 0);
+        GL15.glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
+        GL15.glDeleteBuffers(old);
         space.reset(capacity);
-        sentBuilds = 0;
-        sentFloats = 0;
-        Log.info(String.format(Locale.ROOT, "first person keeps the world in %d MB on the graphics card (%s), of which this frame's %d chunks take %d",
-                (long) capacity * Float.BYTES >> 20, longer ? "made longer" : "put in order", chunks.size(), shown * Float.BYTES >> 20));
+        if (next > 0 && space.take(next) != 0) {
+            throw new IllegalStateException("the blocks carried over were not put at the start of the new buffer");
+        }
+        Log.info(String.format(Locale.ROOT, "first person keeps the world in %d MB on the graphics card (%s), of which %d chunks take %d and this frame brings %d more",
+                (long) capacity * Float.BYTES >> 20, longer ? "made longer" : "put in order", holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
     }
 
     /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer. Leaves no buffer bound. */
@@ -258,12 +240,117 @@ final class ChunkBuffers {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    /** Draws every triangle of a range, in the order the frame's chunks and each chunk's meshes are listed. */
-    static void draw(int range) {
-        int from = rangeFrom[range], to = from + rangeRuns[range];
-        firsts.clear().position(from).limit(to);
-        counts.clear().position(from).limit(to);
-        GL14.glMultiDrawArrays(GL_TRIANGLES, firsts, counts);
+    /**
+     * Some of a frame's chunks as draws: their triangles listed by texture and tint, what is
+     * solid first and then what is laid over it. One texture in one tint is a range, drawn in
+     * one call.
+     */
+    static final class Listing {
+        /** For each range, one after the other, the first vertex and the number of vertices of each run of the buffer it draws. */
+        private IntBuffer firsts = ints(1 << 12), counts = ints(1 << 12);
+        private int[] rangeTexture = new int[256], rangeTint = new int[256], rangeFrom = new int[256], rangeRuns = new int[256];
+        private int ranges, solidRanges;
+        private final Runs solidRuns = new Runs(), laidRuns = new Runs();
+
+        /**
+         * Lists the chunks of a frame that ChunkBuffers.load has made ready, leaving out those
+         * marked in left when it is not null.
+         *
+         * @param laidToo whether what is laid over the floors is listed, or only what is solid
+         */
+        void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo) {
+            solidRuns.clear();
+            laidRuns.clear();
+            for (int i = 0; i < chunks.size(); i++) {
+                if (left != null && left[i]) {
+                    continue;
+                }
+                WorldScene.ChunkMeshes build = chunks.get(i);
+                solidRuns.count(build, 0, build.solidRuns);
+                if (laidToo) {
+                    laidRuns.count(build, build.solidRuns, build.runs);
+                }
+            }
+            int most = solidRuns.used + laidRuns.used;
+            if (most > rangeTexture.length) {
+                rangeTexture = new int[most * 2];
+                rangeTint = new int[most * 2];
+                rangeFrom = new int[most * 2];
+                rangeRuns = new int[most * 2];
+            }
+            ranges = 0;
+            int runs = place(solidRuns, 0);
+            solidRanges = ranges;
+            runs = place(laidRuns, runs);
+            if (runs > firsts.capacity()) {
+                firsts = ints(Integer.highestOneBit(runs) * 2);
+                counts = ints(Integer.highestOneBit(runs) * 2);
+            }
+            // A draw leaves the two lists' limits at the end of its range.
+            firsts.clear();
+            counts.clear();
+            for (int i = 0; i < chunks.size(); i++) {
+                if (left != null && left[i]) {
+                    continue;
+                }
+                WorldScene.ChunkMeshes build = chunks.get(i);
+                // The order a build's runs were sent in.
+                int at = build.heldAt;
+                for (int run = 0; run < build.runs; run++) {
+                    Runs of = run < build.solidRuns ? solidRuns : laidRuns;
+                    if (of == solidRuns || laidToo) {
+                        int slot = of.slot(build.runTexture[run], build.runTint[run]);
+                        firsts.put(of.cursor[slot], at / SpriteGeometry.VERTEX_FLOATS);
+                        counts.put(of.cursor[slot], build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS);
+                        of.cursor[slot]++;
+                    }
+                    at += build.runFloats[run];
+                }
+            }
+        }
+
+        /** Gives each texture its part of the lists from the run at start, notes it as a range to draw, and returns the run after the last. */
+        private int place(Runs runs, int start) {
+            for (int slot = 0; slot < runs.texture.length; slot++) {
+                if (!runs.taken[slot]) {
+                    continue;
+                }
+                runs.cursor[slot] = start;
+                rangeTexture[ranges] = runs.texture[slot];
+                rangeTint[ranges] = runs.tint[slot];
+                rangeFrom[ranges] = start;
+                rangeRuns[ranges] = runs.runs[slot];
+                ranges++;
+                start += runs.runs[slot];
+            }
+            return start;
+        }
+
+        /** How many ranges there are, and how many of them, the first ones, are solid. */
+        int ranges() {
+            return ranges;
+        }
+
+        int solidRanges() {
+            return solidRanges;
+        }
+
+        /** The OpenGL name of the texture a range's triangles wear, 0 for none. */
+        int texture(int range) {
+            return rangeTexture[range];
+        }
+
+        int tint(int range) {
+            return rangeTint[range];
+        }
+
+        /** Draws every triangle of a range, in the order the chunks and each chunk's runs are listed. */
+        void draw(int range) {
+            int from = rangeFrom[range], to = from + rangeRuns[range];
+            firsts.clear().position(from).limit(to);
+            counts.clear().position(from).limit(to);
+            GL14.glMultiDrawArrays(GL_TRIANGLES, firsts, counts);
+        }
     }
 
     /** The runs of the buffer each texture and tint draws: how many, where its list of them starts, and where in the list the next goes. */
@@ -277,7 +364,7 @@ final class ChunkBuffers {
             used = 0;
         }
 
-        private int slot(int name, int tinted) {
+        int slot(int name, int tinted) {
             int mask = texture.length - 1;
             int slot = ((name ^ tinted << 12) * 0x9E3779B1) >>> 16 & mask;
             while (taken[slot] && (texture[slot] != name || tint[slot] != tinted)) {
@@ -286,20 +373,16 @@ final class ChunkBuffers {
             return slot;
         }
 
-        void count(ArrayList<SpriteGeometry.Mesh> meshes) {
-            for (int i = 0; i < meshes.size(); i++) {
-                SpriteGeometry.Mesh mesh = meshes.get(i);
-                if (mesh.floats == 0) {
-                    continue;
-                }
+        void count(WorldScene.ChunkMeshes build, int from, int to) {
+            for (int run = from; run < to; run++) {
                 if (used * 2 >= texture.length) {
                     grow();
                 }
-                int slot = slot(mesh.texture, mesh.tint);
+                int slot = slot(build.runTexture[run], build.runTint[run]);
                 if (!taken[slot]) {
                     taken[slot] = true;
-                    texture[slot] = mesh.texture;
-                    tint[slot] = mesh.tint;
+                    texture[slot] = build.runTexture[run];
+                    tint[slot] = build.runTint[run];
                     runs[slot] = 0;
                     used++;
                 }
@@ -324,39 +407,6 @@ final class ChunkBuffers {
                     runs[slot] = oldRuns[i];
                 }
             }
-        }
-
-        /** Gives each texture its part of the lists from the run at start, notes it as a range to draw, and returns the run after the last. */
-        int place(int start) {
-            for (int slot = 0; slot < texture.length; slot++) {
-                if (!taken[slot]) {
-                    continue;
-                }
-                cursor[slot] = start;
-                rangeTexture[ranges] = texture[slot];
-                rangeTint[ranges] = tint[slot];
-                rangeFrom[ranges] = start;
-                rangeRuns[ranges] = runs[slot];
-                ranges++;
-                start += runs[slot];
-            }
-            return start;
-        }
-
-        /** Lists where each mesh's vertices are, the first of them being at this float of the buffer, and returns the float after the last. */
-        int list(ArrayList<SpriteGeometry.Mesh> meshes, int at) {
-            for (int i = 0; i < meshes.size(); i++) {
-                SpriteGeometry.Mesh mesh = meshes.get(i);
-                if (mesh.floats == 0) {
-                    continue;
-                }
-                int slot = slot(mesh.texture, mesh.tint);
-                firsts.put(cursor[slot], at / SpriteGeometry.VERTEX_FLOATS);
-                counts.put(cursor[slot], mesh.floats / SpriteGeometry.VERTEX_FLOATS);
-                cursor[slot]++;
-                at += mesh.floats;
-            }
-            return at;
         }
     }
 }

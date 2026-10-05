@@ -355,7 +355,9 @@ public final class Tests {
         check(MuzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
         check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
         check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
-        check(MuzzleFlash.light()[3] == 0f, "with no weapon drawn there is no light");
+        float[] light = {9f, 9f, 9f, 9f, 9f, 9f, 9f};
+        MuzzleFlash.light(light);
+        check(light[0] == 0f && light[3] == 0f && light[4] > 0f, "with no weapon drawn there is no light, only its colour");
         plantsStandWhereTheyStoodAndAreNeverTooMany();
         fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
         tuftCarriesHowWellItsGrassDoes();

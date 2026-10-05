@@ -434,7 +434,7 @@ public final class FirstPerson {
             // Or the same press would go on to open the game's menu.
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
-        String was = pointer.describe();
+        String was = TRACE ? pointer.describe() : null;
         int panels = Panels.open();
         long now = System.nanoTime();
         if (Mouse.isButtonDown(AIM_BUTTON)) {

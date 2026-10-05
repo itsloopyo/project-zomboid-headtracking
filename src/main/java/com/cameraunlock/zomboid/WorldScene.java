@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
@@ -85,6 +86,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float CHARACTER_SHOWN_ALPHA = 0.5f;
 
     private static final int GL_VIEWPORT = 0x0BA2;
+    /** The part of the game's picture the frame being drawn is written to. Render thread. */
+    private static final int[] viewport = new int[4];
 
     private static final WorldScene[] scenes = {new WorldScene(), new WorldScene(), new WorldScene(), new WorldScene()};
     private static int nextScene;
@@ -109,35 +112,139 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * only when no frame in flight shows it.
      */
     static final class ChunkMeshes {
-        /** What is drawn as it stands: a pixel of a sprite is there or it is not. */
-        final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet();
         /**
-         * What is laid over a floor: the grass that runs out into a path, a stain, a rug's
-         * fringe. The game paints these with soft edges that fade into the floor under them,
-         * so they are drawn after everything solid and mixed into it by how see-through each
-         * pixel is.
+         * The build's triangles as runs of vertices that wear one texture in one tint, one run
+         * after another: first what is drawn as it stands, a pixel of a sprite being there or
+         * not, then what is laid over a floor and mixed into it. For each run its texture, its
+         * tint and how many floats long it is.
          */
-        final SpriteGeometry.MeshSet laid = new SpriteGeometry.MeshSet();
+        int[] runTexture = new int[32], runTint = new int[32], runFloats = new int[32];
+        int runs, solidRuns;
+        /** How many floats the runs come to. */
+        int floats;
+        /**
+         * The box that holds every vertex of the runs as it stands, before the wind moves any:
+         * the least and the greatest x, y and height. Of no meaning for a build with no runs.
+         */
+        float minX, minY, minUp, maxX, maxY, maxUp;
+        /**
+         * The vertices themselves, on loan from VertexLoans, until the graphics card has them:
+         * null from then on, and for a build with no triangles. The logic thread sets it when
+         * it has filled the loan, and the render thread gives the loan back and clears it.
+         */
+        volatile FloatBuffer vertices;
         /** The furniture the mod has models of, each drawn from its model where it stands. */
         final Models.Instances placed = new Models.Instances();
         private int wx, wy;
         private int builtFrame;
+        /** The frame the build was last made in or found still to be what a new one would be. */
+        private int checkedFrame;
+        /** Where the eye was when the build was made, and which way lay to the right of the view. */
+        private float eyeX, eyeY, eyeUp, rightX, rightY;
+        /** Whether a square of the build was so near the eye that its cards lie across the view. */
+        private boolean acrossView;
+        /** Whether what the build read of the map was summed as it was made, and the sum: see signature. */
+        private boolean signed;
+        private long signature;
+        /** The frame from which the chunk's builds are summed again, after one was found changed with the eye still. */
+        private int summedFrom;
         /** The frames in flight that show this build, and one more while it is the chunk's latest. */
         private int users;
         /**
          * Raised each time the build has been filled. The render thread reads it before it
-         * reads the build's vertices, which is what lets it see all of what the logic thread
-         * wrote, and from it tells a build the graphics card holds as it was from one it holds
-         * as it is.
+         * reads the build's runs and vertices, which is what lets it see all of what the logic
+         * thread wrote, and from it tells a build the graphics card holds as it was from one it
+         * holds as it is.
          */
         volatile int version;
         /**
-         * The block of ChunkBuffers' buffer that holds this build's vertices: which making of
-         * the buffer it is in, 0 for none, and where. The logic thread reads the first to tell
-         * whether there is a block to free, and the render thread alone writes them.
+         * Whether a block of ChunkBuffers' buffer holds this build's vertices. The render
+         * thread alone writes it, and writes it last of what it changes in a build, so the
+         * logic thread, reading it to tell whether there is a block to free, sees the rest too.
          */
-        volatile int heldEpoch;
-        int heldVersion, heldAt, heldFloats;
+        volatile boolean held;
+        /** The block: which filling of the build it holds, where it is, how long, and the build's place in ChunkBuffers' list of builds with a block. */
+        int heldVersion, heldAt, heldFloats, heldIndex;
+
+        /**
+         * Makes this build of what two sets hold, the solid and the laid, and leaves the sets
+         * as they were. Run on the logic thread, on a build no frame in flight shows.
+         */
+        void fill(SpriteGeometry.MeshSet solid, SpriteGeometry.MeshSet laid) {
+            // The last filling's vertices are still here when no frame that showed it was ever drawn.
+            scrap();
+            runs = 0;
+            floats = 0;
+            minX = minY = minUp = Float.POSITIVE_INFINITY;
+            maxX = maxY = maxUp = Float.NEGATIVE_INFINITY;
+            note(solid);
+            solidRuns = runs;
+            note(laid);
+            if (floats > 0) {
+                FloatBuffer loan = VertexLoans.take(floats);
+                copy(solid, loan);
+                copy(laid, loan);
+                loan.flip();
+                vertices = loan;
+            }
+            version++;
+        }
+
+        private void note(SpriteGeometry.MeshSet set) {
+            for (int i = 0; i < set.used.size(); i++) {
+                SpriteGeometry.Mesh mesh = set.used.get(i);
+                if (mesh.floats == 0) {
+                    continue;
+                }
+                if (runs == runTexture.length) {
+                    runTexture = java.util.Arrays.copyOf(runTexture, runs * 2);
+                    runTint = java.util.Arrays.copyOf(runTint, runs * 2);
+                    runFloats = java.util.Arrays.copyOf(runFloats, runs * 2);
+                }
+                runTexture[runs] = mesh.texture;
+                runTint[runs] = mesh.tint;
+                runFloats[runs] = mesh.floats;
+                runs++;
+                floats = Math.addExact(floats, mesh.floats);
+                float[] from = mesh.vertices;
+                float lowX = minX, lowY = minY, lowUp = minUp, highX = maxX, highY = maxY, highUp = maxUp;
+                for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    float x = from[at], y = from[at + 1], up = from[at + 2];
+                    lowX = Math.min(lowX, x);
+                    highX = Math.max(highX, x);
+                    lowY = Math.min(lowY, y);
+                    highY = Math.max(highY, y);
+                    lowUp = Math.min(lowUp, up);
+                    highUp = Math.max(highUp, up);
+                }
+                minX = lowX;
+                minY = lowY;
+                minUp = lowUp;
+                maxX = highX;
+                maxY = highY;
+                maxUp = highUp;
+            }
+        }
+
+        private static void copy(SpriteGeometry.MeshSet set, FloatBuffer into) {
+            for (int i = 0; i < set.used.size(); i++) {
+                SpriteGeometry.Mesh mesh = set.used.get(i);
+                into.put(mesh.vertices, 0, mesh.floats);
+            }
+        }
+
+        /** Gives back what a build that will not be filled again has on loan. Run on the logic thread, on a build no frame in flight shows. */
+        void scrap() {
+            FloatBuffer last = vertices;
+            if (last != null) {
+                VertexLoans.give(last);
+                vertices = null;
+            }
+        }
+
+        int triangles() {
+            return floats / (SpriteGeometry.VERTEX_FLOATS * 3);
+        }
     }
 
     /** A chunk nearer the eye than this is built every frame. */
@@ -149,18 +256,36 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final int TABLE_SIDE = 64;
     private static final ChunkMeshes[] latest = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     private static final java.util.ArrayDeque<ChunkMeshes> spare = new java.util.ArrayDeque<>();
-    /** For each chunk's place, a build of it no longer shown, kept for its next build. */
-    private static final ChunkMeshes[] retired = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
-    /** Builds no chunk is using, kept to be filled again: more than a frame's worth of remakes is never wanted. */
-    private static final int MOST_SPARE = 32;
+    /** Builds no chunk is using, kept to be filled again: as many as a turn of the head brings into view at once. */
+    private static final int MOST_SPARE = 96;
     private static final int FORGET_EVERY_FRAMES = 120;
-    private static int centreWx, centreWy, keptChunks = TABLE_SIDE;
+    /**
+     * A build found unchanged is still made again after this many frames. The sum of what a
+     * build reads leaves out what it is told by the roofs, the wall finishes and the sprite
+     * colours, which are worked out over several frames as the map round a chunk loads, and
+     * a far chunk has always shown those up to this late.
+     */
+    private static final int KEPT_UNCHANGED_FRAMES = 30;
+    /** Where the eye was in the frame before this one, and whether it is in the same place now. */
+    private static float lastEyeX = Float.NaN, lastEyeY, lastEyeUp;
+    private static boolean eyeStill;
+    /** The loaded map as it was when the last frame was built: its first chunk each way and how many chunks a side it is. */
+    private static int mapWx, mapWy, mapSide;
     private static int frames;
 
     /** The chunk builds this frame draws. */
     private final ArrayList<ChunkMeshes> shown = new ArrayList<>();
-    /** Where the chunk being built puts its triangles. */
-    private SpriteGeometry.MeshSet solid, laid;
+    /**
+     * Where the chunk being built puts its triangles: what is drawn as it stands, and what is
+     * laid over a floor, the grass that runs out into a path, a stain, a rug's fringe. The game
+     * paints the second with soft edges that fade into the floor under them, so they are drawn
+     * after everything solid and mixed into it by how see-through each pixel is.
+     *
+     * One pair serves every build. A build keeps only what it is filled with, and that only
+     * until the graphics card has it: a pair kept by each build was two copies of every chunk
+     * in sight, each with the room of the fullest chunk it had ever held.
+     */
+    private static final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
     private Models.Instances placed;
     private final SpriteGeometry geometry = new SpriteGeometry();
     private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
@@ -186,7 +311,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private IsoCell cell;
     private int playerIndex;
     private int lowestLevel;
-    private int chunksBuilt;
+    private int chunksBuilt, chunksKept;
+    /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
+    private boolean acrossView;
     private int boxes;
     private int furnished;
     private int spreadFaces;
@@ -337,10 +464,12 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     }
 
     String describe() {
-        return String.format(Locale.ROOT, "chunks %d built %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
+        return String.format(Locale.ROOT, "chunks %d built %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
-                chunksDrawn, chunksBuilt, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
-                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + ChunkBuffers.describe() + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded;
+                chunksDrawn, chunksBuilt, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
+                + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
+                + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded;
     }
 
     static float drawnAspect() {
@@ -375,6 +504,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         frames++;
         chunksDrawn = 0;
         chunksBuilt = 0;
+        chunksKept = 0;
+        eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
+        lastEyeX = view.eyeX;
+        lastEyeY = view.eyeY;
+        lastEyeUp = view.eyeUp;
         remakes = 0;
         boxes = 0;
         furnished = 0;
@@ -423,9 +557,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // Looking straight up or down the view faces no way along the ground, and nothing is left out.
         float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
 
-        centreWx = Math.floorDiv((int) player.getX(), CHUNK_TILES);
-        centreWy = Math.floorDiv((int) player.getY(), CHUNK_TILES);
-        keptChunks = IsoChunkMap.chunkGridWidth;
+        mapWx = Math.floorDiv(map.getWorldXMinTiles(), CHUNK_TILES);
+        mapWy = Math.floorDiv(map.getWorldYMinTiles(), CHUNK_TILES);
+        mapSide = IsoChunkMap.chunkGridWidth;
         if (frames % FORGET_EVERY_FRAMES == 0) {
             forgetFar();
         }
@@ -451,23 +585,61 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 // A chunk that is only due to be made again can wait a frame when many fall due
                 // together: its old build is still good enough to show. Without this the frames
                 // on which dozens fall due are several times as long as the rest.
-                boolean due = !missing && frames - current.builtFrame >= buildEvery(distance, slot)
+                boolean due = !missing && frames - current.checkedFrame >= buildEvery(distance, slot)
                         && (distance < CHUNK_TILES * 1.5f || remakes++ < REMAKES_A_FRAME);
+                // The eye's place is in every build: which way a card faces, how far apart
+                // two sprites on one plane stand, how much detail a square is given. While it
+                // moves a chunk that is due is made again. While it is still, what the build
+                // would read of the map is summed first, and a chunk whose sum is what its
+                // build's was is kept: a new build would be the same triangles.
+                long read = 0;
+                int summedFrom = missing ? frames : current.summedFrom;
+                boolean summed = eyeStill && (missing || due) && frames >= summedFrom;
+                if (summed) {
+                    float red = seenRed, green = seenGreen, blue = seenBlue;
+                    int outside = seenOutside, seen = squaresSeen;
+                    read = signature(chunk, chunkX, chunkY, lowest);
+                    boolean sameEye = due && current.signed && current.eyeX == view.eyeX && current.eyeY == view.eyeY && current.eyeUp == view.eyeUp
+                            && (!current.acrossView || current.rightX == rightX && current.rightY == rightY);
+                    if (sameEye && current.signature == read && frames - current.builtFrame < KEPT_UNCHANGED_FRAMES) {
+                        // The squares it read count towards this frame's light as a build's would.
+                        current.checkedFrame = frames;
+                        chunksKept++;
+                        due = false;
+                    } else {
+                        // The build reads them again.
+                        seenRed = red;
+                        seenGreen = green;
+                        seenBlue = blue;
+                        seenOutside = outside;
+                        squaresSeen = seen;
+                        if (sameEye && current.signature != read) {
+                            // Something on the chunk changes from frame to frame: a light that
+                            // flickers, a sprite that moves. Summing it each time it is due
+                            // would be work for nothing, so it is left for a while.
+                            summedFrom = frames + KEPT_UNCHANGED_FRAMES;
+                        }
+                    }
+                }
                 if (missing || due) {
-                    // A chunk's last build but one is the right size for its next: a furnished
-                    // house is a hundred times a field. Handed round between chunks, every
-                    // build in the pool would in time have grown to the size of the largest.
-                    ChunkMeshes fresh = retired[slot] != null ? retired[slot] : spare.isEmpty() ? new ChunkMeshes() : spare.pop();
-                    retired[slot] = null;
-                    fresh.solid.clear();
-                    fresh.laid.clear();
+                    ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                    solid.clear();
+                    laid.clear();
                     fresh.placed.clear();
                     fresh.wx = chunk.wx;
                     fresh.wy = chunk.wy;
                     fresh.builtFrame = frames;
+                    fresh.checkedFrame = frames;
+                    fresh.eyeX = view.eyeX;
+                    fresh.eyeY = view.eyeY;
+                    fresh.eyeUp = view.eyeUp;
+                    fresh.rightX = rightX;
+                    fresh.rightY = rightY;
+                    fresh.signed = summed;
+                    fresh.signature = read;
+                    fresh.summedFrom = summedFrom;
                     fresh.users = 1;
-                    solid = fresh.solid;
-                    laid = fresh.laid;
+                    acrossView = false;
                     placed = fresh.placed;
                     chunksBuilt++;
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
@@ -502,7 +674,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                         }
                     }
                     addBacks(chunk, chunkX, chunkY);
-                    fresh.version++;
+                    fresh.acrossView = acrossView;
+                    fresh.fill(solid, laid);
                     if (current != null) {
                         release(current);
                     }
@@ -531,7 +704,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             unseenBlue = openLight[2];
         }
         for (int i = 0; i < shown.size(); i++) {
-            triangles += shown.get(i).solid.triangles() + shown.get(i).laid.triangles() + shown.get(i).placed.triangles();
+            triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
         }
         buildMillis = (System.nanoTime() - start) / 1e6f;
     }
@@ -541,40 +714,123 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         ChunkBuffers.forget(meshes);
-        if (near(meshes)) {
-            int slot = (meshes.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (meshes.wy & (TABLE_SIDE - 1));
-            if (retired[slot] == null) {
-                retired[slot] = meshes;
-            } else if (spare.size() < MOST_SPARE) {
-                spare.push(meshes);
-            }
+        if (spare.size() < MOST_SPARE) {
+            spare.push(meshes);
+        } else {
+            meshes.scrap();
         }
     }
 
-    /** Whether a build is of a chunk the loaded map could still hold. */
+    /** Whether a build is of a chunk the loaded map holds, or of one a step outside it, which the next step back brings in again. */
     private static boolean near(ChunkMeshes meshes) {
-        return Math.abs(meshes.wx - centreWx) <= keptChunks && Math.abs(meshes.wy - centreWy) <= keptChunks;
+        return meshes.wx >= mapWx - 1 && meshes.wx <= mapWx + mapSide && meshes.wy >= mapWy - 1 && meshes.wy <= mapWy + mapSide;
     }
 
     /**
-     * Lets go of every build of a chunk the player has left behind. The tables are far wider
-     * than the loaded map so that no two loaded chunks share a place in them, and a build
-     * stayed in its place until another chunk took it: driving across the map, every chunk
-     * ever passed was kept, grass and all, until there was no memory left.
+     * Lets go of every build of a chunk the player has left behind, and of the room the sets
+     * and the loans have that nothing since the last time used. The table is far wider than
+     * the loaded map so that no two loaded chunks share a place in it, and a build stayed in
+     * its place until another chunk took it: driving across the map, every chunk ever passed
+     * was kept, grass and all, until there was no memory left. A build kept is a block of the
+     * graphics card's memory kept, so none is kept for a chunk the map no longer holds.
      */
     private static void forgetFar() {
         for (int slot = 0; slot < latest.length; slot++) {
             ChunkMeshes held = latest[slot];
             if (held != null && !near(held)) {
                 latest[slot] = null;
-                if (--held.users == 0) {
-                    ChunkBuffers.forget(held);
-                }
-            }
-            if (retired[slot] != null && !near(retired[slot])) {
-                retired[slot] = null;
+                release(held);
             }
         }
+        solid.clear();
+        laid.clear();
+        solid.trim();
+        laid.trim();
+        VertexLoans.trim();
+    }
+
+    /**
+     * What a build of a chunk would read of the map, summed: the light, the ground and the
+     * trees of each of its squares and of the squares round it, as readLights and readWoods
+     * leave them, the land's heights, and on each square every object's sprite, the texture
+     * it shows this frame, where it is drawn from, what is laid over it, whether a door is
+     * open, and what lies dead there. Two sums that are equal mean, for the same eye, the
+     * same triangles.
+     *
+     * It reads the lights as a build does, so the squares it sees count towards the frame's
+     * light as they would have.
+     */
+    private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
+        int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
+        long sum = sum(sum(sum(0x9E3779B97F4A7C15L, Float.floatToRawIntBits(frame.scale)), from), to);
+        float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
+        float[] water = Terrain.water(chunk.wx, chunk.wy);
+        for (int i = 0; i < ground.length; i++) {
+            sum = sum(sum(sum, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
+        }
+        for (int z = from; z <= to; z++) {
+            readLights(chunk, chunkX, chunkY, z);
+            if (z == 0) {
+                readWoods(chunk, chunkX, chunkY);
+                for (int i = 0; i < treed.length; i++) {
+                    sum = sum(sum, treed[i] ? 1 : 0);
+                }
+            }
+            for (int i = 0; i < LIGHT_SPAN; i++) {
+                for (int j = 0; j < LIGHT_SPAN; j++) {
+                    int at = i * LIGHT_SPAN + j;
+                    sum = sum(sum, lightOpen[at]);
+                    if (lightOpen[at] < 0) {
+                        continue;
+                    }
+                    sum = sum(sum(sum(sum, Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])), Float.floatToRawIntBits(lightBlue[at]));
+                    if (z == 0) {
+                        sum = sum(sum(sum(sum, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
+                    }
+                    boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
+                    IsoGridSquare square = inChunk ? chunk.getGridSquare(i - 1, j - 1, z) : cell.getGridSquare(chunkX + i - 1, chunkY + j - 1, z);
+                    sum = sum(sum, square.getRoomID());
+                    PZArrayList<IsoObject> objects = square.getObjects();
+                    sum = sum(sum, objects.size());
+                    for (int k = 0; k < objects.size(); k++) {
+                        IsoObject object = objects.get(k);
+                        IsoDirections dir = object.getDir();
+                        sum = sum(sum(sum(sum(sum, shown(object.getSprite(), dir)), Float.floatToRawIntBits(object.offsetX)), Float.floatToRawIntBits(object.offsetY)),
+                                shown(object.getOverlaySprite(), dir));
+                        ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+                        if (attached != null) {
+                            for (int over = 0; over < attached.size(); over++) {
+                                sum = sum(sum, shown(attached.get(over).parentSprite, dir));
+                            }
+                        }
+                        if (object instanceof IsoDoor door) {
+                            sum = sum(sum, door.IsOpen() ? 2 : 1);
+                        } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
+                            sum = sum(sum, thumpable.IsOpen() ? 4 : 3);
+                        }
+                    }
+                    ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
+                    for (int k = 0; k < bodies.size(); k++) {
+                        IsoMovingObject body = bodies.get(k);
+                        sum = sum(sum(sum(sum, Float.floatToRawIntBits(body.getX())), Float.floatToRawIntBits(body.getY())), Float.floatToRawIntBits(body.getZ()));
+                    }
+                }
+            }
+        }
+        return sum;
+    }
+
+    /** A sprite and the texture it shows this frame turned that way, as one number. */
+    private static long shown(IsoSprite sprite, IsoDirections dir) {
+        if (sprite == null) {
+            return 0;
+        }
+        Texture texture = sprite.getTextureForCurrentFrame(dir);
+        return (long) System.identityHashCode(sprite) << 32 | (texture == null ? 0 : texture.getID() & 0xffffffffL);
+    }
+
+    private static long sum(long sum, long value) {
+        return (sum ^ value) * 0x100000001B3L;
     }
 
     /**
@@ -1414,6 +1670,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         } else {
             cardRightX = rightX;
             cardRightY = rightY;
+            acrossView = true;
         }
         floorLayer = westLayer = northLayer = eastLayer = southLayer = 0;
         waterLocalX = localX;
@@ -3964,7 +4221,6 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     public void render() {
         MouseGrab.sync();
 
-        int[] viewport = new int[4];
         GL11.glGetIntegerv(GL_VIEWPORT, viewport);
         if (viewport[2] <= 0 || viewport[3] <= 0) {
             // Nothing to draw into, and no aspect ratio to draw it with.

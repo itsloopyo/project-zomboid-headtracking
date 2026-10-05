@@ -94,13 +94,18 @@ final class MuzzleFlash {
     }
 
     /**
-     * The light of the flash as the picture's shaders take it: x, y, up and strength for
-     * uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash.
+     * The light of the flash as the picture's shaders take it, into out: x, y, up and strength
+     * for uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash.
      */
-    static float[] light() {
+    static void light(float[] out) {
         float[] where = at;
-        return where == null ? new float[] {0f, 0f, 0f, 0f, RED, GREEN, BLUE}
-                : new float[] {where[0], where[1], where[2], left() * LIGHT, RED, GREEN, BLUE};
+        out[0] = where == null ? 0f : where[0];
+        out[1] = where == null ? 0f : where[1];
+        out[2] = where == null ? 0f : where[2];
+        out[3] = where == null ? 0f : left() * LIGHT;
+        out[4] = RED;
+        out[5] = GREEN;
+        out[6] = BLUE;
     }
 
     /** The weapon drawn this frame has no muzzle: nothing flashes. */

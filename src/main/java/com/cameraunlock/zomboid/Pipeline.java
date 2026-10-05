@@ -3709,6 +3709,31 @@ final class Pipeline {
     private static final float[] tint = new float[4];
     /** The chunk builds the frame draws, for the furniture standing on each. */
     private static ArrayList<WorldScene.ChunkMeshes> drawn;
+    /** Every chunk of the frame as draws. */
+    private static final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
+    /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
+    private static final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
+            beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing();
+    private static boolean[] leftOut = new boolean[256];
+    /** The width and height of each texture a frame has drawn with, by its OpenGL name, and the frame each was last asked of the driver: see tellTexel. */
+    private static int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
+    private static int texelsKnown;
+    /** A texture's size is asked again after this many frames and up to as many more, by its name, so they are not all asked in one frame. A power of two. */
+    private static final int TEXEL_KEPT_FRAMES = 256;
+    private static int frameNumber;
+    /** How many chunks the last frame drew into the near, far, headlight and roof maps, and how many it had, for the log. */
+    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3;
+    private static final int[] heldChunks = new int[4];
+    /** Written after heldChunks, and read before it by the logic thread. */
+    private static volatile int heldOf;
+    /** What the shadow map being drawn holds. */
+    private static final MapBounds mapBounds = new MapBounds();
+    /**
+     * The furthest the wind moves a vertex, in tiles for each unit of the wind's strength: the
+     * most the shaders' blown() leans a plant, 0.05 + 0.045 + 0.02, times the most of the wind
+     * a vertex takes, which is 1, and as much again to be sure.
+     */
+    private static final float BLOWN_MOST = 0.115f * 2f;
     /** Every model the mod has, on the graphics card as Models.buffer lays them out. */
     private static int modelBuffer;
     private static final int MODEL_STRIDE = Models.BUFFER_FLOATS * Float.BYTES;
@@ -3760,6 +3785,17 @@ final class Pipeline {
     private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
     private static final float[] sunNdc = new float[2];
     private static final int[] samplers = new int[UNITS];
+    /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
+    private static final int[] asked = new int[16];
+    private static final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
+
+    static {
+        for (int i = 0; i < Headlights.BEAMS; i++) {
+            BEAM_AT[i] = "uBeamAt[" + i + "]";
+            BEAM_WAY[i] = "uBeamWay[" + i + "]";
+        }
+    }
     private static volatile float lastMillis;
 
     private Pipeline() {}
@@ -3771,6 +3807,13 @@ final class Pipeline {
 
     static float lastMillis() {
         return lastMillis;
+    }
+
+    /** How many of the last frame's chunks each shadow map was drawn from. */
+    static String describeShadows() {
+        int of = heldOf;
+        return "of " + of + " chunks the shadow maps hold near " + heldChunks[NEAR_MAP] + " far " + heldChunks[FAR_MAP] + " headlights " + heldChunks[BEAM_MAP]
+                + " roof " + heldChunks[ROOF_MAP];
     }
 
     private static FloatBuffer buffer(int floats) {
@@ -3789,13 +3832,14 @@ final class Pipeline {
         }
         long start = System.nanoTime();
         clearErrors();
+        frameNumber++;
 
-        int program = GL11.glGetInteger(GL_CURRENT_PROGRAM);
-        int drawTarget = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
-        int readTarget = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
-        int vertexArray = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING);
-        int arrayBuffer = GL11.glGetInteger(GL_ARRAY_BUFFER_BINDING);
-        int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
+        int program = bound(GL_CURRENT_PROGRAM);
+        int drawTarget = bound(GL_DRAW_FRAMEBUFFER_BINDING);
+        int readTarget = bound(GL_READ_FRAMEBUFFER_BINDING);
+        int vertexArray = bound(GL_VERTEX_ARRAY_BINDING);
+        int arrayBuffer = bound(GL_ARRAY_BUFFER_BINDING);
+        int unpackBuffer = bound(GL_PIXEL_UNPACK_BUFFER_BINDING);
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
         GL11.glMatrixMode(GL_PROJECTION);
@@ -3809,7 +3853,7 @@ final class Pipeline {
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         for (int unit = 0; unit < UNITS; unit++) {
             GL13.glActiveTexture(GL_TEXTURE0 + unit);
-            samplers[unit] = GL11.glGetInteger(GL_SAMPLER_BINDING);
+            samplers[unit] = bound(GL_SAMPLER_BINDING);
             GL33.glBindSampler(unit, 0);
         }
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -3831,6 +3875,7 @@ final class Pipeline {
             SpriteColours.read();
             drawn = chunks;
             ChunkBuffers.load(chunks);
+            all.of(chunks, null, true);
             arrays();
             stage(STAGE_LOAD);
             boolean figures = Characters.ready();
@@ -3921,6 +3966,16 @@ final class Pipeline {
         lastMillis = (System.nanoTime() - start) / 1e6f;
     }
 
+    /**
+     * What the game has bound of one kind, to be put back when the frame is drawn. Asked into
+     * an array the frame keeps: the call that hands the answer back makes a buffer for it
+     * every time, forty times a frame.
+     */
+    private static int bound(int kind) {
+        GL11.glGetIntegerv(kind, asked);
+        return asked[0];
+    }
+
     /** Points OpenGL at the frame's vertices. Done again after the game has drawn anything, which leaves its own arrays set. */
     private static void arrays() {
         GL30.glBindVertexArray(0);
@@ -3948,22 +4003,69 @@ final class Pipeline {
      * Draws the ranges telling the program the size of a texel of each one's texture and the
      * colour it is painted over in, and leaves it told that nothing is painted over.
      */
-    private static void drawRanges(int from, int to, Program program) {
+    private static void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
+        int texel = program.at("uTexel"), painted = program.at("uTint");
         for (int i = from; i < to; i++) {
-            GL11.glBindTexture(GL_TEXTURE_2D, ChunkBuffers.texture(i) == 0 ? whiteTexture : ChunkBuffers.texture(i));
-            program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
-                    1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
-            WallSides.tint(ChunkBuffers.tint(i), tint);
-            program.set("uTint", tint[0], tint[1], tint[2], tint[3]);
-            ChunkBuffers.draw(i);
+            int texture = listed.texture(i) == 0 ? whiteTexture : listed.texture(i);
+            GL11.glBindTexture(GL_TEXTURE_2D, texture);
+            tellTexel(texel, texture);
+            WallSides.tint(listed.tint(i), tint);
+            GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+            listed.draw(i);
         }
-        program.set("uTint", 0f, 0f, 0f, 0f);
+        GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
     }
 
-    private static void drawRanges(int from, int to) {
+    /**
+     * Tells the program in use, at a uniform's place, the size of a texel of the texture bound,
+     * whose name is given. The driver is asked a texture's size the first time a frame draws
+     * with it and again every few seconds, not at every draw: an answer has to wait for
+     * everything the driver has been handed so far, and there is a draw between each two.
+     * Asked again because the game may delete a texture and give its name to another.
+     */
+    private static void tellTexel(int at, int texture) {
+        int mask = texelOf.length - 1;
+        int slot = texture * 0x9E3779B1 >>> 16 & mask;
+        while (texelOf[slot] != 0 && texelOf[slot] != texture) {
+            slot = slot + 1 & mask;
+        }
+        if (texelOf[slot] == 0 || frameNumber - texelRead[slot] >= TEXEL_KEPT_FRAMES + (texture & TEXEL_KEPT_FRAMES - 1)) {
+            if (texelOf[slot] == 0 && ++texelsKnown * 2 > texelOf.length) {
+                int[] names = texelOf, wide = texelWide, high = texelHigh, read = texelRead;
+                texelOf = new int[names.length * 2];
+                texelWide = new int[names.length * 2];
+                texelHigh = new int[names.length * 2];
+                texelRead = new int[names.length * 2];
+                mask = texelOf.length - 1;
+                for (int old = 0; old < names.length; old++) {
+                    if (names[old] != 0) {
+                        int moved = names[old] * 0x9E3779B1 >>> 16 & mask;
+                        while (texelOf[moved] != 0) {
+                            moved = moved + 1 & mask;
+                        }
+                        texelOf[moved] = names[old];
+                        texelWide[moved] = wide[old];
+                        texelHigh[moved] = high[old];
+                        texelRead[moved] = read[old];
+                    }
+                }
+                slot = texture * 0x9E3779B1 >>> 16 & mask;
+                while (texelOf[slot] != 0) {
+                    slot = slot + 1 & mask;
+                }
+            }
+            texelOf[slot] = texture;
+            texelWide[slot] = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH);
+            texelHigh[slot] = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
+            texelRead[slot] = frameNumber;
+        }
+        GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
+    }
+
+    private static void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
-            GL11.glBindTexture(GL_TEXTURE_2D, ChunkBuffers.texture(i) == 0 ? whiteTexture : ChunkBuffers.texture(i));
-            ChunkBuffers.draw(i);
+            GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
+            listed.draw(i);
         }
     }
 
@@ -4001,56 +4103,86 @@ final class Pipeline {
      * of its model the graphics card holds, and leaves the frame's own arrays set as it found
      * them.
      *
-     * @param lit     whether the program lights and colours what it draws, or only casts it into a map
+     * @param lit     whether the program lights and colours what it draws, or only casts it into the map heldBy last took the bounds of
      * @param within  the eye of a picture that pieces wholly behind it or beyond far are left out of, or null to draw them all
      */
     private static void drawModels(Program program, boolean lit, ViewCamera.Pose within, float far) {
         boolean any = false;
         int bound = 0;
+        int placeAt = 0, footAt = 0, turnAt = 0, litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0;
+        // The piece whose turn, surfaces, dye and picture the program was last told, none yet: a
+        // row of one kind of shelf shares all four, and telling the program what it already
+        // holds is a call into the driver for nothing.
+        int told = -1;
+        float[] toldOf = null;
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
             Models.Instances placed = drawn.get(chunk).placed;
             float[] f = placed.floats;
             int[] whole = placed.ints;
             for (int piece = 0; piece < placed.count; piece++) {
                 int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
+                int ball = at + Models.Instances.BALL;
                 if (within != null) {
-                    int ball = at + Models.Instances.BALL;
                     float ahead = (f[ball] - within.eyeX) * within.forwardX + (f[ball + 1] - within.eyeY) * within.forwardY
                             + (f[ball + 2] - within.eyeUp) * within.forwardUp;
                     if (ahead < -f[ball + 3] || ahead > far + f[ball + 3]) {
                         continue;
                     }
+                } else if (!lit && mapBounds.outside(f[ball], f[ball + 1], f[ball + 2], f[ball + 3], f[ball + 3], f[ball + 3])) {
+                    // A piece wholly outside the map being drawn puts nothing in it.
+                    continue;
                 }
                 if (!any) {
                     any = true;
                     modelArrays();
                     program.set("uModel", 1f);
-                    if (!lit) {
+                    placeAt = program.at("uPlace");
+                    footAt = program.at("uFoot");
+                    turnAt = program.at("uTurn");
+                    if (lit) {
+                        litAt = program.at("uLit");
+                        alongAt = program.at("uLitAlong");
+                        downAt = program.at("uLitDown");
+                        acrossAt = program.at("uLitAcross");
+                        surfacesAt = program.at("uSurfaces");
+                        dyeAt = program.at("uDye");
+                        pictureAt = program.at("uPicture");
+                        texelAt = program.at("uTexel");
+                    } else {
                         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
                     }
                 }
                 int place = at + Models.Instances.PLACE, foot = at + Models.Instances.FOOT, turn = at + Models.Instances.TURN;
-                program.set("uPlace", f[place], f[place + 1], f[place + 2], f[place + 3]);
-                program.set("uFoot", f[foot], f[foot + 1], f[foot + 2]);
-                program.set("uTurn", f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
+                GL20.glUniform4f(placeAt, f[place], f[place + 1], f[place + 2], f[place + 3]);
+                GL20.glUniform3f(footAt, f[foot], f[foot + 1], f[foot + 2]);
+                if (toldOf == null || differ(f, turn, toldOf, told + Models.Instances.TURN, 4)) {
+                    GL20.glUniform4f(turnAt, f[turn], f[turn + 1], f[turn + 2], f[turn + 3]);
+                }
                 if (lit) {
                     int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
-                    program.set("uLit", f[light], f[light + 1], f[light + 2]);
-                    program.set("uLitAlong", f[light + 3], f[light + 4], f[light + 5]);
-                    program.set("uLitDown", f[light + 6], f[light + 7], f[light + 8]);
-                    program.set("uLitAcross", f[light + 9], f[light + 10], f[light + 11]);
-                    program.set("uSurfaces", f[surfaces], f[surfaces + 1], f[surfaces + 2]);
-                    program.set("uDye", f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                    GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
+                    GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
+                    GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
+                    GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
+                    if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
+                        GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
+                    }
+                    if (toldOf == null || differ(f, dye, toldOf, told + Models.Instances.DYE, 4)) {
+                        GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
+                    }
                     int picture = at + Models.Instances.PICTURE;
-                    program.set("uPicture", f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
+                    if (toldOf == null || differ(f, picture, toldOf, told + Models.Instances.PICTURE, 4)) {
+                        GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
+                    }
                     int texture = whole[ints + Models.Instances.TEXTURE] == 0 ? whiteTexture : whole[ints + Models.Instances.TEXTURE];
                     if (texture != bound) {
                         bound = texture;
                         GL11.glBindTexture(GL_TEXTURE_2D, texture);
-                        program.set("uTexel", 1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH),
-                                1f / GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT));
+                        tellTexel(texelAt, texture);
                     }
                 }
+                toldOf = f;
+                told = at;
                 GL11.glDrawArrays(GL_TRIANGLES, whole[ints + Models.Instances.FIRST], whole[ints + Models.Instances.COUNT]);
             }
         }
@@ -4058,6 +4190,16 @@ final class Pipeline {
             program.set("uModel", 0f);
             arrays();
         }
+    }
+
+    /** Whether two runs of floats differ anywhere, bit for bit: a number that is not one differs from itself here, which only costs a call. */
+    private static boolean differ(float[] a, int from, float[] b, int against, int count) {
+        for (int i = 0; i < count; i++) {
+            if (a[from + i] != b[against + i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void drawShadows(SkyState state, ViewCamera.Pose camera, boolean figures) {
@@ -4092,7 +4234,8 @@ final class Pipeline {
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
-            drawRanges(0, ChunkBuffers.solidRanges());
+            ChunkBuffers.Listing held = heldBy(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
+            drawRanges(held, 0, held.solidRanges());
             drawModels(shadow, false, null, 0f);
         }
         if (figures) {
@@ -4114,6 +4257,7 @@ final class Pipeline {
         // The scene as the nearest lit headlights see it, so that what stands in their beam
         // throws its shadow down the road.
         float[] beams = Headlights.beams;
+        heldChunks[BEAM_MAP] = 0;
         if (beams[6] > 0f) {
             lamp.eyeX = beams[0];
             lamp.eyeY = beams[1];
@@ -4128,7 +4272,9 @@ final class Pipeline {
             lamp.upX = lamp.rightY * lamp.forwardUp - lamp.rightUp * lamp.forwardY;
             lamp.upY = lamp.rightUp * lamp.forwardX - lamp.rightX * lamp.forwardUp;
             lamp.upUp = lamp.rightX * lamp.forwardY - lamp.rightY * lamp.forwardX;
-            float[] seen = ViewCamera.view(lamp), cast = ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR);
+            float[] seen = viewed, cast = projection;
+            ViewCamera.view(lamp, seen);
+            ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
             for (int column = 0; column < 4; column++) {
                 for (int row = 0; row < 4; row++) {
                     float sum = 0f;
@@ -4145,7 +4291,8 @@ final class Pipeline {
             shadow.set("uMatrix", beamMatrix);
             shadow.set("uSunWay", 0f, 0f, 1f);
             GL13.glActiveTexture(GL_TEXTURE0);
-            drawRanges(0, ChunkBuffers.solidRanges());
+            ChunkBuffers.Listing held = heldBy(beamMatrix, state, beamListed, BEAM_MAP);
+            drawRanges(held, 0, held.solidRanges());
             drawModels(shadow, false, null, 0f);
             if (figures) {
                 Characters.castCharacters(beamMatrix, camera);
@@ -4180,11 +4327,42 @@ final class Pipeline {
             shadow.use();
             shadow.set("uMatrix", roofMatrix);
             shadow.set("uSunWay", 0f, 0f, 1f);
-            drawRanges(0, ChunkBuffers.solidRanges());
+            ChunkBuffers.Listing held = heldBy(roofMatrix, state, roofListed, ROOF_MAP);
+            drawRanges(held, 0, held.solidRanges());
             drawModels(shadow, false, null, 0f);
         }
+        heldOf = drawn.size();
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
+    }
+
+    /**
+     * The frame's chunks that a map drawn with this matrix can hold, as draws, and the map's
+     * bounds left in mapBounds for the furniture. A chunk whose every vertex, wherever the wind has moved it,
+     * is outside the map puts nothing in it, drawn or not, so the map is the same texels with
+     * it left out. Into own when any is left out, and all of them otherwise.
+     */
+    private static ChunkBuffers.Listing heldBy(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
+        mapBounds.of(matrix);
+        if (leftOut.length < drawn.size()) {
+            leftOut = new boolean[drawn.size() * 2];
+        }
+        float blown = BLOWN_MOST * (float) Math.hypot(state.windX, state.windY);
+        int left = 0;
+        for (int i = 0; i < drawn.size(); i++) {
+            WorldScene.ChunkMeshes build = drawn.get(i);
+            leftOut[i] = build.solidRuns == 0 || mapBounds.outside((build.minX + build.maxX) / 2f, (build.minY + build.maxY) / 2f, (build.minUp + build.maxUp) / 2f,
+                    (build.maxX - build.minX) / 2f + blown, (build.maxY - build.minY) / 2f + blown, (build.maxUp - build.minUp) / 2f);
+            if (leftOut[i]) {
+                left++;
+            }
+        }
+        heldChunks[map] = drawn.size() - left;
+        if (left == 0) {
+            return all;
+        }
+        own.of(drawn, leftOut, false);
+        return own;
     }
 
     private static void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
@@ -4237,9 +4415,11 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glLoadMatrixf(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far));
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(ViewCamera.view(camera));
+        ViewCamera.view(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
         arrays();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
@@ -4324,7 +4504,7 @@ final class Pipeline {
         // different way each time round a short cycle. The steadying pass mixes the frames,
         // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
         // and with more detail than one frame's pixels hold.
-        float[] projection = ViewCamera.projection(tanHalfFieldOfView, aspect, near, far).clone();
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         if (!inMirror) {
             jitterAt = (jitterAt + 1) % JITTER_X.length;
             projection[8] += JITTER_X[jitterAt] / width;
@@ -4335,7 +4515,8 @@ final class Pipeline {
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
         // Only the turn: the world's vertex program takes the eye's place off each vertex itself.
-        GL11.glLoadMatrixf(ViewCamera.turned(camera));
+        ViewCamera.turned(camera, viewed);
+        GL11.glLoadMatrixf(viewed);
 
         world.use();
         world.set("uTexture", 0);
@@ -4409,7 +4590,7 @@ final class Pipeline {
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
         world.set("uLaid", 0f);
-        drawRanges(0, ChunkBuffers.solidRanges(), world);
+        drawRanges(all, 0, all.solidRanges(), world);
         // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
         drawModels(world, true, inMirror ? null : camera, far);
         // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
@@ -4419,7 +4600,7 @@ final class Pipeline {
         world.set("uCut", 0.02f);
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
-        drawRanges(ChunkBuffers.solidRanges(), ChunkBuffers.ranges());
+        drawRanges(all, all.solidRanges(), all.ranges());
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         GL33.glBindSampler(0, 0);
@@ -5002,8 +5183,8 @@ final class Pipeline {
         float[] beams = Headlights.beams;
         for (int i = 0; i < Headlights.BEAMS; i++) {
             int at = i * Headlights.STRIDE;
-            program.set("uBeamAt[" + i + "]", beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
-            program.set("uBeamWay[" + i + "]", beams[at + 3], beams[at + 4], beams[at + 5]);
+            program.set(BEAM_AT[i], beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
+            program.set(BEAM_WAY[i], beams[at + 3], beams[at + 4], beams[at + 5]);
         }
         program.set("uBeamShadow", BEAM_UNIT);
         program.set("uBeamMatrix", beamMatrix);
@@ -5011,7 +5192,7 @@ final class Pipeline {
 
     /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
     private static void setFlash(Program program) {
-        float[] flash = MuzzleFlash.light();
+        MuzzleFlash.light(flash);
         program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
         program.set("uFlashColor", flash[4], flash[5], flash[6]);
     }

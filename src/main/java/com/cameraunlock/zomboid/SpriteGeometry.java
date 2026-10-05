@@ -74,12 +74,15 @@ final class SpriteGeometry {
         /** The colour its triangles are painted over in, as WallSides packs one, or 0 for the sprite's own. */
         int tint;
         /**
-         * Starts small and doubles. A scene keeps a mesh for every texture it has ever drawn,
-         * and most of them only ever hold a few sprites.
+         * Starts small and doubles. A set keeps a mesh for every texture a chunk has lately
+         * worn, and most of them only ever hold a few sprites.
          */
         private static final int START_FLOATS = VERTEX_FLOATS * 3 * 8, SHRINK_ABOVE = 1 << 16;
         float[] vertices = new float[START_FLOATS];
         int floats;
+        /** Which filling of its set last asked for the mesh, and the most it has held in any filling since the set was last trimmed. */
+        private int round, most;
+        private boolean asked;
         /** What the vertices added next carry: 1 out of doors, 0 under a roof. */
         float open;
         /** Which way the face the vertices added next belong to looks. Either side will do: it is one sheet. */
@@ -99,11 +102,7 @@ final class SpriteGeometry {
         }
 
         void clear() {
-            // A mesh that held a house and now holds a field gives the room back: builds are
-            // pooled, and what one chunk needed once is not what the next needs.
-            if (vertices.length > SHRINK_ABOVE && floats * 8 < vertices.length) {
-                vertices = new float[Math.max(floats * 2, START_FLOATS)];
-            }
+            most = Math.max(most, floats);
             floats = 0;
         }
 
@@ -133,10 +132,17 @@ final class SpriteGeometry {
     /**
      * Meshes by texture name: open addressing with a power of two length, at most half full.
      * A lookup runs for every sprite of every frame, and a map keyed by Integer would box each one.
+     *
+     * A set is filled with one chunk's triangles, read, and emptied for the next chunk's. It
+     * keeps its meshes between fillings, each with the room its texture last needed, so that
+     * filling it makes no garbage.
      */
     static final class MeshSet {
         private Mesh[] byTexture = new Mesh[64];
-        final java.util.ArrayList<Mesh> all = new java.util.ArrayList<>();
+        private final java.util.ArrayList<Mesh> all = new java.util.ArrayList<>();
+        /** The meshes asked for since the set was last emptied, in the order they were first asked for. */
+        final java.util.ArrayList<Mesh> used = new java.util.ArrayList<>();
+        private int round = 1;
 
         Mesh get(int texture) {
             return get(texture, 0);
@@ -145,38 +151,87 @@ final class SpriteGeometry {
         Mesh get(int texture, int tint) {
             int slot = slotFor(byTexture, texture, tint);
             Mesh mesh = byTexture[slot];
-            if (mesh != null) {
-                return mesh;
-            }
-            mesh = new Mesh();
-            mesh.texture = texture;
-            mesh.tint = tint;
-            all.add(mesh);
-            if (all.size() * 2 > byTexture.length) {
-                byTexture = new Mesh[byTexture.length * 2];
-                for (int i = 0; i < all.size(); i++) {
-                    Mesh moved = all.get(i);
-                    byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
+            if (mesh == null) {
+                mesh = new Mesh();
+                mesh.texture = texture;
+                mesh.tint = tint;
+                all.add(mesh);
+                if (all.size() * 2 > byTexture.length) {
+                    byTexture = new Mesh[byTexture.length * 2];
+                    for (int i = 0; i < all.size(); i++) {
+                        Mesh moved = all.get(i);
+                        byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
+                    }
+                } else {
+                    byTexture[slot] = mesh;
                 }
-            } else {
-                byTexture[slot] = mesh;
+            }
+            if (mesh.round != round) {
+                mesh.round = round;
+                mesh.asked = true;
+                used.add(mesh);
             }
             return mesh;
         }
 
-        /** Empties every mesh and keeps them: a scene draws much the same textures every frame. */
+        /** Empties every mesh and keeps them: one chunk wears much the same textures as the next. */
         void clear() {
-            for (int i = 0; i < all.size(); i++) {
-                all.get(i).clear();
+            for (int i = 0; i < used.size(); i++) {
+                used.get(i).clear();
             }
+            used.clear();
+            round++;
         }
 
-        int triangles() {
-            int triangles = 0;
+        /** How many meshes the set keeps, and how many floats they have room for. */
+        int kept() {
+            return all.size();
+        }
+
+        long room() {
+            long room = 0;
             for (int i = 0; i < all.size(); i++) {
-                triangles += all.get(i).triangles();
+                room += all.get(i).vertices.length;
             }
-            return triangles;
+            return room;
+        }
+
+        /**
+         * Lets go of the meshes no filling has asked for since this was last run, and of the
+         * room a mesh has that is many times what any filling since then put in it. Run now
+         * and then on an emptied set: a set carried across the map would otherwise keep a mesh
+         * for every texture on it, and a house's worth of room in each mesh a house once filled.
+         */
+        void trim() {
+            if (!used.isEmpty()) {
+                throw new IllegalStateException("a set is trimmed when it is empty, and this one holds " + used.size() + " meshes");
+            }
+            int kept = 0;
+            for (int i = 0; i < all.size(); i++) {
+                Mesh mesh = all.get(i);
+                if (!mesh.asked) {
+                    continue;
+                }
+                if (mesh.vertices.length > Mesh.SHRINK_ABOVE && mesh.most * 4 < mesh.vertices.length) {
+                    mesh.vertices = new float[Math.max(mesh.most * 2, Mesh.START_FLOATS)];
+                }
+                mesh.asked = false;
+                mesh.most = 0;
+                all.set(kept++, mesh);
+            }
+            if (kept == all.size()) {
+                return;
+            }
+            all.subList(kept, all.size()).clear();
+            int length = 64;
+            while (length < kept * 2) {
+                length *= 2;
+            }
+            byTexture = new Mesh[length];
+            for (int i = 0; i < kept; i++) {
+                Mesh moved = all.get(i);
+                byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
+            }
         }
 
         /** The slot holding the mesh of the texture in that tint, or the empty one it belongs in. */
