@@ -48,6 +48,10 @@ import zombie.vehicles.VehiclePart;
  * The left square bracket does the same with a hunting rifle that has a scope on it: the
  * weakest of the game's three on the first press, the next on each press after, and round
  * again. For looking through each scope without finding one and a screwdriver.
+ *
+ * The slash puts a flashlight in the player's left hand, charged and lit: for
+ * the beam that follows the head, and for night, without finding one and a battery. A weapon
+ * in the right hand stays there.
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
@@ -100,6 +104,9 @@ final class DevKeys {
     private static final String SHOTGUN = "Base.Shotgun";
     /** The left square bracket, which is beside the semicolon and the apostrophe. */
     private static final int SCOPED_KEY = 26;
+    /** The slash, beside the full stop. The right square bracket is the game's own, for its furniture panel. */
+    private static final int TORCH_KEY = 53;
+    private static final String TORCH = "Base.HandTorch";
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
 
@@ -193,6 +200,13 @@ final class DevKeys {
             safe.setSecondaryHandItem(rifle);
             armed = true;
             Log.info("[: a hunting rifle in hand with " + part + " on it, kept loaded");
+        }
+        if (safe != null && GameKeyboard.isKeyPressed(TORCH_KEY)) {
+            InventoryItem torch = safe.getInventory().AddItem(TORCH);
+            torch.setCurrentUsesFloat(1f);
+            safe.setSecondaryHandItem(torch);
+            torch.setActivated(true);
+            Log.info("/: a flashlight in the left hand, charged and lit");
         }
         if (armed && safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
             held.setCurrentAmmoCount(held.getMaxAmmo());
