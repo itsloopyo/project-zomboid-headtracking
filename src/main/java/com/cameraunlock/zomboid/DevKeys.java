@@ -9,6 +9,7 @@ import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoWorld;
+import zombie.network.GameClient;
 import zombie.iso.weather.ClimateManager;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -93,7 +94,11 @@ final class DevKeys {
                 Log.info("development install: F2 clears out the zombies, F3 goes to the next view, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
-        if (!enabled) {
+        // On a server every one of these would be a cheat against the other players.
+        if (!enabled || GameClient.client) {
+            invincible = false;
+            cleared = false;
+            armed = false;
             return;
         }
         IsoPlayer safe = IsoPlayer.getInstance();
