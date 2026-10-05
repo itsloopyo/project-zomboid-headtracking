@@ -90,6 +90,7 @@ final class Pipeline {
     private static final int GL_ALWAYS = 0x0207;
     private static final int GL_ONE = 1;
     private static final int GL_BLEND = 0x0BE2;
+    private static final int GL_CONSTANT_ALPHA = 0x8003, GL_ONE_MINUS_CONSTANT_ALPHA = 0x8004;
     private static final int GL_ALPHA_TEST = 0x0BC0;
     private static final int GL_SCISSOR_TEST = 0x0C11;
     private static final int GL_STENCIL_TEST = 0x0B90;
@@ -225,6 +226,10 @@ final class Pipeline {
      * near enough to draw) is centred on the place looked at.
      */
     static boolean overhead;
+    /** The picture is drawn by a camera outside the viewer, who is then one of the people in it. */
+    static boolean outside;
+    /** How much of the game's own picture, which is under this one, this one covers. */
+    static float opacity = 1f;
     /**
      * Whether the viewer sat in a vehicle when the frame was built. Every pass of the frame
      * goes by this one answer: the logic thread seats the viewer and stands them up between
@@ -235,11 +240,15 @@ final class Pipeline {
     static float focusX, focusY, focusUp;
     /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
     static float cutAbove = Float.MAX_VALUE;
+    /** How much of CUT_BEHIND the cut still reaches behind the viewer: all of it from overhead, none as the camera reaches the eye. */
+    static float cutBehind = 1f;
+    /** The height above which everything in the viewer's building is left out, while the camera is above it. */
+    static float lid = Float.MAX_VALUE;
     static final float[] cutBox = new float[4];
     private static final float[] holeAt = new float[2];
     /** The window opened about the viewer: its radius as a share of the picture's height, how far before them it starts, and how far under their eye its middle is, in tiles. */
     private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
-    /** How far behind the viewer, along the map's diagonal, the cut begins, in tiles of x and y together. */
+    /** How far behind the viewer, away from the camera, the cut begins, in tiles of x and y together along the map's diagonal. */
     private static final float CUT_BEHIND = 1.5f;
     /**
      * How many of the picture's pixels there are to each of the window's, each way. Leaves,
@@ -546,6 +555,11 @@ final class Pipeline {
     private static void showSmoothed(int drawTarget, int[] viewport) {
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        if (opacity < 1f) {
+            GL11.glEnable(GL_BLEND);
+            GL14.glBlendColor(0f, 0f, 0f, opacity);
+            GL11.glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+        }
         smooth.use();
         GL11.glBindTexture(GL_TEXTURE_2D, shownColor);
         smooth.set("uImage", 0);
@@ -553,6 +567,7 @@ final class Pipeline {
         smooth.set("uOrigin", (float) viewport[0], (float) viewport[1]);
         smooth.set("uShown", (float) viewport[2], (float) viewport[3]);
         quad();
+        GL11.glDisable(GL_BLEND);
     }
 
     /**
@@ -1151,8 +1166,12 @@ final class Pipeline {
         } else {
             world.set("uHole", 0f, 0f, 0f);
         }
-        // The overhead eye is to the south-east: nearer it is a greater x and y together.
-        world.set("uCutNear", focusX + focusY - CUT_BEHIND);
+        // Nearer the camera, along the ground. The overhead eye is to the south-east, where
+        // that is a greater x and y together, and the lengths here are in those units.
+        float flat = (float) Math.sqrt((camera.forwardX * camera.forwardX + camera.forwardY * camera.forwardY) / 2f);
+        float nearerX = -camera.forwardX / flat, nearerY = -camera.forwardY / flat;
+        world.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
+        world.set("uLid", lid);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(world);
         setFlash(world);
@@ -1560,7 +1579,7 @@ final class Pipeline {
         smoothSkins(seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
         CharacterDraw.bare = !seated;
-        boolean own = !overhead && Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        boolean own = !outside && Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         FloatBuffer glass = own && seated ? VehicleMeshes.seatedPanes : null;

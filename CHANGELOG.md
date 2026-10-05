@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Made `F8` fly the camera between the game's own view and the first person view, in about a second each way. Going in, the first person picture of the same scene fades in over the game's, then the camera turns to face the way your character does and comes down to their eyes. Going out is the same in reverse. The mouse and the movement keys change over when the camera lands. Getting into and out of a vehicle uses the same flight.
 - Made the log record an error the game catches from the mod, once for each fault. It went only to the game's own `console.txt` before. Wrote the first person frame time to the log once a minute, down from every five seconds, so a long session leaves a log the other lines can be found in.
 - Made the mod stay out of the game after a game update that renames or removes something it uses, so the game runs without it. The log names what changed and ends with `the mod stays out of the game:`.
 - Added `FieldOfView` to `CameraUnlock.ini`: the first person view's field of view in degrees from the bottom of the picture to the top, `65` by default and `40` to `110`. The game has no field of view setting of its own. The mod reads it again while the game runs, so a change shows within a second or so of saving the file, and the reticle, the weapon in your hands and head tracking all follow it. Aiming a firearm still narrows the view by the same ratio.

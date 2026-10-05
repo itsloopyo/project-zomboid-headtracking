@@ -207,9 +207,9 @@ public final class Characters {
         if (notingRoots) {
             rootsFound = 0;
         }
-        // Seen from overhead the viewer is one of the people in the picture.
+        // Seen from outside the viewer is one of the people in the picture.
         ViewCamera.view(camera, eyeView);
-        int drawn = draw(eyeView, Pipeline.overhead, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        int drawn = draw(eyeView, Pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;

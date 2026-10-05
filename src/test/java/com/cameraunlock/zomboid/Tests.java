@@ -40,6 +40,9 @@ public final class Tests {
         headPitchLooksUp();
         headRollTiltsTheViewLeft();
         worldYawKeepsTheHorizonLevel();
+        flightLeavesTheOverheadCameraAndLandsOnTheTrackedView();
+        flightTakesItsTimeWhateverTheFrames();
+        flightMixesThePicturesOnlyWhileTheCameraIsStill();
         projectionAgreesWithTheViewMatrix();
         reticleStaysCentredUnderRollAndMovesStraightUnderPitch();
         reticleFollowsThePointWhenTheEyeLeans();
@@ -1199,6 +1202,115 @@ public final class Tests {
 
     private static float[] cleanView(float x, float y, float up, float yaw, float pitch) {
         return ViewCamera.view(cleanPose(x, y, up, yaw, pitch));
+    }
+
+    private static final float OVERHEAD_AWAY = 6000f, OVERHEAD_TAN = 12f / 6000f;
+
+    private static void flightLeavesTheOverheadCameraAndLandsOnTheTrackedView() {
+        float yawFrom = radians(-135), pitchFrom = radians(-30), yawTo = radians(100), pitchTo = radians(-10);
+        ViewCamera.Pose overhead = cleanPose(0f, 0f, 0f, yawFrom, pitchFrom);
+        float atX = 20f, atY = 30f, atUp = 0f;
+        overhead.eyeX = atX - overhead.forwardX * OVERHEAD_AWAY;
+        overhead.eyeY = atY - overhead.forwardY * OVERHEAD_AWAY;
+        overhead.eyeUp = atUp - overhead.forwardUp * OVERHEAD_AWAY;
+        ViewCamera.Pose clean = cleanPose(21f, 31f, 1.6f, yawTo, pitchTo);
+        ViewCamera.Pose tracked = cleanPose(21.1f, 31f, 1.65f, yawTo, pitchTo);
+        ViewCamera.turn(tracked, radians(25), radians(-8), radians(5), true);
+        ViewCamera.Pose out = new ViewCamera.Pose();
+
+        Flight.cut(false);
+        Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+        check(apart(out, overhead) < 1e-2f && turnedApart(out, overhead) < 1e-5f, "before it sets off the camera is the overhead one, whatever the head is doing");
+        check(Flight.tanHalfFieldOfView() == OVERHEAD_TAN && near(Flight.away(), OVERHEAD_AWAY), "with its field of view and its distance");
+
+        Flight.cut(true);
+        Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+        check(apart(out, tracked) < 1e-4f && turnedApart(out, tracked) < 1e-5f, "landed it is the tracked view, the head's turn and lean in it");
+        check(Flight.tanHalfFieldOfView() == TAN_HALF_FOV && Flight.away() == 0f, "with the first-person field of view, at the eye");
+
+        Flight.cut(false);
+        float wasAway = OVERHEAD_AWAY, wasTan = OVERHEAD_TAN;
+        while (!Flight.landed()) {
+            Flight.advance(true, Flight.SECONDS / 20f, false);
+            Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+            check(near(out.rightX * out.rightX + out.rightY * out.rightY + out.rightUp * out.rightUp, 1f)
+                    && near(out.upX * out.upX + out.upY * out.upY + out.upUp * out.upUp, 1f)
+                    && near(out.forwardX * out.forwardX + out.forwardY * out.forwardY + out.forwardUp * out.forwardUp, 1f), "on the way its axes are each a unit long");
+            check(near(out.rightX * out.upX + out.rightY * out.upY + out.rightUp * out.upUp, 0f)
+                    && near(out.rightX * out.forwardX + out.rightY * out.forwardY + out.rightUp * out.forwardUp, 0f)
+                    && near(out.upX * out.forwardX + out.upY * out.forwardY + out.upUp * out.forwardUp, 0f), "and square to each other");
+            float cross = (out.rightY * out.upUp - out.rightUp * out.upY) * out.forwardX + (out.rightUp * out.upX - out.rightX * out.upUp) * out.forwardY
+                    + (out.rightX * out.upY - out.rightY * out.upX) * out.forwardUp;
+            check(cross > 0.99f, "and of the same hand as a clean view's, so the picture is never mirrored");
+            check(Flight.away() < wasAway && Flight.tanHalfFieldOfView() > wasTan, "it only comes nearer, and its field of view only opens");
+            wasAway = Flight.away();
+            wasTan = Flight.tanHalfFieldOfView();
+            float s = Flight.share();
+            float lookedX = out.eyeX + out.forwardX * Flight.away(), lookedY = out.eyeY + out.forwardY * Flight.away();
+            check(Math.abs(lookedX - (atX + (tracked.eyeX - atX) * s)) < 1e-2f && Math.abs(lookedY - (atY + (tracked.eyeY - atY) * s)) < 1e-2f,
+                    "and the place it looks at goes straight from the middle of the screen to the eye");
+        }
+        Flight.cut(false);
+    }
+
+    private static void flightTakesItsTimeWhateverTheFrames() {
+        Flight.cut(false);
+        Flight.advance(true, 5f, false);
+        check(Flight.share() < 0.1f, "a frame many times too long does not carry the camera half way");
+        check(Flight.shown() == 1f, "over a view the renderer draws already, its picture is whole from the first frame");
+        int frames = 1;
+        while (!Flight.landed()) {
+            Flight.advance(true, 1f / 60f, false);
+            frames++;
+        }
+        check(Math.abs(frames / 60f - Flight.SECONDS) < 0.1f, "at sixty frames a second the way in takes the time it is given");
+        check(Flight.share() == 1f, "and ends at the eye");
+        Flight.advance(false, 1f / 60f, false);
+        check(!Flight.landed() && !Flight.home(), "turned back, it is on its way out from where it was");
+        while (Flight.share() > 0f) {
+            Flight.advance(false, 1f / 60f, false);
+        }
+        check(Flight.home(), "and is home as soon as it is back overhead");
+    }
+
+    private static void flightMixesThePicturesOnlyWhileTheCameraIsStill() {
+        Flight.cut(false);
+        float was = 0f;
+        int frames = 0;
+        while (Flight.shown() < 1f) {
+            Flight.advance(true, 1f / 60f, true);
+            check(Flight.shown() > was && Flight.share() == 0f, "over the game's own picture the renderer's comes in with the camera still overhead");
+            was = Flight.shown();
+            frames++;
+        }
+        check(Math.abs(frames / 60f - Flight.MIX_SECONDS) < 0.05f, "in the time the mix is given");
+        Flight.advance(true, 1f / 60f, true);
+        check(Flight.share() > 0f, "and only then does the camera set off");
+        while (!Flight.landed()) {
+            Flight.advance(true, 1f / 60f, true);
+        }
+        while (Flight.share() > 0f) {
+            check(Flight.shown() == 1f, "on the way out the picture is whole until the camera is back overhead");
+            Flight.advance(false, 1f / 60f, true);
+        }
+        check(Flight.shown() == 1f && !Flight.home(), "where it is still whole, and the game's view is not back yet");
+        was = 1f;
+        while (!Flight.home()) {
+            Flight.advance(false, 1f / 60f, true);
+            check(Flight.shown() < was && Flight.share() == 0f, "and goes out over the game's own picture with the camera still");
+            was = Flight.shown();
+        }
+    }
+
+    private static float apart(ViewCamera.Pose a, ViewCamera.Pose b) {
+        return (float) Math.sqrt((a.eyeX - b.eyeX) * (a.eyeX - b.eyeX) + (a.eyeY - b.eyeY) * (a.eyeY - b.eyeY) + (a.eyeUp - b.eyeUp) * (a.eyeUp - b.eyeUp));
+    }
+
+    /** The most any part of one pose's axes differs from the other's. */
+    private static float turnedApart(ViewCamera.Pose a, ViewCamera.Pose b) {
+        float most = Math.max(Math.abs(a.rightX - b.rightX), Math.max(Math.abs(a.rightY - b.rightY), Math.abs(a.rightUp - b.rightUp)));
+        most = Math.max(most, Math.max(Math.abs(a.upX - b.upX), Math.max(Math.abs(a.upY - b.upY), Math.abs(a.upUp - b.upUp))));
+        return Math.max(most, Math.max(Math.abs(a.forwardX - b.forwardX), Math.max(Math.abs(a.forwardY - b.forwardY), Math.abs(a.forwardUp - b.forwardUp))));
     }
 
     private static float radians(double degrees) {

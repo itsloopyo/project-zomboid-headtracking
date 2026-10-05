@@ -224,7 +224,8 @@ final class PipelineShaders {
             varying float vMaterial;
             varying float vHung;
             uniform vec4 uCutBox;
-            uniform float uCutNear;
+            uniform vec3 uCutNear;
+            uniform float uLid;
             uniform vec3 uHole;
             uniform float uHoleUp;
             uniform vec4 uHoleFrom;
@@ -1047,8 +1048,13 @@ final class PipelineShaders {
                 // them: a wardrobe or a fridge stands whole, as do the things drawn as cards.
                 // And only what stands between the viewer and the eye: the walls behind them
                 // hide nothing, and keep their windows and pictures.
-                if (vWorld.z > uCutAbove && vWorld.x + vWorld.y > uCutNear
-                        && vWorld.x > uCutBox.x && vWorld.y > uCutBox.y && vWorld.x < uCutBox.z && vWorld.y < uCutBox.w) {
+                bool boxed = vWorld.x > uCutBox.x && vWorld.y > uCutBox.y && vWorld.x < uCutBox.z && vWorld.y < uCutBox.w;
+                // The storeys over the viewer's, and the roof, while the camera is above them:
+                // on its way down to the viewer it has the room to look into.
+                if (boxed && vWorld.z > uLid) {
+                    discard;
+                }
+                if (vWorld.z > uCutAbove && dot(vWorld.xy, uCutNear.xy) > uCutNear.z && boxed) {
                     bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
                     bool standing = vKind > 1.5 && vKind < 3.5;
                     if (ofModel ? vHung > 0.5 : !standing) {
