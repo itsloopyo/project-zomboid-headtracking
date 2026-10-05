@@ -40,10 +40,9 @@ inline constexpr std::int32_t kPzhtAimMode = 8;
 
 PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 
-// Builds the owner of the file at `path` and loads it. `defaults_path` is null in the game, which
-// reads the player's own Defaults.ini, and a scratch file in a test. Answers the owner's
-// ConfigLoadStatus and fills `out` with the settings the session runs on.
-PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, const wchar_t* defaults_path, PzhtSettings* out);
+// Builds the owner of the file at `path` and loads it. Answers the owner's ConfigLoadStatus and
+// fills `out` with the settings the session runs on.
+PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out);
 
 // Each answers the owner's ConfigSaveStatus.
 PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::int32_t position);

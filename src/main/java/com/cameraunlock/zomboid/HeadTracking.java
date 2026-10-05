@@ -92,7 +92,7 @@ final class HeadTracking {
      */
     static void start(Path gameDirectory) {
         config = new NativeConfig(jarDirectory().resolve(NativeConfig.LIBRARY));
-        Settings settings = config.load(gameDirectory.resolve(NativeConfig.FILE_NAME), null).settings();
+        Settings settings = config.load(gameDirectory.resolve(NativeConfig.FILE_NAME)).settings();
         Settings.current = settings;
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());

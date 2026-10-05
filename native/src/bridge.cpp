@@ -67,12 +67,10 @@ std::int32_t PzhtSettingsBytes() {
     return static_cast<std::int32_t>(sizeof(PzhtSettings));
 }
 
-std::int32_t PzhtConfigLoad(const wchar_t* path, const wchar_t* defaults_path, PzhtSettings* out) {
+std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
     return Guarded("loading the settings", [&] {
-        cfg::DefaultsFile defaults =
-            defaults_path != nullptr ? cfg::DefaultsFile::At(defaults_path) : cfg::DefaultsFile::PerUser();
         g_owner = std::make_unique<cfg::ConfigOwner<pzht::Config>>(
-            pzht::MakeConfigOwnerOptions(path, std::move(defaults)));
+            pzht::MakeConfigOwnerOptions(path, pzht::BridgeDefaults()));
         cfg::ConfigLoadResult<pzht::Config> loaded = g_owner->Load();
         AppendLog(loaded.log);
         g_loaded = std::move(loaded.config);

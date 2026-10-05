@@ -30,4 +30,9 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 cameraunlock::config::ConfigOwnerOptions<Config> MakeConfigOwnerOptions(const std::wstring& path,
                                                                         cameraunlock::config::DefaultsFile defaults);
 
+// Where Defaults.ini is for the DLL this is linked into: the player's own in the one that ships
+// (src/defaults_per_user.cpp), a scratch file in the one the Java tests load
+// (tests/defaults_for_tests.cpp).
+cameraunlock::config::DefaultsFile BridgeDefaults();
+
 }  // namespace pzht

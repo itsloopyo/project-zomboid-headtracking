@@ -16,9 +16,20 @@ add_subdirectory(../cameraunlock-core/cpp ${CMAKE_BINARY_DIR}/cameraunlock-core)
 add_library(ProjectZomboidHeadTracking SHARED
     src/bridge.cpp
     src/config.cpp
+    src/defaults_per_user.cpp
 )
 target_link_libraries(ProjectZomboidHeadTracking PRIVATE cameraunlock)
 target_compile_options(ProjectZomboidHeadTracking PRIVATE /W4 /WX /permissive-)
+
+# The same bridge reading a Defaults.ini its caller names, for the Java tests. Never packaged.
+add_library(ProjectZomboidHeadTrackingTest SHARED
+    src/bridge.cpp
+    src/config.cpp
+    tests/defaults_for_tests.cpp
+)
+target_include_directories(ProjectZomboidHeadTrackingTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(ProjectZomboidHeadTrackingTest PRIVATE cameraunlock)
+target_compile_options(ProjectZomboidHeadTrackingTest PRIVATE /W4 /WX /permissive-)
 
 # `config_tests --render-config <path>` is how `pixi run render-config` rewrites the committed file.
 enable_testing()

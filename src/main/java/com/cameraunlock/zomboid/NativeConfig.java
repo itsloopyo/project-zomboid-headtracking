@@ -41,7 +41,7 @@ final class NativeConfig {
         SymbolLookup lookup = SymbolLookup.libraryLookup(library, Arena.global());
         Linker linker = Linker.nativeLinker();
         ValueLayout pointer = ValueLayout.ADDRESS;
-        load = bind(linker, lookup, "PzhtConfigLoad", FunctionDescriptor.of(INT, pointer, pointer, pointer));
+        load = bind(linker, lookup, "PzhtConfigLoad", FunctionDescriptor.of(INT, pointer, pointer));
         saveTrackingMode = bind(linker, lookup, "PzhtConfigSaveTrackingMode", FunctionDescriptor.of(INT, INT, INT));
         saveWorldSpaceYaw = bind(linker, lookup, "PzhtConfigSaveWorldSpaceYaw", FunctionDescriptor.of(INT, INT));
         saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT, INT));
@@ -64,15 +64,11 @@ final class NativeConfig {
     /** What a load found and the settings the session runs on. */
     record Loaded(int status, Settings settings) {}
 
-    /**
-     * Reads the file, creating it where there is none.
-     *
-     * @param defaults the Defaults.ini to read, or null for the player's own, which is what the game passes
-     */
-    Loaded load(Path file, Path defaults) {
+    /** Reads the file, creating it where there is none. */
+    Loaded load(Path file) {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment out = arena.allocate(SETTINGS_BYTES, Integer.BYTES);
-            int status = call(load, wide(arena, file), defaults == null ? MemorySegment.NULL : wide(arena, defaults), out);
+            int status = call(load, wide(arena, file), out);
             writeLog();
             if (status < 0) {
                 throw new IllegalStateException(file + " could not be loaded: " + Log.FILE_NAME + " has the reason");
