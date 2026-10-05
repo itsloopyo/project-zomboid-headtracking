@@ -157,6 +157,9 @@ public final class Controls {
         if (!FirstPerson.lookCaptured() || player == null || player.getBallisticsController() != ballistics) {
             return;
         }
+        if (FirstPerson.TRACE && filteredAim) {
+            sayBallistics(ballistics);
+        }
         float[] carried = HeadTracking.carried();
         Vector3 muzzle = ballistics.getMuzzlePosition();
         muzzle.x += carried[0];
@@ -181,6 +184,47 @@ public final class Controls {
                     : new Core.KeyBinding(stock.name(), keys.key(), keys.alt(), stock.shift(), stock.ctrl(), stock.alt());
         }
         return held.to;
+    }
+
+    private static java.lang.reflect.Field[] ballisticsFields;
+    private static long ballisticsSaid;
+
+    /**
+     * For the trace, four times a second while the aim is held: where the game's ballistics
+     * have the muzzle, which way it points, where they take the aim to be and how many
+     * targets they have. A shot that misses what the view is on is one of these being off,
+     * and which one cannot be told from the picture.
+     */
+    private static void sayBallistics(BallisticsController ballistics) {
+        long now = System.nanoTime();
+        if (now - ballisticsSaid < 250_000_000L) {
+            return;
+        }
+        ballisticsSaid = now;
+        try {
+            if (ballisticsFields == null) {
+                String[] names = {"muzzlePosition", "muzzleDirection", "isoAimingPosition", "targetPosition", "numberOfTargets", "numberOfCameraTargets"};
+                java.lang.reflect.Field[] found = new java.lang.reflect.Field[names.length];
+                for (int i = 0; i < names.length; i++) {
+                    found[i] = BallisticsController.class.getDeclaredField(names[i]);
+                    found[i].setAccessible(true);
+                }
+                ballisticsFields = found;
+            }
+            StringBuilder said = new StringBuilder("ballistics");
+            for (java.lang.reflect.Field field : ballisticsFields) {
+                Object value = field.get(ballistics);
+                said.append(' ').append(field.getName()).append(' ');
+                if (value instanceof Vector3 v) {
+                    said.append(String.format(Locale.ROOT, "(%.2f, %.2f, %.2f)", v.x, v.y, v.z));
+                } else {
+                    said.append(value);
+                }
+            }
+            Log.info(said.append(String.format(Locale.ROOT, " aim point (%.2f, %.2f, %.2f)", aimPointX, aimPointY, aimPointLevel)).toString());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's ballistics have changed: " + e, e);
+        }
     }
 
     /** The inputs as the game was last given them, for the trace. */
