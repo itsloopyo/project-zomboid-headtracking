@@ -66,4 +66,26 @@ final class OpenLight {
         out[1] = green[fullest] / count[fullest];
         out[2] = blue[fullest] / count[fullest];
     }
+
+    /** A band has to hold this share of the squares for its light to be the open ground's: fewer may be anything. */
+    private static final float FLOOR_SHARE = 0.1f;
+
+    /**
+     * The light every square out of doors has, lamp or no lamp, into out: the mean of the
+     * darkest band that holds a fair share of the squares. A lamp only adds to a square's
+     * light, so the squares nothing shines on are the darkest, however many a carried torch
+     * is lighting round the character. Where the squares are spread so thin that no band
+     * holds that share, it is the light most of them have.
+     */
+    void floor(float[] out) {
+        for (int band = 0; band < BANDS; band++) {
+            if (count[band] >= counted * FLOOR_SHARE) {
+                out[0] = red[band] / count[band];
+                out[1] = green[band] / count[band];
+                out[2] = blue[band] / count[band];
+                return;
+            }
+        }
+        commonest(out);
+    }
 }

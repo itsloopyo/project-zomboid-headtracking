@@ -48,6 +48,10 @@ final class SkyState {
      */
     private static final boolean STILL = Boolean.getBoolean("cameraunlock.zomboid.still");
     float night;
+    /** The game's light for a square of open ground that no lamp shines on. The scene sets it. */
+    float openRed, openGreen, openBlue;
+    /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
+    float[] carried = new float[8];
     float cover;
     float driftX, driftY;
     float seconds;

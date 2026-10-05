@@ -10,4 +10,6 @@ public class InventoryItem {
     public void setCondition(int condition) { throw new UnsupportedOperationException("reference stub"); }
     public void setCurrentUsesFloat(float share) { throw new UnsupportedOperationException("reference stub"); }
     public void setActivated(boolean activated) { throw new UnsupportedOperationException("reference stub"); }
+    public int getLightDistance() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isTorchCone() { throw new UnsupportedOperationException("reference stub"); }
 }

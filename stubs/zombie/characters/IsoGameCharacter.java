@@ -34,4 +34,5 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public zombie.characters.BodyDamage.BodyDamage getBodyDamage() { throw new UnsupportedOperationException("reference stub"); }
     public void setAvoidDamage(boolean on) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.physics.BallisticsController getBallisticsController() { throw new UnsupportedOperationException("reference stub"); }
+    public java.util.ArrayList<zombie.inventory.InventoryItem> getActiveLightItems(java.util.ArrayList<zombie.inventory.InventoryItem> into) { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -118,6 +118,23 @@ final class BuildingTests {
         light.commonest(out);
         check(near(out[0], 0.2f) && near(out[1], 0.2f) && near(out[2], 0.25f),
                 "an unseen square is as dark as the street is, and not the mean of the street and its lamps: " + out[0]);
+        // The chunk the character stands in, a torch lit: most of what is seen of it is in the beam.
+        light.clear();
+        for (int i = 0; i < 12; i++) {
+            light.add(0.18f, 0.18f, 0.18f);
+        }
+        for (int i = 0; i < 40; i++) {
+            light.add(1f, 1f, 1f);
+        }
+        light.add(0f, 0f, 0f);
+        light.floor(out);
+        check(near(out[0], 0.18f), "the open ground's own light is that of the squares no lamp is on, however few they are beside the lit: " + out[0]);
+        light.clear();
+        for (int i = 0; i < 64; i++) {
+            light.add(i / 64f, i / 64f, i / 64f);
+        }
+        light.floor(out);
+        check(near(out[0], 0f), "and where no band holds a fair share of the squares, the fullest, of equals the darkest: " + out[0]);
         light.clear();
         check(light.isEmpty(), "and cleared it holds nothing");
         light.add(1f, 1f, 1f);

@@ -316,6 +316,8 @@ final class PipelineShaders {
             }
 
             const float RELIEF = 0.05;
+            // How bright a carried torch makes what its beam is on at arm's length, against what the game gives the square.
+            const float TORCH_GIVES = 1.6;
             // How wide a board of a boarded wall is, in tiles: about 15 cm.
             const float BOARD_WIDE = 0.15;
             // A brick and the mortar round it, a lapped board's show, and half the width of a
@@ -342,6 +344,9 @@ final class PipelineShaders {
             }
             uniform float uRaining;
             uniform float uDark;
+            uniform vec4 uTorch;
+            uniform vec4 uTorchWay;
+            uniform vec3 uOpenLight;
             """ + BEAMS + MuzzleFlash.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
@@ -2063,7 +2068,26 @@ final class PipelineShaders {
                     // than the other, so a model takes most of it on what faces up.
                     fromSky *= mix(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8)), 1.0, open);
                 }
-                vec3 lightHere = pow(vColor.rgb, vec3(2.2)) * fromSky + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
+                vec3 given = pow(vColor.rgb, vec3(2.2));
+                vec3 held = vec3(0.0);
+                if (uTorch.w > 0.0 && open > 0.5) {
+                    // A torch the character carries. The game lights every square in its cone
+                    // by where the square lies on the ground, the same from the grass to the
+                    // top of a tree and from no side, and lit as the sky lights it a wood at
+                    // midnight is a wood at noon. What a square within the torch's reach has
+                    // over the open ground's own light came from the torch: it falls from the
+                    // hand, on what the beam is turned to and on the side that faces it, less
+                    // with distance, and a little spills round the beam. A lantern has no beam.
+                    vec3 over = max(given - pow(uOpenLight, vec3(2.2)), 0.0) * (1.0 - smoothstep(uTorch.w, uTorch.w + 3.0, length(vWorld.xy - uTorch.xy)));
+                    vec3 to = vWorld - uTorch.xyz;
+                    float far2 = dot(to, to);
+                    vec3 dir = to * inversesqrt(max(far2, 0.0001));
+                    float beam = mix(1.0, 0.1 + 0.9 * smoothstep(0.62, 0.95, dot(dir, uTorchWay.xyz)), uTorchWay.w);
+                    float turned = card ? 0.75 : 0.2 + 0.8 * max(dot(n, -dir), 0.0);
+                    held = over * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * beam * turned / (1.0 + 0.035 * far2));
+                    given -= over;
+                }
+                vec3 lightHere = given * fromSky + held + pow(uLightColor, vec3(2.2)) * (2.1 * sun);
                 // The ground in the sun throws its light back up at whatever stands on it. A
                 // wall turned from the sun is lit by the street in front of it, and without
                 // that the shaded side of every building is a flat dark slab.

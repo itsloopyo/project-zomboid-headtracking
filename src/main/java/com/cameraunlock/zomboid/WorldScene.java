@@ -401,6 +401,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final OpenLight seenBefore = new OpenLight();
     private final float[] openLight = new float[3];
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
+    /** The light a square out of doors has with no lamp on it: see OpenLight.floor. */
+    private static float floorRed, floorGreen, floorBlue;
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] box = new float[4];
     private int overLayer;
@@ -559,7 +561,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
-                + " | gables faced " + gablesFaced + " painted " + gablesPainted + " bare " + gablesBare;
+                + " | gables faced " + gablesFaced + " painted " + gablesPainted + " bare " + gablesBare
+                + " | " + CarriedLight.describe() + String.format(Locale.ROOT, " open light (%.2f, %.2f, %.2f)", floorRed, floorGreen, floorBlue);
     }
 
     static float drawnAspect() {
@@ -630,7 +633,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         sky.capture();
         if (unseenRed < 0f) {
             unseenRed = unseenGreen = unseenBlue = daylight;
+            floorRed = floorGreen = floorBlue = daylight;
         }
+        sky.openRed = floorRed;
+        sky.openGreen = floorGreen;
+        sky.openBlue = floorBlue;
+        // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
+        sky.carried = CarriedLight.light;
         exposure = adaptEye(player, fromOutside);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
@@ -868,6 +877,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             unseenRed = openLight[0];
             unseenGreen = openLight[1];
             unseenBlue = openLight[2];
+            seenOutside.floor(openLight);
+            floorRed = openLight[0];
+            floorGreen = openLight[1];
+            floorBlue = openLight[2];
         }
         for (int i = 0; i < shown.size(); i++) {
             triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
