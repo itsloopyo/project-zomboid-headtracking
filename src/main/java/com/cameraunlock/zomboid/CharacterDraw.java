@@ -76,7 +76,7 @@ final class CharacterDraw {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_BUFFER_SIZE = 0x8764, GL_STATIC_DRAW = 0x88E4;
     private static final int GL_VERTEX_SHADER = 0x8B31, GL_FRAGMENT_SHADER = 0x8B30, GL_TESS_CONTROL_SHADER = 0x8E88, GL_TESS_EVALUATION_SHADER = 0x8E87;
     private static final int GL_COMPILE_STATUS = 0x8B81, GL_LINK_STATUS = 0x8B82;
-    private static final int GL_CULL_FACE = 0x0B44, GL_FRONT = 0x0404, GL_DEPTH_TEST = 0x0B71, GL_LESS = 0x0201, GL_LEQUAL = 0x0203, GL_BLEND = 0x0BE2;
+    private static final int GL_CULL_FACE = 0x0B44, GL_FRONT = 0x0404, GL_DEPTH_TEST = 0x0B71, GL_LESS = 0x0201, GL_LEQUAL = 0x0203, GL_BLEND = 0x0BE2, GL_BACK = 0x0405;
     private static final int GL_TEXTURE0 = 0x84C0;
 
     private static final String OLD = """
@@ -1016,6 +1016,11 @@ final class CharacterDraw {
      * has none either. However the head is turned, none of it is in the view.
      */
     static boolean fromTheEye;
+    /**
+     * Set while a person is drawn as a mirror shows them. A mirror turns every triangle's
+     * front to its back once more.
+     */
+    static boolean mirrored;
     /** For each skeleton, the bones of its head. */
     private static final IdentityHashMap<SkinningData, int[]> heads = new IdentityHashMap<>();
     private static final String HEAD_BONE = "Bip01_Head";
@@ -1503,7 +1508,8 @@ final class CharacterDraw {
             GL11.glEnable(GL_CULL_FACE);
             // The matrix that stands a model in the world mirrors it, which turns every
             // triangle's front to its back.
-            GL11.glCullFace(script != null && script.cullFace != -1 ? script.cullFace : GL_FRONT);
+            int face = script != null && script.cullFace != -1 ? script.cullFace : GL_FRONT;
+            GL11.glCullFace(mirrored ? face == GL_FRONT ? GL_BACK : GL_FRONT : face);
         }
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LESS);

@@ -307,6 +307,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private boolean outside;
     private boolean seated;
     private float outsideTan, outsideAway;
+    /** The glass the viewer is shown in, seen from their own eye. */
+    private final OwnReflection.Glass glass = new OwnReflection.Glass();
     /** How much of the way from overhead to the eye the outside camera has come. */
     private float landing;
     /** How much of the game's own picture this one covers: less than all of it while one is mixed into the other. */
@@ -639,6 +641,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             Terrain.level(Terrain.level);
         }
         mainsOn = IsoWorld.instance.isHydroPowerOn();
+        glass.found = false;
+        if (!fromOutside && !seated && drawnAspect > 0f) {
+            OwnReflection.find(cell, player, view, tanHalfFieldOfView * drawnAspect, glass);
+        }
         IsoChunkMap map = cell.getChunkMap(playerIndex);
         int level = (int) Math.floor(player.getZ());
         // From an upper floor the ground is in the picture; from the ground, only the level under it.
@@ -4545,6 +4551,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         Pipeline.outside = outside;
         Pipeline.overhead = outside && outsideAway > OVERHEAD_RANGE;
         Pipeline.seated = seated;
+        Pipeline.reflection = glass.found ? glass : null;
         Pipeline.opacity = opacity;
         Pipeline.cutAbove = outside ? cutFrom : Float.MAX_VALUE;
         Pipeline.cutBehind = 1f - landing;

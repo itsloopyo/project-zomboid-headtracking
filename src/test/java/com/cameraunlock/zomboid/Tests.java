@@ -994,6 +994,7 @@ public final class Tests {
         ShapeTests.run();
         CrownTests.run();
         WindowTests.run();
+        ReflectionTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         System.out.println("all tests passed");
     }

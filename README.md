@@ -173,6 +173,8 @@ Tracking moves the view while the first person view is on, the game is not pause
 
 Your character's head turns with yours in both views, in single player. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
 
+In first person a window also shows your character in its glass, with their head turned as yours is. It shows in a shut, unbroken window on your own floor that you stand square in front of, faintly by day and plainly at night.
+
 ## Configuration
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. It is the one setting the mod reads again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.

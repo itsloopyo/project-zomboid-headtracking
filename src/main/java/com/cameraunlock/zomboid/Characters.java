@@ -86,6 +86,12 @@ public final class Characters {
         asideX = x;
         asideY = y;
     }
+
+    /** Puts a projection the same fraction of a pixel aside as this frame's models are drawn. */
+    static void aside(float[] projection) {
+        projection[8] += asideX;
+        projection[9] += asideY;
+    }
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     /** With tracing on, what the models noted last frame were. */
     static volatile String described = "";
@@ -372,6 +378,50 @@ public final class Characters {
         data.ambientB = blue;
         data.x = x;
         data.y = y;
+    }
+
+    /** The game's light where the viewer stands, as their reflection was last drawn. */
+    static float reflectedLight = 1f;
+
+    /**
+     * Draws the viewer as the glass of a window shows them, whole, into whatever target is
+     * bound: the same model through a view that first puts every point where it is seen in
+     * the glass. False if the viewer is not among the models.
+     */
+    static boolean drawReflected(ViewCamera.Pose camera, OwnReflection.Glass glass, float tanHalfFieldOfView, float aspect, float near, float far) {
+        IsoPlayer viewer = IsoPlayer.getInstance();
+        for (int i = 0; i < noted.size(); i++) {
+            ModelSlotRenderData data = noted.get(i);
+            if (data.character == null || data.character != viewer || data.inVehicle) {
+                continue;
+            }
+            ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+            aside(projection);
+            ViewCamera.view(camera, eyeView);
+            OwnReflection.mirror(eyeView, glass);
+            // Stood a little behind the eye, as the body the viewer looks down at is.
+            float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
+            float x = data.x, y = data.y;
+            if (flat > 1e-3f) {
+                data.x -= camera.forwardX / flat * EYES_AHEAD;
+                data.y -= camera.forwardY / flat * EYES_AHEAD;
+            }
+            float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
+            reflectedLight = (red + green + blue) / 3f;
+            data.ambientR = 1f;
+            data.ambientG = 1f;
+            data.ambientB = 1f;
+            CharacterDraw.mirrored = true;
+            character(data, eyeView, false, false, false, false);
+            CharacterDraw.mirrored = false;
+            data.ambientR = red;
+            data.ambientG = green;
+            data.ambientB = blue;
+            data.x = x;
+            data.y = y;
+            return true;
+        }
+        return false;
     }
 
     /** The bone the game hangs what is in the right hand from. */
