@@ -17,24 +17,25 @@ import zombie.vehicles.VehiclePart;
 /**
  * Keys for whoever is working on the mod, there only in a development install: the deploy
  * script leaves a marker file beside the jar, and the installer a player runs does not.
- * Every one is pressed with Ctrl held, since the game has uses of its own for the bare keys.
+ * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
+ * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  *
  * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
  * sits the player in the driver's seat, whatever state it was found in. For looking at
  * vehicles and driving without first finding one that runs.
  *
- * F6 makes the player invincible, and vulnerable again on the next press.
+ * The apostrophe makes the player invincible, and vulnerable again on the next press.
  *
- * F2 clears the loaded map of zombies and keeps it clear, and lets them back on the next
+ * 0 clears the loaded map of zombies and keeps it clear, and lets them back on the next
  * press: for looking at the picture in peace.
  *
- * F3 moves the player to the next of the places worth looking at, round and round, and
- * Shift with it to the one before.
+ * The full stop moves the player to the next of the places worth looking at, round and round,
+ * and the comma to the one before.
  *
- * F4 sets the clock to early evening, with the sun starting down: the hour the picture looks
+ * 9 sets the clock to early evening, with the sun starting down: the hour the picture looks
  * its best.
  *
- * F5 puts a pump action shotgun in the player's hands, and from then on whatever firearm is
+ * The semicolon puts a pump action shotgun in the player's hands, and from then on whatever firearm is
  * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
  * finding a gun and shells.
  */
@@ -43,15 +44,14 @@ final class DevKeys {
     /** F7 in the key codes the game's keyboard uses. */
     private static final int TAKE_VEHICLE_KEY = 65;
     private static final float TAKE_WITHIN = 5f;
-    /** F6. */
-    private static final int INVINCIBLE_KEY = 64;
+    /** The apostrophe. */
+    private static final int INVINCIBLE_KEY = 40;
 
-    /** F2. */
-    private static final int CLEAR_KEY = 60;
+    /** 0 on the number row. */
+    private static final int CLEAR_KEY = 11;
     private static boolean cleared;
-    /** F3. */
-    private static final int PLACE_KEY = 61;
-    private static final int LEFT_CONTROL = 29, RIGHT_CONTROL = 157, LEFT_SHIFT = 42, RIGHT_SHIFT = 54;
+    /** The full stop and the comma. */
+    private static final int NEXT_PLACE_KEY = 52, LAST_PLACE_KEY = 51;
 
     /** A tile on the ground. */
     private record Place(String name, float x, float y) {}
@@ -81,12 +81,12 @@ final class DevKeys {
     };
     /** The place the player was last sent to, and none before the first press. */
     private static int place = -1;
-    /** F4. */
-    private static final int EVENING_KEY = 62;
+    /** 9 on the number row. */
+    private static final int EVENING_KEY = 10;
     /** How long before dusk the clock is set to, in hours. */
     private static final float BEFORE_DUSK = 1.75f;
-    /** F5. */
-    private static final int ARM_KEY = 63;
+    /** The semicolon. */
+    private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
 
     private static boolean armed;
@@ -101,7 +101,7 @@ final class DevKeys {
 
     /**
      * Called with whether the game allows its own cheats, which outside its debug mode and off
-     * a server it does not: its god mode then reads as off whatever is set. While F6 has the
+     * a server it does not: its god mode then reads as off whatever is set. While the key has the
      * player invincible in a development install they are allowed. A game joined to a server
      * allows them by its own rules already, so this never adds anything there.
      */
@@ -119,7 +119,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install, each key with Ctrl held: F2 clears out the zombies, F3 goes to the next place and Shift+F3 to the one before, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: 0 clears out the zombies, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, ' makes you invincible, F7 takes the nearest vehicle");
             }
         }
         // On a server every one of these would be a cheat against the other players.
@@ -130,10 +130,9 @@ final class DevKeys {
             return;
         }
         IsoPlayer safe = IsoPlayer.getInstance();
-        boolean ctrl = GameKeyboard.isKeyDown(LEFT_CONTROL) || GameKeyboard.isKeyDown(RIGHT_CONTROL);
-        if (ctrl && GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
+        if (GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
             invincible = !invincible;
-            Log.info("F6: invincible " + invincible);
+            Log.info("': invincible " + invincible);
         }
         // The game's own god mode is refused outside its debug mode, so the player is made
         // whole again every frame instead: wounds, bites and infection are gone as they land.
@@ -174,9 +173,9 @@ final class DevKeys {
             }
             wasInvincible = invincible;
         }
-        if (ctrl && GameKeyboard.isKeyPressed(CLEAR_KEY)) {
+        if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
             cleared = !cleared;
-            Log.info("F2: zombies cleared " + cleared);
+            Log.info("0: zombies cleared " + cleared);
         }
         if (cleared && IsoWorld.instance.currentCell != null) {
             java.util.ArrayList<IsoZombie> zombies = IsoWorld.instance.currentCell.getZombieList();
@@ -186,24 +185,24 @@ final class DevKeys {
                 zombie.removeFromSquare();
             }
         }
-        if (safe != null && safe.getVehicle() == null && ctrl && GameKeyboard.isKeyPressed(PLACE_KEY)) {
-            boolean back = GameKeyboard.isKeyDown(LEFT_SHIFT) || GameKeyboard.isKeyDown(RIGHT_SHIFT);
+        boolean back = GameKeyboard.isKeyPressed(LAST_PLACE_KEY);
+        if (safe != null && safe.getVehicle() == null && (back || GameKeyboard.isKeyPressed(NEXT_PLACE_KEY))) {
             place = back ? Math.floorMod(Math.max(place, 0) - 1, PLACES.length) : (place + 1) % PLACES.length;
             Place to = PLACES[place];
             safe.teleportTo(to.x(), to.y(), 0);
-            Log.info("F3: moved to " + to.name() + " (" + to.x() + ", " + to.y() + "), place " + (place + 1) + " of " + PLACES.length);
+            Log.info((back ? "," : ".") + ": moved to " + to.name() + " (" + to.x() + ", " + to.y() + "), place " + (place + 1) + " of " + PLACES.length);
         }
-        if (ctrl && GameKeyboard.isKeyPressed(EVENING_KEY)) {
+        if (GameKeyboard.isKeyPressed(EVENING_KEY)) {
             float hour = ClimateManager.getInstance().getSeason().getDusk() - BEFORE_DUSK;
             GameTime.getInstance().setTimeOfDay(hour);
-            Log.info("F4: the clock set to " + hour);
+            Log.info("9: the clock set to " + hour);
         }
-        if (safe != null && ctrl && GameKeyboard.isKeyPressed(ARM_KEY)) {
+        if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
             safe.setPrimaryHandItem(shotgun);
             safe.setSecondaryHandItem(shotgun);
             armed = true;
-            Log.info("F5: a shotgun in hand, kept loaded");
+            Log.info(";: a shotgun in hand, kept loaded");
         }
         if (armed && safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
             held.setCurrentAmmoCount(held.getMaxAmmo());
@@ -211,7 +210,7 @@ final class DevKeys {
             held.setJammed(false);
             held.setCondition(held.getConditionMax());
         }
-        if (!ctrl || !GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
+        if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;
         }
         IsoPlayer player = IsoPlayer.getInstance();
