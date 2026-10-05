@@ -21,7 +21,7 @@ import zombie.core.textures.Texture;
 final class Windows {
     /** A dot is frame from this much cover up, and nothing below the lower: between them it is glass or the shine on it. */
     private static final int FRAME_COVER = 180, LEAST_COVER = 38;
-    private static final byte EMPTY = 0, GLASS = 1, FRAME = 2;
+    static final byte EMPTY = 0, GLASS = 1, FRAME = 2;
     /** How much of a line of dots has to be frame for the line to be a bar, and for it to be the ragged edge of one. */
     private static final float BAR = 0.7f, BAR_EDGE = 0.35f;
     /** The fewest dots a window is across or high. */
@@ -32,7 +32,7 @@ final class Windows {
     private static final int THINNEST_LIGHT = 2;
     /** A pane with less glass in it than the lower has none, and with more than the upper is whole. */
     static final float NO_GLASS = 0.08f, WHOLE_GLASS = 0.85f;
-    private static final int BANDS = 16;
+    static final int BANDS = 16;
 
     /** One window: all places are shares of the wall's length, then heights in levels. */
     static final class Shape {
@@ -97,25 +97,10 @@ final class Windows {
         if (wanted == null || known.containsKey(texture)) {
             return;
         }
-        int across = Math.round(SpriteGeometry.PIXELS_ACROSS_PER_TILE * wanted.scale), high = Math.round(SpriteGeometry.PIXELS_PER_LEVEL * wanted.scale);
-        byte[] dots = new byte[across * high];
+        int across = across(wanted.scale), high = high(wanted.scale);
         int[] at = new int[across * high];
-        for (int row = 0; row < high; row++) {
-            for (int column = 0; column < across; column++) {
-                float along = (column + 0.5f) / across, up = 1f - (row + 0.5f) / high;
-                float u = (wanted.north ? along : -along) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * wanted.scale + wanted.originU;
-                float v = (along * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * wanted.scale + wanted.originV;
-                int x = left + (int) Math.floor((u - wanted.left) / wanted.width * (right - left));
-                int y = top + (int) Math.floor((v - wanted.top) / wanted.height * (bottom - top));
-                if (u < wanted.left || v < wanted.top || x >= right || y >= bottom) {
-                    continue;
-                }
-                int place = (y * width + x) * 4;
-                int cover = sheet.get(place + 3) & 0xff;
-                dots[row * across + column] = cover >= FRAME_COVER ? FRAME : cover >= LEAST_COVER ? GLASS : EMPTY;
-                at[row * across + column] = place;
-            }
-        }
+        byte[] dots = laid(sheet, width, left, top, right, bottom, wanted.north, false, wanted.originU, wanted.originV, wanted.scale,
+                wanted.left, wanted.top, wanted.width, wanted.height, at);
         Shape shape = measure(dots, across, high);
         if (shape == null) {
             known.put(texture, NONE);
@@ -129,8 +114,50 @@ final class Windows {
         known.put(texture, shape);
     }
 
+    /** How many dots a sprite laid flat on a wall is across, and how many high. */
+    static int across(float scale) {
+        return Math.round(SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale);
+    }
+
+    static int high(float scale) {
+        return Math.round(SpriteGeometry.PIXELS_PER_LEVEL * scale);
+    }
+
+    /**
+     * A sprite laid flat on the wall it is painted for: across(scale) dots a row, the top row
+     * first, each EMPTY, GLASS or FRAME by how solid it is, and into at where in the sheet each
+     * was read. The wall is the north or west edge of the sprite's square, or the edge far
+     * from those. The sprite is the rectangle from (left, top) to before (right, bottom) of a
+     * sheet width dots wide, held as bytes of red, green, blue and cover, and (frameLeft,
+     * frameTop) and its size say where in its frame that rectangle is.
+     */
+    static byte[] laid(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, boolean far,
+            float originU, float originV, float scale, float frameLeft, float frameTop, float frameWidth, float frameHeight, int[] at) {
+        int across = across(scale), high = high(scale);
+        byte[] dots = new byte[across * high];
+        float other = far ? 1f : 0f;
+        for (int row = 0; row < high; row++) {
+            for (int column = 0; column < across; column++) {
+                float along = (column + 0.5f) / across, up = 1f - (row + 0.5f) / high;
+                float a = north ? along : other, b = north ? other : along;
+                float u = (a - b) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale + originU;
+                float v = ((a + b) * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * scale + originV;
+                int x = left + (int) Math.floor((u - frameLeft) / frameWidth * (right - left));
+                int y = top + (int) Math.floor((v - frameTop) / frameHeight * (bottom - top));
+                if (u < frameLeft || v < frameTop || x >= right || y >= bottom) {
+                    continue;
+                }
+                int place = (y * width + x) * 4;
+                int cover = sheet.get(place + 3) & 0xff;
+                dots[row * across + column] = cover >= FRAME_COVER ? FRAME : cover >= LEAST_COVER ? GLASS : EMPTY;
+                at[row * across + column] = place;
+            }
+        }
+        return dots;
+    }
+
     /** The colour most of the frame's dots have: the mean of the fullest band of brightness and the one either side of it. */
-    private static void colour(ByteBuffer sheet, byte[] dots, int[] at, Shape shape) {
+    static void colour(ByteBuffer sheet, byte[] dots, int[] at, Shape shape) {
         int[] bands = new int[BANDS];
         for (int i = 0; i < dots.length; i++) {
             if (dots[i] == FRAME) {
@@ -158,7 +185,7 @@ final class Windows {
         shape.blue = blue / (255f * count);
     }
 
-    private static int band(ByteBuffer sheet, int at) {
+    static int band(ByteBuffer sheet, int at) {
         int bright = (299 * (sheet.get(at) & 0xff) + 587 * (sheet.get(at + 1) & 0xff) + 114 * (sheet.get(at + 2) & 0xff)) / 1000;
         return bright * BANDS / 256;
     }
@@ -168,6 +195,11 @@ final class Windows {
      * first, each EMPTY, GLASS or FRAME. Null for what is no frame with four straight sides.
      */
     static Shape measure(byte[] dots, int across, int high) {
+        return measure(dots, across, high, false);
+    }
+
+    /** As measure, and with solidToo a rectangle that is frame all over is a shape too, one bar and no light: a door with no glass in it. */
+    static Shape measure(byte[] dots, int across, int high, boolean solidToo) {
         int c0 = across, c1 = 0, r0 = high, r1 = 0;
         for (int row = 0; row < high; row++) {
             for (int column = 0; column < across; column++) {
@@ -217,14 +249,19 @@ final class Windows {
         }
         float headHigh = side(dots, across, c0, c1, r0, r1, false, false), footHigh = side(dots, across, c0, c1, r0, r1, false, true);
         float startWide = side(dots, across, c0, c1, r0, r1, true, false), endWide = side(dots, across, c0, c1, r0, r1, true, true);
-        if (headHigh < 1f || footHigh < 1f || startWide + endWide < 1f) {
-            return null;
-        }
         Shape shape = new Shape();
         shape.start = (float) c0 / across;
         shape.end = (float) c1 / across;
         shape.head = 1f - (float) r0 / high;
         shape.foot = 1f - (float) r1 / high;
+        if (solidToo && headHigh >= r1 - r0 - 1f) {
+            shape.bars = with(shape.bars, shape.start, shape.end, shape.foot, shape.head);
+            return shape;
+        }
+        // A length of a glazed wall has a head and a foot and may have no stile at either end: it runs on both ways.
+        if (headHigh < 1f || footHigh < 1f) {
+            return null;
+        }
         shape.startWide = startWide / across;
         shape.endWide = endWide / across;
         shape.headHigh = headHigh / high;

@@ -102,6 +102,8 @@ final class SpriteColours {
             int bottom = Math.clamp(Math.round(Math.max(texture.getYStart(), texture.getYEnd()) * height), 0, height);
             known.put(texture, WallSides.usualColour(page, width, left, top, right, bottom, colour) ? colour : UNPAINTED);
             Windows.read(texture, page, width, left, top, right, bottom);
+            Drapes.read(texture, page, width, left, top, right, bottom);
+            Doors.read(texture, page, width, left, top, right, bottom);
         }
         while (waiting.size() > kept) {
             waiting.remove(waiting.size() - 1);

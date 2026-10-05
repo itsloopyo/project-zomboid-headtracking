@@ -1558,6 +1558,10 @@ final class PipelineShaders {
                     }
                     texel.rgb *= mix(1.0, fine, much);
                 }
+                // A curtain the picture has hung has folds of its own, and is its weave close to.
+                if (vMaterial > 68.5 && vMaterial < 69.5) {
+                    texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 23.0) * uClothGain, 0.22);
+                }
                 // It has had the weather longest, and is a shade darker than the slopes it joins.
                 if (capping) {
                     texel.rgb *= 0.72;

@@ -12,6 +12,9 @@ final class WindowTests {
         brokenPaneKeepsTheShareOfGlassItsSpriteShows();
         frameWithNoStileAtOneEndRunsOn();
         archIsNoWindowInASquareFrame();
+        curtainDrawnAcrossIsOneLengthOfCloth();
+        curtainPulledBackIsTwo();
+        sheetRolledUpHangsNowhere();
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */
@@ -131,6 +134,114 @@ final class WindowTests {
                 "##........##",
                 "############",
                 "############") == null, "an arch is left to its sprite");
+    }
+
+    private static Drapes.Shape hung(String... rows) {
+        int across = rows[0].length();
+        byte[] dots = new byte[across * rows.length];
+        for (int row = 0; row < rows.length; row++) {
+            for (int column = 0; column < across; column++) {
+                dots[row * across + column] = (byte) (rows[row].charAt(column) == '#' ? 2 : 0);
+            }
+        }
+        return Drapes.measure(dots, across, rows.length);
+    }
+
+    private static void curtainDrawnAcrossIsOneLengthOfCloth() {
+        Drapes.Shape shape = hung(
+                "        ",
+                " ###### ",
+                " ## ### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                " ###### ",
+                "        ");
+        check(shape.hangs.length == 2 && near(shape.hangs[0], 1f / 8f) && near(shape.hangs[1], 7f / 8f), "a curtain drawn across is one length of cloth");
+        check(near(shape.head, 24f / 25f) && near(shape.foot, 1f / 25f), "from its rod to its hem: " + shape.foot + " to " + shape.head);
+    }
+
+    private static void curtainPulledBackIsTwo() {
+        Drapes.Shape shape = hung(
+                "########",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##",
+                "##    ##");
+        check(shape.hangs.length == 4 && near(shape.hangs[1], 2f / 8f) && near(shape.hangs[2], 6f / 8f), "a curtain pulled back hangs at the two ends of its rod");
+    }
+
+    private static void sheetRolledUpHangsNowhere() {
+        Drapes.Shape shape = hung(
+                " ########## ",
+                " ########## ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ",
+                "            ");
+        check(shape != null && shape.hangs.length == 0, "a sheet rolled up over a window is all roll");
     }
 
     private static void check(boolean condition, String what) {
