@@ -2071,13 +2071,17 @@ final class Pipeline {
             // the dashboard begins and where the pillar behind the driver's door stands, both
             // along. uTrade is what the vehicle carries for its work. uArms is whether the
             // driver's hands are on the wheel, and uSkin and uSleeve what they are covered in,
-            // the sleeve's fourth part being how far down the forearm it comes.
+            // the sleeve's fourth part being how far down the arm it comes: 1 to the wrist,
+            // a half to the elbow, and nought for a bare arm.
             uniform vec3 uHouse;
             uniform vec2 uPad;
             uniform float uTrade;
             uniform float uArms;
             uniform vec3 uSkin;
             uniform vec4 uSleeve;
+            uniform vec3 uBare;
+            // How brightly the lamp in the roof is lit: it comes on with an open door.
+            uniform float uDome;
             uniform sampler2D uCarpet;
             uniform float uCarpetGain;
             // What part of the cabin the nearest of the body's own triangles is at each pixel,
@@ -2148,8 +2152,7 @@ final class Pipeline {
             // column runs. Returns how far p is from the nearest of them, and in part which:
             // 1 rim, 2 hub, 3 spoke, 4 stalk, 5 shroud, 6 binnacle, 7 mirror.
             // A spoke from the hub out to the rim at a turn, flat and dished like the rim.
-            float spokeAt(vec3 w, float turn, float radius, float dish) {
-                vec2 way = vec2(cos(turn), sin(turn));
+            float spokeAt(vec3 w, vec2 way, float radius, float dish) {
                 float along = clamp(dot(w.xy, way), 0.0, radius);
                 vec2 off = w.xy - way * along;
                 // Flattened, it is nearer than this says by as much as it is flattened: taken
@@ -2159,10 +2162,13 @@ final class Pipeline {
 
             // A place on the wheel's face as it is with the wheel turned by that much, to the
             // right as the driver sees it.
-            vec2 steered(vec2 v, float by) {
-                float c = cos(by), s = sin(by);
-                return vec2(v.x * c - v.y * s, v.y * c + v.x * s);
+            vec2 gSteered = vec2(1.0, 0.0);
+
+            vec2 steered(vec2 v) {
+                return vec2(v.x * gSteered.x - v.y * gSteered.y, v.y * gSteered.x + v.x * gSteered.y);
             }
+
+            void poseArms();
 
             float built(vec3 p, float nearest, inout float part);
             vec3 builtPaint(vec3 p, float part);
@@ -2176,6 +2182,11 @@ final class Pipeline {
             // Parts past the first seven: 8 the door mirror, 9 what stands between the seats,
             // 10 the boot of a lever on the floor, 11 a post up the middle of the screen. The
             // rest are the glasshouse and the furnishings the picture builds.
+            // While set, what is far from a place is only said to be at least so far off,
+            // which is all a line of sight walking through the cabin asks of it: at 1, what
+            // is more than 0.04 off, and at less, what is further off in proportion.
+            float gRoughly = 0.0;
+
             float cabinAt(vec3 p, out float part) {
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
@@ -2183,81 +2194,111 @@ final class Pipeline {
                 // Which way across the middle of the vehicle is from the wheel.
                 float toward = uDash.x < 0.0 ? -1.0 : 1.0;
                 float radius = uWheel.w * uKit.x;
-                float outward = length(w.xy);
-                float rim = length(vec2(outward - radius, w.z * 0.82)) - uKit.y;
-                float dish = 0.032 * (1.0 - min(outward / radius, 1.0));
-                // The hub and the spokes turn with the steering, about the column.
-                vec2 spun = steered(w.xy, uSteer);
-                float hub = block(vec3(spun.x, spun.y + 0.012, w.z - 0.02), vec3(uHub.xy - uHub.z, 0.012), uHub.z);
-                vec3 s = vec3(spun.x, spun.y + 0.012, w.z);
-                float spoke;
-                if (uKit.z < 2.5) {
-                    spoke = min(spokeAt(s, -0.1, radius, dish), spokeAt(s, 3.2416, radius, dish));
-                } else if (uKit.z < 3.5) {
-                    spoke = min(min(spokeAt(s, 0.0, radius, dish), spokeAt(s, 3.1416, radius, dish)), spokeAt(s, 4.7124, radius, dish));
-                } else if (uKit.z < 4.5) {
-                    spoke = min(min(spokeAt(s, -0.3, radius, dish), spokeAt(s, 3.4416, radius, dish)), min(spokeAt(s, -1.0, radius, dish), spokeAt(s, 4.1416, radius, dish)));
-                } else if (uKit.z < 5.5) {
-                    spoke = min(min(spokeAt(s, 0.55, radius, dish), spokeAt(s, 2.59, radius, dish)), min(spokeAt(s, -0.55, radius, dish), spokeAt(s, 3.69, radius, dish)));
+                float nearest = 1000.0;
+                part = 0.0;
+                // The wheel, its column and the instruments behind it are all within a
+                // ball round the column's head.
+                float round1 = length(w - vec3(0.0, 0.05, 0.1)) - 0.42;
+                if (gRoughly * round1 > 0.04) {
+                    nearest = round1;
                 } else {
-                    spoke = min(min(spokeAt(s, 0.52, radius, dish), spokeAt(s, 2.62, radius, dish)), spokeAt(s, 4.7124, radius, dish));
+                    float outward = length(w.xy);
+                    float rim = length(vec2(outward - radius, w.z * 0.82)) - uKit.y;
+                    float dish = 0.032 * (1.0 - min(outward / radius, 1.0));
+                    // The hub and the spokes turn with the steering, about the column.
+                    vec2 spun = steered(w.xy);
+                    float hub = block(vec3(spun.x, spun.y + 0.012, w.z - 0.02), vec3(uHub.xy - uHub.z, 0.012), uHub.z);
+                    vec3 s = vec3(spun.x, spun.y + 0.012, w.z);
+                    float spoke;
+                    if (uKit.z < 2.5) {
+                        spoke = min(spokeAt(s, vec2(0.9950, -0.0998), radius, dish), spokeAt(s, vec2(-0.9950, -0.0998), radius, dish));
+                    } else if (uKit.z < 3.5) {
+                        spoke = min(min(spokeAt(s, vec2(1.0000, 0.0000), radius, dish), spokeAt(s, vec2(-1.0000, -0.0000), radius, dish)), spokeAt(s, vec2(0.0000, -1.0000), radius, dish));
+                    } else if (uKit.z < 4.5) {
+                        spoke = min(min(spokeAt(s, vec2(0.9553, -0.2955), radius, dish), spokeAt(s, vec2(-0.9553, -0.2955), radius, dish)), min(spokeAt(s, vec2(0.5403, -0.8415), radius, dish), spokeAt(s, vec2(-0.5403, -0.8415), radius, dish)));
+                    } else if (uKit.z < 5.5) {
+                        spoke = min(min(spokeAt(s, vec2(0.8525, 0.5227), radius, dish), spokeAt(s, vec2(-0.8517, 0.5240), radius, dish)), min(spokeAt(s, vec2(0.8525, -0.5227), radius, dish), spokeAt(s, vec2(-0.8534, -0.5213), radius, dish)));
+                    } else {
+                        spoke = min(min(spokeAt(s, vec2(0.8678, 0.4969), radius, dish), spokeAt(s, vec2(-0.8670, 0.4983), radius, dish)), spokeAt(s, vec2(0.0000, -1.0000), radius, dish));
+                    }
+                    vec3 mirrored = vec3(abs(w.x), w.y, w.z);
+                    float stalk = min(rod(mirrored, vec3(0.05, 0.004, 0.09), vec3(0.17, 0.03, 0.076), 0.006), length(mirrored - vec3(0.17, 0.03, 0.076)) - 0.01);
+                    if (uShift > 0.5 && uShift < 1.5) {
+                        // A lever on the column, up and towards the middle of the vehicle, with a
+                        // ball. It is laid out with the middle of the vehicle on the low side of across.
+                        vec3 inboard = vec3(-w.x * toward, w.y, w.z);
+                        stalk = min(stalk, min(rod(inboard, vec3(-0.04, 0.02, 0.11), vec3(-0.24, 0.12, 0.05), 0.007), length(inboard - vec3(-0.24, 0.12, 0.05)) - 0.02));
+                    }
+                    float shroud = max(length(vec2(w.x, w.y + 0.012)) - 0.058, abs(w.z - 0.14) - 0.1) - 0.006;
+                    vec3 hood = w - vec3(0.0, 0.112, 0.2);
+                    float binnacle;
+                    if (uHood.y > 0.001) {
+                        binnacle = max(block(hood, vec3(uHood.x, uHood.y, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(uHood.x - 0.017, uHood.y - 0.016, 0.075), 0.012));
+                    } else {
+                        // No hood: the instruments stand in a flat plate.
+                        binnacle = block(hood - vec3(0.0, 0.0, 0.075), vec3(uHood.x, 0.07, 0.006), 0.004);
+                    }
+                    nearest = rim;
+                    part = 1.0;
+                    if (hub < nearest) { nearest = hub; part = 2.0; }
+                    if (spoke < nearest) { nearest = spoke; part = 3.0; }
+                    if (stalk < nearest) { nearest = stalk; part = 4.0; }
+                    if (shroud < nearest) { nearest = shroud; part = 5.0; }
+                    if (binnacle < nearest) { nearest = binnacle; part = 6.0; }
                 }
-                vec3 mirrored = vec3(abs(w.x), w.y, w.z);
-                float stalk = min(rod(mirrored, vec3(0.05, 0.004, 0.09), vec3(0.17, 0.03, 0.076), 0.006), length(mirrored - vec3(0.17, 0.03, 0.076)) - 0.01);
-                // The levers are laid out with the middle of the vehicle on the low side of across.
-                vec3 inboard = vec3(-w.x * toward, w.y, w.z);
-                if (uShift > 0.5 && uShift < 1.5) {
-                    // A lever on the column, up and towards the middle of the vehicle, with a ball.
-                    stalk = min(stalk, min(rod(inboard, vec3(-0.04, 0.02, 0.11), vec3(-0.24, 0.12, 0.05), 0.007), length(inboard - vec3(-0.24, 0.12, 0.05)) - 0.02));
-                } else if (uShift > 1.5) {
-                    // A lever out of the floor beside the driver's knee, with a ball.
-                    stalk = min(stalk, min(rod(inboard, vec3(-0.42, -0.5, -0.05), vec3(-0.4, -0.22, -0.12), 0.01), length(inboard - vec3(-0.4, -0.22, -0.12)) - 0.028));
-                }
-                float shroud = max(length(vec2(w.x, w.y + 0.012)) - 0.058, abs(w.z - 0.14) - 0.1) - 0.006;
-                vec3 hood = w - vec3(0.0, 0.112, 0.2);
-                float binnacle;
-                if (uHood.y > 0.001) {
-                    binnacle = max(block(hood, vec3(uHood.x, uHood.y, 0.065), 0.022), -block(hood - vec3(0.0, -0.006, -0.03), vec3(uHood.x - 0.017, uHood.y - 0.016, 0.075), 0.012));
+                float round2 = length(p - uMirror - vec3(0.025, 0.0, 0.005)) - 0.15;
+                if (gRoughly * round2 > 0.04) {
+                    nearest = min(nearest, round2);
                 } else {
-                    // No hood: the instruments stand in a flat plate.
-                    binnacle = block(hood - vec3(0.0, 0.0, 0.075), vec3(uHood.x, 0.07, 0.006), 0.004);
+                    float mirror = block(p - uMirror, vec3(0.01, 0.115, 0.032), 0.01);
+                    if (mirror < nearest) { nearest = mirror; part = 7.0; }
+                    float hung = rod(p, uMirror, uMirror + vec3(0.05, 0.0, 0.014), 0.009);
+                    if (hung < nearest) { nearest = hung; part = 22.0; }
                 }
-                float mirror = block(p - uMirror, vec3(0.01, 0.115, 0.032), 0.01);
-                float nearest = rim;
-                part = 1.0;
-                if (hub < nearest) { nearest = hub; part = 2.0; }
-                if (spoke < nearest) { nearest = spoke; part = 3.0; }
-                if (stalk < nearest) { nearest = stalk; part = 4.0; }
-                if (shroud < nearest) { nearest = shroud; part = 5.0; }
-                if (binnacle < nearest) { nearest = binnacle; part = 6.0; }
-                if (mirror < nearest) { nearest = mirror; part = 7.0; }
                 // The mirror on the driver's door: a housing outside the glass at the foot of
                 // the screen's pillar, on an arm from the door.
                 vec3 housed = p - uDoorMirror;
-                float doorMirror = min(block(housed, vec3(0.02, 0.066, 0.04), 0.014),
-                        rod(housed, vec3(0.01, toward * 0.06, -0.03), vec3(0.04, toward * 0.17, -0.055), 0.012));
-                if (doorMirror < nearest) { nearest = doorMirror; part = 8.0; }
-                if (uTrim.w > 0.5) {
-                    // The lever's foot is where the floor lever above stands.
-                    vec3 foot = q - vec3(-0.213, toward * 0.42, -0.44);
-                    if (uTrim.w < 2.5) {
-                        float boot = length(foot * vec3(1.0, 1.0, 1.5)) - 0.055;
-                        if (boot < nearest) { nearest = boot; part = 10.0; }
+                float round3 = length(housed - vec3(0.02, toward * 0.05, -0.02)) - 0.18;
+                if (gRoughly * round3 > 0.04) {
+                    nearest = min(nearest, round3);
+                } else {
+                    float doorMirror = min(block(housed, vec3(0.02, 0.066, 0.04), 0.014),
+                            rod(housed, vec3(0.01, toward * 0.06, -0.03), vec3(0.04, toward * 0.17, -0.055), 0.012));
+                    if (doorMirror < nearest) { nearest = doorMirror; part = 8.0; }
+                }
+                // What stands on the floor is all below the wheel's middle.
+                float over = q.z + 0.11;
+                if (gRoughly * over > 0.04) {
+                    nearest = min(nearest, over);
+                } else {
+                    if (uShift > 1.5) {
+                        // A lever out of the floor beside the driver's knee, with a ball.
+                        vec3 inboard = vec3(-w.x * toward, w.y, w.z);
+                        float lever = min(rod(inboard, vec3(-0.42, -0.5, -0.05), vec3(-0.4, -0.22, -0.12), 0.01), length(inboard - vec3(-0.4, -0.22, -0.12)) - 0.028);
+                        if (lever < nearest) { nearest = lever; part = 4.0; }
                     }
-                    float between = 1000.0;
-                    if (uTrim.w < 1.5) {
-                        // A console from under the dash back between the seats.
-                        between = block(q - vec3(-0.45, toward * 0.42, -0.6), vec3(0.5, 0.085, 0.13), 0.02);
-                    } else if (uTrim.w > 2.5) {
-                        // A van's engine stands between its seats under a padded cover.
-                        between = block(q - vec3(-0.25, uDash.x, -0.62), vec3(0.55, 0.19, 0.2), 0.07);
+                    if (uTrim.w > 0.5) {
+                        // The lever's foot is where the floor lever above stands.
+                        vec3 foot = q - vec3(-0.213, toward * 0.42, -0.44);
+                        if (uTrim.w < 2.5) {
+                            float boot = length(foot * vec3(1.0, 1.0, 1.5)) - 0.055;
+                            if (boot < nearest) { nearest = boot; part = 10.0; }
+                        }
+                        float between = 1000.0;
+                        if (uTrim.w < 1.5) {
+                            // A console from under the dash back between the seats.
+                            between = block(q - vec3(-0.45, toward * 0.42, -0.6), vec3(0.5, 0.085, 0.13), 0.02);
+                        } else if (uTrim.w > 2.5) {
+                            // A van's engine stands between its seats under a padded cover.
+                            between = block(q - vec3(-0.25, uDash.x, -0.62), vec3(0.55, 0.19, 0.2), 0.07);
+                        }
+                        if (between < nearest) { nearest = between; part = 9.0; }
                     }
-                    if (between < nearest) { nearest = between; part = 9.0; }
-                    if (uTrim.w > 3.5) {
-                        // A step van's screen is two flat panes with a post between them.
-                        float post = rod(p, vec3(uScreen.x, uWheel.y + uDash.x, uScreen.y - 0.05), vec3(uScreen.x - 0.06, uWheel.y + uDash.x, uScreen.y + 0.9), 0.02);
-                        if (post < nearest) { nearest = post; part = 11.0; }
-                    }
+                }
+                if (uTrim.w > 3.5) {
+                    // A step van's screen is two flat panes with a post between them.
+                    float post = rod(p, vec3(uScreen.x, uWheel.y + uDash.x, uScreen.y - 0.05), vec3(uScreen.x - 0.06, uWheel.y + uDash.x, uScreen.y + 0.9), 0.02);
+                    if (post < nearest) { nearest = post; part = 11.0; }
                 }
                 return built(p, nearest, part);
             }
@@ -2297,13 +2338,13 @@ final class Pipeline {
                     paint = mix(uDashColor * 0.9, uDashColor * 2.2 + 0.08, seam);
                 } else if (part < 2.5) {
                     // The pad over the horn, with the maker's badge pressed into it.
-                    vec2 spun = steered(w.xy, uSteer);
+                    vec2 spun = steered(w.xy);
                     float badge = abs(spun.x) / 0.022 + abs(spun.y + 0.012) / 0.015;
                     paint = mix(uDashColor * 0.85, uDashColor * 1.6 + 0.12, step(0.78, badge) * step(badge, 1.0));
                 } else if (part < 3.5) {
                     // Thin spokes are bare metal, drilled. Broad ones are padded like the hub.
                     // A hole every so far out along the middle of each of the three.
-                    vec2 spun = steered(w.xy, uSteer) + vec2(0.0, 0.012);
+                    vec2 spun = steered(w.xy) + vec2(0.0, 0.012);
                     float reach = length(spun);
                     float turn = atan(spun.y, spun.x);
                     float beside = min(abs(sin(turn - 0.52)), min(abs(sin(turn - 2.62)), abs(sin(turn - 4.7124)))) * reach;
@@ -2448,16 +2489,54 @@ final class Pipeline {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
 
+            // Half the width of the front screen, in tiles. A place on it is counted across
+            // from its middle, the driver's side below nought, and up from 0.3 under its foot.
+            float gScreenHalf = 0.72;
+
+            // Where a place on the front screen is to its two wipers. They are parked along
+            // its foot, pointing away from the driver's side, and sweep up together through
+            // a little over a right angle and back. x is 1 where a blade wipes, y 1 on the
+            // line the blades leave at the end of their reach, z how long since a blade
+            // last passed, 0 just now to 1 long enough for the rain to be back, and w 1 on
+            // a blade itself while it rains.
+            vec4 sweepAt(vec2 on) {
+                const float SWEEP = 1.92, BEAT = 1.5;
+                float reach = 0.66 * gScreenHalf;
+                float phase = fract(uTime / BEAT);
+                float at = phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase;
+                vec4 found = vec4(0.0, 0.0, 1.0, 0.0);
+                for (int i = 0; i < 2; i++) {
+                    vec2 rel = on - vec2((i == 0 ? -0.62 : 0.06) * gScreenHalf, -0.30);
+                    float far2 = length(rel);
+                    float q = atan(rel.y, rel.x) / SWEEP;
+                    if (q < 0.02 || q > 1.0 || far2 < 0.05) {
+                        continue;
+                    }
+                    found.y = max(found.y, exp(-pow((far2 - reach) / 0.012, 2.0)));
+                    if (far2 < reach) {
+                        found.x = 1.0;
+                        float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
+                        found.z = min(found.z, clamp(since * BEAT / 1.1, 0.0, 1.0));
+                        found.w = max(found.w, 1.0 - smoothstep(0.004, 0.011, abs(q - at) * SWEEP * far2));
+                    }
+                }
+                found.y *= 1.0 - found.x;
+                return found;
+            }
+
+            vec4 flared(vec4 glass, vec3 look, float dirt);
+
             vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
                 float dust = smoothstep(0.35, 0.85, noise2(on * 5.0) * 0.55 + noise2(on * 15.0 + 3.0) * 0.3 + noise2(on * 61.0) * 0.15);
                 float runs = smoothstep(0.62, 0.95, noise2(vec2(on.x * 46.0, on.y * 2.2)));
                 float dirt = clamp(dust * 0.75 + runs * 0.45, 0.0, 1.0);
                 // The wipers keep their two arcs of the front screen clean and push what they
                 // clear to the arcs' edges, where it dries as a line.
+                vec4 wiper = vec4(0.0);
                 if (swept > 0.5) {
-                    float nearest = min(length(on - vec2(0.05, -0.30)), min(length(on - vec2(0.75, -0.30)), length(on - vec2(-0.65, -0.30))));
-                    float inside = 1.0 - smoothstep(0.5, 0.54, nearest);
-                    dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * exp(-pow((nearest - 0.53) / 0.012, 2.0)) + 0.45 * (1.0 - inside);
+                    wiper = sweepAt(on);
+                    float inside = wiper.x;
+                    dirt = dirt * (1.0 - 0.75 * inside) + 0.55 * wiper.y + 0.45 * (1.0 - inside);
                     dirt = clamp(dirt, 0.0, 1.0);
                 }
                 float glancing = 0.04 + 0.96 * pow(clamp(1.0 - abs(dot(n, view)), 0.0, 1.0), 5.0);
@@ -2475,28 +2554,8 @@ final class Pipeline {
                 if (uRaining > 0.0) {
                     // Rain stands on the glass as drops. On the front screen the wipers go to
                     // and fro and the drops come back behind the blade.
-                    float fresh = 1.0;
-                    float blade = 0.0;
-                    if (swept > 0.5) {
-                        vec2 pivot = vec2(0.05, -0.30);
-                        if (length(on - vec2(0.75, -0.30)) < length(on - pivot)) {
-                            pivot = vec2(0.75, -0.30);
-                        }
-                        if (length(on - vec2(-0.65, -0.30)) < length(on - pivot)) {
-                            pivot = vec2(-0.65, -0.30);
-                        }
-                        vec2 rel = on - pivot;
-                        float reach = length(rel);
-                        if (reach < 0.52 && rel.y > 0.0) {
-                            const float BEAT = 1.5;
-                            float q = atan(rel.y, rel.x) / 3.14159;
-                            float phase = fract(uTime / BEAT);
-                            float at = phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase;
-                            float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
-                            fresh = clamp(since * BEAT / 1.1, 0.0, 1.0);
-                            blade = (1.0 - smoothstep(0.004, 0.011, abs(q - at) * 3.14159 * reach)) * step(0.06, reach);
-                        }
-                    }
+                    float fresh = swept > 0.5 ? wiper.z : 1.0;
+                    float blade = wiper.w;
                     vec2 grid = on * 46.0;
                     vec2 cell = floor(grid);
                     float chance = hash21(cell);
@@ -2511,9 +2570,20 @@ final class Pipeline {
                     vec3 held = atmosphere(vec3(0.0, 0.0, 1.0)) * 1.3 + vec3(1.0, 0.92, 0.76) * (0.1 * swept * step(0.5, uBeamAt[0].w));
                     glass.rgb = mix(glass.rgb, held, wet / (wet + glass.a));
                     glass.a = min(glass.a + wet * 0.6, 0.9);
+                    // On the panes no wiper reaches the rain gathers and runs down in
+                    // trickles, and the glass mists over from its foot where the warm air
+                    // inside meets it.
+                    float still = 1.0 - (swept > 0.5 ? wiper.x : 0.0);
+                    float trickle = smoothstep(0.8, 0.97, noise2(vec2(on.x * 70.0, on.y * 2.5 + uTime * 0.35))) * smoothstep(0.35, 0.6, noise2(vec2(on.x * 9.0 + 4.0, on.y * 1.5 - uTime * 0.2)));
+                    float running = trickle * uRaining * still * (1.0 - 0.7 * swept);
+                    glass.rgb = mix(glass.rgb, held, running * 0.6 / (running * 0.6 + glass.a));
+                    glass.a = min(glass.a + running * 0.28, 0.9);
+                    float mist = uRaining * still * (1.0 - smoothstep(-0.32, 0.02 + 0.12 * noise2(on * 3.0), on.y)) * (0.5 + 0.5 * noise2(on * 11.0));
+                    glass.rgb = mix(glass.rgb, atmosphere(vec3(0.0, 0.0, 1.0)) * 0.9 + 0.01, mist * 0.3 / (mist * 0.3 + glass.a));
+                    glass.a = min(glass.a + mist * 0.3, 0.92);
                     glass = mix(glass, vec4(0.004, 0.004, 0.005, 1.0), blade);
                 }
-                return glass;
+                return flared(glass, -view, dirt);
             }
 
             // The pane a line of sight from the seat leaves the cabin by, told by which way
@@ -2529,7 +2599,12 @@ final class Pipeline {
             }
 
             vec4 paneBuilt(vec3 out3);
+            vec3 domeLit(vec3 o, vec3 m);
+            vec3 domeLamp(vec3 o, float part);
             vec3 litFace(vec2 p, out float glow);
+            float cabinReach(vec3 o, vec3 d);
+            // How far off along the line of sight the pane last asked for is, as the driver's place is laid out.
+            float gPaneFar = 0.0;
 
             // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
             // or the pale blue of the sky a pane shows.
@@ -2759,7 +2834,8 @@ final class Pipeline {
                 float dialGlow = 0.0;
                 float dashGlow = 0.0;
                 float dialFar = 0.0;
-                if (uInside > 0.5 && uWheel.w > 0.0) {
+                bool traced = uInside > 0.5 && uWheel.w > 0.0 && uGlassPass < 0.5;
+                if (traced) {
                     vec3 d = normalize(ray);
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
@@ -2837,19 +2913,24 @@ final class Pipeline {
                 float wheelPart = 0.0;
                 vec3 wheelPlace = vec3(0.0);
                 vec3 wheelFaces = vec3(0.0);
-                if (uInside > 0.5 && uWheel.w > 0.0) {
+                if (traced) {
                     vec3 d = normalize(ray);
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
                     float t = 0.05;
-                    for (int i = 0; i < 72; i++) {
-                        float gap = wheelAt(uSeat + line * t / CABIN) * CABIN;
+                    float most = cabinReach(uSeat, line) * CABIN;
+                    gSteered = vec2(cos(uSteer), sin(uSteer));
+                    poseArms();
+                    float met = 0.0;
+                    gRoughly = 1.0;
+                    for (int i = 0; i < 64; i++) {
+                        float gap = cabinAt(uSeat + line * t / CABIN, met) * CABIN;
                         if (gap < 0.0008) {
                             wheel = true;
                             break;
                         }
                         t += gap;
-                        if (t > 1.4) {
+                        if (t > most) {
                             break;
                         }
                     }
@@ -2859,30 +2940,42 @@ final class Pipeline {
                         // whatever of the body stands before it.
                         // The driver's own hands and sleeves are before everything too, and
                         // the pad over the dashboard is the top of the board it lies on.
-                        float met;
-                        cabinAt(uSeat + line * t / CABIN, met);
                         bool always = met > 22.5 && met < 24.5 || met > 27.5 || met > 18.5 && met < 19.5 && kind > 1.5 && kind < 2.5;
                         if (met > 7.5 && !always && bodyAhead < t / length(ray) - 0.02) {
                             wheel = false;
                         }
+                    }
+                    // From a seat behind, the backs of the seats in front hide what is built
+                    // before them, the wheel and the instruments too.
+                    bool seatBefore = kind > 0.5 && kind < 1.5 && uArms < 0.5;
+                    if (wheel && seatBefore && bodyAhead < t / length(ray) - 0.05) {
+                        wheel = false;
+                    }
+                    if (dial && seatBefore && bodyAhead < dialFar / length(ray) - 0.05) {
+                        dial = false;
                     }
                     if (wheel && dial && dialFar < t) {
                         wheel = false;
                     } else if (wheel) {
                         dial = false;
                     }
-                    if ((wheel || dial) && uGlassPass > 0.5) {
-                        discard;
-                    }
                     if (wheel) {
                         vec3 p = uSeat + line * t / CABIN;
-                        vec2 e = vec2(0.002, 0.0);
-                        vec3 slope = normalize(vec3(wheelAt(p + e.xyy) - wheelAt(p - e.xyy), wheelAt(p + e.yxy) - wheelAt(p - e.yxy), wheelAt(p + e.yyx) - wheelAt(p - e.yyx)));
+                        // Which way it faces, from how far off it is at four places round the point.
+                        vec3 slope = vec3(0.0);
+                        for (int corner = 0; corner < 4; corner++) {
+                            vec3 e = corner == 0 ? vec3(0.002, -0.002, -0.002) : corner == 1 ? vec3(-0.002, -0.002, 0.002) : corner == 2 ? vec3(-0.002, 0.002, -0.002) : vec3(0.002);
+                            slope += e * wheelAt(p + e);
+                        }
+                        slope = normalize(slope);
                         wheelFaces = vec3(uAhead * slope.x + side * slope.y, slope.z);
                         wheelFar = t;
                         wheelPlace = p;
-                        cabinAt(p, wheelPart);
+                        wheelPart = met;
                     }
+                    // What is asked of the parts from here on is asked up to a hand's breadth
+                    // off them, where what is far is still only said to be far.
+                    gRoughly = 0.44;
                 }
                 float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
@@ -2904,7 +2997,10 @@ final class Pipeline {
                             discard;
                         }
                         gl_FragColor = paneBuilt(out3);
-                        gl_FragDepth = gl_FragCoord.z;
+                        // The pane is as far off as it is, in the picture's own measure of
+                        // depth: whatever of the cabin is before it hides it.
+                        float paneAhead = gPaneFar * CABIN / length(ray);
+                        gl_FragDepth = 0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / paneAhead) / (uFar - uWriteNear);
                         return;
                     }
                     if (open) {
@@ -2939,7 +3035,7 @@ final class Pipeline {
                         discard;
                     }
                     gl_FragColor = paneSeen(out3);
-                    gl_FragDepth = gl_FragCoord.z;
+                    gl_FragDepth = 0.0;
                     return;
                 }
                 if (bonnetSeen) {
@@ -2967,7 +3063,8 @@ final class Pipeline {
                 // comes in steps finer than a pixel is wide: read close by, the steps show as
                 // rings. Read from further off they do not.
                 float close = uInside * step(ahead * length(ray), 2.2);
-                vec3 found = builtCabin && !framed && !wheel && !dial ? partNormalAt(uv, at, 5.0) + partNormalAt(uv, at, 11.0)
+                // What the picture builds says which way it faces itself.
+                vec3 found = wheel || dial ? vec3(0.0) : builtCabin && !framed ? partNormalAt(uv, at, 5.0) + partNormalAt(uv, at, 11.0)
                         : close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 if (bonnetSeen) {
@@ -3039,13 +3136,15 @@ final class Pipeline {
                     // needs to be seen at a slant, and from the seat every panel is at a slant:
                     // the weave of its trim comes out as rings of dots. Evened out over the
                     // pixels round about, it is cloth and plastic again.
-                    vec4 sum = figure * 2.0 + east + west + north + south;
-                    for (int i = 0; i < 4; i++) {
-                        vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
-                        sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
-                    }
-                    if (sum.a > 6.0 && !wheel && !dial && !bonnetSeen && !blind && !framed) {
-                        figure = vec4(sum.rgb / sum.a, 1.0);
+                    if (!wheel && !dial && !bonnetSeen && !blind && !framed) {
+                        vec4 sum = figure * 2.0 + east + west + north + south;
+                        for (int i = 0; i < 4; i++) {
+                            vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
+                            sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
+                        }
+                        if (sum.a > 6.0) {
+                            figure = vec4(sum.rgb / sum.a, 1.0);
+                        }
                     }
                     if (ghost) {
                         // Against a pale dash the dark of a footwell would be a ring as plain
@@ -3255,7 +3354,7 @@ final class Pipeline {
                         float along = dot(to.xy, uAhead);
                         bool ends = abs(dot(n.xy, uAhead)) > abs(dot(n.xy, side));
                         gl_FragColor = pane(vec2(ends ? dot(to.xy, side) : along + 7.0, to.z), n, view, ends && along > 0.0 ? 1.0 : 0.0);
-                        gl_FragDepth = gl_FragCoord.z;
+                        gl_FragDepth = 0.0;
                         return;
                     }
                 } else if (uGlassPass > 0.5) {
@@ -3295,10 +3394,17 @@ final class Pipeline {
                     if (wheel) {
                         // What stands close before a built part keeps the light off it.
                         vec3 out3 = vec3(dot(wheelFaces.xy, uAhead), dot(wheelFaces.xy, side), wheelFaces.z);
-                        shade = 0.4 + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.025) / 0.025, 0.0, 1.0) + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.08) / 0.08, 0.0, 1.0);
+                        shade = 0.4;
+                        for (int probe = 0; probe < 2; probe++) {
+                            float off = probe == 0 ? 0.025 : 0.08;
+                            shade += 0.3 * clamp(wheelAt(wheelPlace + out3 * off) / off, 0.0, 1.0);
+                        }
                     }
                     color = cabinLit(place, turned, vec3(dot(view.xy, uAhead), dot(view.xy, side), view.z), pow(figure.rgb, vec3(2.2)), sheen, skyGives, sunOut, shade,
                             sunLight, vec3(dot(uLight.xy, uAhead), dot(uLight.xy, side), uLight.z));
+                    if (uDome > 0.0) {
+                        color += (pow(figure.rgb, vec3(2.2)) * 0.92 + 0.014) * domeLit(place, turned) * shade + domeLamp(place, wheel ? wheelPart : 0.0);
+                    }
                 }
                 float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
                 if (uPainted < 0.5 && cabin < 0.5) {
@@ -3963,7 +4069,11 @@ final class Pipeline {
     private static int figureNormal;
     private static final int NORMAL_UNIT = 22;
     private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
-    private static int mirrorColor, mirrorTarget;
+    private static int mirrorColor, mirrorTarget, mirrorDepth;
+    /** The people and vehicles the mirror shows, as the game or the picture draws them, before they are lit into the mirror's picture. */
+    private static int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal;
+    /** Nearer the mirror than this, in tiles, is the vehicle it hangs in, and is left out of its picture. */
+    private static final float MIRROR_NEAR = 2.6f;
     private static boolean inMirror;
     private static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180, MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
@@ -4079,6 +4189,16 @@ final class Pipeline {
                 behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
                 behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
                 behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
+                // Where the vehicle's wheel was when it was last drawn says where the mirror
+                // is, whichever seat the eye is in and however the head leans.
+                float[] wheelAt = VehicleMeshes.seatedWheel;
+                VehicleMeshes.Parts body = VehicleMeshes.seatedParts;
+                if (wheelAt != null) {
+                    Cabins.mirrorAt(wheelAt, Cabins.house(FirstPerson.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
+                    behind.eyeX = mirrorPlace[0];
+                    behind.eyeY = mirrorPlace[1];
+                    behind.eyeUp = mirrorPlace[2];
+                }
                 behind.forwardX = -aheadX;
                 behind.forwardY = -aheadY;
                 behind.forwardUp = 0f;
@@ -4089,8 +4209,11 @@ final class Pipeline {
                 behind.upY = 0f;
                 behind.upUp = 1f;
                 inMirror = true;
-                drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, 2.6f, far, fogStart, fogEnd);
+                drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far, fogStart, fogEnd);
                 inMirror = false;
+                if (figures) {
+                    drawMirrorFigures(state, far, fogStart, fogEnd);
+                }
             }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
@@ -5317,9 +5440,21 @@ final class Pipeline {
                 figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
                 figureLight.set("uTrade", Cabins.trade(FirstPerson.seatedIn));
                 float[] skin = Cabins.skin(FirstPerson.skin);
+                Cabins.Wear wear = Cabins.worn;
                 figureLight.set("uArms", FirstPerson.driving ? 1f : 0f);
-                figureLight.set("uSkin", skin[0], skin[1], skin[2]);
-                figureLight.set("uSleeve", Cabins.SLEEVE[0], Cabins.SLEEVE[1], Cabins.SLEEVE[2], 1f);
+                figureLight.set("uBare", skin[0], skin[1], skin[2]);
+                if (wear.glove() == null) {
+                    figureLight.set("uSkin", skin[0], skin[1], skin[2]);
+                } else {
+                    Cabins.colour(wear.glove(), worn);
+                    figureLight.set("uSkin", worn[0], worn[1], worn[2]);
+                }
+                if (wear.sleeve() == null) {
+                    figureLight.set("uSleeve", skin[0], skin[1], skin[2], 0f);
+                } else {
+                    Cabins.colour(wear.sleeve(), worn);
+                    figureLight.set("uSleeve", worn[0], worn[1], worn[2], wear.toTheWrist() ? 1f : 0.5f);
+                }
                 float sill = wheel[2] + measures[2] / Cabins.SCALE, glassOut = measures[3] / Cabins.SCALE;
                 figureLight.set("uScreen", wheel[0] + measures[0] / Cabins.SCALE, wheel[2] + measures[1] / Cabins.SCALE, sill, glassOut);
                 figureLight.set("uDash", measures[4] / Cabins.SCALE, wheel[2] + measures[5] / Cabins.SCALE);
@@ -5328,6 +5463,7 @@ final class Pipeline {
                 figureLight.set("uPaint", VehicleMeshes.seatedPaint[0], VehicleMeshes.seatedPaint[1], VehicleMeshes.seatedPaint[2]);
                 figureLight.set("uSteer", Cabins.wheelTurn(FirstPerson.steering));
                 figureLight.set("uLamps", FirstPerson.instrumentsLit ? 1f : 0f, FirstPerson.lampsOn ? 1f : 0f);
+                figureLight.set("uDome", FirstPerson.doorOpen ? 1f : 0f);
                 GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
                 GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
                 GL13.glActiveTexture(GL_TEXTURE0);
@@ -5354,6 +5490,93 @@ final class Pipeline {
      * its own distance. From the seat a dot is a hand across and the edge of a painted window
      * is a staircase, so there the skin is read with its dots run together.
      */
+    private static final float[] worn = new float[3], mirrorPlace = new float[3];
+
+    /**
+     * The people and then the vehicles behind, into the mirror's picture of the road: drawn
+     * as they are for the eye, against the depth of the world the mirror shows, and lit the
+     * same way. Only what Characters.drawBehind finds near enough is drawn at all, and a pass
+     * that finds nothing costs nothing more.
+     */
+    private static void drawMirrorFigures(SkyState state, float far, float fogStart, float fogEnd) {
+        float aspect = (float) MIRROR_WIDTH / MIRROR_HEIGHT;
+        for (int pass = 0; pass < 2; pass++) {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorFigureTarget);
+            GL11.glViewport(0, 0, MIRROR_WIDTH, MIRROR_HEIGHT);
+            GL11.glClearColor(0f, 0f, 0f, 0f);
+            GL11.glColorMask(true, true, true, true);
+            GL20.glDrawBuffers(BOTH_BUFFERS);
+            GL11.glClear(GL_COLOR_BUFFER_BIT);
+            GL20.glDrawBuffers(FIRST_BUFFER);
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL_BLEND);
+            smoothSkins(true);
+            CharacterDraw.bare = true;
+            int drawn = Characters.drawBehind(behind, MIRROR_TAN, aspect, MIRROR_NEAR, far, pass == 1);
+            CharacterDraw.bare = false;
+            smoothSkins(false);
+            // The game's draw leaves its own program, buffers and arrays bound.
+            GL30.glBindVertexArray(0);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glDisable(GL_CULL_FACE);
+            GL11.glDisable(GL_BLEND);
+            GL11.glDisable(GL_ALPHA_TEST);
+            if (drawn == 0) {
+                continue;
+            }
+            GL11.glDisable(GL_DEPTH_TEST);
+            GL11.glDepthMask(false);
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorTarget);
+            figureLight.use();
+            figureLight.set("uFigure", 0);
+            figureLight.set("uDepth", 3);
+            figureLight.set("uShadowNear", 1);
+            figureLight.set("uShadowFar", 2);
+            GL13.glActiveTexture(GL_TEXTURE0 + 3);
+            GL11.glBindTexture(GL_TEXTURE_2D, mirrorDepth);
+            GL13.glActiveTexture(GL_TEXTURE0 + 2);
+            GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+            GL13.glActiveTexture(GL_TEXTURE0 + 1);
+            GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+            GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, mirrorFigureNormal);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glBindTexture(GL_TEXTURE_2D, mirrorFigureColor);
+            figureLight.set("uNearMatrix", nearMatrix);
+            figureLight.set("uFarMatrix", farMatrix);
+            figureLight.set("uSize", (float) MIRROR_WIDTH, (float) MIRROR_HEIGHT);
+            figureLight.set("uTan", MIRROR_TAN * aspect, MIRROR_TAN);
+            figureLight.set("uNear", MIRROR_NEAR);
+            figureLight.set("uFar", far);
+            figureLight.set("uEye", behind.eyeX, behind.eyeY, behind.eyeUp);
+            figureLight.set("uRight", behind.rightX, behind.rightY, behind.rightUp);
+            figureLight.set("uUp", behind.upX, behind.upY, behind.upUp);
+            figureLight.set("uForward", behind.forwardX, behind.forwardY, behind.forwardUp);
+            figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
+            setBeams(figureLight);
+            setFlash(figureLight);
+            figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+            figureLight.set("uFogStart", fogStart);
+            figureLight.set("uFogEnd", fogEnd);
+            figureLight.set("uWriteNear", 0f);
+            figureLight.set("uInside", 0f);
+            figureLight.set("uGlassPass", 0f);
+            figureLight.set("uOwnAmbient", 1f, 1f, 1f);
+            figureLight.set("uFigureAmbient", Characters.ambient);
+            figureLight.set("uFacing", NORMAL_UNIT);
+            figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
+            // In a picture this small the weave of a shirt is finer than a dot of it.
+            figureLight.set("uRoots", 0f);
+            atmosphere(figureLight, state);
+            figureLight.set("uPainted", pass == 1 ? 1f : 0f);
+            quad();
+        }
+        GL11.glDepthMask(true);
+    }
+
     private static void smoothSkins(boolean smooth) {
         for (int unit = 0; unit < SKIN_UNITS; unit++) {
             GL33.glBindSampler(unit, smooth ? skinSampler : 0);
@@ -5378,7 +5601,10 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
-        GL11.glDisable(GL_DEPTH_TEST);
+        // The cabin's own parts are in the picture's depth, and each pane says how far off
+        // it is: a pane is hidden by whatever of the cabin stands before it.
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDepthMask(false);
         GL11.glEnable(GL_BLEND);
@@ -5387,6 +5613,7 @@ final class Pipeline {
         figureLight.set("uGlassPass", 1f);
         quad();
         figureLight.set("uGlassPass", 0f);
+        GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
@@ -5564,13 +5791,22 @@ final class Pipeline {
         beamMap = made[0];
         beamTarget = made[1];
         mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
-        int mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         mirrorTarget = GL30.glGenFramebuffers();
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorTarget);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mirrorColor, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
         if (beam == null) {
             beam = complete("mirror");
+        }
+        // Who and what stands behind is drawn against the depth of the world the mirror shows.
+        mirrorFigureColor = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        mirrorFigureTarget = target(mirrorFigureColor);
+        mirrorFigureNormal = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, mirrorFigureNormal, 0);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
+        if (beam == null) {
+            beam = complete("mirror's people");
         }
         if (near != null || far != null || roof != null || beam != null) {
             return near != null ? near : far != null ? far : roof != null ? roof : beam;

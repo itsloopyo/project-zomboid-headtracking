@@ -40,15 +40,38 @@ final class CabinShader {
                 return min(max(uPad.x, uWheel.x + 0.3), uScreen.x - 0.08);
             }
 
-            // Where a hand has the rim: way is -1 for the hand on the low side of across and
-            // 1 for the other. At ten and two with the wheel straight, and they go round
-            // with it for the first of a turn and let the rim slip through them after.
-            vec3 gripAt(float way, out vec3 outward, out vec3 along) {
+            // Where each hand has the rim, the hand on the low side of across first: the
+            // place, the way out from the wheel's middle there and the way along the rim,
+            // and the wrist and the elbow behind it. Worked out once for a pixel.
+            vec3 gGrip[2], gOutward[2], gAlong[2], gWrist[2], gElbow[2];
+
+            // At ten and two with the wheel straight. The hands go round with the wheel for
+            // the first of a turn. Past that they feed it: both slide down their own sides
+            // and up again as the wheel goes on round, one holding the rim while the other
+            // lets it slip, so neither leaves the wheel nor crosses the other up to full lock.
+            void poseArms() {
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
-                float turn = 1.5708 - way * 0.96 - uSteer / sqrt(1.0 + uSteer * uSteer);
-                outward = vec3(0.0, cos(turn), 0.0) + rise * sin(turn);
-                along = vec3(0.0, -sin(turn), 0.0) + rise * cos(turn);
-                return uWheel.xyz + outward * (uWheel.w * uKit.x);
+                float follow = uSteer / sqrt(1.0 + 4.0 * uSteer * uSteer);
+                float feed = 0.42 * (1.0 - cos(1.9 * max(abs(uSteer) - 0.35, 0.0)));
+                for (int i = 0; i < 2; i++) {
+                    float way = i == 0 ? -1.0 : 1.0;
+                    float turn = 1.5708 - way * (0.96 + feed) - follow;
+                    vec3 outward = vec3(0.0, cos(turn), 0.0) + rise * sin(turn);
+                    vec3 grip = uWheel.xyz + outward * (uWheel.w * uKit.x);
+                    vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);
+                    vec3 wrist = grip - uWheelAxis * 0.1 + outward * 0.04 + vec3(0.0, 0.0, -0.025);
+                    // The elbow hangs down and out between the shoulder and the wrist.
+                    vec3 reach = wrist - shoulder;
+                    float far2 = min(length(reach), 0.69);
+                    vec3 to = normalize(reach);
+                    float first = (far2 * far2 + 0.37 * 0.37 - 0.33 * 0.33) / (2.0 * far2);
+                    vec3 pole = vec3(0.0, way * 0.55, -1.0);
+                    gElbow[i] = shoulder + to * first + normalize(pole - to * dot(pole, to)) * sqrt(max(0.37 * 0.37 - first * first, 0.0));
+                    gGrip[i] = grip;
+                    gOutward[i] = outward;
+                    gAlong[i] = vec3(0.0, -sin(turn), 0.0) + rise * cos(turn);
+                    gWrist[i] = wrist;
+                }
             }
 
             float blend(float a, float b, float k) {
@@ -66,22 +89,17 @@ final class CabinShader {
             // The driver's hands on the rim and the arms behind them, from shoulders that
             // stay with the seat when the head leans. Parts 23 a hand and 24 a sleeve.
             float arms(vec3 p, float nearest, inout float part) {
-                if (uArms < 0.5 || length(p - vec3(0.24, uWheel.y, -0.38)) - 0.66 > nearest) {
+                float round4 = length(p - vec3(0.24, uWheel.y, -0.38)) - 0.66;
+                if (uArms < 0.5 || round4 > nearest) {
                     return nearest;
+                }
+                if (gRoughly * round4 > 0.04) {
+                    return min(nearest, round4);
                 }
                 for (int i = 0; i < 2; i++) {
                     float way = i == 0 ? -1.0 : 1.0;
-                    vec3 outward, along;
-                    vec3 grip = gripAt(way, outward, along);
+                    vec3 outward = gOutward[i], along = gAlong[i], grip = gGrip[i], wrist = gWrist[i], elbow = gElbow[i];
                     vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);
-                    vec3 wrist = grip - uWheelAxis * 0.1 + outward * 0.04 + vec3(0.0, 0.0, -0.025);
-                    // The elbow hangs down and out between the shoulder and the wrist.
-                    vec3 reach = wrist - shoulder;
-                    float far2 = min(length(reach), 0.69);
-                    vec3 to = normalize(reach);
-                    float first = (far2 * far2 + 0.37 * 0.37 - 0.33 * 0.33) / (2.0 * far2);
-                    vec3 pole = vec3(0.0, way * 0.55, -1.0);
-                    vec3 elbow = shoulder + to * first + normalize(pole - to * dot(pole, to)) * sqrt(max(0.37 * 0.37 - first * first, 0.0));
                     // Four fingers closed round the rim, the thumb along it on the driver's
                     // side, and the back of the hand from the knuckles to the wrist.
                     vec3 g = p - grip;
@@ -95,8 +113,13 @@ final class CabinShader {
                     float thumb = limb(p, root, root + along * (way * 0.06) - outward * 0.006, 0.0125, 0.0105);
                     float hand = blend(blend(fingers, back, 0.012), thumb, 0.008);
                     if (hand < nearest) { nearest = hand; part = 23.0; }
-                    float sleeve = min(limb(p, wrist + normalize(elbow - wrist) * 0.02, elbow, 0.034, 0.047), limb(p, elbow, shoulder, 0.049, 0.06));
-                    if (sleeve < nearest) { nearest = sleeve; part = 24.0; }
+                    // A bare arm is thinner than one in a sleeve.
+                    float clad = uSleeve.w > 0.75 ? 1.0 : 0.86;
+                    float fore = limb(p, wrist + normalize(elbow - wrist) * 0.02, elbow, 0.034 * clad, 0.047 * clad);
+                    if (fore < nearest) { nearest = fore; part = uSleeve.w > 0.75 ? 24.0 : 23.0; }
+                    clad = uSleeve.w > 0.25 ? 1.0 : 0.86;
+                    float upper = limb(p, elbow, shoulder, 0.049 * clad, 0.06 * clad);
+                    if (upper < nearest) { nearest = upper; part = uSleeve.w > 0.25 ? 24.0 : 23.0; }
                 }
                 return nearest;
             }
@@ -107,41 +130,59 @@ final class CabinShader {
                 vec3 v = vec3(p.x, abs(c - mid), p.z);
                 vec2 wide = widths();
                 float belt = min(uScreen.y, uScreen.z);
-                vec3 foot = vec3(uScreen.x - 0.02, wide.x - 0.005, belt - 0.03);
                 vec3 top = vec3(uHouse.x, wide.y, uHouse.y);
-                float d = rod(v, foot, top, uHouse.z);
-                if (d < nearest) { nearest = d; part = 12.0; }
-                d = rod(v, vec3(uHouse.x + 0.012, 0.0, uHouse.y + 0.014), top, uHouse.z * 0.85);
-                if (d < nearest) { nearest = d; part = 13.0; }
-                d = max(liningAt(v.y) - p.z, p.x - uHouse.x);
-                if (d < nearest) { nearest = d; part = 14.0; }
-                d = rod(v, top, vec3(uPad.y - 1.6, wide.y, uHouse.y), uHouse.z * 0.8);
-                if (d < nearest) { nearest = d; part = 15.0; }
-                d = rod(v, vec3(uPad.y, wide.x - 0.005, belt - 0.03), vec3(uPad.y - 0.04, wide.y, uHouse.y), uHouse.z * 1.15);
-                if (d < nearest) { nearest = d; part = 16.0; }
-                // A visor each side, folded up against the lining behind the rail.
-                float deep = min(0.085, (uHouse.x - 0.1) * 0.5);
-                vec3 visor = vec3(p.x - (uHouse.x - 0.04 - deep), v.y - mid, p.z - (liningAt(mid) - 0.02));
-                visor.z += visor.x * 0.1;
-                d = block(visor, vec3(deep - 0.009, min(mid - 0.07, 0.2), 0.003), 0.009);
-                if (d < nearest) { nearest = d; part = 17.0; }
-                if (c > mid) {
-                    // A handle over the passenger's door, on two feet.
-                    vec3 from = vec3(uHouse.x - 0.42, wide.y - 0.055, uHouse.y - 0.035), to = vec3(uHouse.x - 0.24, wide.y - 0.055, uHouse.y - 0.035);
-                    d = min(rod(v, from, to, 0.011), min(rod(v, from, from + vec3(-0.02, 0.04, 0.03), 0.012), rod(v, to, to + vec3(0.02, 0.04, 0.03), 0.012)));
-                    if (d < nearest) { nearest = d; part = 18.0; }
+                float d;
+                // The pillars stand from the sills up, and the roof with what hangs from it
+                // is all above the heads of those inside.
+                float under = belt - 0.03 - uHouse.z * 1.2 - p.z;
+                if (gRoughly * under > 0.04) {
+                    nearest = min(nearest, under);
+                } else {
+                    vec3 foot = vec3(uScreen.x - 0.02, wide.x - 0.005, belt - 0.03);
+                    d = rod(v, foot, top, uHouse.z);
+                    if (d < nearest) { nearest = d; part = 12.0; }
+                    d = rod(v, vec3(uPad.y, wide.x - 0.005, belt - 0.03), vec3(uPad.y - 0.04, wide.y, uHouse.y), uHouse.z * 1.15);
+                    if (d < nearest) { nearest = d; part = 16.0; }
+                    float below = uHouse.y - 0.085 - p.z;
+                    if (gRoughly * below > 0.04) {
+                        nearest = min(nearest, below);
+                    } else {
+                        d = rod(v, vec3(uHouse.x + 0.012, 0.0, uHouse.y + 0.014), top, uHouse.z * 0.85);
+                        if (d < nearest) { nearest = d; part = 13.0; }
+                        // The roof ends at the rail over each door: past it is the door's glass.
+                        d = max(max(liningAt(v.y) - p.z, p.x - uHouse.x), v.y - wide.y);
+                        if (d < nearest) { nearest = d; part = 14.0; }
+                        d = rod(v, top, vec3(uPad.y - 1.6, wide.y, uHouse.y), uHouse.z * 0.8);
+                        if (d < nearest) { nearest = d; part = 15.0; }
+                        // A visor each side, folded up against the lining behind the rail.
+                        float deep = min(0.085, (uHouse.x - 0.1) * 0.5);
+                        vec3 visor = vec3(p.x - (uHouse.x - 0.04 - deep), v.y - mid, p.z - (liningAt(mid) - 0.02));
+                        visor.z += visor.x * 0.1;
+                        d = block(visor, vec3(deep - 0.009, min(mid - 0.07, 0.2), 0.003), 0.009);
+                        if (d < nearest) { nearest = d; part = 17.0; }
+                        if (c > mid) {
+                            // A handle over the passenger's door, on two feet.
+                            vec3 from = vec3(uHouse.x - 0.42, wide.y - 0.055, uHouse.y - 0.035), to = vec3(uHouse.x - 0.24, wide.y - 0.055, uHouse.y - 0.035);
+                            d = min(rod(v, from, to, 0.011), min(rod(v, from, from + vec3(-0.02, 0.04, 0.03), 0.012), rod(v, to, to + vec3(0.02, 0.04, 0.03), 0.012)));
+                            if (d < nearest) { nearest = d; part = 18.0; }
+                        }
+                    }
                 }
                 // The pad over the dashboard, from its roll before the driver to the glass.
                 float padTop = max(uDash.y, uScreen.y) + 0.004;
                 float from = padFrom(), to = uScreen.x + 0.1;
                 d = block(vec3(p.x - (from + to) * 0.5, v.y, p.z - (padTop - 0.034)), vec3((to - from) * 0.5 - 0.028, wide.x + 0.03, 0.006), 0.028);
                 if (d < nearest) { nearest = d; part = 19.0; }
-                d = rod(v, vec3(uPad.y - 1.3, wide.x, uScreen.z - 0.012), vec3(uScreen.x - 0.03, wide.x, uScreen.z - 0.012), 0.026);
-                if (d < nearest) { nearest = d; part = 20.0; }
-                d = block(vec3(p.x - 0.14, v.y - (wide.x - 0.045), p.z - (uScreen.z - 0.26)), vec3(0.24, 0.028, 0.01), 0.022);
-                if (d < nearest) { nearest = d; part = 21.0; }
-                d = rod(p, uMirror, uMirror + vec3(0.05, 0.0, 0.014), 0.009);
-                if (d < nearest) { nearest = d; part = 22.0; }
+                // The roll along a door's top and the armrest under it are hard by the door.
+                float beside = wide.x - 0.11 - v.y;
+                if (gRoughly * beside > 0.04) {
+                    nearest = min(nearest, beside);
+                } else {
+                    d = rod(v, vec3(uPad.y - 1.3, wide.x, uScreen.z - 0.012), vec3(uScreen.x - 0.03, wide.x, uScreen.z - 0.012), 0.026);
+                    if (d < nearest) { nearest = d; part = 20.0; }
+                    d = block(vec3(p.x - 0.14, v.y - (wide.x - 0.045), p.z - (uScreen.z - 0.26)), vec3(0.24, 0.028, 0.01), 0.022);
+                    if (d < nearest) { nearest = d; part = 21.0; }
+                }
                 if (uTrade > 0.5 && uTrade < 3.5) {
                     // What a vehicle carries for its work stands on the pad in the middle
                     // of the dashboard: 25 its box, and 26 the handset of a radio beside it
@@ -299,11 +340,8 @@ final class CabinShader {
                     return rest;
                 }
                 if (part > 22.5) {
-                    vec3 outward, along;
-                    vec3 low = gripAt(-1.0, outward, along), high = gripAt(1.0, outward, along);
-                    float way = distance(p, low) < distance(p, high) ? -1.0 : 1.0;
-                    vec3 grip = gripAt(way, outward, along);
-                    vec3 wrist = grip - uWheelAxis * 0.1 + outward * 0.04 + vec3(0.0, 0.0, -0.025);
+                    int hand = distance(p, gGrip[0]) < distance(p, gGrip[1]) ? 0 : 1;
+                    vec3 outward = gOutward[hand], along = gAlong[hand], grip = gGrip[hand], wrist = gWrist[hand];
                     if (part < 23.5) {
                         // Skin, darker in the creases between the fingers and paler over the knuckles.
                         gGrain = 0.2;
@@ -311,13 +349,16 @@ final class CabinShader {
                         vec3 g = p - grip;
                         float round2 = length(vec2(dot(g, outward), dot(g, uWheelAxis)));
                         float crease = round2 < uKit.y + 0.02 ? 0.5 + 0.5 * cos(dot(g, along) * 314.16) : 1.0;
-                        return uSkin * (0.78 + 0.22 * crease) * vec3(1.0, 0.97 + 0.03 * crease, 0.95 + 0.05 * crease);
+                        // The skin of a bare arm is the arm's own, whatever is on the hand.
+                        vec3 skin = round2 > 0.1 && uSleeve.w < 0.75 ? uBare : uSkin;
+                        return skin * (0.78 + 0.22 * crease) * vec3(1.0, 0.97 + 0.03 * crease, 0.95 + 0.05 * crease);
                     }
-                    // A sleeve of plain cloth with a turned cuff at the wrist.
+                    // A sleeve of plain cloth with a turned cuff at the wrist, or at the
+                    // elbow where it is a short one.
                     gWoven = 1.0;
                     gGrain = 0.6;
                     gGloss = 0.03;
-                    float up = distance(p, wrist);
+                    float up = uSleeve.w > 0.75 ? distance(p, wrist) : distance(p, gElbow[hand]) + 0.03;
                     return uSleeve.rgb * (up < 0.075 ? (up > 0.068 ? 0.6 : 1.12) : 1.0);
                 }
                 gGrain = 0.0;
@@ -476,6 +517,88 @@ final class CabinShader {
 
     /** The glass of a built cabin, where a line of sight from the seat leaves by it. */
     static final String GLASS = """
+            // Where the lamp in the roof is: in the lining between the visors and the heads
+            // of those in front, on the vehicle's middle line.
+            vec3 domeAt() {
+                return vec3(uHouse.x - 0.36, uWheel.y + uDash.x, liningAt(0.0) - 0.012);
+            }
+
+            // What the lamp in the roof gives a place in the cabin that faces m: a warm
+            // light from overhead that thins with the square of the distance.
+            vec3 domeLit(vec3 o, vec3 m) {
+                vec3 to = domeAt() - o;
+                float far2 = dot(to, to);
+                float facing = max(dot(m, to * inversesqrt(max(far2, 1e-4))), 0.0);
+                return vec3(1.0, 0.86, 0.62) * (uDome * 0.6 * (0.2 + 0.8 * facing) / (0.05 + far2));
+            }
+
+            // The lamp itself: a lens let into the lining, bright when it is lit.
+            vec3 domeLamp(vec3 o, float part) {
+                vec3 from = o - domeAt();
+                if (part < 13.5 || part > 14.5 || abs(from.x) > 0.045 || abs(from.y) > 0.03) {
+                    return vec3(0.0);
+                }
+                return vec3(1.0, 0.9, 0.7) * (uDome * 2.4 * (0.75 + 0.25 * cos(from.x * 400.0)));
+            }
+
+            // The lamps of a vehicle that is coming the other way, in the glass: each a hard
+            // point with a soft bloom round it, more of it the dirtier the glass, and a
+            // streak across where the wipers have smeared it.
+            vec4 flared(vec4 glass, vec3 look, float dirt) {
+                vec3 light = vec3(0.0);
+                for (int i = 0; i < 2; i++) {
+                    vec3 to = uBeamAt[i].xyz - uEye;
+                    float far2 = dot(to, to);
+                    vec3 way = to * inversesqrt(max(far2, 1e-4));
+                    // Only lamps that shine towards the eye, and are before it.
+                    float towards = smoothstep(0.5, 0.95, dot(uBeamWay[i], -way));
+                    if (uBeamAt[i].w <= 0.0 || towards <= 0.0 || far2 < 4.0) {
+                        continue;
+                    }
+                    vec3 across = normalize(vec3(-uBeamWay[i].y, uBeamWay[i].x, 0.0)) * 0.42;
+                    float strength = uBeamAt[i].w * towards / (1.0 + 0.012 * far2);
+                    for (int lamp = 0; lamp < 2; lamp++) {
+                        vec3 off = look - normalize(to + across * (lamp == 0 ? -1.0 : 1.0));
+                        float round2 = dot(off, off);
+                        float level = off.z * off.z;
+                        light += vec3(1.0, 0.93, 0.78) * strength * (1.6 * exp(-round2 * 60000.0) + (0.05 + 0.3 * dirt) * exp(-round2 * 900.0)
+                                + (0.02 + 0.1 * dirt) * exp(-level * 30000.0 - (round2 - level) * 25.0));
+                    }
+                }
+                float more = clamp(max(light.r, max(light.g, light.b)), 0.0, 0.7);
+                float cover = glass.a + (1.0 - glass.a) * more;
+                return vec4((glass.rgb * glass.a + light) / max(cover, 1e-3), cover);
+            }
+
+            // How far along a line of sight from o anything the picture builds can be: the
+            // cabin is a box, and through the open of the windscreen nothing is past the glass.
+            float cabinReach(vec3 o, vec3 d) {
+                float toward = uDash.x < 0.0 ? -1.0 : 1.0;
+                float mid = abs(uDash.x);
+                vec3 from = vec3(o.x, (o.y - uWheel.y) * toward - mid, o.z);
+                vec3 way = vec3(d.x, d.y * toward, d.z);
+                float out2 = widths().x + 0.32;
+                vec3 low = vec3(uPad.y - 1.75, -out2, uWheel.z - 0.85), high = vec3(uScreen.x + 0.32, out2, uHouse.y + 0.1);
+                vec3 slow = 1.0 / (abs(way) + 1e-5);
+                vec3 leaves = (mix(low, high, step(0.0, way)) - from) * sign(way + 1e-6) * slow;
+                float reach = max(min(leaves.x, min(leaves.y, leaves.z)), 0.0);
+                float padTop = max(uDash.y, uScreen.y) + 0.004;
+                vec3 foot = vec3(uScreen.x, 0.0, padTop - 0.02), rail = vec3(uHouse.x, 0.0, uHouse.y);
+                float span = length(rail - foot);
+                vec3 up = (rail - foot) / span;
+                vec3 face = vec3(-up.z, 0.0, up.x);
+                float leaving = dot(way, face);
+                if (leaving < -0.001) {
+                    float through = dot(foot - vec3(from.x, 0.0, from.z), face) / leaving;
+                    vec3 hit = from + way * through;
+                    float along = dot(vec3(hit.x, 0.0, hit.z) - foot, up);
+                    if (along > 0.08 && along < span && abs(hit.y) < widths().x) {
+                        reach = min(reach, through + 0.08);
+                    }
+                }
+                return reach;
+            }
+
             // The windscreen is a pane of its own, from the pad over the dashboard up to the
             // rail: the wipers sweep it from its foot, a band of tint runs under the rail,
             // and by day it shows the top of the dashboard lying under it, most where the
@@ -487,6 +610,10 @@ final class CabinShader {
                 vec3 d = vec3(dot(out3.xy, uAhead), dot(out3.xy, side) * toward, out3.z);
                 vec3 o = vec3(uSeat.x, (uSeat.y - uWheel.y) * toward, uSeat.z);
                 float mid = abs(uDash.x);
+                // A pane at the side stands just outside the roll of its door's top, and
+                // the back of the glasshouse is further off than anything built.
+                float out2 = d.y > 0.0 ? mid + widths().x + 0.03 - o.y : o.y - mid + widths().x + 0.03;
+                gPaneFar = min(out2 / max(abs(d.y), 0.001), d.x < 0.0 ? (o.x - uPad.y + 1.9) / max(-d.x, 0.001) : 9.0);
                 float padTop = max(uDash.y, uScreen.y) + 0.004;
                 vec3 foot = vec3(uScreen.x, 0.0, padTop - 0.02), rail = vec3(uHouse.x, 0.0, uHouse.y);
                 float span = length(rail - foot);
@@ -496,12 +623,15 @@ final class CabinShader {
                 if (leaving > -0.001) {
                     return paneSeen(out3);
                 }
-                vec3 hit = o + d * (dot(foot - o, face) / leaving);
+                float reach = dot(foot - o, face) / leaving;
+                vec3 hit = o + d * reach;
                 float high = dot(hit - foot, up);
                 if (high > span + 0.03 || abs(hit.y - mid) > widths().x + 0.05) {
                     return paneSeen(out3);
                 }
-                vec4 glass = pane(vec2(hit.y * CABIN, high * CABIN - 0.3), vec3(uAhead * face.x, face.z), -out3, 1.0);
+                gPaneFar = reach;
+                gScreenHalf = widths().x * CABIN;
+                vec4 glass = pane(vec2((hit.y - mid) * CABIN, high * CABIN - 0.3), vec3(uAhead * face.x, face.z), -out3, 1.0);
                 float day = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 thrown = reflect(d, face);
                 vec3 land = hit + thrown * ((padTop - hit.z) / min(thrown.z, -0.01));

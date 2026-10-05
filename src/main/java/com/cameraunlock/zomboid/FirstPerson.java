@@ -70,6 +70,10 @@ public final class FirstPerson {
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
     static volatile boolean driving;
     static volatile int skin;
+    private static int wearAsked;
+    /** Whether a door of the cabin the viewer sits in stands open. */
+    static volatile boolean doorOpen;
+    private static final float[] DRIVER = {0f, 0f};
     /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
     static volatile boolean instrumentsLit;
     /** What the instruments of the vehicle the viewer sits in show, each as a part of its gauge's full scale. */
@@ -315,7 +319,12 @@ public final class FirstPerson {
         if (vehicle != null) {
             int seat = vehicle.getSeat(player);
             driving = seat == 0;
+            doorOpen = seat >= 0 && Cabins.doorOpen(vehicle, seat);
             skin = player.getHumanVisual().getSkinTextureIndex();
+            // What is worn changes seldom, and asking makes a list for every garment.
+            if (driving && (wearAsked++ & 31) == 0) {
+                Cabins.noteWear(player);
+            }
             if (seat >= 0) {
                 vehicle.getPassengerWorldPos(seat, seatAt);
                 // The game's seat is at the door. The head is further in, straight across
@@ -333,11 +342,13 @@ public final class FirstPerson {
                 eyeUp = floorUp + EYE_HEIGHT_IN_VEHICLE;
                 // Where the vehicle's own wheel has been found the driver sits behind it: a
                 // pickup's seat is higher than a saloon's and a van's further forward.
+                // A passenger sits where the script seats them from the driver.
                 float[] wheel = VehicleMeshes.wheels.get(vehicle.getScriptName());
-                if (wheel != null) {
-                    float back = wheel[0] - Cabins.EYE_BEHIND;
-                    eyeX = vehicle.getX() + aheadX * back - aheadY * wheel[1];
-                    eyeY = vehicle.getY() + aheadY * back + aheadX * wheel[1];
+                float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[1]);
+                if (fromDriver != null) {
+                    float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1];
+                    eyeX = vehicle.getX() + aheadX * back - aheadY * across;
+                    eyeY = vehicle.getY() + aheadY * back + aheadX * across;
                     eyeUp = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + wheel[2] + Cabins.EYE_ABOVE;
                 }
                 if (TRACE && (seatSaid++ & 127) == 0) {

@@ -170,6 +170,34 @@ public final class Characters {
         notingRoots = false;
     }
 
+    /** How far behind a mirror a person is still drawn into it, and a vehicle, in tiles. */
+    private static final float MIRROR_PEOPLE = 30f, MIRROR_VEHICLES = 60f;
+    /** While set, only what stands before this eye, looking this way and no wider than this, is drawn: a mirror's picture. */
+    private static boolean mirrored;
+    private static float mirrorWayX, mirrorWayY, mirrorWide;
+
+    /**
+     * Draws the people, or the vehicles, that a mirror looking back from a vehicle takes in,
+     * into whatever target is bound, whose depth has to be that of the world the mirror
+     * shows. The mirror is small: only what is near enough to be told in it is drawn, and
+     * nothing of the vehicle it hangs in. Returns how many were drawn.
+     */
+    static int drawBehind(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
+        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
+        only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
+        mirrored = true;
+        mirrorWayX = camera.forwardX;
+        mirrorWayY = camera.forwardY;
+        mirrorWide = tanHalfFieldOfView * aspect;
+        int drawn = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        mirrored = false;
+        only = ALL;
+        return drawn;
+    }
+
+    /** A model this far to the side of what a mirror takes in may still reach into it: a vehicle is that long. */
+    private static final float MIRROR_MARGIN = 4f;
+
     /** The frame has drawn the models it was given. */
     static void done() {
         noted.clear();
@@ -597,6 +625,14 @@ public final class Characters {
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
             if (!withViewer && FirstPerson.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                 continue;
+            }
+            if (mirrored) {
+                // Nothing of the vehicle the mirror hangs in, nor who rides in it, and
+                // nothing the mirror does not take in.
+                float behind = toX * mirrorWayX + toY * mirrorWayY, aside = Math.abs(toX * mirrorWayY - toY * mirrorWayX);
+                if (toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
+                    continue;
+                }
             }
             // Drawn in full light. The game dims a model by the light where it stands and the
             // picture then lit it again, which left people dull and dark at noon; the game's

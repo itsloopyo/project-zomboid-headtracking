@@ -14,6 +14,69 @@ final class CabinTests {
         bodyWithItsSeatsInItsShellHasNoSeatPieces();
         signOnTheRoofIsNotASeat();
         frontOfTheGlasshouseIsUnseenAndTheBackKept();
+        passengersSitWhereTheScriptSeatsThemFromTheDriver();
+        mirrorHangsFromTheVehicleWhicheverWayItFaces();
+        wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
+    }
+
+    /** A ring of 36 triangles standing across the vehicle, as a body has for its wheel. Returns its first vertex. */
+    private static int ring(Body body, float along, float across, float up, float radius) {
+        int first = body.at.size() / 3;
+        for (int k = 0; k < 18; k++) {
+            double turn = Math.PI * 2 * k / 18;
+            body.vertex(along, across + radius * 0.8f * (float) Math.cos(turn), up + radius * 0.8f * (float) Math.sin(turn), BACK);
+            body.vertex(along, across + radius * (float) Math.cos(turn), up + radius * (float) Math.sin(turn), BACK);
+        }
+        for (int k = 0; k < 18; k++) {
+            int a = first + k * 2, b = first + (k + 1) % 18 * 2;
+            body.triangle(a, a + 1, b, -2, false);
+            body.triangle(b, a + 1, b + 1, -2, false);
+        }
+        return first;
+    }
+
+    private static void wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack() {
+        for (float side : new float[] {1f, -1f}) {
+            Body body = saloon(side, true);
+            int wheel = body.at.size() / 3 - 36;
+            // A spare on the back door, on the middle line and rounder than the wheel is, and a drum beside the driver's seat.
+            ring(body, -1.9f, 0f, 0.1f, 0.2f);
+            ring(body, 0.1f, -0.1f, -0.3f, 0.2f);
+            float[] at = new float[body.at.size()];
+            for (int i = 0; i < at.length; i++) {
+                at[i] = body.at.get(i);
+            }
+            int[] elements = new int[body.elements.size()];
+            for (int i = 0; i < elements.length; i++) {
+                elements[i] = body.elements.get(i);
+            }
+            int[] found = CabinParts.wheelOf(at, elements, new float[] {0.16f, 0.32f}, 0f);
+            check(found != null && found.length == 36 && found[0] == wheel, "the wheel is the ring before the driver, on the driver's side");
+            // With no seat known it is the first of the roundest, as it was.
+            check(CabinParts.wheelOf(at, elements, null, 0f) != null, "and a body whose seats are not known still has a wheel");
+        }
+        check(CabinParts.wheelOf(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, new int[] {0, 1, 2, 0, 2, 3}, new float[] {0.16f, 0.32f}, 0f) == null,
+                "a body with no ring has no wheel");
+    }
+
+    private static void passengersSitWhereTheScriptSeatsThemFromTheDriver() {
+        // The wheel on the side the script counts as positive, then on the other.
+        float[] beside = Cabins.fromDriver(0.32f, 0.16f, -0.32f, 0.16f, 0.323f);
+        check(near(beside[0], 0f) && near(beside[1], -0.64f), "the front passenger is level with the driver and across the middle from the wheel");
+        float[] mirrored = Cabins.fromDriver(0.32f, 0.16f, -0.32f, 0.16f, -0.323f);
+        check(near(mirrored[1], 0.64f), "and the same in a body the picture counts the other way across");
+        float[] behind = Cabins.fromDriver(0.32f, 0.16f, 0.32f, -0.59f, 0.323f);
+        check(near(behind[0], -0.75f) && near(behind[1], 0f), "who sits behind the driver is straight behind");
+    }
+
+    private static void mirrorHangsFromTheVehicleWhicheverWayItFaces() {
+        float[] house = Cabins.house("Base.CarNormal", Cabins.STANDARD_MEASURES);
+        float[] east = new float[3], north = new float[3];
+        Cabins.mirrorAt(new float[] {10f, 20f, 1f}, house, 1f, 0f, east);
+        Cabins.mirrorAt(new float[] {10f, 20f, 1f}, house, 0f, 1f, north);
+        check(east[0] > 10f && north[1] > 20f, "the mirror is ahead of the wheel");
+        check(near(east[0] - 10f, north[1] - 20f) && near(east[1] - 20f, -(north[0] - 10f)), "and turns with the vehicle");
+        check(near(east[2], north[2]) && east[2] > 1.2f, "above the wheel, the same height either way");
     }
 
     private static void check(boolean condition, String what) {

@@ -96,6 +96,78 @@ final class CabinParts {
 
     private record Place(int along, int across, int up) {}
 
+    /** A steering wheel is before its driver by no more than this, in tiles, and at least this much of the driver's own way out from the middle line. */
+    private static final float WHEEL_BEFORE = 1f, WHEEL_OUT = 0.5f;
+
+    /**
+     * Which of a body's vertices are its steering wheel: a loose ring of 36 triangles, as wide
+     * as it is tall. A body may carry other pieces of as many triangles, a spare wheel on its
+     * back or a drum of cable, so where the driver's seat is known the wheel is one that
+     * stands before that seat and on its side of the vehicle. Of those, or of them all where
+     * none does or the seat is not known, it is the roundest. Null for a body with no such piece.
+     *
+     * @param at         along, across and up for each vertex
+     * @param elements   three vertices a triangle
+     * @param seat       along and how far out from the middle line the driver sits, or null
+     * @param middleLine where across the vehicle's middle line is
+     */
+    static int[] wheelOf(float[] at, int[] elements, float[] seat, float middleLine) {
+        int vertices = at.length / 3, triangles = elements.length / 3;
+        HashMap<Place, Integer> places = new HashMap<>();
+        int[] parent = new int[vertices];
+        for (int i = 0; i < vertices; i++) {
+            Integer first = places.putIfAbsent(new Place(Math.round(at[i * 3] * 20000f), Math.round(at[i * 3 + 1] * 20000f), Math.round(at[i * 3 + 2] * 20000f)), i);
+            parent[i] = first == null ? i : first;
+        }
+        for (int t = 0; t < triangles; t++) {
+            int a = root(parent, elements[t * 3]);
+            parent[root(parent, elements[t * 3 + 1])] = a;
+            parent[root(parent, elements[t * 3 + 2])] = a;
+        }
+        int[] count = new int[vertices];
+        for (int t = 0; t < triangles; t++) {
+            count[root(parent, elements[t * 3])]++;
+        }
+        int best = -1;
+        float roundest = Float.MAX_VALUE;
+        boolean bestPlaced = false;
+        for (int piece = 0; piece < vertices; piece++) {
+            if (count[piece] != WHEEL_TRIANGLES) {
+                continue;
+            }
+            float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+            for (int i = 0; i < vertices; i++) {
+                if (root(parent, i) == piece) {
+                    for (int axis = 0; axis < 3; axis++) {
+                        low[axis] = Math.min(low[axis], at[i * 3 + axis]);
+                        high[axis] = Math.max(high[axis], at[i * 3 + axis]);
+                    }
+                }
+            }
+            float[] sides = {high[0] - low[0], high[1] - low[1], high[2] - low[2]};
+            java.util.Arrays.sort(sides);
+            float unlike = sides[2] / Math.max(sides[1], 1e-6f);
+            float before = (low[0] + high[0]) / 2f - (seat == null ? 0f : seat[0]), out = Math.abs((low[1] + high[1]) / 2f - middleLine);
+            boolean placed = seat != null && before > 0f && before < WHEEL_BEFORE && out > WHEEL_OUT * seat[1];
+            if (placed && !bestPlaced || placed == bestPlaced && unlike < roundest) {
+                best = piece;
+                roundest = unlike;
+                bestPlaced = placed;
+            }
+        }
+        if (best < 0) {
+            return null;
+        }
+        int[] found = new int[vertices];
+        int size = 0;
+        for (int i = 0; i < vertices; i++) {
+            if (root(parent, i) == best) {
+                found[size++] = i;
+            }
+        }
+        return java.util.Arrays.copyOf(found, size);
+    }
+
     /**
      * @param at       along, across and up for each vertex
      * @param facing   the way each vertex's surface faces, in the same frame

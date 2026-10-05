@@ -224,64 +224,34 @@ final class VehicleMeshes {
     }
 
     private static float[] wheelIn(ByteBuffer raw, int stride, int vertices, int[] elements, String name) {
-        // Vertices at one place are one vertex, however many faces meet there with their own
-        // normals and texture coordinates.
-        java.util.HashMap<Long, Integer> places = new java.util.HashMap<>();
-        int[] welded = new int[vertices];
+        // The body as it stands this frame, in tiles along the vehicle, across it and up:
+        // which of its pieces is the wheel is told by where the driver sits.
+        float[] at = new float[vertices * 3];
         for (int i = 0; i < vertices; i++) {
-            long key = Math.round(raw.getFloat(i * stride) * 1000f) * 73856093L ^ Math.round(raw.getFloat(i * stride + 4) * 1000f) * 19349663L
-                    ^ Math.round(raw.getFloat(i * stride + 8) * 1000f) * 83492791L;
-            Integer first = places.putIfAbsent(key, i);
-            welded[i] = first == null ? i : first;
-        }
-        int[] parent = new int[vertices];
-        for (int i = 0; i < vertices; i++) {
-            parent[i] = i;
-        }
-        int triangles = elements.length / 3;
-        for (int t = 0; t < triangles; t++) {
-            int a = root(parent, welded[elements[t * 3]]);
-            int b = root(parent, welded[elements[t * 3 + 1]]);
-            int c = root(parent, welded[elements[t * 3 + 2]]);
-            parent[b] = a;
-            parent[c] = a;
-        }
-        int[] count = new int[vertices];
-        for (int t = 0; t < triangles; t++) {
-            count[root(parent, welded[elements[t * 3]])]++;
-        }
-        float[] best = NONE;
-        float flattest = Float.MAX_VALUE;
-        for (int piece = 0; piece < vertices; piece++) {
-            if (count[piece] != WHEEL_TRIANGLES) {
-                continue;
-            }
-            float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
-            for (int i = 0; i < vertices; i++) {
-                if (root(parent, welded[i]) != piece) {
-                    continue;
-                }
+            for (int row = 0; row < 3; row++) {
+                float place = frame[row * 4 + 3];
                 for (int axis = 0; axis < 3; axis++) {
-                    float v = raw.getFloat(i * stride + axis * 4);
-                    low[axis] = Math.min(low[axis], v);
-                    high[axis] = Math.max(high[axis], v);
+                    place += frame[row * 4 + axis] * raw.getFloat(i * stride + axis * 4);
                 }
-            }
-            // A wheel is as wide as it is tall and thin through: of the pieces of the right
-            // size, the one whose two larger sides are most alike.
-            float[] sides = {high[0] - low[0], high[1] - low[1], high[2] - low[2]};
-            java.util.Arrays.sort(sides);
-            float unlike = sides[2] / Math.max(sides[1], 1e-6f);
-            if (unlike < flattest) {
-                flattest = unlike;
-                best = new float[] {(low[0] + high[0]) / 2f, (low[1] + high[1]) / 2f, (low[2] + high[2]) / 2f};
+                at[i * 3 + row] = place;
             }
         }
-        if (best == NONE) {
-            Log.info("the vehicle model " + name + " has no steering wheel the picture can find (" + triangles + " triangles, none a piece of " + WHEEL_TRIANGLES
+        float[] seats = FirstPerson.seats;
+        int[] ring = CabinParts.wheelOf(at, elements, seats == null || seats.length < 3 ? null : new float[] {frame[3] + seats[2], Math.abs(seats[0])}, frame[7]);
+        if (ring == null) {
+            Log.info("the vehicle model " + name + " has no steering wheel the picture can find (" + elements.length / 3 + " triangles, none a piece of " + WHEEL_TRIANGLES
                     + "): its driver's place is the game's own");
+            return NONE;
         }
-        return best;
+        float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int i : ring) {
+            for (int axis = 0; axis < 3; axis++) {
+                float v = raw.getFloat(i * stride + axis * 4);
+                low[axis] = Math.min(low[axis], v);
+                high[axis] = Math.max(high[axis], v);
+            }
+        }
+        return new float[] {(low[0] + high[0]) / 2f, (low[1] + high[1]) / 2f, (low[2] + high[2]) / 2f};
     }
 
     /**
@@ -421,6 +391,53 @@ final class VehicleMeshes {
         return made;
     }
 
+    private static final IdentityHashMap<zombie.core.textures.Texture, float[]> means = new IdentityHashMap<>();
+    /** A picture bigger than this many texels is not read back for its colour. */
+    private static final int MOST_TEXELS = 4096 * 4096;
+
+    /**
+     * The mean colour of a picture of the game's, each texel counted by how solid it is, read
+     * back from the graphics card once. Null while the picture is not loaded, and for one
+     * that is empty or too big to read. A picture may be one piece of a larger sheet.
+     */
+    static float[] meanOf(zombie.core.textures.Texture picture) {
+        if (means.containsKey(picture)) {
+            return means.get(picture);
+        }
+        if (!picture.isReady() || picture.getID() <= 0) {
+            return null;
+        }
+        int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+        GL11.glBindTexture(GL_TEXTURE_2D, picture.getID());
+        int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
+        float[] mean = null;
+        if (width > 0 && height > 0 && (long) width * height <= MOST_TEXELS) {
+            ByteBuffer texels = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder());
+            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
+            int fromX = Math.clamp((int) (Math.min(picture.getXStart(), picture.getXEnd()) * width), 0, width - 1);
+            int toX = Math.clamp((int) Math.ceil(Math.max(picture.getXStart(), picture.getXEnd()) * width), fromX + 1, width);
+            int fromY = Math.clamp((int) (Math.min(picture.getYStart(), picture.getYEnd()) * height), 0, height - 1);
+            int toY = Math.clamp((int) Math.ceil(Math.max(picture.getYStart(), picture.getYEnd()) * height), fromY + 1, height);
+            long red = 0, green = 0, blue = 0, solid = 0;
+            for (int y = fromY; y < toY; y++) {
+                for (int x = fromX; x < toX; x++) {
+                    int at = (y * width + x) * 4;
+                    int alpha = texels.get(at + 3) & 0xff;
+                    red += (texels.get(at) & 0xff) * alpha;
+                    green += (texels.get(at + 1) & 0xff) * alpha;
+                    blue += (texels.get(at + 2) & 0xff) * alpha;
+                    solid += alpha;
+                }
+            }
+            if (solid > 0) {
+                mean = new float[] {red / (255f * solid), green / (255f * solid), blue / (255f * solid)};
+            }
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, was);
+        means.put(picture, mean);
+        return mean;
+    }
+
     private static void multiply(float[] a, float[] b, float[] out) {
         for (int column = 0; column < 4; column++) {
             for (int row = 0; row < 4; row++) {
@@ -431,13 +448,5 @@ final class VehicleMeshes {
                 out[column * 4 + row] = sum;
             }
         }
-    }
-
-    private static int root(int[] parent, int i) {
-        while (parent[i] != i) {
-            parent[i] = parent[parent[i]];
-            i = parent[i];
-        }
-        return i;
     }
 }

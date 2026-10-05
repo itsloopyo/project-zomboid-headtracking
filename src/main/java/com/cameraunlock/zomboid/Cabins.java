@@ -137,13 +137,122 @@ final class Cabins {
             house[1] - (house[1] - footUp) * down - 0.01f};
     }
 
+    /**
+     * Where the head of whoever sits in a seat is from the driver's, in tiles along the
+     * vehicle and across it, across counted the way the wheel is from the vehicle's middle.
+     * The script counts across one way and the picture the other or the same: the driver,
+     * its first seat, is on the side the wheel is. Null for a seat nobody sits inside, on a
+     * trailer or a roof.
+     *
+     * @param wheelAcross how far across from the vehicle's middle its steering wheel is
+     */
+    static float[] fromDriver(zombie.scripting.objects.VehicleScript script, int seat, float wheelAcross) {
+        zombie.scripting.objects.VehicleScript.Position driver = script.getPassenger(0).getPositionById("inside");
+        zombie.scripting.objects.VehicleScript.Position place = script.getPassenger(seat).getPositionById("inside");
+        if (driver == null || place == null) {
+            return null;
+        }
+        return fromDriver(driver.getOffset().x, driver.getOffset().z, place.getOffset().x, place.getOffset().z, wheelAcross);
+    }
+
+    static float[] fromDriver(float driverAcross, float driverAlong, float seatAcross, float seatAlong, float wheelAcross) {
+        float way = Math.signum(wheelAcross) * Math.signum(driverAcross);
+        return new float[] {seatAlong - driverAlong, (way == 0f ? 1f : way) * (seatAcross - driverAcross)};
+    }
+
+    /**
+     * Where the mirror on the screen hangs in the world, into out as x, y and up, for the
+     * picture of the road behind to be taken from. It is fixed to the vehicle: it does not
+     * move with the head, nor with the seat the viewer is in.
+     *
+     * @param wheelAt where the middle of the steering wheel is in the world
+     * @param house   the glasshouse, as house gives it
+     */
+    static void mirrorAt(float[] wheelAt, float[] house, float aheadX, float aheadY, float[] out) {
+        float along = (house[3] - PLACE[0]) * SCALE, across = (house[4] - PLACE[1]) * SCALE;
+        out[0] = wheelAt[0] + aheadX * along - aheadY * across;
+        out[1] = wheelAt[1] + aheadY * along + aheadX * across;
+        out[2] = wheelAt[2] + (house[5] - PLACE[2]) * SCALE;
+    }
+
+    /**
+     * Whether a door of the cabin stands open: the driver's, the passenger's beside the
+     * driver, or the viewer's own. The lamp in the roof is lit by them.
+     */
+    static boolean doorOpen(zombie.vehicles.BaseVehicle vehicle, int seat) {
+        return open(vehicle.getPassengerDoor(0)) || open(vehicle.getPassengerDoor(1)) || seat > 1 && open(vehicle.getPassengerDoor(seat));
+    }
+
+    private static boolean open(zombie.vehicles.VehiclePart part) {
+        return part != null && part.getDoor() != null && part.getDoor().isOpen();
+    }
+
     /** The game's skins, palest first, as the colour of the back of a hand. */
     private static final float[][] SKINS = {{0.74f, 0.57f, 0.47f}, {0.68f, 0.50f, 0.39f}, {0.58f, 0.41f, 0.31f}, {0.44f, 0.30f, 0.22f}, {0.31f, 0.21f, 0.16f}};
-    /** A driver's sleeve: the game's own draw of what the viewer wears is not to hand from a seat, so a plain dark jacket. */
-    static final float[] SLEEVE = {0.16f, 0.17f, 0.2f};
+    /** What a garment is taken to be dyed with where the picture of it cannot be read: a middling grey cloth. */
+    private static final float[] CLOTH = {0.42f, 0.42f, 0.44f};
 
     static float[] skin(int index) {
         return SKINS[Math.clamp(index, 0, SKINS.length - 1)];
+    }
+
+    /**
+     * What covers the viewer's arm or hand: the picture the game shows the garment by in the
+     * inventory, whose colours are the garment's own, and the dye the game lays over it.
+     */
+    record Garment(zombie.core.textures.Texture picture, float red, float green, float blue) {}
+
+    /**
+     * What the viewer wears on the arms and the hands. The sleeve is null on a bare arm and
+     * the glove null on a bare hand; a short sleeve ends at the elbow.
+     */
+    record Wear(Garment sleeve, boolean toTheWrist, Garment glove) {}
+
+    private static final Wear BARE = new Wear(null, false, null);
+    /** Set on the logic thread, read by the picture. */
+    static volatile Wear worn = BARE;
+
+    /**
+     * Notes what the viewer wears on the arms and hands. The game keeps what is worn from the
+     * skin outwards, so of the garments over a part the last is the one that shows.
+     */
+    static void noteWear(zombie.characters.IsoPlayer player) {
+        zombie.characters.WornItems.WornItems items = player.getWornItems();
+        Garment upper = null, fore = null, glove = null;
+        for (int i = 0; i < items.size(); i++) {
+            if (!(items.getItemByIndex(i) instanceof zombie.inventory.types.Clothing clothing)) {
+                continue;
+            }
+            java.util.ArrayList<zombie.characterTextures.BloodBodyPartType> covers = clothing.getCoveredParts();
+            boolean hand = covers.contains(zombie.characterTextures.BloodBodyPartType.Hand_L);
+            boolean lower = covers.contains(zombie.characterTextures.BloodBodyPartType.ForeArm_L);
+            boolean higher = covers.contains(zombie.characterTextures.BloodBodyPartType.UpperArm_L);
+            if (!hand && !lower && !higher) {
+                continue;
+            }
+            zombie.core.skinnedmodel.visual.ItemVisual visual = clothing.getVisual();
+            zombie.core.ImmutableColor dye = visual == null ? null : visual.getTint(visual.getClothingItem());
+            Garment garment = dye == null ? new Garment(clothing.getTex(), 1f, 1f, 1f) : new Garment(clothing.getTex(), dye.r, dye.g, dye.b);
+            glove = hand ? garment : glove;
+            fore = lower ? garment : fore;
+            upper = higher ? garment : upper;
+        }
+        Wear now = new Wear(fore != null ? fore : upper, fore != null, glove);
+        if (!now.equals(worn)) {
+            worn = now;
+        }
+    }
+
+    /**
+     * The colour of a garment, into out: the mean of its picture under its dye, or grey cloth
+     * under the dye where the picture cannot be read. Render thread.
+     */
+    static void colour(Garment garment, float[] out) {
+        float[] mean = garment.picture() == null ? null : VehicleMeshes.meanOf(garment.picture());
+        float[] cloth = mean == null ? CLOTH : mean;
+        out[0] = cloth[0] * garment.red();
+        out[1] = cloth[1] * garment.green();
+        out[2] = cloth[2] * garment.blue();
     }
 
     /** What a vehicle carries for its trade: nothing, a patrol's radio and light switches, a taxi's meter, an ambulance's console, a racing car's cage. */
