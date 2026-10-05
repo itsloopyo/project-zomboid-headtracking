@@ -2159,7 +2159,11 @@ final class PipelineShaders {
                 }
                 vec3 p = placeAt(uv);
                 vec3 n = normalize(cross(dFdx(p), dFdy(p)));
-                if (n.z > 0.0) {
+                // Turned to face the eye, which is not the same as turned to point back along
+                // the way the eye looks: a ceiling or a side wall looked along has next to no
+                // part along that way, and which sign it had went by the last digit. It
+                // changed with every frame, and the whole surface went light and dark.
+                if (dot(n, p) > 0.0) {
                     n = -n;
                 }
                 float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
