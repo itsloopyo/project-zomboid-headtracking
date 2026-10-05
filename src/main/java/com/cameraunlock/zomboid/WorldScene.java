@@ -306,7 +306,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How much light the eye lets in this frame: see adaptEye. */
     private float exposure;
     /** How much of its opening-up the eye is refused at full night. */
-    private static final float NIGHT_HELD_BACK = 0.62f;
+    private static final float NIGHT_HELD_BACK = 0.5f;
     private IsoPlayer viewer;
     private IsoCell cell;
     private int playerIndex;
