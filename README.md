@@ -280,7 +280,7 @@ git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-head
 cd project-zomboid-headtracking
 pixi run build      # compiles the jar into build\
 pixi run test       # unit tests
-pixi run package    # installer ZIP in release\
+pixi run package    # installer ZIP in release\, and a -dev ZIP with the development keys on
 pixi run install    # deploys to every installed copy of the game
 ```
 

@@ -25,8 +25,8 @@ build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
 clean = "powershell -NoProfile -Command \"if (Test-Path build) { Remove-Item -Recurse -Force build }; if (Test-Path release) { Remove-Item -Recurse -Force release }\""
 
-# Installer ZIP only, in release/. package-release.ps1 says why there is no
-# Nexus ZIP.
+# The installer ZIP and a development ZIP (the same, with the development keys
+# on) in release/. package-release.ps1 says why there is no Nexus ZIP.
 package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build", "test"] }
 
 # Both read what is already there, so neither depends on package.
