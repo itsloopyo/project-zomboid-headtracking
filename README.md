@@ -380,6 +380,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 - **The weapon is off to one side when I aim down sights.** Your head is turned: the weapon stays on your aim and you are looking past it. Turn back to it, or move your aim to where you are looking.
 - **I can't see down the sights, they are misaligned.** You are in one of the free look modes and your head is leaned off them. Move your head back behind them, or press `Insert` / `Ctrl+Shift+U` until the log says sights locked.
 - **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` / `Ctrl+Shift+U` for another mode if you want head tracking to carry on through the aim.
+- **I lean round a corner and nobody is there.** The game shows you a zombie only when your character can see it from where it stands, and leaning moves your eye and your weapon, not your character. Step out until your character is past the corner.
 
 **Wrong rotation axis or direction**
 
