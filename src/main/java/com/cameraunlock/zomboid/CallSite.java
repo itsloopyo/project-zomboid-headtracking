@@ -147,6 +147,12 @@ final class CallSite {
         invokeStatic(code, hook);
     }
 
+    /** The same for a static method, whose first argument is where an instance method has itself. */
+    static void passFirstStaticArgument(CodeBuilder code, Method hook) {
+        code.aload(0);
+        invokeStatic(code, hook);
+    }
+
     private static void invokeStatic(CodeBuilder code, Method method) {
         code.invoke(Opcode.INVOKESTATIC, ClassDesc.ofInternalName(method.owner()), method.name(),
                 MethodTypeDesc.ofDescriptor(method.descriptor()), false);

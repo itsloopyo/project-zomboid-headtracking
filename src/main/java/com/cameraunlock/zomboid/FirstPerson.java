@@ -129,10 +129,14 @@ public final class FirstPerson {
     private static float pitch;
 
     /**
-     * How the picture is keeping up, said every few seconds whoever is playing: a report of a
-     * slow game is of no use without the frame time, the memory in use and the size of the scene.
+     * How the picture is keeping up, said whoever is playing: a report of a slow game is of no
+     * use without the frame time, the memory in use and the size of the scene. Once soon after
+     * the view comes on and then once a minute, so that an evening's play leaves a log the
+     * other lines can still be found in.
      */
-    private static final long PACE_EVERY_NANOS = 5_000_000_000L;
+    private static final long PACE_FIRST_NANOS = 5_000_000_000L;
+    private static final long PACE_EVERY_NANOS = TRACE ? PACE_FIRST_NANOS : 60_000_000_000L;
+    private static long paceWait = PACE_FIRST_NANOS;
     private static long paceSince, paceWorst;
     private static int paceFrames;
     private static WorldScene paceScene;
@@ -275,16 +279,18 @@ public final class FirstPerson {
         if (on) {
             paceFrames++;
             paceWorst = Math.max(paceWorst, frameNanos);
-            if (now - paceSince > PACE_EVERY_NANOS) {
+            if (now - paceSince > paceWait) {
                 Runtime memory = Runtime.getRuntime();
                 Log.info(String.format(java.util.Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB, %s",
                         (now - paceSince) / 1e6 / paceFrames, paceWorst / 1e6, (memory.totalMemory() - memory.freeMemory()) >> 20,
                         memory.maxMemory() >> 20, paceScene == null ? "no scene yet" : paceScene.describe()));
+                paceWait = PACE_EVERY_NANOS;
                 paceSince = now;
                 paceFrames = 0;
                 paceWorst = 0;
             }
         } else {
+            paceWait = PACE_FIRST_NANOS;
             paceSince = now;
             paceFrames = 0;
             paceWorst = 0;

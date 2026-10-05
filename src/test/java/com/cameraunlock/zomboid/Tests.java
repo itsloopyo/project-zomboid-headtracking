@@ -60,6 +60,8 @@ public final class Tests {
         firstPersonKeysReplaceTheStockOnes();
         pointerComesOutForTheInventoryKeyAPanelAndAHeldButton();
         transformerHasNoGapOnceEveryPatchIsIn();
+        exceptionTheGameCaughtFromTheModIsWrittenOnce();
+        hookIsGivenAStaticMethodsFirstArgument();
         transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
         transformerNamesAClassTheGameDoesNotHave();
         floorFaceShowsTheSpritesDiamond();
@@ -1978,6 +1980,44 @@ public final class Tests {
         if (transformer.gap() != null) {
             throw new AssertionError("no gap once the one patch is in, got: " + transformer.gap());
         }
+    }
+
+    private static void exceptionTheGameCaughtFromTheModIsWrittenOnce() throws Exception {
+        java.nio.file.Path directory = java.nio.file.Files.createTempDirectory("zomboid-headtracking-test");
+        Log.open(directory);
+        RuntimeException theGames = new RuntimeException("the game's own");
+        theGames.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
+        Log.caughtByTheGame(theGames);
+        for (int frame = 0; frame < 3; frame++) {
+            RuntimeException fromTheMod = new RuntimeException("thrown in a hook");
+            fromTheMod.setStackTrace(new StackTraceElement[] {
+                    new StackTraceElement("com.cameraunlock.zomboid.FirstPerson", "afterWorldRender", "FirstPerson.java", 1),
+                    new StackTraceElement("zombie.gameStates.IngameState", "renderFrameInternal", "IngameState.java", 1)});
+            Log.caughtByTheGame(new IllegalStateException("wrapped by the game", fromTheMod));
+        }
+        String written = java.nio.file.Files.readString(directory.resolve(Log.FILE_NAME));
+        check(!written.contains("the game's own"), "an exception none of which came through the mod is left to the game's log");
+        check(written.split("the game caught this from the mod", -1).length == 2, "a fault that comes every frame is written once, got: " + written);
+        check(written.contains("thrown in a hook") && written.contains("FirstPerson.afterWorldRender"), "it is written with its cause and where in the mod it was thrown");
+    }
+
+    private static String takenByTheHook;
+
+    public static void takes(String argument) {
+        takenByTheHook = argument;
+    }
+
+    private static void hookIsGivenAStaticMethodsFirstArgument() throws Throwable {
+        ClassDesc string = ConstantDescs.CD_String;
+        MethodTypeDesc take = MethodTypeDesc.of(ConstantDescs.CD_void, string, string);
+        byte[] subject = ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.SubjectWithStaticMethod"), type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withMethodBody("take", take, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> code.return_()));
+        CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectWithStaticMethod", "take", "(Ljava/lang/String;Ljava/lang/String;)V");
+        CallSite.Method hook = new CallSite.Method("com/cameraunlock/zomboid/Tests", "takes", "(Ljava/lang/String;)V");
+        byte[] hooked = CallSite.insertBeforeReturns(subject, within, code -> CallSite.passFirstStaticArgument(code, hook));
+        MethodHandles.lookup().defineClass(hooked).getMethod("take", String.class, String.class).invoke(null, "first", "second");
+        check("first".equals(takenByTheHook), "the hook is given the first argument of a static method, got: " + takenByTheHook);
     }
 
     private static void transformerLeavesAClassItCannotPatchAloneAndNamesTheGap() throws Throwable {

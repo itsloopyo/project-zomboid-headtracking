@@ -33,6 +33,8 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
     static volatile int moved;
     private static final int MOVED_FOR = 3;
     private static int takenBack;
+    /** The game lets the mouse go on every aim, and the line carries the count so far. */
+    private static final long SAY_EVERY_NANOS = 60_000_000_000L;
     private static long saidAt;
 
     /** What the logic thread wants. */
@@ -73,7 +75,7 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
                 moved = MOVED_FOR;
                 takenBack++;
                 long now = System.nanoTime();
-                if (now - saidAt > 1_000_000_000L) {
+                if (now - saidAt > SAY_EVERY_NANOS) {
                     Log.info("the window had let the mouse go: taken back " + takenBack + " times so far");
                     saidAt = now;
                 }

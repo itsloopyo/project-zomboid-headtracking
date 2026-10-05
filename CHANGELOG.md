@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Made the log record an error the game catches from the mod, once for each fault. It went only to the game's own `console.txt` before. Wrote the first person frame time to the log once a minute, down from every five seconds, so a long session leaves a log the other lines can be found in.
 - Made the mod stay out of the game after a game update that renames or removes something it uses, so the game runs without it. The log names what changed and ends with `the mod stays out of the game:`.
 - Added a settings file, `CameraUnlock.ini`, which the mod creates next to `ProjectZomboid64.exe` the first time it starts. It holds the tracker's UDP port, the two smoothing values, the lean limits, the wall check, the carried light's multiplier and the hotkeys, which can now be rebound. A setting left on `default` takes its value from `%AppData%\CameraUnlock\Defaults.ini`, which every head tracking mod that keeps its settings in `CameraUnlock.ini` reads.
 - Saved the tracking mode (`Page Up`) and the yaw mode (`Page Down`) when changed, as the aim mode already was. `End` still lasts only until the game closes.

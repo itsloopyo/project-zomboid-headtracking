@@ -17,6 +17,7 @@ public final class Agent {
     private static final String FIRST_PERSON = "com/cameraunlock/zomboid/FirstPerson";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
+    private static final String EXCEPTION_LOGGER = "zombie/core/logger/ExceptionLogger";
     private static final String RETICLE = "zombie/input/AimingReticle";
     private static final String CHARACTER_DRAW = "zombie/core/skinnedmodel/model/ModelSlotRenderData";
     private static final String COMBINER = "zombie/core/textures/TextureCombiner";
@@ -76,6 +77,11 @@ public final class Agent {
         return loaded;
     }
 
+    /** Called where the game has just logged an exception of any kind. */
+    public static void caughtByTheGame(Throwable thrown) {
+        Log.caughtByTheGame(thrown);
+    }
+
     /** Called by the JVM when Boot loads the agent into it, which is how an installed copy starts. */
     public static void agentmain(String arguments, Instrumentation instrumentation) throws IOException {
         premain(arguments, instrumentation);
@@ -114,7 +120,13 @@ public final class Agent {
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
                 after(new CallSite.Method(TORCH, "set", "(Lzombie/characters/IsoPlayer;Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
                         new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
-                        new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction", VECTOR2_FILTER)))));
+                        new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction", VECTOR2_FILTER)),
+                // The one method every exception the game catches or lets a thread end on is logged by.
+                new Patch(EXCEPTION_LOGGER, "logException before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(EXCEPTION_LOGGER, "logException",
+                                "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;Lzombie/debug/DebugType;Lzombie/debug/LogSeverity;)V"),
+                        code -> CallSite.passFirstStaticArgument(code, new CallSite.Method("com/cameraunlock/zomboid/Agent", "caughtByTheGame",
+                                "(Ljava/lang/Throwable;)V")))))));
         CallSite.Method aiming = new CallSite.Method(PLAYER, "isAiming", "()Z");
         CallSite.Method clickAiming = new CallSite.Method(CONTROLS, "aimingForWorldClicks", BOOLEAN_FILTER);
         CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
