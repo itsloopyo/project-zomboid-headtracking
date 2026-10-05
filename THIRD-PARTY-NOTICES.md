@@ -98,6 +98,25 @@ Copyright (c) 2026 itsloopyo
 
 ---
 
+## Shotgun model
+
+- **Files:** `models/shotgun.mesh.gz`, `models/shotgun.colour.gz` and `models/shotgun.surface.gz` inside the mod's jar
+- **License:** MIT, this project's own, for the model and for what `tools/models/shotgun.py` paints on it. The walnut of its stock and fore-end and the grain of its rubber pad are baked from two pictures made with Stable Diffusion XL base 1.0 from text prompts alone, under the same terms as the generated material textures above. The prompts are in `tools/models/shotgun_textures.py`. No image from Project Zomboid or anywhere else was given to the model.
+- **Usage:** The first person view draws it in the viewer's hands in place of the game's model of `Base.Shotgun`.
+- **Bundled:** yes. The image model is not.
+
+The model is built from nothing by `tools/models/shotgun.py` in this repository,
+a Blender script: a twelve bore pump action field gun of no maker's pattern. No
+mesh or texture is read from Project Zomboid or from anywhere else. Three
+measures of the game's own shotgun decide how the model is held, and nothing of
+its shape: the game's model script says where that gun's muzzle is from its
+grip, which the mod reads while the game runs and sizes the model to, and how
+far along that gun its stock, receiver and fore-end lie was read once from the
+outline of the game's mesh, so that the hands the game poses for its gun fall on
+the grip and the fore-end of this one.
+
+---
+
 ## Furniture models
 
 - **Files:** `models/furniture.bin.gz` inside the mod's jar

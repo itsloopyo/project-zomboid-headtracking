@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
@@ -514,9 +515,25 @@ public final class Characters {
         for (int axis = 0; axis < 3; axis++) {
             across[axis] -= wrist[axis];
         }
+        ViewModel.Held hands = ViewModel.held;
+        boolean laid = side == 1 && ViewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        if (side == 0 && ViewModel.hasMuzzle) {
+            // The right hand's palm is on the grip, which says which way round a palm faces
+            // from a hand's length and its thumb in these axes.
+            palmSide = 1f;
+            handAxes(false);
+            float to = 0f;
+            for (int axis = 0; axis < 3; axis++) {
+                to += facing[axis] * (ViewModel.gripSeen[axis] - palm[axis]);
+            }
+            palmSide = to < 0f ? -1f : 1f;
+        }
+        if (laid) {
+            layOnForeEnd(view);
+        }
         if (side == 1 && ViewModel.hasMuzzle) {
             for (int axis = 0; axis < 3; axis++) {
-                float move = ViewModel.foreEnd[axis] - palm[axis];
+                float move = (laid ? held[axis] : ViewModel.foreEnd[axis]) - palm[axis];
                 wrist[axis] += move;
                 rigid[axis] += move;
                 palm[axis] += move;
@@ -557,6 +574,97 @@ public final class Characters {
         wide[2] = Math.max(Math.min(joined[CharacterDraw.ELBOW_WIDE] * CHARACTER_SCALE * AT_ELBOW, WIDEST_ELBOW), wide[1] * SLIMS);
         wide[3] = wide[2];
         return true;
+    }
+
+    /** 1 or -1: which way round a hand's palm faces from its length and its thumb, as the right hand on the grip shows it. */
+    private static float palmSide = 1f;
+    private static final float[] along = new float[3], thumb = new float[3], facing = new float[3], held = new float[3];
+    private static final float[] barrel = new float[3], upright = new float[3], aside = new float[3];
+    private static final float[] wantAlong = new float[3], wantThumb = new float[3], wantFacing = new float[3], laying = new float[16];
+    /**
+     * How the hand that works a fore-end lies on it, in parts of the weapon's own axes, which
+     * are its upright, the way to its right and the way to its muzzle: the palm under it and
+     * to the left, facing up into it, and the fingers across under it and round its far side.
+     * Then how far the middle of the hand is from the middle of the fore-end, in tiles.
+     */
+    private static final float PALM_UP = 0.82f, PALM_RIGHT = 0.57f, FINGERS_RIGHT = 0.90f, FINGERS_AHEAD = 0.42f, PALM_OFF = 0.042f;
+
+    /**
+     * A hand's own axes in the view, from its wrist, the elbow rigid with it, its middle and
+     * the line across its wrist: along it to the fingers, towards its thumb, which is the side
+     * its middle lies to, and out of its palm.
+     */
+    private static void handAxes(boolean left) {
+        unit(wrist[0] - rigid[0], wrist[1] - rigid[1], wrist[2] - rigid[2], along);
+        float lengthwise = across[0] * along[0] + across[1] * along[1] + across[2] * along[2];
+        unit(across[0] - along[0] * lengthwise, across[1] - along[1] * lengthwise, across[2] - along[2] * lengthwise, thumb);
+        float side = (palm[0] - wrist[0]) * thumb[0] + (palm[1] - wrist[1]) * thumb[1] + (palm[2] - wrist[2]) * thumb[2];
+        float way = (side < 0f ? -1f : 1f);
+        for (int axis = 0; axis < 3; axis++) {
+            thumb[axis] *= way;
+        }
+        float turn = left ? palmSide : -palmSide;
+        cross(along, thumb, facing);
+        for (int axis = 0; axis < 3; axis++) {
+            facing[axis] *= turn;
+        }
+    }
+
+    /**
+     * Lays the left hand on the fore-end of the mod's own model as a hand holds one, whatever
+     * the game's animation has it doing: turned about its middle, which is then held under
+     * the fore-end. The game poses the hand for its own gun and its own racking of it, and a
+     * hand left as posed twists on the fore-end as the action is worked.
+     */
+    private static void layOnForeEnd(float[] view) {
+        handAxes(true);
+        unit(ViewModel.muzzle[0] - ViewModel.gripSeen[0], ViewModel.muzzle[1] - ViewModel.gripSeen[1], ViewModel.muzzle[2] - ViewModel.gripSeen[2], barrel);
+        float tipped = ViewModel.over[0] * barrel[0] + ViewModel.over[1] * barrel[1] + ViewModel.over[2] * barrel[2];
+        unit(ViewModel.over[0] - barrel[0] * tipped, ViewModel.over[1] - barrel[1] * tipped, ViewModel.over[2] - barrel[2] * tipped, upright);
+        cross(barrel, upright, aside);
+        unit(upright[0] * PALM_UP + aside[0] * PALM_RIGHT, upright[1] * PALM_UP + aside[1] * PALM_RIGHT, upright[2] * PALM_UP + aside[2] * PALM_RIGHT, wantFacing);
+        float into = 0f;
+        for (int axis = 0; axis < 3; axis++) {
+            wantAlong[axis] = aside[axis] * FINGERS_RIGHT + barrel[axis] * FINGERS_AHEAD;
+            into += wantAlong[axis] * wantFacing[axis];
+        }
+        unit(wantAlong[0] - wantFacing[0] * into, wantAlong[1] - wantFacing[1] * into, wantAlong[2] - wantFacing[2] * into, wantAlong);
+        cross(wantFacing, wantAlong, wantThumb);
+        for (int axis = 0; axis < 3; axis++) {
+            wantThumb[axis] *= palmSide;
+        }
+        // The turn that takes the hand's axes to those: each of its own axes read off, and laid along the one wanted.
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                laying[column * 4 + row] = wantAlong[row] * along[column] + wantThumb[row] * thumb[column] + wantFacing[row] * facing[column];
+            }
+            laying[row * 4 + 3] = 0f;
+        }
+        laying[15] = 1f;
+        for (int row = 0; row < 3; row++) {
+            laying[12 + row] = palm[row] - (laying[row] * palm[0] + laying[4 + row] * palm[1] + laying[8 + row] * palm[2]);
+        }
+        ViewModelMath.onto(laying, view);
+        ViewModelMath.place(laying, wrist[0], wrist[1], wrist[2], wrist);
+        ViewModelMath.place(laying, rigid[0], rigid[1], rigid[2], rigid);
+        ViewModelMath.turned(laying, across, across);
+        for (int axis = 0; axis < 3; axis++) {
+            held[axis] = ViewModel.foreEnd[axis] - wantFacing[axis] * PALM_OFF;
+        }
+    }
+
+    private static void unit(float x, float y, float z, float[] out) {
+        float length = (float) Math.sqrt(x * x + y * y + z * z);
+        out[0] = x / length;
+        out[1] = y / length;
+        out[2] = z / length;
+    }
+
+    private static void cross(float[] a, float[] b, float[] out) {
+        float x = a[1] * b[2] - a[2] * b[1], y = a[2] * b[0] - a[0] * b[2], z = a[0] * b[1] - a[1] * b[0];
+        out[0] = x;
+        out[1] = y;
+        out[2] = z;
     }
 
     /** For the trace: how the wrists of the hands on the weapon are bent. */
@@ -622,10 +730,21 @@ public final class Characters {
         data.ambientG = 1f;
         data.ambientB = 1f;
         EYE.Begin();
+        // A weapon the mod has a model of its own for is drawn by the picture, after the hands,
+        // and the game's model of it and of what is fixed to it is left out.
+        ViewModel.Held hands = ViewModel.held;
+        ModelInstanceRenderData held = weaponOf(data);
+        boolean own = hands != null && held != null && ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
+        if (own) {
+            Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
+            IsoGridSquare square = data.character.getCurrentSquare();
+            OwnWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+                    ownLight, square != null && square.isOutside());
+        }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
-        for (int part = 0; part < parts(data).size(); part++) {
+        for (int part = 0; !own && part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.

@@ -1735,7 +1735,7 @@ final class Pipeline {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
             if (Characters.holding()) {
-                drawHeld(camera, tanHalfFieldOfView, aspect, far);
+                drawHeld(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
         }
         Characters.done();
@@ -2192,7 +2192,7 @@ final class Pipeline {
      * is their own: the body's cuts away the head and chest, and would cut the weapon's stock
      * off in the middle of the picture.
      */
-    private static void drawHeld(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float far) {
+    private static void drawHeld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         clearOwnTarget();
         CharacterDraw.bare = true;
         Characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
@@ -2216,11 +2216,33 @@ final class Pipeline {
         quad();
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_DEPTH_TEST);
+        if (OwnWeapon.waiting()) {
+            drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
+        }
         if (ViewModel.hasMuzzle) {
             MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
         } else {
             MuzzleFlash.none();
         }
+    }
+
+    /** The weapon the mod has a model of its own for, over the hands that hold it, in the light of the frame. */
+    private static void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        Program program = OwnWeapon.begin();
+        atmosphere(program, state);
+        setBasis(program, camera);
+        setFlash(program);
+        program.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        program.set("uLight", state.lightX, state.lightY, state.lightUp);
+        program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        program.set("uNearMatrix", nearMatrix);
+        program.set("uFarMatrix", farMatrix);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_FAR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        OwnWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
     }
 
     /** How near the eye the held weapon is still drawn, in tiles. */
@@ -2249,6 +2271,9 @@ final class Pipeline {
         makeNoise();
         makeWhite();
         problem = loadMaterials();
+        if (problem == null) {
+            problem = OwnWeapon.prepare();
+        }
         if (problem != null) {
             return problem;
         }

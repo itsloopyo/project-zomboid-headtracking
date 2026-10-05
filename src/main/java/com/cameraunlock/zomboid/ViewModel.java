@@ -302,11 +302,14 @@ public final class ViewModel {
      * wherever it goes.
      */
     private static final float FORE_END = 0.42f, FORE_END_BELOW = 0.035f;
+    /** How far working the action tips the muzzle down, and draws the weapon back, in tiles, with the fore-end right back. */
+    private static final float PUMP_DIPS = (float) Math.toRadians(3), PUMP_PULLS = 0.012f;
     /** How much of the way from grip to muzzle the fore-end travels. */
     private static final float PUMP_TRAVEL = 0.12f;
     /** Where the left palm is held on the weapon last placed, in the view: only with a muzzle. */
     static final float[] foreEnd = new float[3];
-    private static final float[] over = new float[3];
+    /** The way the top of the weapon last placed faces in the view, of length one, and where its grip is: only with a muzzle. */
+    static final float[] over = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
     static final float[] muzzle = new float[3];
     static boolean hasMuzzle;
@@ -355,6 +358,15 @@ public final class ViewModel {
         }
         turned(weapon, MESH_TOP, top);
 
+        // The mod's own model has its sights where it was made with them: the eye is brought to
+        // their line, which is that far over the bore at the size the model is drawn.
+        boolean own = hasMuzzle && OwnWeapon.standsFor(how.item);
+        float aimedY = AIMED_Y;
+        if (own) {
+            float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
+                    + (end[2] - origin[2]) * (end[2] - origin[2]));
+            aimedY = -OwnWeapon.sightLine * long3 * scale / OwnWeapon.muzzleFar;
+        }
         float atX, atY, ahead;
         float pitch = how.swayPitch + how.lowered * LOWERED_PITCH + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim);
         float yaw = how.swayYaw + how.lowered * LOWERED_YAW;
@@ -363,14 +375,17 @@ public final class ViewModel {
         if (how.firearm) {
             float raised = ViewModelMath.smooth(how.aim), off = ViewModelMath.arc(raised);
             atX = HIP_X + (AIMED_X - HIP_X) * raised;
-            atY = HIP_Y + (AIMED_Y - HIP_Y) * raised - RAISE_DIPS * off;
+            atY = HIP_Y + (aimedY - HIP_Y) * raised - RAISE_DIPS * off;
             ahead = HIP_AHEAD + (AIMED_AHEAD - HIP_AHEAD) * raised + RAISE_REACHES * off;
             // With the sights up the line of the sights runs along the aim. Off that place the
             // barrel is turned to point at where the aim meets the world, so a weapon at the
             // hip points at the reticle and not past it.
             yaw -= (float) Math.atan((atX - AIMED_X) * how.nearness);
-            pitch -= (float) Math.atan((atY - AIMED_Y) * how.nearness);
+            pitch -= (float) Math.atan((atY - aimedY) * how.nearness);
             roll = HIP_CANT * (1f - raised);
+            // Working the action drags the muzzle down and the whole gun back a little, and lets it go again.
+            pitch -= pumped * PUMP_DIPS;
+            moveBack = pumped * PUMP_PULLS;
         } else {
             atX = SWUNG_X;
             atY = SWUNG_Y;
@@ -400,14 +415,20 @@ public final class ViewModel {
         ViewModelMath.onto(fromAim, out);
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
-            float along = FORE_END - PUMP_TRAVEL * pumped;
+            // The mod's own model says where its fore-end is and how far it slides.
+            float along = (own ? OwnWeapon.foreEnd : FORE_END) - (own ? OwnWeapon.pumpTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
             ViewModelMath.turned(out, top, over);
             float length = (float) Math.sqrt(over[0] * over[0] + over[1] * over[1] + over[2] * over[2]);
             for (int axis = 0; axis < 3; axis++) {
-                foreEnd[axis] -= over[axis] / length * FORE_END_BELOW;
+                over[axis] /= length;
+                // The hand on the mod's own model is laid round the fore-end, by its middle.
+                if (!own) {
+                    foreEnd[axis] -= over[axis] * FORE_END_BELOW;
+                }
             }
+            ViewModelMath.place(out, origin[0], origin[1], origin[2], gripSeen);
         }
         return true;
     }
