@@ -336,6 +336,8 @@ final class Pipeline {
     /** Nearer the mirror than this, in tiles, is the vehicle it hangs in, and is left out of its picture. */
     private static final float MIRROR_NEAR = 2.6f;
     private static boolean inMirror;
+    /** While set, the world is drawn into the picture a scope's eyepiece shows. */
+    private static boolean inScope;
     private static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180, MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
     private static final float MIRROR_TAN = 0.1f;
@@ -488,6 +490,9 @@ final class Pipeline {
             if (cabin != null) {
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
             }
+            if (Scope.wanted(Characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
+                drawThroughScope(state, far, fogStart, fogEnd, figures);
+            }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
             if (figures) {
@@ -568,8 +573,27 @@ final class Pipeline {
         drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far, fogStart, fogEnd);
         inMirror = false;
         if (figures) {
-            drawMirrorFigures(state, far, fogStart, fogEnd);
+            drawFiguresAside(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, MIRROR_WIDTH, MIRROR_HEIGHT, mirrorFigureTarget, mirrorFigureColor,
+                    mirrorFigureNormal, mirrorTarget, mirrorDepth, true, state, far, fogStart, fogEnd);
         }
+    }
+
+    /**
+     * What the eyepiece of the scope on the weapon held shows: the world from its objective
+     * lens, along its axis, as narrow as its magnification makes it, with the people in it and
+     * the sky behind. It is the same light as the picture round it, and is developed with it.
+     */
+    private static void drawThroughScope(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
+        float tan = Scope.pictureTan();
+        inScope = true;
+        drawWorld(Scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
+        inScope = false;
+        if (figures) {
+            drawFiguresAside(Scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, Scope.figureTarget, Scope.figureColor, Scope.figureNormal,
+                    Scope.pictureTarget, Scope.pictureDepth, false, state, far, fogStart, fogEnd);
+        }
+        drawSkyInto(Scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, Scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        Scope.developed();
     }
 
     /** The developed picture, its edges smoothed, into the part of the game's own picture the frame is written to. */
@@ -1026,6 +1050,7 @@ final class Pipeline {
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
+        steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
         quad();
         // The rest of the frame is made from the steadied picture.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -1115,8 +1140,8 @@ final class Pipeline {
 
     private static void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inMirror ? mirrorTarget : sceneTarget);
-        GL11.glViewport(0, 0, inMirror ? MIRROR_WIDTH : width, inMirror ? MIRROR_HEIGHT : height);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? Scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
+        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : width, inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
         // In the mirror, where nothing is drawn is marked, and the sky is put there when the
         // glass is drawn.
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
@@ -1137,7 +1162,7 @@ final class Pipeline {
         // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
         // and with more detail than one frame's pixels hold.
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-        if (!inMirror) {
+        if (!inMirror && !inScope) {
             jitterAt = (jitterAt + 1) % JITTER_X.length;
             projection[8] += JITTER_X[jitterAt] / width;
             projection[9] += JITTER_Y[jitterAt] / height;
@@ -1337,6 +1362,16 @@ final class Pipeline {
     }
 
     private static void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        drawSkyInto(sceneTarget, width, height, true, camera, state, tanHalfFieldOfView, aspect, near, far);
+    }
+
+    /**
+     * The sky, behind whatever a picture's depth says is drawn in it already.
+     *
+     * @param soft whether the clouds' edges are softened first, against the depth of the eye's own picture
+     */
+    private static void drawSkyInto(int target, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
+            float aspect, float near, float far) {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_DEPTH_TEST);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
@@ -1354,20 +1389,22 @@ final class Pipeline {
         clouds.set("uCover", state.cover);
         clouds.set("uDrift", state.driftX, state.driftY);
         quad();
-        softenInto(softCloudTarget, cloudColor, near, far);
-        stage(STAGE_CLOUDS);
+        if (soft) {
+            softenInto(softCloudTarget, cloudColor, near, far);
+            stage(STAGE_CLOUDS);
+        }
 
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        GL11.glViewport(0, 0, width, height);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glViewport(0, 0, wide, high);
         GL11.glEnable(GL_DEPTH_TEST);
         // Said again here: the game's own draw of the characters leaves its depth test behind.
         GL11.glDepthFunc(GL_LEQUAL);
         sky.use();
-        GL11.glBindTexture(GL_TEXTURE_2D, softCloudColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, soft ? softCloudColor : cloudColor);
         sky.set("uClouds", 0);
         setBasis(sky, camera);
         sky.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-        sky.set("uSize", (float) width, (float) height);
+        sky.set("uSize", (float) wide, (float) high);
         sky.set("uMoon", state.moonX, state.moonY, state.moonUp);
         sky.set("uNight", state.night);
         sky.set("uTime", state.seconds);
@@ -1547,6 +1584,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
         develop.set("uSize", (float) width, (float) height);
+        develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
         develop.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         develop.set("uNear", near);
@@ -1884,16 +1922,22 @@ final class Pipeline {
     private static final float[] worn = new float[3], mirrorPlace = new float[3];
 
     /**
-     * The people and then the vehicles behind, into the mirror's picture of the road: drawn
-     * as they are for the eye, against the depth of the world the mirror shows, and lit the
-     * same way. Only what Characters.drawBehind finds near enough is drawn at all, and a pass
-     * that finds nothing costs nothing more.
+     * The people and then the vehicles, into a second picture of the world drawn beside the
+     * eye's own, a mirror's or a scope's: drawn as they are for the eye, against the depth of
+     * the world that picture shows, and lit the same way. In a mirror only what
+     * Characters.drawBehind finds near enough is drawn at all, and a pass that finds nothing
+     * costs nothing more.
+     *
+     * @param pose          where the second picture is drawn from
+     * @param figureTarget  where its people are drawn before they are lit, whose depth is worldDepth
+     * @param worldTarget   the picture itself
+     * @param mirror        whether it is a vehicle's mirror
      */
-    private static void drawMirrorFigures(SkyState state, float far, float fogStart, float fogEnd) {
-        float aspect = (float) MIRROR_WIDTH / MIRROR_HEIGHT;
+    private static void drawFiguresAside(ViewCamera.Pose pose, float tan, float aspect, float near, int wide, int high, int figureTarget, int figureColor,
+            int figureNormal, int worldTarget, int worldDepth, boolean mirror, SkyState state, float far, float fogStart, float fogEnd) {
         for (int pass = 0; pass < 2; pass++) {
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorFigureTarget);
-            GL11.glViewport(0, 0, MIRROR_WIDTH, MIRROR_HEIGHT);
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
+            GL11.glViewport(0, 0, wide, high);
             GL11.glClearColor(0f, 0f, 0f, 0f);
             GL11.glColorMask(true, true, true, true);
             GL20.glDrawBuffers(BOTH_BUFFERS);
@@ -1905,7 +1949,12 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
-            int drawn = Characters.drawBehind(behind, MIRROR_TAN, aspect, MIRROR_NEAR, far, pass == 1);
+            int drawn = 1;
+            if (mirror) {
+                drawn = Characters.drawBehind(pose, tan, aspect, near, far, pass == 1);
+            } else {
+                Characters.draw(pose, tan, aspect, near, far, pass == 1);
+            }
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -1920,30 +1969,30 @@ final class Pipeline {
             }
             GL11.glDisable(GL_DEPTH_TEST);
             GL11.glDepthMask(false);
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, mirrorTarget);
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, worldTarget);
             figureLight.use();
             figureLight.set("uFigure", 0);
             figureLight.set("uDepth", 3);
             figureLight.set("uShadowNear", 1);
             figureLight.set("uShadowFar", 2);
             GL13.glActiveTexture(GL_TEXTURE0 + 3);
-            GL11.glBindTexture(GL_TEXTURE_2D, mirrorDepth);
+            GL11.glBindTexture(GL_TEXTURE_2D, worldDepth);
             GL13.glActiveTexture(GL_TEXTURE0 + 2);
             GL11.glBindTexture(GL_TEXTURE_2D, farMap);
             GL13.glActiveTexture(GL_TEXTURE0 + 1);
             GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
-            GL11.glBindTexture(GL_TEXTURE_2D, mirrorFigureNormal);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
             GL13.glActiveTexture(GL_TEXTURE0);
-            GL11.glBindTexture(GL_TEXTURE_2D, mirrorFigureColor);
+            GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
             figureLight.set("uNearMatrix", nearMatrix);
             figureLight.set("uFarMatrix", farMatrix);
-            figureLight.set("uSize", (float) MIRROR_WIDTH, (float) MIRROR_HEIGHT);
-            figureLight.set("uTan", MIRROR_TAN * aspect, MIRROR_TAN);
-            figureLight.set("uNear", MIRROR_NEAR);
+            figureLight.set("uSize", (float) wide, (float) high);
+            figureLight.set("uTan", tan * aspect, tan);
+            figureLight.set("uNear", near);
             figureLight.set("uFar", far);
-            figureLight.set("uEye", behind.eyeX, behind.eyeY, behind.eyeUp);
-            setBasis(figureLight, behind);
+            figureLight.set("uEye", pose.eyeX, pose.eyeY, pose.eyeUp);
+            setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
             setFlash(figureLight);
@@ -1957,7 +2006,7 @@ final class Pipeline {
             figureLight.set("uFigureAmbient", Characters.ambient);
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
-            // In a picture this small the weave of a shirt is finer than a dot of it.
+            // In a mirror the weave of a shirt is finer than a dot of the picture, and a scope shows it from too far off.
             figureLight.set("uRoots", 0f);
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
@@ -2249,6 +2298,9 @@ final class Pipeline {
         if (OwnWeapon.waiting()) {
             drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
         }
+        if (Scope.waiting()) {
+            drawScope(camera, state, tanHalfFieldOfView, aspect, near, far);
+        }
         if (ViewModel.hasMuzzle) {
             MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
         } else {
@@ -2274,6 +2326,29 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         OwnWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
     }
+
+    /** The scope on the weapon held, over the rifle it is on and the hands that hold it, in the light of the frame. */
+    private static void drawScope(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        Program program = Scope.begin();
+        atmosphere(program, state);
+        setBasis(program, camera);
+        setFlash(program);
+        program.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        program.set("uLight", state.lightX, state.lightY, state.lightUp);
+        program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        program.set("uNearMatrix", nearMatrix);
+        program.set("uFarMatrix", farMatrix);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_FAR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        Scope.draw(camera, Characters.aim, sceneTarget, sceneColor, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+                JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+    }
+
+    /** Nearer the eye than this, in tiles, what the picture shows on foot is in the viewer's hands: the hands, most of a weapon, a scope. */
+    private static final float HELD_WITHIN = 0.6f;
 
     /** How near the eye the held weapon is still drawn, in tiles. */
     private static final float HELD_NEAR = 0.08f;
@@ -2303,6 +2378,9 @@ final class Pipeline {
         problem = loadMaterials();
         if (problem == null) {
             problem = OwnWeapon.prepare();
+        }
+        if (problem == null) {
+            problem = Scope.prepare();
         }
         if (problem != null) {
             return problem;

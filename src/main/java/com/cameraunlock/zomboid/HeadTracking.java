@@ -65,10 +65,6 @@ final class HeadTracking {
     private static final AdsFade stockFade = new AdsFade();
     private static final long CLOCK_START_NANOS = System.nanoTime();
 
-    static {
-        handover.setForwardStop(ViewModel.FORWARD_STOP);
-    }
-
     /** Where this frame's lean starts and the map it is traced through. */
     private static WorldQuery leanWorld;
     private static float leanEyeX, leanEyeY;
@@ -331,6 +327,7 @@ final class HeadTracking {
         // The eye goes where the lean puts it whichever of the two has it. What the weapon
         // has moves the weapon and the shot as well, so only the share of the view parts the
         // eye from the shot.
+        handover.setForwardStop(ViewModel.forwardStop());
         handover.update(lean, clean.forwardX, clean.forwardY, clean.forwardUp, sightsUp, aimMode.isFreeLook(), onFoot, nowMillis);
         out.eyeX += handover.camera[0] + handover.rig[0];
         out.eyeY += handover.camera[1] + handover.rig[1];

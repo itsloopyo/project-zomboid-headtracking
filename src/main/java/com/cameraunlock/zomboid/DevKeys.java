@@ -11,7 +11,9 @@ import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
+import zombie.inventory.InventoryItemFactory;
 import zombie.inventory.types.HandWeapon;
+import zombie.inventory.types.WeaponPart;
 import zombie.iso.IsoWorld;
 import zombie.iso.weather.ClimateManager;
 import zombie.network.GameClient;
@@ -42,6 +44,10 @@ import zombie.vehicles.VehiclePart;
  * The semicolon puts a pump action shotgun in the player's hands, and from then on whatever firearm is
  * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
  * finding a gun and shells.
+ *
+ * The left square bracket does the same with a hunting rifle that has a scope on it: the
+ * weakest of the game's three on the first press, the next on each press after, and round
+ * again. For looking through each scope without finding one and a screwdriver.
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
@@ -92,6 +98,10 @@ final class DevKeys {
     /** The semicolon. */
     private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
+    /** The left square bracket, which is beside the semicolon and the apostrophe. */
+    private static final int SCOPED_KEY = 26;
+    private static final String RIFLE = "Base.HuntingRifle";
+    private static int scope = -1;
 
     private static boolean armed;
     private static boolean invincible, wasInvincible;
@@ -123,7 +133,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: 0 clears out the zombies, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, ' makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: 0 clears out the zombies, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, F7 takes the nearest vehicle");
             }
         }
         // On a server every one of these would be a cheat against the other players.
@@ -173,6 +183,16 @@ final class DevKeys {
             safe.setSecondaryHandItem(shotgun);
             armed = true;
             Log.info(";: a shotgun in hand, kept loaded");
+        }
+        if (safe != null && GameKeyboard.isKeyPressed(SCOPED_KEY)) {
+            scope = (scope + 1) % ScopeOptics.KNOWN.length;
+            String part = ScopeOptics.KNOWN[scope].part();
+            HandWeapon rifle = (HandWeapon) safe.getInventory().AddItem(RIFLE);
+            rifle.attachWeaponPart(InventoryItemFactory.<WeaponPart>CreateItem(part));
+            safe.setPrimaryHandItem(rifle);
+            safe.setSecondaryHandItem(rifle);
+            armed = true;
+            Log.info("[: a hunting rifle in hand with " + part + " on it, kept loaded");
         }
         if (armed && safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
             held.setCurrentAmmoCount(held.getMaxAmmo());

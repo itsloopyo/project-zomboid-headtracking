@@ -2163,13 +2163,19 @@ final class PipelineShaders {
                     n = -n;
                 }
                 float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-                float reach = RADIUS / (p.z * uTan.y) * 0.5;
+                // Every length below is one of the world's: half a pace, the width of a room.
+                // What is held a hand's breadth from the eye, a weapon, a hand, a scope, is
+                // smaller than any of them, and searched over those lengths it is shaded by
+                // the whole picture, in grains. Nearer than a pace and a half the lengths
+                // shrink with the distance, as if the thing and the eye were that much larger.
+                float small = min(p.z / 1.4, 1.0);
+                float reach = RADIUS * small / (p.z * uTan.y) * 0.5;
                 float blocked = 0.0;
                 for (int i = 0; i < SAMPLES; i++) {
                     float along = (float(i) + 0.5) / float(SAMPLES);
                     float a = turn + along * 15.1;
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (along * reach);
-                    vec3 v = placeAt(uv + off) - p;
+                    vec3 v = (placeAt(uv + off) - p) / small;
                     float far2 = dot(v, v);
                     blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0) * shown(uv + off);
                 }
@@ -2178,12 +2184,12 @@ final class PipelineShaders {
                 // ceiling meet, the ground under a porch, the foot of a hedge. It is what makes
                 // a room a hollow and not six lit cards.
                 float broad = 0.0;
-                float roomy = ROOM_RADIUS / (p.z * uTan.y) * 0.5;
+                float roomy = ROOM_RADIUS * small / (p.z * uTan.y) * 0.5;
                 for (int i = 0; i < ROOM_SAMPLES; i++) {
                     float along = (float(i) + 0.5) / float(ROOM_SAMPLES);
                     float a = turn + 2.1 + along * 19.3;
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * roomy);
-                    vec3 v = placeAt(uv + off) - p;
+                    vec3 v = (placeAt(uv + off) - p) / small;
                     float far2 = dot(v, v);
                     broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * step(far2, ROOM_RADIUS * ROOM_RADIUS * 2.0) * shown(uv + off);
                 }
@@ -2193,12 +2199,12 @@ final class PipelineShaders {
                 // in the picture within a few paces of this point, on the side it faces, lends
                 // it some of its own light.
                 vec3 lent = vec3(0.0);
-                float wide = BOUNCE_RADIUS / (p.z * uTan.y) * 0.5;
+                float wide = BOUNCE_RADIUS * small / (p.z * uTan.y) * 0.5;
                 for (int i = 0; i < BOUNCE_SAMPLES; i++) {
                     float along = (float(i) + 0.5) / float(BOUNCE_SAMPLES);
                     float a = turn + 1.3 + along * 23.7;
                     vec2 at = uv + vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * wide);
-                    vec3 v = placeAt(at) - p;
+                    vec3 v = (placeAt(at) - p) / small;
                     float far2 = dot(v, v);
                     float faces = max(dot(v, n), 0.0) / sqrt(far2 + 0.0001) * shown(at);
                     lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * step(far2, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0) / (1.0 + far2));
@@ -2209,12 +2215,12 @@ final class PipelineShaders {
                 // this point towards the sun through the picture's depth, and if it passes
                 // behind something near by, that something is in the sun's way.
                 if (uSunEye.z > -2.0) {
-                    float reach = min(0.5, 0.03 * p.z + 0.12);
+                    float reach = min(0.5, 0.03 * p.z + 0.12) * small;
                     float begin = fract(turn * 0.159 + 0.37);
                     for (int i = 0; i < 10; i++) {
-                        vec3 q = p + n * 0.03 + uSunEye * (reach * (float(i) + begin) / 10.0);
+                        vec3 q = p + n * (0.03 * small) + uSunEye * (reach * (float(i) + begin) / 10.0);
                         vec2 at = q.xy / (q.z * uTan) * 0.5 + 0.5;
-                        float behind = q.z - placeAt(at).z;
+                        float behind = (q.z - placeAt(at).z) / small;
                         if (behind > 0.02 && behind < 0.35 && shown(at) > 0.5) {
                             open *= 0.62;
                             break;
@@ -3857,6 +3863,8 @@ final class PipelineShaders {
             uniform sampler2D uOcclusion;
             uniform sampler2D uVolume;
             uniform vec2 uSize;
+            // The size of the passes drawn at half the picture's: the shade and the lit air.
+            uniform vec2 uLow;
             uniform float uExposure;
             uniform vec2 uSunAt;
             uniform vec3 uRayColor;
@@ -4045,9 +4053,30 @@ final class PipelineShaders {
                 return clamp(c + over * 0.6, 0.0, 1.0);
             }
 
+            // A half-size pass read at a full-size pixel: of the four of its dots round the
+            // pixel, mostly those as far off as the pixel is. Read as the plain mean of the four,
+            // the air and the shade that belong to what is far off lie over the edge of whatever
+            // is held near the eye, a weapon or a hand, in blocks two pixels across.
+            vec4 ofItsOwnDepth(sampler2D low, vec2 uv, float ahead) {
+                vec2 at = uv * uLow - 0.5;
+                vec2 whole = floor(at), part = at - whole;
+                vec4 sum = vec4(0.0);
+                float total = 0.0;
+                for (int i = 0; i < 4; i++) {
+                    vec2 corner = vec2(mod(float(i), 2.0), floor(float(i) / 2.0));
+                    vec2 dot1 = (whole + corner + 0.5) / uLow;
+                    float w = mix(1.0 - part.x, part.x, corner.x) * mix(1.0 - part.y, part.y, corner.y);
+                    w = (w + 0.01) / (0.02 + abs(placeAt(dot1).z - ahead) / ahead);
+                    sum += texture2D(low, dot1) * w;
+                    total += w;
+                }
+                return sum / total;
+            }
+
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                vec4 around = mix(texture2D(uOcclusion, uv), vec4(1.0), uWithout.x);
+                float ahead = placeAt(uv).z;
+                vec4 around = mix(ofItsOwnDepth(uOcclusion, uv, ahead), vec4(1.0), uWithout.x);
                 vec4 here = texture2D(uScene, uv);
                 vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
                 // The light lent by what stands near, taken on by the surface in its own colour.
@@ -4057,7 +4086,7 @@ final class PipelineShaders {
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }
-                c += texture2D(uVolume, uv).rgb * (1.0 - uWithout.y);
+                c += ofItsOwnDepth(uVolume, uv, ahead).rgb * (1.0 - uWithout.y);
                 c += flare(uv);
                 c += texture2D(uBloom, uv).rgb * (0.1 * (1.0 - uWithout.z));
                 c = film(c * uExposure);
@@ -4102,6 +4131,7 @@ final class PipelineShaders {
             uniform vec3 uForwardBefore;
             uniform float uKept;
             uniform float uOwnWithin;
+            uniform float uHeldWithin;
 
             // The picture kept from before, read at a place between its pixels. Read as the
             // mean of the four pixels round the place, each frame of a moving head blurs what
@@ -4138,7 +4168,11 @@ final class PipelineShaders {
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 at = uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
-                vec3 from = at - uEyeBefore;
+                // What is held in the hands goes where the eye goes. Taken for a thing that stood
+                // still while the eye moved, a weapon a hand's breadth off is looked for a dozen
+                // pixels from where it was for every millimetre of a step or a breath, and its
+                // edges come out in waves. Nearer than the hands reach, only the eye's turn counts.
+                vec3 from = at - (ahead < uHeldWithin ? uEye : uEyeBefore);
                 float was = dot(from, uForwardBefore);
                 vec2 before = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5;
                 // The vehicle the viewer rides in goes with the eye: where it was in the world a

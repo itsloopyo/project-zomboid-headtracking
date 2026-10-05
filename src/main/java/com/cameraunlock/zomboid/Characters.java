@@ -721,6 +721,19 @@ public final class Characters {
         return null;
     }
 
+    private static final float[] scopePlace = new float[16];
+
+    /** The game's model of the scope on what the right hand holds, or null. */
+    private static ModelInstanceRenderData scopeOf(ModelSlotRenderData data) {
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
+            if (model.model != null && model.model.isStatic && Scope.ATTACHMENT.equals(model.modelInstance.attachmentNameParent) && inHand(model.modelInstance)) {
+                return model;
+            }
+        }
+        return null;
+    }
+
     /** Whether a part is what the right hand holds, or is fixed to it: a sight, a magazine. */
     private static boolean inHand(ModelInstance instance) {
         for (ModelInstance of = instance; of != null; of = of.parent) {
@@ -758,6 +771,12 @@ public final class Characters {
             OwnWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside());
         }
+        // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
+        ModelInstanceRenderData glass = own || held == null || Scope.fitted() == null ? null : scopeOf(data);
+        if (glass != null) {
+            IsoGridSquare square = data.character.getCurrentSquare();
+            Scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
+        }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
@@ -765,7 +784,7 @@ public final class Characters {
             ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.
-            if (model.model == null || !model.model.isStatic || !inHand(model.modelInstance)
+            if (model.model == null || !model.model.isStatic || !inHand(model.modelInstance) || model == glass
                     || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
                 continue;
             }

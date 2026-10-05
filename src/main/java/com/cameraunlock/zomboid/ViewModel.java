@@ -137,6 +137,7 @@ public final class ViewModel {
             rest();
             return;
         }
+        Scope.fitted(weapon);
         if (!gapSaid) {
             gapSaid = true;
             String gap = Agent.shotGap();
@@ -212,6 +213,7 @@ public final class ViewModel {
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
     static void rest() {
+        Scope.fitted(null);
         sinceShot = NOT_PUMPING;
         pumped = 0f;
         held = null;
@@ -276,6 +278,12 @@ public final class ViewModel {
      * with and a margin.
      */
     static final float FORWARD_STOP = AIMED_AHEAD - 0.08f - 0.02f;
+
+    /** The same for what is held now: behind a scope the eye is stopped short of the eyepiece's glass. */
+    static float forwardStop() {
+        Held now = held;
+        return now != null && now.firearm && Scope.fitted() != null ? Scope.forwardStop() : FORWARD_STOP;
+    }
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
     /**
@@ -294,7 +302,7 @@ public final class ViewModel {
     private static final float[] MESH_ALONG = {0f, 1f, 0f}, MESH_TOP = {0f, 0f, 1f};
 
     private static final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
-    private static final float[] along = new float[3], grip = new float[3], swung = new float[6];
+    private static final float[] along = new float[3], grip = new float[3], swung = new float[6], sighted = new float[2];
     /**
      * Where the left palm is held on a firearm: this far from the grip to the muzzle, and this
      * far under that line, in tiles. The game's animation moves the left hand about against
@@ -361,11 +369,16 @@ public final class ViewModel {
         // The mod's own model has its sights where it was made with them: the eye is brought to
         // their line, which is that far over the bore at the size the model is drawn.
         boolean own = hasMuzzle && OwnWeapon.standsFor(how.item);
-        float aimedY = AIMED_Y;
+        float aimedY = AIMED_Y, aimedAhead = AIMED_AHEAD;
         if (own) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
             aimedY = -OwnWeapon.sightLine * long3 * scale / OwnWeapon.muzzleFar;
+        }
+        // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
+        if (hasMuzzle && Scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
+            aimedY = sighted[0];
+            aimedAhead = sighted[1];
         }
         float atX, atY, ahead;
         float pitch = how.swayPitch + how.lowered * LOWERED_PITCH + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim);
@@ -376,7 +389,7 @@ public final class ViewModel {
             float raised = ViewModelMath.smooth(how.aim), off = ViewModelMath.arc(raised);
             atX = HIP_X + (AIMED_X - HIP_X) * raised;
             atY = HIP_Y + (aimedY - HIP_Y) * raised - RAISE_DIPS * off;
-            ahead = HIP_AHEAD + (AIMED_AHEAD - HIP_AHEAD) * raised + RAISE_REACHES * off;
+            ahead = HIP_AHEAD + (aimedAhead - HIP_AHEAD) * raised + RAISE_REACHES * off;
             // With the sights up the line of the sights runs along the aim. Off that place the
             // barrel is turned to point at where the aim meets the world, so a weapon at the
             // hip points at the reticle and not past it.

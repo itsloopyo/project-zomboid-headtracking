@@ -1033,6 +1033,7 @@ public final class Tests {
         GrassTests.run();
         WindowTests.run();
         ReflectionTests.run();
+        ScopeTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         System.out.println("all tests passed");
     }

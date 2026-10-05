@@ -130,6 +130,7 @@ With a weapon in hand and on foot, first person draws it and the arms that hold 
 - **A firearm** sits low and to the right at the hip, pointing at the place the shot will land. Holding the aim brings it up onto your aim as the view narrows. It stays on your aim when you turn your head: look away and it is off to one side, still pointing at the reticle. Your left arm comes with it when the weapon is held in both hands.
 - **A melee weapon** is held up at the lower right. A swing is the game's own attack animation, seen from the eye.
 - **The pump action shotgun** has a model of the mod's own, made to be seen from a hand's breadth away: walnut and blued steel, lit by the sun, the sky and the room. After each shot the fore-end is worked back and forward, the bolt opens and the spent shell is thrown out to the right. The sawn-off shotgun and every other weapon are the game's own models, and a scope, recoil pad or choke fitted to the shotgun does not show on it.
+- **A rifle scope**: the game's x2, x4 and x8 scopes are drawn as a scope of the mod's own, and you look through it. Its eyepiece shows the world a second time, drawn from the scope's front lens along the scope's own axis, with the reticle in it. The power is counted from your unaided view: through the x8 a thing is eight times as large as it is with nothing aimed. While the sights are up the mouse turns your aim by one over the power, so the reticle crosses what it is on as fast as the crosshair does at the hip. See [Through a scope](#through-a-scope). A red dot and the tritium sights are the game's own models.
 - The weapon trails a turn of the view by a few degrees and catches up, sways with each step, drops across the body while you sprint, and dips when you crouch or land.
 - **A shot** kicks the weapon back and up for about a sixth of a second, throws a flash from the muzzle and lights the people and zombies round it for the length of the flash.
 - **The crosshair**: while the aim is held the game draws its own reticle, which widens and tightens as the game's aim does, and first person puts it where the shot will land. With a weapon in hand and the aim not held the game draws none, so first person draws a small crosshair at that same point. It spreads a little while you move and after a shot. There is none without a weapon, in a vehicle, or while the pointer is out.
@@ -356,6 +357,40 @@ just short of the rear sight.
 
 The mode is logged each time it changes, as `Aim mode: sights locked` and so on.
 
+#### Through a scope
+
+A scope shows its whole picture only to an eye on its axis, a fixed distance
+behind the eyepiece. What you see through it depends on where your eye is, as it
+does behind a real one:
+
+- **Sights locked** keeps your eye there. Lean and turn your head as you like:
+  the rifle comes with your eye and the picture stays whole. With your head
+  turned the scope is off to one side, and its reticle is still on the point
+  your rounds go to.
+- **In the two free look modes** the rifle stays put and your head has to be
+  behind the scope. To one side of the axis the picture dims and then goes
+  dark. Too near or too far back, a shadow closes in from its edge, from one
+  side first if your head is off to that side as well. What is dark is the
+  inside of the tube.
+- **Stock sights** puts your eye on the axis whenever the sights are up.
+
+A weaker scope forgives more. The picture is whole with your head within about
+3 mm of the axis of the x2, 1 mm of the x4 and a quarter of a millimetre of the
+x8, and gone at 9 mm, 7 mm and 6 mm.
+
+Leaning in does not make the picture larger: a scope's power is fixed. It brings
+the eyepiece nearer and its shadow in, and is stopped where the shadow has
+closed half the width of the picture, about 5 cm in with the x2, 4 cm with the
+x4 and 3 cm with the x8.
+
+The reticle is in the same plane as the picture, so moving your eye does not
+move it across the target. The game's own reticle is drawn over it and shows how
+steady your aim is, as it does without a scope.
+
+The picture in the scope is the same world in the same light, without rain and
+without the glass of windows. It shows people and zombies only as far off as the
+game draws them.
+
 ## Troubleshooting
 
 Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `ProjectZomboid64.exe`, starting it again on each launch.
@@ -383,6 +418,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 - **The weapon is off to one side when I aim down sights.** Your head is turned: the weapon stays on your aim and you are looking past it. Turn back to it, or move your aim to where you are looking.
 - **I can't see down the sights, they are misaligned.** You are in one of the free look modes and your head is leaned off them. Move your head back behind them, or press `Insert` / `Ctrl+Shift+U` until the log says sights locked.
+- **The scope is black, or has a shadow down one side.** You are in one of the free look modes and your eye is off the scope's axis, or too near or too far behind it. Move your head until the picture is whole, or press `Insert` / `Ctrl+Shift+U` until the log says sights locked. A kick or a quick turn takes the scope off your eye for a moment in any mode.
 - **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` / `Ctrl+Shift+U` for another mode if you want head tracking to carry on through the aim.
 - **I lean round a corner and nobody is there.** The game shows you a zombie only when your character can see it from where it stands, and leaning moves your eye and your weapon, not your character. Step out until your character is past the corner.
 

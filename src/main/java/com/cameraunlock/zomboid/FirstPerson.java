@@ -652,7 +652,7 @@ public final class FirstPerson {
             haveRawX = false;
         }
         if (haveRawX && !MouseGrab.ISOLATED) {
-            setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom(), pitch);
+            setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn(), pitch);
         }
         lastRawX = raw;
         haveRawX = true;
@@ -670,7 +670,7 @@ public final class FirstPerson {
             MouseGrab.moved.decrementAndGet();
         }
         if (haveRawY && !MouseGrab.ISOLATED) {
-            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom());
+            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn());
         }
         lastRawY = raw;
         haveRawY = true;
