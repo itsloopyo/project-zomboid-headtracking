@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Laid tiled floors in the first person view tile by tile: each tile a face of its own in the colour the game paints it, with a straight edge and a joint between it and the next, where the game's sixty dots of floor were magnified into soft squares. Floors of brick laid in bond and paving of odd stones are still the game's sprites.
 - Rebuilt the wallpaper of inside walls in the first person view. A striped paper is its stripes, each with a straight edge, in the colours the game paints them, where it was the game's sixty dots of wall magnified into soft smears. A paper with flowers on it is printed sprig by sprig. This is so far on the two walls of a room that the game draws from inside it, the north and the west.
 - Gave the hunting rifle (`Base.HuntingRifle`) a model of the mod's own in first person: a bolt action sporting rifle with a walnut stock checkered at the grip and the fore-end, a dark fore-end tip, a blued barrel and receiver, and open sights. After a shot its bolt is worked: the handle turns up, the bolt comes back, the fired case is thrown out to the right, and the bolt shuts.
 - Left the game's own reticle out behind a scope in sights locked and in stock sights, where the scope's reticle is on the point the rounds go to. It stays in the two free look modes.

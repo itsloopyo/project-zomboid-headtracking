@@ -105,6 +105,7 @@ final class SpriteColours {
             Drapes.read(texture, page, width, left, top, right, bottom);
             Doors.read(texture, page, width, left, top, right, bottom);
             Papers.read(texture, page, width, left, top, right, bottom);
+            Tiles.read(texture, page, width, left, top, right, bottom);
             Masonry.read(texture, page, width, left, top, right, bottom);
         }
         while (waiting.size() > kept) {

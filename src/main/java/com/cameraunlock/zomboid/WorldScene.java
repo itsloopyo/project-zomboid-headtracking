@@ -2461,10 +2461,78 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (z == 0 && geometry.kerb != null && (!isFloor || beyondKerb >= 0)) {
             geometry.kerbKeep = geometry.kerbStreet && !vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
         }
+        String name = sprite.getName();
+        if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && name != null && name.startsWith("floors_") && name.contains("tile")
+                && addTiles(texture, x, y, z)) {
+            return;
+        }
         geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
         geometry.kerbKeep = SpriteGeometry.BOTH;
         frame.kind = 0f;
         geometry.cover = null;
+    }
+
+    /** Half the width of the joint between two tiles, in tiles of the map, and how much darker than the sprite paints it the joint is drawn. */
+    private static final float JOINT_HALF = 0.006f, JOINT_DARK = 0.8f;
+    private final float[] tileTint = new float[4];
+
+    /**
+     * A square of tiled floor, laid: a bed the colour of the joints, and on it each tile as a
+     * face of its own in its own colour, with a straight edge. How many tiles and which colours
+     * is measured off the sprite: see Tiles. False, adding nothing, for a sprite not measured
+     * yet or a floor that is no grid of plain tiles.
+     */
+    private boolean addTiles(Texture texture, int x, int y, int z) {
+        Tiles.Shape tiles = Tiles.of(texture, frame);
+        if (tiles == null) {
+            if (Tiles.unread(texture)) {
+                building.signed = false;
+            }
+            return false;
+        }
+        int key = WallSides.key(tiles.red, tiles.green, tiles.blue, WallSides.FLAT);
+        WallSides.tint(key, tileTint);
+        SpriteGeometry.Mesh on = solid.get(texture.getID(), key);
+        float made = frame.material, red = frame.red, green = frame.green, blue = frame.blue;
+        System.arraycopy(frame.cornerRed, 0, paperRed, 0, 4);
+        System.arraycopy(frame.cornerGreen, 0, paperGreen, 0, 4);
+        System.arraycopy(frame.cornerBlue, 0, paperBlue, 0, 4);
+        frame.material = TILE;
+        float joint = tiles.count > 1 ? JOINT_HALF : 0f, each = 1f / tiles.count;
+        if (tiles.count > 1) {
+            shade(red, green, blue, JOINT_DARK * tiles.jointRed / Math.max(tileTint[0], 0.02f), JOINT_DARK * tiles.jointGreen / Math.max(tileTint[1], 0.02f),
+                    JOINT_DARK * tiles.jointBlue / Math.max(tileTint[2], 0.02f));
+            geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
+        }
+        float lifted = floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT;
+        for (int i = 0; i < tiles.count; i++) {
+            for (int j = 0; j < tiles.count; j++) {
+                int at = (i * tiles.count + j) * 3;
+                shade(red, green, blue, tiles.colours[at] / Math.max(tileTint[0], 0.02f), tiles.colours[at + 1] / Math.max(tileTint[1], 0.02f),
+                        tiles.colours[at + 2] / Math.max(tileTint[2], 0.02f));
+                geometry.addFace(on, frame, x, y, z, i * each + joint, j * each + joint, lifted, each - 2f * joint, 0f, 0f, 0f, each - 2f * joint, 0f);
+            }
+        }
+        frame.material = made;
+        frame.red = red;
+        frame.green = green;
+        frame.blue = blue;
+        System.arraycopy(paperRed, 0, frame.cornerRed, 0, 4);
+        System.arraycopy(paperGreen, 0, frame.cornerGreen, 0, 4);
+        System.arraycopy(paperBlue, 0, frame.cornerBlue, 0, 4);
+        return true;
+    }
+
+    /** Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of red, green and blue. */
+    private void shade(float red, float green, float blue, float r, float g, float b) {
+        frame.red = red * r;
+        frame.green = green * g;
+        frame.blue = blue * b;
+        for (int corner = 0; corner < 4; corner++) {
+            frame.cornerRed[corner] = paperRed[corner] * r;
+            frame.cornerGreen[corner] = paperGreen[corner] * g;
+            frame.cornerBlue[corner] = paperBlue[corner] * b;
+        }
     }
 
     /**

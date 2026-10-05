@@ -20,7 +20,7 @@ import zombie.core.textures.Texture;
  */
 final class Windows {
     /** A dot is frame from this much cover up, and nothing below the lower: between them it is glass or the shine on it. */
-    private static final int FRAME_COVER = 180, LEAST_COVER = 38;
+    static final int FRAME_COVER = 180, LEAST_COVER = 38;
     static final byte EMPTY = 0, GLASS = 1, FRAME = 2;
     /** How much of a line of dots has to be frame for the line to be a bar, and for it to be the ragged edge of one. */
     private static final float BAR = 0.7f, BAR_EDGE = 0.35f;

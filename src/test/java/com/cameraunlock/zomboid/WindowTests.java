@@ -19,6 +19,8 @@ final class WindowTests {
         sheetRolledUpHangsNowhere();
         wallpaperIsItsStripes();
         plainWallWithADoorInItIsOneStripe();
+        chequeredFloorIsItsTiles();
+        boardsAreNoTiles();
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */
@@ -290,6 +292,40 @@ final class WindowTests {
         Arrays.fill(told, 8, 32, false);
         Arrays.fill(told, 0, 2, false);
         check(Papers.striped(columns, told) == null, "and a sliver of wall says too little");
+    }
+
+    /** A square of floor side dots a side: the colour at each dot from its place, x then y, each 0 to 1. */
+    private static float[] floor(int side, java.util.function.BiFunction<Float, Float, float[]> colour) {
+        float[] dots = new float[side * side * 3];
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                System.arraycopy(colour.apply((i + 0.5f) / side, (j + 0.5f) / side), 0, dots, (i * side + j) * 3, 3);
+            }
+        }
+        return dots;
+    }
+
+    private static void chequeredFloorIsItsTiles() {
+        // Four tiles a side, black and white turn about, with a grey joint a dot wide round each.
+        Tiles.Shape tiles = Tiles.laid(floor(64, (x, y) -> {
+            boolean joint = x * 64f % 16f < 1f || y * 64f % 16f < 1f;
+            boolean white = ((int) (x * 4f) + (int) (y * 4f)) % 2 == 0;
+            return joint ? new float[] {0.5f, 0.5f, 0.5f} : white ? new float[] {0.9f, 0.9f, 0.85f} : new float[] {0.1f, 0.1f, 0.12f};
+        }), 64);
+        check(tiles != null && tiles.count == 4, "a chequered floor is four tiles a side: " + (tiles == null ? "none" : String.valueOf(tiles.count)));
+        check(near(tiles.colours[0], 0.9f) && near(tiles.colours[3], 0.1f) && near(tiles.colours[(1 * 4 + 1) * 3 + 2], 0.85f), "each in its own colour");
+        check(near(tiles.red, (0.9f * 112.5f + 0.1f * 112.5f + 0.5f * 31f) / 256f), "and the floor as a whole in the mean of all of it: " + tiles.red);
+        Tiles.Shape plain = Tiles.laid(floor(64, (x, y) -> new float[] {0.6f, 0.55f, 0.5f}), 64);
+        check(plain != null && plain.count == 1, "a floor of one colour is one tile");
+    }
+
+    private static void boardsAreNoTiles() {
+        // Boards a third of a tile wide, each a shade of its own, with dark lines along and butt joints across.
+        check(Tiles.laid(floor(64, (x, y) -> {
+            float board = (float) Math.floor(y * 3.3f);
+            float shade = 0.45f + 0.12f * (float) Math.sin(board * 2.4f) + 0.05f * (float) Math.sin(x * 40f + board);
+            return y * 3.3f % 1f < 0.08f ? new float[] {0.15f, 0.1f, 0.05f} : new float[] {shade, shade * 0.7f, shade * 0.4f};
+        }), 64) == null, "a floor of boards is left to its sprite");
     }
 
     private static void check(boolean condition, String what) {
