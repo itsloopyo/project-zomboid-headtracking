@@ -24,7 +24,9 @@ setup = "powershell -NoProfile -Command \"Write-Host 'Nothing to set up: the bui
 
 build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
-clean = "powershell -NoProfile -Command \"foreach ($d in 'build', 'build-native', 'release') { if (Test-Path $d) { Remove-Item -Recurse -Force $d } }\""
+# No PowerShell variable in the command: pixi's task shell expands $name itself, before
+# PowerShell reads the line.
+clean = "powershell -NoProfile -Command \"Get-Item build, build-native, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
 
 # Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
 # first launch, from the config table after a change to a row, a comment or a default, then
