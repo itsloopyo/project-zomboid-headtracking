@@ -66,10 +66,11 @@ Copyright (c) 2026 itsloopyo
 
 ## Generated material textures
 
-- **Files:** every `materials/*.rgb.gz` and `materials/*.rgba.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, paint, wood, bark, planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond and ivy
+- **Files:** every `materials/*.rgb.gz` and `materials/*.rgba.gz` inside the mod's jar: asphalt, gravel, soil, grass, shingles, wood, bark, planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond and ivy
 - **Made with:** Stable Diffusion XL base 1.0 (stabilityai/stable-diffusion-xl-base-1.0), from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
 - **Model license:** CreativeML Open RAIL++-M, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md
 - **Usage:** The first person view lays them over open ground, roofs, walls, wooden floors and the crowns of trees to give each the grain of what it is made of, and draws the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them.
 - **Bundled:** the textures, yes. The model is not.
+- **Not among them:** `materials/paint.rgb.gz` is filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it.
 
 ---

@@ -1230,7 +1230,11 @@ final class Pipeline {
                     texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);
                 }
                 if (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5) {
-                    vec2 across = abs(n.z) > 0.7 ? vWorld.xy : vec2(dot(vWorld.xy, vec2(n.y, -n.x)), vWorld.z);
+                    // The place is taken within sixty tiles, not on the whole map: ten thousand
+                    // tiles out a number holds a thousandth of a tile and no finer, and a grain
+                    // read at such places is ruled with stripes a pixel or two wide. Every
+                    // picture here repeats a whole number of times in sixty tiles.
+                    vec2 across = abs(n.z) > 0.7 ? vPlace.xy : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
                     float fine = roofing ? dot(texture2D(uShingles, across * 0.55).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
                             : vMaterial < 3.5 ? dot(texture2D(uWood, across * 0.45).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.z
