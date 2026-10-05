@@ -279,14 +279,19 @@ public final class ViewModel {
      */
     static final float FORWARD_STOP = AIMED_AHEAD - 0.08f - 0.02f;
 
-    /** The same for what is held now: behind a scope the eye is stopped short of the eyepiece's glass. */
+    /**
+     * The same for what is held now. The mod's own shotgun has no rear sight: with the sights
+     * up the eye is over its comb and looks along the top of its rib, and leaning in carries
+     * it on over the receiver, with nothing of the gun in its way, as far as the lean goes.
+     * Behind a scope the eye is stopped short of the eyepiece's glass.
+     */
     static float forwardStop() {
         Held now = held;
         if (now != null && now.firearm && Scope.fitted() != null) {
             return Scope.forwardStop();
         }
-        // The mod's own rifle has its rear sight on its barrel, further off than a lean reaches.
-        return now != null && OwnRifle.standsFor(now.item) ? Settings.current.positionLimitZ() : FORWARD_STOP;
+        // The rifle's rear sight is on its barrel, further off than a lean reaches.
+        return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Settings.current.positionLimitZ() : FORWARD_STOP;
     }
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
@@ -378,6 +383,7 @@ public final class ViewModel {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
             aimedY = -OwnWeapon.sightLine * long3 * scale / OwnWeapon.muzzleFar;
+            aimedAhead = OwnWeapon.eyeBehind * long3 * scale / OwnWeapon.muzzleFar;
         }
         if (hasMuzzle && OwnRifle.standsFor(how.item)) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])

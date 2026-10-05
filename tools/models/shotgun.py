@@ -18,19 +18,21 @@ The model is in metres. Its barrel runs along +y and its top is +z, as the game'
 weapons are made, and its origin is in the hand that holds its grip. Three parts of it
 move: the fore-end with its action bars slides back along y to work the action, and the
 bolt goes back with it and uncovers the port. With them is a fired shell, about its own
-middle and lying along y, for the mod to throw out of the port.
+middle and lying along y, for the mod to throw out of the port. The stock is a part of its
+own too: with the sights up it lies under the eye, and the mod leaves it out.
 
 The mesh file is gzip over this, all little-endian:
 
     4 bytes   the ASCII letters CUWM
-    uint32    format version, 2
+    uint32    format version, 4
     float32   x 3: where the muzzle is
     float32   x 3: the middle of the fore-end, which the hand that works it holds
     float32   x 3: the middle of the port a spent shell leaves by, on the gun's right side
     float32   how far back the fore-end and the bolt travel
     float32   how far over the middle of the bore the eye is with the sights lined up
+    float32   how far behind the grip the eye is then, over the comb of the stock
     uint32    number of vertices
-    uint32    x 4: how many indices the fixed part, the fore-end, the bolt and the shell have, in that order
+    uint32    x 5: how many indices the fixed part, the fore-end, the bolt, the shell and the stock have, in that order
     per vertex:
       float32 x 3   position
       int16 x 3     unit normal, 32767 for 1
@@ -67,12 +69,15 @@ TUBE_Z, TUBE_R = -0.0305, 0.0125
 FORE_REAR, FORE_FRONT = 0.225, 0.420
 TRAVEL = 0.094
 BUTT = -0.352
-FIXED, PUMP, BOLT, SHELL = 0, 1, 2, 3
+FIXED, PUMP, BOLT, SHELL, BUTT_END = 0, 1, 2, 3, 4
 # The shell is made well clear of the gun, so that neither shades the other, and is packed about its own middle.
 SHELL_AT = Vector((0.0, 0.30, 0.40))
 PORT = Vector((0.0190, 0.047, -0.002))
 # Over the back of the rib, by enough to see the bead at its far end.
 SIGHT_LINE = 0.0275
+# A little behind where a cheek on the comb would have it: from there the back of the receiver is a hand's width in the
+# picture and the rib runs away from it, where from over the comb it is a wall across the foot of the picture.
+EYE_BEHIND_GRIP = 0.26
 
 
 def barrel_radius(y):
@@ -414,7 +419,7 @@ def stock():
     wood = bmesh.new()
     stations = along(STOCK, 64)
     loft(wood, [stock_ring(*station) for station in stations])
-    take(wood, "stock", "walnut", bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
+    take(wood, "stock", "walnut", group=BUTT_END, bevel=0.0012, segments=2, sharp=50.0, texels=1.1)
 
     # Behind the wood: a white line, a hard black plate, and a pad of rubber rounded at the back.
     last = STOCK[-1]
@@ -424,12 +429,12 @@ def stock():
             ("pad", "rubber", ((-0.0050, 0.0003), (-0.0200, 0.0003), (-0.0235, -0.0008), (-0.0258, -0.0030), (-0.0268, -0.0065)))):
         part = bmesh.new()
         loft(part, [stock_ring(BUTT + back, *last[1:], grow=grow) for back, grow in layers])
-        take(part, name, material, sharp=40.0)
+        take(part, name, material, group=BUTT_END, sharp=40.0)
 
     stud = bmesh.new()
     lathe(stud, [(0.0, 0.0), (0.0042, 0.0), (0.0042, 0.002), (0.0028, 0.003), (0.0028, 0.0075), (0.0046, 0.0085), (0.0046, 0.0125), (0.003, 0.014), (0.0, 0.014)],
           Matrix.Translation((0.0, -0.290, -0.1335)) @ Matrix.Rotation(math.radians(180 - 27), 4, "X"), segments=20)
-    take(stud, "rear stud", "blued", sharp=35.0)
+    take(stud, "rear stud", "blued", group=BUTT_END, sharp=35.0)
 
 
 def fore_ring(y, scale):
@@ -1003,11 +1008,11 @@ def pack(gun, colour, surface):
     which = which.reshape(-1)
     order = numpy.argsort(group, kind="stable")
     indices = numpy.concatenate([which[start:start + 3] for start in starts[order]]).astype("<u4")
-    counts = [int((group == part).sum()) * 3 for part in (FIXED, PUMP, BOLT, SHELL)]
+    counts = [int((group == part).sum()) * 3 for part in (FIXED, PUMP, BOLT, SHELL, BUTT_END)]
     muzzle = Vector((0.0, MUZZLE_Y, 0.0)) - GRIP
     held = Vector((0.0, (FORE_REAR + FORE_FRONT) / 2, -0.034)) - GRIP
     port = (PORT - GRIP) * Vector((-1.0, 1.0, 1.0))
-    head = b"CUWM" + struct.pack("<I3f3f3f2fI4I", 2, *muzzle, *held, *port, TRAVEL, SIGHT_LINE, len(vertices), *counts)
+    head = b"CUWM" + struct.pack("<I3f3f3f3fI5I", 4, *muzzle, *held, *port, TRAVEL, SIGHT_LINE, EYE_BEHIND_GRIP, len(vertices), *counts)
     os.makedirs(OUTPUT, exist_ok=True)
     files = [("shotgun.mesh.gz", head + vertices.tobytes() + indices.tobytes())]
     if colour is not None:
@@ -1017,7 +1022,7 @@ def pack(gun, colour, surface):
         with gzip.open(path, "wb", compresslevel=9) as packed:
             packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
-    print("%d vertices, %d triangles: %d fixed, %d fore-end, %d bolt, %d shell" % (len(vertices), len(indices) // 3, *(count // 3 for count in counts)))
+    print("%d vertices, %d triangles: %d fixed, %d fore-end, %d bolt, %d shell, %d stock" % (len(vertices), len(indices) // 3, *(count // 3 for count in counts)))
 
 
 def dress(gun, colour, surface, folder):

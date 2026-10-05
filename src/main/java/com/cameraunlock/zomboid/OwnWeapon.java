@@ -33,12 +33,12 @@ final class OwnWeapon {
 
     private static final String MESH = "/models/shotgun.mesh.gz", COLOUR = "/models/shotgun.colour.gz", SURFACE = "/models/shotgun.surface.gz";
     private static final int MAGIC = 'C' | 'U' << 8 | 'W' << 16 | 'M' << 24;
-    private static final int VERSION = 2;
-    private static final int HEAD_BYTES = 4 + 4 + 11 * Float.BYTES + 5 * Integer.BYTES;
+    private static final int VERSION = 4;
+    private static final int HEAD_BYTES = 4 + 4 + 12 * Float.BYTES + 6 * Integer.BYTES;
     /** A vertex in the file: its place, its normal, the tangent along the texture, which way the texture's other axis runs, its place in the texture. */
     private static final int VERTEX_BYTES = 3 * Float.BYTES + 3 * Short.BYTES + 3 * Short.BYTES + Short.BYTES + 2 * Short.BYTES;
     private static final int TEXTURE_SIZE = 2048;
-    private static final int PARTS = 4, FIXED = 0, SHELL = 3;
+    private static final int PARTS = 5, FIXED = 0, SHELL = 3, STOCK = 4;
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_SRGB8_ALPHA8 = 0x8C43, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
@@ -47,6 +47,8 @@ final class OwnWeapon {
     private static final int GL_FLOAT = 0x1406, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403, GL_UNSIGNED_INT = 0x1405, GL_TRIANGLES = 0x0004;
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_ATTACHMENT = 0x8D00, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     private static final int GL_TEXTURE0 = 0x84C0, GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_BLEND = 0x0BE2, GL_LEQUAL = 0x0203;
+    /** How near the eye the model is still drawn, in tiles. */
+    private static final float NEAREST = 0.012f;
     /** Units nothing else in the picture keeps a texture on between passes. */
     private static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31;
     /** The units the pass that lights people leaves the sun's two shadow maps on. */
@@ -108,9 +110,12 @@ final class OwnWeapon {
             // The game's light where the viewer stands, and whether that is out of doors.
             uniform float uStood;
             uniform float uOutdoors;
-            // Not nought: the depth is written in the measure of the picture's own, whose near plane this is.
+            // The depth is written in the measure of the target drawn into, whose near plane this is.
             uniform float uWriteNear;
             uniform float uFar;
+            // Nearer the eye than this the part is not drawn, and -1 where uModel is a mirror.
+            uniform float uCut;
+            uniform float uHanded;
             varying vec3 vSeen;
             varying vec3 vNormal;
             varying vec3 vTangent;
@@ -136,6 +141,17 @@ final class OwnWeapon {
             }
 
             void main() {
+                float ahead = -vSeen.z;
+                if (ahead < uCut) {
+                    discard;
+                }
+                // Where the cut goes through a part its inside shows, which is drawn as the cut end
+                // of what the part is made of, in shade, and not as a lit surface seen from behind.
+                if (gl_FrontFacing != (uHanded < 0.0)) {
+                    gl_FragColor = vec4(texture2D(uColour, vUv).rgb * (0.45 * pow(uStood, 2.2)), 1.0);
+                    gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
+                    return;
+                }
                 vec4 tint = texture2D(uColour, vUv);
                 vec4 surface = texture2D(uSurface, vUv);
                 vec2 bend = surface.xy * 2.0 - 1.0;
@@ -192,24 +208,27 @@ final class OwnWeapon {
                 vec2 share = vec2(-1.04, 1.04) * edge + fit.zw;
                 // What stands close round a point keeps the light off it, and out of its mirror more as it is rough.
                 float mirrored = mix(1.0, reached, 0.4 + 0.6 * rough);
-                color += dull * soft * reached + (mirror * share.x + share.y) * shown * mirrored;
+                // Varnish and rubber mirror the sky far less cleanly than the sums for a perfect coat say: taken whole, walnut under a blue sky was purple.
+                color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(0.45, 1.0, metal));
                 color += (dull + mirror * 0.6) * flashLight(at, n);
 
                 gl_FragColor = vec4(color, 1.0);
-                float ahead = -vSeen.z;
-                gl_FragDepth = uWriteNear > 0.0 ? clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0)
-                        : gl_FragCoord.z;
+                gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
             }
             """;
 
-    private static Program program;
+    /** Read by the game's logic thread too, to ask whether the model stands for what is held. */
+    private static volatile Program program;
     private static int array, colour, surface;
     private static final int[] firstIndex = new int[PARTS], indexCount = new int[PARTS];
     /** Where the muzzle is from the grip, in the model's metres, and how far back the fore-end and the bolt slide. */
     private static final float[] muzzle = new float[3], port = new float[3];
     private static float travel;
-    /** How far the muzzle is from the grip, and how far over the bore the eye is with the sights lined up, in the model's metres. */
-    static float muzzleFar, sightLine;
+    /**
+     * In the model's metres: how far the muzzle is from the grip, and where the eye is with the
+     * sights lined up, over the bore and behind the grip.
+     */
+    static float muzzleFar, sightLine, eyeBehind;
     /**
      * Where the middle of the fore-end is and how far it travels, as shares of the way from the
      * grip to the muzzle: the model's own, in place of ViewModel's for the game's models.
@@ -221,7 +240,9 @@ final class OwnWeapon {
 
     private static final float[] model = new float[16], projection = new float[16];
     private static boolean placed;
-    private static float handed, stood, outdoors;
+    private static float handed, stood, outdoors, cut;
+    /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
+    private static final float NOT_DRAWN_WITHIN = 0.13f;
 
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
@@ -251,6 +272,7 @@ final class OwnWeapon {
             }
             travel = mesh.getFloat();
             sightLine = mesh.getFloat();
+            eyeBehind = mesh.getFloat();
             int vertices = mesh.getInt(), indices = 0;
             for (int part = 0; part < PARTS; part++) {
                 firstIndex[part] = indices;
@@ -343,8 +365,9 @@ final class OwnWeapon {
      * @param gameMuzzle  how far the muzzle of the game's model is from its grip, in that model's units
      * @param light       the game's light where the viewer stands
      * @param outside     whether the viewer stands out of doors
+     * @param aim         0 at the hip, 1 with the sights up
      */
-    static void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside) {
+    static void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim) {
         // The model is sized so that its muzzle is where the game's is.
         float size = finalScale * gameMuzzle / muzzleFar;
         for (int column = 0; column < 3; column++) {
@@ -363,6 +386,12 @@ final class OwnWeapon {
         handed = turned < 0f ? -1f : 1f;
         stood = light;
         outdoors = outside ? 1f : 0f;
+        // With the sights up the butt of the stock is at the eye, where the shoulder it is held
+        // against would be, and seen from there its end would fill the foot of the picture. As
+        // it comes up it is left out for a hand's length from the eye, and the stock is seen
+        // from there on: its comb, the wrist the right hand is on, the back of the receiver.
+        float tilesToMetre = (float) Math.sqrt(model[4] * model[4] + model[5] * model[5] + model[6] * model[6]);
+        cut = ViewModelMath.smooth(aim) * NOT_DRAWN_WITHIN * tilesToMetre;
         placed = true;
     }
 
@@ -413,7 +442,10 @@ final class OwnWeapon {
             targetColor = sceneColor;
             targetDepth = handsDepth;
         }
-        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        // With the sights up the stock runs back under the eye, nearer than the plane the hands
+        // are cut off at. It is drawn right up to the eye, and says of each point how deep
+        // it is in the hands' own measure, where anything nearer than their plane is in front.
+        ViewCamera.projection(tanHalfFieldOfView, aspect, NEAREST, far, projection);
         program.set("uProjection", projection);
         program.set("uHanded", handed);
         program.set("uStood", stood);
@@ -437,7 +469,7 @@ final class OwnWeapon {
         GL11.glDisable(GL_BLEND);
 
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
-        program.set("uWriteNear", 0f);
+        program.set("uWriteNear", near);
         parts();
         // And where it is, for what the picture works out from depth afterwards.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, scene);
@@ -453,11 +485,15 @@ final class OwnWeapon {
 
     private static void parts() {
         program.set("uModel", model);
+        program.set("uCut", 0f);
         for (int part = 0; part < SHELL; part++) {
             program.set("uSlide", part == FIXED ? 0f : ViewModel.pumped * travel);
             GL11.glDrawElements(GL_TRIANGLES, indexCount[part], GL_UNSIGNED_INT, (long) firstIndex[part] * Integer.BYTES);
         }
         program.set("uSlide", 0f);
+        program.set("uCut", cut);
+        GL11.glDrawElements(GL_TRIANGLES, indexCount[STOCK], GL_UNSIGNED_INT, (long) firstIndex[STOCK] * Integer.BYTES);
+        program.set("uCut", 0f);
         for (int shell = 0; shell < SHELLS; shell++) {
             if (shellAge[shell] < SHELL_LASTS) {
                 program.set("uModel", shellModel[shell]);

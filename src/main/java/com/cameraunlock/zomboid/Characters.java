@@ -557,9 +557,39 @@ public final class Characters {
                 view[12 + axis] += move;
             }
         }
+        // The game's hands are made broad, to be read from a rooftop, and its guns are made to
+        // match them. The mod's own gun is the size a gun is, and hands that size on it are a
+        // giant's: they are drawn smaller about their middles, which stay where they hold,
+        // and the arms behind them are as much thinner. The forearm keeps its length.
+        boolean fitted = ViewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        if (fitted) {
+            for (int i = 0; i < 16; i++) {
+                laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
+            }
+            laying[15] = 1f;
+            for (int axis = 0; axis < 3; axis++) {
+                laying[12 + axis] = palm[axis] * (1f - HAND_FITS);
+                float fore = rigid[axis] - wrist[axis];
+                wrist[axis] = palm[axis] + (wrist[axis] - palm[axis]) * HAND_FITS;
+                rigid[axis] = wrist[axis] + fore;
+            }
+            ViewModelMath.onto(laying, view);
+            wristAcross *= HAND_FITS;
+            wristThrough *= HAND_FITS;
+        }
         float[] at = side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER;
         ViewModelMath.place(fromAim, at[0], at[1], at[2], shoulder);
-        ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
+        if (side == 1 && fitted) {
+            // At the hip the left elbow is out to the side, as for any gun. With the sights up
+            // it drops under the fore-end, where an arm the size an arm is has room to hang.
+            float up = ViewModelMath.smooth(hands.aim());
+            for (int axis = 0; axis < 3; axis++) {
+                across2[axis] = ViewModel.LEFT_ELBOW[axis] + (FITTED_LEFT_ELBOW[axis] - ViewModel.LEFT_ELBOW[axis]) * up;
+            }
+            ViewModelMath.turned(fromAim, across2, pole);
+        } else {
+            ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
+        }
         // The game's people are small beside the weapons they hold, and an arm of the model's
         // own lengths does not reach from a shoulder under the eye to a hand out on the
         // weapon. The solver then brings the shoulder to the hand, up into the picture, and
@@ -604,7 +634,16 @@ public final class Characters {
      * to the left, facing up into it, and the fingers across under it and round its far side.
      * Then how far the middle of the hand is from the middle of the fore-end, in tiles.
      */
-    private static final float PALM_UP = 0.82f, PALM_RIGHT = 0.57f, FINGERS_RIGHT = 0.90f, FINGERS_AHEAD = 0.42f, PALM_OFF = 0.042f;
+    private static final float PALM_UP = 0.82f, PALM_RIGHT = 0.57f, FINGERS_RIGHT = 0.90f, FINGERS_AHEAD = 0.42f, PALM_OFF = 0.03f;
+    /** How large the hands on the mod's own gun are drawn against the game's own. */
+    private static final float HAND_FITS = 0.64f;
+    /**
+     * The way the left elbow drops under the mod's own gun with the sights up. An arm the size
+     * an arm is can hang under the fore-end as an arm does, and comes up to it from below: out
+     * to the side, it lies across the view beside the sights.
+     */
+    private static final float[] FITTED_LEFT_ELBOW = {-0.55f, -1f, 0f};
+    private static final float[] across2 = new float[3];
 
     /**
      * A hand's own axes in the view, from its wrist, the elbow rigid with it, its middle and
@@ -769,7 +808,7 @@ public final class Characters {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
             OwnWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
-                    ownLight, square != null && square.isOutside());
+                    ownLight, square != null && square.isOutside(), hands.aim());
         }
         // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
         boolean rifle = !own && hands != null && held != null && ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
