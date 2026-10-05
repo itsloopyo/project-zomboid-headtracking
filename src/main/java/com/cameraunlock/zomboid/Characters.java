@@ -12,6 +12,7 @@ import zombie.core.skinnedmodel.ModelCamera;
 import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
+import zombie.core.skinnedmodel.model.ModelInstanceRenderDataList;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.textures.ColorInfo;
@@ -102,6 +103,7 @@ public final class Characters {
             Matrix4f m = core.modelViewMatrixStack.alloc();
             m.set(combined);
             core.modelViewMatrixStack.push(m);
+            eyeBegun++;
         }
 
         @Override
@@ -109,8 +111,13 @@ public final class Characters {
             Core core = Core.getInstance();
             core.modelViewMatrixStack.pop();
             core.projectionMatrixStack.pop();
+            eyeBegun--;
         }
     };
+    /** How many of EYE's pairs of matrices are on the game's stacks. */
+    private static int eyeBegun;
+    /** The game's own model camera, while EYE stands in for it. */
+    private static ModelCamera gameCamera;
 
     private Characters() {}
 
@@ -120,7 +127,9 @@ public final class Characters {
 
     /** Called at the end of the game's own draw of a model, while the game's camera still holds where it stood it. */
     public static void drawn(ModelSlotRenderData data) {
-        if (!wanted) {
+        // A person whose textures are still being made is not drawn by the game, though its
+        // draw returns all the same, and has nothing whole to draw from yet.
+        if (!wanted || data.character != null && !data.canRender()) {
             return;
         }
         Object frame = SpriteRenderer.instance.getRenderingState();
@@ -138,6 +147,38 @@ public final class Characters {
         stood[at + 2] = camera.z;
         stood[at + 3] = camera.useAngle;
         noted.add(data);
+    }
+
+    /**
+     * The parts the game draws a model from this frame. While a person's clothes are being
+     * remade the game goes on drawing the last whole set, and the new one is not fit to draw.
+     */
+    private static ModelInstanceRenderDataList parts(ModelSlotRenderData data) {
+        return data.character != null ? data.getModelData() : data.modelData;
+    }
+
+    /**
+     * Puts back what a draw that threw part way left changed in the game: its matrix stacks,
+     * which a later draw of the game's would read this picture's camera from, and its model
+     * camera.
+     */
+    static void unwind() {
+        Core core = Core.getInstance();
+        for (; eyeBegun > 0; eyeBegun--) {
+            core.modelViewMatrixStack.pop();
+            core.projectionMatrixStack.pop();
+        }
+        if (ModelCamera.instance == EYE) {
+            ModelCamera.instance = gameCamera;
+        }
+    }
+
+    /** Render thread, as the picture stops being drawn: the models last noted are the game's to let go of. */
+    static void setDown() {
+        noted.clear();
+        notedIn = null;
+        holding = null;
+        CharacterDraw.setDown();
     }
 
     /** Whether there is anything to draw this frame. The noted models of an earlier frame are dropped. */
@@ -166,7 +207,7 @@ public final class Characters {
             rootsFound = 0;
         }
         // Seen from overhead the viewer is one of the people in the picture.
-        int drawn = draw(ViewCamera.view(camera), Pipeline.overhead, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        int drawn = draw(ViewCamera.view(camera), Pipeline.overhead, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;
@@ -191,7 +232,7 @@ public final class Characters {
         mirrorWayX = camera.forwardX;
         mirrorWayY = camera.forwardY;
         mirrorWide = tanHalfFieldOfView * aspect;
-        int drawn = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        int drawn = draw(ViewCamera.view(camera), false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
         mirrored = false;
         only = ALL;
         return drawn;
@@ -215,7 +256,7 @@ public final class Characters {
     static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         holding = null;
-        if (Ride.seated) {
+        if (Pipeline.seated) {
             return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
         for (int i = 0; i < noted.size(); i++) {
@@ -246,9 +287,9 @@ public final class Characters {
                 float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                 String script = Ride.seatedIn;
-                if (script != null && !data.modelData.isEmpty()) {
+                if (script != null && !parts(data).isEmpty()) {
                     multiply(projection, ViewCamera.view(camera), combined);
-                    VehicleMeshes.note(script, data.modelData.get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
+                    VehicleMeshes.note(script, parts(data).get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
                             data.centerOfMassY, combined);
                 }
                 ownAmbient[0] = data.ambientR;
@@ -397,8 +438,8 @@ public final class Characters {
         float wristAcross = 0f, wristThrough = 0f;
         // The joints are the first such part's, which is the body's own. The cuff has to go
         // over every part's cut end, so it is as wide as the widest of them.
-        for (int part = 0; part < data.modelData.size(); part++) {
-            if (CharacterDraw.hand(data.modelData.get(part), side == 1, data.finalScale, found ? other : joined)) {
+        for (int part = 0; part < parts(data).size(); part++) {
+            if (CharacterDraw.hand(parts(data).get(part), side == 1, data.finalScale, found ? other : joined)) {
                 float[] said = found ? other : joined;
                 wristAcross = Math.max(wristAcross, said[CharacterDraw.WRIST_ACROSS]);
                 wristThrough = Math.max(wristThrough, said[CharacterDraw.WRIST_THROUGH]);
@@ -488,8 +529,8 @@ public final class Characters {
 
     /** What is in the viewer's right hand, or null: the one part the game hangs from the hand's bone. */
     private static ModelInstanceRenderData weaponOf(ModelSlotRenderData data) {
-        for (int part = 0; part < data.modelData.size(); part++) {
-            ModelInstanceRenderData model = data.modelData.get(part);
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
             if (model.model != null && model.model.isStatic && HAND_BONE.equals(model.modelInstance.parentBoneName)) {
                 return model;
             }
@@ -526,8 +567,8 @@ public final class Characters {
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
-        for (int part = 0; part < data.modelData.size(); part++) {
-            ModelInstanceRenderData model = data.modelData.get(part);
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.
             if (model.model == null || !model.model.isStatic || !inHand(model.modelInstance)
@@ -539,24 +580,24 @@ public final class Characters {
             model.RenderCharacter(data);
         }
         CharacterDraw.begin(data, handViews[0], projection, false);
-        for (int part = 0; part < data.modelData.size(); part++) {
-            ModelInstanceRenderData model = data.modelData.get(part);
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
                 CharacterDraw.piece(model, false, true);
             }
         }
         if (heldBoth) {
             CharacterDraw.begin(data, handViews[1], projection, false);
-            for (int part = 0; part < data.modelData.size(); part++) {
-                ModelInstanceRenderData model = data.modelData.get(part);
+            for (int part = 0; part < parts(data).size(); part++) {
+                ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
                     CharacterDraw.leftHand(model);
                 }
             }
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
-            for (int part = 0; arms[side] && part < data.modelData.size(); part++) {
-                CharacterDraw.sleeve(data.modelData.get(part), side == 1, joints[side], bends[side], cuffs[side], wides[side]);
+            for (int part = 0; arms[side] && part < parts(data).size(); part++) {
+                CharacterDraw.sleeve(parts(data).get(part), side == 1, joints[side], bends[side], cuffs[side], wides[side]);
             }
         }
         EYE.End();
@@ -571,14 +612,14 @@ public final class Characters {
      */
     static void cast(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
-        draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        draw(lightMatrix, true, true, lightMatrix, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
     }
 
     /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
     static void castCharacters(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         only = ONLY_CHARACTERS;
-        draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        draw(lightMatrix, true, true, null, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
         only = ALL;
         notingRoots = false;
     }
@@ -607,7 +648,14 @@ public final class Characters {
     /** The light the game gives the vehicle the viewer sits in. */
     static final float[] ownAmbient = {1f, 1f, 1f};
 
-    private static int draw(float[] view, boolean withViewer, float eyeX, float eyeY, float reach) {
+    /** How far from where it stands a model or its shadow's caster reaches, in tiles: a vehicle's half length and some over. */
+    private static final float MODEL_REACH = 4f;
+
+    /**
+     * @param casting whether the models are drawn as the light sees them, into a shadow map
+     * @param map     the matrix of a shadow map that looks along the sun's rays, which a model standing outside is left out of, or null
+     */
+    private static int draw(float[] view, boolean withViewer, boolean casting, float[] map, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;
         float ambientSum = 0f;
@@ -616,13 +664,13 @@ public final class Characters {
             for (int i = 0; i < noted.size(); i++) {
                 ModelSlotRenderData data = noted.get(i);
                 if (data.character == null) {
-                    for (int part = 0; part < data.modelData.size(); part++) {
-                        Model model = data.modelData.get(part).modelInstance.model;
+                    for (int part = 0; part < parts(data).size(); part++) {
+                        Model model = parts(data).get(part).modelInstance.model;
                         said.append('[').append(model == null ? "?" : model.name).append(']');
                     }
                 }
                 said.append(data.character == null ? "none" : data.character.getClass().getSimpleName()).append(data.character == viewer ? "(viewer)" : "")
-                        .append(" parts ").append(data.modelData.size()).append(" away ")
+                        .append(" parts ").append(parts(data).size()).append(" away ")
                         .append(String.format(Locale.ROOT, "%.2f", Math.hypot(data.x - eyeX, data.y - eyeY))).append("; ");
             }
             described = said.append("ambient ").append(String.format(Locale.ROOT, "%.2f", ambient)).toString();
@@ -639,8 +687,11 @@ public final class Characters {
             if (toX * toX + toY * toY > reach * reach) {
                 continue;
             }
+            if (map != null && outside(map, data)) {
+                continue;
+            }
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
-            if (!withViewer && Ride.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+            if (!withViewer && Pipeline.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                 continue;
             }
             if (mirrored) {
@@ -671,7 +722,7 @@ public final class Characters {
             } else if (data.inVehicle) {
                 seated(data, i * 4, view);
             } else {
-                character(data, view, data.character == viewer, withViewer, false, false);
+                character(data, view, data.character == viewer, casting, false, false);
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -682,6 +733,20 @@ public final class Characters {
             ambient = ambientSum / drawn;
         }
         return drawn;
+    }
+
+    /**
+     * Whether a model stands clear of a shadow map's square of ground. The near map covers
+     * about a third of the ground models are cast from, and each one left out is a whole
+     * model's draw saved. The map looks along parallel rays, so its matrix has no divide.
+     */
+    private static boolean outside(float[] map, ModelSlotRenderData data) {
+        float up = data.z * ViewCamera.LEVEL_HEIGHT;
+        float across = map[0] * data.x + map[4] * data.y + map[8] * up + map[12];
+        float along = map[1] * data.x + map[5] * data.y + map[9] * up + map[13];
+        float acrossReach = MODEL_REACH * (float) Math.sqrt(map[0] * map[0] + map[4] * map[4] + map[8] * map[8]);
+        float alongReach = MODEL_REACH * (float) Math.sqrt(map[1] * map[1] + map[5] * map[5] + map[9] * map[9]);
+        return Math.abs(across) > 1f + acrossReach || Math.abs(along) > 1f + alongReach;
     }
 
     /**
@@ -699,8 +764,8 @@ public final class Characters {
         if (!own && !casting) {
             lightWhere(data);
         }
-        for (int part = 0; part < data.modelData.size(); part++) {
-            ModelInstanceRenderData model = data.modelData.get(part);
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
             if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye.
                 if (inHand(model.modelInstance) || CharacterDraw.piece(model, bothHands, false)) {
@@ -744,12 +809,12 @@ public final class Characters {
         place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(view, placed, combined);
-        ModelCamera game = ModelCamera.instance;
+        gameCamera = ModelCamera.instance;
         ModelCamera.instance = EYE;
         Model.CharacterModelCameraBegin(data);
-        ModelCamera.instance = game;
-        for (int part = 0; part < data.modelData.size(); part++) {
-            ModelInstanceRenderData model = data.modelData.get(part);
+        ModelCamera.instance = gameCamera;
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
             model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
             GL11.glDepthMask(true);
             model.RenderCharacter(data);
@@ -777,11 +842,11 @@ public final class Characters {
         float clipZ = projection[2] * eyeX + projection[6] * eyeY + projection[10] * eyeZ + projection[14] * eyeW;
         float squareDepth = data.squareDepth;
         data.squareDepth = (clipZ + 1f) / 2f;
-        ModelCamera game = ModelCamera.instance;
+        gameCamera = ModelCamera.instance;
         ModelCamera.instance = EYE;
-        for (int part = 0; part < data.modelData.size(); part++) {
+        for (int part = 0; part < parts(data).size(); part++) {
             GL11.glDepthMask(true);
-            ModelInstanceRenderData model = data.modelData.get(part);
+            ModelInstanceRenderData model = parts(data).get(part);
             // The game's bodies have no bulkhead and no arches inside: from the seat the road
             // wheels would stand in the cabin.
             if (fromSeat && model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel")) {
@@ -792,15 +857,19 @@ public final class Characters {
                 body.painColor.x = (x + 0.5f) % 1f;
                 body.painColor.y = y < 0.5f ? 1f : 0f;
                 body.painColor.z = z < 0.5f ? 1f : 0.15f;
-                model.RenderVehicle(data);
-                body.painColor.x = x;
-                body.painColor.y = y;
-                body.painColor.z = z;
+                // The paint is the vehicle's own, kept from frame to frame: it is put back whatever the draw does.
+                try {
+                    model.RenderVehicle(data);
+                } finally {
+                    body.painColor.x = x;
+                    body.painColor.y = y;
+                    body.painColor.z = z;
+                }
             } else {
                 model.RenderVehicle(data);
             }
         }
-        ModelCamera.instance = game;
+        ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
     }
 

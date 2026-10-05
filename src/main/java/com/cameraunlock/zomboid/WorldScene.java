@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.ref.WeakReference;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicLong;
 import org.lwjgl.opengl.GL11;
 import zombie.GameTime;
 import zombie.characters.IsoGameCharacter;
@@ -301,6 +303,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private final ViewCamera.Pose overheadCamera = new ViewCamera.Pose();
     private boolean overhead;
+    private boolean seated;
     private float overheadTan, overheadAway;
     /** How far in front of and behind the place looked at the picture reaches, in tiles. */
     private static final float OVERHEAD_DEPTH = 160f;
@@ -384,6 +387,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private boolean edgeNorth, edgeWest;
     private static final float SWITCH_WIDEST = 12f;
     private static final HashMap<Long, Integer> strung = new HashMap<>();
+    /** The map the kept builds and everything kept by place were read from. */
+    private static WeakReference<IsoCell> builtIn = new WeakReference<>(null);
     private static final int WIRE_SPAN = 12;
     private static final float WIRE_HEIGHT = 0.5f, WIRE_SAG = 0.03f, WIRE_THICK = 0.035f;
     private float steepest;
@@ -495,6 +500,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
     private WorldScene() {}
 
+    /**
+     * Logic thread, as the picture stops being built. A scene names the map it was last built
+     * from, and with the view off it would go on naming it through another save's loading:
+     * the whole of a map the game had let go of.
+     */
+    static void setDown() {
+        for (WorldScene scene : scenes) {
+            scene.viewer = null;
+            scene.cell = null;
+            scene.here = null;
+            Arrays.fill(scene.groundObject, null);
+        }
+    }
+
     static WorldScene next() {
         nextScene = (nextScene + 1) % scenes.length;
         return scenes[nextScene];
@@ -528,6 +547,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         camera.set(view);
         aim.set(aimed);
         overhead = false;
+        seated = Ride.seated;
         this.tanHalfFieldOfView = tanHalfFieldOfView;
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
         if (flat > 1e-3f) {
@@ -540,6 +560,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         shown.clear();
         frames++;
+        Terrain.frame(frames);
         chunksDrawn = 0;
         chunksBuilt = 0;
         chunksKept = 0;
@@ -571,6 +592,22 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         exposure = adaptEye(player);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
+        if (cell != builtIn.get()) {
+            // Another save, loaded without leaving the game: what is kept by place on the map or
+            // by one of the game's sprites is of the world before.
+            builtIn = new WeakReference<>(cell);
+            forgetAll();
+            strung.clear();
+            canopies.clear();
+            openings.clear();
+            feet.clear();
+            posts.clear();
+            shapes.clear();
+            Furniture.forget();
+            Roofs.forget();
+            WallFinish.forget();
+            Terrain.level(Terrain.level);
+        }
         mainsOn = IsoWorld.instance.isHydroPowerOn();
         IsoChunkMap map = cell.getChunkMap(playerIndex);
         int level = (int) Math.floor(player.getZ());
@@ -661,8 +698,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 // A chunk that is only due to be made again can wait a frame when many fall due
                 // together: its old build is still good enough to show. Without this the frames
                 // on which dozens fall due are several times as long as the rest.
-                boolean due = !missing && frames - current.checkedFrame >= buildEvery(distance, slot)
-                        && (distance < CHUNK_TILES * 1.5f || remakes++ < REMAKES_A_FRAME);
+                int every = missing ? 0 : buildEvery(distance, slot);
+                // One that has waited twice its time waits no longer: the chunks are walked in the same
+                // order every frame, and the last of them would wait as long as the first kept falling due.
+                boolean due = !missing && frames - current.checkedFrame >= every
+                        && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every || remakes++ < REMAKES_A_FRAME);
                 // The eye's place is in every build: which way a card faces, how far apart
                 // two sprites on one plane stand, how much detail a square is given. While it
                 // moves a chunk that is due is made again. While it is still, what the build
@@ -4156,8 +4196,25 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 || type == IsoObjectType.windowFN || type == IsoObjectType.curtainN;
     }
 
+    /** With tracing on, the memory the render thread took for the picture since it was last asked. */
+    private static final AtomicLong drawnBytes = new AtomicLong();
+
+    static long takeDrawnBytes() {
+        return drawnBytes.getAndSet(0);
+    }
+
     @Override
     public void render() {
+        if (!FirstPerson.TRACE) {
+            draw();
+            return;
+        }
+        long before = Allocation.byThisThread();
+        draw();
+        drawnBytes.addAndGet(Allocation.byThisThread() - before);
+    }
+
+    private void draw() {
         MouseGrab.sync();
 
         GL11.glGetIntegerv(GL_VIEWPORT, viewport);
@@ -4180,6 +4237,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         Characters.aim.set(aim);
         Pipeline.overhead = overhead;
+        Pipeline.seated = seated;
         Pipeline.cutAbove = overhead ? cutFrom : Float.MAX_VALUE;
         Pipeline.cutBox[0] = boxMinX;
         Pipeline.cutBox[1] = boxMinY;

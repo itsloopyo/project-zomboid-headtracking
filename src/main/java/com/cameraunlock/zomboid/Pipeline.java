@@ -18,6 +18,7 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33;
+import zombie.core.textures.TextureDraw;
 
 /**
  * How one frame of the first-person picture is drawn.
@@ -172,7 +173,8 @@ final class Pipeline {
     private static final float[] roofMatrix = new float[16];
     private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
     private static final int RAIN_DROPS = 9000;
-    private static FloatBuffer rainDrops;
+    /** The drops, on the graphics card: they are the same every frame. */
+    private static int rainDrops;
     /**
      * What open ground is made of, as pictures of the stuff itself that join up with themselves
      * at their edges: tarmac, gravel, earth, grass. They are laid over the ground by where it
@@ -223,6 +225,12 @@ final class Pipeline {
      * near enough to draw) is centred on the place looked at.
      */
     static boolean overhead;
+    /**
+     * Whether the viewer sat in a vehicle when the frame was built. Every pass of the frame
+     * goes by this one answer: the logic thread seats the viewer and stands them up between
+     * two passes of a frame as readily as between two frames.
+     */
+    static boolean seated;
     static float rangeFrom;
     static float focusX, focusY, focusUp;
     /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
@@ -394,6 +402,12 @@ final class Pipeline {
         // pushes behind would leave more on every frame the fault came again.
         try {
             picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
+        } catch (RuntimeException | LinkageError thrown) {
+            // Thrown on, it ends the game's whole frame, its own panels with it, and comes again
+            // on the next. The view goes off instead, and the log has why.
+            failure = "the frame's draw threw " + thrown;
+            Log.error("first person cannot be drawn", thrown);
+            Characters.unwind();
         } finally {
             for (int unit = 0; unit < UNITS; unit++) {
                 GL33.glBindSampler(unit, samplers[unit]);
@@ -421,6 +435,9 @@ final class Pipeline {
             prepared = true;
             failure = prepare();
         }
+        if (failure == null && nearMap == 0) {
+            failure = makeShadowMaps();
+        }
         int wide = Math.round(viewport[2] * SCALE), high = Math.round(viewport[3] * SCALE);
         if (failure == null && (wide != width || high != height)) {
             failure = resize(wide, high);
@@ -441,7 +458,7 @@ final class Pipeline {
             glazed = false;
             drawShadows(state, figures);
             stage(STAGE_SHADOWS);
-            float[] cabin = Ride.seated ? Cabins.wheel(Ride.seatedIn) : null;
+            float[] cabin = seated ? Cabins.wheel(Ride.seatedIn) : null;
             if (cabin != null) {
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
             }
@@ -451,7 +468,7 @@ final class Pipeline {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
             stage(STAGE_FIGURES);
-            drawSky(camera, state, tanHalfFieldOfView, aspect);
+            drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
             if (state.rain > 0f && !overhead) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
@@ -462,7 +479,10 @@ final class Pipeline {
             stage(STAGE_SKY);
             drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_OCCLUSION);
-            drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
+            // Seen from overhead the picture is developed without the lit air.
+            if (!overhead) {
+                drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
             stage(STAGE_AIR);
             drawBloom(exposure);
             stage(STAGE_GLOW);
@@ -954,7 +974,7 @@ final class Pipeline {
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
-        steady.set("uOwnWithin", Ride.seated ? 3.2f : 0f);
+        steady.set("uOwnWithin", seated ? 3.2f : 0f);
         quad();
         // The rest of the frame is made from the steadied picture.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -983,7 +1003,9 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
-        GL11.glVertexPointer(4, GL_FLOAT, 0, rainDrops);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, rainDrops);
+        GL11.glVertexPointer(4, GL_FLOAT, 0, 0L);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
@@ -1000,7 +1022,7 @@ final class Pipeline {
         rain.set("uTime", state.seconds);
         rain.set("uWind", state.windX, state.windY);
         rain.set("uRain", state.rain);
-        rain.set("uSeated", Ride.seated ? 1f : 0f);
+        rain.set("uSeated", seated ? 1f : 0f);
         setBeams(rain);
         // A drop shows the sky it falls through.
         rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
@@ -1204,7 +1226,7 @@ final class Pipeline {
         program.set("uGlow", state.glowRed, state.glowGreen, state.glowBlue);
     }
 
-    private static void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect) {
+    private static void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_DEPTH_TEST);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, cloudTarget);
@@ -1222,7 +1244,7 @@ final class Pipeline {
         clouds.set("uCover", state.cover);
         clouds.set("uDrift", state.driftX, state.driftY);
         quad();
-        softenInto(softCloudTarget, cloudColor);
+        softenInto(softCloudTarget, cloudColor, near, far);
         stage(STAGE_CLOUDS);
 
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -1339,14 +1361,25 @@ final class Pipeline {
         volume.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         volume.set("uMist", state.mist);
         quad();
-        softenInto(softVolumeTarget, volumeColor);
+        softenInto(softVolumeTarget, volumeColor, near, far);
     }
 
-    private static void softenInto(int target, int source) {
+    /**
+     * The soften pass weighs each pixel by how near its distance is to the middle one's, so it
+     * is given the scene's depth and the planes it was drawn between every time: what an
+     * earlier pass left in its uniforms is another texture and, on a session's first frame, nought.
+     */
+    private static void softenInto(int target, int source, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         soften.use();
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, source);
         soften.set("uSource", 0);
+        soften.set("uDepth", 1);
+        soften.set("uNear", near);
+        soften.set("uFar", far);
         soften.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
         quad();
     }
@@ -1496,7 +1529,7 @@ final class Pipeline {
             quad();
         }
 
-        if (Ride.seated) {
+        if (seated) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);
             GL11.glDepthMask(true);
             GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -1513,17 +1546,17 @@ final class Pipeline {
         }
         // The viewer's own body, the same way: drawn by the game, lit here.
         clearOwnTarget();
-        smoothSkins(Ride.seated);
+        smoothSkins(seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
-        CharacterDraw.bare = !Ride.seated;
+        CharacterDraw.bare = !seated;
         boolean own = !overhead && Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
-        FloatBuffer glass = own && Ride.seated ? VehicleMeshes.seatedPanes : null;
+        FloatBuffer glass = own && seated ? VehicleMeshes.seatedPanes : null;
         if (glass != null) {
             drawPaneMask(glass);
         }
-        VehicleMeshes.Parts parts = own && Ride.seated ? VehicleMeshes.seatedParts : null;
+        VehicleMeshes.Parts parts = own && seated ? VehicleMeshes.seatedParts : null;
         if (parts != null) {
             drawPartKinds(parts);
         }
@@ -1562,15 +1595,15 @@ final class Pipeline {
             GL11.glBindTexture(GL_TEXTURE_2D, ownColor);
             figureLight.set("uNear", OWN_NEAR);
             figureLight.set("uWriteNear", near);
-            figureLight.set("uInside", Ride.seated ? 1f : 0f);
+            figureLight.set("uInside", seated ? 1f : 0f);
             // The pass before this was over painted metal. A vehicle sat in is that; a body is not.
-            figureLight.set("uPainted", Ride.seated ? 1f : 0f);
+            figureLight.set("uPainted", seated ? 1f : 0f);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
             GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
             GL13.glActiveTexture(GL_TEXTURE0);
             figureLight.set("uFacing", NORMAL_UNIT);
-            figureLight.set("uHaveFacing", Ride.seated ? 0f : 1f);
-            if (!Ride.seated) {
+            figureLight.set("uHaveFacing", seated ? 0f : 1f);
+            if (!seated) {
                 figureLight.set("uFigureAmbient", Characters.ownLight);
             }
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
@@ -1582,7 +1615,7 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", Ride.instrumentsLit ? 0.9f * state.night : 0f);
-            float[] wheel = Ride.seated ? Cabins.wheel(Ride.seatedIn) : null;
+            float[] wheel = seated ? Cabins.wheel(Ride.seatedIn) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
                 figureLight.set("uSeat", 0f, 0f, 0f);
@@ -1594,7 +1627,7 @@ final class Pipeline {
             figureLight.set("uTime", state.seconds);
             figureLight.set("uAhead", Ride.aheadX, Ride.aheadY);
             quad();
-            glazed = Ride.seated;
+            glazed = seated;
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
             if (Characters.holding()) {
@@ -1995,7 +2028,10 @@ final class Pipeline {
             return problem;
         }
         makeSamplers();
-        problem = makeShadowMapsAndMirror();
+        problem = makeShadowMaps();
+        if (problem == null) {
+            problem = makeMirror();
+        }
         if (problem != null) {
             return problem;
         }
@@ -2092,7 +2128,7 @@ final class Pipeline {
     }
 
     /** The four shadow maps, the mirror's picture and the picture of who stands behind. Null, or what the driver refused. */
-    private static String makeShadowMapsAndMirror() {
+    private static String makeShadowMaps() {
         int[] made = new int[2];
         String near = shadowMap(made);
         nearMap = made[0];
@@ -2106,6 +2142,11 @@ final class Pipeline {
         String beam = shadowMap(made);
         beamMap = made[0];
         beamTarget = made[1];
+        return near != null ? near : far != null ? far : roof != null ? roof : beam;
+    }
+
+    private static String makeMirror() {
+        String beam = null;
         mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
         mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         mirrorTarget = target(mirrorColor);
@@ -2122,22 +2163,25 @@ final class Pipeline {
         if (beam == null) {
             beam = complete("mirror's people");
         }
-        return near != null ? near : far != null ? far : roof != null ? roof : beam;
+        return beam;
     }
 
     private static void makeRainDrops() {
         // Where each drop starts in its box of air, and which corner of its streak each of its
         // six vertices is. The same every run: rain needs no surprises.
-        rainDrops = buffer(RAIN_DROPS * 6 * 4);
+        FloatBuffer drops = buffer(RAIN_DROPS * 6 * 4);
         Random random = new Random(1987);
         float[] corners = {0f, 1f, 2f, 0f, 2f, 3f};
         for (int drop = 0; drop < RAIN_DROPS; drop++) {
             float x = random.nextFloat(), y = random.nextFloat(), z = random.nextFloat();
             for (float corner : corners) {
-                rainDrops.put(x).put(y).put(z).put(corner);
+                drops.put(x).put(y).put(z).put(corner);
             }
         }
-        rainDrops.flip();
+        rainDrops = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, rainDrops);
+        GL15.glBufferData(GL_ARRAY_BUFFER, drops.flip(), GL_STATIC_DRAW);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
     private static String shadowMap(int[] made) {
@@ -2158,6 +2202,40 @@ final class Pipeline {
         made[1] = target;
         return complete("shadow map");
     }
+
+    /**
+     * Queued once as the picture stops being drawn: gives the graphics card back the pictures
+     * the frame is drawn through and the shadow maps, which at 1920 by 1080 are over 400 MB
+     * that the game's own view would otherwise carry for the rest of the session. The next
+     * frame drawn makes them again.
+     */
+    static final TextureDraw.GenericDrawer RELEASE = new TextureDraw.GenericDrawer() {
+        @Override
+        public void render() {
+            Characters.setDown();
+            if (!prepared || failure != null || width == 0) {
+                return;
+            }
+            for (int old : sizedTargets) {
+                GL30.glDeleteFramebuffers(old);
+            }
+            for (int old : sizedTextures) {
+                GL11.glDeleteTextures(old);
+            }
+            sizedTargets.clear();
+            sizedTextures.clear();
+            width = 0;
+            height = 0;
+            for (int map : new int[] {nearMap, farMap, roofMap, beamMap}) {
+                GL11.glDeleteTextures(map);
+            }
+            for (int target : new int[] {nearTarget, farTarget, roofTarget, beamTarget}) {
+                GL30.glDeleteFramebuffers(target);
+            }
+            nearMap = 0;
+            Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
+        }
+    };
 
     /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */
     private static String resize(int newWidth, int newHeight) {

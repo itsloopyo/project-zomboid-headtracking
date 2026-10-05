@@ -123,7 +123,9 @@ final class VehicleMeshes {
         float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
         float[] middle = middles.get(mesh);
         if (middle == null) {
-            if (!mesh.isReady() || mesh.vb == null) {
+            // A mask still on its way from the disc reads as empty, and no glass would be the
+            // answer kept for the body from then on.
+            if (!mesh.isReady() || mesh.vb == null || instance.textureMask != null && !instance.textureMask.isReady()) {
                 return;
             }
             for (int column = 0; column < 4; column++) {

@@ -2,7 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
+import java.util.WeakHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.BuildingDef;
@@ -58,11 +58,22 @@ final class WallFinish {
         final WallSides.Votes plain = new WallSides.Votes(), any = new WallSides.Votes();
     }
 
-    private static final IdentityHashMap<IsoBuilding, Level[]> known = new IdentityHashMap<>();
+    /**
+     * Held weakly. A building holds its rooms and they hold every square of theirs, so a
+     * building kept here after the game had unloaded it kept its squares, and what stands on
+     * them, from being collected: across a few towns that came to more than a gigabyte, and
+     * the game ran out of memory.
+     */
+    private static final WeakHashMap<IsoBuilding, Level[]> known = new WeakHashMap<>();
     private static final ArrayList<Texture> shown = new ArrayList<>();
     private static final ArrayList<IsoSprite> shownBy = new ArrayList<>();
 
     private WallFinish() {}
+
+    /** For a map loaded anew: its buildings are not the ones before's. */
+    static void forget() {
+        known.clear();
+    }
 
     /** The sprite the building's outside walls show on that level, or on the ground where that level has none. Null if none is found. */
     static Texture outside(IsoCell cell, IsoBuilding building, int z, int frame) {

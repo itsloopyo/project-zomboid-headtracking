@@ -1030,6 +1030,10 @@ final class CharacterDraw {
     private static final float[] lightWay = new float[LIGHTS * 3], lightColor = new float[LIGHTS * 3];
     private static Vector2 uvScale;
 
+    static void setDown() {
+        person = null;
+    }
+
     /**
      * Before the parts of one person: the matrix that stands them before the eye, the eye's
      * projection, and whether this is a shadow map, which is drawn undivided since nothing of

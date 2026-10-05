@@ -33,6 +33,11 @@ final class Furniture {
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
     private static final IdentityHashMap<IsoSprite, Furniture> furniture = new IdentityHashMap<>();
 
+    /** For a map loaded anew: its sprites are not the ones before's. */
+    static void forget() {
+        furniture.clear();
+    }
+
     final Models.Model model;
     /** Quarter turns from facing north, as Models.turn takes them. */
     final int turns;

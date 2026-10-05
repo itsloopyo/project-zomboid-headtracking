@@ -72,6 +72,14 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Fixed the game running out of memory on a long trip in first person. The mod kept every building it had drawn, and with each one all of its squares after the game had unloaded them. Crossing a few towns filled the game's 3 GB.
+- Turned first person off, with the reason in `ProjectZomboidHeadTracking.log`, when a frame of it cannot be built or drawn. The fault used to come again every frame and took the game's own panels with it.
+- Drew a zombie or survivor whose clothes are still being made from the last whole set of them, as the game does, and left out one the game is not drawing yet.
+- Took the grain out of thin cloud and out of the lit air under a low sun.
+- Gave back the graphics memory of the first person picture and its four shadow maps when you switch to the game's own view. It is taken again when you switch back.
+- Made every part of a frame agree on whether you are in a vehicle, on the frame you get in or out.
+- Waited for a vehicle's glass texture to load before reading its windows from it. Read too early, the vehicle was kept as having none.
+- Left zombies, survivors and vehicles that stand outside the sun's near shadow map out of it, kept the rain's drops on the graphics card, and stopped the height of distant ground being worked out again up to three times for each piece of the map built.
 - Stopped the view jumping to the opposite side when the tracker reports a head turn of more than 90 degrees.
 - Gave back the graphics memory of the first person picture when the window changes size. Each size the window had been was held until the game closed.
 - Wrote the reason to `ProjectZomboidHeadTracking.log` when the mod cannot start, for instance when `ProjectZomboidHeadTracking.dll` is not beside the jar. The log used to end without one.

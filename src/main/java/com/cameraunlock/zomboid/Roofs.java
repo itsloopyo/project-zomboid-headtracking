@@ -93,6 +93,15 @@ final class Roofs {
 
     private Roofs() {}
 
+    /** For a map loaded anew. */
+    static void forget() {
+        laid.clear();
+        made.clear();
+        madeByChunk.clear();
+        capped.clear();
+        cappedByChunk.clear();
+    }
+
     /** The tile of roof on the square as its whole roof was fitted, or null for a square with no roof tile. */
     static Laid at(IsoCell cell, int x, int y, int z, int now, float scale) {
         if (now - cleared >= KEPT) {
@@ -163,16 +172,24 @@ final class Roofs {
         }
     }
 
+    /** The key of the chunk a cap's middle lies in. */
+    private static long chunkOf(RoofFit.Cap cap) {
+        int middleX = (int) Math.floor((cap.x0 + cap.x1) / 2f), middleY = (int) Math.floor((cap.y0 + cap.y1) / 2f);
+        return RoofFit.key(Math.floorDiv(middleX, WorldScene.CHUNK_TILES), Math.floorDiv(middleY, WorldScene.CHUNK_TILES), 0);
+    }
+
     private static void keep(Capped cap) {
         float middleX = (cap.cap.x0 + cap.cap.x1) / 2f, middleY = (cap.cap.y0 + cap.cap.y1) / 2f;
         // Twice the middle, rounded, and the way the cap runs name one: a level tile with slopes
         // up to it on all four sides has two caps that cross at its middle.
         int runs = cap.cap.x0 == cap.cap.x1 ? 1 : cap.cap.y0 == cap.cap.y1 ? 2 : 3;
         long key = RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), runs);
-        long chunk = RoofFit.key(Math.floorDiv((int) Math.floor(middleX), WorldScene.CHUNK_TILES), Math.floorDiv((int) Math.floor(middleY), WorldScene.CHUNK_TILES), 0);
+        long chunk = chunkOf(cap.cap);
         Capped was = capped.put(key, cap);
         if (was != null) {
-            for (ArrayList<Capped> held : cappedByChunk.values()) {
+            // The cap it takes the place of has its middle within half a tile, which may be over a chunk's edge.
+            ArrayList<Capped> held = cappedByChunk.get(chunkOf(was.cap));
+            if (held != null) {
                 held.remove(was);
             }
         }

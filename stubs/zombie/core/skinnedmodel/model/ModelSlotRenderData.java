@@ -17,4 +17,6 @@ public final class ModelSlotRenderData {
     public float finalScale;
     public float alpha;
     public final ModelInstance.EffectLight[] effectLights = null;
+    public boolean canRender() { throw new UnsupportedOperationException("reference stub"); }
+    public ModelInstanceRenderDataList getModelData() { throw new UnsupportedOperationException("reference stub"); }
 }

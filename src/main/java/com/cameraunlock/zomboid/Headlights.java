@@ -37,8 +37,11 @@ final class Headlights {
             if (distance > REACH * REACH) {
                 continue;
             }
+            vehicle.getForwardVector(facing);
+            float along = (float) Math.hypot(facing.x, facing.z);
             int slot = distance < away[0] ? 0 : distance < away[1] ? 1 : -1;
-            if (slot < 0) {
+            // A vehicle stood on its nose or its tail has no way along the ground to shine.
+            if (slot < 0 || along < 1e-3f) {
                 continue;
             }
             if (slot == 0) {
@@ -46,8 +49,6 @@ final class Headlights {
                 away[1] = away[0];
             }
             away[slot] = distance;
-            vehicle.getForwardVector(facing);
-            float along = Math.max((float) Math.hypot(facing.x, facing.z), 1e-3f);
             float wayX = facing.x / along, wayY = facing.z / along;
             int at = slot * STRIDE;
             found[at] = vehicle.getX() + wayX * NOSE;

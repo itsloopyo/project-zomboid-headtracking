@@ -76,6 +76,8 @@ public final class FirstPerson {
     /** The view is on, the game is running and the character is alive. */
     private static boolean active;
     private static boolean lookCaptured;
+    /** Whether a frame of the picture has been queued since its targets were last given back. */
+    private static boolean pictureUp;
     private static final PointerMode pointer = new PointerMode();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
@@ -98,6 +100,8 @@ public final class FirstPerson {
     private static long paceWait = PACE_FIRST_NANOS;
     private static long paceSince, paceWorst;
     private static int paceFrames;
+    /** With tracing on, the memory the logic thread took for the picture since the last pace line. */
+    private static long paceBuiltBytes;
     private static WorldScene paceScene;
     private static boolean haveRawX, haveRawY;
     private static int lastRawX, lastRawY;
@@ -192,11 +196,37 @@ public final class FirstPerson {
         if (gap == null) {
             gap = Panels.gap();
         }
+        if (gap == null) {
+            gap = failure;
+        }
         return gap != null ? gap : Pipeline.failure();
     }
 
     /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */
     public static void afterWorldRender() {
+        long before = TRACE ? Allocation.byThisThread() : 0L;
+        try {
+            frame();
+        } catch (RuntimeException | LinkageError thrown) {
+            // Thrown on into the game's frame it comes again every frame, and the game's own
+            // picture and panels pay for it. The view goes off for the session instead, the
+            // next frame lets go of the mouse, and the log has why.
+            if (failure == null) {
+                failure = "building the picture threw " + thrown;
+                Log.error("first person off: the frame could not be built", thrown);
+            }
+            on = false;
+            overhead = false;
+        }
+        if (TRACE) {
+            paceBuiltBytes += Allocation.byThisThread() - before;
+        }
+    }
+
+    /** Why the picture can no longer be built this session, or null. */
+    private static String failure;
+
+    private static void frame() {
         if (GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
             toggle();
         }
@@ -241,6 +271,11 @@ public final class FirstPerson {
             }
             if (Characters.wanted) {
                 drawOverhead(player);
+            } else if (pictureUp) {
+                pictureUp = false;
+                WorldScene.setDown();
+                world.look(null, 0);
+                SpriteRenderer.instance.drawGeneric(Pipeline.RELEASE);
             }
             return;
         }
@@ -276,6 +311,7 @@ public final class FirstPerson {
         scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical());
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
+        pictureUp = true;
         placeReticle(scene, floorUp);
         // The game draws its own reticle while the aim is held, and nothing while it is not.
         if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && !player.isAiming()) {
@@ -322,6 +358,11 @@ public final class FirstPerson {
             Log.info(String.format(Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB, %s",
                     (now - paceSince) / 1e6 / paceFrames, paceWorst / 1e6, (memory.totalMemory() - memory.freeMemory()) >> 20,
                     memory.maxMemory() >> 20, paceScene == null ? "no scene yet" : paceScene.describe()));
+            if (TRACE) {
+                Log.info(String.format(Locale.ROOT, "first person memory taken a frame: %.1f KB building, %.1f KB drawing",
+                        paceBuiltBytes / 1024.0 / paceFrames, WorldScene.takeDrawnBytes() / 1024.0 / paceFrames));
+                paceBuiltBytes = 0;
+            }
             paceWait = PACE_EVERY_NANOS;
             paceSince = now;
             paceFrames = 0;
@@ -386,6 +427,7 @@ public final class FirstPerson {
         scene.seenFromOverhead(overheadView, halfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
+        pictureUp = true;
     }
 
     /**

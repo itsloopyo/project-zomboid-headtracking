@@ -53,6 +53,8 @@ final class Terrain {
     private static final class Grid {
         int wx, wy;
         boolean settled;
+        /** The frame it was worked out in. */
+        int stamp;
         final float[] heights = new float[CORNERS * CORNERS];
         /** The height of water at each corner, which where a quay meets it is not the land's. */
         final float[] water = new float[CORNERS * CORNERS];
@@ -79,6 +81,19 @@ final class Terrain {
     private static final int[] waterChunkX = new int[(2 * VALLEY_CHUNKS + 1) * (2 * VALLEY_CHUNKS + 1)];
     private static final int[] waterChunkY = new int[waterChunkX.length];
     private static int waterChunks;
+
+    /**
+     * A chunk within a valley's width of ground that is not loaded has heights that may yet
+     * change. They are worked out again this many frames on, not at every asking: a build asks
+     * up to three times, and most of the chunks in sight are that near the map's edge.
+     */
+    private static final int RETRIED = 30;
+    private static int frame;
+
+    /** Logic thread, once a frame the picture is built. */
+    static void frame(int number) {
+        frame = number;
+    }
 
     private Terrain() {}
 
@@ -115,12 +130,13 @@ final class Terrain {
     static float[] corners(IsoCell cell, int wx, int wy) {
         int slot = slot(wx, wy);
         Grid grid = grids.get(slot);
-        if (grid != null && grid.wx == wx && grid.wy == wy && grid.settled) {
+        if (grid != null && grid.wx == wx && grid.wy == wy && (grid.settled || frame - grid.stamp < RETRIED)) {
             return grid.heights;
         }
         Grid fresh = new Grid();
         fresh.wx = wx;
         fresh.wy = wy;
+        fresh.stamp = frame;
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
         for (int i = 0; i < CORNERS; i++) {
             for (int j = 0; j < CORNERS; j++) {
