@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Made your character's head follow yours. In the game's own view your character turns, nods and tilts their head as you do, up to 80 degrees to either side, and that is all head tracking does there. In first person the same turn shows in your character's shadow. Single player only, like the first person view.
 - Made `F8` fly the camera between the game's own view and the first person view, in about a second each way. Going in, the first person picture of the same scene fades in over the game's, then the camera turns to face the way your character does and comes down to their eyes. Going out is the same in reverse. The mouse and the movement keys change over when the camera lands. Getting into and out of a vehicle uses the same flight.
 - Made the log record an error the game catches from the mod, once for each fault. It went only to the game's own `console.txt` before. Wrote the first person frame time to the log once a minute, down from every five seconds, so a long session leaves a log the other lines can be found in.
 - Made the mod stay out of the game after a game update that renames or removes something it uses, so the game runs without it. The log names what changed and ends with `the mod stays out of the game:`.

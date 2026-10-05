@@ -87,6 +87,8 @@ public final class FirstPerson {
     private static boolean on;
     /** The camera is at the eye, and the view is played in. */
     private static boolean landed;
+    /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
+    private static boolean fromTheEye;
     private static boolean wasRiding, onForTheRide;
     /** The view is played in, the game is running and the character is alive. */
     private static boolean active;
@@ -146,6 +148,11 @@ public final class FirstPerson {
 
     static boolean isOn() {
         return on;
+    }
+
+    /** Whether the viewer's own body is being drawn as it is seen from their own eye. */
+    static boolean seenFromTheEye() {
+        return fromTheEye;
     }
 
     /** Whether the picture is drawing the game's own view, with the camera at rest there. */
@@ -286,9 +293,11 @@ public final class FirstPerson {
         Characters.wanted = flown || overhead && allowed(player) && !player.isDead();
         MouseGrab.wanted = lookCaptured;
         MouseGrab.kept = active && pointer.on();
+        ModelHead.sayGap();
+        fromTheEye = landed;
         if (!flown) {
             FieldOfView.rest();
-            HeadTracking.rest();
+            HeadTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             ViewModel.rest();
             Crosshair.hide();
             if (MouseGrab.applied || MouseGrab.keeping) {
@@ -373,6 +382,7 @@ public final class FirstPerson {
             scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), true, false);
             scene.seenFrom(flightView, Flight.tanHalfFieldOfView(), Flight.away(), Flight.share());
         } else {
+            fromTheEye = true;
             scene.build(player, flightView, aimView, Flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), false, false);
         }
         scene.mixed(Flight.shown());

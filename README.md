@@ -8,6 +8,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
 - **Decoupled look and aim** - your head moves the view while your mouse keeps the aim
+- **Your character's head follows yours** - in the game's own view your character turns, nods and tilts their head as you do
 - **6DOF positional tracking** - lean and peek with head position
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
@@ -168,7 +169,9 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 
 The tracking mode, the yaw mode and the aim mode are saved when you change them. Turning tracking off with `End` lasts until the game closes.
 
-Tracking applies while the first person view is on, the game is not paused and your character is alive.
+Tracking moves the view while the first person view is on, the game is not paused and your character is alive.
+
+Your character's head turns with yours in both views, in single player. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
 
 ## Configuration
 
@@ -363,7 +366,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 **No tracking response**
 
-- Head tracking only applies in the first person view. Press `F8` in a single player game.
+- Head tracking only moves the view in first person. Press `F8` in a single player game. In the game's own view it turns your character's head and nothing else.
 - Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means the port could not be opened, and it ends with the reason the Java runtime gave. `Address already in use` is what it gives when another program holds the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs the listening line when it has it. The runtime gives the same reason for a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
 - Look for `first tracking packet from` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started.
 - Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.

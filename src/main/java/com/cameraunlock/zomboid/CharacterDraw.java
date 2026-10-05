@@ -20,6 +20,7 @@ import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelMesh;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
+import zombie.core.skinnedmodel.model.SkinningBone;
 import zombie.core.skinnedmodel.model.SkinningData;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.skinnedmodel.shader.Shader;
@@ -1008,6 +1009,17 @@ final class CharacterDraw {
      * and then the same two for the hands alone.
      */
     private static final IdentityHashMap<SkinningData, float[][]> arms = new IdentityHashMap<>();
+    /**
+     * Set while the viewer's own body is drawn from their own eye. The eye is inside the head,
+     * and the head is then drawn with every corner of it at the eye: seen from there it has
+     * no size, and a triangle that runs from the neck to it lies along the line of sight and
+     * has none either. However the head is turned, none of it is in the view.
+     */
+    static boolean fromTheEye;
+    /** For each skeleton, the bones of its head. */
+    private static final IdentityHashMap<SkinningData, int[]> heads = new IdentityHashMap<>();
+    private static final String HEAD_BONE = "Bip01_Head";
+    private static final FloatBuffer headless = ByteBuffer.allocateDirect(BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     /** The program that draws the picture's own arms, and their mesh. */
     private static int sleeve, sleeveVertices, sleeveIndices, sleeveCount;
     /** Where the sleeve program's uniforms live, asked of the driver once, as the program is made. */
@@ -1190,6 +1202,61 @@ final class CharacterDraw {
         boolean drawn = part(part);
         cutBones = null;
         return drawn;
+    }
+
+    /**
+     * A part's bones with the head's taking every corner to the eye.
+     *
+     * @param modelView the matrix the part is drawn with, by columns: the eye is where it takes to the origin
+     * @param scale     what a corner is multiplied by after its bones have placed it and before that matrix
+     */
+    private static FloatBuffer headAtTheEye(SkinningData skeleton, FloatBuffer bones, float[] modelView, float scale) {
+        int[] head = heads.get(skeleton);
+        if (head == null) {
+            head = new int[BONES];
+            int found = headBones(skeleton.getBone(HEAD_BONE), head, 0);
+            head = Arrays.copyOf(head, found);
+            heads.put(skeleton, head);
+        }
+        float a = modelView[0], b = modelView[4], c = modelView[8];
+        float d = modelView[1], e = modelView[5], f = modelView[9];
+        float g = modelView[2], h = modelView[6], i = modelView[10];
+        float x = -modelView[12], y = -modelView[13], z = -modelView[14];
+        float det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+        float eyeX = ((e * i - f * h) * x + (c * h - b * i) * y + (b * f - c * e) * z) / (det * scale);
+        float eyeY = ((f * g - d * i) * x + (a * i - c * g) * y + (c * d - a * f) * z) / (det * scale);
+        float eyeZ = ((d * h - e * g) * x + (b * g - a * h) * y + (a * e - b * d) * z) / (det * scale);
+        int floats = bones.remaining();
+        headless.clear();
+        headless.put(0, bones, bones.position(), floats);
+        headless.limit(floats);
+        for (int bone : head) {
+            int at = bone * 16;
+            if (at + 16 > floats) {
+                continue;
+            }
+            for (int part = 0; part < 12; part++) {
+                headless.put(at + part, 0f);
+            }
+            headless.put(at + 3, eyeX);
+            headless.put(at + 7, eyeY);
+            headless.put(at + 11, eyeZ);
+        }
+        return headless;
+    }
+
+    /** Writes the numbers of a bone and of every bone that hangs from it, and returns how many are written. */
+    private static int headBones(SkinningBone bone, int[] into, int found) {
+        if (bone == null || bone.index >= BONES) {
+            return found;
+        }
+        into[found++] = bone.index;
+        if (bone.children != null) {
+            for (SkinningBone child : bone.children) {
+                found = headBones(child, into, found);
+            }
+        }
+        return found;
     }
 
     private static float[][] armBones(SkinningData skeleton) {
@@ -1466,7 +1533,8 @@ final class CharacterDraw {
             GL20.glUniform1f(cutKeep, cutKeepsThem ? 1f : 0f);
         }
         // The game keeps each bone's matrix with its rows where OpenGL wants columns.
-        GL20.glUniformMatrix4fv(skin.palette, true, part.matrixPalette);
+        boolean eyed = fromTheEye && !shadow && model.tag instanceof SkinningData;
+        GL20.glUniformMatrix4fv(skin.palette, true, eyed ? headAtTheEye((SkinningData) model.tag, part.matrixPalette, modelView, person.finalScale) : part.matrixPalette);
         GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
         GL20.glUniformMatrix4fv(skin.projection, false, projection);
         GL20.glUniform1f(skin.scale, person.finalScale);

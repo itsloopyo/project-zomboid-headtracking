@@ -14,6 +14,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isSneaking() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSitOnGround() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSittingOnFurniture() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.skinnedmodel.animation.AnimationPlayer getAnimationPlayer() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDead() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.WornItems.WornItems getWornItems() { throw new UnsupportedOperationException("reference stub"); }
     public BaseVehicle getVehicle() { throw new UnsupportedOperationException("reference stub"); }

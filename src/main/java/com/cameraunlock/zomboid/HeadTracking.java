@@ -85,8 +85,41 @@ final class HeadTracking {
     private static boolean contactLogged;
     private static long contactLoggedNanos = System.nanoTime() - CONTACT_LOG_INTERVAL_NANOS;
     private static float leanAsked;
+    /** The head's yaw, pitch and roll this frame in radians, in the tracker's senses, while headTurned. */
+    private static final float[] headTurn = new float[3];
+    private static boolean headTurned;
 
     private HeadTracking() {}
+
+    /**
+     * How far the head is turned this frame, for the character's own head: yaw to the right,
+     * pitch up and roll to the left, in radians. Null while tracking turns nothing.
+     */
+    static float[] headTurn() {
+        return headTurned ? headTurn : null;
+    }
+
+    /**
+     * The game's own view, which the mod has no camera in: the head's turn is kept up for
+     * the character's head and nothing else is done with the pose.
+     *
+     * @param inGameplay the game is running and the character is alive
+     */
+    static void follow(boolean inGameplay) {
+        long now = System.nanoTime();
+        float delta = Math.min((now - lastFrameNanos) / 1e9f, MAX_FRAME_SECONDS);
+        lastFrameNanos = now;
+        OpenTrackReceiver.Sample sample = receiver.latest();
+        if (!inGameplay || !enabled || !mode.rotation || sample == null) {
+            rest();
+            return;
+        }
+        filter.update(sample, receiver.isRemote(), delta);
+        headTurn[0] = (float) Math.toRadians(filter.yaw());
+        headTurn[1] = (float) Math.toRadians(filter.pitch());
+        headTurn[2] = (float) Math.toRadians(filter.roll());
+        headTurned = true;
+    }
 
     /**
      * Reads CameraUnlock.ini from the game's folder, where the mod's jar is installed, and starts
@@ -251,9 +284,13 @@ final class HeadTracking {
             float roll = (float) Math.toRadians(filter.roll());
             ViewCamera.turn(out, yaw, pitch, roll, worldYaw);
             HeadFollowLight.follow(clean, yaw, pitch, roll, worldYaw);
+            headTurn[0] = yaw;
+            headTurn[1] = pitch;
+            headTurn[2] = roll;
         } else {
             HeadFollowLight.release();
         }
+        headTurned = mode.rotation;
         if (!mode.position) {
             clamp.reset();
             handover.stop();
@@ -307,6 +344,7 @@ final class HeadTracking {
      */
     static void rest() {
         applied = false;
+        headTurned = false;
         filter.reset();
         clamp.reset();
         handover.stop();

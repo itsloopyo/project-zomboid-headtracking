@@ -364,7 +364,9 @@ public final class Characters {
         data.ambientG = 1f;
         data.ambientB = 1f;
         ViewCamera.view(camera, eyeView);
+        CharacterDraw.fromTheEye = true;
         character(data, eyeView, true, false, holding != null, heldBoth);
+        CharacterDraw.fromTheEye = false;
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;

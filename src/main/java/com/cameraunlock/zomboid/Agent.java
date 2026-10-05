@@ -71,6 +71,14 @@ public final class Agent {
         return shot.gap();
     }
 
+    /** The patch that has ModelHead turn the character's head. */
+    private static PatchTransformer modelHead;
+
+    /** Why the character's head is not turned on this build of the game, or null once the patch is in. */
+    static String modelHeadGap() {
+        return modelHead.gap();
+    }
+
     private static volatile boolean loaded;
 
     static boolean loaded() {
@@ -125,6 +133,9 @@ public final class Agent {
 
         shot = new PatchTransformer(shotPatches());
         instrumentation.addTransformer(shot);
+
+        modelHead = new PatchTransformer(modelHeadPatches());
+        instrumentation.addTransformer(modelHead);
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -232,6 +243,19 @@ public final class Agent {
                                 "(Lzombie/characters/IsoGameCharacter;Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
                         new CallSite.Method("zombie/EffectsManager", "startMuzzleFlash", "(Lzombie/characters/IsoGameCharacter;I)V"),
                         new CallSite.Method("com/cameraunlock/zomboid/ViewModel", "shot", "()V")));
+    }
+
+    /**
+     * Apart again: without it the character's head stays as the game's animations have it.
+     * The game poses a skeleton from its animations, twists the spine towards the aim, and
+     * only then makes the matrices the model is drawn with.
+     */
+    private static List<Patch> modelHeadPatches() {
+        String player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
+        CallSite.Method posing = new CallSite.Method(player, "updateAnimation_StandardAnimation", "(F)V");
+        return List.of(new Patch(player, "updateAnimation_StandardAnimation after updateTwistBone", classBytes -> CallSite.insertAfterEach(classBytes,
+                posing, new CallSite.Method(player, "updateTwistBone", "()V"),
+                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "pose", "(L" + player + ";)V")), 1)));
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */
