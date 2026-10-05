@@ -331,6 +331,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * until it is seen.
      */
     private final OpenLight seenOutside = new OpenLight();
+    /** The tally as it stood before a chunk was read only to be summed. */
+    private final OpenLight seenBefore = new OpenLight();
     private final float[] openLight = new float[3];
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     private final ColorInfo unseenLight = new ColorInfo();
@@ -596,8 +598,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 int summedFrom = missing ? frames : current.summedFrom;
                 boolean summed = eyeStill && (missing || due) && frames >= summedFrom;
                 if (summed) {
-                    float red = seenRed, green = seenGreen, blue = seenBlue;
-                    int outside = seenOutside, seen = squaresSeen;
+                    seenOutside.copyTo(seenBefore);
+                    int seen = squaresSeen;
                     read = signature(chunk, chunkX, chunkY, lowest);
                     boolean sameEye = due && current.signed && current.eyeX == view.eyeX && current.eyeY == view.eyeY && current.eyeUp == view.eyeUp
                             && (!current.acrossView || current.rightX == rightX && current.rightY == rightY);
@@ -608,10 +610,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                         due = false;
                     } else {
                         // The build reads them again.
-                        seenRed = red;
-                        seenGreen = green;
-                        seenBlue = blue;
-                        seenOutside = outside;
+                        seenBefore.copyTo(seenOutside);
                         squaresSeen = seen;
                         if (sameEye && current.signature != read) {
                             // Something on the chunk changes from frame to frame: a light that

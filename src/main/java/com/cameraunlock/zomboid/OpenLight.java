@@ -33,6 +33,15 @@ final class OpenLight {
         counted++;
     }
 
+    /** Makes another tally the same as this one. */
+    void copyTo(OpenLight other) {
+        System.arraycopy(count, 0, other.count, 0, BANDS);
+        System.arraycopy(red, 0, other.red, 0, BANDS);
+        System.arraycopy(green, 0, other.green, 0, BANDS);
+        System.arraycopy(blue, 0, other.blue, 0, BANDS);
+        other.counted = counted;
+    }
+
     boolean isEmpty() {
         return counted == 0;
     }
