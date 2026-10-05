@@ -485,6 +485,9 @@ final class Pipeline {
             if (state.rain > 0f && !overhead) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
+            if (!overhead) {
+                drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            }
             if (glazed) {
                 drawGlass();
             }
@@ -673,8 +676,12 @@ final class Pipeline {
         GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
     }
 
+    /** Draws the ranges but the panes of windows, which are drawn last of all: see drawPanes. */
     private static void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
+            if (listed.tint(i) == WallSides.PANES) {
+                continue;
+            }
             GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
             listed.draw(i);
         }
@@ -1118,6 +1125,68 @@ final class Pipeline {
             projection[9] += JITTER_Y[jitterAt] / height;
             Characters.aside(JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
         }
+        tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        world.set("uLaid", 0f);
+        drawRanges(all, 0, all.solidRanges(), world);
+        // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
+        drawModels(world, true, inMirror ? null : camera, far);
+        // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
+        // that stands on them.
+        GL11.glEnable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        world.set("uCut", 0.02f);
+        world.set("uLaid", 1f);
+        world.set("uTexel", 0f, 0f);
+        drawRanges(all, all.solidRanges(), all.ranges());
+        GL11.glDisable(GL_BLEND);
+        GL11.glDepthMask(true);
+        leaveWorld();
+    }
+
+    /**
+     * The panes of the windows the picture builds, mixed in over everything seen through them:
+     * the room or the street, the people in it, the sky and the rain, which is why they are
+     * drawn after all of those. A pane hides nothing and so leaves the picture's depth alone.
+     */
+    private static void drawPanes(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
+        int first = all.solidRanges();
+        while (first < all.ranges() && all.tint(first) != WallSides.PANES) {
+            first++;
+        }
+        if (first == all.ranges()) {
+            return;
+        }
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        GL11.glViewport(0, 0, width, height);
+        arrays();
+        GL33.glBindSampler(0, spriteSampler);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glEnable(GL_BLEND);
+        // The picture's alpha says how much of a mirror each pixel is, and stays what lies behind the pane.
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        world.set("uLaid", 0f);
+        world.set("uTexel", 0f, 0f);
+        GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
+        for (int i = first; i < all.ranges(); i++) {
+            if (all.tint(i) == WallSides.PANES) {
+                all.draw(i);
+            }
+        }
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        leaveWorld();
+    }
+
+    /**
+     * Makes the world's program the one in use and tells it the frame: the eye, the sun, the
+     * shadow maps, the weather. The projection is the one drawWorld last made, so whatever is
+     * drawn later in the frame lies on what was drawn first to the fraction of a pixel.
+     */
+    private static void tellWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
@@ -1185,20 +1254,10 @@ final class Pipeline {
         world.set("uDark", state.night);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
-        world.set("uLaid", 0f);
-        drawRanges(all, 0, all.solidRanges(), world);
-        // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
-        drawModels(world, true, inMirror ? null : camera, far);
-        // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
-        // that stands on them.
-        GL11.glEnable(GL_BLEND);
-        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        world.set("uCut", 0.02f);
-        world.set("uLaid", 1f);
-        world.set("uTexel", 0f, 0f);
-        drawRanges(all, all.solidRanges(), all.ranges());
-        GL11.glDisable(GL_BLEND);
-        GL11.glDepthMask(true);
+    }
+
+    /** Leaves the arrays and the samplers of the world's program unbound, as every pass that uses it must. */
+    private static void leaveWorld() {
         GL33.glBindSampler(0, 0);
         GL33.glBindSampler(UNITS - 2, 0);
         GL33.glBindSampler(UNITS - 1, 0);

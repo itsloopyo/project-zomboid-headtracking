@@ -18,6 +18,8 @@ import java.util.Arrays;
 final class WallSides {
     /** How a skin is painted over: plain paint, or boards lapped one over the next. */
     static final int FLAT = 1, SIDING = 2;
+    /** In place of a colour: the triangles are the panes of windows, which the picture draws after everything else. No colour packs to this, a painted one being FLAT or SIDING with a colour above it. */
+    static final int PANES = 3;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;

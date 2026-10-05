@@ -783,6 +783,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     fresh.users = 1;
                     acrossView = false;
                     placed = fresh.placed;
+                    building = fresh;
                     chunksBuilt++;
                     // Once for the chunk and not once a level: until the ground round a chunk is all
                     // loaded its corners are worked out afresh at every asking.
@@ -1583,6 +1584,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static final float KERB_STONE = 64f;
     /** A window pane with a lamp burning in the room behind it. */
     private static final float LIT_GLASS = 65f;
+    /** A pane of a window the picture has built, and one with a lamp burning in the room behind it. */
+    private static final float PANE = 67f, LIT_PANE = 68f;
     /** A wall of upright boards. */
     private static final float BOARDS = 52f;
     /** The cap along a ridge or a hip: the roof's own covering, which the picture draws a shade darker. */
@@ -2043,6 +2046,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
             doorSwung = thumpable.IsOpen() && !properties.has("GarageDoor");
             north = thumpable.north != doorSwung;
+            west = !north;
+        } else if (object instanceof IsoWindow window) {
+            // A window knows which wall it is in. Its sprites do not always: the game marks the
+            // open sash of a window in a north wall as fixed to the west one.
+            north = window.getNorth();
             west = !north;
         } else {
             // The corner length of a skirting board or a cornice is marked for both walls of
@@ -3188,6 +3196,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // with the sprite's outline. Through a window or a doorway the far skin is seen
         // behind the near one, which is the depth of the opening. What hangs on the wall
         // hangs on the skin inside the square.
+        if (overLayer == 0 && frame.material == GLASS && addWindow(texture, x, y, z, da, db)) {
+            return;
+        }
         float inX = db * WALL_HALF, inY = da * WALL_HALF;
         if (wall && seeThrough) {
             // A fence of wire or of rails is one sheet on the line between its squares. As two
@@ -3420,6 +3431,191 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         set(c, 3, x1 + nearX, y1 + nearY, head);
         SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
         return true;
+    }
+
+    /** How far a window's frame stands out of the wall's skins and laps over the edge of its opening, in tiles. */
+    private static final float FRAME_PROUD = 0.006f, FRAME_LAP = 0.012f;
+    /** A bar is this much as deep as it is wide, between the least and the most, in tiles. */
+    private static final float BAR_DEPTH = 0.55f, BAR_THINNEST = 0.007f, BAR_DEEPEST = 0.022f;
+    /** How far the sill stands out of the wall out of doors, how far it runs past the frame at each end and how thick it is, in tiles. */
+    private static final float SILL_OUT = 0.035f, SILL_PAST = 0.02f, SILL_THICK = 0.022f;
+    /** How wide a shard of a broken pane is at the bar that holds it, at least and at most, in tiles. */
+    private static final float SHARD_NARROWEST = 0.012f, SHARD_WIDEST = 0.085f;
+    /** How far to either side of the middle of its foot a shard's point may stand, in widths of the foot. */
+    private static final float SHARD_LEAN = 1.3f;
+    /** A frame redder than it is blue by this much is bare wood, and anything else is painted. */
+    private static final float WOODEN = 0.12f;
+    /** The build being filled. */
+    private ChunkMeshes building;
+    /** Where the window being built is: the corner of its square its edge starts from, the edge's direction, and its foot. */
+    private float windowX, windowY, windowAlongX, windowAlongY, windowFoot;
+
+    /**
+     * A window on the north or west edge of the square, built: the four sides of its frame
+     * through the wall's thickness, a sill outside, its bars, and a sheet of glass in each
+     * light that has one, the pieces left round the edge of one that is broken. Where and how
+     * thick each is, and the frame's colour, are measured off the sprite: see Windows. Each
+     * side of the glass is lit as its own side of the wall is. False, adding nothing, for a
+     * sprite not measured yet or one that is no window in a square frame.
+     */
+    private boolean addWindow(Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        Windows.Shape shape = Windows.of(texture, frame, north);
+        if (shape == null) {
+            // The sprite is measured by the next frame drawn. A build that went without is
+            // made again when next due, though nothing it read of the map has changed.
+            if (Windows.unread(texture)) {
+                building.signed = false;
+            }
+            return false;
+        }
+        IsoGridSquare beyond = cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
+        boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
+        boolean beyondIsRoom = beyond != null && beyond.getRoomID() != -1L;
+        IsoGridSquare room = ownIsRoom ? here : beyond;
+        ColorInfo lamp = room.lighting[playerIndex].lightInfo();
+        boolean lit = room.isSeen(playerIndex) && Math.max(lamp.r, Math.max(lamp.g, lamp.b)) > LAMPLIT;
+
+        windowX = x;
+        windowY = y;
+        windowAlongX = da;
+        windowAlongY = db;
+        windowFoot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
+        int ownLight = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1, beyondLight = north ? ownLight - 1 : ownLight - LIGHT_SPAN;
+        boolean farUnseen = lightOpen[beyondLight] < 0;
+        float[] red = {frame.red, farUnseen ? unseenLight.r : lightRed[beyondLight]};
+        float[] green = {frame.green, farUnseen ? unseenLight.g : lightGreen[beyondLight]};
+        float[] blue = {frame.blue, farUnseen ? unseenLight.b : lightBlue[beyondLight]};
+        float[] open = {frame.open, farUnseen ? 1f : lightOpen[beyondLight]};
+
+        SpriteGeometry.Mesh joinery = solid.get(PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
+        joinery.sway = 0f;
+        float made = shape.red - shape.blue > WOODEN ? WOOD : PAINT;
+        float level = ViewCamera.LEVEL_HEIGHT, lap = FRAME_LAP / level;
+        float deep = WALL_HALF + FRAME_PROUD;
+        float inStart = shape.start + shape.startWide, inEnd = shape.end - shape.endWide;
+        for (int side = 0; side < 2; side++) {
+            float out = side == 0 ? 1f : -1f;
+            joinery.open = open[side] + 32f * made;
+            float r = red[side], g = green[side], b = blue[side];
+            // A frame with no stile at one end runs on into the window on the next square.
+            if (shape.startWide > 0f) {
+                addJoinery(joinery, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
+            }
+            if (shape.endWide > 0f) {
+                addJoinery(joinery, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
+            }
+            addJoinery(joinery, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
+            addJoinery(joinery, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b);
+            // Rain is thrown clear of the wall by a sill, which a window has on the side that is out of doors.
+            if (side == 0 ? !ownIsRoom : ownIsRoom && !beyondIsRoom) {
+                float pastStart = shape.startWide > 0f ? SILL_PAST + FRAME_LAP : 0f, pastEnd = shape.endWide > 0f ? SILL_PAST + FRAME_LAP : 0f;
+                addJoinery(joinery, shape.start - pastStart, shape.end + pastEnd, shape.foot - lap - SILL_THICK / level, shape.foot - lap + 0.004f / level,
+                        out * (WALL_HALF + SILL_OUT), r, g, b);
+            }
+            for (int bar = 0; bar < shape.bars.length; bar += 4) {
+                float wide = Math.min(shape.bars[bar + 1] - shape.bars[bar], (shape.bars[bar + 3] - shape.bars[bar + 2]) * level);
+                addJoinery(joinery, shape.bars[bar], shape.bars[bar + 1], shape.bars[bar + 2], shape.bars[bar + 3],
+                        out * Math.clamp(wide * BAR_DEPTH, BAR_THINNEST, BAR_DEEPEST), r, g, b);
+            }
+        }
+
+        SpriteGeometry.Mesh glass = laid.get(PLAIN, WallSides.PANES);
+        glass.sway = 0f;
+        glass.open = frame.open + 32f * (lit ? LIT_PANE : PANE);
+        // A pane faces into its room, which is how the picture tells its street side.
+        float faces = ownIsRoom ? 1f : -1f;
+        glass.face(db * faces, da * faces, 0f);
+        for (int pane = 0; pane < shape.panes.length; pane += 5) {
+            float t0 = shape.panes[pane], t1 = shape.panes[pane + 1], h0 = shape.panes[pane + 2], h1 = shape.panes[pane + 3];
+            if (shape.panes[pane + 4] >= 1f) {
+                addGlass(glass, t0, h0, 0f, 0f, t1, h0, 1f, 0f, t1, h1, 1f, 1f);
+                addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
+            } else {
+                addShards(glass, t0, t1, h0, h1, shape.panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
+            }
+        }
+        return true;
+    }
+
+    /** Where the point a share along the window's edge, up levels high and across tiles into its square is, into c at i. */
+    private void windowPoint(float[] c, int i, float along, float up, float across) {
+        set(c, i, windowX + windowAlongX * along + windowAlongY * across, windowY + windowAlongY * along + windowAlongX * across,
+                windowFoot + up * ViewCamera.LEVEL_HEIGHT);
+    }
+
+    /**
+     * One side of a piece of a window's woodwork: from the glass's plane out to across tiles
+     * into the square, its face and its four edges. The other side is added with the other
+     * side's light.
+     */
+    private void addJoinery(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float across, float red, float green, float blue) {
+        float[] c = reveal;
+        windowPoint(c, 0, from, foot, across);
+        windowPoint(c, 1, to, foot, across);
+        windowPoint(c, 2, to, head, across);
+        windowPoint(c, 3, from, head, across);
+        SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        for (int edge = 0; edge < 4; edge++) {
+            float along0 = edge == 1 ? to : from, along1 = edge == 0 ? from : to;
+            float up0 = edge == 3 ? head : foot, up1 = edge == 2 ? foot : head;
+            windowPoint(c, 0, along0, up0, 0f);
+            windowPoint(c, 1, along1, up1, 0f);
+            windowPoint(c, 2, along1, up1, across);
+            windowPoint(c, 3, along0, up0, across);
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        }
+    }
+
+    /** A triangle of glass in the window's plane: each corner a share along the edge, a height in levels, and where on its pane it is. */
+    private void addGlass(SpriteGeometry.Mesh mesh, float t0, float h0, float u0, float v0, float t1, float h1, float u1, float v1,
+            float t2, float h2, float u2, float v2) {
+        float[] c = reveal;
+        windowPoint(c, 0, t0, h0, 0f);
+        windowPoint(c, 1, t1, h1, 0f);
+        windowPoint(c, 2, t2, h2, 0f);
+        mesh.add(c[0], c[1], c[2], u0, v0, frame.red, frame.green, frame.blue);
+        mesh.add(c[3], c[4], c[5], u1, v1, frame.red, frame.green, frame.blue);
+        mesh.add(c[6], c[7], c[8], u2, v2, frame.red, frame.green, frame.blue);
+    }
+
+    /**
+     * What is left of a broken pane: teeth of glass standing in from the bars round it, the
+     * longer the more of the pane the game's sprite still shows. Which teeth, and how long, is
+     * settled by where the window is, so a window keeps its own break.
+     */
+    private void addShards(SpriteGeometry.Mesh mesh, float t0, float t1, float h0, float h1, float left, int seed) {
+        float level = ViewCamera.LEVEL_HEIGHT, wide = t1 - t0, high = (h1 - h0) * level;
+        float reach = Math.min(wide, high) * (0.25f + 0.75f * left);
+        for (int side = 0; side < 4; side++) {
+            float length = side < 2 ? wide : high;
+            for (float at = 0f; at < length; ) {
+                float base = Math.min(SHARD_NARROWEST + (SHARD_WIDEST - SHARD_NARROWEST) * chance(seed++), length - at);
+                // Most of what is left is splinters along the putty, with a long blade here and
+                // there, and a blade leans: its point is seldom over its foot.
+                float long3 = chance(seed++);
+                float tip = Math.clamp(at + base * (SHARD_LEAN * (2f * chance(seed++) - 1f) + 0.5f), 0f, length);
+                float in = reach * (0.06f + 0.94f * long3 * long3 * long3);
+                boolean stands = chance(seed++) < 0.35f + 0.6f * left;
+                if (stands) {
+                    // Along the foot, the head, the start and the end of the pane in turn.
+                    float a0 = side < 2 ? at / wide : side == 2 ? 0f : 1f, b0 = side < 2 ? (side == 0 ? 0f : 1f) : at / high;
+                    float a1 = side < 2 ? (at + base) / wide : a0, b1 = side < 2 ? b0 : (at + base) / high;
+                    float a2 = side < 2 ? tip / wide : side == 2 ? in / wide : 1f - in / wide;
+                    float b2 = side < 2 ? (side == 0 ? in / high : 1f - in / high) : tip / high;
+                    addGlass(mesh, t0 + a0 * wide, h0 + b0 * (h1 - h0), a0, b0, t0 + a1 * wide, h0 + b1 * (h1 - h0), a1, b1,
+                            t0 + a2 * wide, h0 + b2 * (h1 - h0), a2, b2);
+                }
+                at += base;
+            }
+        }
+    }
+
+    /** A number from 0 to 1 that is the same every time for the same seed. */
+    private static float chance(int seed) {
+        seed = (seed ^ seed >>> 15) * 0x2C1B3C6D;
+        seed = (seed ^ seed >>> 12) * 0x297A2D39;
+        return ((seed ^ seed >>> 15) >>> 8) / (float) (1 << 24);
     }
 
     /** How bright the game's light in a room has to be for the room's windows to count as lit from inside. */

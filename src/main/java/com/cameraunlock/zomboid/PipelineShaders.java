@@ -917,8 +917,11 @@ final class PipelineShaders {
                 // every frame. Out of doors by day what is behind is a dim room, and the
                 // glass takes more of the pixels, which is how a window looks dark from the
                 // street. A window's sheet faces into its room.
-                bool lamplit = vMaterial > 64.5 && vMaterial < 65.5;
-                bool window = lamplit || vMaterial > 12.5 && vMaterial < 13.5;
+                // A window the picture has built has a sheet of glass of its own in each light: all
+                // of it is pane, with no sprite to tell the glass from.
+                bool sheet = vMaterial > 66.5 && vMaterial < 68.5;
+                bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
+                bool window = lamplit || sheet || vMaterial > 12.5 && vMaterial < 13.5;
                 float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
                         && abs(vNormal.z) < 0.5 * length(vNormal);
@@ -934,6 +937,8 @@ final class PipelineShaders {
                         film = film && beside > 0.2 && beside < 0.85;
                     }
                 }
+                film = film || sheet;
+                float soiled = 0.0;
                 if (film) {
                     vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
                     float outside = window ? step(dot(face, sight), 0.0) : 0.5;
@@ -941,12 +946,27 @@ final class PipelineShaders {
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
                     veil = max(thrown + (1.0 - thrown) * (1.0 - through), 0.34 * glow);
-                    if (sifted() >= veil) {
+                    if (sheet) {
+                        // No pane is clean. Dust lies on it evenly, rain has dried on the street side
+                        // in runs down it, and what a cloth never reaches gathers in the corners and
+                        // along the foot of each light. vUv is where on its own pane the place is.
+                        vec2 on = abs(vUv - 0.5) * 2.0;
+                        float corners = smoothstep(0.55, 1.0, max(on.x, on.y)) * smoothstep(0.2, 1.0, min(on.x, on.y) + 0.35 * (1.0 - vUv.y));
+                        float along = dot(vPlace.xy, vec2(face.y, -face.x));
+                        float runs = patches(vec2(along * 90.0, vPlace.z * 3.0)) * patches(vec2(along * 23.0 + 4.0, vPlace.z * 0.9));
+                        float bloom = 0.6 * patches(vec2(along * 19.0, vPlace.z * 19.0) + 31.0) + 0.4 * patches(vec2(along * 53.0, vPlace.z * 47.0) + 7.0);
+                        soiled = 0.012 + 0.025 * bloom + 0.09 * corners * (0.4 + 0.6 * bloom) + outside * 0.04 * runs;
+                        veil = veil + (1.0 - veil) * soiled;
+                    }
+                    // A built pane is mixed in over what is behind it by how much of a veil it is,
+                    // and needs no pixels left out.
+                    if (!sheet && sifted() >= veil) {
                         discard;
                     }
                     glazed = 1.0;
                     cover = 1.0;
-                    texel = vec4(0.02, 0.025, 0.03, 1.0);
+                    // Of the pixels that are the pane, the share that is the dust on it is lit as dust is.
+                    texel = vec4(mix(vec3(0.02, 0.025, 0.03), vec3(0.62, 0.6, 0.55), soiled / veil), 1.0);
                 }
                 // The mod's own furniture is a model and has no sprite. Its surface says what it
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
@@ -1477,7 +1497,8 @@ final class PipelineShaders {
                     vec3 pane = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.07 * bowed.x) + vec3(0.0, 0.0, 0.07 * bowed.y));
                     // Only the pixels that are glass carry what the whole pane throws back, so
                     // each carries the more for being one of few.
-                    color = (surroundings(reflect(-view, pane), vPlace) * thrown
+                    // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
+                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * thrown
                             + pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
                     // A window with a lamp burning behind it is a warm bright shape in the
                     // night: the lamp's light is in the glass itself, in the dust on it and
@@ -1513,7 +1534,7 @@ final class PipelineShaders {
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
-                gl_FragColor = vec4(color, uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
 

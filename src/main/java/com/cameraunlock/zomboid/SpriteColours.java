@@ -47,6 +47,11 @@ final class SpriteColours {
         return colour.length == 0 ? null : colour;
     }
 
+    /** Has the sprite's sheet read on the next frame drawn though its colour is known: for Windows, which measures a sprite from the same copy. */
+    static void readAgain(Texture texture) {
+        asked.add(texture);
+    }
+
     /**
      * Reads the sprites asked for since the last frame. The game keeps many sprites on one
      * sheet, and OpenGL hands back a sheet whole, so every sprite waiting on one sheet is read
@@ -96,6 +101,7 @@ final class SpriteColours {
             int top = Math.clamp(Math.round(Math.min(texture.getYStart(), texture.getYEnd()) * height), 0, height);
             int bottom = Math.clamp(Math.round(Math.max(texture.getYStart(), texture.getYEnd()) * height), 0, height);
             known.put(texture, WallSides.usualColour(page, width, left, top, right, bottom, colour) ? colour : UNPAINTED);
+            Windows.read(texture, page, width, left, top, right, bottom);
         }
         while (waiting.size() > kept) {
             waiting.remove(waiting.size() - 1);
