@@ -34,7 +34,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## cameraunlock-core
 
-- **Version:** commit eaadd50be5cf64e25d76b51f598b91989959a3d9
+- **Version:** commit 4a253c33fe06814547c680a3b633029b3319d2c5
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
 - **Usage:** `install.cmd` and `uninstall.cmd` run the installer script bodies it provides; none of its code is compiled into the jar.
