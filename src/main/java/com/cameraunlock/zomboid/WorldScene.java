@@ -333,6 +333,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private int lowestLevel;
     /** The highest floor built: all of them, but for a viewer indoors seen from overhead. */
     private static int topLevel = Integer.MAX_VALUE;
+    /** The building the viewer is in, a square wider all round, in tiles. */
+    private static int cutMinX, cutMinY, cutMaxX, cutMaxY;
+
+    /** Whether what is over a square is left out so that the viewer indoors can be seen from overhead. */
+    private static boolean cutAway(int x, int y) {
+        return topLevel != Integer.MAX_VALUE && x >= cutMinX && x < cutMaxX && y >= cutMinY && y < cutMaxY;
+    }
     /** How much of a wall is left standing when the walls are cut down, in tiles. */
     private static final float WALL_LEFT = 0.7f;
     private float cutFrom = Float.MAX_VALUE;
@@ -573,8 +580,25 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         IsoGridSquare stoodOn = player.getCurrentSquare();
         boolean indoors = FirstPerson.overhead() && stoodOn != null && !stoodOn.isOutside();
         int top = indoors ? level : Integer.MAX_VALUE;
-        if (top != topLevel) {
+        int minX = 0, minY = 0, maxX = 0, maxY = 0;
+        if (indoors) {
+            zombie.iso.BuildingDef def = stoodOn.getBuilding() == null ? null : stoodOn.getBuilding().getDef();
+            if (def == null) {
+                top = Integer.MAX_VALUE;
+            } else {
+                minX = def.getX() - 1;
+                minY = def.getY() - 1;
+                maxX = def.getX() + def.getW() + 1;
+                maxY = def.getY() + def.getH() + 1;
+            }
+        }
+        indoors = top != Integer.MAX_VALUE;
+        if (top != topLevel || minX != cutMinX || minY != cutMinY || maxX != cutMaxX || maxY != cutMaxY) {
             topLevel = top;
+            cutMinX = minX;
+            cutMinY = minY;
+            cutMaxX = maxX;
+            cutMaxY = maxY;
             forgetAll();
         }
         cutFrom = indoors ? level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level) + WALL_LEFT : Float.MAX_VALUE;
@@ -679,7 +703,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     acrossView = false;
                     placed = fresh.placed;
                     chunksBuilt++;
-                    for (int z = Math.max(lowest, chunk.getMinLevel()); z <= Math.min(chunk.getMaxLevel(), topLevel); z++) {
+                    for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
                         if (z == 0) {
                             readWoods(chunk, chunkX, chunkY);
@@ -689,7 +713,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
                             for (int localY = 0; localY < CHUNK_TILES; localY++) {
                                 IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
-                                if (square == null) {
+                                if (square == null || z > topLevel && cutAway(chunkX + localX, chunkY + localY)) {
                                     continue;
                                 }
                                 squaresLoaded++;
@@ -808,7 +832,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * light as they would have.
      */
     private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
-        int from = Math.max(lowest, chunk.getMinLevel()), to = Math.min(chunk.getMaxLevel(), topLevel);
+        int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
         long sum = sum(sum(sum(0x9E3779B97F4A7C15L, Float.floatToRawIntBits(frame.scale)), from), to);
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
         float[] water = Terrain.water(chunk.wx, chunk.wy);
@@ -3177,7 +3201,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addRoomCeiling(int x, int y, int z, int localX, int localY) {
         IsoGridSquare above = cell.getGridSquare(x, y, z + 1);
         if (above != null && (above.getFloor() != null || above.getRoomID() != -1L) || Roofs.madeAt(x, y, z, frames) != null
-                || topLevel != Integer.MAX_VALUE) {
+                || cutAway(x, y)) {
             return;
         }
         cornerLights(localX, localY);
@@ -3208,7 +3232,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addBacks(IsoChunk chunk, int chunkX, int chunkY) {
         ArrayList<Roofs.Laid> backs = Roofs.madeIn(chunk.wx, chunk.wy, frames);
         ArrayList<Roofs.Capped> caps = Roofs.cappedIn(chunk.wx, chunk.wy, frames);
-        if (backs == null && caps == null || topLevel != Integer.MAX_VALUE) {
+        if (backs == null && caps == null) {
             return;
         }
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
@@ -3218,6 +3242,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float[] lift = geometry.lift;
         for (int i = 0; backs != null && i < backs.size(); i++) {
             RoofFit.Tile tile = backs.get(i).tile;
+            if (cutAway(tile.x, tile.y)) {
+                continue;
+            }
             liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
@@ -3234,6 +3261,9 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
         for (int i = 0; caps != null && i < caps.size(); i++) {
             RoofFit.Cap cap = caps.get(i).cap;
+            if (cutAway((int) Math.floor((cap.x0 + cap.x1) / 2f), (int) Math.floor((cap.y0 + cap.y1) / 2f))) {
+                continue;
+            }
             liftOf(ground, Math.clamp((int) Math.floor((cap.x0 + cap.x1) / 2f) - chunkX, 0, CHUNK_TILES - 1),
                     Math.clamp((int) Math.floor((cap.y0 + cap.y1) / 2f) - chunkY, 0, CHUNK_TILES - 1));
             roof = caps.get(i).roof;
@@ -4652,6 +4682,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         Characters.aim.set(aim);
         Pipeline.overhead = overhead;
         Pipeline.cutAbove = overhead ? cutFrom : Float.MAX_VALUE;
+        Pipeline.cutBox[0] = cutMinX;
+        Pipeline.cutBox[1] = cutMinY;
+        Pipeline.cutBox[2] = cutMaxX;
+        Pipeline.cutBox[3] = cutMaxY;
         Pipeline.focusX = camera.eyeX;
         Pipeline.focusY = camera.eyeY;
         Pipeline.focusUp = camera.eyeUp;

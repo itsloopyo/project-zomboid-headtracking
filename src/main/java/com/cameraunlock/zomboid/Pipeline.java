@@ -220,6 +220,8 @@ final class Pipeline {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            varying float vHung;
+            uniform float uCutAbove;
             varying vec3 vPlace;
             uniform vec3 uWind;
             uniform float uLaid;
@@ -281,6 +283,7 @@ final class Pipeline {
                             uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
                 }
                 vNormal = looks;
+                vHung = uModel > 0.5 && uFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
@@ -344,6 +347,9 @@ final class Pipeline {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            varying float vHung;
+            uniform vec4 uCutBox;
+            uniform float uCutNear;
             varying vec3 vPlace;
 
             float shadowAt(sampler2DShadow map, vec3 c, float soft) {
@@ -1153,9 +1159,17 @@ final class Pipeline {
                 }
                 // Seen from overhead with the viewer indoors, the walls of that floor are cut
                 // down to a low course, or the room is hidden behind its own near walls.
-                if (vWorld.z > uCutAbove && (vMaterial > 1.5 && vMaterial < 2.5 || vMaterial > 6.5 && vMaterial < 7.5
-                        || vMaterial > 12.5 && vMaterial < 13.5 || vMaterial > 51.5 && vMaterial < 52.5)) {
-                    discard;
+                // Only in the building the viewer is in, and only what is of the walls or hangs on
+                // them: a wardrobe or a fridge stands whole, as do the things drawn as cards.
+                // And only what stands between the viewer and the eye: the walls behind them
+                // hide nothing, and keep their windows and pictures.
+                if (vWorld.z > uCutAbove && vWorld.x + vWorld.y > uCutNear
+                        && vWorld.x > uCutBox.x && vWorld.y > uCutBox.y && vWorld.x < uCutBox.z && vWorld.y < uCutBox.w) {
+                    bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
+                    bool standing = vKind > 1.5 && vKind < 3.5;
+                    if (ofModel ? vHung > 0.5 : !standing) {
+                        discard;
+                    }
                 }
                 vec3 toEye = uEye - vWorld;
                 float away = length(toEye);
@@ -4037,6 +4051,9 @@ final class Pipeline {
     static float focusX, focusY, focusUp;
     /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
     static float cutAbove = Float.MAX_VALUE;
+    static final float[] cutBox = new float[4];
+    /** How far behind the viewer, along the map's diagonal, the cut begins, in tiles of x and y together. */
+    private static final float CUT_BEHIND = 1.5f;
     /**
      * How many of the picture's pixels there are to each of the window's, each way. Leaves,
      * blades of grass, fence wire and roof edges are finer than a pixel, and drawn one sample
@@ -4947,6 +4964,9 @@ final class Pipeline {
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         world.set("uRangeFrom", rangeFrom);
         world.set("uCutAbove", cutAbove);
+        world.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
+        // The overhead eye is to the south-east: nearer it is a greater x and y together.
+        world.set("uCutNear", focusX + focusY - CUT_BEHIND);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(world);
         setFlash(world);
