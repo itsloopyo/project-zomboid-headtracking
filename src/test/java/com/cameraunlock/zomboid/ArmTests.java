@@ -122,7 +122,7 @@ final class ArmTests {
     }
 
     /** A right arm of four rings along x, as wide in y as given and 0.1 either way in z: upper arm, two of forearm, hand. */
-    private static CharacterDraw.Limb arm(float wide, float turnedBy) {
+    private static Limb arm(float wide, float turnedBy) {
         int rings = 4;
         float[] places = new float[rings * 4 * 3], uvs = new float[rings * 4 * 2];
         int[] kinds = new int[rings * 4];
@@ -151,18 +151,18 @@ final class ArmTests {
                 elements[at++] = here + 4;
             }
         }
-        return CharacterDraw.limb(places, uvs, kinds, elements, elements.length, 0);
+        return Limb.read(places, uvs, kinds, elements, elements.length, 0);
     }
 
     private static void wristIsMeasuredAsTheOvalRoundItsCorners() {
         for (float turnedBy : new float[] {0f, 0.4f, 1.3f, 2.9f}) {
-            CharacterDraw.Limb arm = arm(0.25f, turnedBy);
+            Limb arm = arm(0.25f, turnedBy);
             float[] wide = {0f, (float) Math.cos(turnedBy), (float) Math.sin(turnedBy)};
             check(Math.abs(arm.across[0]) < 1e-4f && Math.abs(Math.abs(dot(arm.across, wide)) - 1f) < 1e-4f, "the line across a wrist is the way it is widest, square to the forearm");
             check(Math.abs(arm.wristAcross - 0.25f * (float) Math.sqrt(2)) < 1e-4f && Math.abs(arm.wristThrough - 0.1f * (float) Math.sqrt(2)) < 1e-4f,
                     "the oval keeps the wrist's proportions and passes through its four corners");
         }
-        CharacterDraw.Limb round = arm(0.1f, 0f);
+        Limb round = arm(0.1f, 0f);
         check(Math.abs(round.wristAcross - round.wristThrough) < 1e-4f && Math.abs(length(round.across) - 1f) < 1e-4f, "a wrist as wide as it is deep is a circle, with a line across it all the same");
         check(arm(0f, 0f).across == null, "a wrist that is a flat card has no shape");
     }

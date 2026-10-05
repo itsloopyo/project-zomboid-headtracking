@@ -94,18 +94,7 @@ final class Posts {
             return null;
         }
         int[] first = new int[height], last = new int[height], filled = new int[height];
-        for (int row = 0; row < height; row++) {
-            first[row] = -1;
-            for (int column = 0; column < width; column++) {
-                if (painted.at(left + column, top + row)) {
-                    if (first[row] < 0) {
-                        first[row] = column;
-                    }
-                    last[row] = column;
-                    filled[row]++;
-                }
-            }
-        }
+        scanRows(painted, left, top, width, first, last, filled);
         int foot = height - 1;
         while (foot >= 0 && first[foot] < 0) {
             foot--;
@@ -120,8 +109,8 @@ final class Posts {
             if (first[row] < 0) {
                 return null;
             }
-            middles[row - lower] = (first[row] + last[row] + 1) / 2f;
-            widths[row - lower] = last[row] - first[row] + 1;
+            middles[row - lower] = middleAt(first, last, row);
+            widths[row - lower] = wideAt(first, last, row);
         }
         Arrays.sort(middles);
         Arrays.sort(widths);
@@ -131,19 +120,19 @@ final class Posts {
         // Round or square, by how fast the foot widens from its lowest row.
         float footWide = 0f;
         for (int row = foot; row > foot - Math.max(usual / 2f, 3f) && row >= 0; row--) {
-            footWide = Math.max(footWide, last[row] - first[row] + 1);
+            footWide = Math.max(footWide, wideAt(first, last, row));
         }
         // A square foot is a point that widens four pixels a row, and takes a row for every
         // 6.7 pixels of its width to be 0.6 of it. A round one is there in a third of that.
         int rowsUp = 0;
-        while (rowsUp < foot && last[foot - rowsUp] - first[foot - rowsUp] + 1 < FOOT_SHARE * footWide) {
+        while (rowsUp < foot && wideAt(first, last, foot - rowsUp) < FOOT_SHARE * footWide) {
             rowsUp++;
         }
         // What a post stands on may be no part of its shaft: the bend at the foot of a
         // drainpipe, the weighted base of a standing lamp. The shaft starts above it.
         int base = foot, least = foot - Math.round(FOOT_MOST * (foot + 1));
-        while (base > least && (Math.abs((first[base] + last[base] + 1) / 2f - axis) > slack + (last[base] - first[base] + 1) * 0.04f
-                || last[base] - first[base] + 1 > ROUND_SWELL * usual + frame.scale)) {
+        while (base > least && (Math.abs(middleAt(first, last, base) - axis) > slack + wideAt(first, last, base) * 0.04f
+                || wideAt(first, last, base) > ROUND_SWELL * usual + frame.scale)) {
             base--;
         }
         boolean footed = foot - base > usual / 2f + frame.scale && base > least;
@@ -159,7 +148,7 @@ final class Posts {
             if (first[row] < 0) {
                 break;
             }
-            float wide = last[row] - first[row] + 1, middle = (first[row] + last[row] + 1) / 2f;
+            float wide = wideAt(first, last, row), middle = middleAt(first, last, row);
             // The lowest rows are the near corner of the foot, which the game's light and line draw to one side.
             float off = slack + wide * 0.04f + (foot - row < usual / 2f ? usual / 3f : 0f);
             if (Math.abs(middle - axis) > off || wide > swell * usual + frame.scale) {
@@ -168,7 +157,7 @@ final class Posts {
             if (filled[row] < wide * FILLED) {
                 // The top of a length of column that goes on in the square above is cut to the
                 // curve of its near side: rows with only their two ends painted, as wide as the shaft.
-                if (Math.abs(wide - (last[shaftTop] - first[shaftTop] + 1)) > frame.scale || ++hollow > usual * 0.3f + 2f) {
+                if (Math.abs(wide - wideAt(first, last, shaftTop)) > frame.scale || ++hollow > usual * 0.3f + 2f) {
                     break;
                 }
                 continue;
@@ -182,7 +171,7 @@ final class Posts {
         // A shaft is one thickness most of the way up. A spire is centred on its axis too, and is no post.
         int even = 0;
         for (int row = shaftTop; row <= base; row++) {
-            if (Math.abs(last[row] - first[row] + 1 - usual) <= usual * EVEN_SLACK + frame.scale) {
+            if (Math.abs(wideAt(first, last, row) - usual) <= usual * EVEN_SLACK + frame.scale) {
                 even++;
             }
         }
@@ -209,7 +198,7 @@ final class Posts {
         // The top's own first rows are its far edge coming to a point or a curve: it is as wide as the shaft just under them.
         float topWide = 0f;
         for (int row = shaftTop; row <= Math.min(foot, shaftTop + Math.round(usual / 2f)); row++) {
-            topWide = Math.max(topWide, last[row] - first[row] + 1);
+            topWide = Math.max(topWide, wideAt(first, last, row));
         }
         float topReach = topWide / perHalf * (kind == ROUND ? (float) Math.sqrt(2.0) : 2f);
         // A top cut to the curve of its near side has the middle of its ring on its first row.
@@ -229,7 +218,7 @@ final class Posts {
                 float row = fromRow - (fromRow - topRow) * i / (rows - 1);
                 int at = Math.clamp(Math.round(row - 0.5f), shaftTop, base);
                 allHeights[i] = (footRow - row) / level;
-                allHalves[i] = (last[at] - first[at] + 1) / perHalf;
+                allHalves[i] = wideAt(first, last, at) / perHalf;
             }
             int[] kept = simplify(allHeights, allHalves);
             heights = new float[kept.length];
@@ -274,6 +263,30 @@ final class Posts {
             }
         }
         return new Posts(kind, a, b, heights, halves, half, arms, armsFrom, headed, (foot + 1f - shaftTop) / height, footed ? (float) (foot - base) / height : 0f);
+    }
+
+    /** The first and the last painted column of each row of the frame, -1 for the first of a row with none, and how many are painted. */
+    private static void scanRows(SpriteShape.Painted painted, int left, int top, int width, int[] first, int[] last, int[] filled) {
+        for (int row = 0; row < first.length; row++) {
+            first[row] = -1;
+            for (int column = 0; column < width; column++) {
+                if (painted.at(left + column, top + row)) {
+                    if (first[row] < 0) {
+                        first[row] = column;
+                    }
+                    last[row] = column;
+                    filled[row]++;
+                }
+            }
+        }
+    }
+
+    private static int wideAt(int[] first, int[] last, int row) {
+        return last[row] - first[row] + 1;
+    }
+
+    private static float middleAt(int[] first, int[] last, int row) {
+        return (first[row] + last[row] + 1) / 2f;
     }
 
     private static int arm(float[] into, int count, float acrossPixels, float upPixels, float paintedU, float paintedV, float scale) {

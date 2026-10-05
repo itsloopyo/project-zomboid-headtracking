@@ -1871,37 +1871,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
 
         if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
                 || properties.has(IsoFlagType.attachedFloor)) {
-            // The game's own edging of one ground over another, a square at a time. spreadGround
-            // does that here.
-            if (!isFloor && z == 0 && sprite.getName() != null && sprite.getName().startsWith("blends_natural")) {
-                return;
-            }
-            if (floorLayer == 0 && z > lowestLevel) {
-                addCeiling(mesh, x, y, z);
-            }
-            SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
-            frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
-            if (frame.kind != 0f && z == 0 && floorLayer == 0) {
-                // Water knows where its bank is: each corner says whether land touches it.
-                for (int corner = 0; corner < 4; corner++) {
-                    int i = waterLocalX + (corner == 1 || corner == 2 ? 1 : 0), j = waterLocalY + (corner >= 2 ? 1 : 0);
-                    boolean land = false;
-                    for (int ci = 0; ci <= 1; ci++) {
-                        for (int cj = 0; cj <= 1; cj++) {
-                            // A square the map has not loaded is not land: counted as land,
-                            // the last water the map holds has a bank along its far side,
-                            // pale shallows and a line of foam where the water goes on.
-                            byte kind = groundKind[(i + ci) * LIGHT_SPAN + j + cj];
-                            land |= kind != Terrain.WATER && kind != Terrain.UNKNOWN;
-                        }
-                    }
-                    cover[corner] = land ? 0f : 1f;
-                }
-                geometry.cover = cover;
-            }
-            geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
-            frame.kind = 0f;
-            geometry.cover = null;
+            addFloor(mesh, sprite, properties, texture, isFloor, x, y, z);
             return;
         }
 
@@ -2144,63 +2114,105 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             return;
         }
         if (grows) {
-            // A tree or a bush is not a picture of one that turns to face whoever looks at it.
-            // It stands in the world: the sprite is set up several times through the plant's
-            // middle, fanned round it, every other one mirrored, so that from any side there
-            // are leaves in front of leaves and they pass each other as the eye moves. Which
-            // way the fan is turned comes from where the plant stands, so no two are alike.
-            int cards = type == IsoObjectType.tree ? 5 : 3;
-            // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
-            // so the bole stands in for all its cards; a bare one keeps them for its branches.
-            if (type == IsoObjectType.tree && overLayer == 0 && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
-                return;
-            }
-            // A bush is leaves all over, as a tree's crown is.
-            String grown = sprite.getName();
-            // A bush's leaves are smaller than a tree's.
-            boolean bush = grown != null && type != IsoObjectType.tree
-                    && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
-            // So is every other plant the game paints with a dark line round each leaf: the
-            // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
-            if (grown != null && type != IsoObjectType.tree) {
-                frame.material = bush ? Flora.BUSH : LEAVES;
-            }
-            double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
-            for (int card = 0; card < cards; card++) {
-                double angle = turn + card * Math.PI / cards;
-                float side = (card & 1) == 0 ? 1f : -1f;
-                float alongX = (float) Math.cos(angle), alongY = (float) Math.sin(angle);
-                // Leaves lie on the same card as their trunk, and each layer has to stand
-                // clear of the one under it on the side the eye is on, square to this card:
-                // a move straight towards the eye does nothing for a card seen at a slant.
-                float squareX = alongY, squareY = -alongX;
-                float eyeSide = Math.signum(squareX * (camera.eyeX - x - 0.5f) + squareY * (camera.eyeY - y - 0.5f));
-                float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
-                geometry.nudgeX = squareX * clear;
-                geometry.nudgeY = squareY * clear;
-                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
-            }
-            float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-            if (bush && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
-                // A fan of cards through one line is thin seen along that line, and from
-                // above it is a star. A bush is a clump: three more cards stand round its
-                // middle, each across the way out to it, so there are leaves on every side.
-                for (int outer = 0; outer < 3; outer++) {
-                    double out = turn + (outer + 0.5) * 2.0 * Math.PI / 3.0;
-                    float outX = (float) Math.cos(out), outY = (float) Math.sin(out);
-                    float side = (outer & 1) == 0 ? 1f : -1f;
-                    geometry.nudgeX = outX * BUSH_SPREAD;
-                    geometry.nudgeY = outY * BUSH_SPREAD;
-                    geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -outY * side, outX * side, true);
-                }
-            }
-            geometry.nudgeX = geometry.nudgeY = 0f;
+            addGrown(mesh, sprite, type, texture, x, y, z);
             return;
         }
         if (overLayer == 0 && properties.getSurface() <= 0 && !properties.isTable() && addInWallLine(mesh, sprite, texture, x, y, z)) {
             return;
         }
         geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+    }
+
+    /** A floor, or what the game lays on one, flat on the ground of its square. */
+    private void addFloor(SpriteGeometry.Mesh mesh, IsoSprite sprite, PropertyContainer properties, Texture texture, boolean isFloor,
+            int x, int y, int z) {
+        // The game's own edging of one ground over another, a square at a time. spreadGround
+        // does that here.
+        if (!isFloor && z == 0 && sprite.getName() != null && sprite.getName().startsWith("blends_natural")) {
+            return;
+        }
+        if (floorLayer == 0 && z > lowestLevel) {
+            addCeiling(mesh, x, y, z);
+        }
+        SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
+        frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
+        if (frame.kind != 0f && z == 0 && floorLayer == 0) {
+            // Water knows where its bank is: each corner says whether land touches it.
+            for (int corner = 0; corner < 4; corner++) {
+                int i = waterLocalX + (corner == 1 || corner == 2 ? 1 : 0), j = waterLocalY + (corner >= 2 ? 1 : 0);
+                boolean land = false;
+                for (int ci = 0; ci <= 1; ci++) {
+                    for (int cj = 0; cj <= 1; cj++) {
+                        // A square the map has not loaded is not land: counted as land,
+                        // the last water the map holds has a bank along its far side,
+                        // pale shallows and a line of foam where the water goes on.
+                        byte kind = groundKind[(i + ci) * LIGHT_SPAN + j + cj];
+                        land |= kind != Terrain.WATER && kind != Terrain.UNKNOWN;
+                    }
+                }
+                cover[corner] = land ? 0f : 1f;
+            }
+            geometry.cover = cover;
+        }
+        geometry.addFace(on, frame, x, y, z, 0f, 0f, floorLayer++ * standOff / ViewCamera.LEVEL_HEIGHT, 1f, 0f, 0f, 0f, 1f, 0f);
+        frame.kind = 0f;
+        geometry.cover = null;
+    }
+
+    /**
+     * A tree or a bush is not a picture of one that turns to face whoever looks at it.
+     * It stands in the world: the sprite is set up several times through the plant's
+     * middle, fanned round it, every other one mirrored, so that from any side there
+     * are leaves in front of leaves and they pass each other as the eye moves. Which
+     * way the fan is turned comes from where the plant stands, so no two are alike.
+     */
+    private void addGrown(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
+        int cards = type == IsoObjectType.tree ? 5 : 3;
+        // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
+        // so the bole stands in for all its cards; a bare one keeps them for its branches.
+        if (type == IsoObjectType.tree && overLayer == 0 && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
+            return;
+        }
+        // A bush is leaves all over, as a tree's crown is.
+        String grown = sprite.getName();
+        // A bush's leaves are smaller than a tree's.
+        boolean bush = grown != null && type != IsoObjectType.tree
+                && (grown.startsWith("f_bushes") || grown.startsWith("vegetation_foliage") || grown.startsWith("vegetation_ornamental"));
+        // So is every other plant the game paints with a dark line round each leaf: the
+        // line is what makes it a drawing. A bare tree's trunk is the one thing left as it is.
+        if (grown != null && type != IsoObjectType.tree) {
+            frame.material = bush ? Flora.BUSH : LEAVES;
+        }
+        double turn = ((x * 73856093 ^ y * 19349663) >>> 8 & 0xff) / 255.0 * Math.PI;
+        for (int card = 0; card < cards; card++) {
+            double angle = turn + card * Math.PI / cards;
+            float side = (card & 1) == 0 ? 1f : -1f;
+            float alongX = (float) Math.cos(angle), alongY = (float) Math.sin(angle);
+            // Leaves lie on the same card as their trunk, and each layer has to stand
+            // clear of the one under it on the side the eye is on, square to this card:
+            // a move straight towards the eye does nothing for a card seen at a slant.
+            float squareX = alongY, squareY = -alongX;
+            float eyeSide = Math.signum(squareX * (camera.eyeX - x - 0.5f) + squareY * (camera.eyeY - y - 0.5f));
+            float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
+            geometry.nudgeX = squareX * clear;
+            geometry.nudgeY = squareY * clear;
+            geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
+        }
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        if (bush && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
+            // A fan of cards through one line is thin seen along that line, and from
+            // above it is a star. A bush is a clump: three more cards stand round its
+            // middle, each across the way out to it, so there are leaves on every side.
+            for (int outer = 0; outer < 3; outer++) {
+                double out = turn + (outer + 0.5) * 2.0 * Math.PI / 3.0;
+                float outX = (float) Math.cos(out), outY = (float) Math.sin(out);
+                float side = (outer & 1) == 0 ? 1f : -1f;
+                geometry.nudgeX = outX * BUSH_SPREAD;
+                geometry.nudgeY = outY * BUSH_SPREAD;
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -outY * side, outX * side, true);
+            }
+        }
+        geometry.nudgeX = geometry.nudgeY = 0f;
     }
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
