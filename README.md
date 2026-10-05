@@ -6,14 +6,10 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 
 ## Features
 
-- **Decoupled look and aim** - your head moves the view, your mouse keeps the aim
-- **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
-- **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
-- **First person controls** - left mouse attacks at once, right mouse aims down the sights, `Left Shift` sprints and `Left Ctrl` crouches
-- **A weapon in your hands** - in first person a firearm sits at the hip and comes up to the eye when you aim, sways and kicks, and flashes at the muzzle when it fires
-- **A pointer when you need one** - the inventory key, any window or menu of the game's, or the middle mouse button held, hands the mouse back as a pointer without leaving first person
-- **A first person picture of its own** - sun, moon, shadows, clouds, rain, mirrored water, hills, standing grass and trees in leaf, drawn from the game's own map and sprites. The isometric view is left exactly as the game draws it, and no game file is changed
+- **Decoupled look and aim** - your head moves the view while your mouse keeps the aim
+- **6DOF positional tracking** - lean and peek with head position
+- **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
 ## Requirements
 
