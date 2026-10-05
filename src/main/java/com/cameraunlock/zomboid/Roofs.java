@@ -165,8 +165,10 @@ final class Roofs {
 
     private static void keep(Capped cap) {
         float middleX = (cap.cap.x0 + cap.cap.x1) / 2f, middleY = (cap.cap.y0 + cap.cap.y1) / 2f;
-        // Two caps are never nearer than half a tile, so twice the middle, rounded, names one.
-        long key = RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), 0);
+        // Twice the middle, rounded, and the way the cap runs name one: a level tile with slopes
+        // up to it on all four sides has two caps that cross at its middle.
+        int runs = cap.cap.x0 == cap.cap.x1 ? 1 : cap.cap.y0 == cap.cap.y1 ? 2 : 3;
+        long key = RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), runs);
         long chunk = RoofFit.key(Math.floorDiv((int) Math.floor(middleX), WorldScene.CHUNK_TILES), Math.floorDiv((int) Math.floor(middleY), WorldScene.CHUNK_TILES), 0);
         Capped was = capped.put(key, cap);
         if (was != null) {

@@ -94,7 +94,17 @@ public final class Agent {
         Log.open(gameDirectory);
         Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
+        try {
+            start(gameDirectory, instrumentation);
+        } catch (IOException | RuntimeException | Error failure) {
+            // Boot asks only whether the agent was loaded and starts the game either way, and
+            // nothing else puts the reason in this log: it would end here without one.
+            Log.error("the mod could not start", failure);
+            throw failure;
+        }
+    }
 
+    private static void start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Links.Result links = Links.check();
         if (!links.unresolved().isEmpty()) {

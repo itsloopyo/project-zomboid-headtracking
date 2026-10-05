@@ -70,3 +70,9 @@
 - Showed the same brick, boards or siding on the outside of a building's north and west walls as on its south and east walls. It was a flat colour ruled with lines that shimmered at a distance.
 - Made boarded walls in first person of boards about 15 cm wide with the grain of sawn timber. Up close they showed a few streaks of grain as long as an arm.
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
+
+### Fixed
+- Stopped the view jumping to the opposite side when the tracker reports a head turn of more than 90 degrees.
+- Gave back the graphics memory of the first person picture when the window changes size. Each size the window had been was held until the game closed.
+- Wrote the reason to `ProjectZomboidHeadTracking.log` when the mod cannot start, for instance when `ProjectZomboidHeadTracking.dll` is not beside the jar. The log used to end without one.
+- Put the game's own drawing state back when the first person picture fails part way through a frame.

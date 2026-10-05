@@ -390,6 +390,33 @@ final class Pipeline {
         }
         GL13.glActiveTexture(GL_TEXTURE0);
 
+        // Whatever the frame throws, the game gets its own state back: a frame that left its
+        // pushes behind would leave more on every frame the fault came again.
+        try {
+            picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
+        } finally {
+            for (int unit = 0; unit < UNITS; unit++) {
+                GL33.glBindSampler(unit, samplers[unit]);
+            }
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readTarget);
+            GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+            GL30.glBindVertexArray(vertexArray);
+            GL11.glMatrixMode(GL_PROJECTION);
+            GL11.glPopMatrix();
+            GL11.glMatrixMode(GL_MODELVIEW);
+            GL11.glPopMatrix();
+            GL11.glPopClientAttrib();
+            GL11.glPopAttrib();
+            GL20.glUseProgram(program);
+        }
+        lastMillis = (System.nanoTime() - start) / 1e6f;
+    }
+
+    private static void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
+            float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
+            int drawTarget) {
         if (!prepared) {
             prepared = true;
             failure = prepare();
@@ -454,23 +481,6 @@ final class Pipeline {
             clearErrors();
             Log.info("first person cannot be drawn on this machine: " + failure);
         }
-
-        for (int unit = 0; unit < UNITS; unit++) {
-            GL33.glBindSampler(unit, samplers[unit]);
-        }
-        GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
-        GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readTarget);
-        GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
-        GL30.glBindVertexArray(vertexArray);
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glPopMatrix();
-        GL11.glPopClientAttrib();
-        GL11.glPopAttrib();
-        GL20.glUseProgram(program);
-        lastMillis = (System.nanoTime() - start) / 1e6f;
     }
 
     private static void drawBehind(ViewCamera.Pose camera, SkyState state, float[] cabin, float far, float fogStart, float fogEnd,
@@ -1994,8 +2004,8 @@ final class Pipeline {
         if (error != 0) {
             return "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
         }
-        Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, two %d shadow maps, cloud noise %d cubed, in %.0f ms",
-                12, SHADOW_SIZE, NOISE_SIZE, (System.nanoTime() - start) / 1e6));
+        Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, four %d shadow maps, cloud noise %d cubed, in %.0f ms",
+                17, SHADOW_SIZE, NOISE_SIZE, (System.nanoTime() - start) / 1e6));
         return null;
     }
 
@@ -2151,8 +2161,29 @@ final class Pipeline {
 
     /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */
     private static String resize(int newWidth, int newHeight) {
-        // The old ones are left to the driver: the size changes when the window does, a few
-        // times a session, and each set is a few tens of megabytes.
+        // The last size's are given back first. Left alone they are held until the game
+        // ends, a set for every size the picture has been.
+        for (int old : sizedTargets) {
+            GL30.glDeleteFramebuffers(old);
+        }
+        for (int old : sizedTextures) {
+            GL11.glDeleteTextures(old);
+        }
+        sizedTargets.clear();
+        sizedTextures.clear();
+        sizing = true;
+        try {
+            return makeSized(newWidth, newHeight);
+        } finally {
+            sizing = false;
+        }
+    }
+
+    /** The textures and targets the last resize made, and whether one is being made now. */
+    private static final ArrayList<Integer> sizedTextures = new ArrayList<>(), sizedTargets = new ArrayList<>();
+    private static boolean sizing;
+
+    private static String makeSized(int newWidth, int newHeight) {
         width = newWidth;
         height = newHeight;
         sceneColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
@@ -2245,6 +2276,9 @@ final class Pipeline {
 
     private static int texture(int internal, int w, int h, int format, int type, int filter) {
         int texture = GL11.glGenTextures();
+        if (sizing) {
+            sizedTextures.add(texture);
+        }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);
         filter(filter);
@@ -2303,6 +2337,9 @@ final class Pipeline {
 
     private static int target(int color) {
         int target = GL30.glGenFramebuffers();
+        if (sizing) {
+            sizedTargets.add(target);
+        }
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
         return target;

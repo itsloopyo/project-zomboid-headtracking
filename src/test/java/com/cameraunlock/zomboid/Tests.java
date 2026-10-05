@@ -1082,6 +1082,8 @@ public final class Tests {
         check(FineSkins.Pack.relative("C:/pz/multimedia/textures/Body/MaleBody01.png") == null, "a folder that only ends like the game's is not it");
         check(FineSkins.Pack.relative("C:/pz/media/textures/../../secret.png") == null, "a name that climbs out of the folder names nothing");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body//MaleBody01.png") == null, "nor does one with an empty piece");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/D:secret.png") == null, "nor does one that names another drive");
+        check(FineSkins.Pack.relative("C:/pz/media/textures/Body/skin.png:hidden.png") == null, "nor one that names a stream of a file");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/MaleBody01.txt") == null, "only pictures are in the pack");
         check(FineSkins.Pack.relative("C:/pz/media/textures/.png") == null, "a picture has a name");
         check(FineSkins.Pack.folder().endsWith(Path.of("Zomboid", "CameraUnlock", "skins")),
@@ -1805,6 +1807,13 @@ public final class Tests {
         float factor = ZoomCompensation.factor(aimed, base);
         check(near(factor, FieldOfView.AIMED_ZOOM), "zoomed, it is the ratio of the tangents");
         check(ZoomCompensation.scaleAngle(radians(10), 1f) == radians(10), "an angle is untouched unzoomed");
+        for (float degrees : new float[] {-170f, -100f, 100f, 170f}) {
+            check(near(ZoomCompensation.scaleAngle(radians(degrees), 1f), radians(degrees)),
+                    "a head turned " + degrees + " degrees is left there unzoomed, not put a half turn away");
+            float zoomed = ZoomCompensation.scaleAngle(radians(degrees), factor);
+            check(Math.signum(zoomed) == Math.signum(degrees) && Math.abs(zoomed) > radians(90),
+                    "and stays past the right angle on its own side when zoomed");
+        }
 
         // A head yaw puts a point that was dead ahead off to one side. Where it lands on
         // screen has to be the same zoomed and unzoomed.

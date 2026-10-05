@@ -43,7 +43,11 @@ final class Ride {
      * from the middle of its model, in tiles, as its script has them. The driver is the first.
      */
     static volatile float[] seats;
-    /** The script name of the vehicle the viewer sits in, or null. */
+    /**
+     * The script name of the vehicle the viewer sits in, or last sat in: null before the first.
+     * The picture reads it after it has seen seated, on another thread, so it is set before
+     * seated on the way in and kept on the way out.
+     */
     static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
@@ -71,9 +75,11 @@ final class Ride {
             seatsOf = vehicle.getScriptName();
             seats = seatsOf(vehicle.getScript());
         }
+        if (vehicle != null) {
+            seatedIn = vehicle.getScriptName();
+        }
         seated = vehicle != null;
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
-        seatedIn = vehicle == null ? null : vehicle.getScriptName();
         if (vehicle == null) {
             return;
         }

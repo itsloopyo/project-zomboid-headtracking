@@ -510,7 +510,7 @@ public final class FirstPerson {
             haveRawX = false;
             return raw;
         }
-        if (MouseGrab.moved > 0) {
+        if (MouseGrab.moved.get() > 0) {
             haveRawX = false;
         }
         if (haveRawX && !MouseGrab.ISOLATED) {
@@ -527,9 +527,9 @@ public final class FirstPerson {
             haveRawY = false;
             return raw;
         }
-        if (MouseGrab.moved > 0) {
+        if (MouseGrab.moved.get() > 0) {
             haveRawY = false;
-            MouseGrab.moved--;
+            MouseGrab.moved.decrementAndGet();
         }
         if (haveRawY && !MouseGrab.ISOLATED) {
             setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom());

@@ -141,7 +141,7 @@ std::int32_t PzhtHotkeysTake() {
 std::int32_t PzhtTakeLog(char* buffer, std::int32_t capacity) {
     const std::lock_guard<std::mutex> lock(g_mutex);
     const std::int32_t length = static_cast<std::int32_t>(g_log.size());
-    if (capacity >= length) {
+    if (length > 0 && capacity >= length) {
         std::memcpy(buffer, g_log.data(), g_log.size());
         g_log.clear();
     }

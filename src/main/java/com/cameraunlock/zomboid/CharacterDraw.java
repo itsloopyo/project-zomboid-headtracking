@@ -1687,6 +1687,13 @@ final class CharacterDraw {
             }
             uvs[vertex * 2] = raw.getFloat(vertex * stride + from[UV]);
             uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + from[UV] + 4);
+            // A model is the game's or a mod's to supply. With a place that is not a number the
+            // nearest of an arm's triangles to their middle is none of them.
+            if (!Float.isFinite(places[vertex * 3]) || !Float.isFinite(places[vertex * 3 + 1]) || !Float.isFinite(places[vertex * 3 + 2])) {
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+                Log.info("the model " + name + " is left to the game's own draw: vertex " + vertex + " has a place that is not a number");
+                return new Copy(buffer, modification, 0, 0, 0, null, null, null);
+            }
         }
         float[] smooth = smoothNormals(places, normals, elements, count);
         float[] along = along(places, uvs, elements, count);

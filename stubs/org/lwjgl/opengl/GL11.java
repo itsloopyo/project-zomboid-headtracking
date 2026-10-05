@@ -59,6 +59,7 @@ public final class GL11 {
             int type, ByteBuffer pixels) { throw stub(); }
     public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) { throw stub(); }
     public static int glGenTextures() { throw stub(); }
+    public static void glDeleteTextures(int name) { throw new UnsupportedOperationException("reference stub"); }
     public static void glTexParameteri(int target, int pname, int param) { throw stub(); }
     public static void glBlendFunc(int source, int destination) { throw stub(); }
     public static void glVertex2f(float x, float y) { throw stub(); }

@@ -26,10 +26,11 @@ final class ZoomCompensation {
      * An angle in radians, rescaled to move the picture as far as it did
      * unzoomed. A point's place on screen goes as the tangent of its angle
      * over the tangent of half the field of view, so it is the tangent that is
-     * scaled.
+     * scaled. Taken from the sine and cosine, because the arctangent of a tangent
+     * comes back a half turn out for a head turned past a right angle.
      */
     static float scaleAngle(float radians, float factor) {
-        return (float) Math.atan(Math.tan(radians) * factor);
+        return (float) Math.atan2(Math.sin(radians) * factor, Math.cos(radians));
     }
 
     /**

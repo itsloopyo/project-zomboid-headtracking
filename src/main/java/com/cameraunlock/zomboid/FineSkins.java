@@ -72,9 +72,10 @@ public final class FineSkins {
                 return null;
             }
             // A name is the game's or a mod's to choose: one that climbs out of the folder
-            // it is under names nothing in the pack.
+            // it is under names nothing in the pack. Windows resolves a piece that starts
+            // with a drive letter and a colon against that drive, not against the folder.
             for (String piece : relative.split("/", -1)) {
-                if (piece.isEmpty() || piece.equals(".") || piece.equals("..")) {
+                if (piece.isEmpty() || piece.equals(".") || piece.equals("..") || piece.indexOf(':') >= 0) {
                     return null;
                 }
             }
@@ -235,6 +236,9 @@ public final class FineSkins {
             Log.error("fine skins are off for this session, and characters wear the game's own: " + why, cause);
         }
         off = true;
+        for (Fine each : fine.values()) {
+            TextureCombiner.instance.releaseTexture(each.texture);
+        }
         recipes.clear();
         handedBackAt.clear();
         fine.clear();
@@ -441,6 +445,17 @@ public final class FineSkins {
     private static Texture composed(Recipe recipe) throws Exception {
         ArrayList<TextureCombinerCommand> commands = new ArrayList<>(recipe.steps.length);
         ArrayList<Texture> onTheWay = new ArrayList<>();
+        try {
+            return composed(recipe, commands, onTheWay);
+        } finally {
+            // Made or not, what was composed for the skin on the way is the combiner's to take back.
+            for (Texture each : onTheWay) {
+                TextureCombiner.instance.releaseTexture(each);
+            }
+        }
+    }
+
+    private static Texture composed(Recipe recipe, ArrayList<TextureCombinerCommand> commands, ArrayList<Texture> onTheWay) throws Exception {
         for (Step step : recipe.steps) {
             TextureCombinerCommand command = new TextureCombinerCommand();
             command.x = step.x;
@@ -460,9 +475,6 @@ public final class FineSkins {
         Texture made = TextureCombiner.instance.combine(commands);
         if (said++ < 3) {
             Log.info("a skin composed at " + made.getWidth() + "x" + made.getHeight() + " from " + commands.size() + " layers");
-        }
-        for (Texture each : onTheWay) {
-            TextureCombiner.instance.releaseTexture(each);
         }
         return made;
     }

@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import org.lwjgl.glfw.GLFW;
 import org.lwjglx.input.Mouse;
 import org.lwjglx.opengl.Display;
@@ -28,9 +29,10 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
      * else. Each time the mouse is taken or let go the window moves its cursor, and the
      * distance it moved is not the player's hand: read as a turn, the view jumped to a new
      * angle whenever the game let the mouse go and it was taken back, which is on aiming and
-     * on firing.
+     * on firing. The render thread sets it and the logic thread counts it down, so the
+     * count is taken down in one step: a plain read and write would lose a set made between them.
      */
-    static volatile int moved;
+    static final AtomicInteger moved = new AtomicInteger();
     private static final int MOVED_FOR = 3;
     private static int takenBack;
     /** The game lets the mouse go on every aim, and the line carries the count so far. */
@@ -60,7 +62,7 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             }
             applied = want;
             keeping = false;
-            moved = MOVED_FOR;
+            moved.set(MOVED_FOR);
         }
         boolean keep = kept && !want;
         if (!ISOLATED && (want || keep || keeping)) {
@@ -72,7 +74,7 @@ final class MouseGrab extends TextureDraw.GenericDrawer {
             long window = Display.getWindow();
             if (GLFW.glfwGetInputMode(window, GLFW_CURSOR) != should) {
                 GLFW.glfwSetInputMode(window, GLFW_CURSOR, should);
-                moved = MOVED_FOR;
+                moved.set(MOVED_FOR);
                 takenBack++;
                 long now = System.nanoTime();
                 if (now - saidAt > SAY_EVERY_NANOS) {

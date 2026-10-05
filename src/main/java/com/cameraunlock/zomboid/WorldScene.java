@@ -345,6 +345,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** How much of a wall is left standing when the walls are cut down, in tiles. */
     private static final float WALL_LEFT = 0.7f;
     private float cutFrom = Float.MAX_VALUE;
+    /** The cut box as this frame was built with it. The statics are the next build's by the time the frame is drawn. */
+    private int boxMinX, boxMinY, boxMaxX, boxMaxY;
     private int chunksBuilt, chunksKept;
     /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
     private boolean acrossView;
@@ -611,6 +613,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             forgetAll();
         }
         cutFrom = indoors ? level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level) + WALL_LEFT : Float.MAX_VALUE;
+        boxMinX = minX;
+        boxMinY = minY;
+        boxMaxX = maxX;
+        boxMaxY = maxY;
         frame.scale = Core.tileScale;
         unseenLight.r = unseenRed;
         unseenLight.g = unseenGreen;
@@ -3960,6 +3966,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // The soffit: the boarded underside of the eave, level from the fascia's foot back to
         // the wall, which is what is seen of a roof from the ground beside the house.
         SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        // The roofing itself goes in this mesh when the roof has no colour of its own yet.
+        float roofing = sheet.open;
         plain.open = frame.open + 32f * CONCRETE;
         float under = far - FASCIA;
         float wx1 = c[0], wy1 = c[1], wx2 = c[9], wy2 = c[10], ex1 = c[3], ey1 = c[4], ex2 = c[6], ey2 = c[7];
@@ -4026,6 +4034,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                 SpriteGeometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, frame.red, frame.green, frame.blue);
             }
         }
+        sheet.open = roofing;
     }
 
     private final float[] pipeFrom = new float[3], pipeTo = new float[3];
@@ -4172,10 +4181,10 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         Characters.aim.set(aim);
         Pipeline.overhead = overhead;
         Pipeline.cutAbove = overhead ? cutFrom : Float.MAX_VALUE;
-        Pipeline.cutBox[0] = cutMinX;
-        Pipeline.cutBox[1] = cutMinY;
-        Pipeline.cutBox[2] = cutMaxX;
-        Pipeline.cutBox[3] = cutMaxY;
+        Pipeline.cutBox[0] = boxMinX;
+        Pipeline.cutBox[1] = boxMinY;
+        Pipeline.cutBox[2] = boxMaxX;
+        Pipeline.cutBox[3] = boxMaxY;
         Pipeline.focusX = camera.eyeX;
         Pipeline.focusY = camera.eyeY;
         Pipeline.focusUp = camera.eyeUp;

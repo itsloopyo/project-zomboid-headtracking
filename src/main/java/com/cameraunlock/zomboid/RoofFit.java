@@ -574,22 +574,25 @@ final class RoofFit {
         if (!on.slopes() || on.fitAxis != (alongX ? ALONG_Y : ALONG_X) || -on.up() != step) {
             return false;
         }
-        float[] made = new float[4], own = new float[4];
+        float[] made = new float[4], own = new float[4], lower = new float[4];
         cornersOf(alongX ? ALONG_X : ALONG_Y, side.near, side.far, made);
         cornersOf(on.fitAxis, on.fitLow, on.fitHigh, own);
         boolean madeLower = false, ownLower = false;
         for (int corner = 0; corner < 4; corner++) {
             madeLower |= made[corner] < own[corner] - SAME;
             ownLower |= own[corner] < made[corner] - SAME;
-            on.corners[corner] = Math.min(made[corner], own[corner]);
+            lower[corner] = Math.min(made[corner], own[corner]);
         }
         if (!madeLower || !ownLower) {
             return false;
         }
-        on.crease = creaseOf(on.corners, Math.min(side.near + side.far, on.fitLow + on.fitHigh) / 2f);
-        if (on.crease == UNCREASED) {
+        int crease = creaseOf(lower, Math.min(side.near + side.far, on.fitLow + on.fitHigh) / 2f);
+        if (crease == UNCREASED) {
             return false;
         }
+        // Only a tile that is folded takes the new corners: one left as it was keeps its own.
+        System.arraycopy(lower, 0, on.corners, 0, 4);
+        on.crease = crease;
         on.shaped = true;
         on.own = 0;
         for (int triangle = 0; triangle < 2; triangle++) {
