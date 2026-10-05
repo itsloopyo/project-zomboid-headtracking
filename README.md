@@ -190,6 +190,10 @@ The tracking mode, the yaw mode and the aim mode are saved to `CameraUnlock.ini`
 
 A flashlight you carry follows your head and not your aim, and turns a little further than the view does. When you turn your head your eyes end up past the center of the screen, so a beam matched to the view alone lands short of what you are looking at.
 
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `LightMultiplier` | `1.5` | How far it turns relative to your head. `1.0` matches the view, `0` leaves the beam on the aim |
+
 Sensitivity, axis inversion, deadzones and response curves are set in your tracker, so one profile behaves the same in every game.
 
 <!-- cameraunlock:config -->
