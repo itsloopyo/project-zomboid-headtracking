@@ -62,7 +62,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** The world fades into the sky from this share of the way to the edge of the loaded map. */
     private static final float FOG_START = 0.78f;
     /**
-     * How far the near plane's corners are from the eye. A lean stops LeanClamp.SKIN off a wall,
+     * How far the near plane's corners are from the eye. A lean stops the collision margin off a wall,
      * and the wall is only drawn while that is further than this.
      */
     static final float NEAR_CORNER_DISTANCE = 0.08f;

@@ -10,16 +10,6 @@ package com.cameraunlock.zomboid;
  * TrackingProcessor and PositionProcessor, which exist in C++ and C# only.
  */
 final class PoseFilter {
-    static final float LOCAL_SMOOTHING = 0f;
-    static final float REMOTE_SMOOTHING = 0.15f;
-
-    static final float LIMIT_X = 0.30f;
-    static final float LIMIT_Y_UP = 0.20f;
-    static final float LIMIT_Y_DOWN = 0.20f;
-    /** Negative z is the forward lean in the tracker's axes, and it gets the larger allowance. */
-    static final float LIMIT_Z_FORWARD = 0.40f;
-    static final float LIMIT_Z_BACK = 0.10f;
-
     private static final int X = 0, Y = 1, Z = 2, YAW = 3, PITCH = 4, ROLL = 5;
     private static final int CHANNELS = 6;
 
@@ -74,10 +64,11 @@ final class PoseFilter {
         progress += deltaSeconds / sampleInterval;
         float t = segmentPosition(progress, sinceNewSample);
 
+        Settings settings = Settings.current;
         float factor = smoothingFactor(
-                effectiveSmoothing(LOCAL_SMOOTHING, REMOTE_SMOOTHING, remoteConnection), deltaSeconds);
+                effectiveSmoothing(settings.localSmoothing(), settings.remoteSmoothing(), remoteConnection), deltaSeconds);
         for (int i = 0; i < CHANNELS; i++) {
-            float target = clampToLimit(i, along(i, t));
+            float target = clampToLimit(settings, i, along(i, t));
             if (!hasSmoothed) {
                 smoothed[i] = target;
             } else if (isAngleThatWraps(i)) {
@@ -140,11 +131,12 @@ final class PoseFilter {
         return channel == YAW || channel == ROLL;
     }
 
-    private static float clampToLimit(int channel, float value) {
+    /** Negative z is the forward lean in the tracker's axes, and it gets the larger allowance. */
+    private static float clampToLimit(Settings settings, int channel, float value) {
         return switch (channel) {
-            case X -> Math.clamp(value, -LIMIT_X, LIMIT_X);
-            case Y -> Math.clamp(value, -LIMIT_Y_DOWN, LIMIT_Y_UP);
-            case Z -> Math.clamp(value, -LIMIT_Z_FORWARD, LIMIT_Z_BACK);
+            case X -> Math.clamp(value, -settings.positionLimitX(), settings.positionLimitX());
+            case Y -> Math.clamp(value, -settings.positionLimitYDown(), settings.positionLimitY());
+            case Z -> Math.clamp(value, -settings.positionLimitZ(), settings.positionLimitZBack());
             default -> value;
         };
     }

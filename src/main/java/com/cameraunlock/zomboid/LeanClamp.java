@@ -9,14 +9,10 @@ package com.cameraunlock.zomboid;
  * The policy of cameraunlock-core's LeanClamp, which exists in C++ and C# only.
  */
 final class LeanClamp {
-    /** How far off a wall the eye is held, in tiles. It has to exceed the distance to the near plane's corners. */
-    static final float SKIN = 0.12f;
-    /** The release's smoothing: a 200 ms time constant. */
-    private static final float RELEASE_SMOOTHING = 0.9f;
     private static final float MINIMUM_LEAN = 1e-4f;
     private static final float SETTLE_FRACTION = 1e-3f;
 
-    /** How far along a direction the eye can travel before it is within SKIN of something. */
+    /** How far along a direction the eye can travel before it is within the collision margin of something. */
     interface Room {
         /** The clear travel along the unit vector, capped at reach, measured to the eye and not to the wall. */
         float along(float directionX, float directionY, float directionUp, float reach);
@@ -53,7 +49,7 @@ final class LeanClamp {
             now = target;
             hasAllowance = true;
         } else if (hasAllowance) {
-            now += (target - now) * PoseFilter.smoothingFactor(RELEASE_SMOOTHING, deltaSeconds);
+            now += (target - now) * PoseFilter.smoothingFactor(Settings.current.collisionReleaseSmoothing(), deltaSeconds);
             if (desired - now <= desired * SETTLE_FRACTION) {
                 now = desired;
                 hasAllowance = false;

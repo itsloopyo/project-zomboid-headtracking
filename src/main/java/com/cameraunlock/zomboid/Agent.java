@@ -90,7 +90,7 @@ public final class Agent {
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
 
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
-        HeadTracking.start();
+        HeadTracking.start(gameDirectory);
 
         CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
         instrumentation.addTransformer(new PatchTransformer(List.of(

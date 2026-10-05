@@ -19,7 +19,7 @@
 :: --- CONFIG BLOCK ---
 set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
-set "MOD_DLLS=ProjectZomboidHeadTracking.jar"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking.dll"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "STATE_FILE=.headtracking-state.json"
 :: BepInEx | MelonLoader | MonoCecil | ASILoader | REFramework | UE4SS | xNVSE

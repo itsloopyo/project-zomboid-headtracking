@@ -7,9 +7,7 @@ final class AimTests {
         fadeTakesItsTimeEachWayAndArrivesAtRest();
         fadeReversedPartWayCarriesOnFromWhereItIs();
         aimModeIsDecodedFromItsThreeSettings();
-        aimModeCyclesInOrderAndIsSavedAsThreeValues();
-        storeReadsTheModeAndIgnoresTheRetiredSetting();
-        storeChangesOnlyItsThreeLines();
+        aimModeCyclesInOrderAndDecodesFromItsThreeValues();
         stockSightsTakesThePoseOutOnlyWithTheSightsUp();
         stockSightsReversedPartWayDoesNotStep();
         hipLeanIsAllTheViews();
@@ -90,48 +88,17 @@ final class AimTests {
                 && AimMode.FREE_LOOK_MARKER.isFreeLook() && AimMode.TRUE_FREE_LOOK.isFreeLook(), "only the two free look modes are free look");
     }
 
-    private static void aimModeCyclesInOrderAndIsSavedAsThreeValues() {
+    private static void aimModeCyclesInOrderAndDecodesFromItsThreeValues() {
         AimMode mode = AimMode.SIGHTS_LOCKED;
         AimMode[] order = {AimMode.FREE_LOOK_MARKER, AimMode.TRUE_FREE_LOOK, AimMode.STOCK_SIGHTS, AimMode.SIGHTS_LOCKED};
         String[] labels = {"Aim mode: free look with marker", "Aim mode: true free look", "Aim mode: stock sights", "Aim mode: sights locked"};
-        String text = "";
         for (int step = 0; step < order.length; step++) {
             mode = mode.next();
             check(mode == order[step], "the cycle's step " + step + " is " + order[step]);
             check(mode.label.equals(labels[step]), "and is called " + labels[step]);
             check(AimMode.decode(mode.trueFreeLook(), mode.freeLookMarker(), mode.stockSights()) == mode, "its three values decode to itself");
-            text = AimModeStore.write(text, mode);
-            check(text.contains("TrueFreeLook=" + mode.trueFreeLook()) && text.contains("FreeLookMarker=" + mode.freeLookMarker())
-                    && text.contains("StockSights=" + mode.stockSights()), "each step writes all three values");
-            check(AimModeStore.read(text) == mode, "and the file reads back as the mode");
         }
         check(!AimMode.STOCK_SIGHTS.trueFreeLook() && !AimMode.STOCK_SIGHTS.freeLookMarker(), "stock sights is saved with the other two false");
-    }
-
-    private static void storeReadsTheModeAndIgnoresTheRetiredSetting() {
-        check(AimModeStore.read("") == AimMode.SIGHTS_LOCKED, "an empty file is sights locked");
-        check(AimModeStore.read("[Position]\nTrueFreeLook=true\n") == AimMode.TRUE_FREE_LOOK, "a file from before the marker is true free look");
-        check(AimModeStore.read("[Position]\r\nTrueFreeLook = true\r\nFreeLookMarker = true\r\n") == AimMode.FREE_LOOK_MARKER,
-                "spaces round the equals sign and either line ending are read");
-        check(AimModeStore.read("[Position]\nTrueFreeLook=true\nStockSights=true\n") == AimMode.STOCK_SIGHTS, "stock sights beside free look is stock sights");
-        for (String old : new String[] {"paused", "marker", "tracked"}) {
-            check(AimModeStore.read("[Position]\nads_mode=" + old + "\n") == AimMode.SIGHTS_LOCKED, "ads_mode=" + old + " is not read");
-        }
-        check(AimModeStore.read("[Tracking]\nTrueFreeLook=true\n") == AimMode.SIGHTS_LOCKED, "a line under another section is not the setting");
-        check(AimModeStore.read("[Position]\n; TrueFreeLook=true\n") == AimMode.SIGHTS_LOCKED, "a comment is not the setting");
-    }
-
-    private static void storeChangesOnlyItsThreeLines() {
-        String fresh = AimModeStore.write("", AimMode.SIGHTS_LOCKED);
-        check(fresh.equals("[Position]\r\nTrueFreeLook=false\r\nFreeLookMarker=false\r\nStockSights=false\r\n"), "a new file is the section and its three lines");
-        String before = "; a note\n[Network]\nUdpPort=4242\n\n[Position]\nLimitX=0.3\nTrueFreeLook=true\n\n[Hotkeys]\nToggleKey=default\n";
-        String after = AimModeStore.write(before, AimMode.STOCK_SIGHTS);
-        check(after.equals("; a note\n[Network]\nUdpPort=4242\n\n[Position]\nLimitX=0.3\nTrueFreeLook=false\nFreeLookMarker=false\nStockSights=true\n\n"
-                + "[Hotkeys]\nToggleKey=default\n"), "the three lines go in their section and every other line is as it was");
-        check(AimModeStore.write(after, AimMode.STOCK_SIGHTS).equals(after), "saving the same mode again changes nothing");
-        String elsewhere = AimModeStore.write("[Network]\nUdpPort=4242\n", AimMode.TRUE_FREE_LOOK);
-        check(elsewhere.equals("[Network]\nUdpPort=4242\n\n[Position]\nTrueFreeLook=true\nFreeLookMarker=false\nStockSights=false\n"),
-                "a file without the section gets it at the end");
     }
 
     /** The share of yaw, pitch and the lean that reaches the view, as HeadTracking works it out. */
@@ -233,7 +200,7 @@ final class AimTests {
     }
 
     private static void forwardLeanIsWholeAtTheHipAndStopsAtTheRearSightWhenAimed() {
-        float[] forward = {AIM_X * PoseFilter.LIMIT_Z_FORWARD, 0f, AIM_UP * PoseFilter.LIMIT_Z_FORWARD};
+        float[] forward = {AIM_X * Settings.BUILT_IN.positionLimitZ(), 0f, AIM_UP * Settings.BUILT_IN.positionLimitZ()};
         for (AimMode mode : AimMode.values()) {
             LeanHandover hip = new LeanHandover();
             hip.setForwardStop(ViewModel.FORWARD_STOP);
@@ -246,7 +213,7 @@ final class AimTests {
             check(same(aimed.camera, AIM_X * ViewModel.FORWARD_STOP, 0f, AIM_UP * ViewModel.FORWARD_STOP) && same(aimed.rig, 0f, 0f, 0f),
                     "with the sights up it stops at the rear sight in " + mode);
         }
-        check(ViewModel.FORWARD_STOP < PoseFilter.LIMIT_Z_FORWARD && ViewModel.FORWARD_STOP > 0.2f, "the stop is short of the limit and not a guess far short of the sight");
+        check(ViewModel.FORWARD_STOP < Settings.BUILT_IN.positionLimitZ() && ViewModel.FORWARD_STOP > 0.2f, "the stop is short of the limit and not a guess far short of the sight");
         LeanHandover back = settled(new float[] {-AIM_X * 0.1f, 0f, -AIM_UP * 0.1f}, true, AimMode.SIGHTS_LOCKED, true);
         check(same(back.camera, -AIM_X * 0.1f, 0f, -AIM_UP * 0.1f), "leaning back is not stopped");
     }

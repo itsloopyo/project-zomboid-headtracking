@@ -11,6 +11,7 @@ NEXUS_MODS.md
 bin/
 obj/
 build/
+build-native/
 target/
 dist/
 release/

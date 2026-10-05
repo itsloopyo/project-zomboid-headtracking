@@ -1,8 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Locale;
-import zombie.input.GameKeyboard;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Head tracking for the first-person view: the tracker's pose, the hotkeys,
@@ -11,7 +13,8 @@ import zombie.input.GameKeyboard;
  * Only the picture is turned and moved. The view direction the mouse sets,
  * which the game's aim, movement and facing follow, is never written here.
  *
- * Everything runs on the game's logic thread except the receiver's own thread.
+ * Everything runs on the game's logic thread except the receiver's own thread and the
+ * thread that saves a changed mode to CameraUnlock.ini.
  */
 final class HeadTracking {
     private enum Mode {
@@ -28,12 +31,12 @@ final class HeadTracking {
             this.rotation = rotation;
             this.position = position;
         }
-    }
 
-    // The key codes the game's keyboard uses.
-    private static final int KEY_END = 207, KEY_PAGE_UP = 201, KEY_PAGE_DOWN = 209, KEY_INSERT = 210;
-    private static final int KEY_Y = 21, KEY_G = 34, KEY_H = 35, KEY_U = 22;
-    private static final int KEY_LEFT_CONTROL = 29, KEY_RIGHT_CONTROL = 157, KEY_LEFT_SHIFT = 42, KEY_RIGHT_SHIFT = 54;
+        /** The mode a file's pair names. Core's owner never hands back both false. */
+        static Mode of(boolean rotation, boolean position) {
+            return rotation ? position ? FULL : ROTATION_ONLY : POSITION_ONLY;
+        }
+    }
 
     /** A frame longer than this is a hitch, and taking it whole would snap the smoothing to its target. */
     private static final float MAX_FRAME_SECONDS = 0.25f;
@@ -43,8 +46,14 @@ final class HeadTracking {
      */
     private static final long CONTACT_LOG_INTERVAL_NANOS = 1_000_000_000L;
 
-    private static final OpenTrackReceiver receiver =
-            new OpenTrackReceiver(OpenTrackReceiver.parsePort(System.getProperty(OpenTrackReceiver.PORT_PROPERTY)));
+    private static OpenTrackReceiver receiver;
+    private static NativeConfig config;
+    /** A save writes a file, so it is kept off the thread that draws the frame. */
+    private static final ExecutorService saver = Executors.newSingleThreadExecutor(task -> {
+        Thread thread = new Thread(task, "CameraUnlock-Config");
+        thread.setDaemon(true);
+        return thread;
+    });
     private static final PoseFilter filter = new PoseFilter();
     private static final LeanClamp clamp = new LeanClamp();
     private static final float[] lean = new float[3];
@@ -77,23 +86,35 @@ final class HeadTracking {
 
     private HeadTracking() {}
 
-    static void start() {
-        String lightMultiplier = System.getProperty(HeadFollowLight.PROPERTY);
-        if (lightMultiplier != null) {
-            HeadFollowLight.setMultiplier(lightMultiplier);
-        }
-        Log.info("a carried light turns " + HeadFollowLight.multiplier() + " times as far as the head");
-        aimMode = AimModeStore.load(configDirectory());
-        Log.info(aimMode.label + ", as " + AimModeStore.FILE_NAME + " has it");
+    /**
+     * Reads CameraUnlock.ini from the game's folder, where the mod's jar is installed, and starts
+     * listening for the tracker and for the hotkeys.
+     */
+    static void start(Path gameDirectory) {
+        config = new NativeConfig(jarDirectory().resolve(NativeConfig.LIBRARY));
+        Settings settings = config.load(gameDirectory.resolve(NativeConfig.FILE_NAME), null).settings();
+        Settings.current = settings;
+        enabled = settings.enableOnStartup();
+        mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
+        worldYaw = settings.worldSpaceYaw();
+        aimMode = AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights());
+        Log.info("head tracking " + (enabled ? "on" : "off") + ", " + mode.label + ", yaw about "
+                + (worldYaw ? "straight up" : "the view's own up") + ", " + aimMode.label);
+        receiver = new OpenTrackReceiver(settings.udpPort(), settings.dataFreshnessMs());
         receiver.start();
+        config.startHotkeys();
+    }
+
+    private static Path jarDirectory() {
+        try {
+            return Path.of(HeadTracking.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+        } catch (URISyntaxException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     static boolean applied() {
         return applied;
-    }
-
-    private static Path configDirectory() {
-        return Path.of("").toAbsolutePath();
     }
 
     /**
@@ -106,20 +127,31 @@ final class HeadTracking {
     }
 
     static void pollHotkeys() {
-        boolean chord = (GameKeyboard.isKeyDown(KEY_LEFT_CONTROL) || GameKeyboard.isKeyDown(KEY_RIGHT_CONTROL))
-                && (GameKeyboard.isKeyDown(KEY_LEFT_SHIFT) || GameKeyboard.isKeyDown(KEY_RIGHT_SHIFT));
-        if (GameKeyboard.isKeyPressed(KEY_END) || chord && GameKeyboard.isKeyPressed(KEY_Y)) {
+        int pressed = config.pressed();
+        if ((pressed & NativeConfig.TOGGLE) != 0) {
             toggleEnabled();
         }
-        if (GameKeyboard.isKeyPressed(KEY_PAGE_UP) || chord && GameKeyboard.isKeyPressed(KEY_G)) {
+        if ((pressed & NativeConfig.CYCLE_TRACKING_MODE) != 0) {
             cycleMode();
         }
-        if (GameKeyboard.isKeyPressed(KEY_PAGE_DOWN) || chord && GameKeyboard.isKeyPressed(KEY_H)) {
+        if ((pressed & NativeConfig.YAW_MODE) != 0) {
             toggleWorldYaw();
         }
-        if (GameKeyboard.isKeyPressed(KEY_INSERT) || chord && GameKeyboard.isKeyPressed(KEY_U)) {
+        if ((pressed & NativeConfig.AIM_MODE) != 0) {
             cycleAimMode();
         }
+    }
+
+    /** The new value is already applied. A save that fails leaves the session on it, and the log says why. */
+    private static void save(Runnable save) {
+        saver.execute(() -> {
+            try {
+                save.run();
+            } catch (RuntimeException failure) {
+                // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
+                Log.error("a changed setting was not saved", failure);
+            }
+        });
     }
 
     static void toggleEnabled() {
@@ -130,17 +162,22 @@ final class HeadTracking {
     static void cycleMode() {
         mode = Mode.values()[(mode.ordinal() + 1) % Mode.values().length];
         Log.info("head tracking mode: " + mode.label);
+        Mode saved = mode;
+        save(() -> config.saveTrackingMode(saved.rotation, saved.position));
     }
 
     static void toggleWorldYaw() {
         worldYaw = !worldYaw;
         Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
+        boolean saved = worldYaw;
+        save(() -> config.saveWorldSpaceYaw(saved));
     }
 
     static void cycleAimMode() {
         aimMode = aimMode.next();
         Log.info(aimMode.label);
-        AimModeStore.save(configDirectory(), aimMode);
+        AimMode saved = aimMode;
+        save(() -> config.saveAimMode(saved));
     }
 
     /**
@@ -217,7 +254,11 @@ final class HeadTracking {
         leanWorld = world;
         leanEyeX = clean.eyeX;
         leanEyeY = clean.eyeY;
-        clamp.apply(lean, delta, roomForTheLean);
+        if (Settings.current.collisionEnabled()) {
+            clamp.apply(lean, delta, roomForTheLean);
+        } else {
+            clamp.reset();
+        }
         if (clamp.inContact() != contactLogged && now - contactLoggedNanos >= CONTACT_LOG_INTERVAL_NANOS) {
             contactLogged = clamp.inContact();
             contactLoggedNanos = now;

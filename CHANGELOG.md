@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- Added a settings file, `CameraUnlock.ini`, which the mod creates next to `ProjectZomboid64.exe` the first time it starts. It holds the tracker's UDP port, the two smoothing values, the lean limits, the wall check, the carried light's multiplier and the hotkeys, which can now be rebound. A setting left on `default` takes its value from `%AppData%\CameraUnlock\Defaults.ini`, which every head tracking mod that keeps its settings in `CameraUnlock.ini` reads.
+- The tracking mode (`Page Up`) and the yaw mode (`Page Down`) are saved when changed, as the aim mode already was. `End` still lasts only until the game closes.
+- The installer puts `ProjectZomboidHeadTracking.dll` next to the jar. It reads and writes the settings file.
 - Added four ways of aiming down a firearm's sights with head tracking on, cycled on `Insert` / `Ctrl+Shift+U` and saved when changed: sights locked (the default), free look with a marker, true free look and stock sights. In sights locked a lean across the aim moves the weapon and where the shot starts with your eye, so the sights stay lined up and the shot lands where they point. In the free look modes the weapon stays put and your head moves round it. In stock sights your head's turn and lean ease out while the sights are up and only its tilt stays.
 - The weapon in your hands stays on your aim when you turn or lean your head, and at the hip its barrel points at the place the shot will land.
 - The left hand stays on a firearm's fore-end. It used to follow the game's own animation, and flew off the weapon, dragged its sleeve across the view or vanished when you turned or walked.

@@ -15,7 +15,7 @@ final class WorldQuery {
     static final float CHARACTER_HEIGHT = 1.75f;
 
     /**
-     * A wall met at a shallow angle has to be stopped short of by SKIN over
+     * A wall met at a shallow angle has to be stopped short of by the margin over
      * the cosine, which has no bound as the angle flattens. Past 75 degrees off
      * the wall's normal the eye is sliding along the wall, not into it.
      */
@@ -49,7 +49,7 @@ final class WorldQuery {
 
     /**
      * How far the eye can move from (x, y) along a unit vector before it is
-     * within LeanClamp.SKIN of a wall, capped at reach. Three rays, the middle
+     * within the collision margin of a wall, capped at reach. Three rays, the middle
      * one through the eye and one each side of it, so a wall's end beside the
      * path counts as well as a wall across it.
      */
@@ -58,17 +58,18 @@ final class WorldQuery {
         if (ground < 1e-4f) {
             return reach;
         }
-        float sideX = -directionY / ground * LeanClamp.SKIN;
-        float sideY = directionX / ground * LeanClamp.SKIN;
+        float margin = Settings.current.collisionMargin();
+        float sideX = -directionY / ground * margin;
+        float sideY = directionX / ground * margin;
         float room = reach;
         for (int ray = -1; ray <= 1; ray++) {
             float hit = trace.firstBlockedEdge(solidToTheEye, x + sideX * ray, y + sideY * ray,
-                    directionX, directionY, reach + LeanClamp.SKIN / MIN_COSINE);
+                    directionX, directionY, reach + margin / MIN_COSINE);
             if (hit == Float.POSITIVE_INFINITY) {
                 continue;
             }
             float cosine = Math.max(Math.abs(trace.hitFacesX ? directionX : directionY), MIN_COSINE);
-            room = Math.min(room, hit - LeanClamp.SKIN / cosine);
+            room = Math.min(room, hit - margin / cosine);
         }
         return Math.max(room, 0f);
     }

@@ -1,0 +1,33 @@
+#pragma once
+
+#include <cameraunlock/config/config_owner.h>
+#include <cameraunlock/config/config_table.h>
+#include <cameraunlock/config/defaults_file.h>
+#include <cameraunlock/config/head_tracking_config.h>
+
+#include <string>
+
+namespace pzht {
+
+inline constexpr const char* kConfigFileName = "CameraUnlock.ini";
+// The game's name as cameraunlock-core's data/games.json spells it.
+inline constexpr const char* kConfigDisplayName = "Project Zomboid";
+
+struct Config : cameraunlock::HeadTrackingConfig {
+    Config() {
+        // Map tiles. It has to exceed the distance from the eye to the corners of the first
+        // person view's near plane (WorldScene.NEAR_CORNER_DISTANCE on the Java side).
+        lean_clamp.skin = 0.12f;
+    }
+};
+
+// The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
+// rows are Writable: their hotkeys save. End changes the session only.
+cameraunlock::config::ConfigTable<Config> MakeConfigTable();
+
+// The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test
+// a scratch file.
+cameraunlock::config::ConfigOwnerOptions<Config> MakeConfigOwnerOptions(const std::wstring& path,
+                                                                        cameraunlock::config::DefaultsFile defaults);
+
+}  // namespace pzht

@@ -1,8 +1,9 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds only this project's own classes. The
-components below are what it ships beside, links against at run time, or
-interoperates with. Each remains the property of its authors and is used under
+ProjectZomboidHeadTracking.jar holds only this project's own classes, and
+ProjectZomboidHeadTracking.dll this project's own code and cameraunlock-core's.
+The components below are what they ship beside, link against at run time, or
+interoperate with. Each remains the property of its authors and is used under
 its own licence.
 
 This repository and its release ZIP contain no Project Zomboid code, no
@@ -37,8 +38,8 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 - **Version:** commit 4a253c33fe06814547c680a3b633029b3319d2c5
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
-- **Usage:** `install.cmd` and `uninstall.cmd` run the installer script bodies it provides; none of its code is compiled into the jar.
-- **Bundled:** yes. The script bodies go in the release ZIP's `shared` folder.
+- **Usage:** Its C++ settings file reader and writer and its hotkey poller are compiled into `ProjectZomboidHeadTracking.dll`, which the jar loads. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides. None of its code is compiled into the jar.
+- **Bundled:** yes. Compiled into the DLL, and the script bodies go in the release ZIP's `shared` folder.
 
 Copyright (c) 2026 itsloopyo
 

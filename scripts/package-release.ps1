@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
-# Packages Project Zomboid Head Tracking (a Java agent jar, no loader).
+# Packages Project Zomboid Head Tracking (a Java agent jar and the DLL it loads, no loader).
 # Produces two ZIPs:
 #   ProjectZomboidHeadTracking-v{version}-installer.zip (GitHub Release)
 #   ProjectZomboidHeadTracking-v{version}-dev.zip       (never published: the
@@ -42,6 +42,11 @@ if (-not (Test-Path $jarPath)) {
     throw "$modName.jar not found at: $jarPath. Run 'pixi run build' first."
 }
 
+$dllPath = Join-Path $projectDir "build/$modName.dll"
+if (-not (Test-Path $dllPath)) {
+    throw "$modName.dll not found at: $dllPath. Run 'pixi run build' first."
+}
+
 $releaseDir = Join-Path $projectDir 'release'
 $staging    = Join-Path $releaseDir 'staging-installer'
 if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
@@ -60,6 +65,8 @@ $pluginsDir = Join-Path $staging 'plugins'
 New-Item -ItemType Directory -Path $pluginsDir -Force | Out-Null
 Copy-Item $jarPath -Destination $pluginsDir -Force
 Write-Host "  plugins/$modName.jar" -ForegroundColor Green
+Copy-Item $dllPath -Destination $pluginsDir -Force
+Write-Host "  plugins/$modName.dll" -ForegroundColor Green
 
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
@@ -105,12 +112,12 @@ Write-Host ("  $installerZip ({0:N1} KB)" -f $installerKb) -ForegroundColor Gree
 $marker = "$modName.dev"
 Set-Content -Path (Join-Path $pluginsDir $marker) -Value 'development install' -Encoding ascii
 $stagedInstall = Join-Path $staging 'install.cmd'
-$payloadLine   = "set `"MOD_DLLS=$modName.jar`""
+$payloadLine   = "set `"MOD_DLLS=$modName.jar $modName.dll`""
 $installText   = [System.IO.File]::ReadAllText($stagedInstall)
 if (-not $installText.Contains($payloadLine)) {
     throw "scripts/install.cmd no longer has the line $payloadLine, so the development ZIP's installer cannot be told to copy $marker."
 }
-[System.IO.File]::WriteAllText($stagedInstall, $installText.Replace($payloadLine, "set `"MOD_DLLS=$modName.jar $marker`""), (New-Object System.Text.ASCIIEncoding))
+[System.IO.File]::WriteAllText($stagedInstall, $installText.Replace($payloadLine, "set `"MOD_DLLS=$modName.jar $modName.dll $marker`""), (New-Object System.Text.ASCIIEncoding))
 
 $devZip = Join-Path $releaseDir "$modName-v$version-dev.zip"
 if (Test-Path $devZip) { Remove-Item $devZip -Force }

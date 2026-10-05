@@ -34,3 +34,10 @@ Copy-Item -Recurse -Force src/main/resources/* build/classes/
 ) | Set-Content -Encoding ascii build/MANIFEST.MF
 Invoke-Tool jar @('--create', '--file', 'build/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/classes', '.')
 Write-Host "Built build/ProjectZomboidHeadTracking.jar $version"
+
+# cameraunlock-core's config owner and hotkey poller are C++, so they are built into a DLL the
+# agent loads from beside its jar. The same build makes the config tests, which test.ps1 runs.
+Invoke-Tool cmake @('-S', 'native', '-B', 'build-native', '-A', 'x64')
+Invoke-Tool cmake @('--build', 'build-native', '--config', 'Release')
+Copy-Item -Force build-native/Release/ProjectZomboidHeadTracking.dll build/
+Write-Host 'Built build/ProjectZomboidHeadTracking.dll'

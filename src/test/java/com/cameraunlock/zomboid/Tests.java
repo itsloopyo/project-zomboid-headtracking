@@ -32,7 +32,6 @@ public final class Tests {
         nearPlaneKeepsItsCornersInsideTheLeanSkin();
         fieldOfViewSettingIsValidated();
         lightLeadsTheHeadsYawAndIgnoresTheRest();
-        lightMultiplierIsRefusedOutsideItsRange();
         packetIsParsedAndValidated();
         receiverTakesOnlyChangedPosesAndReadsLocality();
         filterKeepsThePositionInsideItsLimits();
@@ -42,10 +41,11 @@ public final class Tests {
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         AimTests.run();
+        ConfigTests.run();
         ArmTests.run();
         BufferTests.run();
         shotStopsOnACharacter();
-        receiverRefusesAPoseNoTrackerSendsAndABadPort();
+        receiverRefusesAPoseNoTrackerSends();
         windowIsCentredInItsWorkArea();
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
@@ -1322,7 +1322,7 @@ public final class Tests {
                 check(near(corner, WorldScene.NEAR_CORNER_DISTANCE), "the near plane's corners are the asked distance from the eye");
             }
         }
-        check(WorldScene.NEAR_CORNER_DISTANCE < LeanClamp.SKIN, "the near plane's corners are nearer than a lean is held off a wall");
+        check(WorldScene.NEAR_CORNER_DISTANCE < Settings.BUILT_IN.collisionMargin(), "the near plane's corners are nearer than a lean is held off a wall");
     }
 
     private static void fieldOfViewSettingIsValidated() {
@@ -1348,7 +1348,7 @@ public final class Tests {
         ViewCamera.Pose level = cleanPose(0f, 0f, 1.6f, radians(200), 0f);
         ViewCamera.Pose down = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.Pose up = cleanPose(0f, 0f, 1.6f, radians(200), radians(89));
-        float lead = HeadFollowLight.DEFAULT_MULTIPLIER;
+        float lead = Settings.BUILT_IN.lightMultiplier();
         check(near(HeadFollowLight.headingTurn(level, radians(20), 0f, 0f, true), radians(20) * lead),
                 "the beam turns the default multiple of the head's yaw");
         check(near(HeadFollowLight.headingTurn(level, radians(-20), 0f, 0f, false), radians(-20) * lead),
@@ -1361,32 +1361,30 @@ public final class Tests {
         check(near(HeadFollowLight.headingTurn(down, radians(20), 0f, 0f, false),
                 (float) Math.atan(Math.tan(Math.toRadians(30)) / 0.5)), "about the view's own up it is the heading the view centre would take");
 
-        check(HeadFollowLight.setMultiplier("1"), "a multiplier of 1 is taken");
+        Settings.current = lightTurning(1f);
         ViewCamera.Pose view = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.turn(view, radians(25), radians(10), radians(15), false);
         float viewTurn = (float) Math.atan2(view.forwardY, view.forwardX) + radians(360) - radians(200);
         check(near(HeadFollowLight.headingTurn(down, radians(25), radians(10), radians(15), false), viewTurn),
                 "at 1 the beam has the heading of the view");
-        check(HeadFollowLight.setMultiplier(String.valueOf(lead)), "the default is taken back");
+        Settings.current = Settings.BUILT_IN;
 
         HeadFollowLight.follow(level, radians(60), 0f, 0f, true);
         check(near(HeadFollowLight.turn(), radians(90)), "a followed head turns the beam");
         HeadFollowLight.release();
         check(HeadFollowLight.turn() == 0f, "and a released beam is the game's");
 
-        check(HeadFollowLight.setMultiplier("0"), "a multiplier of 0 is taken");
-        check(near(HeadFollowLight.headingTurn(level, radians(20), radians(10), radians(5), true), 0f), "and leaves the beam on the aim");
-        check(HeadFollowLight.setMultiplier(String.valueOf(lead)), "the default is put back");
+        Settings.current = lightTurning(0f);
+        check(near(HeadFollowLight.headingTurn(level, radians(20), radians(10), radians(5), true), 0f), "a multiplier of 0 leaves the beam on the aim");
+        Settings.current = Settings.BUILT_IN;
     }
 
-    private static void lightMultiplierIsRefusedOutsideItsRange() {
-        for (String bad : new String[] {"bright", "", "NaN", "-0.1", "5.01", "8", "Infinity"}) {
-            check(!HeadFollowLight.setMultiplier(bad), "a light multiplier of \"" + bad + "\" is refused");
-            check(HeadFollowLight.multiplier() == HeadFollowLight.DEFAULT_MULTIPLIER, "and the one in use stands");
-        }
-        check(HeadFollowLight.setMultiplier(" 5 ") && HeadFollowLight.multiplier() == HeadFollowLight.MAX_MULTIPLIER,
-                "the top of the range is taken");
-        HeadFollowLight.setMultiplier(String.valueOf(HeadFollowLight.DEFAULT_MULTIPLIER));
+    private static Settings lightTurning(float multiplier) {
+        Settings s = Settings.BUILT_IN;
+        return new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
+                s.positionEnabled(), s.trueFreeLook(), s.freeLookMarker(), s.stockSights(), s.collisionEnabled(),
+                s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), s.positionLimitY(), s.positionLimitYDown(),
+                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), multiplier);
     }
 
     private static byte[] packet(double x, double y, double z, double yaw, double pitch, double roll) {
@@ -1409,7 +1407,7 @@ public final class Tests {
 
     private static void receiverTakesOnlyChangedPosesAndReadsLocality() throws Exception {
         Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
-        OpenTrackReceiver receiver = new OpenTrackReceiver(0);
+        OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
         java.net.InetAddress loopback = java.net.InetAddress.getByName("127.0.0.1");
         java.net.InetAddress lan = java.net.InetAddress.getByName("192.168.1.20");
         check(receiver.latest() == null && !receiver.isFresh(), "nothing before the first packet");
@@ -1563,7 +1561,7 @@ public final class Tests {
         check(project(view, 10f, 0f, 1.6f)[0] < 0f, "turning right moves what was ahead to the left");
     }
 
-    private static void receiverRefusesAPoseNoTrackerSendsAndABadPort() throws Exception {
+    private static void receiverRefusesAPoseNoTrackerSends() throws Exception {
         Log.open(java.nio.file.Files.createTempDirectory("zomboid-headtracking-test"));
         java.nio.ByteBuffer wire = java.nio.ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN);
@@ -1583,7 +1581,7 @@ public final class Tests {
             wire.putDouble(channel * Double.BYTES, 0);
         }
 
-        OpenTrackReceiver receiver = new OpenTrackReceiver(0);
+        OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
         int pitch = 4 * Double.BYTES;
         wire.putDouble(pitch, 5);
         receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("127.0.0.1"), System.nanoTime());
@@ -1592,18 +1590,6 @@ public final class Tests {
         wire.putDouble(pitch, -3e38);
         receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, java.net.InetAddress.getByName("192.168.1.20"), System.nanoTime());
         check(receiver.latest() == kept && !receiver.isRemote(), "a pose out of range changes neither the pose nor the connection's locality");
-
-        check(OpenTrackReceiver.parsePort(null) == OpenTrackReceiver.DEFAULT_PORT, "no setting is the default port");
-        check(OpenTrackReceiver.parsePort(" 5555 ") == 5555, "a setting is the port");
-        for (String bad : new String[] {"tracker", "", "4242.5", "0", "-1", "65536", "99999999999"}) {
-            boolean refused = false;
-            try {
-                OpenTrackReceiver.parsePort(bad);
-            } catch (IllegalArgumentException expected) {
-                refused = true;
-            }
-            check(refused, "a port of \"" + bad + "\" is refused");
-        }
     }
 
     private static void windowIsCentredInItsWorkArea() {

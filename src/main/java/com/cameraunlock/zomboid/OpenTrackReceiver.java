@@ -17,8 +17,6 @@ import java.util.Locale;
  * tracker appends past those 48 bytes is ignored.
  */
 final class OpenTrackReceiver {
-    static final String PORT_PROPERTY = "cameraunlock.zomboid.port";
-    static final int DEFAULT_PORT = 4242;
     static final int PACKET_BYTES = 48;
     /**
      * The largest value a pose may carry, in the wire's degrees or centimetres. No tracker
@@ -26,11 +24,6 @@ final class OpenTrackReceiver {
      * interpolation between them, which leaves the view on a NaN that no later pose clears.
      */
     static final float MAX_MAGNITUDE = 1e6f;
-    private static final int MAX_PORT = 65535;
-
-    /** A tracker is quiet once this long has passed without a packet. */
-    private static final int FRESH_MILLIS = 500;
-    private static final long FRESH_NANOS = FRESH_MILLIS * 1_000_000L;
     /** Room for the pose and for whatever a tracker appends to it. */
     private static final int RECEIVE_BUFFER_BYTES = 256;
     private static final int POSE_VALUES = PACKET_BYTES / Double.BYTES;
@@ -46,31 +39,19 @@ final class OpenTrackReceiver {
     }
 
     private final int port;
+    /** A tracker is quiet once this long has passed without a packet. */
+    private final int freshMillis;
+    private final long freshNanos;
     private volatile Sample latest;
     private volatile boolean remote;
     private volatile long lastPacketNanos;
     private boolean receiving;
     private boolean rejectionLogged;
 
-    OpenTrackReceiver(int port) {
+    OpenTrackReceiver(int port, int freshMillis) {
         this.port = port;
-    }
-
-    /** @param text the port to listen on, or null for the default */
-    static int parsePort(String text) {
-        if (text == null) {
-            return DEFAULT_PORT;
-        }
-        int value;
-        try {
-            value = Integer.parseInt(text.strip());
-        } catch (NumberFormatException notANumber) {
-            throw new IllegalArgumentException(PORT_PROPERTY + " is \"" + text + "\", which is not a port number");
-        }
-        if (value < 1 || value > MAX_PORT) {
-            throw new IllegalArgumentException(PORT_PROPERTY + " is " + value + ", outside 1 to " + MAX_PORT);
-        }
-        return value;
+        this.freshMillis = freshMillis;
+        this.freshNanos = freshMillis * 1_000_000L;
     }
 
     void start() {
@@ -91,12 +72,12 @@ final class OpenTrackReceiver {
 
     boolean isFresh() {
         long last = lastPacketNanos;
-        return last != 0L && System.nanoTime() - last < FRESH_NANOS;
+        return last != 0L && System.nanoTime() - last < freshNanos;
     }
 
     private void run() {
         try (DatagramSocket socket = bind()) {
-            socket.setSoTimeout(FRESH_MILLIS);
+            socket.setSoTimeout(freshMillis);
             byte[] buffer = new byte[RECEIVE_BUFFER_BYTES];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             while (true) {
@@ -166,9 +147,9 @@ final class OpenTrackReceiver {
 
     /** Logs the tracker going quiet, once each time it does. Package-private for the same reason. */
     void noteSilence(long nanos) {
-        if (receiving && nanos - lastPacketNanos >= FRESH_NANOS) {
+        if (receiving && nanos - lastPacketNanos >= freshNanos) {
             receiving = false;
-            Log.info("no tracking packet for " + FRESH_MILLIS + " ms, the view keeps the last pose");
+            Log.info("no tracking packet for " + freshMillis + " ms, the view keeps the last pose");
         }
     }
 

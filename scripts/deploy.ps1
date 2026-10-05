@@ -28,11 +28,15 @@ $null = Invoke-DevDeployJavaAgent `
     -MainClass 'com/cameraunlock/zomboid/Boot' `
     -GivenPath $GamePath
 
+# The agent loads cameraunlock-core's config owner from this DLL, beside its jar.
+$nativeDll = 'ProjectZomboidHeadTracking.dll'
 # The mod's development keys are on only where this marker is. install.cmd, which is what a
 # player runs, does not write it.
 Import-Module (Join-Path $projectRoot 'cameraunlock-core\powershell\GamePathDetection.psm1') -Force
 $targets = if ($GamePath) { @($GamePath) } else { @(Find-AllGamePaths -GameId 'project-zomboid') }
 foreach ($target in $targets) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot "build\$nativeDll") -Destination (Join-Path $target $nativeDll) -Force
+    Write-Host "Deployed $nativeDll"
     $marker = Join-Path $target 'ProjectZomboidHeadTracking.dev'
     Set-Content -Path $marker -Value 'development install' -Encoding ascii
     Write-Host "Wrote $marker"

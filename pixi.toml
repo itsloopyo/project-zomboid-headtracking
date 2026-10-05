@@ -7,6 +7,7 @@ channels = ["conda-forge"]
 platforms = ["win-64"]
 
 [dependencies]
+# CMake and Visual Studio, which build the DLL in native/, come from the system.
 # The game runs on a bundled Java 25 runtime, and the agent uses the
 # java.lang.classfile API that became final in Java 24, so the build needs the
 # same major version and no bytecode library.
@@ -23,7 +24,12 @@ setup = "powershell -NoProfile -Command \"Write-Host 'Nothing to set up: the bui
 
 build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
-clean = "powershell -NoProfile -Command \"if (Test-Path build) { Remove-Item -Recurse -Force build }; if (Test-Path release) { Remove-Item -Recurse -Force release }\""
+clean = "powershell -NoProfile -Command \"foreach ($d in 'build', 'build-native', 'release') { if (Test-Path $d) { Remove-Item -Recurse -Force $d } }\""
+
+# Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
+# first launch, from the config table after a change to a row, a comment or a default, then
+# rewrites the per_game of a launcher-manifest.json config descriptor where there is one.
+render-config = { cmd = "build-native/Release/config_tests.exe --render-config config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
 
 # The installer ZIP and a development ZIP (the same, with the development keys
 # on) in release/. package-release.ps1 says why there is no Nexus ZIP.

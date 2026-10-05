@@ -27,7 +27,7 @@ set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
 :: Copied from plugins\ to the exe's folder on every install. Each .jar named
 :: here is added to the classpath in the site config.
-set "MOD_DLLS=ProjectZomboidHeadTracking.jar"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking.dll"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "MOD_VERSION=0.0.0"
 set "STATE_FILE=.headtracking-state.json"

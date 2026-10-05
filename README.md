@@ -55,7 +55,7 @@ Run `install.cmd` again after a game update. The installer builds its launch set
 
 Mod managers do not deploy this mod: it needs a launch settings file built from the one in your own game folder, which an archive cannot carry. To place the files by hand:
 
-1. Copy `plugins\ProjectZomboidHeadTracking.jar` from the installer ZIP into the game folder, next to `ProjectZomboid64.exe`.
+1. Copy `plugins\ProjectZomboidHeadTracking.jar` and `plugins\ProjectZomboidHeadTracking.dll` from the installer ZIP into the game folder, next to `ProjectZomboid64.exe`.
 2. In the same folder, copy `ProjectZomboid64.json` to a new file named `ProjectZomboid64.site.json`. The game's launcher reads the site file in place of the stock one when it is there.
 3. Open `ProjectZomboid64.site.json` and make three changes:
    - Note the value of `mainClass`, then change it to `"com/cameraunlock/zomboid/Boot"`.
@@ -171,34 +171,152 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 
 - **Aim mode** is how head tracking behaves while a firearm's sights are up. See [Aiming down sights](#aiming-down-sights).
 
-Tracking, the tracking mode and the yaw mode last for the session. Each launch starts with tracking on, rotation and position, and yaw about straight up. The aim mode is saved when you change it.
+The tracking mode, the yaw mode and the aim mode are saved when you change them. Turning tracking off with `End` lasts until the game closes.
 
 Tracking applies while the first person view is on, the game is not paused and your character is alive.
 
 ## Configuration
 
-The mod has no settings file. Its values are built in:
+Two values are built in and are not settings:
 
 | Value | Built in | What it does |
 |-------|----------|--------------|
-| UDP port | `4242` | Where the mod listens for the tracker |
-| Local smoothing | `0.0` | Applied to a tracker sending from `127.0.0.1` |
-| Remote smoothing | `0.15` | Applied to a tracker sending from any other address, a 23.5 ms time constant |
-| Lean limit, sideways | `0.30` m | Either way |
-| Lean limit, up and down | `0.20` m | Either way |
-| Lean limit, forward | `0.40` m | Leaning towards the screen |
-| Lean limit, back | `0.10` m | Leaning away from it |
 | Field of view | `65` degrees | Measured from the bottom of the picture to the top |
 | Field of view, firearm aimed | `50` degrees | 0.73 of the field of view's half tangent, a magnification of 1.37 |
-| Carried light | `1.5` | How far a carried light turns relative to your head |
 
-The aim mode is the one setting the mod saves: three lines, `TrueFreeLook`, `FreeLookMarker` and `StockSights`, under `[Position]` in `CameraUnlock.ini` next to `ProjectZomboid64.exe`. The mod writes the file the first time you change the mode, and an uninstall leaves it in place.
+The tracking mode, the yaw mode and the aim mode are saved to `CameraUnlock.ini` when their keys change them. `End` is not: head tracking starts as `EnableOnStartup` says every time. An uninstall leaves the file in place.
 
-Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.
+`LocalSmoothing` applies to a tracker sending from `127.0.0.1` and `RemoteSmoothing` to one sending from any other address, this PC's own network address included. Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.
 
 A flashlight you carry follows your head and not your aim, and turns a little further than the view does. When you turn your head your eyes end up past the center of the screen, so a beam matched to the view alone lands short of what you are looking at.
 
 Sensitivity, axis inversion, deadzones and response curves are set in your tracker, so one profile behaves the same in every game.
+
+<!-- cameraunlock:config -->
+The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
+
+A setting set to `default` takes its value from `Defaults.ini`, which every head tracking mod that keeps its settings in `CameraUnlock.ini` reads. Head tracking mods that keep their settings in another file do not read it. Changing a setting in `Defaults.ini` changes it in every game that has it set to `default`. Writing a value in place of `default` changes that setting for this game only. When the mod saves a setting that a hotkey changed in game, it writes the new value in place of `default`, so that setting no longer follows `Defaults.ini` in this game until you set it to `default` again.
+
+`Defaults.ini` is `%AppData%\CameraUnlock\Defaults.ini` on Windows; `$XDG_CONFIG_HOME/CameraUnlock/Defaults.ini` on Linux, or `~/.config/CameraUnlock/Defaults.ini` where `XDG_CONFIG_HOME` is not set, under Wine and Proton too; and `~/Library/Application Support/CameraUnlock/Defaults.ini` on macOS. The mod's log, where it writes one, names the file it read.
+
+When the mod starts and finds no `Defaults.ini`, it creates one holding the built-in values, unless Windows runs the game as a packaged app. The mod never changes `Defaults.ini` after that. Edit it with any text editor.
+
+The built-in value of each setting set to `default` below:
+
+- `UdpPort=4242`
+- `EnableOnStartup=true`
+- `WorldSpaceYaw=true`
+- `RotationEnabled=true`
+- `DataFreshnessMs=500`
+- `LocalSmoothing=0.0`
+- `RemoteSmoothing=0.15`
+- `PositionEnabled=true`
+- `TrueFreeLook=false`
+- `FreeLookMarker=false`
+- `StockSights=false`
+- `PositionLimitX=0.3`
+- `PositionLimitY=0.2`
+- `PositionLimitYDown=0.2`
+- `PositionLimitZ=0.4`
+- `PositionLimitZBack=0.1`
+- `CollisionEnabled=true`
+- `CollisionReleaseSmoothing=0.9`
+- `ToggleKey=End, Ctrl+Shift+Y`
+- `CycleTrackingModeKey=PageUp, Ctrl+Shift+G`
+- `YawModeKey=PageDown, Ctrl+Shift+H`
+- `TrueFreeLookKey=Insert, Ctrl+Shift+U`
+- `LightMultiplier=1.5`
+
+With every setting at its default, the file reads:
+
+```ini
+; Project Zomboid head tracking settings.
+; Comments start with ; and go on their own line. Text after a value is part of the value.
+; Hotkeys are key names such as End, PageUp or Ctrl+Shift+Y. Separate several with commas; leave empty for none.
+; A setting set to default takes its value from Defaults.ini, which every head tracking mod
+; that keeps its settings in CameraUnlock.ini reads: %AppData%\CameraUnlock\Defaults.ini on
+; Windows, $XDG_CONFIG_HOME/CameraUnlock/Defaults.ini (normally ~/.config/CameraUnlock) on
+; Linux, under Wine and Proton too, and ~/Library/Application Support/CameraUnlock/Defaults.ini
+; on macOS. The log names the file it read. Change a setting in Defaults.ini to change it in
+; every game that has it set to default, or write a value here instead of default to change it
+; for this game only.
+
+[CameraUnlock]
+; Written by the mod. Leave this section in place.
+ConfigFormat=1
+
+[Network]
+; UDP port the mod receives tracker data on (OpenTrack protocol).
+UdpPort=default
+
+[General]
+; true: head tracking is on when the game starts. ToggleKey turns it on and off.
+EnableOnStartup=default
+; true: yaw turns around the world's up axis. false: around the camera's own up axis.
+WorldSpaceYaw=default
+; true: turning your head turns the view.
+; Tracking mode at startup, with PositionEnabled. The mode hotkey changes both.
+RotationEnabled=default
+; Milliseconds a tracker packet stays current. Once the tracker has sent nothing
+; for this long, the mod stops following it until data arrives again.
+DataFreshnessMs=default
+
+[Smoothing]
+; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
+LocalSmoothing=default
+; Smoothing when the tracker is another device on the network, such as a phone.
+; 0 is the least, 1 the most.
+RemoteSmoothing=default
+
+[Position]
+; true: moving your head moves the view.
+; Tracking mode at startup, with RotationEnabled. The mode hotkey changes both.
+PositionEnabled=default
+; false: while you aim down the sights, leaning keeps your eye on the sights.
+; true: the weapon stays put and your head moves freely around it (true free look).
+TrueFreeLook=default
+; true, with TrueFreeLook=true: an aim marker shows where your shot will land while you aim down the sights.
+; It does nothing while TrueFreeLook is false.
+FreeLookMarker=default
+; true: while you aim down the sights your head stops moving the view, apart from tilting it,
+; so the sights sit in the centre as they do without head tracking. At the hip nothing changes.
+StockSights=default
+; How far, in metres, leaning left or right can move the view.
+PositionLimitX=default
+; How far, in metres, raising your head can move the view.
+PositionLimitY=default
+; How far, in metres, lowering your head can move the view.
+PositionLimitYDown=default
+; How far, in metres, leaning forward can move the view.
+PositionLimitZ=default
+; How far, in metres, leaning back can move the view.
+PositionLimitZBack=default
+; true: leaning stops at walls instead of moving the view through them.
+; Only games whose mod sweeps the level for walls read this; the rest ignore it.
+CollisionEnabled=default
+; How far the view is held off a wall when you lean into it, in map tiles.
+CollisionMargin=0.12
+; How gently the view eases back out after a wall stopped a lean.
+; 0 is the quickest, 1 the slowest.
+CollisionReleaseSmoothing=default
+
+[Hotkeys]
+; Turns head tracking on and off.
+ToggleKey=default
+; Changes the tracking mode: rotation and position, rotation only, position only.
+CycleTrackingModeKey=default
+; Switches yaw between the world's up axis and the camera's own (WorldSpaceYaw).
+YawModeKey=default
+; Cycles the aim mode: sights locked, free look with a marker, true free look, stock sights
+; (TrueFreeLook, FreeLookMarker, StockSights).
+TrueFreeLookKey=default
+
+[Light]
+; How far the light turns for each degree your head turns.
+; 1 matches the view, 0 keeps the light on your aim.
+LightMultiplier=default
+```
+<!-- /cameraunlock:config -->
 
 ### Aiming down sights
 
@@ -273,12 +391,12 @@ Run `uninstall.cmd`. This removes the mod's jar, the `ProjectZomboid64.site.json
 
 ## Building from Source
 
-Prerequisites: Windows, Git and [pixi](https://pixi.sh). Pixi provides the JDK, and the build needs no game install.
+Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake and Visual Studio with the C++ workload. Pixi provides the JDK, CMake and Visual Studio build the DLL that reads the settings file, and the build needs no game install.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git
 cd project-zomboid-headtracking
-pixi run build      # compiles the jar into build\
+pixi run build      # compiles the jar and the DLL into build\
 pixi run test       # unit tests
 pixi run package    # installer ZIP in release\, and a -dev ZIP with the development keys on
 pixi run install    # deploys to every installed copy of the game
@@ -286,9 +404,9 @@ pixi run install    # deploys to every installed copy of the game
 
 ## Community & Support
 
-- [Discord](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
-- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch of head-tracking mods
-- [Headcam](https://headcam.app) - free app that turns your phone into a head tracker
+- Discord: [Loop's Head Tracking Hangout](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
+- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch for the released head-tracking mods
+- [Headcam](https://headcam.app) - free app that turns your iPhone or Android phone into the head tracker
 
 ## License
 
