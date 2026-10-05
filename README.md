@@ -9,7 +9,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Decoupled look and aim** - your head moves the view, your mouse keeps the aim
 - **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
-- **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
+- **First person view** - `Ctrl+F8` switches from the game's isometric view to a first person one, which is where head tracking applies
 - **First person controls** - left mouse attacks at once, right mouse aims down the sights, `Left Shift` sprints and `Left Ctrl` crouches
 - **A weapon in your hands** - in first person a firearm sits at the hip and comes up to the eye when you aim, sways and kicks, and flashes at the muzzle when it fires
 - **A pointer when you need one** - the inventory key, any window or menu of the game's, or the middle mouse button held, hands the mouse back as a pointer without leaving first person
@@ -34,7 +34,7 @@ Once this mod is available in Lopari, download [Lopari](https://lopari.app), cho
 2. Extract it anywhere.
 3. Double-click `install.cmd`.
 4. Configure OpenTrack to output UDP to `127.0.0.1:4242` (see [Setting Up OpenTrack](#setting-up-opentrack)).
-5. Launch the game, load a single player save and press `F8`.
+5. Launch the game, load a single player save and press `Ctrl+F8`.
 
 If the installer cannot find your game, tell it where the folder holding `ProjectZomboid64.exe` is, in either of two ways:
 
@@ -103,7 +103,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`F8` switches between the game's own view and the first person view. In first person the mouse turns the view and the movement keys follow it. The first person view is for single player: it stays off in multiplayer and split screen.
+`Ctrl+F8` switches between the game's own view and the first person view. In first person the mouse turns the view and the movement keys follow it. The first person view is for single player: it stays off in multiplayer and split screen.
 
 ### In first person
 
@@ -238,11 +238,11 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 - If there is no log after a launch, the Java agent was not loaded. Check that `ProjectZomboidHeadTracking.jar` and `ProjectZomboid64.site.json` are both next to the exe, and run `install.cmd` again if either is missing.
 - If `install.cmd` stops because a `ProjectZomboid64.site.json` that does not load this mod is already there, that file belongs to you or to another mod and the installer will not overwrite it. Make the three changes to it by hand (see [Manual Installation](#manual-installation)).
-- If `F8` does nothing, the log says why on a `first person stays off:` line.
+- If `Ctrl+F8` does nothing, the log says why on a `first person stays off:` line.
 
 **No tracking response**
 
-- Head tracking only applies in the first person view. Press `F8` in a single player game.
+- Head tracking only applies in the first person view. Press `Ctrl+F8` in a single player game.
 - Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means another program holds the port: close it. The mod tries the port again every half second and logs the listening line when it has it.
 - Look for `first tracking packet from` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started.
 - Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.
