@@ -200,10 +200,10 @@ void TestContentRowsAreOnAndReadAgainWhileTheGameRuns() {
     cfg::ConfigOwner<Config> owner(s.Options());
     const auto loaded = owner.Load();
     const Config& c = loaded.config;
-    Check(c.own_weapons && c.own_furniture && c.own_pictures && c.own_plants && c.own_textures && c.own_buildings,
+    Check(c.own_weapons && c.own_furniture && c.own_pictures && c.own_plants && c.own_textures && c.own_buildings && c.own_zombies,
           "a first start shows everything the mod made");
     const std::string created = ReadBytes(s.ConfigPath());
-    for (const char* row : {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings"}) {
+    for (const char* row : {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies"}) {
         Check(Holds(created, std::string(row) + "=true"), std::string("and the file it creates holds ") + row);
     }
 
@@ -218,7 +218,7 @@ void TestContentRowsAreOnAndReadAgainWhileTheGameRuns() {
     Check(reloaded.status == cfg::ConfigReloadStatus::Applied && reloaded.config && !reloaded.config->own_weapons,
           "and the reload gives the row switched off");
     Check(reloaded.config && reloaded.config->own_furniture && reloaded.config->own_pictures && reloaded.config->own_plants &&
-              reloaded.config->own_textures && reloaded.config->own_buildings,
+              reloaded.config->own_textures && reloaded.config->own_buildings && reloaded.config->own_zombies,
           "with the rows nobody touched still on");
 }
 

@@ -1,6 +1,8 @@
 package zombie.core.textures;
 
 public class Texture {
+    public Texture() { throw new UnsupportedOperationException("reference stub"); }
+    public Texture(TextureID data, String name) { throw new UnsupportedOperationException("reference stub"); }
     public int getID() { throw new UnsupportedOperationException("reference stub"); }
     public static int lastTextureID;
     public void bind() { throw new UnsupportedOperationException("reference stub"); }

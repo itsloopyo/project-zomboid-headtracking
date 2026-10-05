@@ -2,7 +2,8 @@ package com.cameraunlock.zomboid;
 
 /**
  * What the mod made itself and shows in first person in place of the game's own: its weapon
- * models, furniture, wall pictures, plants, surface textures and built windows and doors. Each
+ * models, furniture, wall pictures, plants, surface textures, built windows and doors and the
+ * skins of zombies. Each
  * is a row of [Content] in CameraUnlock.ini, on unless the player says otherwise, and with a
  * row off the picture draws what the game has there, which may be another mod's.
  *
@@ -12,8 +13,8 @@ package com.cameraunlock.zomboid;
  */
 final class Own {
     /** The bits of the rows that are on, as the mod's DLL hands them over (native/src/bridge.h holds the same numbers). */
-    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32;
-    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS;
+    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64;
+    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES;
 
     private static volatile int on = ALL;
     /** The rows the world was last built with, known to the logic thread alone. */
@@ -54,6 +55,10 @@ final class Own {
         return (on & BUILDINGS) != 0;
     }
 
+    static boolean zombies() {
+        return (on & ZOMBIES) != 0;
+    }
+
     /**
      * Whether a row has changed since the world was last built, asked by the logic thread
      * before it builds: true once for each change, and whatever was built before it is then
@@ -71,6 +76,7 @@ final class Own {
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "weapons " + ((bits & WEAPONS) != 0) + ", furniture " + ((bits & FURNITURE) != 0) + ", pictures " + ((bits & PICTURES) != 0)
-                + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0);
+                + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0)
+                + ", zombies " + ((bits & ZOMBIES) != 0);
     }
 }

@@ -1,5 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -8,6 +12,10 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -19,14 +27,16 @@ import zombie.core.textures.Texture;
 import zombie.core.textures.TextureCombiner;
 import zombie.core.textures.TextureCombinerCommand;
 import zombie.core.textures.TextureCombinerShaderParam;
+import zombie.core.textures.TextureID;
 
 /**
  * Skins finer than the game's, for the people the picture draws near the eye. The game
  * composes what a person wears from pictures on disk: skin, dirt, blood, clothes painted on
- * the body, the holes in them. A folder on the player's own machine may hold the same
- * pictures at a higher resolution, and where it does the same composition is run again from
- * those, by the game's own combiner, and the picture's draw wears the result. The game's own
- * textures and its own view are untouched.
+ * the body, the holes in them. The mod has pictures of its own for some of those, the bodies
+ * of zombies, and a folder on the player's own machine may hold more of the same pictures at
+ * a higher resolution. Where either has one the same composition is run again from those, by
+ * the game's own combiner, and the picture's draw wears the result. The game's own textures
+ * and its own view are untouched.
  *
  * The game forgets how it composed a texture as soon as it has: its list of steps is emptied,
  * and the textures made on the way are handed back. So the steps are noted as the combiner
@@ -83,6 +93,33 @@ public final class FineSkins {
         }
     }
 
+    /** The mod's own pictures, in its jar, and which of them stands for one of the game's. */
+    static final class Jar {
+        private Jar() {}
+
+        /**
+         * Where in the jar the mod's picture is that would stand for the game's texture at this
+         * path under a media/textures folder. The game spells a name as the file system or a
+         * script did, so the jar's are all in small letters.
+         */
+        static String resource(String relative) {
+            return "/skins/" + relative.substring(0, relative.length() - 4).toLowerCase(Locale.ROOT) + ".jpg";
+        }
+
+        /** Where the picture is that says what of the skin at this place in the jar is see-through. */
+        static String cut(String resource) {
+            return resource.substring(0, resource.length() - 4) + ".cut.png";
+        }
+    }
+
+    /** One of the mod's own pictures: read on a thread of its own, then made a texture of the game's on the render thread. */
+    private static final class Read {
+        volatile ByteBuffer pixels;
+        volatile IOException failure;
+        int wide, high;
+        Texture texture;
+    }
+
     /** One step of a composition, as the combiner was given it. */
     private static final class Step {
         final int x, y, w, h;
@@ -129,19 +166,21 @@ public final class FineSkins {
         }
     }
 
-    /** A finer texture, and when it was last drawn. */
+    /** A finer texture, how much of the graphics card it takes, and when it was last drawn. */
     private static final class Fine {
         final Texture texture;
+        final long bytes;
         long used;
 
         Fine(Texture texture, long used) {
             this.texture = texture;
+            this.bytes = 4L * texture.getWidth() * texture.getHeight();
             this.used = used;
         }
     }
 
-    /** A 1024 by 1024 skin is 4 MB on the graphics card: no more of them than this are kept. */
-    private static final int MOST = 64;
+    /** A 2048 by 2048 skin is 16 MB on the graphics card: no more of them are kept than come to this. */
+    private static final long MOST_BYTES = 512L << 20;
     /** A finer skin drawn this recently is not given up to make room for another. */
     private static final long KEPT_NANOS = 2_000_000_000L;
     /** One composition a frame: a crowd coming into view gets its skins over a second, not in one long frame. */
@@ -152,6 +191,7 @@ public final class FineSkins {
     private static final int GL_DRAW_FRAMEBUFFER = 0x8CA9, GL_READ_FRAMEBUFFER = 0x8CA8;
     private static final int GL_DRAW_FRAMEBUFFER_BINDING = 0x8CA6, GL_READ_FRAMEBUFFER_BINDING = 0x8CAA;
     private static final int GL_CURRENT_PROGRAM = 0x8B8D, GL_VERTEX_ARRAY_BINDING = 0x85B5;
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ARRAY_BUFFER_BINDING = 0x8894;
     private static final int GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_ELEMENT_ARRAY_BUFFER_BINDING = 0x8895;
 
@@ -163,7 +203,18 @@ public final class FineSkins {
     private static final IdentityHashMap<Texture, Long> handedBackAt = new IdentityHashMap<>();
     private static long handedBack;
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
-    private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(MOST * 2, 0.75f, true);
+    private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
+    private static long fineBytes;
+    /** Whether the mod's own skins were worn when the finer textures now kept were composed: the [Content] row for zombies. */
+    private static boolean ownWorn = true;
+    /** The mod's own picture at each place in the jar that has been asked for, null where the jar has none. */
+    private static final HashMap<String, Read> own = new HashMap<>();
+    /** A 2048 by 2048 picture takes a tenth of a second to read: not on the thread that draws. */
+    private static final ExecutorService reader = Executors.newSingleThreadExecutor(work -> {
+        Thread thread = new Thread(work, "CameraUnlock skins");
+        thread.setDaemon(true);
+        return thread;
+    });
     /** The pack's picture for each name the game has shown, null for a name the pack has nothing for. */
     private static final HashMap<String, Texture> packed = new HashMap<>();
     private static boolean composing;
@@ -180,7 +231,7 @@ public final class FineSkins {
      * here, and the caller sets its own state after this, not before. Render thread only.
      */
     private static final int SIZE_HELD = 128;
-    private static int said;
+    private static int said, ownSaid;
 
     static Texture of(Texture bound) {
         try {
@@ -213,20 +264,19 @@ public final class FineSkins {
     private static boolean on() {
         if (!started) {
             started = true;
-            Path at = Pack.folder();
-            if (!Files.isDirectory(at)) {
-                off = true;
-                Log.info("no fine skins at " + at + ": characters wear the game's own");
-                return false;
-            }
             String gap = Agent.fineSkinsGap();
             if (gap != null) {
                 off = true;
                 Log.info("fine skins are off, and characters wear the game's own: " + gap);
                 return false;
             }
-            folder = at;
-            Log.info("fine skins are read from " + at);
+            Path at = Pack.folder();
+            if (Files.isDirectory(at)) {
+                folder = at;
+                Log.info("fine skins are the mod's own, and whatever more is at " + at);
+            } else {
+                Log.info("fine skins are the mod's own: there are no more at " + at);
+            }
         }
         return !off;
     }
@@ -242,6 +292,7 @@ public final class FineSkins {
         recipes.clear();
         handedBackAt.clear();
         fine.clear();
+        fineBytes = 0;
         packed.clear();
     }
 
@@ -252,9 +303,13 @@ public final class FineSkins {
         recipes.put(result, new Recipe(commands));
         // Should the game compose anew into a texture it never handed back, what was made
         // after the old composition is no longer this texture's.
-        Fine stale = fine.remove(result);
-        if (stale != null) {
-            TextureCombiner.instance.releaseTexture(stale.texture);
+        release(fine.remove(result));
+    }
+
+    private static void release(Fine made) {
+        if (made != null) {
+            fineBytes -= made.bytes;
+            TextureCombiner.instance.releaseTexture(made.texture);
         }
     }
 
@@ -264,10 +319,7 @@ public final class FineSkins {
         }
         handedBackAt.put(texture, ++handedBack);
         recipes.remove(texture);
-        Fine made = fine.remove(texture);
-        if (made != null) {
-            TextureCombiner.instance.releaseTexture(made.texture);
-        }
+        release(fine.remove(texture));
     }
 
     private static synchronized Texture finer(Texture bound) throws Exception {
@@ -276,6 +328,18 @@ public final class FineSkins {
         }
         waiting = false;
         gone = false;
+        if (Own.zombies() != ownWorn) {
+            // The player has switched the mod's own skins on or off: what was composed with the row as it was is composed again.
+            ownWorn = !ownWorn;
+            for (Fine each : fine.values()) {
+                TextureCombiner.instance.releaseTexture(each.texture);
+            }
+            fine.clear();
+            fineBytes = 0;
+            for (Recipe each : recipes.values()) {
+                each.plain = false;
+            }
+        }
         if (!(bound instanceof SmartTexture smart)) {
             Texture pack = packed(bound);
             return pack != null ? pack : bound;
@@ -313,18 +377,20 @@ public final class FineSkins {
         if (now - composedAt < BETWEEN_NANOS) {
             return bound;
         }
-        if (fine.size() >= MOST) {
+        while (fineBytes >= MOST_BYTES) {
             Iterator<Fine> longestAgo = fine.values().iterator();
             Fine least = longestAgo.next();
             if (now - least.used < KEPT_NANOS) {
                 return bound;
             }
             longestAgo.remove();
-            TextureCombiner.instance.releaseTexture(least.texture);
+            release(least);
         }
         Texture made = composedWithStateKept(recipe);
         composedAt = System.nanoTime();
-        fine.put(result, new Fine(made, composedAt));
+        Fine kept = new Fine(made, composedAt);
+        fine.put(result, kept);
+        fineBytes += kept.bytes;
         return made;
     }
 
@@ -352,17 +418,31 @@ public final class FineSkins {
         return packed(read) != null;
     }
 
-    /** The pack's picture for one of the game's, or null with none or with one still loading, which sets waiting. */
+    /**
+     * The finer picture for one of the game's, the mod's own before the player's folder's, or
+     * null with none or with one still loading, which sets waiting.
+     */
     private static Texture packed(Texture game) {
         String name = game.getName();
         if (name == null) {
             return null;
         }
+        String relative = Pack.relative(name);
+        if (relative == null) {
+            return null;
+        }
+        Read mine = ownWorn ? own(relative) : null;
+        if (mine != null) {
+            if (mine.texture == null) {
+                waiting = true;
+            }
+            return mine.texture;
+        }
         Texture pack;
         if (packed.containsKey(name)) {
             pack = packed.get(name);
         } else {
-            pack = load(name);
+            pack = load(relative);
             packed.put(name, pack);
         }
         if (pack == null) {
@@ -380,9 +460,82 @@ public final class FineSkins {
         return pack;
     }
 
-    private static Texture load(String name) {
-        String relative = Pack.relative(name);
-        if (relative == null) {
+    /**
+     * The mod's own picture for the game's texture at this path under media/textures, or null
+     * where the jar has none. Its texture is null until it has been read.
+     */
+    private static Read own(String relative) {
+        String path = Jar.resource(relative);
+        if (!own.containsKey(path)) {
+            Read asked = FineSkins.class.getResource(path) == null ? null : new Read();
+            own.put(path, asked);
+            if (asked != null) {
+                reader.execute(() -> read(path, asked));
+            }
+        }
+        Read read = own.get(path);
+        if (read == null || read.texture != null) {
+            return read;
+        }
+        if (read.failure != null) {
+            throw new IllegalStateException("the mod's own skin at " + path + " could not be read", read.failure);
+        }
+        ByteBuffer pixels = read.pixels;
+        if (pixels != null) {
+            // The game makes the texture here and now on the render thread, and leaves it bound.
+            int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
+            read.texture = new Texture(new TextureID(read.wide, read.high, pixels), "CameraUnlock" + path);
+            GL11.glBindTexture(GL_TEXTURE_2D, bound);
+            Texture.lastTextureID = remembered;
+            read.pixels = null;
+            if (ownSaid++ < 3) {
+                Log.info("the mod's own skin " + path + " is worn, " + read.texture.getWidth() + "x" + read.texture.getHeight());
+            }
+        }
+        return read;
+    }
+
+    /**
+     * Reads one of the jar's pictures into four bytes a dot. A body model has sheets for a skirt
+     * to be painted on, which a skin leaves see-through, and a JPEG is solid all over: what is
+     * see-through is black in the picture beside it, of the same size. On the reader's thread.
+     */
+    private static void read(String path, Read into) {
+        String cutPath = Jar.cut(path);
+        try (InputStream in = FineSkins.class.getResourceAsStream(path); InputStream cutIn = FineSkins.class.getResourceAsStream(cutPath)) {
+            if (cutIn == null) {
+                throw new IOException("the jar has no " + cutPath);
+            }
+            BufferedImage image = ImageIO.read(in), cut = ImageIO.read(cutIn);
+            if (image == null || cut == null) {
+                throw new IOException(path + " or " + cutPath + " is not a picture this Java can read");
+            }
+            int wide = image.getWidth(), high = image.getHeight();
+            if (cut.getWidth() != wide || cut.getHeight() != high) {
+                throw new IOException(cutPath + " is not the size of " + path);
+            }
+            int[] row = new int[wide], cutRow = new int[wide];
+            ByteBuffer pixels = ByteBuffer.allocateDirect(wide * high * 4);
+            for (int y = 0; y < high; y++) {
+                image.getRGB(0, y, wide, 1, row, 0, wide);
+                cut.getRGB(0, y, wide, 1, cutRow, 0, wide);
+                for (int x = 0; x < wide; x++) {
+                    int argb = row[x];
+                    pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) ((cutRow[x] & 0xff) > 127 ? 255 : 0));
+                }
+            }
+            pixels.flip();
+            into.wide = wide;
+            into.high = high;
+            into.pixels = pixels;
+        } catch (IOException failure) {
+            into.failure = failure;
+        }
+    }
+
+    /** The player's folder's picture for the game's texture at this path under media/textures, or null with none. */
+    private static Texture load(String relative) {
+        if (folder == null) {
             return null;
         }
         Path file;

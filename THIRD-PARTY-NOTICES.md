@@ -106,6 +106,16 @@ Copyright (c) 2026 itsloopyo
 - **Lettering:** `tools/pictures/pack.py` letters the film and band posters and the certificates, in Impact and Georgia as installed with Windows. Only the letters as drawn are in a picture. No font file is bundled. The names of the films are the ones the game gives those posters, and the names of the bands and singers are the ones that can be read on the game's own. The title of the one film the game calls only "Movie", the line under each name, the film company and the two medical schools are made up for the mod.
 - **Bundled:** the pictures, yes. The model is not.
 
+## Generated zombie skins
+
+- **Files:** every `skins/body/*.jpg` inside the mod's jar: the skins zombies wear near the eye in the first person view, one for each sex, skin tone and state of decay
+- **Version:** baked by `tools/skins/bake.py` in this repository from pictures made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod: a face from straight ahead for each sex and tone in each state of decay, and close pictures of skin, rotted skin, raw flesh and white cotton. No image from Project Zomboid or anywhere else was given to the model. The faces are nobody's: the model drew them from a description such as "the face of a bald dead man, very pale skin, days dead". The states of decay of a face were made by giving the model its own first picture of that face again.
+- **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI, on the same terms as the generated material textures above.
+- **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+- **Layout:** a skin has to lie on the game's body model as the game's own does. `tools/skins/bake.py` reads `MaleBody.x` and `FemaleBody.x` from an installed copy of the game for where each point of the picture lies on the body and which way the body faces there, and lays the generated pictures on by that. It reads none of the game's textures, and no part of the body models is in the skins or in this repository.
+- **Usage:** The game composes what a zombie wears from its body's skin, dirt, blood and clothes. For a zombie near the eye the first person view has the game's own combiner compose it again with the mod's skin in place of the game's, and draws the result. The settled blood and veins on the skin are arithmetic in `tools/skins/bake.py`, with no model. The prompts are in `tools/skins/generate.py`.
+- **Bundled:** the skins, yes. The model is not.
+
 ---
 
 ## Shotgun model

@@ -1132,6 +1132,19 @@ public final class Tests {
         check(FineSkins.Pack.relative("C:/pz/multimedia/textures/Body/MaleBody01.png") == null, "a folder that only ends like the game's is not it");
         check(FineSkins.Pack.relative("C:/pz/media/textures/../../secret.png") == null, "a name that climbs out of the folder names nothing");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body//MaleBody01.png") == null, "nor does one with an empty piece");
+        check("/skins/body/m_zedbody01_level2.jpg".equals(FineSkins.Jar.resource("Body/M_ZedBody01_Level2.PNG")),
+                "the mod's own skin for one of the game's is under the same path in the jar, in small letters");
+        check("/skins/body/m_zedbody01.cut.png".equals(FineSkins.Jar.cut("/skins/body/m_zedbody01.jpg")), "and what of it is see-through is beside it");
+        // A skin the jar lacks is no error to the mod, which then draws the game's own: only this says one has gone missing.
+        for (String sex : new String[] {"M", "F"}) {
+            for (int tone = 1; tone <= 4; tone++) {
+                for (String state : new String[] {"", "_level1", "_level2", "_level3"}) {
+                    String skin = FineSkins.Jar.resource("Body/" + sex + "_ZedBody0" + tone + state + ".png");
+                    check(FineSkins.class.getResource(skin) != null, "the jar has the zombie skin " + skin);
+                    check(FineSkins.class.getResource(FineSkins.Jar.cut(skin)) != null, "and what of it is see-through, " + FineSkins.Jar.cut(skin));
+                }
+            }
+        }
         check(FineSkins.Pack.relative("C:/pz/media/textures/D:secret.png") == null, "nor does one that names another drive");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/skin.png:hidden.png") == null, "nor one that names a stream of a file");
         check(FineSkins.Pack.relative("C:/pz/media/textures/Body/MaleBody01.txt") == null, "only pictures are in the pack");

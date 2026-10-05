@@ -182,7 +182,7 @@ In first person a window also shows your character in its glass, with their head
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
-The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, and windows, doors and curtains built as shapes. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures` and `OwnBuildings`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
+The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, and skins for zombies. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings` and `OwnZombies`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `F8` is the switch for that.
 
@@ -353,6 +353,9 @@ OwnTextures=true
 ; finished as its building is. false: the game's sprites of them, on both sides of
 ; the wall.
 OwnBuildings=true
+; true: the mod's own skins for zombies near the eye, each with a lifelike face.
+; false: the game's own painted skins.
+OwnZombies=true
 ```
 <!-- /cameraunlock:config -->
 

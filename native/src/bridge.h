@@ -48,6 +48,7 @@ inline constexpr std::int32_t kPzhtOwnPictures = 4;
 inline constexpr std::int32_t kPzhtOwnPlants = 8;
 inline constexpr std::int32_t kPzhtOwnTextures = 16;
 inline constexpr std::int32_t kPzhtOwnBuildings = 32;
+inline constexpr std::int32_t kPzhtOwnZombies = 64;
 
 // The bits PzhtHotkeysTake answers with.
 inline constexpr std::int32_t kPzhtToggle = 1;

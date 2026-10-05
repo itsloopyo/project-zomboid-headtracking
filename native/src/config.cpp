@@ -52,6 +52,9 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "true: windows, doors and curtains built by the mod, and the outside of a wall\n"
                 "finished as its building is. false: the game's sprites of them, on both sides of\n"
                 "the wall.");
+    table.Local("Content", "OwnZombies", &Config::own_zombies, cameraunlock::config::BoolCodec(),
+                "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"
+                "false: the game's own painted skins.");
     return table;
 }
 
