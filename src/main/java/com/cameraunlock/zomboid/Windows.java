@@ -26,6 +26,8 @@ final class Windows {
     private static final float BAR = 0.7f, BAR_EDGE = 0.35f;
     /** The fewest dots a window is across or high. */
     private static final int SMALLEST = 6;
+    /** The fewest dots an arch rises over where it springs from. */
+    private static final int LOWEST_ARCH = 3;
     /** How far in from a corner of its outline a frame with square corners is looked for, in dots. */
     private static final int CORNER = 4;
     /** The fewest dots a light between two bars is across or high. */
@@ -47,6 +49,13 @@ final class Windows {
         float[] bars = new float[0];
         /** Five numbers a pane: as a bar, then how much of it is glass. */
         float[] panes = new float[0];
+        /**
+         * For a window with an arched head, what stands over the square part of it, which then
+         * ends at head: three numbers for each of a row of places evenly along it from start
+         * to end, how high the frame's outside is there, how high its inside, and 1 where
+         * there is glass under it. Null for a window with a level head.
+         */
+        float[] arch;
     }
 
     /** What a sprite is read with: how its frame lies on the wall, and where in the frame its texture is. */
@@ -214,10 +223,10 @@ final class Windows {
         // A few stray dots past the frame's edge, the soft end of a line, are no part of it.
         for (boolean trimmed = true; trimmed && c1 - c0 >= SMALLEST && r1 - r0 >= SMALLEST; ) {
             trimmed = false;
-            if (framed(dots, across, r0, c0, c1, false) < BAR_EDGE) {
+            if (framed(dots, across, r0, c0, c1, false) < BAR_EDGE && !joined(dots, across, r0, c0, c1)) {
                 r0++;
                 trimmed = true;
-            } else if (framed(dots, across, r1 - 1, c0, c1, false) < BAR_EDGE) {
+            } else if (framed(dots, across, r1 - 1, c0, c1, false) < BAR_EDGE && !joined(dots, across, r1 - 1, c0, c1)) {
                 r1--;
                 trimmed = true;
             } else if (framed(dots, across, c0, r0, r1, true) < BAR_EDGE && framed(dots, across, c0 + 1, r0, r1, true) >= BAR_EDGE) {
@@ -228,6 +237,11 @@ final class Windows {
                 trimmed = true;
             }
         }
+        return shaped(dots, across, high, c0, c1, r0, r1, solidToo, false);
+    }
+
+    /** The window whose outline is from column c0 to before c1 and row r0 to before r1. With openHead it has no head of its own: it is what stands under an arch. */
+    private static Shape shaped(byte[] dots, int across, int high, int c0, int c1, int r0, int r1, boolean solidToo, boolean openHead) {
         if (c1 - c0 < SMALLEST || r1 - r0 < SMALLEST) {
             return null;
         }
@@ -235,7 +249,7 @@ final class Windows {
         // the game's view cuts its edge, and that slant cuts the corner of a deep sill short. So
         // a frame's corner is square when there is frame within a few dots of it, and an arch's
         // or a round window's is bare much further in than that.
-        for (int corner = 0; corner < 4; corner++) {
+        for (int corner = openHead ? 2 : 0; corner < 4; corner++) {
             boolean found = false;
             for (int in = 0; in < CORNER && !found; in++) {
                 for (int down = 0; down < CORNER && !found; down++) {
@@ -244,10 +258,10 @@ final class Windows {
                 }
             }
             if (!found) {
-                return null;
+                return corner < 2 && !solidToo ? arched(dots, across, high, c0, c1, r0, r1) : null;
             }
         }
-        float headHigh = side(dots, across, c0, c1, r0, r1, false, false), footHigh = side(dots, across, c0, c1, r0, r1, false, true);
+        float headHigh = openHead ? 0f : side(dots, across, c0, c1, r0, r1, false, false), footHigh = side(dots, across, c0, c1, r0, r1, false, true);
         float startWide = side(dots, across, c0, c1, r0, r1, true, false), endWide = side(dots, across, c0, c1, r0, r1, true, true);
         Shape shape = new Shape();
         shape.start = (float) c0 / across;
@@ -259,7 +273,7 @@ final class Windows {
             return shape;
         }
         // A length of a glazed wall has a head and a foot and may have no stile at either end: it runs on both ways.
-        if (headHigh < 1f || footHigh < 1f) {
+        if (!openHead && headHigh < 1f || footHigh < 1f) {
             return null;
         }
         shape.startWide = startWide / across;
@@ -318,6 +332,50 @@ final class Windows {
         return shape;
     }
 
+    /**
+     * A window with an arched head: the square part of it from where the arch springs down,
+     * measured as any window is, and over that, at each column of dots, where the frame's
+     * outside and inside are and whether there is glass under it. A bar that runs up into the
+     * arch is frame all the way down its column. The bars that fan out across an arch are lost:
+     * the glass under it is one light.
+     */
+    private static Shape arched(byte[] dots, int across, int high, int c0, int c1, int r0, int r1) {
+        int spring = -1;
+        for (int row = r0; row < r1 && spring < 0; row++) {
+            if ((dots[row * across + c0] == FRAME || dots[row * across + c0 + 1] == FRAME) && (dots[row * across + c1 - 1] == FRAME || dots[row * across + c1 - 2] == FRAME)) {
+                spring = row;
+            }
+        }
+        if (spring - r0 < LOWEST_ARCH || r1 - spring < SMALLEST) {
+            return null;
+        }
+        Shape shape = shaped(dots, across, high, c0, c1, spring, r1, false, true);
+        if (shape == null) {
+            return null;
+        }
+        float[] arch = new float[(c1 - c0) * 3];
+        for (int column = c0; column < c1; column++) {
+            int outer = r0;
+            while (outer < spring && dots[outer * across + column] != FRAME) {
+                outer++;
+            }
+            int inner = outer;
+            while (inner < spring && dots[inner * across + column] == FRAME) {
+                inner++;
+            }
+            int glass = 0;
+            for (int row = inner; row < spring; row++) {
+                glass += dots[row * across + column] == EMPTY ? 0 : 1;
+            }
+            int at = (column - c0) * 3;
+            arch[at] = 1f - (float) outer / high;
+            arch[at + 1] = 1f - (float) inner / high;
+            arch[at + 2] = spring > inner && 2 * glass >= spring - inner ? 1f : 0f;
+        }
+        shape.arch = arch;
+        return shape;
+    }
+
     private static float[] with(float[] list, float a, float b, float c, float d) {
         list = Arrays.copyOf(list, list.length + 4);
         list[list.length - 4] = a;
@@ -325,6 +383,17 @@ final class Windows {
         list[list.length - 2] = c;
         list[list.length - 1] = d;
         return list;
+    }
+
+    /** Whether a row holds three dots of frame side by side: the crown of an arch does, and a scatter of stray dots does not. */
+    private static boolean joined(byte[] dots, int across, int row, int c0, int c1) {
+        for (int column = c0, run = 0; column < c1; column++) {
+            run = dots[row * across + column] == FRAME ? run + 1 : 0;
+            if (run >= 3) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** How much of a line of dots is frame: a column from row r0 to before r1, or a row from column c0 to before c1. */

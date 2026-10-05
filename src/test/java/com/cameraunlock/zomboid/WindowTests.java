@@ -11,7 +11,7 @@ final class WindowTests {
         openWindowHasNoGlassWhereTheSashWas();
         brokenPaneKeepsTheShareOfGlassItsSpriteShows();
         frameWithNoStileAtOneEndRunsOn();
-        archIsNoWindowInASquareFrame();
+        archIsMeasuredOverItsSquarePart();
         curtainDrawnAcrossIsOneLengthOfCloth();
         curtainPulledBackIsTwo();
         sheetRolledUpHangsNowhere();
@@ -124,16 +124,27 @@ final class WindowTests {
         check(shape.panes.length == 5 && near(shape.panes[1], 1f), "whose pane runs to the end of its square");
     }
 
-    private static void archIsNoWindowInASquareFrame() {
-        check(measured(
-                "    ####    ",
-                "  ###..###  ",
-                " ##......## ",
-                "##........##",
-                "##........##",
-                "##........##",
-                "############",
-                "############") == null, "an arch is left to its sprite");
+    private static void archIsMeasuredOverItsSquarePart() {
+        Windows.Shape shape = measured(
+                "      ####      ",
+                "     ##..##     ",
+                "    ##....##    ",
+                "    #......#    ",
+                "####........####",
+                "##............##",
+                "##............##",
+                "##............##",
+                "##............##",
+                "##............##",
+                "##............##",
+                "################",
+                "################");
+        check(shape != null && shape.arch != null && shape.arch.length == 48, "an arched window is measured, a place of its arch for each dot across");
+        check(near(shape.head, 9f / 13f) && near(shape.foot, 0f), "its square part ends where the arch springs: " + shape.head);
+        check(near(shape.arch[7 * 3], 1f) && near(shape.arch[7 * 3 + 1], 12f / 13f) && shape.arch[7 * 3 + 2] == 1f,
+                "at its crown the frame is a dot thick with glass under it: " + shape.arch[21] + ", " + shape.arch[22]);
+        check(shape.arch[0] <= shape.head + 1e-4f, "and at its ends the arch has come down to where it springs");
+        check(shape.panes.length == 5, "one light below");
     }
 
     private static Drapes.Shape hung(String... rows) {

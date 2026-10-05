@@ -74,6 +74,17 @@ final class Doors {
         byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, wanted.north, false, wanted.originU, wanted.originV, wanted.scale,
                 wanted.left, wanted.top, wanted.width, wanted.height, at);
         Windows.Shape leaf = Windows.measure(dots, across, high, true);
+        if (FirstPerson.TRACE) {
+            StringBuilder seen = new StringBuilder("door " + texture.getName() + (wanted.north ? " north" : " west") + " origin " + wanted.originU + "," + wanted.originV
+                    + " frame " + wanted.left + "," + wanted.top + " " + wanted.width + "x" + wanted.height + (leaf == null ? " is no leaf" : " leaf " + leaf.start + ".." + leaf.end + " high " + leaf.foot + ".." + leaf.head));
+            for (int row = 0; row < high; row += 8) {
+                seen.append((char) 10);
+                for (int column = 0; column < across; column++) {
+                    seen.append(dots[row * across + column] == Windows.FRAME ? '#' : dots[row * across + column] == Windows.GLASS ? '.' : ' ');
+                }
+            }
+            Log.info(seen.toString());
+        }
         if (leaf == null) {
             known.put(texture, NONE);
             return;

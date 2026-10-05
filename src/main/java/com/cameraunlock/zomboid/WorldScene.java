@@ -3633,7 +3633,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /** How far a moulding round a door's panel stands out of the leaf and how wide it is, in tiles. */
-    private static final float MOULDING_PROUD = 0.006f, MOULDING_WIDE = 0.014f;
+    private static final float MOULDING_PROUD = 0.011f, MOULDING_WIDE = 0.024f;
+    /** A room's light is the same from every side, and shows no relief: a moulding is drawn this much darker than the leaf, as its own shadow makes it, and a panel's field this much. */
+    private static final float MOULDING_SHADE = 0.8f, FIELD_SHADE = 0.93f;
     /** Where the panels of a door are, as shares of the part of the leaf they are on: across, then up a whole leaf, then up what is below a light. */
     private static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
     private static final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
@@ -3732,10 +3734,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     float from = leaf.start + wide * PANELS_ACROSS[column], to = leaf.start + wide * PANELS_ACROSS[column + 1];
                     for (int row = 0; row < up.length; row += 2) {
                         float foot = leaf.foot + high * up[row], head = leaf.foot + high * up[row + 1];
-                        addJoinery(wood, from, from + MOULDING_WIDE, foot, head, proud, r, g, b);
-                        addJoinery(wood, to - MOULDING_WIDE, to, foot, head, proud, r, g, b);
-                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, foot, foot + thick, proud, r, g, b);
-                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, head - thick, head, proud, r, g, b);
+                        float mr = r * MOULDING_SHADE, mg = g * MOULDING_SHADE, mb = b * MOULDING_SHADE;
+                        addJoinery(wood, from, from + MOULDING_WIDE, foot, head, proud, mr, mg, mb);
+                        addJoinery(wood, to - MOULDING_WIDE, to, foot, head, proud, mr, mg, mb);
+                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, foot, foot + thick, proud, mr, mg, mb);
+                        addJoinery(wood, from + MOULDING_WIDE, to - MOULDING_WIDE, head - thick, head, proud, mr, mg, mb);
                         // The field of the panel, raised in its middle.
                         addJoinery(wood, from + 2.6f * MOULDING_WIDE, to - 2.6f * MOULDING_WIDE, foot + 2.6f * thick, head - 2.6f * thick,
                                 face + Math.signum(face) * MOULDING_PROUD * 0.5f, r, g, b);
@@ -3860,7 +3863,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 addJoinery(joinery, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
             }
             if (shape.endWide > 0f) {
-                addJoinery(joinery, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
+                addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, open[side]);
+            }
+            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, open[side]);
+            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, open[side]);
+            if (shape.arch != null) {
+                addArch(joinery, shape, out * deep, r, g, b);
             }
             addJoinery(joinery, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
             addJoinery(joinery, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b);
@@ -3893,6 +3901,40 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
         }
         return true;
+    }
+
+    /**
+     * One side of the arched head of a window's frame, from the glass's plane out to across
+     * tiles into the square: its face, a length for each place the arch was measured at, and
+     * its rims outside and inside.
+     */
+    private void addArch(SpriteGeometry.Mesh mesh, Windows.Shape shape, float across, float red, float green, float blue) {
+        int places = shape.arch.length / 3;
+        float[] c = reveal;
+        for (int place = 0; place + 1 < places; place++) {
+            int at = place * 3;
+            float t0 = shape.start + (shape.end - shape.start) * place / (places - 1), t1 = shape.start + (shape.end - shape.start) * (place + 1) / (places - 1);
+            float out0 = Math.max(shape.arch[at], shape.head), in0 = Math.max(shape.arch[at + 1], shape.head);
+            float out1 = Math.max(shape.arch[at + 3], shape.head), in1 = Math.max(shape.arch[at + 4], shape.head);
+            if (out0 <= in0 && out1 <= in1) {
+                continue;
+            }
+            windowPoint(c, 0, t0, in0, across);
+            windowPoint(c, 1, t1, in1, across);
+            windowPoint(c, 2, t1, out1, across);
+            windowPoint(c, 3, t0, out0, across);
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+            windowPoint(c, 0, t0, out0, 0f);
+            windowPoint(c, 1, t1, out1, 0f);
+            windowPoint(c, 2, t1, out1, across);
+            windowPoint(c, 3, t0, out0, across);
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+            windowPoint(c, 0, t0, in0, 0f);
+            windowPoint(c, 1, t1, in1, 0f);
+            windowPoint(c, 2, t1, in1, across);
+            windowPoint(c, 3, t0, in0, across);
+            SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
+        }
     }
 
     /** A member of a frame wider than this each way, in tiles, is a piece of the wall the window is in and keeps the wall's own picture on its faces. */
