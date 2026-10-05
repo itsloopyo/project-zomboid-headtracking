@@ -19,8 +19,13 @@ import zombie.network.GameClient;
  * spine twisted towards the aim, then the whole made into the matrices the
  * model is drawn with. The head is turned between the last two, the way the
  * game twists the spine: the bone's place in the model is turned about its own
- * joint and put back as a place in its parent. The pose is made afresh every
- * frame, so nothing is left to undo, and nothing but the picture reads it.
+ * joint and put back as a place in its parent. Once the matrices are made the
+ * two bones are put back as the animations had them, so nothing but the
+ * picture has the turn. The game mixes each new pose with the bones as the
+ * last frame left them whenever the animations playing weigh less than one
+ * between them, as they do going from one to the next: a turn left in would be
+ * turned again on top of itself every frame of that, and the arms hang from
+ * the neck.
  *
  * Seen from outside, the neck takes part of the turn and the head the rest.
  * Seen from the eye the head's joint takes all of it: a neck that bends brings
@@ -40,6 +45,18 @@ public final class ModelHead {
             turned = new Matrix4f(), turn = new Matrix4f();
     private static final Vector3f joint = new Vector3f();
     private static final Quaternion turning = new Quaternion();
+    private static final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(),
+            topScale = new Vector3f();
+    private static final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
+    /** The skeleton whose neck and head are turned and not yet put back, between pose and posed. */
+    private static AnimationPlayer turnedIn;
+    private static int neckIndex, topIndex;
+    /**
+     * For the trace: the least and the most each bone was turned in its parent as the game
+     * left it, since the last line. The animations hold both within a few degrees. A turn
+     * of the mod's that the game had mixed back into its pose would show here.
+     */
+    private static float neckLeast = Float.MAX_VALUE, neckMost, topLeast = Float.MAX_VALUE, topMost;
     private static boolean gapSaid, bonesSaid;
     private static long said;
     /**
@@ -72,6 +89,18 @@ public final class ModelHead {
             float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
             float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
             float neckShare = FirstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
+            animation.getBoneTransformAt(neck.index).getPRS(neckPlace, neckTurn, neckScale);
+            animation.getBoneTransformAt(top.index).getPRS(topPlace, topTurn, topScale);
+            neckIndex = neck.index;
+            topIndex = top.index;
+            turnedIn = animation;
+            if (FirstPerson.TRACE) {
+                float neckAngle = angle(neckTurn), topAngle = angle(topTurn);
+                neckLeast = Math.min(neckLeast, neckAngle);
+                neckMost = Math.max(neckMost, neckAngle);
+                topLeast = Math.min(topLeast, topAngle);
+                topMost = Math.max(topMost, topAngle);
+            }
             if (neckShare > 0f) {
                 turn(animation, neck, yaw * neckShare, pitch * neckShare, roll * neckShare);
             }
@@ -85,8 +114,28 @@ public final class ModelHead {
         jointUp = joint.y;
         if (FirstPerson.TRACE && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
-            Log.info(String.format(java.util.Locale.ROOT, "head joint in the model at (%.3f, %.3f, %.3f)", joint.x, joint.y, joint.z));
+            Log.info(String.format(java.util.Locale.ROOT, "head joint in the model at (%.3f, %.3f, %.3f)", joint.x, joint.y, joint.z)
+                    + (neckLeast > neckMost ? ", head not turned" : String.format(java.util.Locale.ROOT, ", as the game left them the neck"
+                            + " turned %.1f to %.1f degrees in its parent and the head %.1f to %.1f", neckLeast, neckMost, topLeast, topMost)));
+            neckLeast = Float.MAX_VALUE;
+            neckMost = 0f;
+            topLeast = Float.MAX_VALUE;
+            topMost = 0f;
         }
+    }
+
+    private static float angle(Quaternion turn) {
+        return (float) Math.toDegrees(2.0 * Math.acos(Math.min(1f, Math.abs(turn.w))));
+    }
+
+    /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
+    public static void posed(AnimationPlayer animation) {
+        if (turnedIn != animation) {
+            return;
+        }
+        turnedIn = null;
+        animation.getBoneTransformAt(neckIndex).set(neckPlace, neckTurn, neckScale);
+        animation.getBoneTransformAt(topIndex).set(topPlace, topTurn, topScale);
     }
 
     /** Says once why the head is not turned on this build of the game, if it is not. */

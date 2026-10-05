@@ -248,14 +248,18 @@ public final class Agent {
     /**
      * Apart again: without it the character's head stays as the game's animations have it.
      * The game poses a skeleton from its animations, twists the spine towards the aim, and
-     * only then makes the matrices the model is drawn with.
+     * only then makes the matrices the model is drawn with. The head is turned before
+     * those are made and put back after, so the next frame's pose starts from the game's own.
      */
     private static List<Patch> modelHeadPatches() {
         String player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
         CallSite.Method posing = new CallSite.Method(player, "updateAnimation_StandardAnimation", "(F)V");
         return List.of(new Patch(player, "updateAnimation_StandardAnimation after updateTwistBone", classBytes -> CallSite.insertAfterEach(classBytes,
                 posing, new CallSite.Method(player, "updateTwistBone", "()V"),
-                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "pose", "(L" + player + ";)V")), 1)));
+                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "pose", "(L" + player + ";)V")), 1)),
+                new Patch(player, "updateAnimation_StandardAnimation after updateModelTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
+                posing, new CallSite.Method(player, "updateModelTransforms", "()V"),
+                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "posed", "(L" + player + ";)V")), 1)));
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */
