@@ -127,6 +127,24 @@ the grip and the fore-end of this one.
 
 ---
 
+## Rifle model
+
+- **Files:** `models/rifle.mesh.gz`, `models/rifle.colour.gz` and `models/rifle.surface.gz` inside the mod's jar
+- **License:** MIT, this project's own, for the model and for what `tools/models/rifle.py` paints on it. The walnut of its stock and the grain of its rubber pad are baked from the two pictures the shotgun's are, made with Stable Diffusion XL base 1.0 from text prompts alone, under the same terms as the generated material textures above. No image from Project Zomboid or anywhere else was given to the model.
+- **Usage:** The first person view draws it in the viewer's hands in place of the game's model of `Base.HuntingRifle`.
+- **Bundled:** yes. The image model is not.
+
+The model is built from nothing by `tools/models/rifle.py` in this repository, a
+Blender script, with the tools of `tools/models/shotgun.py`: a bolt action
+sporting rifle of no maker's pattern. No mesh or texture is read from Project
+Zomboid or from anywhere else. Two measures of the game's own hunting rifle
+decide how the model is held, and nothing of its shape: the game's model script
+says where that rifle's muzzle is from its grip, which the mod reads while the
+game runs and sizes the model to, and where a scope is fixed to it, which the
+model's receiver is made to stand under.
+
+---
+
 ## Furniture models
 
 - **Files:** `models/furniture.bin.gz` inside the mod's jar

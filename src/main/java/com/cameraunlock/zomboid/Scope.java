@@ -45,8 +45,10 @@ final class Scope {
     /** Nearer the objective than this, in tiles, is the rifle the scope is on, and is left out of its picture. */
     static final float PICTURE_NEAR = 0.6f;
     private static final int PICTURE_UNIT = 29;
-    /** How near the eye the scope is still drawn, in tiles, and how near the eyepiece's glass a lean may bring the eye. */
-    private static final float NEAREST = 0.012f, EYE_CLEAR = 0.02f;
+    /** How near the eye what the mod draws in the viewer's hands is still drawn, in tiles. */
+    static final float NEAREST = 0.012f;
+    /** How near the eyepiece's glass a lean may bring the eye, in tiles. */
+    private static final float EYE_CLEAR = 0.02f;
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_RGBA16F = 0x881A, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_DEPTH_COMPONENT = 0x1902, GL_DEPTH_COMPONENT24 = 0x81A6;
@@ -55,7 +57,6 @@ final class Scope {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_STATIC_DRAW = 0x88E4, GL_FLOAT = 0x1406, GL_TRIANGLES = 0x0004;
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_ATTACHMENT = 0x8D00, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     private static final int GL_TEXTURE0 = 0x84C0, GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_BLEND = 0x0BE2, GL_LEQUAL = 0x0203;
-    private static final int GL_DEPTH_BUFFER_BIT = 0x0100;
 
     private static final String VERTEX = """
             #version 120
@@ -354,13 +355,6 @@ final class Scope {
 
     /** The picture for the eyepiece: its colour, its depth, and the people in it before they are lit. */
     static int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal;
-    /**
-     * The picture's colour with a depth of the scope's own. The hands and the rifle have a
-     * depth already, but it starts at the plane they are cut off at, and the whole of the
-     * eyepiece is nearer the eye than that: measured in it, every part of the eyepiece is as
-     * near as every other, and whichever is drawn last shows.
-     */
-    private static int target, targetColor, depth, depthWide, depthHigh;
     private static final int HANDS_UNIT = 3;
 
     private static final float[] model = new float[16], projection = new float[16];
@@ -397,6 +391,17 @@ final class Scope {
     /** Logic thread: how much of a turn of the mouse reaches the aim this frame. See ScopeOptics.turn. */
     static float turn() {
         return ScopeOptics.turn(fitted, FieldOfView.zoom(), FieldOfView.AIMED_ZOOM);
+    }
+
+    /**
+     * Whether the game's own reticle is left out. Behind a scope that the aim mode keeps the
+     * eye behind, sights locked and stock sights, the scope's reticle is on the point the
+     * rounds go to and the game's would only lie over it. In the free look modes the scope's
+     * is true only from behind the scope, and the game's stays as the mark of where the
+     * rounds go (owner, 2026-10-05).
+     */
+    static boolean hidesReticle() {
+        return fitted != null && !HeadTracking.freeLook();
     }
 
     /** How far a lean along the aim may take the eye towards the eyepiece with the sights up, in tiles. */
@@ -585,48 +590,25 @@ final class Scope {
     }
 
     /**
-     * Draws the scope placed over the picture, behind whatever of the viewer's hands and rifle
-     * is nearer than it, and then into the picture's own depth.
+     * Draws the scope placed over the picture, into the depth of what the mod draws in the
+     * viewer's hands (HeldDepth, made ready for the frame before this), behind whatever of the
+     * viewer's hands is nearer than it, and then into the picture's own depth.
      *
      * @param camera     where the frame is drawn from
      * @param aim        the aim the weapon is held in
-     * @param scene      the picture's target, and sceneColor its colour, wide by high
+     * @param scene      the picture's target, wide by high
      * @param handsDepth the depth the viewer's hands were drawn with, whose near plane is near
      * @param sceneNear  the near plane the picture's own depth is measured from
      * @param asideX     the fraction of a dot the world is drawn aside this frame, as a part of
      *                   the picture's width, and asideY of its height: the scope is drawn the same
      *                   way aside, so that its edges are smoothed over the frames as the world's are
      */
-    static void draw(ViewCamera.Pose camera, ViewCamera.Pose aim, int scene, int sceneColor, int wide, int high, int handsDepth, float tanHalfFieldOfView,
+    static void draw(ViewCamera.Pose camera, ViewCamera.Pose aim, int scene, int wide, int high, int handsDepth, float tanHalfFieldOfView,
             float aspect, float near, float far, float sceneNear, float asideX, float asideY) {
         ScopeOptics.Glass glass = placed;
         placed = null;
         int which = arrayOf(glass);
         ScopeModel shape = models[which];
-        if (sceneColor != targetColor || wide != depthWide || high != depthHigh) {
-            if (target == 0) {
-                target = GL30.glGenFramebuffers();
-            }
-            if (depth != 0) {
-                GL11.glDeleteTextures(depth);
-            }
-            depth = GL11.glGenTextures();
-            GL11.glBindTexture(GL_TEXTURE_2D, depth);
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, wide, high, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
-            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
-            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneColor, 0);
-            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
-            int status = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
-            if (status != GL_FRAMEBUFFER_COMPLETE) {
-                throw new IllegalStateException("the driver would not make the scope's target (status 0x" + Integer.toHexString(status) + ")");
-            }
-            targetColor = sceneColor;
-            depthWide = wide;
-            depthHigh = high;
-        }
-
         // The scope's axes in the view's: its axis, its top squared to that, and the side that
         // is to the right of someone looking along it.
         ViewModelMath.turned(model, AXIS, a);
@@ -689,9 +671,7 @@ final class Scope {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
 
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
-        GL11.glClearDepth(1.0);
-        GL11.glClear(GL_DEPTH_BUFFER_BIT);
+        HeldDepth.bind();
         program.set("uWriteNear", NEAREST);
         program.set("uBehindHands", 1f);
         parts(shape, glass);

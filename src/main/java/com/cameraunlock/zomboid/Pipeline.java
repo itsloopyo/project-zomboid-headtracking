@@ -2309,8 +2309,18 @@ final class Pipeline {
         if (OwnWeapon.waiting()) {
             drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
         }
+        if (OwnRifle.waiting() || Scope.waiting()) {
+            HeldDepth.begin(sceneColor, width, height);
+        }
+        if (OwnRifle.waiting()) {
+            lightHeld(OwnRifle.begin(), camera, state);
+            OwnRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+                    JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+        }
         if (Scope.waiting()) {
-            drawScope(camera, state, tanHalfFieldOfView, aspect, near, far);
+            lightHeld(Scope.begin(), camera, state);
+            Scope.draw(camera, Characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+                    JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
         }
         if (ViewModel.hasMuzzle) {
             MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
@@ -2338,9 +2348,12 @@ final class Pipeline {
         OwnWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
     }
 
-    /** The scope on the weapon held, over the rifle it is on and the hands that hold it, in the light of the frame. */
-    private static void drawScope(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        Program program = Scope.begin();
+    /**
+     * Gives the program of something the mod draws in the viewer's hands, a rifle or a scope,
+     * the light of the frame: the sky, the sun and its two shadow maps, the eye and its axes,
+     * the flash of a shot.
+     */
+    private static void lightHeld(Program program, ViewCamera.Pose camera, SkyState state) {
         atmosphere(program, state);
         setBasis(program, camera);
         setFlash(program);
@@ -2354,8 +2367,6 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0);
-        Scope.draw(camera, Characters.aim, sceneTarget, sceneColor, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
-                JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
     }
 
     /** Nearer the eye than this, in tiles, what the picture shows on foot is in the viewer's hands: the hands, most of a weapon, a scope. */
@@ -2392,6 +2403,9 @@ final class Pipeline {
         }
         if (problem == null) {
             problem = Scope.prepare();
+        }
+        if (problem == null) {
+            problem = OwnRifle.prepare();
         }
         if (problem != null) {
             return problem;

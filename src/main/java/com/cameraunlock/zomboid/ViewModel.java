@@ -282,7 +282,11 @@ public final class ViewModel {
     /** The same for what is held now: behind a scope the eye is stopped short of the eyepiece's glass. */
     static float forwardStop() {
         Held now = held;
-        return now != null && now.firearm && Scope.fitted() != null ? Scope.forwardStop() : FORWARD_STOP;
+        if (now != null && now.firearm && Scope.fitted() != null) {
+            return Scope.forwardStop();
+        }
+        // The mod's own rifle has its rear sight on its barrel, further off than a lean reaches.
+        return now != null && OwnRifle.standsFor(now.item) ? Settings.current.positionLimitZ() : FORWARD_STOP;
     }
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
@@ -374,6 +378,12 @@ public final class ViewModel {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
             aimedY = -OwnWeapon.sightLine * long3 * scale / OwnWeapon.muzzleFar;
+        }
+        if (hasMuzzle && OwnRifle.standsFor(how.item)) {
+            float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
+                    + (end[2] - origin[2]) * (end[2] - origin[2]));
+            aimedY = -OwnRifle.sightLine * long3 * scale / OwnRifle.muzzleFar;
+            aimedAhead = OwnRifle.eyeBehind * long3 * scale / OwnRifle.muzzleFar;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && Scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {

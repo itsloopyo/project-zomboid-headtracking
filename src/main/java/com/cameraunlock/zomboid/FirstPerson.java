@@ -616,12 +616,12 @@ public final class FirstPerson {
 
     /** Called where the game's reticle and aim cursor read the screen column to draw at. */
     public static int reticleX(int stock) {
-        return landed ? reticleX : stock;
+        return landed ? Scope.hidesReticle() ? RETICLE_HIDDEN : reticleX : stock;
     }
 
     /** Called where the game's reticle and aim cursor read the screen row to draw at, counted from the top. */
     public static int reticleY(int stock) {
-        return landed ? reticleY : stock;
+        return landed ? Scope.hidesReticle() ? RETICLE_HIDDEN : reticleY : stock;
     }
 
     private static float eyeHeight(IsoPlayer player) {

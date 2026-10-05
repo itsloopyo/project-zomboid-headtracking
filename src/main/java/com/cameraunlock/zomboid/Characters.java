@@ -771,6 +771,14 @@ public final class Characters {
             OwnWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside());
         }
+        // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
+        boolean rifle = !own && hands != null && held != null && ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
+        if (rifle) {
+            Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
+            IsoGridSquare square = data.character.getCurrentSquare();
+            OwnRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+                    ownLight, square != null && square.isOutside());
+        }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = own || held == null || Scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
@@ -780,7 +788,7 @@ public final class Characters {
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
         // weapon would be lit where it covers them by the way the hand under it faces.
-        for (int part = 0; !own && part < parts(data).size(); part++) {
+        for (int part = 0; !own && !rifle && part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             // The game's own flash is a model on the muzzle, lit like the weapon it is on.
             // The picture draws the flash itself, as light.

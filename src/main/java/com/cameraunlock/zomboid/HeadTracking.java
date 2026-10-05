@@ -74,7 +74,12 @@ final class HeadTracking {
     private static boolean enabled = true;
     private static Mode mode = Mode.FULL;
     private static boolean worldYaw = true;
-    private static AimMode aimMode = AimMode.SIGHTS_LOCKED;
+    private static volatile AimMode aimMode = AimMode.SIGHTS_LOCKED;
+
+    /** Whether the aim mode leaves the weapon where it is and the head free to move round it. */
+    static boolean freeLook() {
+        return aimMode.isFreeLook();
+    }
     private static float stockShare = 1f;
     private static long lastFrameNanos;
     private static boolean applied;
