@@ -321,6 +321,8 @@ public final class Characters {
     private static boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
+    /** An arm is never drawn quite straight: this much more than the reach, and room for the wrist to move as the hand is turned, in tiles. */
+    private static final float REACH_SPARE = 1.06f, WRIST_SWINGS = 0.08f;
     /** In tiles: a loose coat measures far wider at the elbow than the arm in it, and that near the eye it is a wall. */
     private static final float WIDEST_ELBOW = 0.027f;
     /** How much of the cuff's thickness the arm keeps by the elbow. */
@@ -378,7 +380,13 @@ public final class Characters {
         float[] at = side == 1 ? ViewModel.LEFT_SHOULDER : ViewModel.RIGHT_SHOULDER;
         ViewModelMath.place(fromAim, at[0], at[1], at[2], shoulder);
         ViewModelMath.turned(fromAim, side == 1 ? ViewModel.LEFT_ELBOW : ViewModel.RIGHT_ELBOW, pole);
-        if (!ViewModelMath.arm(shoulder, pole, UPPER_ARM, wrist, rigid, palm, turn, elbow, wristSaid[side])) {
+        // The game's people are small beside the weapons they hold, and an arm of the model's
+        // own lengths does not reach from a shoulder under the eye to a hand out on the
+        // weapon. The solver then brings the shoulder to the hand, up into the picture, and
+        // the arm's far end is a dome in front of the eye. The upper arm is out of sight,
+        // so it is as long as the reach needs and the shoulder stays put.
+        float reaching = (apart(shoulder, wrist) * REACH_SPARE + WRIST_SWINGS) / apart(wrist, rigid) - 1f;
+        if (!ViewModelMath.arm(shoulder, pole, Math.max(UPPER_ARM, reaching), wrist, rigid, palm, turn, elbow, wristSaid[side])) {
             return false;
         }
         ViewModelMath.onto(turn, view);
@@ -413,6 +421,7 @@ public final class Characters {
             if (arms[side]) {
                 said.append(String.format(java.util.Locale.ROOT, " wrist bent %.0f, as posed %.0f, cuff %.3f by %.3f",
                         Math.toDegrees(wristSaid[side][1]), Math.toDegrees(wristSaid[side][0]), wides[side][0], wides[side][1]));
+                said.append(String.format(java.util.Locale.ROOT, " joints wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f) shoulder (%.2f, %.2f, %.2f)", joints[side][0], joints[side][1], joints[side][2], joints[side][3], joints[side][4], joints[side][5], joints[side][6], joints[side][7], joints[side][8]));
             } else {
                 said.append(" hand has no arm");
             }
