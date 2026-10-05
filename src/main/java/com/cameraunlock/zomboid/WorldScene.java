@@ -431,6 +431,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final float[] heldLift = new float[4];
     /** How far under a roof tile its plain sheet lies, in levels. */
     private static final float UNDER_ROOF = 0.03f;
+    /** How many layers of a floor a flat roof's covering lies above the floor it is on: more than a floor has of its own. */
+    private static final float FLAT_ROOF_LAYERS = 4f;
     /** Half the thickness of a wall, in tiles. */
     static final float WALL_HALF = 0.04f;
     private static final float HUNG_CLEAR = 0.012f;
@@ -4529,8 +4531,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (own.axis == RoofFit.LEVEL) {
             roofsFlat++;
             float level = (northWest + southEast) / 2f;
-            // A flat roof that lies on its level has the floor there under it already.
-            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, level, 1f, 0f, 0f, 0f, 1f, 0f) > 0 && level > 2f * UNDER_ROOF) {
+            // A flat roof that lies on its level has the floor there under it already, and lies
+            // clear of it: in the floor's own plane the two are drawn through each other.
+            float laidAt = Math.max(level, FLAT_ROOF_LAYERS * standOff / ViewCamera.LEVEL_HEIGHT);
+            if (geometry.addFace(mesh, frame, x, y, z, 0f, 0f, laidAt, 1f, 0f, 0f, 0f, 1f, 0f) > 0 && level > 2f * UNDER_ROOF) {
                 underRoof(x, y, z, level, 0f, 0f);
             }
             return;

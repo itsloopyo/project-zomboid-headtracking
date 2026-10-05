@@ -166,12 +166,13 @@ final class Flora {
     /** A sprig's corners are this far in from the whole numbers either side, so that neither end of it rounds into the next step. */
     private static final float CROWN_INSET = 0.25f;
     private static final float SPRIG_SMALLEST = 0.3f, SPRIG_LARGEST = 0.8f, SHRUB_SMALLEST = 0.2f, SHRUB_LARGEST = 0.42f;
-    private static final float CROWN_FILL = 13f;
+    private static final float CROWN_FILL = 15f;
+    private static final int CROWN_BANDS = 12;
     private static final int CROWN_LEAST = 12;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
     private static final float CROWN_MOST_OF_PLACES = 0.6f;
-    /** How much of a sprig is behind the place it grows from, and how far its tip moves in the wind beyond what its height gives it. */
-    private static final float SPRIG_BEHIND = 0.3f, SPRIG_FLUTTER = 0.05f;
+    /** How far a sprig's tip moves in the wind beyond what its height gives it. */
+    private static final float SPRIG_FLUTTER = 0.05f;
     /**
      * How much of the wind a sprig takes for each tile it is above the plant's foot, and at most.
      * Far less than the game's whole card takes: a sprig is leaves a few pixels across, and
@@ -242,26 +243,41 @@ final class Flora {
         }
         float middle = lowest + (highest - lowest) * 0.45f;
         float reach = Math.max(widest, (highest - lowest) / 2f);
+        // How far out the crown reaches at each height: half of how wide the sprite paints it there.
+        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS];
+        float tall = Math.max(highest - lowest, 1e-3f);
+        for (int i = 0; i < count; i++) {
+            int band = Math.min((int) (((footV - places[i * 2 + 1]) * up - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
+            float side = (places[i * 2] - footU) * across;
+            reachLeft[band] = Math.max(reachLeft[band], -side);
+            reachRight[band] = Math.max(reachRight[band], side);
+        }
         mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
         for (int i = 0; i < count; i++) {
             int hash = mix(seed, i, 91);
-            float out = Math.abs(places[i * 2] - footU) * across, high = (footV - places[i * 2 + 1]) * up;
-            // More of them towards the outside, where the leaves of a tree are.
-            if (unit(hash, 0) > 1.25f * wanted / count * (0.45f + 0.55f * out / widest)) {
+            float high = (footV - places[i * 2 + 1]) * up;
+            if (unit(hash, 0) > wanted / count) {
                 continue;
             }
+            // The leaves of a tree are its outside: most sprigs stand in a shell at the crown's
+            // reach, each lying along the crown's surface there, give or take, so that from
+            // any side they are seen flat on and cover what is behind them. The rest stand
+            // further in, and are what shows, in shade, through the gaps of the first.
+            boolean inner = (hash >>> 29 & 3) == 0;
+            int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
+            float out = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f) * (inner ? 0.3f + 0.3f * unit(hash, 20) : 0.74f + 0.26f * unit(hash, 20));
             double round = unit(hash, 8) * 2.0 * Math.PI;
             float px = out * (float) Math.cos(round), py = out * (float) Math.sin(round), pz = high - middle;
             float far = (float) Math.sqrt(px * px + py * py + pz * pz);
             float ox = far > 0.01f ? px / far : 0f, oy = far > 0.01f ? py / far : 0f, oz = far > 0.01f ? pz / far : 1f;
-            // The sprig grows outward, give or take, and is turned about its own length any way round.
+            // Which way the sprig's flat faces: out of the crown, tilted any way by up to a third of a turn.
             int turn = mix(hash, i, 92);
-            float ax = ox + 0.9f * (unit(turn, 0) - 0.5f), ay = oy + 0.9f * (unit(turn, 8) - 0.5f), az = oz + 0.9f * (unit(turn, 16) - 0.5f);
-            float length = (float) Math.sqrt(ax * ax + ay * ay + az * az);
+            float ax = ox + 1.1f * (unit(turn, 0) - 0.5f), ay = oy + 1.1f * (unit(turn, 8) - 0.5f), az = oz + 1.1f * (unit(turn, 16) - 0.5f);
+            float length = Math.max((float) Math.sqrt(ax * ax + ay * ay + az * az), 1e-3f);
             ax /= length;
             ay /= length;
             az /= length;
-            // Two directions square to its length and to each other.
+            // Two directions in its flat, square to each other.
             float bx = -ay, by = ax;
             float flat = (float) Math.sqrt(bx * bx + by * by);
             if (flat < 0.05f) {
@@ -275,14 +291,16 @@ final class Flora {
             double roll = unit(turn, 24) * 2.0 * Math.PI;
             float cos = (float) Math.cos(roll), sin = (float) Math.sin(roll);
             float each = size * (0.75f + 0.5f * unit(hash, 16));
-            float rx = (bx * cos + cx * sin) * each / 2f, ry = (by * cos + cy * sin) * each / 2f, rz = cz * sin * each / 2f;
-            float stemX = x + px - ax * each * SPRIG_BEHIND, stemY = y + py - ay * each * SPRIG_BEHIND, stemUp = base + high - az * each * SPRIG_BEHIND;
-            float tipX = stemX + ax * each, tipY = stemY + ay * each, tipUp = stemUp + az * each;
+            // Along the sprig from stem to tip, and half across it.
+            float lx = (bx * cos + cx * sin) * each, ly = (by * cos + cy * sin) * each, lz = cz * sin * each;
+            float rx = (cx * cos - bx * sin) * each / 2f, ry = (cy * cos - by * sin) * each / 2f, rz = cz * cos * each / 2f;
+            float stemX = x + px - lx / 2f, stemY = y + py - ly / 2f, stemUp = base + high - lz / 2f;
+            float tipX = stemX + lx, tipY = stemY + ly, tipUp = stemUp + lz;
             // Lit as the round crown it is part of, not as the flat card it is: from the side
             // the crown's middle is on, a little turned up.
             mesh.face(ox, oy, oz + 0.35f);
             // The middle of a crown is in the shade of its outside.
-            float shade = 0.72f + 0.28f * Math.min(far / reach, 1f);
+            float shade = inner ? 0.5f : 0.8f + 0.2f * Math.min(far / reach, 1f);
             float red = frame.red * shade, green = frame.green * shade, blue = frame.blue * shade;
             float u = (float) Math.rint((frame.uStart + (places[i * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS);
             float v = (float) Math.rint((frame.vStart + (places[i * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS);

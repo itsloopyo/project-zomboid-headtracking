@@ -66,7 +66,7 @@ def whole(rgb, alpha):
             alpha = alpha + under_alpha * (1.0 - alpha)
             y, x = numpy.mgrid[0:size, 0:size].astype(numpy.float32) / size - 0.5
             round_ = numpy.arctan2(y, x)
-            rim = 0.40 + 0.07 * numpy.sin(3.0 * round_ + 1.0) + 0.05 * numpy.sin(7.0 * round_ + 4.0) + 0.02 * numpy.sin(17.0 * round_ + 2.0)
+            rim = 0.44 + 0.045 * numpy.sin(3.0 * round_ + 1.0) + 0.05 * numpy.sin(7.0 * round_ + 4.0) + 0.02 * numpy.sin(17.0 * round_ + 2.0)
             inside = rim - numpy.hypot(x, y)
             # The layer underneath stops short of the clump's edge, where it would be a dark rim round it.
             alpha = numpy.where(inside * size < 40.0, numpy.minimum(alpha, top), alpha)
