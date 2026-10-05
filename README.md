@@ -382,6 +382,10 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 - Fix it in the tracker, by swapping or inverting the axis in OpenTrack's output mapping. The mod applies the pose as it arrives.
 - If the view sits off to one side, center it in the tracker.
 
+**Yaw feels wrong when looking up or down at extreme angles**
+
+- Try toggling between world-locked and camera-local yaw with `Page Down`. World-locked (default) is horizon-stable; camera-local follows the camera's current up-axis.
+
 ## Updating
 
 Download the new release and run `install.cmd` again.
