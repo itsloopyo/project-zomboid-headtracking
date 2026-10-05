@@ -160,11 +160,10 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Toggle tracking | `End` | `Ctrl+Shift+Y` |
 | Cycle tracking mode | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode | `Page Down` | `Ctrl+Shift+H` |
-| Cycle aim mode | `Insert`    | `Ctrl+Shift+U` |
+| Cycle aim mode | `Insert` | `Ctrl+Shift+U` |
 
 - **Tracking mode** cycles rotation and position, rotation only, then position only. Rotation only is how you turn the positional lean off.
 - **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up.
-
 - **Aim mode** is how head tracking behaves while a firearm's sights are up. See [Aiming down sights](#aiming-down-sights).
 
 The tracking mode, the yaw mode and the aim mode are saved when you change them. Turning tracking off with `End` lasts until the game closes.
@@ -173,12 +172,9 @@ Tracking applies while the first person view is on, the game is not paused and y
 
 ## Configuration
 
-Two values are built in and are not settings:
+Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. It is the one setting the mod reads again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
-| Value | Built in | What it does |
-|-------|----------|--------------|
-| Field of view | `65` degrees | Measured from the bottom of the picture to the top |
-| Field of view, firearm aimed | `50` degrees | 0.73 of the field of view's half tangent, a magnification of 1.37 |
+Aiming a firearm narrows the view to 0.73 of that angle's half tangent, a magnification of 1.37, which is 50 degrees at the default. That ratio is built in and is not a setting.
 
 The tracking mode, the yaw mode and the aim mode are saved to `CameraUnlock.ini` when their keys change them. `End` is not: head tracking starts as `EnableOnStartup` says every time. An uninstall leaves the file in place.
 
@@ -260,6 +256,12 @@ RotationEnabled=default
 ; Milliseconds a tracker packet stays current. Once the tracker has sent nothing
 ; for this long, the mod stops following it until data arrives again.
 DataFreshnessMs=default
+; Field of view of the first person view in degrees, from the bottom of the picture to
+; the top: 40 to 110. A wider screen shows more to the sides. Project Zomboid has no
+; field of view setting of its own. Aiming a firearm still narrows the view by the
+; same ratio. Read again while the game runs, so a change shows as soon as the file
+; is saved.
+FieldOfView=65.0
 
 [Smoothing]
 ; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
@@ -337,7 +339,7 @@ you pick, so it holds the next time you start the game:
 3. **True free look** - the same. The game draws its reticle whenever the aim is
    held, so in this game the two free look modes look alike.
 4. **Stock sights** - while the sights are up your head stops turning and
-   leaning the view, so the sights sit in the centre as they do without head
+   leaning the view, so the sights sit in the center as they do without head
    tracking. Tilting your head still tilts the view. When you lower the weapon
    the view goes back to where you are looking.
 
@@ -362,7 +364,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 **No tracking response**
 
 - Head tracking only applies in the first person view. Press `F8` in a single player game.
-- Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means another program holds the port: close it. The mod tries the port again every half second and logs the listening line when it has it.
+- Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means the port could not be opened, and it ends with the reason the Java runtime gave. `Address already in use` is what it gives when another program holds the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs the listening line when it has it. The runtime gives the same reason for a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
 - Look for `first tracking packet from` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started.
 - Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.
 
@@ -389,11 +391,11 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 ## Updating
 
-Download the new release and run `install.cmd` again.
+Download the new release and run `install.cmd` again. Your config is preserved.
 
 ## Uninstalling
 
-Run `uninstall.cmd`. This removes the mod's jar, the `ProjectZomboid64.site.json` the installer wrote, and the log, and leaves the game's own files as they were. The mod uses no mod loader, so `uninstall.cmd /force`, which removes a loader the installer did not put there, has nothing further to remove.
+Run `uninstall.cmd`. This removes the mod's jar and DLL, the `ProjectZomboid64.site.json` the installer wrote, and the log, and leaves `CameraUnlock.ini` and the game's own files as they were. The mod uses no mod loader, so `uninstall.cmd /force`, which removes a loader the installer did not put there, has nothing further to remove.
 
 ## Building from Source
 
@@ -410,9 +412,9 @@ pixi run install    # deploys to every installed copy of the game
 
 ## Community & Support
 
-- Discord: [Loop's Head Tracking Hangout](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
-- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch for the released head-tracking mods
-- [Headcam](https://headcam.app) - free app that turns your iPhone or Android phone into the head tracker
+- [Discord](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
+- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch of head-tracking mods
+- [Headcam](https://headcam.app) - free app that turns your phone into a head tracker
 
 ## License
 
@@ -423,7 +425,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [The Indie Stone](https://theindiestone.com) - developer and publisher of Project Zomboid. Thanks to The Indie Stone for creating [Project Zomboid](https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
-- [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - shared installer scripts
+- [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the settings file reader and hotkey handling compiled into the mod's DLL, and the shared installer scripts
 
 ## Disclaimer
 
