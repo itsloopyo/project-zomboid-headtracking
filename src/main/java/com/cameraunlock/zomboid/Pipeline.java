@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -145,7 +146,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
@@ -190,6 +191,11 @@ final class Pipeline {
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int FIRST_MATERIAL_UNIT = 3;
+    /**
+     * The materials whose surface has depth: each has a second picture, of how far every point
+     * of it stands out, made from the first by tools/materials/heights.py. See Pictures.load.
+     */
+    private static final Set<String> RAISED = Set.of("asphalt", "gravel", "soil", "shingles", "wood", "planks");
     private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
     private static final float[] materialGain = new float[MATERIALS.length];
@@ -269,7 +275,7 @@ final class Pipeline {
      * and changes by degrees.
      */
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
-    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow. */
+    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
     private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
@@ -1345,6 +1351,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
         world.set("uSprigs", SPRIG_UNIT);
+        world.set("uRelief", WITHOUT.contains("relief") ? 0f : 1f);
     }
 
     private static void setBasis(Program program, ViewCamera.Pose pose) {
@@ -2738,7 +2745,7 @@ final class Pipeline {
      */
     private static String loadPicture(String name, boolean cutout, int[] textures, float[] gains, int index) {
         try {
-            textures[index] = Pictures.load("/materials/" + name + (cutout ? ".png" : ".jpg"), true);
+            textures[index] = Pictures.load("/materials/" + name + (cutout ? ".png" : ".jpg"), RAISED.contains(name) ? "/materials/" + name + ".high.jpg" : null, true);
         } catch (IOException e) {
             return e.getMessage();
         }

@@ -35,7 +35,29 @@ final class Pictures {
      * has no such picture or it cannot be read.
      */
     static int load(String path, boolean repeats) throws IOException {
+        return load(path, null, repeats);
+    }
+
+    /**
+     * The same, of a picture all of which is solid, with the jar's picture at heights beside
+     * it: how far each point of the surface stands out of it, white the top and black the
+     * deepest, kept as the fourth number of each texel where a cut-out keeps how solid it is.
+     * The gain is the first picture's. heights may be null, for a surface that has none.
+     */
+    static int load(String path, String heights, boolean repeats) throws IOException {
         ByteBuffer pixels = read(path);
+        if (heights != null) {
+            int pictureWide = wide, pictureHigh = high;
+            float first = gain;
+            ByteBuffer raised = read(heights);
+            if (wide != pictureWide || high != pictureHigh) {
+                throw new IOException(heights + " is " + wide + " by " + high + ", and " + path + " is " + pictureWide + " by " + pictureHigh);
+            }
+            for (int at = 0; at < pictureWide * pictureHigh * 4; at += 4) {
+                pixels.put(at + 3, raised.get(at));
+            }
+            gain = first;
+        }
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, wide, high, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);

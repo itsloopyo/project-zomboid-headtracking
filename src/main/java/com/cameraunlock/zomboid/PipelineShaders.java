@@ -398,15 +398,18 @@ final class PipelineShaders {
             // each strip is slid along the grain its own amount, half of them turned end for
             // end, and is a shade lighter or darker than the next. upright is for a picture
             // whose grain runs up it. A strip is the same again every strips of them: the place
-            // is counted from a corner that moves a whole number of pictures at a time.
-            float laid(sampler2D picture, vec2 at, float cut, bool upright, float strips) {
+            // is counted from a corner that moves a whole number of pictures at a time. With
+            // the light and dark comes how far the surface stands out there, 1 at its top.
+            // across and down are how fast the place changes over the screen, asked of the
+            // place as it was: slid, it jumps from one strip to the next, and moved for the
+            // surface's depth (see relieve) it jumps at the lip of every hollow.
+            vec2 laid(sampler2D picture, vec2 at, vec2 across, vec2 down, float cut, bool upright, float strips) {
                 vec2 grain = upright ? at.yx : at;
                 float strip = mod(floor(grain.y - cut), strips);
                 vec2 own = fract(sin(vec2(strip * 12.9898 + 4.1, strip * 78.233 + 1.7)) * 43758.5453);
                 grain.x = (own.y > 0.5 ? -grain.x : grain.x) + own.x;
-                // How fast the place changes is asked of the place as it was: slid, it jumps from one strip to the next.
-                vec3 seen = texture2DGradARB(picture, upright ? grain.yx : grain, dFdx(at), dFdy(at)).rgb;
-                return dot(seen, vec3(0.299, 0.587, 0.114)) * (0.93 + 0.14 * fract(own.x * 5.0));
+                vec4 seen = texture2DGradARB(picture, upright ? grain.yx : grain, across, down);
+                return vec2(dot(seen.rgb, vec3(0.299, 0.587, 0.114)) * (0.93 + 0.14 * fract(own.x * 5.0)), seen.a);
             }
 
             // Whichever of two pictures of bark is the lighter at a place, where share is a half,
@@ -594,6 +597,128 @@ final class PipelineShaders {
 
             """;
 
+    /** Depth for the surfaces that have it. Joined on after WORLD_FRAGMENT_PARTS when the shader is put together. */
+    static final String WORLD_FRAGMENT_RELIEF = """
+            // A wall of boards, a shingled roof, a gravel drive are drawn as flat sheets, and
+            // a flat sheet gives itself away the moment the head moves: the gap between two
+            // boards does not slide behind the board in front of it, and no stone hides the
+            // foot of the stone beyond. Here a surface whose height is known at every point,
+            // from its picture's fourth number or from how it is made, is given that depth.
+            // The line of sight is followed down into the surface to where it first meets
+            // it, and that place is the one drawn. From there the way to the sun is looked
+            // along for a lip that stands in it, and the surface is tilted as its height
+            // changes. Only near the eye: further off than a few paces a board's joint is
+            // under a pixel deep.
+            uniform float uRelief;
+            // What the surface is: 1 boards side by side, 2 shingles, 3 a wooden floor, 4 planks, 5 open ground.
+            float reliefKind = 0.0;
+            // Where on the surface the pixel is, and how fast that changes over the screen.
+            vec2 reliefBase = vec2(0.0), reliefAcross = vec2(0.0), reliefDown = vec2(0.0);
+            // Open ground: where on each of its two copies of the picture, which copy, and how much of it is tarmac, gravel and earth.
+            vec2 reliefOne = vec2(0.0), reliefTwo = vec2(0.0), reliefOneAcross = vec2(0.0), reliefOneDown = vec2(0.0), reliefTwoAcross = vec2(0.0), reliefTwoDown = vec2(0.0);
+            float reliefWhich = 0.0;
+            vec3 reliefShare = vec3(0.0);
+            // What relieve found: how much of the depth is drawn at this distance, how deep the
+            // place seen lies (0 at the top), how much of the sun gets to it past the
+            // surface's own lips, and which way the surface leans there.
+            float reliefNear = 0.0, reliefLow = 0.0, reliefShade = 1.0;
+            vec3 reliefBend = vec3(0.0);
+
+            // How far the surface stands out so far along it from the pixel's own place: 1 at its top, 0 at its deepest.
+            float raisedAt(vec2 moved) {
+                if (reliefKind < 1.5) {
+                    // Boards butted edge to edge, each eased off at its edges: a groove at every joint.
+                    float part = fract((reliefBase.x + moved.x) / BOARD_WIDE);
+                    return smoothstep(0.008, 0.075, min(part, 1.0 - part));
+                }
+                if (reliefKind < 4.5) {
+                    vec2 at = reliefBase + moved;
+                    return reliefKind < 2.5 ? laid(uShingles, at * 0.55, reliefAcross * 0.55, reliefDown * 0.55, 0.1, false, 33.0).y
+                            : reliefKind < 3.5 ? laid(uWood, at * 0.45, reliefAcross * 0.45, reliefDown * 0.45, 0.44, false, 27.0).y
+                            : laid(uPlanks, at * 0.7, reliefAcross * 0.7, reliefDown * 0.7, 0.648, true, 42.0).y;
+                }
+                bool other = reliefWhich > 0.5;
+                vec2 at = other ? reliefTwo + vec2(moved.x * 0.8 - moved.y * 0.6, moved.x * 0.6 + moved.y * 0.8) * 0.37 : reliefOne + moved * 0.83;
+                vec2 across = other ? reliefTwoAcross : reliefOneAcross, down = other ? reliefTwoDown : reliefOneDown;
+                float sunk = 0.0;
+                if (reliefShare.x > 0.02) {
+                    sunk += reliefShare.x * (1.0 - texture2DGradARB(uAsphalt, at, across, down).a);
+                }
+                if (reliefShare.y > 0.02) {
+                    sunk += reliefShare.y * (1.0 - texture2DGradARB(uGravel, at, across, down).a);
+                }
+                if (reliefShare.z > 0.02) {
+                    sunk += reliefShare.z * (1.0 - texture2DGradARB(uSoil, at, across, down).a);
+                }
+                return 1.0 - sunk;
+            }
+
+            // Gives a surface of that kind its depth, in tiles, at this pixel. along and up are
+            // the two ways across the surface its place is counted in, and facing is the way
+            // it faces, towards the eye. What comes back is how far along the surface the
+            // place seen lies from the pixel's own; the rest is left in reliefNear, reliefLow,
+            // reliefShade and reliefBend. The caller has set reliefBase, or for open ground
+            // the numbers of its two copies.
+            vec2 relieve(float kind, vec3 along, vec3 up, vec3 facing, float depth) {
+                vec3 toEye = uEye - vWorld;
+                float away = length(toEye);
+                float near = uRelief * (1.0 - smoothstep(6.0, 10.0, max(away - uRangeFrom, 0.0)));
+                reliefNear = near;
+                reliefBend = vec3(0.0);
+                if (near <= 0.0) {
+                    return vec2(0.0);
+                }
+                reliefKind = kind;
+                vec3 acrossScreen = dFdx(vPlace), downScreen = dFdy(vPlace);
+                reliefAcross = vec2(dot(acrossScreen, along), dot(acrossScreen, up));
+                reliefDown = vec2(dot(downScreen, along), dot(downScreen, up));
+                vec3 look = toEye / away;
+                depth *= near;
+                // Seen along itself a surface would be followed for ever: past about 77 degrees from square on it gets no deeper.
+                float square = max(abs(dot(look, facing)), 0.22);
+                vec2 run = vec2(dot(look, along), dot(look, up)) * (-depth / square);
+                // More steps the more slanting the look, for the line then crosses more of the surface.
+                float steps = floor(mix(14.0, 5.0, square) + 0.5);
+                vec2 moved = vec2(0.0);
+                float ray = 0.0, bed = 1.0 - raisedAt(moved), gap = 0.0;
+                for (int i = 0; i < 14; i++) {
+                    if (ray >= bed || float(i) >= steps) {
+                        break;
+                    }
+                    gap = bed - ray;
+                    ray += 1.0 / steps;
+                    moved += run / steps;
+                    bed = 1.0 - raisedAt(moved);
+                }
+                // Between the last step above the surface and the first below it, where the two lines cross.
+                float back = clamp((ray - bed) / max(ray - bed + gap, 1e-5), 0.0, 1.0);
+                moved -= run / steps * back;
+                float low = max(ray - back / steps, 0.0);
+                // The lean, from the height a little way off each way: no nearer than a pixel covers, or it would glitter.
+                float off = max(0.0025, 1.5 * max(length(reliefAcross), length(reliefDown)));
+                float here = raisedAt(moved);
+                vec2 slope = vec2(raisedAt(moved + vec2(off, 0.0)) - here, raisedAt(moved + vec2(0.0, off)) - here) * (depth / off);
+                slope *= min(1.0, 1.2 / max(length(slope), 1e-4));
+                reliefBend = along * slope.x + up * slope.y;
+                // What is on top is in nothing's shade. What is down in a hollow looks up towards the sun past the lip.
+                float sunUp = dot(uLight, facing);
+                float shade = 1.0;
+                if (low > 0.03 && sunUp > 0.0) {
+                    vec2 climb = vec2(dot(uLight, along), dot(uLight, up)) * (depth / max(sunUp, 0.15));
+                    float blocked = 0.0;
+                    for (int i = 1; i < 5; i++) {
+                        float rise = low * float(i) / 5.0;
+                        blocked = max(blocked, low - rise - 1.0 + raisedAt(moved + climb * rise));
+                    }
+                    shade = 1.0 - smoothstep(0.0, 0.12, blocked);
+                }
+                reliefShade *= mix(1.0, shade, near);
+                reliefLow = low * near;
+                return moved;
+            }
+
+            """;
+
     static final String WORLD_FRAGMENT_MAIN_START = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
@@ -686,6 +811,8 @@ final class PipelineShaders {
                 // How far the surface leans along the wall at a board's edge, and how much of
                 // the place is board: both are used once the surface's facing is known.
                 float lean = 0.0, timbered = 0.0;
+                // Which way a board's surface leans for the groove at its edge.
+                vec3 bent = vec3(0.0);
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
                 if ((vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
@@ -705,8 +832,16 @@ final class PipelineShaders {
                     timbered = step(0.03, round.r - round.b) * step(round.b, round.g + 0.02)
                             * (1.0 - smoothstep(0.2, 0.34, abs(dot(texel.rgb - round, tone))));
                     vec3 facing = normalize(vNormal);
-                    texel.rgb = mix(texel.rgb, timber(round, dot(vPlace.xy, vec2(facing.y, -facing.x)), vPlace.z, lean), timbered);
-                    lean *= timbered;
+                    vec2 on = vec2(dot(vPlace.xy, vec2(facing.y, -facing.x)), vPlace.z);
+                    // The joints between the boards are grooves: see relieve. A post is one piece and has none.
+                    if (timbered > 0.5 && arcWhole < 0.5) {
+                        reliefBase = on;
+                        on += relieve(1.0, vec3(facing.y, -facing.x, 0.0), vec3(0.0, 0.0, 1.0), dot(facing, uEye - vWorld) < 0.0 ? -facing : facing, 0.009);
+                        bent = reliefBend;
+                    }
+                    texel.rgb = mix(texel.rgb, timber(round, on.x, on.y, lean), timbered) * (1.0 - 0.4 * reliefLow);
+                    // Where the groove is drawn in depth it turns the surface itself.
+                    lean *= timbered * (1.0 - reliefNear);
                 }
                 bool grass = vKind > 7.5;
                 // The game draws its furniture with a dark line round every part, which is what
@@ -1438,7 +1573,7 @@ final class PipelineShaders {
                 if (strip) {
                     n = normalize(vec3((dot(stripFace, view) < 0.0 ? -stripFace.xy : stripFace.xy) * 0.3, 1.0));
                 }
-                n = normalize(n - dent);
+                n = normalize(n - dent - bent);
                 if (lean != 0.0) {
                     // A board's eased edge turns the surface along the wall, towards the joint.
                     n = normalize(n + vec3(vNormal.y, -vNormal.x, 0.0) / max(length(vNormal.xy), 0.001) * (0.55 * lean));
@@ -1450,6 +1585,8 @@ final class PipelineShaders {
                 // to it is made of stones and grit that the sun catches. Both are worked out
                 // from where the ground is on the map, so they never repeat and they stay put.
                 float grit = 0.0;
+                // How much of the ground's depth relieve has drawn: so much less is left to the lumps made up below.
+                float raisedGround = 0.0;
                 if (!model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
@@ -1474,12 +1611,31 @@ final class PipelineShaders {
                     vec2 one = p * 0.83;
                     vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
-                    vec3 grain3 = dark * uMaterialGain.x * mix(texture2D(uAsphalt, one).rgb, texture2D(uAsphalt, two).rgb, which)
-                            + loose * uMaterialGain.y * mix(texture2D(uGravel, one).rgb, texture2D(uGravel, two).rgb, which)
+                    // Earth only where the game says the ground is earth: what is brown may as well be planks.
+                    float earth = vMaterial > 3.5 && vMaterial < 51.5 ? 1.0 - stony - green : 0.0;
+                    vec2 oneAcross = dFdx(one), oneDown = dFdy(one), twoAcross = dFdx(two), twoDown = dFdy(two);
+                    // Stones stand up out of a drive and clods out of earth, a finger deep; tarmac
+                    // is pitted, a seventh as deep. The place seen among them is found by relieve.
+                    if (dark + loose + earth > 0.02) {
+                        reliefShare = vec3(dark * 0.14, loose, earth * 0.8);
+                        reliefOne = one;
+                        reliefTwo = two;
+                        reliefOneAcross = oneAcross;
+                        reliefOneDown = oneDown;
+                        reliefTwoAcross = twoAcross;
+                        reliefTwoDown = twoDown;
+                        reliefWhich = which;
+                        vec2 moved = relieve(5.0, vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), n, 0.022);
+                        one += moved * 0.83;
+                        two += vec2(moved.x * 0.8 - moved.y * 0.6, moved.x * 0.6 + moved.y * 0.8) * 0.37;
+                        n = normalize(n - reliefBend);
+                        raisedGround = reliefNear;
+                    }
+                    vec3 grain3 = dark * uMaterialGain.x * mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown).rgb, texture2DGradARB(uAsphalt, two, twoAcross, twoDown).rgb, which)
+                            + loose * uMaterialGain.y * mix(texture2DGradARB(uGravel, one, oneAcross, oneDown).rgb, texture2DGradARB(uGravel, two, twoAcross, twoDown).rgb, which)
                             + paved * vec3(0.95 + 0.1 * patches(p * 7.3 + 13.0))
-                            // Earth only where the game says the ground is earth: what is brown may as well be planks.
-                            + (1.0 - stony - green) * (vMaterial > 3.5 && vMaterial < 51.5 ? uMaterialGain.z * mix(texture2D(uSoil, one).rgb, texture2D(uSoil, two).rgb, which) : vec3(1.0))
-                            + green * uMaterialGain.w * mix(texture2D(uLawn, one).rgb, texture2D(uLawn, two).rgb, which);
+                            + vec3(1.0 - stony - green - earth) + earth * uMaterialGain.z * mix(texture2DGradARB(uSoil, one, oneAcross, oneDown).rgb, texture2DGradARB(uSoil, two, twoAcross, twoDown).rgb, which)
+                            + green * uMaterialGain.w * mix(texture2DGradARB(uLawn, one, oneAcross, oneDown).rgb, texture2DGradARB(uLawn, two, twoAcross, twoDown).rgb, which);
                     // The picture's light and dark go over the game's colour everywhere. Where
                     // the ground is stone, which has no colour of its own to lose, the picture's
                     // colour comes too, as bright as the game painted the spot: tarmac and gravel
@@ -1487,7 +1643,7 @@ final class PipelineShaders {
                     // colour, which is the season's.
                     float fine = dot(grain3, vec3(0.299, 0.587, 0.114));
                     float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
-                    texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved));
+                    texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved)) * (1.0 - 0.35 * reliefLow);
                     if (paved > 0.0) {
                         // Two slabs to a tile, each row laid half a slab along from the last,
                         // no two quite the same grey, with a dark joint between them. Joints
@@ -1506,7 +1662,7 @@ final class PipelineShaders {
                         float e = 0.012;
                         float here = stones(p), east = stones(p + vec2(e, 0.0)), south = stones(p + vec2(0.0, e));
                         // Tarmac and concrete are close to flat: only loose stone stands up in lumps.
-                        float depth = (0.05 - 0.035 * stony + 0.135 * loose) * near;
+                        float depth = (0.05 - 0.035 * stony + 0.135 * loose) * near * (1.0 - 0.85 * raisedGround);
                         n = normalize(n - vec3(east - here, south - here, 0.0) * (depth / e));
                         texel.rgb *= 1.0 + (here - 0.5) * (0.25 - 0.18 * stony + 0.48 * loose) * near;
                         grit = (stony - paved) * near * here;
@@ -1544,12 +1700,25 @@ final class PipelineShaders {
                     // tiles out a number holds a thousandth of a tile and no finer, and a grain
                     // read at such places is ruled with stripes a pixel or two wide. Every
                     // picture here repeats a whole number of times in sixty tiles.
-                    vec2 across = abs(n.z) > 0.7 ? vPlace.xy : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
-                    float fine = roofing ? laid(uShingles, across * 0.55, 0.1, false, 33.0) * uSurfaceGain.x
+                    bool level = abs(n.z) > 0.7;
+                    vec2 across = level ? vPlace.xy : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
+                    vec2 acrossX = dFdx(across), acrossY = dFdy(across);
+                    // A roof's courses, the cracks of weathered planks and the seams of a floor have
+                    // depth: see relieve. Not what stands as a card, a table's top or a fence's
+                    // rail painted on a sheet: its outline is the sprite's, which would stay put.
+                    float raisedKind = vKind > 1.5 ? 0.0 : roofing ? 2.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 3.0 : vMaterial > 6.5 && vMaterial < 7.5 ? 4.0 : 0.0;
+                    if (raisedKind > 0.5) {
+                        reliefBase = across;
+                        across += relieve(raisedKind, level ? vec3(1.0, 0.0, 0.0) : vec3(n.y, -n.x, 0.0), level ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0), n,
+                                raisedKind < 2.5 ? 0.014 : raisedKind < 3.5 ? 0.0015 : 0.01);
+                        n = normalize(n - reliefBend);
+                        texel.rgb *= 1.0 - 0.4 * reliefLow;
+                    }
+                    float fine = roofing ? laid(uShingles, across * 0.55, acrossX * 0.55, acrossY * 0.55, 0.1, false, 33.0).x * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
-                            : vMaterial < 3.5 ? laid(uWood, across * 0.45, 0.44, false, 27.0) * uSurfaceGain.z
+                            : vMaterial < 3.5 ? laid(uWood, across * 0.45, acrossX * 0.45, acrossY * 0.45, 0.44, false, 27.0).x * uSurfaceGain.z
                             : vMaterial < 6.5 ? dot(texture2DArray(uBark, vec3(across * vec2(1.6, 0.8), 0.0)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
-                            : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, 0.648, true, 42.0) * uTimberGain.y
+                            : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, acrossX * 0.7, acrossY * 0.7, 0.648, true, 42.0).x * uTimberGain.y
                             : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
                     float much = roofing ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
                     // What is painted white is paint over the wood: its grain barely shows.
@@ -1614,7 +1783,8 @@ final class PipelineShaders {
                 // raised where it is light. The sun then picks the surface out as it moves, and
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
-                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered);
+                // Less of it where relieve has tilted the surface by its real height.
+                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {
@@ -1691,6 +1861,8 @@ final class PipelineShaders {
                         // between them: the shade a tree gives itself is green and never deep.
                         reached = mix(0.42, 1.0, reached);
                     }
+                    // A stone's foot is in the shade of the next stone, and a groove of its own lip.
+                    reached *= reliefShade;
                     sun = reached * facing;
                 }
 
