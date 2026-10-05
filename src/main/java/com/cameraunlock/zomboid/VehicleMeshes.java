@@ -39,8 +39,14 @@ final class VehicleMeshes {
      * texture says which of its triangles are glass. Empty for a model with none found.
      */
     private static final IdentityHashMap<ModelMesh, java.nio.FloatBuffer> panes = new IdentityHashMap<>();
-    /** The panes of the vehicle the viewer sits in, and the matrix that puts them on the screen. Null with none. */
+    /**
+     * The panes of the vehicle the viewer sits in, and the matrix that puts them on the screen.
+     * Null with none. The first seatedRearPanes vertices are the panes behind the front of the
+     * glasshouse; the rest are the screen and the front windows, where the picture builds its own.
+     */
     static java.nio.FloatBuffer seatedPanes;
+    static int seatedRearPanes;
+    private static final IdentityHashMap<ModelMesh, Integer> rearPanes = new IdentityHashMap<>();
     static final float[] paneMatrix = new float[16];
     private static final float[] shifted = new float[16], stands = new float[16];
 
@@ -55,14 +61,18 @@ final class VehicleMeshes {
          * From the wheel's middle, in tiles: the foot of the windscreen, along and up; the
          * sill of the driver's window, up; how far out from the wheel that window is; how far
          * across the vehicle's middle line is, by sign; the top of the dashboard, up; and
-         * the mirror on the driver's door, along, out and up.
+         * the mirror on the driver's door, along, out and up; and where the shelf of the
+         * dashboard begins, along.
          */
         final float[] measures;
+        /** For each triangle of the body, whether it is a pane of the front of the glasshouse. */
+        final boolean[] front;
 
-        Parts(java.nio.FloatBuffer triangles, boolean seats, float[] measures) {
+        Parts(java.nio.FloatBuffer triangles, boolean seats, float[] measures, boolean[] front) {
             this.triangles = triangles;
             this.seats = seats;
             this.measures = measures;
+            this.front = front;
         }
     }
 
@@ -125,6 +135,7 @@ final class VehicleMeshes {
         java.nio.FloatBuffer glass = panes.get(mesh);
         if (glass != null && glass.capacity() > 0) {
             seatedPanes = glass;
+            seatedRearPanes = rearPanes.get(mesh);
         }
         seatedParts = parts.get(mesh);
         paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seatedPaint);
@@ -192,11 +203,20 @@ final class VehicleMeshes {
             GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
             boolean[] glass = glassIn(raw, stride, elements, instance, name);
-            panes.put(mesh, loose(raw, stride, elements, glass));
             float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name);
+            boolean[] front = new boolean[glass.length];
             if (wheel != NONE) {
-                parts.put(mesh, partsIn(raw, stride, bytes / stride, elements, glass, wheel, name));
+                Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name);
+                parts.put(mesh, made);
+                front = made.front;
             }
+            java.nio.FloatBuffer loose = loose(raw, stride, elements, glass, front);
+            panes.put(mesh, loose);
+            int rear = 0;
+            for (int t = 0; t < glass.length; t++) {
+                rear += glass[t] && !front[t] ? 3 : 0;
+            }
+            rearPanes.put(mesh, rear);
             return wheel;
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
@@ -323,18 +343,23 @@ final class VehicleMeshes {
         return found[way] < 6 || found[way] > triangles / 3 ? none : glass[way];
     }
 
-    /** The panes of a body as loose triangles in the model's own space. Empty for a body with none found. */
-    private static java.nio.FloatBuffer loose(ByteBuffer raw, int stride, int[] elements, boolean[] glass) {
+    /**
+     * The panes of a body as loose triangles in the model's own space, those of the front of
+     * the glasshouse after the rest. Empty for a body with none found.
+     */
+    private static java.nio.FloatBuffer loose(ByteBuffer raw, int stride, int[] elements, boolean[] glass, boolean[] front) {
         int found = 0;
         for (boolean pane : glass) {
             found += pane ? 1 : 0;
         }
         java.nio.FloatBuffer out = ByteBuffer.allocateDirect(found * 9 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-        for (int t = 0; t < glass.length; t++) {
-            if (glass[t]) {
-                for (int corner = 0; corner < 3; corner++) {
-                    int at = elements[t * 3 + corner] * stride;
-                    out.put(raw.getFloat(at)).put(raw.getFloat(at + 4)).put(raw.getFloat(at + 8));
+        for (int pass = 0; pass < 2; pass++) {
+            for (int t = 0; t < glass.length; t++) {
+                if (glass[t] && front[t] == (pass == 1)) {
+                    for (int corner = 0; corner < 3; corner++) {
+                        int at = elements[t * 3 + corner] * stride;
+                        out.put(raw.getFloat(at)).put(raw.getFloat(at + 4)).put(raw.getFloat(at + 8));
+                    }
                 }
             }
         }
@@ -369,7 +394,8 @@ final class VehicleMeshes {
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
                     found.middleAcross - middle[1], found.dashTop - middle[2],
-                    found.mirror[0] - middle[0], Math.abs(found.mirror[1] - found.middleAcross) - Math.abs(middle[1] - found.middleAcross), found.mirror[2] - middle[2]});
+                    found.mirror[0] - middle[0], Math.abs(found.mirror[1] - found.middleAcross) - Math.abs(middle[1] - found.middleAcross), found.mirror[2] - middle[2],
+                    found.dashBack - middle[0]}, found.front);
         for (int kind = 0; kind < CabinParts.KINDS; kind++) {
             made.first[kind] = made.triangles.position() / 3;
             for (int t = 0; t < found.kinds.length; t++) {

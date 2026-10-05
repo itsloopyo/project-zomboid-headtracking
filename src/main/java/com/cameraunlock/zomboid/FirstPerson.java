@@ -67,6 +67,9 @@ public final class FirstPerson {
     private static final org.joml.Vector3f facing = new org.joml.Vector3f();
     /** Whether the viewer is in a vehicle. Set on the logic thread, read by the picture. */
     static volatile boolean seated;
+    /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
+    static volatile boolean driving;
+    static volatile int skin;
     /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
     static volatile boolean instrumentsLit;
     /** What the instruments of the vehicle the viewer sits in show, each as a part of its gauge's full scale. */
@@ -311,6 +314,8 @@ public final class FirstPerson {
         }
         if (vehicle != null) {
             int seat = vehicle.getSeat(player);
+            driving = seat == 0;
+            skin = player.getHumanVisual().getSkinTextureIndex();
             if (seat >= 0) {
                 vehicle.getPassengerWorldPos(seat, seatAt);
                 // The game's seat is at the door. The head is further in, straight across

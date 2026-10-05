@@ -2062,6 +2062,20 @@ final class Pipeline {
             uniform vec3 uDoorMirror;
             uniform vec3 uPaint;
             uniform vec2 uLamps;
+            // The glasshouse the picture builds over the driver. uHouse is the rail over the
+            // screen, along and up, and how thick the pillars are. uPad is where the shelf of
+            // the dashboard begins and where the pillar behind the driver's door stands, both
+            // along. uTrade is what the vehicle carries for its work. uArms is whether the
+            // driver's hands are on the wheel, and uSkin and uSleeve what they are covered in,
+            // the sleeve's fourth part being how far down the forearm it comes.
+            uniform vec3 uHouse;
+            uniform vec2 uPad;
+            uniform float uTrade;
+            uniform float uArms;
+            uniform vec3 uSkin;
+            uniform vec4 uSleeve;
+            uniform sampler2D uCarpet;
+            uniform float uCarpetGain;
             // What part of the cabin the nearest of the body's own triangles is at each pixel,
             // its glass left out, and how far off it is. uParted says whether that was drawn,
             // and whether the seats in it were told from the shell.
@@ -2146,8 +2160,18 @@ final class Pipeline {
                 return vec2(v.x * c - v.y * s, v.y * c + v.x * s);
             }
 
+            float built(vec3 p, float nearest, inout float part);
+            vec3 builtPaint(vec3 p, float part);
+            // What the part last painted is made of: 0 grained like leather, 1 woven cloth,
+            // 2 the nap of a roof's lining, 3 carpet; how strongly its grain shows; and how
+            // much of a mirror it is.
+            float gWoven = 0.0, gGrain = 0.6, gGloss = 0.4;
+            // How much of it is a lit display, which glows with the instruments.
+            float gGlow = 0.0;
+
             // Parts past the first seven: 8 the door mirror, 9 what stands between the seats,
-            // 10 the boot of a lever on the floor, 11 a post up the middle of the screen.
+            // 10 the boot of a lever on the floor, 11 a post up the middle of the screen. The
+            // rest are the glasshouse and the furnishings the picture builds.
             float cabinAt(vec3 p, out float part) {
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
@@ -2231,7 +2255,7 @@ final class Pipeline {
                         if (post < nearest) { nearest = post; part = 11.0; }
                     }
                 }
-                return nearest;
+                return built(p, nearest, part);
             }
 
             float wheelAt(vec3 p) {
@@ -2248,6 +2272,13 @@ final class Pipeline {
 
             // What a part of the cabin is made of at p, as a colour for the picture to light.
             vec3 cabinPaint(vec3 p, float part) {
+                gWoven = 0.0;
+                gGrain = 0.6;
+                gGloss = 0.4;
+                gGlow = 0.0;
+                if (part > 11.5) {
+                    return builtPaint(p, part);
+                }
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 vec3 w = vec3(q.y, dot(q, rise), dot(q, uWheelAxis));
@@ -2274,10 +2305,16 @@ final class Pipeline {
                     float beside = min(abs(sin(turn - 0.52)), min(abs(sin(turn - 2.62)), abs(sin(turn - 4.7124)))) * reach;
                     float holes = step(length(vec2((fract(reach / 0.045) - 0.5) * 0.045, beside)), 0.0065);
                     paint = uKit.z > 5.5 ? mix(vec3(0.52, 0.52, 0.54), vec3(0.08), holes * step(0.06, reach)) : uDashColor * 0.8;
+                    if (uKit.z > 5.5) {
+                        gGrain = 0.0;
+                        gGloss = 0.9;
+                    }
                 } else if (part < 4.5) {
                     // Stalks and levers are black, with a pale ball on a gear lever.
                     vec3 inboard = vec3(uDash.x < 0.0 ? w.x : -w.x, w.y, w.z);
                     paint = length(inboard - vec3(-0.24, 0.12, 0.05)) < 0.024 && uShift > 0.5 && uShift < 1.5 ? vec3(0.7, 0.68, 0.62) : vec3(0.06, 0.06, 0.065);
+                    gGrain = 0.0;
+                    gGloss = 0.6;
                 } else if (part < 5.5) {
                     paint = uDashColor * 0.6;
                 } else if (part < 6.5) {
@@ -2285,6 +2322,8 @@ final class Pipeline {
                     paint = uHood.y > 0.001 ? uDashColor * 0.7 : vec3(0.5, 0.5, 0.52);
                 } else if (part < 8.5) {
                     paint = vec3(0.07, 0.07, 0.075);
+                    gGrain = 0.0;
+                    gGloss = 0.5;
                 } else if (part < 9.5) {
                     if (uTrim.w < 1.5) {
                         // A console in the dash's own stuff, its top in wood where the dash has wood.
@@ -2473,6 +2512,21 @@ final class Pipeline {
                 return glass;
             }
 
+            // The pane a line of sight from the seat leaves the cabin by, told by which way
+            // the line goes: the screens lean back and the side windows stand nearly upright.
+            vec4 paneSeen(vec3 out3) {
+                vec2 side = vec2(-uAhead.y, uAhead.x);
+                float along = dot(out3.xy, uAhead), across = dot(out3.xy, side);
+                bool ends = abs(along) > abs(across);
+                vec3 faces = ends ? normalize(vec3(-sign(along) * uAhead, 0.75)) : normalize(vec3(-sign(across) * side, 0.12));
+                float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
+                vec3 to = out3 * reach;
+                return pane(vec2(ends ? dot(to.xy, side) : dot(to.xy, uAhead) + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+            }
+
+            vec4 paneBuilt(vec3 out3);
+            vec3 litFace(vec2 p, out float glow);
+
             // 1 where a pixel of a vehicle is one of its panes: pale and nearly without colour,
             // or the pale blue of the sky a pane shows.
             float glass(vec2 at) {
@@ -2517,10 +2571,12 @@ final class Pipeline {
             // drawn in by a frame's width. reach is how far off the pane is.
             float paned(vec2 uv, float reach) {
                 float frame = 0.032 / (reach * uTan.y) * 0.5;
-                float within = texture2D(uPanes, uv).r;
+                // The panes of the front of the glasshouse are drawn at a half: the picture
+                // builds its own there, and they frame nothing.
+                float within = step(0.75, texture2D(uPanes, uv).r);
                 for (int i = 0; i < 12; i++) {
                     float turn = 0.5236 * float(i);
-                    within = min(within, texture2D(uPanes, uv + vec2(cos(turn) * uSize.y / uSize.x, sin(turn)) * frame).r);
+                    within = min(within, step(0.75, texture2D(uPanes, uv + vec2(cos(turn) * uSize.y / uSize.x, sin(turn)) * frame).r));
                 }
                 return within;
             }
@@ -2531,6 +2587,18 @@ final class Pipeline {
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
                 vec2 ndc = uv * 2.0 - 1.0;
                 return uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
+            }
+
+            // Which way the body faces at uv, as normalAt tells it, from its own triangles.
+            vec3 partNormalAt(vec2 uv, vec3 at, float pixels) {
+                vec2 step = pixels / uSize;
+                vec3 east = partAt(uv + vec2(step.x, 0.0)) - at, west = at - partAt(uv - vec2(step.x, 0.0));
+                vec3 north = partAt(uv + vec2(0.0, step.y)) - at, south = at - partAt(uv - vec2(0.0, step.y));
+                vec3 across = dot(east, east) < dot(west, west) ? east : west;
+                vec3 up = dot(north, north) < dot(south, south) ? north : south;
+                vec3 square = cross(across, up);
+                float size = length(square);
+                return size > 1e-12 ? square / size : vec3(0.0);
             }
 
             // What the picture of the world behind the vehicle shows at a place in it, and
@@ -2702,12 +2770,12 @@ final class Pipeline {
                         // side, one large dial between two small, a row of small ones, or
                         // one dial with a small one beside it.
                         vec2 at = on;
-                        if (uCluster.x < 0.5) {
+                        if (uCluster.x < 0.5 || uCluster.x > 5.5) {
                             vec2 face = at / vec2(uHood.x - 0.03, uHood.y - 0.018);
                             if (abs(face.x) < 1.0 && abs(face.y) < 1.0) {
                                 dial = true;
                                 dialAt = face;
-                                dialRight = -1.0;
+                                dialRight = uCluster.x > 5.5 ? -2.0 : -1.0;
                                 dialFar = t;
                             }
                         } else {
@@ -2746,11 +2814,20 @@ final class Pipeline {
                 // how far ahead it is.
                 float kind = 0.0;
                 float bodyAhead = uFar;
+                // Whether any of the body that is not glass is here at all, and whether what
+                // the game painted here is of something the picture builds its own in place of.
+                float shell = 0.0, unseen = 0.0;
                 if (uInside > 0.5 && uParted.x > 0.5) {
-                    kind = floor(texture2D(uParts, uv).r * 8.0 + 0.5);
+                    vec4 told = texture2D(uParts, uv);
+                    kind = floor(told.r * 8.0 + 0.5);
+                    unseen = told.g;
+                    shell = told.a;
                     float bodyZ = texture2D(uPartsDepth, uv).r * 2.0 - 1.0;
                     bodyAhead = 2.0 * uNear * uFar / (uFar + uNear - bodyZ * (uFar - uNear));
                 }
+                // With its wheel and its triangles known, a cabin is the picture's own from
+                // the sills up, and what is glass in it is told by the triangles alone.
+                bool builtCabin = uInside > 0.5 && uParted.x > 0.5 && uWheel.w > 0.0;
                 // The steering wheel is found by walking each line of sight up to it.
                 float wheelFar = 0.0;
                 float wheelPart = 0.0;
@@ -2760,8 +2837,8 @@ final class Pipeline {
                     vec3 d = normalize(ray);
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
-                    float t = 0.13;
-                    for (int i = 0; i < 64; i++) {
+                    float t = 0.05;
+                    for (int i = 0; i < 72; i++) {
                         float gap = wheelAt(uSeat + line * t / CABIN) * CABIN;
                         if (gap < 0.0008) {
                             wheel = true;
@@ -2776,9 +2853,12 @@ final class Pipeline {
                         // The wheel and the instruments are before everything. What is built
                         // further off, between the seats or outside the glass, is hidden by
                         // whatever of the body stands before it.
+                        // The driver's own hands and sleeves are before everything too, and
+                        // the pad over the dashboard is the top of the board it lies on.
                         float met;
                         cabinAt(uSeat + line * t / CABIN, met);
-                        if (met > 7.5 && bodyAhead < t / length(ray) - 0.02) {
+                        bool always = met > 22.5 && met < 24.5 || met > 27.5 || met > 18.5 && met < 19.5 && kind > 1.5 && kind < 2.5;
+                        if (met > 7.5 && !always && bodyAhead < t / length(ray) - 0.02) {
                             wheel = false;
                         }
                     }
@@ -2806,7 +2886,38 @@ final class Pipeline {
                 // of the body that is not glass is the bonnet, and what the game drew there is
                 // a pane or nothing, the bonnet is seen through the glass and is drawn here.
                 bool bonnetSeen = false;
-                if (kind > 3.5 && !wheel && !dial) {
+                bool framed = false, blind = false;
+                if (builtCabin && !wheel && !dial) {
+                    bool open = shell < 0.5;
+                    if (open && uHavePanes > 0.5 && figure.a >= 0.5 && texture2D(uPanes, uv).r > 0.75 && paned(uv, ahead * length(ray)) < 0.5) {
+                        // The frame the game paints round the edge of a pane behind the driver.
+                        open = false;
+                        framed = true;
+                    }
+                    if (uGlassPass > 0.5) {
+                        vec3 out3 = normalize(ray);
+                        if (!open && kind < 3.5 || out3.z < -0.3 && open) {
+                            discard;
+                        }
+                        gl_FragColor = paneBuilt(out3);
+                        gl_FragDepth = gl_FragCoord.z;
+                        return;
+                    }
+                    if (open) {
+                        discard;
+                    }
+                    bonnetSeen = kind > 3.5;
+                    if (framed) {
+                        figure = vec4(uDashColor * 0.55, 1.0);
+                    } else {
+                        ahead = bodyAhead;
+                        if (unseen > 0.5 || figure.a < 0.5) {
+                            // What the game painted here is not of what stands here.
+                            figure = vec4(0.2, 0.2, 0.2, 1.0);
+                            blind = true;
+                        }
+                    }
+                } else if (kind > 3.5 && !wheel && !dial) {
                     if (uGlassPass < 0.5) {
                         bonnetSeen = figure.a < 0.5 || (uHavePanes > 0.5 ? paned(uv, ahead * length(ray)) > 0.5 : glass(uv) > 0.5);
                     }
@@ -2823,14 +2934,7 @@ final class Pipeline {
                     if (uGlassPass < 0.5 || out3.z < -0.3) {
                         discard;
                     }
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    float along = dot(out3.xy, uAhead), across = dot(out3.xy, side);
-                    bool ends = abs(along) > abs(across);
-                    // The screens lean back and the side windows stand nearly upright.
-                    vec3 faces = ends ? normalize(vec3(-sign(along) * uAhead, 0.75)) : normalize(vec3(-sign(across) * side, 0.12));
-                    float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
-                    vec3 to = out3 * reach;
-                    gl_FragColor = pane(vec2(ends ? dot(to.xy, side) : dot(to.xy, uAhead) + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+                    gl_FragColor = paneSeen(out3);
                     gl_FragDepth = gl_FragCoord.z;
                     return;
                 }
@@ -2859,7 +2963,8 @@ final class Pipeline {
                 // comes in steps finer than a pixel is wide: read close by, the steps show as
                 // rings. Read from further off they do not.
                 float close = uInside * step(ahead * length(ray), 2.2);
-                vec3 found = close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
+                vec3 found = builtCabin && !framed && !wheel && !dial ? partNormalAt(uv, at, 5.0) + partNormalAt(uv, at, 11.0)
+                        : close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 if (bonnetSeen) {
                     // The depth the game drew here is the glass's. The bonnet's own is read,
@@ -2885,12 +2990,12 @@ final class Pipeline {
                     vec2 side = vec2(-uAhead.y, uAhead.x);
                     n = -vec3(uAhead * uWheelAxis.x + side * uWheelAxis.y, uWheelAxis.z);
                     close = 1.0;
-                    figure = vec4(dialRight < -0.5 ? stripFace(dialAt, dialGlow) : dialFace(dialAt, dialRight, dialGlow), 1.0);
+                    figure = vec4(dialRight < -1.5 ? litFace(dialAt, dialGlow) : dialRight < -0.5 ? stripFace(dialAt, dialGlow) : dialFace(dialAt, dialRight, dialGlow), 1.0);
                 } else if (wheel) {
                     n = wheelFaces;
                     close = 1.0;
                     figure = vec4(cabinPaint(wheelPlace, wheelPart), 1.0);
-                } else if (close > 0.5 && uWheel.w > 0.0) {
+                } else if (close > 0.5 && uWheel.w > 0.0 && !builtCabin) {
                     // The game's own six-sided wheel is still in its model, wider than the
                     // round one drawn over it. Where it shows it is painted out as the dark
                     // of the footwell behind it.
@@ -2910,6 +3015,7 @@ final class Pipeline {
                 vec4 east = texture2D(uFigure, uv + vec2(px.x, 0.0)), west = texture2D(uFigure, uv - vec2(px.x, 0.0));
                 vec4 north = texture2D(uFigure, uv + vec2(0.0, px.y)), south = texture2D(uFigure, uv - vec2(0.0, px.y));
                 float cabin = close;
+                float gloss = dial ? 0.5 : 0.4;
                 if (cabin > 0.5) {
                     // The game draws a vehicle's skin without the smaller copies a texture
                     // needs to be seen at a slant, and from the seat every panel is at a slant:
@@ -2920,7 +3026,7 @@ final class Pipeline {
                         vec2 corner = vec2(i < 2 ? -1.0 : 1.0, mod(float(i), 2.0) < 0.5 ? -1.0 : 1.0);
                         sum += texture2D(uFigure, uv + corner * px * 1.5) + texture2D(uFigure, uv + corner.yx * vec2(-2.5, 2.5) * px) * 0.5;
                     }
-                    if (sum.a > 6.0 && !wheel && !dial && !bonnetSeen) {
+                    if (sum.a > 6.0 && !wheel && !dial && !bonnetSeen && !blind && !framed) {
                         figure = vec4(sum.rgb / sum.a, 1.0);
                     }
                     if (ghost) {
@@ -2941,24 +3047,34 @@ final class Pipeline {
                     float dark = 1.0 - smoothstep(0.4, 0.65, most);
                     float woven = 0.0;
                     float grained = 0.0;
+                    if (wheel) {
+                        woven = gWoven;
+                        grained = gGrain;
+                        gloss = gGloss;
+                        dashGlow = max(dashGlow, gGlow);
+                    }
                     if (!dial && !wheel && kind > 0.5) {
                         // Which part of the cabin this is, the body's own triangles say, and
                         // each is given what the vehicle's kind has there, in the game's shading.
                         float c = (local.y - uWheel.y) * (uDash.x < 0.0 ? -1.0 : 1.0);
                         float plain = 0.0;
+                        // In a cabin the picture lights itself, the game's own shading of its
+                        // panels counts for little: it is painted on, and the light is not.
+                        float painted = builtCabin ? clamp(0.8 + most * 0.6, 0.85, 1.1) : clamp(0.35 + most * 3.2, 0.4, 1.2);
                         if (kind < 1.5) {
-                            figure.rgb = seatAt(c, faces.z > 0.6 ? local.x : local.z) * clamp(most * 2.2, 0.5, 1.2);
+                            figure.rgb = seatAt(c, faces.z > 0.6 ? local.x : local.z) * (builtCabin ? painted : clamp(most * 2.2, 0.5, 1.2));
                             woven = 1.0;
                         } else if (kind < 2.5) {
-                            figure.rgb = uDashColor * clamp(0.35 + most * 3.2, 0.4, 1.2);
+                            figure.rgb = uDashColor * painted;
                             // The top of the dash is a plain shelf: what is set in it is in its face.
                             if (faces.z < 0.9) {
                                 figure.rgb = dashAt(c, local.z, figure.rgb, dashGlow, plain);
                             }
                         } else if (kind < 3.5) {
-                            figure.rgb = doorAt(local.x, local.z, uDashColor * clamp(0.35 + most * 3.2, 0.4, 1.2), woven, plain);
+                            figure.rgb = doorAt(local.x, local.z, uDashColor * painted, woven, plain);
                         }
-                        grained = bonnet > 0.5 || plain > 0.5 ? 0.0 : woven > 0.5 ? 0.45 : 0.8;
+                        grained = bonnet > 0.5 || plain > 0.5 ? 0.0 : woven > 0.5 ? (builtCabin ? 0.7 : 0.45) : 0.8;
+                        gloss = plain > 0.5 ? 0.9 : woven > 0.5 ? 0.05 : 0.4;
                     } else if (!dial && !wheel) {
                         // The rest of the shell. In a body whose seats are not pieces of their
                         // own they are part of it, and are told as the game paints them: with
@@ -2977,9 +3093,22 @@ final class Pipeline {
                         figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6 * low);
                         grained = mix(0.9 * dark, 0.45, woven);
                     }
-                    vec3 grain = mix(texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x, texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y, woven);
-                    if (!dial && !wheel) {
+                    vec3 grain = texture2D(uVinyl, lie * 2.6).rgb * uCabinGain.x;
+                    if (builtCabin && woven > 0.5) {
+                        // Cloth is a nap of short fibres, and on a seat or a door a weave of
+                        // threads over it, which is let go where a thread is finer than a pixel.
+                        float nap = dot(texture2D(uCarpet, lie * (woven > 2.5 ? 5.0 : woven > 1.5 ? 12.0 : 8.0)).rgb, vec3(0.299, 0.587, 0.114)) * uCarpetGain;
+                        vec2 thread = lie / 0.0045;
+                        float fine = clamp(1.0 - 1.4 * max(fwidth(thread.x), fwidth(thread.y)), 0.0, 1.0);
+                        float weave = woven < 1.5 ? 1.0 - 0.3 * fine * abs(sin(3.1416 * thread.x) * sin(3.1416 * thread.y)) : 1.0;
+                        grain = vec3(nap * weave);
+                    } else if (woven > 0.5) {
+                        grain = texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y;
+                    }
+                    if (!dial) {
                         figure.rgb *= mix(vec3(1.0), grain, grained);
+                    }
+                    if (!dial && !wheel) {
                         // The game's bodies have no bulkhead: past the dash the eye would see
                         // into the wheel arches. It is the dark of a footwell there.
                         // What the triangles say is dash, door or seat is not that gap.
@@ -3061,7 +3190,7 @@ final class Pipeline {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && (uHavePanes > 0.5 || at.z > uEye.z - 0.23) && !wheel && !dial && !bonnetSeen) {
+                if (cabin > 0.5 && !builtCabin && (uHavePanes > 0.5 || at.z > uEye.z - 0.23) && !wheel && !dial && !bonnetSeen) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -3126,6 +3255,33 @@ final class Pipeline {
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 lightHere = fromSky * mix(vec3(1.0), mix(pow(uOwnAmbient, vec3(2.2)), vec3(1.0), 0.55) * (2.6 * skyGives), roofed) * mix(mix(pow(uFigureAmbient, 2.2) * 1.7, 0.8, bare) * skyGives, 1.0, roofed) + sunLight * (mix(2.1, 1.5, bare) * sun * facing);
                 vec3 color = pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lightHere;
+                float housed = builtCabin && roofed > 0.5 ? 1.0 : 0.0;
+                if (housed > 0.5) {
+                    // Whether the sun reaches the vehicle at all is asked well outside it,
+                    // towards the sun: nearer, the answer is the vehicle's own shadow.
+                    vec3 over = (uNearMatrix * vec4(at + uLight * 3.5, 1.0)).xyz * 0.5 + 0.5;
+                    float sunOut = 1.0;
+                    if (inside(over)) {
+                        sunOut = shadow2D(uShadowNear, over).r;
+                    } else {
+                        over = (uFarMatrix * vec4(at + uLight * 3.5, 1.0)).xyz * 0.5 + 0.5;
+                        if (inside(over)) {
+                            sunOut = shadow2D(uShadowFar, over).r;
+                        }
+                    }
+                    vec3 to = (at - uEye) / CABIN;
+                    vec2 side = vec2(-uAhead.y, uAhead.x);
+                    vec3 place = uSeat + vec3(dot(to.xy, uAhead), dot(to.xy, side), to.z);
+                    vec3 turned = vec3(dot(n.xy, uAhead), dot(n.xy, side), n.z);
+                    float shade = 1.0;
+                    if (wheel) {
+                        // What stands close before a built part keeps the light off it.
+                        vec3 out3 = vec3(dot(wheelFaces.xy, uAhead), dot(wheelFaces.xy, side), wheelFaces.z);
+                        shade = 0.4 + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.025) / 0.025, 0.0, 1.0) + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.08) / 0.08, 0.0, 1.0);
+                    }
+                    color = cabinLit(place, turned, vec3(dot(view.xy, uAhead), dot(view.xy, side), view.z), pow(figure.rgb, vec3(2.2)), gloss, skyGives, sunOut, shade,
+                            sunLight, vec3(dot(uLight.xy, uAhead), dot(uLight.xy, side), uLight.z));
+                }
                 float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
                 if (uPainted < 0.5 && cabin < 0.5) {
                     // Skin and cloth let a little light through at the edge of the shade: the
@@ -3189,10 +3345,10 @@ final class Pipeline {
                 // The bonnet is seen from the seat at a glance, where lacquer mirrors most and
                 // shows least of the paint under it.
                 color *= 1.0 - 0.45 * glancing * bonnet;
-                color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * roofed) * (1.0 - 0.6 * bonnet);
+                color += skyBack * mix(0.22 * glance, 0.1 + 0.6 * glance, lacquer) * (1.0 - 0.7 * roofed) * (1.0 - 0.6 * bonnet) * (1.0 - housed);
                 // Cloth and skin scatter the sun and do not mirror it: with a hard glint a sleeve is a
                 // length of rubber hose.
-                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45 * (1.0 - 0.85 * bare), 3.0, lacquer) * sun);
+                color += sunLight * (pow(max(dot(back, uLight), 0.0), mix(48.0, 260.0, lacquer)) * mix(0.45 * (1.0 - 0.85 * bare), 3.0, lacquer) * sun) * (1.0 - housed);
                 // The sky lies along it, and the sun in it is a broad soft light round the
                 // small hard one.
                 color += bonnet * (skyBack * (0.3 * glancing) + sunLight * (pow(max(dot(back, uLight), 0.0), 22.0) * 0.5 * sun));
@@ -3211,7 +3367,7 @@ final class Pipeline {
             }
             """;
 
-    private static final String FIGURE_LIGHT = FIGURE_LIGHT_PARTS.concat(FIGURE_LIGHT_MAIN);
+    private static final String FIGURE_LIGHT = FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS).concat(FIGURE_LIGHT_MAIN);
 
     private static final String DEVELOP = """
             #version 120
@@ -3652,7 +3808,7 @@ final class Pipeline {
      */
     private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
     /** Which of the materials is planed wood. */
-    private static final int WOOD = 6;
+    private static final int WOOD = 6, CARPET = 9;
     /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int MATERIAL_SIZE = 1024;
@@ -3751,8 +3907,9 @@ final class Pipeline {
             """;
     private static final String PANE_FRAGMENT = """
             #version 120
+            uniform float uPane;
             void main() {
-                gl_FragColor = vec4(1.0);
+                gl_FragColor = vec4(uPane);
             }
             """;
     /**
@@ -3768,7 +3925,7 @@ final class Pipeline {
             #version 120
             uniform float uKind;
             void main() {
-                gl_FragColor = vec4(uKind / 8.0, 0.0, 0.0, 1.0);
+                gl_FragColor = vec4(uKind / 8.0, 1.0, 0.0, 1.0);
             }
             """;
     private static int figureNormal;
@@ -4980,7 +5137,13 @@ final class Pipeline {
             GL11.glLoadMatrixf(VehicleMeshes.paneMatrix);
             GL11.glVertexPointer(3, GL_FLOAT, 0, glass);
             paneMask.use();
-            GL11.glDrawArrays(GL_TRIANGLES, 0, glass.limit() / 3);
+            // The panes of the front of the glasshouse are drawn at a half: the picture
+            // builds its own there.
+            int rear = VehicleMeshes.seatedRearPanes;
+            paneMask.set("uPane", 1f);
+            GL11.glDrawArrays(GL_TRIANGLES, 0, rear);
+            paneMask.set("uPane", 0.5f);
+            GL11.glDrawArrays(GL_TRIANGLES, rear, glass.limit() / 3 - rear);
             GL11.glDisableClientState(GL_VERTEX_ARRAY);
             GL11.glLoadIdentity();
         }
@@ -5007,12 +5170,20 @@ final class Pipeline {
             GL11.glLoadMatrixf(VehicleMeshes.paneMatrix);
             GL11.glVertexPointer(3, GL_FLOAT, 0, parts.triangles);
             partKind.use();
-            for (int kind = 0; kind < CabinParts.KINDS; kind++) {
+            GL11.glColorMask(true, false, true, true);
+            for (int kind = 0; kind < CabinParts.UNSEEN; kind++) {
                 if (parts.count[kind] > 0) {
                     partKind.set("uKind", (float) kind);
                     GL11.glDrawArrays(GL_TRIANGLES, parts.first[kind], parts.count[kind]);
                 }
             }
+            // What the picture builds its own in place of is marked where it stands before
+            // the rest, and hides none of it.
+            GL11.glColorMask(false, true, false, false);
+            GL11.glDepthMask(false);
+            GL11.glDrawArrays(GL_TRIANGLES, parts.first[CabinParts.UNSEEN], parts.count[CabinParts.UNSEEN]);
+            GL11.glColorMask(true, true, true, true);
+            GL11.glDepthMask(true);
             GL11.glDisableClientState(GL_VERTEX_ARRAY);
             GL11.glLoadIdentity();
             GL11.glDisable(GL_DEPTH_TEST);
@@ -5023,6 +5194,9 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, partsDepth);
         GL13.glActiveTexture(GL_TEXTURE0 + WOOD_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[WOOD]);
+        // The carpet's own unit is among those the game's vehicle draw may have bound over.
+        GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + CARPET);
+        GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[CARPET]);
         GL13.glActiveTexture(GL_TEXTURE0 + PANE_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, paneColor);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -5034,6 +5208,8 @@ final class Pipeline {
         figureLight.set("uParted", parts != null ? 1f : 0f, parts != null && parts.seats ? 1f : 0f);
         figureLight.set("uWood", WOOD_UNIT);
         figureLight.set("uWoodGain", materialGain[WOOD]);
+        figureLight.set("uCarpet", FIRST_MATERIAL_UNIT + CARPET);
+        figureLight.set("uCarpetGain", materialGain[CARPET]);
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -5081,7 +5257,6 @@ final class Pipeline {
             } else {
                 figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
                 figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
-                figureLight.set("uMirror", wheel[7], wheel[8], wheel[9]);
                 float[] kit = Cabins.kit(FirstPerson.seatedIn);
                 figureLight.set("uKit", kit[0], kit[1], kit[2], kit[3]);
                 figureLight.set("uHub", kit[4], kit[5], kit[6]);
@@ -5104,6 +5279,15 @@ final class Pipeline {
                             wheel[1] + (toY * FirstPerson.aheadX - toX * FirstPerson.aheadY) / Cabins.SCALE, wheel[2] + (camera.eyeUp - at[2]) / Cabins.SCALE);
                 }
                 float[] measures = parts != null ? parts.measures : Cabins.STANDARD_MEASURES;
+                float[] house = Cabins.house(FirstPerson.seatedIn, measures);
+                figureLight.set("uHouse", house[0], house[1], house[2]);
+                figureLight.set("uMirror", house[3], house[4], house[5]);
+                figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
+                figureLight.set("uTrade", Cabins.trade(FirstPerson.seatedIn));
+                float[] skin = Cabins.skin(FirstPerson.skin);
+                figureLight.set("uArms", FirstPerson.driving ? 1f : 0f);
+                figureLight.set("uSkin", skin[0], skin[1], skin[2]);
+                figureLight.set("uSleeve", Cabins.SLEEVE[0], Cabins.SLEEVE[1], Cabins.SLEEVE[2], 1f);
                 float sill = wheel[2] + measures[2] / Cabins.SCALE, glassOut = measures[3] / Cabins.SCALE;
                 figureLight.set("uScreen", wheel[0] + measures[0] / Cabins.SCALE, wheel[2] + measures[1] / Cabins.SCALE, sill, glassOut);
                 figureLight.set("uDash", measures[4] / Cabins.SCALE, wheel[2] + measures[5] / Cabins.SCALE);

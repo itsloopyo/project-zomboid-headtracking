@@ -13,7 +13,12 @@ import java.util.HashMap;
 final class CabinParts {
     private CabinParts() {}
 
-    static final int OTHER = 0, SEAT = 1, DASH = 2, DOOR = 3, BONNET = 4, KINDS = 5;
+    /**
+     * UNSEEN is what of the body the picture builds its own in place of: its steering wheel, its
+     * pillars and the front of its roof. It is not drawn, and what the game painted of it is
+     * not taken for what stands behind it.
+     */
+    static final int OTHER = 0, SEAT = 1, DASH = 2, DOOR = 3, BONNET = 4, UNSEEN = 5, KINDS = 6;
     /** A pane, or what stands outside one: looked through or past, so no part of the cabin. */
     static final byte GLASS = -1;
 
@@ -32,6 +37,15 @@ final class CabinParts {
     private static final int MIRROR_TRIANGLES = 24;
     /** Where a door mirror stands on a body that has none of its own: back from the foot of the screen, out from the glass and above the sill. */
     private static final float MIRROR_BACK = 0.16f, MIRROR_OUT = 0.12f, MIRROR_UP = 0.03f;
+    /**
+     * The picture builds the front of a cabin's glasshouse itself: its pillars, the rail over
+     * the screen and the roof. What the body has of its own there, above the sills and ahead of
+     * this far behind the wheel's middle, is seen past. The picture's own pillar behind the
+     * driver's door stands ahead of the line.
+     */
+    static final float BUILT_FROM = Cabins.EYE_BEHIND + 0.25f;
+    /** A seat's back that is part of the shell stands this far in from the glass, at least, and behind the wheel. */
+    private static final float SEAT_INSIDE = 0.05f, SEAT_BEHIND = 0.05f;
 
     static final class Found {
         /** For each triangle, one of the kinds or GLASS. */
@@ -42,13 +56,16 @@ final class CabinParts {
         float footAlong, footUp, sillUp;
         /** How far the foot of the driver's window is from the vehicle's middle line, and where that line is. */
         float glassOut, middleAcross;
-        /** The top of the dashboard. */
-        float dashTop;
+        /** The top of the dashboard, and how far along its shelf begins on the side of the seats. */
+        float dashTop, dashBack;
+        /** For each triangle that is a pane, whether it is one of the front of the glasshouse, which the picture builds. */
+        final boolean[] front;
         /** The middle of the mirror on the driver's door: along, across and up. */
         float[] mirror;
 
         Found(int triangles) {
             kinds = new byte[triangles];
+            front = new boolean[triangles];
         }
     }
 
@@ -249,9 +266,12 @@ final class CabinParts {
         }
 
         found.dashTop = -Float.MAX_VALUE;
+        float builtFrom = wheel[0] - BUILT_FROM, belt = Math.min(found.sillUp, found.footUp);
         for (int t = 0; t < triangles; t++) {
+            float foremost = Math.max(at[elements[t * 3] * 3], Math.max(at[elements[t * 3 + 1] * 3], at[elements[t * 3 + 2] * 3]));
             if (glass[t] || outside[piece[t]]) {
                 found.kinds[t] = GLASS;
+                found.front[t] = glass[t] && foremost > builtFrom;
                 continue;
             }
             if (seatPiece[piece[t]]) {
@@ -259,6 +279,8 @@ final class CabinParts {
                 continue;
             }
             if (piece[t] == wheelPiece) {
+                // The picture draws a wheel of its own where the body's six-sided one is.
+                found.kinds[t] = UNSEEN;
                 continue;
             }
             measure(at, facing, elements, t, middle, faces);
@@ -278,6 +300,15 @@ final class CabinParts {
             } else if (middle[0] > found.footAlong && faces[2] > 0.25f && middle[2] > found.footUp - 0.35f && middle[2] < found.footUp + 0.1f) {
                 // What faces the sky ahead of the screen. The insides of the wheel arches are there too, and face down.
                 found.kinds[t] = BONNET;
+            } else if (middle[2] > belt + 0.02f && foremost > builtFrom && middle[0] <= found.footAlong + 0.05f
+                    && (outermost(at, elements, t, found.middleAcross) > found.glassOut - SEAT_INSIDE || foremost > wheel[0] - SEAT_BEHIND
+                            || highest(at, elements, t) > wheel[2] + SEAT_TOP + 0.03f)) {
+                // The body's own pillars, the frames of its front windows and the front of its roof.
+                found.kinds[t] = UNSEEN;
+            } else if (!inward && -faces[1] * Math.signum(out) < -0.5f && Math.abs(out) > found.glassOut - 0.08f && middle[2] > belt - 0.12f && foremost > builtFrom
+                    && middle[0] <= found.footAlong + 0.05f) {
+                // The lip of a front door's outer skin, which from the seat would show over the door's top.
+                found.kinds[t] = UNSEEN;
             } else if (found.seatPieces > 0 && middle[2] >= seatLow && middle[2] <= seatHigh) {
                 // A bench that is part of the shell, where a passenger sits whom no loose piece seats.
                 for (int seat = 0; seat < seated.length; seat++) {
@@ -289,6 +320,19 @@ final class CabinParts {
         }
         if (found.dashTop == -Float.MAX_VALUE) {
             found.dashTop = found.footUp;
+        }
+        // The shelf under the screen begins where the highest of the dashboard is nearest the seats.
+        found.dashBack = found.footAlong;
+        for (int t = 0; t < triangles; t++) {
+            if (found.kinds[t] != DASH) {
+                continue;
+            }
+            for (int corner = 0; corner < 3; corner++) {
+                int v = elements[t * 3 + corner];
+                if (at[v * 3 + 2] >= found.dashTop - 0.03f) {
+                    found.dashBack = Math.min(found.dashBack, at[v * 3]);
+                }
+            }
         }
         return found;
     }
@@ -308,6 +352,16 @@ final class CabinParts {
         for (int axis = 0; axis < 3; axis++) {
             faces[axis] /= length;
         }
+    }
+
+    /** How far out from the middle line the corner of a triangle furthest from it is. */
+    private static float outermost(float[] at, int[] elements, int t, float middleAcross) {
+        return Math.max(Math.abs(at[elements[t * 3] * 3 + 1] - middleAcross),
+                Math.max(Math.abs(at[elements[t * 3 + 1] * 3 + 1] - middleAcross), Math.abs(at[elements[t * 3 + 2] * 3 + 1] - middleAcross)));
+    }
+
+    private static float highest(float[] at, int[] elements, int t) {
+        return Math.max(at[elements[t * 3] * 3 + 2], Math.max(at[elements[t * 3 + 1] * 3 + 2], at[elements[t * 3 + 2] * 3 + 2]));
     }
 
     private static float lowest(float[] at, int[] elements, int t) {

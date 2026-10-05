@@ -13,6 +13,7 @@ final class CabinTests {
         mirroredBodyIsToldTheSame();
         bodyWithItsSeatsInItsShellHasNoSeatPieces();
         signOnTheRoofIsNotASeat();
+        frontOfTheGlasshouseIsUnseenAndTheBackKept();
     }
 
     private static void check(boolean condition, String what) {
@@ -148,8 +149,8 @@ final class CabinTests {
         }
         for (int k = 0; k < 18; k++) {
             int a = first + k * 2, b = first + (k + 1) % 18 * 2;
-            body.triangle(a, a + 1, b, CabinParts.OTHER, false);
-            body.triangle(b, a + 1, b + 1, CabinParts.OTHER, false);
+            body.triangle(a, a + 1, b, CabinParts.UNSEEN, false);
+            body.triangle(b, a + 1, b + 1, CabinParts.UNSEEN, false);
         }
         return body;
     }
@@ -183,10 +184,30 @@ final class CabinTests {
         }
     }
 
+    private static void frontOfTheGlasshouseIsUnseenAndTheBackKept() {
+        Body body = saloon(1f, true);
+        int first = body.kinds.size();
+        // A screen pillar leaning in from the sill to the roof, the roof over the front seats, and a pillar by the back window.
+        body.quad(new float[] {0.9f, -0.78f, 0.1f, 0.85f, -0.78f, 0.1f, 0.55f, -0.6f, 0.6f, 0.6f, -0.6f, 0.6f}, HIGH, CabinParts.UNSEEN, false, false);
+        body.quad(new float[] {-0.6f, -0.6f, 0.6f, 0.6f, -0.6f, 0.6f, 0.6f, 0.6f, 0.6f, -0.6f, 0.6f, 0.6f}, DOWN, CabinParts.UNSEEN, false, false);
+        body.quad(new float[] {-0.9f, -0.78f, 0.1f, -0.8f, -0.78f, 0.1f, -0.75f, -0.6f, 0.6f, -0.8f, -0.6f, 0.6f}, HIGH, CabinParts.OTHER, false, false);
+        CabinParts.Found found = body.told(CabinParts.seats(SCRIPT_SEATS, 0f, 0f, -0.32f));
+        body.checkTold(found, "a saloon with pillars and a roof");
+        boolean screen = false, side = false;
+        for (int t = 0; t < first; t++) {
+            if (body.glass.get(t) && found.front[t]) {
+                screen = true;
+            }
+            side |= !body.glass.get(t) && found.front[t];
+        }
+        check(screen && !side, "the screen and the front windows are the front's panes, and nothing else is");
+        check(near(found.dashBack, 0.85f), "the dashboard's shelf begins at its highest edge nearest the seats");
+    }
+
     private static void signOnTheRoofIsNotASeat() {
         Body body = saloon(1f, true);
-        body.quad(new float[] {0f, -0.4f, 0.75f, 0.3f, -0.4f, 0.75f, 0.3f, 0.4f, 0.75f, 0f, 0.4f, 0.75f}, UP, CabinParts.OTHER, false, false);
-        body.quad(new float[] {0f, -0.4f, 0.75f, 0.3f, -0.4f, 0.75f, 0.3f, -0.4f, 0.85f, 0f, -0.4f, 0.85f}, LOW, CabinParts.OTHER, false, false);
+        body.quad(new float[] {0f, -0.4f, 0.75f, 0.3f, -0.4f, 0.75f, 0.3f, 0.4f, 0.75f, 0f, 0.4f, 0.75f}, UP, CabinParts.UNSEEN, false, false);
+        body.quad(new float[] {0f, -0.4f, 0.75f, 0.3f, -0.4f, 0.75f, 0.3f, -0.4f, 0.85f, 0f, -0.4f, 0.85f}, LOW, CabinParts.UNSEEN, false, false);
         CabinParts.Found found = body.told(CabinParts.seats(SCRIPT_SEATS, 0f, 0f, -0.32f));
         body.checkTold(found, "a saloon with a sign on its roof");
         check(found.seatPieces == 1, "a loose piece over the seats, on the roof, is not a seat");
