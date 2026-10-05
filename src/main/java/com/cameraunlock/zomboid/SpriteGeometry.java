@@ -710,6 +710,11 @@ final class SpriteGeometry {
     /** How far in from a post's outline its texels are taken, as a share of its thickness: the outline itself is the sprite's dark line. */
     private static final float POST_TEXELS_IN = 0.86f;
     private static final float DIAGONAL = (float) (Math.PI / 4.0);
+    /** The most sides a post is drawn with. */
+    private static final int MOST_POST_SIDES = 20;
+    /** The cosine and sine at each corner round the post being added, and at the middle of each side. */
+    private final float[] postCos = new float[MOST_POST_SIDES + 1], postSin = new float[MOST_POST_SIDES + 1];
+    private final float[] postMiddleCos = new float[MOST_POST_SIDES], postMiddleSin = new float[MOST_POST_SIDES];
 
     /**
      * Stands a post as the solid Posts read off its sprite: a round one turned about its axis
@@ -725,7 +730,18 @@ final class SpriteGeometry {
     void addPost(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, Posts post, float a, float b, float top, boolean capped,
             boolean oneTexel, float texelU, float texelV) {
         boolean round = post.kind == Posts.ROUND;
-        int sides = !round ? 4 : post.half >= 0.2f ? 20 : post.half >= 0.05f ? 12 : 8;
+        int sides = !round ? 4 : post.half >= 0.2f ? MOST_POST_SIDES : post.half >= 0.05f ? 12 : 8;
+        // Worked out once for the post: every station up it has the same corners round it.
+        for (int side = 0; side <= sides; side++) {
+            float angle = DIAGONAL + side * 2f * (float) Math.PI / sides;
+            postCos[side] = (float) Math.cos(angle);
+            postSin[side] = (float) Math.sin(angle);
+            if (side < sides) {
+                float middle = (angle + (DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides)) / 2f;
+                postMiddleCos[side] = (float) Math.cos(middle);
+                postMiddleSin[side] = (float) Math.sin(middle);
+            }
+        }
         float out = round ? 1f : (float) Math.sqrt(2.0);
         float inA = Math.clamp(a, 0f, 1f), inB = Math.clamp(b, 0f, 1f);
         float w0 = (1f - inA) * (1f - inB), w1 = inA * (1f - inB), w2 = inA * inB, w3 = (1f - inA) * inB;
@@ -749,15 +765,13 @@ final class SpriteGeometry {
             }
             float flat = rise / length, upward = lean / length;
             for (int side = 0; side < sides; side++) {
-                float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
-                float middle = (from + to) / 2f;
                 for (int corner = 0; corner < 6; corner++) {
                     // Two triangles: low from, low to, high to, then low from, high to, high from.
                     boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                    float angle = far ? to : from, faces = round ? angle : middle;
-                    float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
+                    int at = far ? side + 1 : side;
+                    float cos = postCos[at], sin = postSin[at];
                     float r = high ? r1 : r0, h = high ? h1 : h0;
-                    mesh.face((float) Math.cos(faces) * flat, (float) Math.sin(faces) * flat, upward);
+                    mesh.face((round ? cos : postMiddleCos[side]) * flat, (round ? sin : postMiddleSin[side]) * flat, upward);
                     postVertex(mesh, frame, x, y, foot, a, b, cos * r, sin * r, h, highest, oneTexel, texelU, texelV, red, green, blue);
                 }
             }
@@ -768,10 +782,9 @@ final class SpriteGeometry {
         float r = post.halves[stations - 1] * out;
         mesh.face(0f, 0f, 1f);
         for (int side = 0; side < sides; side++) {
-            float from = DIAGONAL + side * 2f * (float) Math.PI / sides, to = DIAGONAL + (side + 1) * 2f * (float) Math.PI / sides;
             postVertex(mesh, frame, x, y, foot, a, b, 0f, 0f, highest, highest, oneTexel, texelU, texelV, red, green, blue);
-            postVertex(mesh, frame, x, y, foot, a, b, (float) Math.cos(from) * r, (float) Math.sin(from) * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
-            postVertex(mesh, frame, x, y, foot, a, b, (float) Math.cos(to) * r, (float) Math.sin(to) * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+            postVertex(mesh, frame, x, y, foot, a, b, postCos[side] * r, postSin[side] * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
+            postVertex(mesh, frame, x, y, foot, a, b, postCos[side + 1] * r, postSin[side + 1] * r, highest, highest, oneTexel, texelU, texelV, red, green, blue);
         }
     }
 

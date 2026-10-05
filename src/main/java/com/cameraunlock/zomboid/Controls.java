@@ -30,6 +30,7 @@ import zombie.iso.Vector3;
 public final class Controls {
     private static final AimInput aim = new AimInput();
     private static boolean stockAim, filteredAim, attackDown;
+    private static boolean interactDown, interactTaken;
 
     /** Where the clean aim meets the world, in the game's own axes: tiles and floor levels. */
     private static float aimPointX, aimPointY, aimPointLevel;
@@ -92,10 +93,32 @@ public final class Controls {
     /**
      * Called with whether the game's own view has an object under the cursor
      * for a click to act on. The held cursor is not something the player
-     * points with, so nothing is.
+     * points with, and with the pointer out it points at the first person
+     * picture, which does not show what the game's own view has under it. So
+     * nothing is: the world is acted on through the middle of the view.
      */
     public static boolean picked(boolean stock) {
-        return !FirstPerson.lookCaptured() && stock;
+        return !FirstPerson.active() && stock;
+    }
+
+    /**
+     * Called with whether the Interact key is down. A press with the mouse
+     * turning the view goes first to what the middle of the view is on. When
+     * something there takes it the game is not told of the key until it is
+     * let go, or its own handler would act a second time on whatever the
+     * character's body faces.
+     */
+    public static boolean interactKey(boolean stock) {
+        if (!stock) {
+            interactDown = false;
+            interactTaken = false;
+            return false;
+        }
+        if (!interactDown) {
+            interactDown = true;
+            interactTaken = FirstPerson.lookCaptured() && FirstPerson.useAtCentre();
+        }
+        return !interactTaken;
     }
 
     /**

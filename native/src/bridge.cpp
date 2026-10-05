@@ -96,7 +96,20 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->collision_margin = c.lean_clamp.skin;
         out->collision_release_smoothing = c.lean_clamp.release_smoothing;
         out->light_multiplier = c.light.multiplier;
+        out->field_of_view = c.field_of_view;
         return static_cast<std::int32_t>(loaded.status);
+    });
+}
+
+std::int32_t PzhtConfigReloadFieldOfView(float* degrees) {
+    return Guarded("reading the field of view again", [&]() -> std::int32_t {
+        if (!g_owner) throw std::logic_error("PzhtConfigLoad has not run");
+        if (!g_owner->FileChanged()) return 0;
+        const cfg::ConfigReloadResult<pzht::Config> reloaded = g_owner->Reload();
+        AppendLog(reloaded.log);
+        if (!reloaded.config) return 0;
+        *degrees = reloaded.config->field_of_view;
+        return 1;
     });
 }
 

@@ -163,7 +163,10 @@ final class VehicleMeshes {
         if (known == null) {
             Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up", script, body.modelInstance.model.name, along, across, up - groundUp));
         }
-        wheels.put(script, new float[] {along, across, up - groundUp});
+        // The logic thread reads the three together, so they are never written into the array it may hold.
+        if (known == null || known[0] != along || known[1] != across || known[2] != up - groundUp) {
+            wheels.put(script, new float[] {along, across, up - groundUp});
+        }
     }
 
     /**

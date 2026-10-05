@@ -329,11 +329,15 @@ final class Pipeline {
     private static final int[] asked = new int[16];
     private static final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
+    private static final String[] ROOT_AT = new String[Characters.ROOTS];
 
     static {
         for (int i = 0; i < Headlights.BEAMS; i++) {
             BEAM_AT[i] = "uBeamAt[" + i + "]";
             BEAM_WAY[i] = "uBeamWay[" + i + "]";
+        }
+        for (int i = 0; i < ROOT_AT.length; i++) {
+            ROOT_AT[i] = "uRoot[" + i + "]";
         }
     }
     private static volatile float lastMillis;
@@ -590,12 +594,19 @@ final class Pipeline {
      */
     private static void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
         int texel = program.at("uTexel"), painted = program.at("uTint");
+        boolean told = false;
+        int toldKey = 0;
         for (int i = from; i < to; i++) {
             int texture = listed.texture(i) == 0 ? whiteTexture : listed.texture(i);
             GL11.glBindTexture(GL_TEXTURE_2D, texture);
             tellTexel(texel, texture);
-            WallSides.tint(listed.tint(i), tint);
-            GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+            int key = listed.tint(i);
+            if (!told || key != toldKey) {
+                WallSides.tint(key, tint);
+                GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+                told = true;
+                toldKey = key;
+            }
             listed.draw(i);
         }
         GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
@@ -1522,7 +1533,7 @@ final class Pipeline {
             figureLight.set("uWearGain", materialGain[13], materialGain[11]);
             figureLight.set("uRoots", pass == 0 ? (float) Characters.rootsFound : 0f);
             for (int root = 0; root < Characters.rootsFound && pass == 0; root++) {
-                figureLight.set("uRoot[" + root + "]", Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
+                figureLight.set(ROOT_AT[root], Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
             }
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);

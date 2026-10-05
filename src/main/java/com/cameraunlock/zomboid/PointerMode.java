@@ -4,7 +4,8 @@ package com.cameraunlock.zomboid;
  * Whether the first person view has let go of the mouse so that the player can
  * point at the game's panels. Three things let go of it: the inventory key,
  * which opens the inventory and holds the pointer until it is pressed again or
- * Escape is; a panel of the game's that opens; and a button held down.
+ * Escape is, as does a container opened from the look; a panel of the game's
+ * that opens; and a button held down.
  */
 final class PointerMode {
     /** What the inventory and loot panels are to do after an update. */
@@ -64,6 +65,11 @@ final class PointerMode {
     void passOver(int panels) {
         byPanel = false;
         ignoredPanels = panels;
+    }
+
+    /** Brings the pointer out as the inventory key does, for a container opened from the look. */
+    void open() {
+        byKey = true;
     }
 
     /** Back to the look, for when the first person view is turned off. */

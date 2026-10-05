@@ -75,8 +75,9 @@ final class MuzzleFlash {
 
     private static volatile long firedAt;
     private static volatile int shots;
-    /** Where the light is in the world (x, y, up), or null before a weapon with a muzzle has been drawn. */
-    private static volatile float[] at;
+    /** Where the light is in the world (x, y, up), once a weapon with a muzzle has been drawn. Render thread. */
+    private static final float[] at = new float[3];
+    private static boolean placed;
 
     /** A shot has been taken. Logic thread. */
     static void fire() {
@@ -98,11 +99,10 @@ final class MuzzleFlash {
      * for uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash.
      */
     static void light(float[] out) {
-        float[] where = at;
-        out[0] = where == null ? 0f : where[0];
-        out[1] = where == null ? 0f : where[1];
-        out[2] = where == null ? 0f : where[2];
-        out[3] = where == null ? 0f : left() * LIGHT;
+        out[0] = placed ? at[0] : 0f;
+        out[1] = placed ? at[1] : 0f;
+        out[2] = placed ? at[2] : 0f;
+        out[3] = placed ? left() * LIGHT : 0f;
         out[4] = RED;
         out[5] = GREEN;
         out[6] = BLUE;
@@ -110,7 +110,7 @@ final class MuzzleFlash {
 
     /** The weapon drawn this frame has no muzzle: nothing flashes. */
     static void none() {
-        at = null;
+        placed = false;
     }
 
     /**
@@ -120,11 +120,10 @@ final class MuzzleFlash {
      */
     static void draw(ViewCamera.Pose camera, float x, float y, float z, float tanHalfFieldOfView, float aspect, int width, int height) {
         float ahead = -z + LIGHT_AHEAD;
-        at = new float[] {
-            camera.eyeX + camera.rightX * x + camera.upX * y + camera.forwardX * ahead,
-            camera.eyeY + camera.rightY * x + camera.upY * y + camera.forwardY * ahead,
-            camera.eyeUp + camera.rightUp * x + camera.upUp * y + camera.forwardUp * ahead,
-        };
+        at[0] = camera.eyeX + camera.rightX * x + camera.upX * y + camera.forwardX * ahead;
+        at[1] = camera.eyeY + camera.rightY * x + camera.upY * y + camera.forwardY * ahead;
+        at[2] = camera.eyeUp + camera.rightUp * x + camera.upUp * y + camera.forwardUp * ahead;
+        placed = true;
         float left = left();
         if (left <= 0f || z >= 0f || !burst.use()) {
             return;

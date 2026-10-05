@@ -28,6 +28,7 @@ final class WallSides {
 
     /** What each of a set of walls shows, as numbers, and which number most of them agree on. */
     static final class Votes {
+        /** Each a place in a list, so none is negative. */
         private int[] cast = new int[16];
         private int count;
 
@@ -44,16 +45,18 @@ final class WallSides {
 
         /** The vote cast most often, and of two cast equally often the one cast first. -1 when none was cast. */
         int commonest() {
+            int highest = -1;
+            for (int i = 0; i < count; i++) {
+                highest = Math.max(highest, cast[i]);
+            }
+            int[] times = new int[highest + 1];
+            for (int i = 0; i < count; i++) {
+                times[cast[i]]++;
+            }
             int best = -1, most = 0;
             for (int i = 0; i < count; i++) {
-                int same = 0;
-                for (int j = 0; j < count; j++) {
-                    if (cast[j] == cast[i]) {
-                        same++;
-                    }
-                }
-                if (same > most) {
-                    most = same;
+                if (times[cast[i]] > most) {
+                    most = times[cast[i]];
                     best = cast[i];
                 }
             }

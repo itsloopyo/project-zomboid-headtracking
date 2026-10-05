@@ -8,6 +8,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -161,6 +162,39 @@ void TestTheModesSave() {
     Check(ReadBytes(s.defaults) == defaultsBefore, "a save leaves Defaults.ini as it was");
 }
 
+void TestFieldOfViewIsReadAgainWhileTheGameRuns() {
+    const Scratch s(L"field-of-view");
+    cfg::ConfigOwner<Config> owner(s.Options());
+    const auto loaded = owner.Load();
+    Check(loaded.config.field_of_view == kDefaultFieldOfView, "a first start draws 65 degrees from bottom to top");
+    Check(Holds(ReadBytes(s.ConfigPath()), "FieldOfView=65.0"), "and the file it creates says so");
+    Check(!owner.FileChanged(), "a file nobody has edited has not changed");
+
+    const std::string created = ReadBytes(s.ConfigPath());
+    const auto edit = [&](const std::string& value) {
+        std::string bytes = created;
+        const std::string row = "FieldOfView=65.0";
+        bytes.replace(bytes.find(row), row.size(), "FieldOfView=" + value);
+        WriteBytes(s.ConfigPath(), bytes);
+        // The watch goes by the file's write time, and two writes can land on one tick of it.
+        fs::last_write_time(s.ConfigPath(), fs::last_write_time(s.ConfigPath()) + std::chrono::seconds(2));
+    };
+
+    edit("90");
+    Check(owner.FileChanged(), "an edit is seen");
+    auto reloaded = owner.Reload();
+    Check(reloaded.status == cfg::ConfigReloadStatus::Applied && reloaded.config && reloaded.config->field_of_view == 90.0f,
+          "and the reload gives the new field of view");
+    Check(reloaded.config && reloaded.config->udp_port == 4242, "with the rows nobody touched as they were");
+
+    for (const char* refused : {"39", "111", "wide"}) {
+        edit(refused);
+        reloaded = owner.Reload();
+        Check(reloaded.config && reloaded.config->field_of_view == kDefaultFieldOfView && !reloaded.diagnostics.empty(),
+              std::string("a field of view of ") + refused + " is refused, reported and read as 65");
+    }
+}
+
 void TestEndNeverSaves() {
     const Scratch s(L"end");
     const std::string committed = Committed();
@@ -195,6 +229,7 @@ int main(int argc, char** argv) {
         TestFirstStartCreatesTheCommittedFile();
         TestCommittedConfigIsRendered();
         TestTheModesSave();
+        TestFieldOfViewIsReadAgainWhileTheGameRuns();
         TestEndNeverSaves();
     } catch (const std::exception& e) {
         std::printf("FAIL: %s\n", e.what());

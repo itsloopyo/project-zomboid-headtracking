@@ -30,6 +30,7 @@ struct PzhtSettings {
     float collision_margin;
     float collision_release_smoothing;
     float light_multiplier;
+    float field_of_view;
 };
 
 // The bits PzhtHotkeysTake answers with.
@@ -43,6 +44,12 @@ PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 // Builds the owner of the file at `path` and loads it. Answers the owner's ConfigLoadStatus and
 // fills `out` with the settings the session runs on.
 PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out);
+
+// FieldOfView is the one row read again while the game runs. When the file or Defaults.ini has
+// changed since the owner last read or wrote it, reads both again, puts the field of view they
+// give in `degrees` and answers 1. Answers 0, and leaves `degrees` alone, when nothing changed or
+// the file cannot be read.
+PZHT_EXPORT std::int32_t PzhtConfigReloadFieldOfView(float* degrees);
 
 // Each answers the owner's ConfigSaveStatus.
 PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::int32_t position);

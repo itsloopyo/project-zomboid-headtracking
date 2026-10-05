@@ -158,6 +158,24 @@ final class Flora {
     private static final int[] QUAD = {0, 1, 2, 0, 2, 3};
 
     /**
+     * Which way a bole faces at each place round it, worked out once: a tree has hundreds of
+     * vertices and every one of them asks.
+     */
+    private static final float[] NEAR_COS = round(TRUNK_SIDES, 0.0, false), NEAR_SIN = round(TRUNK_SIDES, 0.0, true);
+    private static final float[] FAR_COS = round(TRUNK_SIDES_FAR, 0.0, false), FAR_SIN = round(TRUNK_SIDES_FAR, 0.0, true);
+    /** The same half a side on, where the faces of a near bole run up to its point. */
+    private static final float[] SPIRE_COS = round(TRUNK_SIDES, 0.5, false), SPIRE_SIN = round(TRUNK_SIDES, 0.5, true);
+
+    private static float[] round(int sides, double from, boolean sine) {
+        float[] out = new float[sides + 1];
+        for (int around = 0; around <= sides; around++) {
+            double angle = (around + from) * 2.0 * Math.PI / sides;
+            out[around] = (float) (sine ? Math.sin(angle) : Math.cos(angle));
+        }
+        return out;
+    }
+
+    /**
      * A flower's head over (x, y) at height up: a square card tipped to face half upward and
      * half the way turn points, since it is looked down on from one side or another. It has no
      * stem: that is in among the grass. Two triangles.
@@ -251,6 +269,7 @@ final class Flora {
         int sides = near ? TRUNK_SIDES : TRUNK_SIDES_FAR;
         int rings = rings(x, y, radius, height, near, seed, 0f);
         int repeats = Math.max(1, Math.round(2f * (float) Math.PI * radius / BARK_SPAN));
+        float[] cos = near ? NEAR_COS : FAR_COS, sin = near ? NEAR_SIN : FAR_SIN;
         mark(mesh, frame.open, 0f, TRUNK);
         mesh.sway = 0f;
         for (int ring = 0; ring + 1 < rings; ring++) {
@@ -259,8 +278,7 @@ final class Flora {
                     int at = (ring + (corner >= 2 ? 1 : 0)) * (TRUNK_SIDES + 1) + side + (corner == 1 || corner == 2 ? 1 : 0);
                     int around = side + (corner == 1 || corner == 2 ? 1 : 0);
                     float climb = ringUp[ring + (corner >= 2 ? 1 : 0)];
-                    double angle = around * 2.0 * Math.PI / sides;
-                    mesh.face((float) Math.cos(angle), (float) Math.sin(angle), ringSlope[at]);
+                    mesh.face(cos[around], sin[around], ringSlope[at]);
                     mesh.add(ringX[at], ringY[at], base + climb, (float) around * repeats / sides, climb / BARK_SPAN, frame.red, frame.green, frame.blue);
                 }
             }
@@ -275,11 +293,10 @@ final class Flora {
         float topUp = ringUp[rings - 1], tip = topUp + height * SPIRE;
         float lean = radius * TAPER / (height * SPIRE);
         for (int side = 0; side < sides; side++) {
-            mesh.face((float) Math.cos((side + 0.5) * 2.0 * Math.PI / sides), (float) Math.sin((side + 0.5) * 2.0 * Math.PI / sides), lean);
+            mesh.face(SPIRE_COS[side], SPIRE_SIN[side], lean);
             mesh.add(x, y, base + tip, (side + 0.5f) * repeats / sides, tip / BARK_SPAN, frame.red, frame.green, frame.blue);
             for (int next = 0; next <= 1; next++) {
-                double angle = (side + next) * 2.0 * Math.PI / sides;
-                mesh.face((float) Math.cos(angle), (float) Math.sin(angle), lean);
+                mesh.face(cos[side + next], sin[side + next], lean);
                 mesh.add(ringX[top + side + next], ringY[top + side + next], base + topUp, (float) (side + next) * repeats / sides, topUp / BARK_SPAN,
                         frame.red, frame.green, frame.blue);
             }
@@ -308,8 +325,7 @@ final class Flora {
                     int below = ring * (TRUNK_SIDES + 1) + around;
                     float px = upper == 1 ? ringX[below] + (ringX[at] - ringX[below]) * share : ringX[at];
                     float py = upper == 1 ? ringY[below] + (ringY[at] - ringY[below]) * share : ringY[at];
-                    double angle = around * 2.0 * Math.PI / TRUNK_SIDES;
-                    mesh.face((float) Math.cos(angle), (float) Math.sin(angle), ringSlope[at]);
+                    mesh.face(NEAR_COS[around], NEAR_SIN[around], ringSlope[at]);
                     mesh.sway = Math.clamp((climb - foot) / (tall - foot), 0f, 1f);
                     mesh.add(px, py, base + climb, (float) around * repeats / TRUNK_SIDES, climb / IVY_SPAN, frame.red, frame.green, frame.blue);
                 }

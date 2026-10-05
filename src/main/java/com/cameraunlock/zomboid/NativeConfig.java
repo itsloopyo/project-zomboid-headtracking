@@ -29,12 +29,12 @@ final class NativeConfig {
             {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
-    private static final int SETTINGS_BYTES = 80;
+    private static final int SETTINGS_BYTES = 84;
     private static final ValueLayout.OfInt INT = ValueLayout.JAVA_INT;
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT;
 
-    private final MethodHandle load, saveTrackingMode, saveWorldSpaceYaw, saveAimMode, hotkeysStart, hotkeysTake,
-            takeLog;
+    private final MethodHandle load, reloadFieldOfView, saveTrackingMode, saveWorldSpaceYaw, saveAimMode,
+            hotkeysStart, hotkeysTake, takeLog;
 
     @SuppressWarnings("restricted")
     NativeConfig(Path library) {
@@ -42,6 +42,7 @@ final class NativeConfig {
         Linker linker = Linker.nativeLinker();
         ValueLayout pointer = ValueLayout.ADDRESS;
         load = bind(linker, lookup, "PzhtConfigLoad", FunctionDescriptor.of(INT, pointer, pointer));
+        reloadFieldOfView = bind(linker, lookup, "PzhtConfigReloadFieldOfView", FunctionDescriptor.of(INT, pointer));
         saveTrackingMode = bind(linker, lookup, "PzhtConfigSaveTrackingMode", FunctionDescriptor.of(INT, INT, INT));
         saveWorldSpaceYaw = bind(linker, lookup, "PzhtConfigSaveWorldSpaceYaw", FunctionDescriptor.of(INT, INT));
         saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT, INT));
@@ -79,7 +80,28 @@ final class NativeConfig {
                     out.get(INT, 16) != 0, out.get(INT, 20) != 0, out.get(INT, 24) != 0, out.get(INT, 28) != 0,
                     out.get(INT, 32) != 0, out.get(INT, 36) != 0, out.get(FLOAT, 40), out.get(FLOAT, 44),
                     out.get(FLOAT, 48), out.get(FLOAT, 52), out.get(FLOAT, 56), out.get(FLOAT, 60),
-                    out.get(FLOAT, 64), out.get(FLOAT, 68), out.get(FLOAT, 72), out.get(FLOAT, 76)));
+                    out.get(FLOAT, 64), out.get(FLOAT, 68), out.get(FLOAT, 72), out.get(FLOAT, 76), out.get(FLOAT, 80)));
+        }
+    }
+
+    /**
+     * FieldOfView is the one row read again while the game runs. When CameraUnlock.ini or
+     * Defaults.ini has changed since core's owner last read or wrote it, reads both again and
+     * answers true with the field of view they give in degrees[0].
+     */
+    boolean reloadFieldOfView(float[] degrees) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment out = arena.allocate(FLOAT);
+            int status = call(reloadFieldOfView, out);
+            writeLog();
+            if (status < 0) {
+                throw new IllegalStateException(FILE_NAME + " could not be read again: " + Log.FILE_NAME + " has the reason");
+            }
+            if (status == 0) {
+                return false;
+            }
+            degrees[0] = out.get(FLOAT, 0);
+            return true;
         }
     }
 

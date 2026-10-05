@@ -1010,6 +1010,9 @@ final class CharacterDraw {
     private static final IdentityHashMap<SkinningData, float[][]> arms = new IdentityHashMap<>();
     /** The program that draws the picture's own arms, and their mesh. */
     private static int sleeve, sleeveVertices, sleeveIndices, sleeveCount;
+    /** Where the sleeve program's uniforms live, asked of the driver once, as the program is made. */
+    private static int sleeveBend, sleeveCuff, sleeveWide, sleeveProjection, sleeveAlpha, sleeveHue, sleeveTint, sleeveHas;
+    private static final int[] sleeveJoint = new int[3], sleeveForeUv = new int[Limb.SAMPLES], sleeveUpperUv = new int[Limb.SAMPLES];
     private static Field handleField, elementsField, formatField;
     private static final IdentityHashMap<ModelMesh, Copy> copies = new IdentityHashMap<>();
 
@@ -1316,26 +1319,26 @@ final class CharacterDraw {
         GL11.glDisable(GL_BLEND);
         GL20.glUseProgram(sleeve);
         for (int joint = 0; joint < 3; joint++) {
-            GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uJoint[" + joint + "]"), joints[joint * 3], joints[joint * 3 + 1], joints[joint * 3 + 2]);
+            GL20.glUniform3f(sleeveJoint[joint], joints[joint * 3], joints[joint * 3 + 1], joints[joint * 3 + 2]);
         }
-        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uBend"), bend[0], bend[1], bend[2]);
-        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uCuff"), cuff[0], cuff[1], cuff[2]);
-        GL20.glUniform4f(GL20.glGetUniformLocation(sleeve, "uWide"), wide[0], wide[1], wide[2], wide[3]);
-        GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(sleeve, "uProjection"), false, projection);
-        GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uAlpha"), person.alpha);
-        GL20.glUniform1f(GL20.glGetUniformLocation(sleeve, "uHue"), part.hue);
-        GL20.glUniform3f(GL20.glGetUniformLocation(sleeve, "uTint"), instance.tintR, instance.tintG, instance.tintB);
+        GL20.glUniform3f(sleeveBend, bend[0], bend[1], bend[2]);
+        GL20.glUniform3f(sleeveCuff, cuff[0], cuff[1], cuff[2]);
+        GL20.glUniform4f(sleeveWide, wide[0], wide[1], wide[2], wide[3]);
+        GL20.glUniformMatrix4fv(sleeveProjection, false, projection);
+        GL20.glUniform1f(sleeveAlpha, person.alpha);
+        GL20.glUniform1f(sleeveHue, part.hue);
+        GL20.glUniform3f(sleeveTint, instance.tintR, instance.tintG, instance.tintB);
         GL13.glActiveTexture(GL_TEXTURE0);
         Texture.lastTextureID = -1;
         worn.bind();
         worn.getUVScale(uvScale);
-        GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uHas"), limb.foreUv != null ? 1f : 0f, limb.upperUv != null ? 1f : 0f);
+        GL20.glUniform2f(sleeveHas, limb.foreUv != null ? 1f : 0f, limb.upperUv != null ? 1f : 0f);
         for (int sample = 0; sample < Limb.SAMPLES; sample++) {
             if (limb.foreUv != null) {
-                GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uForeUv[" + sample + "]"), limb.foreUv[sample * 2] * uvScale.x, limb.foreUv[sample * 2 + 1] * uvScale.y);
+                GL20.glUniform2f(sleeveForeUv[sample], limb.foreUv[sample * 2] * uvScale.x, limb.foreUv[sample * 2 + 1] * uvScale.y);
             }
             if (limb.upperUv != null) {
-                GL20.glUniform2f(GL20.glGetUniformLocation(sleeve, "uUpperUv[" + sample + "]"), limb.upperUv[sample * 2] * uvScale.x, limb.upperUv[sample * 2 + 1] * uvScale.y);
+                GL20.glUniform2f(sleeveUpperUv[sample], limb.upperUv[sample * 2] * uvScale.x, limb.upperUv[sample * 2 + 1] * uvScale.y);
             }
         }
         if (bare) {
@@ -1571,6 +1574,21 @@ final class CharacterDraw {
             sleeve = arm;
             GL20.glUseProgram(arm);
             GL20.glUniform1i(GL20.glGetUniformLocation(arm, "uTexture"), 0);
+            sleeveBend = GL20.glGetUniformLocation(arm, "uBend");
+            sleeveCuff = GL20.glGetUniformLocation(arm, "uCuff");
+            sleeveWide = GL20.glGetUniformLocation(arm, "uWide");
+            sleeveProjection = GL20.glGetUniformLocation(arm, "uProjection");
+            sleeveAlpha = GL20.glGetUniformLocation(arm, "uAlpha");
+            sleeveHue = GL20.glGetUniformLocation(arm, "uHue");
+            sleeveTint = GL20.glGetUniformLocation(arm, "uTint");
+            sleeveHas = GL20.glGetUniformLocation(arm, "uHas");
+            for (int joint = 0; joint < sleeveJoint.length; joint++) {
+                sleeveJoint[joint] = GL20.glGetUniformLocation(arm, "uJoint[" + joint + "]");
+            }
+            for (int sample = 0; sample < Limb.SAMPLES; sample++) {
+                sleeveForeUv[sample] = GL20.glGetUniformLocation(arm, "uForeUv[" + sample + "]");
+                sleeveUpperUv[sample] = GL20.glGetUniformLocation(arm, "uUpperUv[" + sample + "]");
+            }
             makeSleeve();
         }
         if (divides) {
@@ -1912,6 +1930,7 @@ final class CharacterDraw {
     private static void lights(ModelSlotRenderData data) {
         float angle = data.animPlayerAngle;
         boolean stands = !Float.isNaN(angle);
+        float cos = (float) Math.cos(-angle), sin = (float) Math.sin(-angle);
         for (int light = 0; light < LIGHTS; light++) {
             ModelInstance.EffectLight lamp = data.effectLights[light];
             int at = light * 3;
@@ -1941,7 +1960,6 @@ final class CharacterDraw {
                 z /= away;
             }
             if (stands) {
-                float cos = (float) Math.cos(-angle), sin = (float) Math.sin(-angle);
                 float turnedX = x * cos - y * sin, turnedY = x * sin + y * cos;
                 x = turnedX;
                 y = turnedY;

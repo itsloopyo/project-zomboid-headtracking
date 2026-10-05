@@ -27,7 +27,7 @@ final class Headlights {
 
     static void gather(float eyeX, float eyeY) {
         float[] found = new float[BEAMS * STRIDE];
-        float[] away = {Float.MAX_VALUE, Float.MAX_VALUE};
+        float nearest = Float.MAX_VALUE, second = Float.MAX_VALUE;
         for (BaseVehicle vehicle : IsoWorld.instance.currentCell.getVehicles()) {
             if (!vehicle.getHeadlightsOn()) {
                 continue;
@@ -39,16 +39,18 @@ final class Headlights {
             }
             vehicle.getForwardVector(facing);
             float along = (float) Math.hypot(facing.x, facing.z);
-            int slot = distance < away[0] ? 0 : distance < away[1] ? 1 : -1;
+            int slot = distance < nearest ? 0 : distance < second ? 1 : -1;
             // A vehicle stood on its nose or its tail has no way along the ground to shine.
             if (slot < 0 || along < 1e-3f) {
                 continue;
             }
             if (slot == 0) {
                 System.arraycopy(found, 0, found, STRIDE, STRIDE);
-                away[1] = away[0];
+                second = nearest;
+                nearest = distance;
+            } else {
+                second = distance;
             }
-            away[slot] = distance;
             float wayX = facing.x / along, wayY = facing.z / along;
             int at = slot * STRIDE;
             found[at] = vehicle.getX() + wayX * NOSE;

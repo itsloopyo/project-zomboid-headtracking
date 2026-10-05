@@ -23,6 +23,13 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
         .Select(Concept::StockSights).Writable()
         .Select(Concept::CollisionMargin)
         .Comment("How far the view is held off a wall when you lean into it, in map tiles.");
+    table.Local("General", "FieldOfView", &Config::field_of_view,
+                cameraunlock::config::FloatCodec(kMinFieldOfView, kMaxFieldOfView),
+                "Field of view of the first person view in degrees, from the bottom of the picture to\n"
+                "the top: 40 to 110. A wider screen shows more to the sides. Project Zomboid has no\n"
+                "field of view setting of its own. Aiming a firearm still narrows the view by the\n"
+                "same ratio. Read again while the game runs, so a change shows as soon as the file\n"
+                "is saved.");
     return table;
 }
 

@@ -34,6 +34,7 @@ import zombie.iso.areas.IsoBuilding;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
+import zombie.iso.objects.IsoWindow;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
@@ -99,7 +100,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private static volatile float lastDrawMillis;
     /** Width over height of the buffer the last frame was drawn into, 0 until a frame has been drawn. */
     private static volatile float drawnAspect;
-    private static float loggedTanHalfFieldOfView, loggedAspect;
+    private static float loggedTanHalfSet, loggedAspect;
     private static float eyeOpen = -1f;
     private static float shaded;
     /** How much further the eye opens deep in a wood than on open ground. */
@@ -322,6 +323,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     /** The direction an upright sprite on the square being added runs along. */
     private float cardRightX, cardRightY;
     private float tanHalfFieldOfView;
+    private float tanHalfSet;
 
     /** The characters this frame draws, for the aim to be traced against. */
     float[] characterX = new float[16], characterY = new float[16], characterBase = new float[16];
@@ -541,14 +543,17 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * @param view               the eye and orientation the frame is drawn from, head tracking included
      * @param aimed              the aim, which the weapon in hand is held on
      * @param tanHalfFieldOfView the tangent of half the vertical field of view the frame is drawn with
+     * @param tanHalfSet         the tangent of half the vertical field of view the player set, which
+     *                           the first is narrower than while a firearm is aimed
      */
-    void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView) {
+    void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet) {
         long start = System.nanoTime();
         camera.set(view);
         aim.set(aimed);
         overhead = false;
         seated = Ride.seated;
         this.tanHalfFieldOfView = tanHalfFieldOfView;
+        this.tanHalfSet = tanHalfSet;
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
         if (flat > 1e-3f) {
             rightX = -view.forwardY / flat;
@@ -755,13 +760,15 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     acrossView = false;
                     placed = fresh.placed;
                     chunksBuilt++;
+                    // Once for the chunk and not once a level: until the ground round a chunk is all
+                    // loaded its corners are worked out afresh at every asking.
+                    float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
+                    float[] water = Terrain.water(chunk.wx, chunk.wy);
                     for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
                         readLights(chunk, chunkX, chunkY, z);
                         if (z == 0) {
                             readWoods(chunk, chunkX, chunkY);
                         }
-                        float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
-                        float[] water = Terrain.water(chunk.wx, chunk.wy);
                         for (int localX = 0; localX < CHUNK_TILES; localX++) {
                             for (int localY = 0; localY < CHUNK_TILES; localY++) {
                                 IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
@@ -912,7 +919,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     }
                     boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
                     IsoGridSquare square = inChunk ? chunk.getGridSquare(i - 1, j - 1, z) : cell.getGridSquare(chunkX + i - 1, chunkY + j - 1, z);
-                    sum = sum(sum, square.getRoomID());
+                    sum = sum(sum(sum, square.getRoomID()), unexplored(square) ? 1 : 0);
                     PZArrayList<IsoObject> objects = square.getObjects();
                     sum = sum(sum, objects.size());
                     for (int k = 0; k < objects.size(); k++) {
@@ -1813,11 +1820,14 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             }
         }
         wiredHere = false;
+        // A room the game has not shown the player yet is black in the game's own view. Here
+        // the house still stands, and what is in the room is left out until the game has it seen.
+        boolean unexplored = unexplored(square);
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
-            if (sprite == null) {
+            if (sprite == null || unexplored && object != floor && !partOfTheBuilding(object, sprite)) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
@@ -1842,7 +1852,13 @@ final class WorldScene extends TextureDraw.GenericDrawer {
             // of the next. A bare tree is all branch and keeps them.
             boolean inLeaf = sprite.getType() == IsoObjectType.tree && (leaves != null && !leaves.isEmpty() || object.getOverlaySprite() != null);
             geometry.keep = inLeaf ? BOLE : 1f;
+            if (unexplored && object == floor) {
+                frame.light(0f, 0f, 0f);
+            }
             addSprite(solid.get(texture.getID()), object, sprite, texture, object == floor, x, y, z);
+            if (unexplored && object == floor) {
+                cornerLights(localX, localY);
+            }
             geometry.keep = 1f;
             // What the game draws over an object with the object: the leaves on a tree, the
             // ivy and the stains on a wall. Each lies or stands as the object under it does.
@@ -1873,13 +1889,34 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
-        for (int i = 0; i < bodies.size(); i++) {
+        for (int i = 0; i < bodies.size() && !unexplored; i++) {
             IsoMovingObject body = bodies.get(i);
             solid.get(PLAIN).open = frame.open;
             SpriteGeometry.addPlainFlat(solid.get(PLAIN), body.getX(), body.getY(),
                     body.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(body.getX(), body.getY(), body.getZ()) + 0.08f,
                     0.85f, 0.3f, 0.35f * frame.red, 0.2f * frame.green, 0.18f * frame.blue);
         }
+    }
+
+    /** Whether a square is in a room the game has never had in the player's sight. */
+    private boolean unexplored(IsoGridSquare square) {
+        return square.getRoomID() != -1L && !square.isSeen(playerIndex);
+    }
+
+    /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
+    private static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
+        if (object instanceof IsoDoor || object instanceof IsoWindow || object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
+            return true;
+        }
+        IsoObjectType type = sprite.getType();
+        if (Roofs.isTile(type) || isStair(type)) {
+            return true;
+        }
+        PropertyContainer flags = sprite.getProperties();
+        return flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallSE)
+                || flags.has(IsoFlagType.WallNTrans) || flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.DoorWallN)
+                || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.WindowW)
+                || flags.has(IsoFlagType.solidfloor) || flags.has(IsoFlagType.FloorOverlay) || flags.has(IsoFlagType.attachedFloor);
     }
 
     /**
@@ -4225,15 +4262,19 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         float aspect = (float) viewport[2] / viewport[3];
         float near = ViewCamera.nearPlane(NEAR_CORNER_DISTANCE, tanHalfFieldOfView, aspect);
         drawnAspect = aspect;
-        if (tanHalfFieldOfView != loggedTanHalfFieldOfView || aspect != loggedAspect) {
-            loggedTanHalfFieldOfView = tanHalfFieldOfView;
+        if (tanHalfSet != loggedTanHalfSet || aspect != loggedAspect) {
+            loggedTanHalfSet = tanHalfSet;
             loggedAspect = aspect;
-            // Nothing in this view narrows the field of view (no sights, scope or zoom), so the
-            // head pose is drawn at the size the tracker sent it and there is no zoom factor.
-            Log.info(String.format(Locale.ROOT, "first person field of view %.2f degrees vertical, %.2f horizontal"
-                            + " at aspect %.4f (%dx%d), near plane %.4f",
+            // Every term of the zoom factor, on the first frame drawn and whenever the field of
+            // view that is set or the picture's shape changes. Both angles are vertical, so the
+            // aspect is no term of the factor, and the factor is 1 whenever no firearm is aimed.
+            Log.info(String.format(Locale.ROOT, "first person field of view: drawn at %.2f degrees vertical"
+                            + " (%.2f horizontal at aspect %.4f, %dx%d), set to %.2f degrees vertical,"
+                            + " head tracking zoom factor %.4f, near plane %.4f",
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView)),
-                    Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3], near));
+                    Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3],
+                    Math.toDegrees(2 * Math.atan(tanHalfSet)),
+                    ZoomCompensation.factor(tanHalfFieldOfView, tanHalfSet), near));
         }
         Characters.aim.set(aim);
         Pipeline.overhead = overhead;

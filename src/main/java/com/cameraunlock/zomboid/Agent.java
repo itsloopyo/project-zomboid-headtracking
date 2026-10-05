@@ -105,7 +105,6 @@ public final class Agent {
     }
 
     private static void start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
-        Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Links.Result links = Links.check();
         if (!links.unresolved().isEmpty()) {
             links.unresolved().forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
@@ -181,6 +180,7 @@ public final class Agent {
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getXA", "reticleX"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getYA", "reticleY"),
                 returning("zombie/characters/component/CharacterInputComponent", "isAimKeyDownInternal", "()Z", "aimKey", BOOLEAN_FILTER),
+                returning("zombie/characters/component/CharacterInputComponent", "isInteractButtonDownInternal", "()Z", "interactKey", BOOLEAN_FILTER),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),

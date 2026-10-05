@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.HashMap;
 import org.lwjgl.opengl.GL20;
 
 /**
@@ -24,6 +25,7 @@ final class SmallProgram {
     private final String name, vertex, fragment;
     private boolean made;
     private int id;
+    private final HashMap<String, Integer> uniforms = new HashMap<>();
 
     SmallProgram(String name, String vertex, String fragment) {
         this.name = name;
@@ -45,7 +47,12 @@ final class SmallProgram {
     }
 
     int at(String uniform) {
-        return GL20.glGetUniformLocation(id, uniform);
+        Integer location = uniforms.get(uniform);
+        if (location == null) {
+            location = GL20.glGetUniformLocation(id, uniform);
+            uniforms.put(uniform, location);
+        }
+        return location;
     }
 
     private int link() {

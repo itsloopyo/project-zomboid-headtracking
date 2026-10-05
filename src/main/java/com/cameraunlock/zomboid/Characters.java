@@ -69,6 +69,7 @@ public final class Characters {
     private static final float[] placed = new float[16];
     private static final float[] combined = new float[16];
     private static final float[] projection = new float[16];
+    private static final float[] eyeView = new float[16];
     private static int drawnLast;
     /**
      * While set, a vehicle is drawn in another colour of paint than its own. What of it comes
@@ -196,7 +197,7 @@ public final class Characters {
      * wall stays behind it. The viewer's own model is left out: the eye is inside its head.
      */
     static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
-        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         // Drawn the same fraction of a pixel aside as the world is this frame, so the models'
         // edges are smoothed over time with everything else's.
         projection[8] += asideX;
@@ -207,7 +208,8 @@ public final class Characters {
             rootsFound = 0;
         }
         // Seen from overhead the viewer is one of the people in the picture.
-        int drawn = draw(ViewCamera.view(camera), Pipeline.overhead, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        ViewCamera.view(camera, eyeView);
+        int drawn = draw(eyeView, Pipeline.overhead, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;
@@ -226,13 +228,14 @@ public final class Characters {
      * nothing of the vehicle it hangs in. Returns how many were drawn.
      */
     static int drawBehind(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
-        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, near, far), 0, projection, 0, 16);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
         mirrored = true;
         mirrorWayX = camera.forwardX;
         mirrorWayY = camera.forwardY;
         mirrorWide = tanHalfFieldOfView * aspect;
-        int drawn = draw(ViewCamera.view(camera), false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+        ViewCamera.view(camera, eyeView);
+        int drawn = draw(eyeView, false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
         mirrored = false;
         only = ALL;
         return drawn;
@@ -279,7 +282,7 @@ public final class Characters {
             ModelSlotRenderData data = noted.get(i);
             float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
             if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
-                System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+                ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
                 // Drawn in full light, whatever the hour: which of its pixels are glass is
                 // told from their colour, and the picture lights the cabin itself, by the
                 // light the game would have given it.
@@ -288,7 +291,8 @@ public final class Characters {
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                 String script = Ride.seatedIn;
                 if (script != null && !parts(data).isEmpty()) {
-                    multiply(projection, ViewCamera.view(camera), combined);
+                    ViewCamera.view(camera, eyeView);
+                    multiply(projection, eyeView, combined);
                     VehicleMeshes.note(script, parts(data).get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
                             data.centerOfMassY, combined);
                 }
@@ -299,7 +303,8 @@ public final class Characters {
                 data.ambientG = 1f;
                 data.ambientB = 1f;
                 fromSeat = true;
-                vehicle(data, i * 4, ViewCamera.view(camera));
+                ViewCamera.view(camera, eyeView);
+                vehicle(data, i * 4, eyeView);
                 fromSeat = false;
                 data.ambientR = ownAmbient[0];
                 data.ambientG = ownAmbient[1];
@@ -341,7 +346,7 @@ public final class Characters {
     }
 
     private static void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
-        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         // A person's eyes are at the front of the head, ahead of the neck. The view's
         // eye is on the model's axis, so the model is stood a little behind it: looking
         // down, the chest is below the eye and not the hole of the collar.
@@ -358,7 +363,8 @@ public final class Characters {
         data.ambientR = 1f;
         data.ambientG = 1f;
         data.ambientB = 1f;
-        character(data, ViewCamera.view(camera), true, false, holding != null, heldBoth);
+        ViewCamera.view(camera, eyeView);
+        character(data, eyeView, true, false, holding != null, heldBoth);
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
@@ -557,7 +563,7 @@ public final class Characters {
      */
     static void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ModelSlotRenderData data = holding;
-        System.arraycopy(ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far), 0, projection, 0, 16);
+        ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         System.arraycopy(heldView, 0, combined, 0, 16);
         float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
         data.ambientR = 1f;

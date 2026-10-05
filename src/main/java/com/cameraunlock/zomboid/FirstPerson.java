@@ -85,7 +85,6 @@ public final class FirstPerson {
      */
     private static final long CAPTURE_LASTS_NANOS = 500_000_000L;
     private static long lastFrameNanos;
-    private static boolean zoomSaid;
     private static float yaw;
     private static float pitch;
 
@@ -197,6 +196,9 @@ public final class FirstPerson {
             gap = Panels.gap();
         }
         if (gap == null) {
+            gap = CentreUse.gap();
+        }
+        if (gap == null) {
             gap = failure;
         }
         return gap != null ? gap : Pipeline.failure();
@@ -292,13 +294,6 @@ public final class FirstPerson {
         boolean sightsUp = Controls.sightsUp(player);
         FieldOfView.ease(sightsUp, sinceLastFrame);
         ViewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
-        if (!zoomSaid) {
-            zoomSaid = true;
-            Log.info(String.format(Locale.ROOT,
-                    "head tracking zoom factor %.4f: the picture is drawn at %.2f degrees and the field of view is set to %.2f",
-                    ZoomCompensation.factor(FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical()),
-                    FieldOfView.drawnDegrees(), FieldOfView.degrees()));
-        }
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         HeadTracking.view(active, cleanView, yaw, world, sightsUp, vehicle == null, trackedView);
@@ -308,7 +303,7 @@ public final class FirstPerson {
         aimView.eyeY += carried[1];
         aimView.eyeUp += carried[2];
         WorldScene scene = WorldScene.next();
-        scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical());
+        scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical());
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
@@ -423,7 +418,7 @@ public final class FirstPerson {
         Ride.seated = false;
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
         WorldScene scene = WorldScene.next();
-        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical());
+        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical());
         scene.seenFromOverhead(overheadView, halfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
@@ -507,6 +502,27 @@ public final class FirstPerson {
         if (TRACE && !was.equals(pointer.describe())) {
             Log.info("pointer " + pointer.describe());
         }
+    }
+
+    /**
+     * Called as the Interact key goes down with the mouse turning the view: acts on what the
+     * middle of the clean view is on, and says whether anything was there for it. In a
+     * vehicle the key is the game's, which gets out with it.
+     */
+    static boolean useAtCentre() {
+        IsoPlayer player = IsoPlayer.getInstance();
+        if (player.getVehicle() != null) {
+            return false;
+        }
+        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
+        CentreUse.Outcome outcome = CentreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell);
+        if (outcome == CentreUse.Outcome.CONTAINER) {
+            pointer.open();
+        }
+        if (TRACE) {
+            Log.info("interact at the middle of the view: " + outcome + " on " + Thread.currentThread().getName());
+        }
+        return outcome != CentreUse.Outcome.NOTHING;
     }
 
     /** Whether a key of a binding went down this frame. The game eats the press, so its own handlers never see the key come up. */

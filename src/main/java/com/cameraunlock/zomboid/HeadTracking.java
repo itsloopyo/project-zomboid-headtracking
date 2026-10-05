@@ -3,8 +3,9 @@ package com.cameraunlock.zomboid;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Head tracking for the first-person view: the tracker's pose, the hotkeys,
@@ -14,7 +15,7 @@ import java.util.concurrent.Executors;
  * which the game's aim, movement and facing follow, is never written here.
  *
  * Everything runs on the game's logic thread except the receiver's own thread and the
- * thread that saves a changed mode to CameraUnlock.ini.
+ * thread that saves a changed mode to CameraUnlock.ini and watches it for a new field of view.
  */
 final class HeadTracking {
     private enum Mode {
@@ -48,8 +49,9 @@ final class HeadTracking {
 
     private static OpenTrackReceiver receiver;
     private static NativeConfig config;
-    /** A save writes a file, so it is kept off the thread that draws the frame. */
-    private static final ExecutorService saver = Executors.newSingleThreadExecutor(task -> {
+    private static final long WATCH_MILLISECONDS = 1000;
+    /** A save writes a file and the watch asks for its write time, so both are kept off the thread that draws the frame. */
+    private static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
         thread.setDaemon(true);
         return thread;
@@ -98,11 +100,33 @@ final class HeadTracking {
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
         worldYaw = settings.worldSpaceYaw();
         aimMode = AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights());
+        FieldOfView.set(settings.fieldOfView());
+        Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + mode.label + ", yaw about "
                 + (worldYaw ? "straight up" : "the view's own up") + ", " + aimMode.label);
         receiver = new OpenTrackReceiver(settings.udpPort(), settings.dataFreshnessMs());
         receiver.start();
         config.startHotkeys();
+        saver.scheduleWithFixedDelay(HeadTracking::watchFieldOfView, WATCH_MILLISECONDS, WATCH_MILLISECONDS,
+                TimeUnit.MILLISECONDS);
+    }
+
+    private static final float[] reloaded = new float[1];
+
+    /** FieldOfView is the one setting read again while the game runs: every other row is read at the start. */
+    private static void watchFieldOfView() {
+        try {
+            if (config.reloadFieldOfView(reloaded) && reloaded[0] != FieldOfView.degrees()) {
+                FieldOfView.set(reloaded[0]);
+                Log.info(NativeConfig.FILE_NAME + " changed: first person field of view set to " + reloaded[0]
+                        + " degrees vertical");
+            }
+        } catch (RuntimeException failure) {
+            // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
+            // Thrown on, it ends the watch, so a fault that stays is logged once and not every second.
+            Log.error(NativeConfig.FILE_NAME + " is no longer watched for a new field of view", failure);
+            throw failure;
+        }
     }
 
     private static Path jarDirectory() {

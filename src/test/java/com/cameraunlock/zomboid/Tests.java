@@ -45,7 +45,7 @@ public final class Tests {
         reticleFollowsThePointWhenTheEyeLeans();
         reticleFollowsTheFieldOfView();
         nearPlaneKeepsItsCornersInsideTheLeanSkin();
-        fieldOfViewSettingIsValidated();
+        fieldOfViewSetIsTheOneDrawnWith();
         lightLeadsTheHeadsYawAndIgnoresTheRest();
         packetIsParsedAndValidated();
         receiverTakesOnlyChangedPosesAndReadsLocality();
@@ -1316,7 +1316,7 @@ public final class Tests {
         float referenceTanHalf = (float) Math.tan(Math.toRadians(65) / 2);
         float[] reference = new float[2];
         ViewCamera.project(tracked, referenceTanHalf, ASPECT, aimX, aimY, aimUp, reference);
-        for (float degrees : new float[] {FieldOfView.MIN_DEGREES, 65f, 90f, FieldOfView.MAX_DEGREES}) {
+        for (float degrees : new float[] {40f, 65f, 90f, 110f}) {
             for (float aspect : new float[] {4f / 3f, ASPECT, 32f / 9f}) {
                 float tanHalf = (float) Math.tan(Math.toRadians(degrees) / 2);
                 float[] matrix = ViewCamera.projection(tanHalf, aspect,
@@ -1334,7 +1334,7 @@ public final class Tests {
     }
 
     private static void nearPlaneKeepsItsCornersInsideTheLeanSkin() {
-        for (float degrees : new float[] {FieldOfView.MIN_DEGREES, 65f, FieldOfView.MAX_DEGREES}) {
+        for (float degrees : new float[] {40f, 65f, 110f}) {
             for (float aspect : new float[] {4f / 3f, ASPECT, 32f / 9f, 48f / 9f}) {
                 float tanHalf = (float) Math.tan(Math.toRadians(degrees) / 2);
                 float nearPlane = ViewCamera.nearPlane(WorldScene.NEAR_CORNER_DISTANCE, tanHalf, aspect);
@@ -1345,21 +1345,12 @@ public final class Tests {
         check(WorldScene.NEAR_CORNER_DISTANCE < Settings.BUILT_IN.collisionMargin(), "the near plane's corners are nearer than a lean is held off a wall");
     }
 
-    private static void fieldOfViewSettingIsValidated() {
-        check(FieldOfView.parse(null) == FieldOfView.DEFAULT_DEGREES, "no setting is the default field of view");
-        check(FieldOfView.parse(" 90 ") == 90f, "a setting is degrees");
-        for (String bad : new String[] {"wide", "", "NaN", "10", "170", "Infinity"}) {
-            boolean refused = false;
-            try {
-                FieldOfView.parse(bad);
-            } catch (IllegalArgumentException expected) {
-                refused = true;
-            }
-            check(refused, "a field of view of \"" + bad + "\" is refused");
-        }
+    private static void fieldOfViewSetIsTheOneDrawnWith() {
         float before = FieldOfView.degrees();
+        check(before == FieldOfView.DEFAULT_DEGREES, "with no file read the field of view is the row's default");
         FieldOfView.set(90f);
         check(near(FieldOfView.tanHalfVertical(), 1f), "a field of view of 90 degrees has a half tangent of 1");
+        check(near(FieldOfView.drawnDegrees(), 90f), "and is the angle the picture is drawn with");
         FieldOfView.set(before);
     }
 
@@ -1404,7 +1395,8 @@ public final class Tests {
         return new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
                 s.positionEnabled(), s.trueFreeLook(), s.freeLookMarker(), s.stockSights(), s.collisionEnabled(),
                 s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), s.positionLimitY(), s.positionLimitYDown(),
-                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), multiplier);
+                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), multiplier,
+                s.fieldOfView());
     }
 
     private static byte[] packet(double x, double y, double z, double yaw, double pitch, double roll) {

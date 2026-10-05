@@ -97,7 +97,11 @@ final class OpenTrackReceiver {
         }
     }
 
-    /** Another program holding the port is the usual reason for a failure, and it can let go later. */
+    /**
+     * Never gives up: a port another program holds can be let go later. The log line names the
+     * reason as the Java runtime's because on Windows it says "Address already in use" both for a
+     * held port (Windows error 10048) and for one in an excluded port range (10013).
+     */
     private DatagramSocket bind() throws SocketException, InterruptedException {
         String lastMessage = null;
         while (true) {
@@ -111,8 +115,8 @@ final class OpenTrackReceiver {
                 String message = String.valueOf(failure.getMessage());
                 if (!message.equals(lastMessage)) {
                     lastMessage = message;
-                    Log.info("head tracking cannot open UDP port " + port + " (" + lastMessage
-                            + "), trying again every " + BIND_RETRY_MILLIS + " ms");
+                    Log.info("head tracking cannot open UDP port " + port + ", the Java runtime's reason: "
+                            + lastMessage + ". Trying again every " + BIND_RETRY_MILLIS + " ms");
                 }
                 Thread.sleep(BIND_RETRY_MILLIS);
             }

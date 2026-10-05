@@ -21,11 +21,17 @@ final class Panels {
     /**
      * The Lua classes whose panels are windows and dialogs. The inventory and
      * loot panels are neither: they sit on the screen folded all session, so
-     * the inventory key answers for them.
+     * the inventory key answers for them. ISPanelJoypad is what the game makes
+     * its plain panels of: the oven's and the microwave's settings, the
+     * exercise panel, the map.
      */
-    private static final List<String> WINDOW_CLASSES = List.of("ISCollapsableWindow", "ISModalDialog", "ISModalRichText", "ISTextBox");
+    private static final List<String> WINDOW_CLASSES = List.of("ISCollapsableWindow", "ISModalDialog", "ISModalRichText", "ISTextBox", "ISPanelJoypad");
+
+    /** Made of ISPanelJoypad too, and on the screen through play with nothing in them to point at. */
+    private static final List<String> HEADS_UP_CLASSES = List.of("ISHotbar", "ISMiniMapOuter");
 
     private static final KahluaTable[] windowClasses = new KahluaTable[WINDOW_CLASSES.size()];
+    private static final KahluaTable[] headsUpClasses = new KahluaTable[HEADS_UP_CLASSES.size()];
 
     private Panels() {}
 
@@ -50,6 +56,9 @@ final class Panels {
         for (int i = 0; i < windowClasses.length; i++) {
             windowClasses[i] = LuaManager.env.rawget(WINDOW_CLASSES.get(i)) instanceof KahluaTable table ? table : null;
         }
+        for (int i = 0; i < headsUpClasses.length; i++) {
+            headsUpClasses[i] = LuaManager.env.rawget(HEADS_UP_CLASSES.get(i)) instanceof KahluaTable table ? table : null;
+        }
         int open = 0;
         List<UIElementInterface> elements = UIManager.getUI();
         for (int i = 0; i < elements.size(); i++) {
@@ -68,6 +77,11 @@ final class Panels {
             return false;
         }
         for (KahluaTable type = panel.getMetatable(); type != null; type = type.getMetatable()) {
+            for (KahluaTable headsUp : headsUpClasses) {
+                if (type == headsUp) {
+                    return false;
+                }
+            }
             for (KahluaTable window : windowClasses) {
                 if (type == window) {
                     return true;

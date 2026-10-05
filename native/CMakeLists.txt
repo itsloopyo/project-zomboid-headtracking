@@ -21,11 +21,13 @@ add_library(ProjectZomboidHeadTracking SHARED
 target_link_libraries(ProjectZomboidHeadTracking PRIVATE cameraunlock)
 target_compile_options(ProjectZomboidHeadTracking PRIVATE /W4 /WX /permissive-)
 
-# The same bridge reading a Defaults.ini its caller names, for the Java tests. Never packaged.
+# The same bridge reading a Defaults.ini its caller names, with core's zoom compensation beside
+# it, for the Java tests. Never packaged.
 add_library(ProjectZomboidHeadTrackingTest SHARED
     src/bridge.cpp
     src/config.cpp
     tests/defaults_for_tests.cpp
+    tests/zoom_for_tests.cpp
 )
 target_include_directories(ProjectZomboidHeadTrackingTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(ProjectZomboidHeadTrackingTest PRIVATE cameraunlock)

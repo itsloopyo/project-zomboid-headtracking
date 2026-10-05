@@ -107,6 +107,7 @@ final class Roofs {
         if (now - cleared >= KEPT) {
             laid.clear();
             cleared = now;
+            forgetStale(now);
         }
         long key = RoofFit.key(x, y, z);
         Laid known = laid.get(key);
@@ -115,6 +116,25 @@ final class Roofs {
             known = laid.get(key);
         }
         return known;
+    }
+
+    /**
+     * Drops the made tiles and the caps of roofs not read again in MADE_KEPT frames. Each is
+     * already taken for gone by whoever asks for it, but only a chunk being built asks, so a
+     * roof the player has left behind was otherwise held for the rest of the game.
+     */
+    private static void forgetStale(int now) {
+        made.values().removeIf(back -> now - back.roof.stamp > MADE_KEPT);
+        capped.values().removeIf(cap -> now - cap.roof.stamp > MADE_KEPT);
+        // A chunk left with none is dropped with them, or a long drive leaves a list for every chunk passed.
+        madeByChunk.values().removeIf(held -> {
+            held.removeIf(back -> now - back.roof.stamp > MADE_KEPT);
+            return held.isEmpty();
+        });
+        cappedByChunk.values().removeIf(held -> {
+            held.removeIf(cap -> now - cap.roof.stamp > MADE_KEPT);
+            return held.isEmpty();
+        });
     }
 
     private static void read(IsoCell cell, int x, int y, int z, int now, float scale) {
