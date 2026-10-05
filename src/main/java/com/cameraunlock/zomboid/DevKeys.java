@@ -17,6 +17,7 @@ import zombie.vehicles.VehiclePart;
 /**
  * Keys for whoever is working on the mod, there only in a development install: the deploy
  * script leaves a marker file beside the jar, and the installer a player runs does not.
+ * Every one is pressed with Ctrl held, since the game has uses of its own for the bare keys.
  *
  * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
  * sits the player in the driver's seat, whatever state it was found in. For looking at
@@ -27,8 +28,8 @@ import zombie.vehicles.VehiclePart;
  * F2 clears the loaded map of zombies and keeps it clear, and lets them back on the next
  * press: for looking at the picture in peace.
  *
- * F3 moves the player to the next of a few places worth looking at: a lake shore, a wood, open
- * farmland, a town street.
+ * F3 moves the player to the next of the places worth looking at, round and round, and
+ * Shift with it to the one before.
  *
  * F4 sets the clock to early evening, with the sun starting down: the hour the picture looks
  * its best.
@@ -50,9 +51,36 @@ final class DevKeys {
     private static boolean cleared;
     /** F3. */
     private static final int PLACE_KEY = 61;
-    /** Tile x and y of each place, on the ground. */
-    private static final float[][] PLACES = {{6442.5f, 5187.5f}, {10900.5f, 8500.5f}, {9050.5f, 8700.5f}, {10792.5f, 9776.5f}};
-    private static int place;
+    private static final int LEFT_CONTROL = 29, RIGHT_CONTROL = 157, LEFT_SHIFT = 42, RIGHT_SHIFT = 54;
+
+    /** A tile on the ground. */
+    private record Place(String name, float x, float y) {}
+
+    /**
+     * The first four and the West Point and Louisville ones are spots the picture has been
+     * judged from. The rest are the game's own spawn points for each town, so there is a
+     * floor to stand on at every one.
+     */
+    private static final Place[] PLACES = {
+            new Place("Riverside, the lake shore", 6442.5f, 5187.5f),
+            new Place("a wood by the railway", 10900.5f, 8500.5f),
+            new Place("open farmland", 9050.5f, 8700.5f),
+            new Place("Muldraugh, a street", 10792.5f, 9776.5f),
+            new Place("West Point, the church and the park", 11930.5f, 6880.5f),
+            new Place("West Point, by the river", 11700.5f, 6730.5f),
+            new Place("the railway east of West Point", 12177.5f, 6838.5f),
+            new Place("Louisville", 12700.5f, 2300.5f),
+            new Place("Valley Station, a house", 12595.5f, 5330.5f),
+            new Place("Rosewood, a house", 7976.5f, 11402.5f),
+            new Place("March Ridge, a house", 9883.5f, 12812.5f),
+            new Place("Fallas Lake, a house", 7213.5f, 8288.5f),
+            new Place("Echo Creek, the gas station shop", 3573.5f, 10899.5f),
+            new Place("Brandenburg, a house", 2152.5f, 6089.5f),
+            new Place("Ekron, a house", 411.5f, 9761.5f),
+            new Place("Irvington, a house", 1912.5f, 14381.5f),
+    };
+    /** The place the player was last sent to, and none before the first press. */
+    private static int place = -1;
     /** F4. */
     private static final int EVENING_KEY = 62;
     /** How long before dusk the clock is set to, in hours. */
@@ -91,7 +119,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: F2 clears out the zombies, F3 goes to the next view, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install, each key with Ctrl held: F2 clears out the zombies, F3 goes to the next place and Shift+F3 to the one before, F4 sets early evening, F5 gives a shotgun that never runs dry, F6 makes you invincible, F7 takes the nearest vehicle");
             }
         }
         // On a server every one of these would be a cheat against the other players.
@@ -102,7 +130,8 @@ final class DevKeys {
             return;
         }
         IsoPlayer safe = IsoPlayer.getInstance();
-        if (GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
+        boolean ctrl = GameKeyboard.isKeyDown(LEFT_CONTROL) || GameKeyboard.isKeyDown(RIGHT_CONTROL);
+        if (ctrl && GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
             invincible = !invincible;
             Log.info("F6: invincible " + invincible);
         }
@@ -145,7 +174,7 @@ final class DevKeys {
             }
             wasInvincible = invincible;
         }
-        if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
+        if (ctrl && GameKeyboard.isKeyPressed(CLEAR_KEY)) {
             cleared = !cleared;
             Log.info("F2: zombies cleared " + cleared);
         }
@@ -157,17 +186,19 @@ final class DevKeys {
                 zombie.removeFromSquare();
             }
         }
-        if (safe != null && safe.getVehicle() == null && GameKeyboard.isKeyPressed(PLACE_KEY)) {
-            float[] to = PLACES[place++ % PLACES.length];
-            safe.teleportTo(to[0], to[1], 0);
-            Log.info("F3: moved to (" + to[0] + ", " + to[1] + ")");
+        if (safe != null && safe.getVehicle() == null && ctrl && GameKeyboard.isKeyPressed(PLACE_KEY)) {
+            boolean back = GameKeyboard.isKeyDown(LEFT_SHIFT) || GameKeyboard.isKeyDown(RIGHT_SHIFT);
+            place = back ? Math.floorMod(Math.max(place, 0) - 1, PLACES.length) : (place + 1) % PLACES.length;
+            Place to = PLACES[place];
+            safe.teleportTo(to.x(), to.y(), 0);
+            Log.info("F3: moved to " + to.name() + " (" + to.x() + ", " + to.y() + "), place " + (place + 1) + " of " + PLACES.length);
         }
-        if (GameKeyboard.isKeyPressed(EVENING_KEY)) {
+        if (ctrl && GameKeyboard.isKeyPressed(EVENING_KEY)) {
             float hour = ClimateManager.getInstance().getSeason().getDusk() - BEFORE_DUSK;
             GameTime.getInstance().setTimeOfDay(hour);
             Log.info("F4: the clock set to " + hour);
         }
-        if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
+        if (safe != null && ctrl && GameKeyboard.isKeyPressed(ARM_KEY)) {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
             safe.setPrimaryHandItem(shotgun);
             safe.setSecondaryHandItem(shotgun);
@@ -180,7 +211,7 @@ final class DevKeys {
             held.setJammed(false);
             held.setCondition(held.getConditionMax());
         }
-        if (!GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
+        if (!ctrl || !GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             return;
         }
         IsoPlayer player = IsoPlayer.getInstance();
