@@ -291,6 +291,26 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
     private final ViewCamera.Pose camera = new ViewCamera.Pose();
+    /**
+     * Set for a scene that is seen from far overhead: the camera it is drawn from, the tangent
+     * of half its field of view and how far off it is. The scene is still built round `camera`,
+     * which stands where the player does, so everything that goes by nearness is as it would
+     * be for someone standing there.
+     */
+    private final ViewCamera.Pose overheadCamera = new ViewCamera.Pose();
+    private boolean overhead;
+    private float overheadTan, overheadAway;
+    /** How far in front of and behind the place looked at the picture reaches, in tiles. */
+    private static final float OVERHEAD_DEPTH = 160f;
+    /** The distance the place looked at is taken to be at, for what the picture does by distance. */
+    private static final float OVERHEAD_RANGE = 12f;
+
+    void seenFromOverhead(ViewCamera.Pose from, float tanHalfFieldOfView, float away) {
+        overheadCamera.set(from);
+        overheadTan = tanHalfFieldOfView;
+        overheadAway = away;
+        overhead = true;
+    }
     /** The aim the held weapon is drawn on: see FirstPerson. */
     private final ViewCamera.Pose aim = new ViewCamera.Pose();
     private float rightX, rightY;
@@ -311,6 +331,11 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private IsoCell cell;
     private int playerIndex;
     private int lowestLevel;
+    /** The highest floor built: all of them, but for a viewer indoors seen from overhead. */
+    private static int topLevel = Integer.MAX_VALUE;
+    /** How much of a wall is left standing when the walls are cut down, in tiles. */
+    private static final float WALL_LEFT = 0.7f;
+    private float cutFrom = Float.MAX_VALUE;
     private int chunksBuilt, chunksKept;
     /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
     private boolean acrossView;
@@ -492,6 +517,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         long start = System.nanoTime();
         camera.set(view);
         aim.set(aimed);
+        overhead = false;
         this.tanHalfFieldOfView = tanHalfFieldOfView;
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
         if (flat > 1e-3f) {
@@ -541,6 +567,17 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         // From an upper floor the ground is in the picture; from the ground, only the level under it.
         int lowest = level > 0 ? 0 : level - 1;
         lowestLevel = lowest;
+        // Seen from overhead, whoever is indoors is under a roof and the floors above. The
+        // game leaves those out and so does the picture, and the walls of the floor are cut
+        // low: see Pipeline.cutAbove.
+        IsoGridSquare stoodOn = player.getCurrentSquare();
+        boolean indoors = FirstPerson.overhead() && stoodOn != null && !stoodOn.isOutside();
+        int top = indoors ? level : Integer.MAX_VALUE;
+        if (top != topLevel) {
+            topLevel = top;
+            forgetAll();
+        }
+        cutFrom = indoors ? level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level) + WALL_LEFT : Float.MAX_VALUE;
         frame.scale = Core.tileScale;
         if (unseenRed < 0f) {
             unseenRed = unseenGreen = unseenBlue = daylight;
@@ -642,7 +679,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     acrossView = false;
                     placed = fresh.placed;
                     chunksBuilt++;
-                    for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
+                    for (int z = Math.max(lowest, chunk.getMinLevel()); z <= Math.min(chunk.getMaxLevel(), topLevel); z++) {
                         readLights(chunk, chunkX, chunkY, z);
                         if (z == 0) {
                             readWoods(chunk, chunkX, chunkY);
@@ -726,6 +763,16 @@ final class WorldScene extends TextureDraw.GenericDrawer {
         return meshes.wx >= mapWx - 1 && meshes.wx <= mapWx + mapSide && meshes.wy >= mapWy - 1 && meshes.wy <= mapWy + mapSide;
     }
 
+    /** Lets go of every build: for when what all of them were built on has changed. */
+    static void forgetAll() {
+        for (int slot = 0; slot < latest.length; slot++) {
+            if (latest[slot] != null) {
+                release(latest[slot]);
+                latest[slot] = null;
+            }
+        }
+    }
+
     /**
      * Lets go of every build of a chunk the player has left behind, and of the room the sets
      * and the loans have that nothing since the last time used. The table is far wider than
@@ -761,7 +808,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      * light as they would have.
      */
     private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
-        int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
+        int from = Math.max(lowest, chunk.getMinLevel()), to = Math.min(chunk.getMaxLevel(), topLevel);
         long sum = sum(sum(sum(0x9E3779B97F4A7C15L, Float.floatToRawIntBits(frame.scale)), from), to);
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
         float[] water = Terrain.water(chunk.wx, chunk.wy);
@@ -855,7 +902,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private float cosDrawnCone(ViewCamera.Pose view, float flat) {
         float aspect = drawnAspect;
-        if (aspect == 0f || flat <= 1e-3f) {
+        if (aspect == 0f || flat <= 1e-3f || FirstPerson.overhead()) {
             return -1f;
         }
         // A driver with a mirror sees behind as well.
@@ -886,7 +933,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private float adaptEye(IsoPlayer player) {
         IsoGridSquare under = player.getCurrentSquare();
-        float target = under == null || under.isOutside() ? 1f : 0f;
+        // Seen from overhead the picture is of the open air, whatever roof the viewer is under.
+        float target = FirstPerson.overhead() || under == null || under.isOutside() ? 1f : 0f;
         long now = System.nanoTime();
         float elapsed = lastAdapt == 0 ? 1f : Math.min((now - lastAdapt) / 1e9f, 1f);
         lastAdapt = now;
@@ -3128,7 +3176,8 @@ final class WorldScene extends TextureDraw.GenericDrawer {
      */
     private void addRoomCeiling(int x, int y, int z, int localX, int localY) {
         IsoGridSquare above = cell.getGridSquare(x, y, z + 1);
-        if (above != null && (above.getFloor() != null || above.getRoomID() != -1L) || Roofs.madeAt(x, y, z, frames) != null) {
+        if (above != null && (above.getFloor() != null || above.getRoomID() != -1L) || Roofs.madeAt(x, y, z, frames) != null
+                || topLevel != Integer.MAX_VALUE) {
             return;
         }
         cornerLights(localX, localY);
@@ -3159,7 +3208,7 @@ final class WorldScene extends TextureDraw.GenericDrawer {
     private void addBacks(IsoChunk chunk, int chunkX, int chunkY) {
         ArrayList<Roofs.Laid> backs = Roofs.madeIn(chunk.wx, chunk.wy, frames);
         ArrayList<Roofs.Capped> caps = Roofs.cappedIn(chunk.wx, chunk.wy, frames);
-        if (backs == null && caps == null) {
+        if (backs == null && caps == null || topLevel != Integer.MAX_VALUE) {
             return;
         }
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
@@ -4601,6 +4650,20 @@ final class WorldScene extends TextureDraw.GenericDrawer {
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3], near));
         }
         Characters.aim.set(aim);
+        Pipeline.overhead = overhead;
+        Pipeline.cutAbove = overhead ? cutFrom : Float.MAX_VALUE;
+        Pipeline.focusX = camera.eyeX;
+        Pipeline.focusY = camera.eyeY;
+        Pipeline.focusUp = camera.eyeUp;
+        if (overhead) {
+            Pipeline.rangeFrom = overheadAway - OVERHEAD_RANGE;
+            // Nothing fades into the sky: the edge of the loaded map is beyond the picture's.
+            Pipeline.draw(shown, overheadCamera, sky, overheadTan, overheadAway - OVERHEAD_DEPTH, overheadAway + OVERHEAD_DEPTH,
+                    Float.MAX_VALUE / 4f, Float.MAX_VALUE / 2f, exposure, viewport);
+            lastDrawMillis = Pipeline.lastMillis();
+            return;
+        }
+        Pipeline.rangeFrom = 0f;
         Pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
         lastDrawMillis = Pipeline.lastMillis();
     }

@@ -315,6 +315,23 @@ final class Terrain {
         return name.startsWith("blends_natural") ? NATURAL : name.startsWith("blends_street") ? STREET : MADE;
     }
 
+    /**
+     * Whether the country is left as level as the game's map is. Seen from overhead the picture
+     * has to lie where the game's own does, or the pointer is not on what it seems to be on:
+     * the game knows nothing of hills. Kerbs and banks, which are a hand high, stay.
+     */
+    static volatile boolean level;
+
+    /** Sets whether the country is level, and lets go of every height worked out the other way. Logic thread. */
+    static void level(boolean flat) {
+        level = flat;
+        for (int slot = 0; slot < grids.length(); slot++) {
+            grids.set(slot, null);
+        }
+        // What a building's floor stands at is kept with what its chunk is made of.
+        java.util.Arrays.fill(known, null);
+    }
+
     /** What is drawn at (x, y), on any floor, stands this much above where the flat map has it. */
     static float lift(float x, float y, float z) {
         return height(x, y);
@@ -327,6 +344,9 @@ final class Terrain {
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
     private static float country(float x, float y) {
+        if (level) {
+            return 0f;
+        }
         return 2.2f * (float) (Math.sin(x * 0.0061 + 0.7) * Math.sin(y * 0.0053 + 2.2))
                 + 1.4f * (float) Math.sin((x * 0.8 - y * 0.6) * 0.0087 + 4.0);
     }
@@ -336,6 +356,9 @@ final class Terrain {
      * over one climbs less than one in fifteen.
      */
     private static float hills(float x, float y) {
+        if (level) {
+            return 0f;
+        }
         float broad = (float) (Math.sin(x * 0.015 + 1.1) * Math.sin(y * 0.018 + 0.3) + 0.6 * Math.sin((x + y) * 0.01 + 5.0));
         float ridge = (float) (Math.sin(x * 0.033 - y * 0.022 + 2.0) * Math.sin(y * 0.03 + x * 0.009 + 0.9));
         float up = Math.max(0f, 0.5f + 0.42f * broad + 0.16f * ridge);
@@ -347,12 +370,18 @@ final class Terrain {
      * from top to bottom. Made ground is cut level through them: a road runs between its banks.
      */
     private static float knolls(float x, float y) {
+        if (level) {
+            return 0f;
+        }
         return 1.1f * (float) (Math.sin(x * 0.067 + 0.3) * Math.sin(y * 0.079 + 1.7))
                 + 0.7f * (float) (Math.sin((x + y * 0.6) * 0.045 + 3.1) * Math.sin((y - x * 0.4) * 0.057 + 0.8));
     }
 
     /** What is uneven underfoot on open ground, the same wherever and whenever it is asked. */
     private static float roll(float x, float y) {
+        if (level) {
+            return 0f;
+        }
         return 0.2f * (float) (Math.sin(x * 0.071 + 1.3) * Math.sin(y * 0.063 + 0.4))
                 + 0.07f * (float) (Math.sin(x * 0.29 + y * 0.11) * Math.sin(y * 0.27 - x * 0.13));
     }

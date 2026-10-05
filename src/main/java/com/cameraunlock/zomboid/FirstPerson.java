@@ -32,6 +32,18 @@ import zombie.network.GameClient;
 public final class FirstPerson {
     /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it. */
     private static final int TOGGLE_KEY = 66;
+    /** F9. Pressed in the game's own view, it has the picture draw that view. */
+    private static final int OVERHEAD_KEY = 67;
+    /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
+    private static final float OVERHEAD_AWAY = 6000f;
+    private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
+    private static boolean overhead;
+    private static int overheadSaid;
+    private static final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
+
+    static boolean overhead() {
+        return overhead && !on;
+    }
     /** The name the game stores its inventory key under. */
     private static final String INVENTORY_BINDING = "Toggle Inventory";
     private static final int ESCAPE_KEY = 1;
@@ -223,8 +235,16 @@ public final class FirstPerson {
         }
         HeadTracking.pollHotkeys();
         DevKeys.poll();
+        if (!on && GameKeyboard.isKeyPressed(OVERHEAD_KEY)) {
+            overhead = !overhead && allowed(IsoPlayer.getInstance());
+            Log.info("the game's own view is drawn by " + (overhead ? "the picture" : "the game"));
+        }
         // Getting into a vehicle is getting behind its wheel: the view goes to the seat by
         // itself, and goes back to how it was on getting out.
+        if (Terrain.level != overhead()) {
+            Terrain.level(overhead());
+            WorldScene.forgetAll();
+        }
         IsoPlayer rider = IsoPlayer.getInstance();
         boolean riding = rider != null && rider.getVehicle() != null;
         if (riding && !wasRiding && !on) {
@@ -270,7 +290,7 @@ public final class FirstPerson {
             paceWorst = 0;
         }
         lastFrameNanos = now;
-        Characters.wanted = on;
+        Characters.wanted = on || overhead && allowed(player) && !player.isDead();
         MouseGrab.wanted = lookCaptured;
         MouseGrab.kept = active && pointer.on();
         if (!on) {
@@ -280,6 +300,9 @@ public final class FirstPerson {
             Crosshair.hide();
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
+            }
+            if (Characters.wanted) {
+                drawOverhead(player);
             }
             return;
         }
@@ -390,6 +413,53 @@ public final class FirstPerson {
         if (TRACE) {
             trace(player, scene, zoom);
         }
+    }
+
+    /**
+     * Draws the game's own view with the picture: the same world from the same place, at the
+     * game's own angle and zoom, so that everything is where the game has it on the screen and
+     * the pointer still points at what it is on. The game's view has no perspective. A camera
+     * a long way off with a very narrow field of view has next to none, and everything the
+     * picture does works with it as it stands.
+     */
+    private static void drawOverhead(IsoPlayer player) {
+        int index = player.getIndex();
+        float zoom = Core.getInstance().getZoom(index);
+        float x = player.getX(), y = player.getY(), level = player.getZ();
+        float atX = IsoUtils.XToScreenExact(x, y, level, 0) / zoom, atY = IsoUtils.YToScreenExact(x, y, level, 0) / zoom;
+        float eastX = IsoUtils.XToScreenExact(x + 1f, y, level, 0) / zoom - atX, eastY = IsoUtils.YToScreenExact(x + 1f, y, level, 0) / zoom - atY;
+        float southX = IsoUtils.XToScreenExact(x, y + 1f, level, 0) / zoom - atX, southY = IsoUtils.YToScreenExact(x, y + 1f, level, 0) / zoom - atY;
+        float wide = IsoCamera.getScreenWidth(index), high = IsoCamera.getScreenHeight(index);
+        // The place on the player's floor that is at the middle of the screen.
+        float toX = wide / 2f - atX, toY = high / 2f - atY;
+        float det = eastX * southY - southX * eastY;
+        float middleX = x + (toX * southY - southX * toY) / det, middleY = y + (eastX * toY - toX * eastY) / det;
+        // A tile's diagonal lies along the screen: its length there over its length on the map.
+        float pixelsToTile = (float) (Math.hypot(eastX - southX, eastY - southY) / Math.sqrt(2.0));
+        float halfHigh = high / 2f / pixelsToTile;
+        if (TRACE && (overheadSaid++ & 127) == 0) {
+            Log.info(String.format(java.util.Locale.ROOT, "overhead: player on screen at (%.1f, %.1f) of %.0fx%.0f, zoom %.2f, east (%.2f, %.2f) south (%.2f, %.2f), camera offset (%.1f, %.1f), middle of screen at tile (%.2f, %.2f), player (%.2f, %.2f, %.2f)",
+                    atX, atY, wide, high, zoom, eastX, eastY, southX, southY, IsoCamera.getOffX(), IsoCamera.getOffY(), middleX, middleY, x, y, level));
+        }
+        float floorUp = level * ViewCamera.LEVEL_HEIGHT;
+        ViewCamera.clean(overheadView, 0f, 0f, 0f, OVERHEAD_YAW, OVERHEAD_PITCH);
+        overheadView.eyeX = middleX - overheadView.forwardX * OVERHEAD_AWAY;
+        overheadView.eyeY = middleY - overheadView.forwardY * OVERHEAD_AWAY;
+        overheadView.eyeUp = floorUp - overheadView.forwardUp * OVERHEAD_AWAY;
+        ViewCamera.clean(standingView, x, y, floorUp + Terrain.lift(x, y, level) + eyeHeight(player), OVERHEAD_YAW, OVERHEAD_PITCH);
+        if (TRACE && (overheadSaid & 127) == 1) {
+            ViewCamera.project(overheadView, halfHigh / OVERHEAD_AWAY, wide / high, x, y, floorUp + Terrain.lift(x, y, level), ndc);
+            Log.info(String.format(java.util.Locale.ROOT, "overhead: the picture has the player's feet at (%.1f, %.1f), lift %.3f",
+                    (ndc[0] * 0.5f + 0.5f) * wide, (0.5f - ndc[1] * 0.5f) * high, Terrain.lift(x, y, level)));
+        }
+        Headlights.gather(x, y);
+        seated = false;
+        world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
+        WorldScene scene = WorldScene.next();
+        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical());
+        scene.seenFromOverhead(overheadView, halfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY);
+        paceScene = scene;
+        SpriteRenderer.instance.drawGeneric(scene);
     }
 
     /**

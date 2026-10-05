@@ -164,7 +164,8 @@ public final class Characters {
         if (notingRoots) {
             rootsFound = 0;
         }
-        int drawn = draw(ViewCamera.view(camera), false, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        // Seen from overhead the viewer is one of the people in the picture.
+        int drawn = draw(ViewCamera.view(camera), Pipeline.overhead, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;
@@ -554,14 +555,14 @@ public final class Characters {
      */
     static void cast(float[] lightMatrix, ViewCamera.Pose camera) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
-        draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
+        draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
     }
 
     /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
     static void castCharacters(float[] lightMatrix, ViewCamera.Pose camera) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         only = ONLY_CHARACTERS;
-        draw(lightMatrix, true, camera.eyeX, camera.eyeY, SHADOW_REACH);
+        draw(lightMatrix, true, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
         only = ALL;
         notingRoots = false;
     }

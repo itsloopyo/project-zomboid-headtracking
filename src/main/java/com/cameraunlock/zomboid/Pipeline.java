@@ -325,6 +325,8 @@ final class Pipeline {
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
             uniform vec3 uEye;
+            uniform float uRangeFrom;
+            uniform float uCutAbove;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
             uniform float uFogStart;
@@ -770,7 +772,7 @@ final class Pipeline {
                     // thinning away first: the other cards of the fan are the tree from here.
                     // Nor is a leaf right against the eye drawn: standing in a tree, the leaves
                     // within reach thin away and the view is of the wood beyond them.
-                    if (length(uEye - vWorld) < 0.9 + 0.7 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.9 + 0.7 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
                     vec2 spread = fwidth(along * 0.85);
@@ -802,7 +804,7 @@ final class Pipeline {
                     // the edge of where grass stands they are gone, so no line shows where it ends.
                     // A blade right against the eye is a green wall across the picture. Within
                     // arm's reach the grass thins away to nothing.
-                    if (length(uEye - vWorld) < 0.45 + 0.5 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.45 + 0.5 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
                         discard;
                     }
                     float up = 1.0 - vCover;
@@ -830,7 +832,7 @@ final class Pipeline {
                     float clump = patches(vWorld.xy * 2.7 + 5.0);
                     // Lawn dies away with distance and is gone where it stops being grown. Long grass,
                     // which is grown as far as the eye sees, only thins.
-                    float tall = (0.25 + 0.75 * kind * kind) * (0.72 + 0.28 * clump) * (rank ? 1.0 : 1.0 - smoothstep(8.0, 15.5, length(uEye - vWorld)));
+                    float tall = (0.25 + 0.75 * kind * kind) * (0.72 + 0.28 * clump) * (rank ? 1.0 : 1.0 - smoothstep(8.0, 15.5, (length(uEye - vWorld) - uRangeFrom)));
                     // A blade bows over further the higher up it, to one side or the other.
                     float bow = (grain(vec2(blade, 3.0)) - 0.5) * 1.3 * up * up;
                     float reach = up / max(tall, 0.001);
@@ -898,7 +900,7 @@ final class Pipeline {
                         vec3 round = normalize(cross(vec3(0.0, 0.0, 1.0), outward) + vec3(1e-4, 0.0, 0.0));
                         vec3 rise = cross(outward, round);
                         // Only near: further off the ridges are finer than a pixel.
-                        dent = (round * (beside - here) + rise * (above - here)) * (0.02 / e * (1.0 - smoothstep(10.0, 28.0, length(uEye - vWorld))));
+                        dent = (round * (beside - here) + rise * (above - here)) * (0.02 / e * (1.0 - smoothstep(10.0, 28.0, (length(uEye - vWorld) - uRangeFrom))));
                         // Moss on the roots and the foot of the bole, in patches.
                         float mossy = (1.0 - smoothstep(0.1, 0.75, vUv.y)) * smoothstep(0.4, 0.7, patches(vUv * vec2(4.0, 2.5) + 2.0));
                         texel = vec4(clamp(mix(bark * vec3(0.42, 0.35, 0.29), vec3(0.24, 0.3, 0.12) * (0.5 + 0.5 * here), 0.7 * mossy), 0.0, 1.0), 1.0);
@@ -969,7 +971,7 @@ final class Pipeline {
                             // A flower: petals round a heart. They are small, and from far off
                             // would be specks that come and go, so with distance fewer are
                             // drawn. Which are left out is told by where each stands.
-                            if (length(uEye - vWorld) > 9.0 + 5.0 * grain(floor(vWorld.xy * 3.0))) {
+                            if ((length(uEye - vWorld) - uRangeFrom) > 9.0 + 5.0 * grain(floor(vWorld.xy * 3.0))) {
                                 discard;
                             }
                             vec2 c = (q - 0.5) * 2.0;
@@ -1149,9 +1151,16 @@ final class Pipeline {
                 } else if (cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
+                // Seen from overhead with the viewer indoors, the walls of that floor are cut
+                // down to a low course, or the room is hidden behind its own near walls.
+                if (vWorld.z > uCutAbove && (vMaterial > 1.5 && vMaterial < 2.5 || vMaterial > 6.5 && vMaterial < 7.5
+                        || vMaterial > 12.5 && vMaterial < 13.5 || vMaterial > 51.5 && vMaterial < 52.5)) {
+                    discard;
+                }
                 vec3 toEye = uEye - vWorld;
-                float range = length(toEye);
-                vec3 view = toEye / range;
+                float away = length(toEye);
+                vec3 view = toEye / away;
+                float range = max(away - uRangeFrom, 0.0);
                 // A sprite is one sheet with no back: the side being looked at is the lit one.
                 vec3 n = normalize(vNormal);
                 if (dot(n, view) < 0.0) {
@@ -2056,6 +2065,7 @@ final class Pipeline {
             uniform float uNear;
             uniform float uFar;
             uniform vec3 uEye;
+            uniform float uRangeFrom;
             uniform vec3 uRight;
             uniform vec3 uUp;
             uniform vec3 uForward;
@@ -3525,7 +3535,7 @@ final class Pipeline {
                     color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
                 }
 
-                float range = ahead * length(ray);
+                float range = max(ahead * length(ray) - uRangeFrom, 0.0);
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
@@ -4016,6 +4026,18 @@ final class Pipeline {
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
     /**
+     * The picture seen from far overhead, as the game's own view is. The eye is then thousands
+     * of tiles off and everything in sight is much the same distance from it, so what the
+     * picture does by how far a thing is from the eye (detail, haze, the reach of shade) goes
+     * by its distance less rangeFrom, and what it centres on the eye (shadow maps, who is
+     * near enough to draw) is centred on the place looked at.
+     */
+    static boolean overhead;
+    static float rangeFrom;
+    static float focusX, focusY, focusUp;
+    /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
+    static float cutAbove = Float.MAX_VALUE;
+    /**
      * How many of the picture's pixels there are to each of the window's, each way. Leaves,
      * blades of grass, fence wire and roof edges are finer than a pixel, and drawn one sample
      * to a pixel each is there or not there as the head moves by a hair: the whole picture
@@ -4257,7 +4279,7 @@ final class Pipeline {
             }
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect);
-            if (state.rain > 0f) {
+            if (state.rain > 0f && !overhead) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             if (glazed) {
@@ -4662,11 +4684,11 @@ final class Pipeline {
             float texel = 2f * ROOF_EXTENT / SHADOW_SIZE;
             java.util.Arrays.fill(roofMatrix, 0f);
             roofMatrix[0] = 1f / ROOF_EXTENT;
-            roofMatrix[12] = -(float) Math.floor(camera.eyeX / texel) * texel / ROOF_EXTENT;
+            roofMatrix[12] = -(float) Math.floor(focusX / texel) * texel / ROOF_EXTENT;
             roofMatrix[5] = 1f / ROOF_EXTENT;
-            roofMatrix[13] = -(float) Math.floor(camera.eyeY / texel) * texel / ROOF_EXTENT;
+            roofMatrix[13] = -(float) Math.floor(focusY / texel) * texel / ROOF_EXTENT;
             roofMatrix[10] = -1f / ROOF_RANGE;
-            roofMatrix[14] = camera.eyeUp / ROOF_RANGE;
+            roofMatrix[14] = focusUp / ROOF_RANGE;
             roofMatrix[15] = 1f;
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, roofTarget);
             GL11.glClearDepth(1.0);
@@ -4819,9 +4841,9 @@ final class Pipeline {
         }
         float ux = -lu * ry, uy = lu * rx, uu = lx * ry - ly * rx;
         float texel = 2f * extent / SHADOW_SIZE;
-        float centreRight = (float) Math.floor((rx * camera.eyeX + ry * camera.eyeY) / texel) * texel;
-        float centreUp = (float) Math.floor((ux * camera.eyeX + uy * camera.eyeY + uu * camera.eyeUp) / texel) * texel;
-        float centreAlong = lx * camera.eyeX + ly * camera.eyeY + lu * camera.eyeUp;
+        float centreRight = (float) Math.floor((rx * focusX + ry * focusY) / texel) * texel;
+        float centreUp = (float) Math.floor((ux * focusX + uy * focusY + uu * focusUp) / texel) * texel;
+        float centreAlong = lx * focusX + ly * focusY + lu * focusUp;
         m[0] = rx / extent; m[4] = ry / extent; m[8] = 0f; m[12] = -centreRight / extent;
         m[1] = ux / extent; m[5] = uy / extent; m[9] = uu / extent; m[13] = -centreUp / extent;
         m[2] = -lx / range; m[6] = -ly / range; m[10] = -lu / range; m[14] = centreAlong / range;
@@ -4923,6 +4945,8 @@ final class Pipeline {
         // Texels of soft edge for each unit of the map's depth between caster and ground.
         world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * SHADOW_SIZE / (2f * NEAR_EXTENT));
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        world.set("uRangeFrom", rangeFrom);
+        world.set("uCutAbove", cutAbove);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(world);
         setFlash(world);
@@ -5162,7 +5186,7 @@ final class Pipeline {
         develop.set("uBloom", 1);
         develop.set("uDepth", 2);
         develop.set("uOcclusion", 3);
-        develop.set("uWithout", WITHOUT.contains("occlusion") ? 1f : 0f, WITHOUT.contains("air") ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
+        develop.set("uWithout", WITHOUT.contains("occlusion") ? 1f : 0f, WITHOUT.contains("air") || overhead ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
         develop.set("uVolume", 4);
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
         GL11.glBindTexture(GL_TEXTURE_2D, softVolumeColor);
@@ -5244,6 +5268,7 @@ final class Pipeline {
             figureLight.set("uNear", near);
             figureLight.set("uFar", far);
             figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+            figureLight.set("uRangeFrom", rangeFrom);
             figureLight.set("uRight", camera.rightX, camera.rightY, camera.rightUp);
             figureLight.set("uUp", camera.upX, camera.upY, camera.upUp);
             figureLight.set("uForward", camera.forwardX, camera.forwardY, camera.forwardUp);
@@ -5304,7 +5329,7 @@ final class Pipeline {
         smoothSkins(FirstPerson.seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
         CharacterDraw.bare = !FirstPerson.seated;
-        boolean own = Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        boolean own = !overhead && Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         java.nio.FloatBuffer glass = own && FirstPerson.seated ? VehicleMeshes.seatedPanes : null;
