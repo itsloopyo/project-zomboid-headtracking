@@ -90,6 +90,15 @@ public final class Agent {
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
 
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
+        Links.Result links = Links.check();
+        if (!links.unresolved().isEmpty()) {
+            links.unresolved().forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
+            Log.info("the mod stays out of the game: this build lacks " + links.unresolved().size() + " of the "
+                    + links.references() + " things of the game's the mod uses");
+            return;
+        }
+        Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
+
         HeadTracking.start(gameDirectory);
 
         CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");

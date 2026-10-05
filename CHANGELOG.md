@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- After a game update that renames or removes something the mod uses, the mod stays out of the game and the game runs without it. The log names what changed and ends with `the mod stays out of the game:`.
 - Added a settings file, `CameraUnlock.ini`, which the mod creates next to `ProjectZomboid64.exe` the first time it starts. It holds the tracker's UDP port, the two smoothing values, the lean limits, the wall check, the carried light's multiplier and the hotkeys, which can now be rebound. A setting left on `default` takes its value from `%AppData%\CameraUnlock\Defaults.ini`, which every head tracking mod that keeps its settings in `CameraUnlock.ini` reads.
 - The tracking mode (`Page Up`) and the yaw mode (`Page Down`) are saved when changed, as the aim mode already was. `End` still lasts only until the game closes.
 - The installer puts `ProjectZomboidHeadTracking.dll` next to the jar. It reads and writes the settings file.

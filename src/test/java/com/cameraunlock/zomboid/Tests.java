@@ -44,6 +44,7 @@ public final class Tests {
         ConfigTests.run();
         ArmTests.run();
         BufferTests.run();
+        LinkTests.run();
         shotStopsOnACharacter();
         receiverRefusesAPoseNoTrackerSends();
         windowIsCentredInItsWorkArea();

@@ -179,9 +179,9 @@ final class VehicleMeshes {
         VertexBufferObject buffer = mesh.vb;
         try {
             if (handleField == null) {
-                handleField = VertexBufferObject.class.getDeclaredField("handle");
+                handleField = VertexBufferObject.class.getDeclaredField(Links.BUFFER_HANDLE.name());
                 handleField.setAccessible(true);
-                elementsField = VertexBufferObject.class.getDeclaredField("elements");
+                elementsField = VertexBufferObject.class.getDeclaredField(Links.BUFFER_ELEMENTS.name());
                 elementsField.setAccessible(true);
             }
             Object handle = handleField.get(buffer);
@@ -190,9 +190,9 @@ final class VehicleMeshes {
                 throw new IllegalStateException("the vehicle model " + name + " has no buffer to read");
             }
             if (bufferField == null) {
-                bufferField = handle.getClass().getDeclaredField("vboId");
+                bufferField = handle.getClass().getDeclaredField(Links.HANDLE_BUFFER.name());
                 bufferField.setAccessible(true);
-                strideField = handle.getClass().getDeclaredField("vertexStride");
+                strideField = handle.getClass().getDeclaredField(Links.HANDLE_STRIDE.name());
                 strideField.setAccessible(true);
             }
             int stride = strideField.getInt(handle);

@@ -357,6 +357,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 - If there is no log after a launch, the Java agent was not loaded. Check that `ProjectZomboidHeadTracking.jar` and `ProjectZomboid64.site.json` are both next to the exe, and run `install.cmd` again if either is missing.
 - If `install.cmd` stops because a `ProjectZomboid64.site.json` that does not load this mod is already there, that file belongs to you or to another mod and the installer will not overwrite it. Make the three changes to it by hand (see [Manual Installation](#manual-installation)).
 - If `F8` does nothing, the log says why on a `first person stays off:` line.
+- If the log has a `the mod stays out of the game:` line, a game update changed something the mod uses and the game is running without the mod. The `not in this build of the game as the mod uses it:` lines above it name what changed. The mod needs an update for that build of the game.
 
 **No tracking response**
 
