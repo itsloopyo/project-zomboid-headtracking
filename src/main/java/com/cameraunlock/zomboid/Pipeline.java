@@ -2977,12 +2977,26 @@ final class Pipeline {
                 // A person the picture drew itself comes with the way each point of them
                 // faces, smooth over the whole body, and unlit: the light is all the picture's.
                 float bare = 0.0;
+                // What such a person's surface is at this point: 0 hair, 1 skin, 2 what is
+                // worn, 3 nothing said. With it come how glossy it is, how thin or how
+                // napped, which way hair's strands run, and the game's light where the person
+                // stands, less than nought when that was not said.
+                float worn = 3.0, gloss = 0.0, low = 0.0, outdoors = 1.0, stoodIn = -1.0;
+                vec3 strand = vec3(0.0);
                 if (uHaveFacing > 0.5) {
                     vec4 facing = texture2D(uFacing, uv);
                     if (facing.a > 0.5) {
-                        vec3 seen = facing.xyz * 2.0 - 1.0;
+                        vec3 run;
+                        vec3 seen = surfaceOf(facing, worn, gloss, low, outdoors, run);
                         n = normalize(uRight * seen.x + uUp * seen.y - uForward * seen.z);
+                        strand = uRight * run.x + uUp * run.y - uForward * run.z;
                         bare = 1.0;
+                        if (worn < 2.5) {
+                            // Beside such a surface's colour is the light, not how solid it is.
+                            float said = floor(figure.a * 255.0 + 0.5);
+                            stoodIn = said > 254.5 ? -1.0 : (said - 128.0) / 126.0;
+                            figure.a = 1.0;
+                        }
                     }
                 }
                 bool ghost = false;
@@ -3015,7 +3029,7 @@ final class Pipeline {
                 vec4 east = texture2D(uFigure, uv + vec2(px.x, 0.0)), west = texture2D(uFigure, uv - vec2(px.x, 0.0));
                 vec4 north = texture2D(uFigure, uv + vec2(0.0, px.y)), south = texture2D(uFigure, uv - vec2(0.0, px.y));
                 float cabin = close;
-                float gloss = dial ? 0.5 : 0.4;
+                float sheen = dial ? 0.5 : 0.4;
                 if (cabin > 0.5) {
                     // The game draws a vehicle's skin without the smaller copies a texture
                     // needs to be seen at a slant, and from the seat every panel is at a slant:
@@ -3050,7 +3064,7 @@ final class Pipeline {
                     if (wheel) {
                         woven = gWoven;
                         grained = gGrain;
-                        gloss = gGloss;
+                        sheen = gGloss;
                         dashGlow = max(dashGlow, gGlow);
                     }
                     if (!dial && !wheel && kind > 0.5) {
@@ -3074,7 +3088,7 @@ final class Pipeline {
                             figure.rgb = doorAt(local.x, local.z, uDashColor * painted, woven, plain);
                         }
                         grained = bonnet > 0.5 || plain > 0.5 ? 0.0 : woven > 0.5 ? (builtCabin ? 0.7 : 0.45) : 0.8;
-                        gloss = plain > 0.5 ? 0.9 : woven > 0.5 ? 0.05 : 0.4;
+                        sheen = plain > 0.5 ? 0.9 : woven > 0.5 ? 0.05 : 0.4;
                     } else if (!dial && !wheel) {
                         // The rest of the shell. In a body whose seats are not pieces of their
                         // own they are part of it, and are told as the game paints them: with
@@ -3115,13 +3129,13 @@ final class Pipeline {
                         float gap = kind > 0.5 ? 0.0 : 1.0;
                         figure.rgb *= 1.0 - gap * 0.93 * smoothstep(0.72, 0.8, local.x) * (1.0 - smoothstep(-0.52, -0.44, local.z));
                     }
-                } else if (min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
+                } else if (worn > 0.5 && min(min(east.a, west.a), min(north.a, south.a)) > 0.5) {
                     vec3 grey = vec3(0.299, 0.587, 0.114);
                     vec2 slope = vec2(dot(east.rgb - west.rgb, grey), dot(north.rgb - south.rgb, grey));
                     slope *= min(1.0, 0.25 / max(length(slope), 0.001));
                     n = normalize(n - (uRight * slope.x + uUp * slope.y) * 2.2);
                 }
-                if (uPainted < 0.5 && cabin < 0.5 && uRoots > 0.5) {
+                if (uPainted < 0.5 && cabin < 0.5 && uRoots > 0.5 && worn > 2.5) {
                     // The game's skins are a few dozen dots across a whole shirt. What a shirt
                     // or a forearm is made of is laid over them: woven cloth, and skin with its
                     // pores, fixed to the body they are on so that they move as it moves.
@@ -3279,7 +3293,7 @@ final class Pipeline {
                         vec3 out3 = vec3(dot(wheelFaces.xy, uAhead), dot(wheelFaces.xy, side), wheelFaces.z);
                         shade = 0.4 + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.025) / 0.025, 0.0, 1.0) + 0.3 * clamp(wheelAt(wheelPlace + out3 * 0.08) / 0.08, 0.0, 1.0);
                     }
-                    color = cabinLit(place, turned, vec3(dot(view.xy, uAhead), dot(view.xy, side), view.z), pow(figure.rgb, vec3(2.2)), gloss, skyGives, sunOut, shade,
+                    color = cabinLit(place, turned, vec3(dot(view.xy, uAhead), dot(view.xy, side), view.z), pow(figure.rgb, vec3(2.2)), sheen, skyGives, sunOut, shade,
                             sunLight, vec3(dot(uLight.xy, uAhead), dot(uLight.xy, side), uLight.z));
                 }
                 float glance = pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 3.0);
@@ -3296,8 +3310,8 @@ final class Pipeline {
                 // their edges.
                 vec3 back = reflect(-view, n);
                 vec3 skyBack = atmosphere(back * vec3(1.0, 1.0, sign(back.z)));
-                color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * beams(at, n, 0.25) * (1.0 - cabin);
-                color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * flashLight(at, n);
+                vec3 lamps = beams(at, n, 0.25) * (1.0 - cabin) + flashLight(at, n);
+                color += pow(figure.rgb / max(figure.a, 0.001), vec3(2.2)) * lamps;
                 if (wheel && wheelPart > 6.5 && wheelPart < 7.5 && abs(wheelPlace.y - uMirror.y) < 0.112 && abs(wheelPlace.z - uMirror.z) < 0.029 && wheelPlace.x < uMirror.x) {
                     // The glass shows the world behind, left for right, and the sky where the
                     // world stops.
@@ -3352,6 +3366,19 @@ final class Pipeline {
                 // The sky lies along it, and the sun in it is a broad soft light round the
                 // small hard one.
                 color += bonnet * (skyBack * (0.3 * glancing) + sunLight * (pow(max(dot(back, uLight), 0.0), 22.0) * 0.5 * sun));
+                if (worn < 2.5) {
+                    // A person the picture drew, by what each point of them is made of, in
+                    // the light the world round them has: the game's light for the square
+                    // they stand on, from the sky out of doors and mostly from above within,
+                    // the sun where it reaches, and the sunlit ground's light thrown back up.
+                    vec3 around = fromSky * (0.8 * skyGives);
+                    if (stoodIn >= 0.0) {
+                        around = pow(stoodIn, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))),
+                                vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), outdoors);
+                        around += sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * outdoors);
+                    }
+                    color = dressed(pow(figure.rgb, vec3(2.2)), n, view, strand, worn, gloss, low, uLight, sunLight * sun, around, lamps, skyBack);
+                }
 
                 float range = ahead * length(ray);
                 float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
@@ -3367,7 +3394,8 @@ final class Pipeline {
             }
             """;
 
-    private static final String FIGURE_LIGHT = FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS).concat(FIGURE_LIGHT_MAIN);
+    private static final String FIGURE_LIGHT = FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
+            .concat(CharacterDraw.LIT).concat(FIGURE_LIGHT_MAIN);
 
     private static final String DEVELOP = """
             #version 120

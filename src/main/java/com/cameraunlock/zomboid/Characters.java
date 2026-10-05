@@ -13,6 +13,8 @@ import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
+import zombie.core.textures.ColorInfo;
+import zombie.iso.IsoGridSquare;
 
 /**
  * The game's models in the first-person picture: zombies, survivors and
@@ -641,6 +643,9 @@ public final class Characters {
         if (!own || held) {
             CharacterDraw.begin(data, combined, projection, casting);
         }
+        if (!own && !casting) {
+            lightWhere(data);
+        }
         for (int part = 0; part < data.modelData.size(); part++) {
             ModelInstanceRenderData model = data.modelData.get(part);
             if (held) {
@@ -659,6 +664,21 @@ public final class Characters {
             model.RenderCharacter(data);
         }
         EYE.End();
+    }
+
+    /**
+     * Says to the picture's draw of a person what the game's light is on the square they stand
+     * on, read as the world's own squares are, so that a person in a dark room is as dark as
+     * the room. Nothing is said of a square the viewer has not seen: the game holds no light for it.
+     */
+    private static void lightWhere(ModelSlotRenderData data) {
+        IsoPlayer viewer = IsoPlayer.getInstance();
+        IsoGridSquare square = data.character.getCurrentSquare();
+        if (viewer == null || square == null || !square.isSeen(viewer.getIndex())) {
+            return;
+        }
+        ColorInfo light = square.lighting[viewer.getIndex()].lightInfo();
+        CharacterDraw.stands((light.r + light.g + light.b) / 3f, square.isOutside());
     }
 
     /**

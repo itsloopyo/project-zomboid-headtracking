@@ -53,13 +53,19 @@ final class CharacterDraw {
     private static final float FAINTEST = 0.01f;
     /** Within this many tiles of the eye a triangle is divided most finely, and beyond the second not at all. */
     private static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 12f;
+    /** How far off a head of hair its outermost fringe stands, in the model's own measure, and how many layers of fringe there are near the eye and further off. */
+    private static final float FRINGE = 0.0045f, FRINGE_NEAR = 2.5f, FRINGE_FAR = 5f;
+    private static final int FRINGE_LAYERS_NEAR = 4, FRINGE_LAYERS_FAR = 2;
 
-    /** Place, normal, bone weights, bone numbers, texture place, run-together normal. */
-    private static final int FLOATS = 19, STRIDE = FLOATS * 4;
-    private static final int PLACE = 0, NORMAL = 1, WEIGHTS = 2, BONE_NUMBERS = 3, UV = 4, SMOOTH = 5, ATTRIBUTES = 6;
-    private static final int[] SIZE = {3, 3, 4, 4, 2, 3};
-    private static final int[] OFFSET = {0, 12, 24, 40, 56, 64};
-    private static final String[] ATTRIBUTE_NAMES = {"aPlace", "aNormal", "aWeights", "aBones", "aUv", "aSmooth"};
+    /**
+     * Place, normal, bone weights, bone numbers, texture place, run-together normal, and the
+     * way the texture runs down the surface with how near the corner is to the mesh's open edge.
+     */
+    private static final int FLOATS = 23, STRIDE = FLOATS * 4;
+    private static final int PLACE = 0, NORMAL = 1, WEIGHTS = 2, BONE_NUMBERS = 3, UV = 4, SMOOTH = 5, ALONG = 6, ATTRIBUTES = 7;
+    private static final int[] SIZE = {3, 3, 4, 4, 2, 3, 4};
+    private static final int[] OFFSET = {0, 12, 24, 40, 56, 64, 76};
+    private static final String[] ATTRIBUTE_NAMES = {"aPlace", "aNormal", "aWeights", "aBones", "aUv", "aSmooth", "aAlong"};
 
     private static final int GL_VERSION = 0x1F02;
     private static final int GL_TRIANGLES = 0x0004, GL_PATCHES = 0x000E, GL_PATCH_VERTICES = 0x8E72;
@@ -95,9 +101,13 @@ final class CharacterDraw {
             FROM_MESH vec4 aWeights;
             FROM_MESH vec4 aBones;
             FROM_MESH vec2 aUv;
+            FROM_MESH vec3 aSmooth;
+            FROM_MESH vec4 aAlong;
             uniform mat4 uPalette[60];
             uniform float uScale;
             uniform vec2 uUvScale;
+            uniform vec2 uThread;
+            uniform float uLift;
 
             mat4 posed() {
                 mat4 blend = mat4(0.0);
@@ -114,31 +124,48 @@ final class CharacterDraw {
             uniform mat4 uProjection;
             TO_NEXT vec3 vNormal;
             TO_NEXT vec2 vUv;
+            TO_NEXT vec3 vRest;
+            TO_NEXT vec3 vLean;
+            TO_NEXT vec4 vAlong;
+            TO_NEXT vec2 vLay;
+            TO_NEXT vec3 vEye;
 
             void main() {
                 mat4 blend = posed();
                 vec4 place = blend * vec4(aPlace, 1.0);
-                place.xyz *= uScale;
-                vNormal = (blend * vec4(aNormal, 0.0)).xyz;
+                // The run-together normal: a seam in the texture is then no seam in the light.
+                vNormal = (blend * vec4(aSmooth, 0.0)).xyz;
+                place.xyz = place.xyz * uScale + vNormal * (uLift / max(length(vNormal), 1e-6));
                 vUv = aUv * uUvScale;
-                gl_Position = uProjection * (uModelView * place);
+                vRest = aPlace;
+                vLean = aSmooth;
+                vAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                vLay = aUv * uThread;
+                vec4 eye = uModelView * place;
+                vEye = eye.xyz;
+                gl_Position = uProjection * eye;
             }
             """;
 
     private static final String DIVIDED_VERTEX = POSED + """
-            FROM_MESH vec3 aSmooth;
             TO_NEXT vec3 cPlace;
-            TO_NEXT vec3 cNormal;
             TO_NEXT vec3 cSmooth;
             TO_NEXT vec2 cUv;
+            TO_NEXT vec3 cRest;
+            TO_NEXT vec3 cLean;
+            TO_NEXT vec4 cAlong;
+            TO_NEXT vec2 cLay;
 
             void main() {
                 mat4 blend = posed();
                 vec4 place = blend * vec4(aPlace, 1.0);
                 cPlace = place.xyz * uScale;
-                cNormal = (blend * vec4(aNormal, 0.0)).xyz;
                 cSmooth = (blend * vec4(aSmooth, 0.0)).xyz;
                 cUv = aUv * uUvScale;
+                cRest = aPlace;
+                cLean = aSmooth;
+                cAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                cLay = aUv * uThread;
             }
             """;
 
@@ -247,6 +274,11 @@ final class CharacterDraw {
             uniform float uArm[60];
             TO_NEXT vec3 vNormal;
             TO_NEXT vec2 vUv;
+            TO_NEXT vec3 vRest;
+            TO_NEXT vec3 vLean;
+            TO_NEXT vec4 vAlong;
+            TO_NEXT vec2 vLay;
+            TO_NEXT vec3 vEye;
             TO_NEXT float vArm;
 
             void main() {
@@ -255,6 +287,11 @@ final class CharacterDraw {
                 place.xyz *= uScale;
                 vNormal = (blend * vec4(aNormal, 0.0)).xyz;
                 vUv = aUv * uUvScale;
+                vRest = aPlace;
+                vLean = aSmooth;
+                vAlong = vec4((blend * vec4(aAlong.xyz, 0.0)).xyz, aAlong.w);
+                vLay = aUv * uThread;
+                vEye = (uModelView * place).xyz;
                 float arm = 0.0;
                 if (aWeights.x > 0.0) arm += uArm[int(aBones.x)] * aWeights.x;
                 if (aWeights.y > 0.0) arm += uArm[int(aBones.y)] * aWeights.y;
@@ -274,13 +311,19 @@ final class CharacterDraw {
             #version 400 compatibility
             layout(vertices = 3) out;
             in vec3 cPlace[];
-            in vec3 cNormal[];
             in vec3 cSmooth[];
             in vec2 cUv[];
+            in vec3 cRest[];
+            in vec3 cLean[];
+            in vec4 cAlong[];
+            in vec2 cLay[];
             out vec3 ePlace[];
-            out vec3 eNormal[];
             out vec3 eSmooth[];
             out vec2 eUv[];
+            out vec3 eRest[];
+            out vec3 eLean[];
+            out vec4 eAlong[];
+            out vec2 eLay[];
             uniform mat4 uModelView;
             uniform vec2 uFine;
             const float FINEST = 4.0;
@@ -292,9 +335,12 @@ final class CharacterDraw {
 
             void main() {
                 ePlace[gl_InvocationID] = cPlace[gl_InvocationID];
-                eNormal[gl_InvocationID] = cNormal[gl_InvocationID];
                 eSmooth[gl_InvocationID] = cSmooth[gl_InvocationID];
                 eUv[gl_InvocationID] = cUv[gl_InvocationID];
+                eRest[gl_InvocationID] = cRest[gl_InvocationID];
+                eLean[gl_InvocationID] = cLean[gl_InvocationID];
+                eAlong[gl_InvocationID] = cAlong[gl_InvocationID];
+                eLay[gl_InvocationID] = cLay[gl_InvocationID];
                 if (gl_InvocationID == 0) {
                     float first = pieces(cPlace[1], cPlace[2]);
                     float second = pieces(cPlace[2], cPlace[0]);
@@ -321,13 +367,22 @@ final class CharacterDraw {
             #version 400 compatibility
             layout(triangles, fractional_odd_spacing, ccw) in;
             in vec3 ePlace[];
-            in vec3 eNormal[];
             in vec3 eSmooth[];
             in vec2 eUv[];
+            in vec3 eRest[];
+            in vec3 eLean[];
+            in vec4 eAlong[];
+            in vec2 eLay[];
             out vec3 vNormal;
             out vec2 vUv;
+            out vec3 vRest;
+            out vec3 vLean;
+            out vec4 vAlong;
+            out vec2 vLay;
+            out vec3 vEye;
             uniform mat4 uModelView;
             uniform mat4 uProjection;
+            uniform float uLift;
             const float ROUNDING = 0.75;
             const float STEEPEST = 0.35;
 
@@ -345,14 +400,148 @@ final class CharacterDraw {
                         + share.z * onto(level, ePlace[2], eSmooth[2]);
                 vNormal = share.x * eSmooth[0] + share.y * eSmooth[1] + share.z * eSmooth[2];
                 vUv = share.x * eUv[0] + share.y * eUv[1] + share.z * eUv[2];
-                gl_Position = uProjection * (uModelView * vec4(mix(level, rounded, ROUNDING), 1.0));
+                vRest = share.x * eRest[0] + share.y * eRest[1] + share.z * eRest[2];
+                vLean = share.x * eLean[0] + share.y * eLean[1] + share.z * eLean[2];
+                vAlong = share.x * eAlong[0] + share.y * eAlong[1] + share.z * eAlong[2];
+                vLay = share.x * eLay[0] + share.y * eLay[1] + share.z * eLay[2];
+                vec3 stood = mix(level, rounded, ROUNDING) + vNormal * (uLift / max(length(vNormal), 1e-6));
+                vec4 eye = uModelView * vec4(stood, 1.0);
+                vEye = eye.xyz;
+                gl_Position = uProjection * eye;
+            }
+            """;
+
+    /**
+     * How a person's surface is written down for the picture's lighting, in the four numbers
+     * of a pixel, and read back. The way it faces is folded flat onto a square, which keeps
+     * the same fineness whichever way it faces and leaves two numbers free. The third is how
+     * glossy it is, or for hair which way the strands run across it. The fourth says what it
+     * is made of, whether the person stands out of doors, and one thing more by what it is:
+     * how thin skin is there, or how much nap cloth has.
+     *
+     * The strands' way is kept as an angle in a pair of lines that lie in the surface and are
+     * found from the way it faces alone, so that whoever reads the pixel finds the same pair.
+     * They are found from the folded and unfolded facing, not the true one, for that reason.
+     */
+    static final String KEPT = """
+            vec2 folded(vec3 n) {
+                n /= abs(n.x) + abs(n.y) + abs(n.z);
+                vec2 flatways = n.z >= 0.0 ? n.xy : (1.0 - abs(n.yx)) * vec2(n.x >= 0.0 ? 1.0 : -1.0, n.y >= 0.0 ? 1.0 : -1.0);
+                return flatways * 0.5 + 0.5;
+            }
+
+            vec3 unfolded(vec2 kept) {
+                vec2 f = kept * 2.0 - 1.0;
+                vec3 n = vec3(f, 1.0 - abs(f.x) - abs(f.y));
+                float under = clamp(-n.z, 0.0, 1.0);
+                n.xy += vec2(n.x >= 0.0 ? -under : under, n.y >= 0.0 ? -under : under);
+                return normalize(n);
+            }
+
+            void lying(vec3 n, out vec3 first, out vec3 second) {
+                float k = 1.0 / (1.0 + max(n.z, -0.999));
+                float both = -n.x * n.y * k;
+                first = vec3(1.0 - n.x * n.x * k, both, -n.x);
+                second = vec3(both, 1.0 - n.y * n.y * k, -n.y);
+            }
+            """;
+
+    /** What a part is made of, as its shader is told. A body is skin with whatever the game painted on it. */
+    static final int BODY = 0, HAIR = 1, WEAVE = 2, TWILL = 3, KNIT = 4, LEATHER = 5, SLEEK = 6;
+
+    /**
+     * The fine shape of what people are made of, worked out from where a point is on the body
+     * as it was made, before any bone moved it: it is fixed to the surface, moves as the
+     * surface moves and never swims or sparkles. Each is left out once it is finer than the
+     * pixels it would be drawn with.
+     */
+    private static final String GRAIN = """
+            float chance(vec3 p) {
+                p = fract(p * 0.1031);
+                p += dot(p, p.zyx + 31.32);
+                return fract((p.x + p.y) * p.z);
+            }
+
+            float lumps(vec3 p) {
+                vec3 cell = floor(p), f = p - cell;
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(mix(chance(cell), chance(cell + vec3(1.0, 0.0, 0.0)), f.x),
+                        mix(chance(cell + vec3(0.0, 1.0, 0.0)), chance(cell + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+                        mix(mix(chance(cell + vec3(0.0, 0.0, 1.0)), chance(cell + vec3(1.0, 0.0, 1.0)), f.x),
+                        mix(chance(cell + vec3(0.0, 1.0, 1.0)), chance(cell + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+            }
+
+            float chanceAt(float p) {
+                p = fract(p * 0.1031);
+                p *= p + 33.33;
+                p *= p + p;
+                return fract(p);
+            }
+
+            float wander(float x) {
+                float cell = floor(x), f = x - cell;
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(chanceAt(cell), chanceAt(cell + 1.0), f);
+            }
+
+            // Strands lying side by side, that many to the unit: lay.x is across them and
+            // lay.y along, and each wanders a little as it runs.
+            float strands(vec2 lay, float count) {
+                float across = lay.x * count + 1.4 * wander(lay.y * count * 0.06 + 3.1 * wander(lay.x * count * 0.21));
+                return wander(across) * (0.7 + 0.3 * wander(lay.y * count * 0.09 + across * 0.37));
+            }
+
+            // Threads, one pitch to the unit: over and under for a plain weave, the slanting
+            // ribs of twill, the upright rows of loops of a knit.
+            float threads(vec2 q, float wear) {
+                if (wear < 2.5) {
+                    return 0.5 + 0.5 * sin(6.2832 * q.x) * sin(6.2832 * q.y);
+                }
+                if (wear < 3.5) {
+                    return (0.5 + 0.5 * sin(6.2832 * (q.x + q.y))) * (0.75 + 0.25 * sin(12.5664 * (q.x - q.y)));
+                }
+                float row = fract(q.x) - 0.5;
+                return (1.0 - 4.0 * row * row) * (0.6 + 0.4 * sin(6.2832 * (q.y * 1.5 + abs(row) * 1.4)));
+            }
+
+            // How high the surface stands at a place on the body as made. lean is how much
+            // the surface there faces along each axis; shown is how much of the cloth's grain
+            // and of the skin's the pixels can carry.
+            float standing(vec3 p, vec3 lean, float wear, float flesh, vec2 shown) {
+                float high = 0.0;
+                if (flesh < 0.999 && shown.x > 0.0) {
+                    float made = 0.0;
+                    if (wear > 5.5) {
+                        made = 0.0;
+                    } else if (wear > 4.5) {
+                        // Leather: a pebbled grain, and the creases it is worn into.
+                        made = 0.45 * lumps(p * 430.0) + 0.3 * lumps(p * 1020.0) + 0.25 * smoothstep(0.35, 0.65, lumps(p * 95.0));
+                    } else {
+                        vec3 q = p * (wear < 2.5 ? 520.0 : wear < 3.5 ? 430.0 : 330.0);
+                        // An arm is made held straight out, and what is worn on it runs along it.
+                        vec2 front = abs(p.x) > 0.17 ? q.yx : q.xy;
+                        made = threads(front, wear) * lean.z + threads(q.zy, wear) * lean.x + threads(q.zx, wear) * lean.y;
+                    }
+                    high += made * (1.0 - flesh) * shown.x;
+                }
+                if (flesh > 0.001 && shown.y > 0.0) {
+                    // Skin: pores set into it, and the unevenness of what lies under it.
+                    high += (0.3 * lumps(p * 170.0) - 0.5 * smoothstep(0.55, 0.85, lumps(p * 640.0))) * 0.6 * flesh * shown.y;
+                }
+                return high;
             }
             """;
 
     /**
      * A texel the texture leaves clear is not drawn at all: that is how the game hides the
      * body under what is worn over it. The colour is the texture's, turned round the colour
-     * wheel by the part's hue, lit by the game's lights for this person and tinted.
+     * wheel by the part's hue and tinted.
+     *
+     * For the picture's own lighting nothing is lit here. What is written is the colour, with
+     * the game's light where the person stands beside it, and what KEPT describes: the way the
+     * surface faces once its grain is on it, and what it is. What a part is made of comes with
+     * the part, and on a body is told texel by texel: skin, the blood on it, the wet of an
+     * eye, and the clothes the game paints straight onto the skin.
      */
     private static final String FRAGMENT = """
             uniform sampler2D uTexture;
@@ -365,11 +554,30 @@ final class CharacterDraw {
             uniform vec3 uLightColor[5];
             uniform mat4 uModelView;
             uniform float uBare;
+            uniform float uWear;
+            uniform float uShell;
+            uniform vec2 uStands;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
+            FROM_LAST vec3 vRest;
+            FROM_LAST vec3 vLean;
+            FROM_LAST vec4 vAlong;
+            FROM_LAST vec2 vLay;
+            FROM_LAST vec3 vEye;
 
-            """ + HUE + """
+            """ + HUE + KEPT + GRAIN + """
+            float grey(vec3 color) {
+                return dot(color, vec3(0.299, 0.587, 0.114));
+            }
+
+            // Hair as high as it stands at a place across and along its strands: locks, the
+            // strands in them, and the single hairs, each as far as the pixels carry it.
+            float combed(vec2 lay, vec3 shown) {
+                return 0.5 * strands(lay, 150.0) * shown.x + 0.35 * strands(lay, 520.0) * shown.y + 0.15 * strands(lay, 1300.0) * shown.z;
+            }
+
             void main() {
+                bool hair = uWear > 0.5 && uWear < 1.5;
                 // The game's skins are a few hundred dots across a whole person. Read through
                 // a curve over the four nearest dots each way, and not a straight blend of
                 // two, the edge of a sleeve or a wound is a clean line and not a blur; the
@@ -397,22 +605,255 @@ final class CharacterDraw {
                     discard;
                 }
                 vec3 color = texel.rgb;
+                // How bright the texture is round a texel, a few dots off each way, how much
+                // brighter the texel is than that, and which way over the texture it gets brighter.
+                float stands = 0.0, about = 0.0;
+                vec2 brighter = vec2(0.0);
+                if (uBare > 0.5 && uWear < 1.5) {
+                    float reach = hair ? 0.06 : 0.0137;
+                    float east = grey(TEXEL(uTexture, vUv + vec2(reach, 0.0)).rgb), west = grey(TEXEL(uTexture, vUv - vec2(reach, 0.0)).rgb);
+                    float north = grey(TEXEL(uTexture, vUv + vec2(0.0, reach)).rgb), south = grey(TEXEL(uTexture, vUv - vec2(0.0, reach)).rgb);
+                    about = 0.25 * (east + west + north + south);
+                    brighter = vec2(east - west, north - south) / (2.0 * reach);
+                    float here = grey(color);
+                    stands = here - about;
+                    if (hair) {
+                        // The game paints hair as a few broad strokes of light and dark. They
+                        // are kept as the lie of the locks and drawn in towards the tone round
+                        // them, or the strands laid over them would be lost in the stripes.
+                        color *= clamp(sqrt(max(about, 0.02) / max(here, 0.02)), 0.7, 1.5);
+                    }
+                }
+                if (hair && uBare > 0.5) {
+                    // The fringe: layers stood a little off the hair, each with fewer strands
+                    // in it than the one under, leaning the way the hair runs.
+                    if (uShell > 0.0 && strands(vLay + vec2(0.0, -0.006 * uShell), 430.0) < mix(0.5, 0.86, uShell)) {
+                        discard;
+                    }
+                    // Where the mesh stops the hair does not stop in a straight line: some
+                    // strands end sooner than others.
+                    if (vAlong.w > 0.3 + 0.45 * strands(vLay, 300.0) + 0.25 * strands(vLay, 900.0)) {
+                        discard;
+                    }
+                }
                 if (uHue != 0.0) {
                     color = turned(color, uHue);
                 }
                 vec3 n = normalize(vNormal);
-                vec3 light = uAmbient;
-                for (int i = 0; i < 5; i++) {
-                    light += uLightColor[i] * max(dot(n, uLightWay[i]), 0.0);
-                }
-                if (uBare > 0.5) {
-                    // For the picture's own lighting: the colour as it is, and beside it the
-                    // way the surface faces as the eye sees it.
-                    gl_FragData[0] = vec4(uAlpha * color * uTint, alpha);
-                    gl_FragData[1] = vec4(normalize(mat3(uModelView) * n) * 0.5 + 0.5, 1.0);
-                } else {
+                if (uBare < 0.5) {
+                    vec3 light = uAmbient;
+                    for (int i = 0; i < 5; i++) {
+                        light += uLightColor[i] * max(dot(n, uLightWay[i]), 0.0);
+                    }
                     gl_FragData[0] = vec4(uAlpha * color * uTint * min(light, vec3(1.0)), alpha);
+                    return;
                 }
+                // The picture draws a person whole or not at all.
+                if (alpha < 0.5) {
+                    discard;
+                }
+                vec3 paint = color * uTint;
+                vec3 facing = normalize(mat3(uModelView) * n);
+                float scale = length(uModelView[1].xyz);
+                float kind = 2.0, gloss = 0.0, low = 0.0, third = 0.0;
+                vec3 flow = vec3(0.0);
+                if (hair) {
+                    kind = 0.0;
+                    flow = mat3(uModelView) * vAlong.xyz;
+                    flow -= facing * dot(flow, facing);
+                    // A mesh whose texture says nothing of which way it runs: its hair hangs.
+                    if (dot(flow, flow) < 1e-10) {
+                        flow = mat3(uModelView) * vec3(0.0, -1.0, 0.0);
+                        flow -= facing * dot(flow, facing);
+                    }
+                    flow = normalize(flow);
+                    vec3 beside = cross(facing, flow);
+                    float fine = fwidth(vLay.x);
+                    vec3 shown = 1.0 - smoothstep(0.3, 0.7, fine * vec3(150.0, 520.0, 1300.0));
+                    float aside = 0.0006;
+                    float here = combed(vLay, shown);
+                    float slope = (combed(vLay + vec2(aside, 0.0), shown) - combed(vLay - vec2(aside, 0.0), shown)) / (2.0 * aside);
+                    // Each lock lies a little steeper or flatter than the next, which is what
+                    // breaks the light along a head of hair into streaks and not one ring.
+                    float tilt = (strands(vLay, 240.0) - 0.42) * shown.x;
+                    facing = normalize(facing - beside * (slope * 0.0011) + flow * (tilt * 0.5));
+                    flow = normalize(flow - facing * dot(flow, facing));
+                    paint *= 0.74 + 0.5 * here;
+                } else {
+                    bool body = uWear < 0.5;
+                    float wear = uWear;
+                    float most = max(paint.r, max(paint.g, paint.b)), least = min(paint.r, min(paint.g, paint.b));
+                    float strong = (most - least) / max(most, 0.001);
+                    // Blood is a dark red, redder by half again than it is green or blue.
+                    float blood = smoothstep(1.4, 1.8, paint.r / max(max(paint.g, paint.b), 0.02)) * step(0.12, paint.r) * (1.0 - smoothstep(0.62, 0.8, paint.r));
+                    float flesh = 0.0, wet = 0.0;
+                    vec2 ball = vec2(0.0);
+                    if (body) {
+                        // A body is skin, living or dead, bruised, pale or dark, except where
+                        // the game painted clothes on it, and those are told by what skin
+                        // never is: strongly coloured away from skin's own orange, bluer than
+                        // it is red, clean white, or black. A head is skin whatever its
+                        // colour: the white of an eye is no shirt. What is painted on is
+                        // shoes on the feet, trousers on the legs, denim where they are
+                        // blue, and a shirt above.
+                        float warm = (paint.g - paint.b) / max(paint.r - paint.b, 0.001);
+                        float tanned = step(paint.g, paint.r) * step(paint.b, paint.g) * step(0.15, warm) * step(warm, 0.8);
+                        float clothed = max(smoothstep(0.4, 0.55, strong) * (1.0 - tanned), step(paint.r + 0.04, paint.b) * step(paint.g, paint.b + 0.02));
+                        clothed = max(clothed, smoothstep(0.78, 0.86, most) * (1.0 - smoothstep(0.04, 0.08, strong)));
+                        clothed = max(clothed, 1.0 - smoothstep(0.08, 0.14, most));
+                        flesh = max(max(1.0 - clothed, smoothstep(0.8, 0.83, vRest.y)), blood);
+                        wear = vRest.y < 0.07 ? 5.0 : vRest.y < 0.52 ? (paint.b > paint.r + 0.03 ? 3.0 : 2.0) : 4.0;
+                        // On the front of the head, what is nearly white and much brighter
+                        // than the skin round it is the white of an eye or a tooth, and what
+                        // is nearly black and much darker is the dark of an eye: both are wet.
+                        float face = smoothstep(0.835, 0.85, vRest.y) * (1.0 - smoothstep(0.925, 0.94, vRest.y)) * smoothstep(0.0, -0.008, vRest.z);
+                        float tone = grey(color);
+                        float white = smoothstep(0.1, 0.2, stands) * smoothstep(0.78, 0.88, tone) * (1.0 - smoothstep(0.1, 0.2, strong));
+                        float dark = smoothstep(0.22, 0.36, -stands) * (1.0 - smoothstep(0.1, 0.2, tone));
+                        wet = max(white, dark) * face;
+                        // An eye is a ball set in the face, and its wet shows as a point of
+                        // light only if it is round. The middle of a white has white all
+                        // round it and its rim has not, so how white it is round a texel
+                        // rises to the middle of the eye as a ball does, and the dark of
+                        // an eye the other way about. ball is which way over the texture
+                        // the eye rises, and how steeply.
+                        ball = brighter * (wet * (white > dark ? 0.05 : -0.05) * scale);
+                        // Fingers, ears and the end of the nose are thin enough for light to come through.
+                        float head = smoothstep(0.85, 0.87, vRest.y) * (1.0 - smoothstep(0.92, 0.94, vRest.y));
+                        low = flesh * max(smoothstep(0.415, 0.46, abs(vRest.x)), head * max(smoothstep(0.047, 0.058, abs(vRest.x)), 0.5 * smoothstep(-0.036, -0.046, vRest.z)));
+                    }
+                    float fine = max(length(dFdx(vRest)), length(dFdy(vRest)));
+                    float pitch = wear > 5.5 ? 1.0 : wear > 4.5 ? 430.0 : wear < 2.5 ? 520.0 : wear < 3.5 ? 430.0 : 330.0;
+                    vec2 shown = 1.0 - smoothstep(0.3, 0.7, fine * vec2(pitch, 640.0));
+                    vec3 lean = pow(abs(normalize(vLean)), vec3(4.0));
+                    lean /= lean.x + lean.y + lean.z;
+                    float here = standing(vRest, lean, wear, flesh, shown);
+                    vec3 across = dFdx(vEye), down = dFdy(vEye);
+                    vec3 first = cross(down, facing), second = cross(facing, across);
+                    float room = dot(across, first);
+                    float deep = mix(mix(0.00028, 0.0002, step(4.5, wear)), 0.00016, flesh) * scale;
+                    float byAcross = (standing(vRest + dFdx(vRest), lean, wear, flesh, shown) - here) * deep + dot(ball, dFdx(vUv));
+                    float byDown = (standing(vRest + dFdy(vRest), lean, wear, flesh, shown) - here) * deep + dot(ball, dFdy(vUv));
+                    if (abs(room) > 1e-12) {
+                        facing = normalize(abs(room) * facing - sign(room) * (byAcross * first + byDown * second));
+                    }
+                    paint *= 1.0 + mix(0.24, 0.1, flesh) * (here - 0.45 * (1.0 - flesh) * shown.x * step(wear, 5.5));
+                    // A wet white is not as white as paint, or no light could show on it.
+                    paint *= 1.0 - 0.2 * wet;
+                    // Blood is darker than what it is on, and shines.
+                    paint *= 1.0 - 0.3 * blood;
+                    if (flesh > 0.5) {
+                        kind = 1.0;
+                        gloss = max(0.7 * blood, wet);
+                    } else {
+                        // How glossy what is worn is, and how much nap it has.
+                        vec2 finish = wear < 2.5 ? vec2(0.05, 0.5) : wear < 3.5 ? vec2(0.07, 0.3) : wear < 4.5 ? vec2(0.02, 0.9) : wear < 5.5 ? vec2(0.6, 0.0) : vec2(0.45, 0.0);
+                        gloss = max(finish.x, 0.7 * blood);
+                        low = finish.y * (1.0 - blood);
+                    }
+                }
+                vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
+                if (hair) {
+                    vec3 one, other;
+                    lying(unfolded(kept), one, other);
+                    third = fract(atan(dot(flow, other), dot(flow, one)) / 3.14159265 + 1.0);
+                } else {
+                    third = gloss;
+                }
+                float where = uStands.x < 0.0 ? 255.0 : 128.0 + floor(clamp(uStands.x, 0.0, 1.0) * 126.0 + 0.5);
+                float what = 128.0 + kind * 32.0 + (uStands.y > 0.5 ? 16.0 : 0.0) + floor(clamp(low, 0.0, 1.0) * 15.0 + 0.5);
+                gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), where / 255.0);
+                gl_FragData[1] = vec4(kept, third, what / 255.0);
+            }
+            """;
+
+    /**
+     * For the pass that lights the picture's people: reading back what FRAGMENT wrote of a
+     * surface, and the light each kind of surface throws back.
+     *
+     * Hair is lit along its strands: a narrow light the colour of the sun towards their tips
+     * and a broad one the colour of the hair towards their roots, both lying across the
+     * strands as a band, and a glow through its edge with the sun behind it. Skin takes the
+     * light a little way in: warm where it turns from the light, red through an ear or a
+     * finger, with a broad faint shine, a sharper one at a glance, and a hard point of light
+     * where it is wet. What is worn is dull, its nap bright at the outline, with a highlight
+     * that is tighter the glossier it is: leather and rubber against cloth.
+     */
+    static final String LIT = KEPT + """
+            // The way a kept surface faces, as the eye sees it, and what else was kept of it:
+            // worn is 0 for hair, 1 for skin, 2 for what is worn, 3 for a surface that says
+            // nothing more than its facing.
+            vec3 surfaceOf(vec4 kept, out float worn, out float gloss, out float low, out float outdoors, out vec3 strand) {
+                float what = floor(kept.a * 255.0 + 0.5) - 128.0;
+                worn = floor(what / 32.0);
+                what -= worn * 32.0;
+                outdoors = step(15.5, what);
+                low = (what - outdoors * 16.0) / 15.0;
+                gloss = kept.b;
+                strand = vec3(0.0);
+                if (worn > 2.5) {
+                    return kept.xyz * 2.0 - 1.0;
+                }
+                vec3 n = unfolded(kept.xy);
+                if (worn < 0.5) {
+                    vec3 one, other;
+                    lying(n, one, other);
+                    float turn = kept.b * 3.14159265;
+                    strand = one * cos(turn) + other * sin(turn);
+                    gloss = 0.0;
+                }
+                return n;
+            }
+
+            // paint is the surface's own colour, way the way to the sun, sunLit the sun's
+            // light where it reaches, around the light from all round, lamps what lamps
+            // give, skyBack the sky the surface would mirror.
+            vec3 dressed(vec3 paint, vec3 n, vec3 view, vec3 strand, float worn, float gloss, float low, vec3 way, vec3 sunLit, vec3 around,
+                    vec3 lamps, vec3 skyBack) {
+                float towards = dot(n, way);
+                float seen = clamp(dot(n, view), 0.0, 1.0);
+                vec3 between = normalize(way + view);
+                float rim = pow(1.0 - seen, 4.0);
+                float mirror = 0.03 + 0.97 * pow(1.0 - seen, 5.0);
+                float high = clamp(dot(n, between), 0.0, 1.0);
+                if (worn < 0.5) {
+                    float alongSun = dot(strand, way);
+                    float lit = clamp((towards + 0.45) / 1.45, 0.0, 1.0) * mix(1.0, sqrt(max(1.0 - alongSun * alongSun, 0.0)), 0.5);
+                    vec3 color = paint * (around + lamps + sunLit * (1.5 * lit));
+                    float most = max(paint.r, max(paint.g, paint.b));
+                    vec3 tone = paint / max(most, 0.02);
+                    float front = smoothstep(-0.2, 0.3, towards);
+                    float first = dot(normalize(strand + n * 0.14), between), second = dot(normalize(strand - n * 0.24), between);
+                    float glint = pow(max(1.0 - first * first, 0.0), 32.0);
+                    float glow = pow(max(1.0 - second * second, 0.0), 8.0);
+                    color += sunLit * (front * (0.14 * glint * mix(vec3(1.0), tone, vec3(0.3)) + 0.4 * glow * sqrt(most) * tone));
+                    // The sky lies along it as a faint band of its own.
+                    float third = dot(strand, normalize(vec3(0.0, 0.0, 1.0) + view));
+                    color += around * tone * (0.12 * sqrt(most) * pow(max(1.0 - third * third, 0.0), 12.0));
+                    color += sunLit * tone * (0.6 * sqrt(most) * rim * pow(max(dot(-view, way), 0.0), 3.0));
+                    return color;
+                }
+                if (worn < 1.5) {
+                    float lit = clamp((towards + 0.25) / 1.25, 0.0, 1.0);
+                    vec3 color = paint * (around + lamps + sunLit * (1.5 * lit));
+                    float edge = smoothstep(0.0, 0.25, lit) * (1.0 - smoothstep(0.25, 0.6, lit));
+                    color += paint * sunLit * vec3(0.55, 0.16, 0.08) * edge;
+                    color += paint * sunLit * vec3(0.95, 0.28, 0.14) * (0.9 * low * clamp(0.35 - towards, 0.0, 1.0));
+                    float glance = 0.028 + 0.972 * pow(1.0 - clamp(dot(view, between), 0.0, 1.0), 5.0);
+                    float dry = 1.0 - gloss;
+                    float shine = dry * (0.05 * pow(high, 10.0) + (0.02 + 0.3 * glance) * pow(high, 48.0))
+                            + gloss * mix(0.5, 6.0, gloss) * pow(high, mix(90.0, 380.0, gloss * gloss));
+                    color += sunLit * (shine * smoothstep(-0.05, 0.15, towards));
+                    color += skyBack * (mirror * (0.22 * dry + 0.35 * gloss) + 0.05 * gloss * gloss);
+                    color += paint * around * (0.35 * rim * dry);
+                    return color;
+                }
+                float lit = clamp((towards + 0.12) / 1.12, 0.0, 1.0);
+                vec3 color = paint * (around + lamps + sunLit * (1.5 * lit));
+                color += paint * (around * (0.9 * rim * low) + sunLit * (0.5 * rim * low * lit));
+                color += sunLit * (max(towards, 0.0) * mix(0.035, 0.75, gloss) * pow(high, mix(7.0, 110.0, gloss)));
+                color += skyBack * mirror * (0.1 + 0.7 * gloss);
+                return color;
             }
             """;
 
@@ -515,7 +956,7 @@ final class CharacterDraw {
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
-        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine;
+        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, texSize;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
 
         Skin(int id) {
@@ -530,6 +971,8 @@ final class CharacterDraw {
             tint = GL20.glGetUniformLocation(id, "uTint");
             ambient = GL20.glGetUniformLocation(id, "uAmbient");
             fine = GL20.glGetUniformLocation(id, "uFine");
+            bare = GL20.glGetUniformLocation(id, "uBare");
+            texSize = GL20.glGetUniformLocation(id, "uTexSize");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
                 lightColor[light] = GL20.glGetUniformLocation(id, "uLightColor[" + light + "]");
@@ -548,8 +991,12 @@ final class CharacterDraw {
         /** The right arm and the left, and the bone of each hand: null for a mesh that is not drawn. */
         final Limb[] limbs;
         final int[] handBone;
+        /** How far over the surface one whole width of the texture goes, and one whole height: null for a mesh that is not drawn. */
+        final float[] lay;
+        /** What this mesh was found to be made of in each texture it has been drawn in. */
+        final HashMap<String, Integer> wears = new HashMap<>();
 
-        Copy(VertexBufferObject from, int modification, int vertices, int indices, int count, Limb[] limbs, int[] handBone) {
+        Copy(VertexBufferObject from, int modification, int vertices, int indices, int count, Limb[] limbs, int[] handBone, float[] lay) {
             this.from = from;
             this.modification = modification;
             this.vertices = vertices;
@@ -557,6 +1004,7 @@ final class CharacterDraw {
             this.count = count;
             this.limbs = limbs;
             this.handBone = handBone;
+            this.lay = lay;
         }
     }
 
@@ -592,6 +1040,12 @@ final class CharacterDraw {
      * surfaces face: they are then drawn unlit, for the picture to light.
      */
     static boolean bare;
+    /** The game's light on the square the person begun stands on, or less than nought when nobody has said, and whether that square is out of doors. */
+    private static float standsIn = -1f;
+    private static boolean standsOut;
+    private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
+    /** For each program, by its number, where its settings for what a part is made of live. */
+    private static int[][] dressing = new int[0][];
     private static final int[] FIRST = {0x8CE0}, BOTH = {0x8CE0, 0x8CE1};
     private static final float[] lightWay = new float[LIGHTS * 3], lightColor = new float[LIGHTS * 3];
     private static Vector2 uvScale;
@@ -607,9 +1061,106 @@ final class CharacterDraw {
         projection = seen;
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
+        standsIn = -1f;
         if (!off) {
             lights(data);
         }
+    }
+
+    /**
+     * The game's light on the square the person begun stands on, as the world round them is
+     * lit by it, and whether that square is out of doors. Said after begin, or not at all: a
+     * person nobody has said it of is lit as one standing under the open sky.
+     */
+    static void stands(float light, boolean outside) {
+        standsIn = Math.clamp(light, 0f, 1f);
+        standsOut = outside;
+    }
+
+    /**
+     * What a part is made of, by the names of its model and its texture, which the game gives
+     * as paths or as bare names, in either case of letter. A body is skin and whatever the
+     * game painted on it, and its texture is one the game composed for a character.
+     *
+     * @param composedForBody whether the texture is the game's composition of a whole character's skin
+     */
+    static int wearOf(String model, String texture, boolean composedForBody) {
+        String named = (within(model) + " " + within(texture)).toLowerCase(java.util.Locale.ROOT);
+        if (has(named, "hair", "beard")) {
+            return HAIR;
+        }
+        if (composedForBody || has(named, "malebody", "zedbody", "skeleton")) {
+            return BODY;
+        }
+        if (has(named, "padded")) {
+            return WEAVE;
+        }
+        if (has(named, "leather", "boot", "shoe", "belt", "holster", "glove", "hide", "biker")) {
+            return LEATHER;
+        }
+        if (has(named, "hazmat", "rubber", "vinyl", "plastic", "helmet", "hardhat", "goggle", "glasses", "mask", "pad", "armor", "armour", "cuirass", "scba",
+                "tire", "metal", "medal", "necklace", "choker", "garbage", "tarp")) {
+            return SLEEK;
+        }
+        if (has(named, "jumper", "sweater", "hoodie", "tshirt", "t-shirt", "sock", "beanie", "wool", "scarf", "tanktop", "legging", "stocking",
+                "balaclava", "longjohn")) {
+            return KNIT;
+        }
+        if (has(named, "denim", "jean", "dungaree", "trouser", "camo", "army", "boilersuit", "boliersuit", "shorts")) {
+            return TWILL;
+        }
+        return WEAVE;
+    }
+
+    /** A name without the folders the game is installed in, which say nothing of what the thing is. */
+    private static String within(String name) {
+        if (name == null) {
+            return "";
+        }
+        String path = name.replace('\\', '/');
+        int media = path.toLowerCase(java.util.Locale.ROOT).lastIndexOf("media/");
+        return media < 0 ? path : path.substring(media + 6);
+    }
+
+    private static boolean has(String named, String... words) {
+        for (String word : words) {
+            if (named.contains(word)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** How many layers of fringe a part made of that gets at that many tiles from the eye. */
+    static int fringe(int wear, float tilesAway) {
+        return wear != HAIR || tilesAway >= FRINGE_FAR ? 0 : tilesAway < FRINGE_NEAR ? FRINGE_LAYERS_NEAR : FRINGE_LAYERS_FAR;
+    }
+
+    private static int[] dressingOf(int program) {
+        if (program >= dressing.length) {
+            dressing = java.util.Arrays.copyOf(dressing, program + 1);
+        }
+        if (dressing[program] == null) {
+            dressing[program] = new int[] {GL20.glGetUniformLocation(program, "uWear"), GL20.glGetUniformLocation(program, "uThread"),
+                GL20.glGetUniformLocation(program, "uStands"), GL20.glGetUniformLocation(program, "uShell"), GL20.glGetUniformLocation(program, "uLift")};
+        }
+        return dressing[program];
+    }
+
+    /** Tells the program in use what the part about to be drawn is made of, how its texture lies on it, and where its wearer stands. */
+    static void dress(int program, int wear, float[] lay) {
+        int[] at = dressingOf(program);
+        GL20.glUniform1f(at[0], wear);
+        GL20.glUniform2f(at[1], lay[0], lay[1]);
+        GL20.glUniform2f(at[2], standsIn, standsOut ? 1f : 0f);
+    }
+
+    /** Tells the program in use which layer of a part is about to be drawn: nought is the part itself, the rest its fringe, outermost last. */
+    static void shell(int program, int layer, int layers, float scale) {
+        int[] at = dressingOf(program);
+        float out = layers == 0 ? 0f : (float) layer / layers;
+        GL20.glUniform1f(at[3], out);
+        GL20.glUniform1f(at[4], out * FRINGE * scale);
     }
 
     /** Whether the viewer's body can be drawn in two pieces on this machine. */
@@ -904,6 +1455,22 @@ final class CharacterDraw {
 
         Skin skin = cutBones != null ? cut : divided != null && !shadow ? divided : whole;
         GL20.glUseProgram(skin.id);
+        boolean unlit = bare && !shadow;
+        int wear = WEAVE;
+        if (unlit) {
+            String wornName = texture.getName();
+            Integer known = copy.wears.get(wornName);
+            if (known == null) {
+                known = wearOf(model.name, wornName, texture.getClass().getSimpleName().equals("CharacterSmartTexture"));
+                copy.wears.put(wornName, known);
+                if (TRACE) {
+                    Log.info("the model " + model.name + " in " + wornName + " is drawn as "
+                            + new String[] {"a body", "hair", "woven cloth", "twill", "knit", "leather", "something sleek"}[known]);
+                }
+            }
+            wear = known;
+        }
+        dress(skin.id, wear, copy.lay);
         if (cutBones != null) {
             GL20.glUniform1fv(cutArm, cutBones);
             GL20.glUniform1f(cutKeep, cutKeepsThem ? 1f : 0f);
@@ -913,8 +1480,8 @@ final class CharacterDraw {
         GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
         GL20.glUniformMatrix4fv(skin.projection, false, projection);
         GL20.glUniform1f(skin.scale, person.finalScale);
-        GL20.glUniform1f(GL20.glGetUniformLocation(skin.id, "uBare"), bare && !shadow ? 1f : 0f);
-        if (bare && !shadow) {
+        GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
+        if (unlit) {
             GL20.glDrawBuffers(BOTH);
         }
         GL20.glUniform1f(skin.alpha, person.alpha);
@@ -940,7 +1507,7 @@ final class CharacterDraw {
         worn.bind();
         worn.getUVScale(uvScale);
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
-        GL20.glUniform2f(GL20.glGetUniformLocation(skin.id, "uTexSize"), worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
+        GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, copy.vertices);
         for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
@@ -951,11 +1518,15 @@ final class CharacterDraw {
         if (skin == divided) {
             GL20.glUniform2f(skin.fine, FINE_WITHIN, WHOLE_BEYOND);
             GL40.glPatchParameteri(GL_PATCH_VERTICES, 3);
-            GL11.glDrawElements(GL_PATCHES, copy.count, GL_UNSIGNED_INT, 0L);
-        } else {
-            GL11.glDrawElements(GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
         }
-        if (bare && !shadow) {
+        // Hair is drawn again in a few layers stood off it, each thinner than the last: its
+        // outline is then strands and not the edge of a helmet. The viewer's own is not seen.
+        int layers = unlit && cutBones == null ? fringe(wear, away) : 0;
+        for (int layer = 0; layer <= layers; layer++) {
+            shell(skin.id, layer, layers, person.finalScale);
+            GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
+        }
+        if (unlit) {
             GL20.glDrawBuffers(FIRST);
         }
         // The game's draw of the next part turns on only the arrays its own mesh has. One left
@@ -1112,7 +1683,7 @@ final class CharacterDraw {
                 : elements == null || elements.length < count || count % 3 != 0 ? "its triangles are not kept as a list of " + count + " corners" : null;
         if (lacks != null) {
             Log.info("the model " + name + " is left to the game's own draw: " + lacks);
-            return new Copy(buffer, modification, 0, 0, 0, null, null);
+            return new Copy(buffer, modification, 0, 0, 0, null, null, null);
         }
 
         GL15.glBindBuffer(GL_ARRAY_BUFFER, handle.vboId);
@@ -1124,24 +1695,26 @@ final class CharacterDraw {
             if (elements[corner] < 0 || elements[corner] >= vertices) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
                 Log.info("the model " + name + " is left to the game's own draw: a triangle names vertex " + elements[corner] + " of " + vertices);
-                return new Copy(buffer, modification, 0, 0, 0, null, null);
+                return new Copy(buffer, modification, 0, 0, 0, null, null, null);
             }
         }
 
-        float[] places = new float[vertices * 3], normals = new float[vertices * 3];
+        float[] places = new float[vertices * 3], normals = new float[vertices * 3], uvs = new float[vertices * 2];
         for (int vertex = 0; vertex < vertices; vertex++) {
             for (int axis = 0; axis < 3; axis++) {
                 places[vertex * 3 + axis] = raw.getFloat(vertex * stride + from[PLACE] + axis * 4);
                 normals[vertex * 3 + axis] = raw.getFloat(vertex * stride + from[NORMAL] + axis * 4);
             }
+            uvs[vertex * 2] = raw.getFloat(vertex * stride + from[UV]);
+            uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + from[UV] + 4);
         }
         float[] smooth = smoothNormals(places, normals, elements, count);
+        float[] along = along(places, uvs, elements, count);
         Limb[] limbs = {new Limb(), new Limb()};
         int[] handBone = {-1, -1};
         if (skeleton != null) {
             int[] boneKinds = kinds(skeleton);
             int[] kinds = new int[vertices];
-            float[] uvs = new float[vertices * 2];
             for (int vertex = 0; vertex < vertices; vertex++) {
                 float most = 0f;
                 for (int share = 0; share < 4; share++) {
@@ -1152,8 +1725,6 @@ final class CharacterDraw {
                         kinds[vertex] = boneKinds[bone];
                     }
                 }
-                uvs[vertex * 2] = raw.getFloat(vertex * stride + from[UV]);
-                uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + from[UV] + 4);
             }
             for (int side = 0; side < 2; side++) {
                 limbs[side] = limb(places, uvs, kinds, elements, count, side);
@@ -1169,6 +1740,7 @@ final class CharacterDraw {
                 }
             }
             made.put(smooth, vertex * 3, 3);
+            made.put(along, vertex * 4, 4);
         }
         made.flip();
         int ours = GL15.glGenBuffers();
@@ -1179,7 +1751,118 @@ final class CharacterDraw {
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
         GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, elements.length == count ? elements : java.util.Arrays.copyOf(elements, count), GL_STATIC_DRAW);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        return new Copy(buffer, modification, ours, indices, count, limbs, handBone);
+        return new Copy(buffer, modification, ours, indices, count, limbs, handBone, laid(places, uvs, elements, count));
+    }
+
+    /** Which vertex is the first at each place a mesh has a vertex: a mesh holds a corner several times over where its texture has a seam there. */
+    private static int[] firstAt(float[] places) {
+        int vertices = places.length / 3;
+        HashMap<Spot, Integer> firstAt = new HashMap<>();
+        int[] one = new int[vertices];
+        for (int vertex = 0; vertex < vertices; vertex++) {
+            // Adding zero makes the two zeros one.
+            Spot spot = new Spot(Float.floatToIntBits(places[vertex * 3] + 0f), Float.floatToIntBits(places[vertex * 3 + 1] + 0f),
+                    Float.floatToIntBits(places[vertex * 3 + 2] + 0f));
+            Integer first = firstAt.putIfAbsent(spot, vertex);
+            one[vertex] = first == null ? vertex : first;
+        }
+        return one;
+    }
+
+    /**
+     * For each vertex, four numbers. The first three are the way over the surface that the
+     * texture runs downwards there, of length one: the game's hair is painted combed down its
+     * textures, so on hair it is the way the strands run. Every copy of a corner gets the one
+     * answer, the triangles round it added up by their area; a vertex whose triangles say
+     * nothing of it gets nought. The fourth is one for a vertex on an open edge of the mesh,
+     * where a triangle's side is no other triangle's, and nought for the rest.
+     */
+    static float[] along(float[] places, float[] uvs, int[] elements, int count) {
+        int vertices = places.length / 3;
+        int[] one = firstAt(places);
+        float[] sum = new float[vertices * 3];
+        HashMap<Long, Integer> sides = new HashMap<>();
+        for (int corner = 0; corner + 2 < count; corner += 3) {
+            int a = elements[corner], b = elements[corner + 1], c = elements[corner + 2];
+            for (int side = 0; side < 3; side++) {
+                int from = one[elements[corner + side]], to = one[elements[corner + (side + 1) % 3]];
+                if (from != to) {
+                    sides.merge((long) Math.min(from, to) << 32 | Math.max(from, to), 1, Integer::sum);
+                }
+            }
+            float ux = places[b * 3] - places[a * 3], uy = places[b * 3 + 1] - places[a * 3 + 1], uz = places[b * 3 + 2] - places[a * 3 + 2];
+            float vx = places[c * 3] - places[a * 3], vy = places[c * 3 + 1] - places[a * 3 + 1], vz = places[c * 3 + 2] - places[a * 3 + 2];
+            float s1 = uvs[b * 2] - uvs[a * 2], t1 = uvs[b * 2 + 1] - uvs[a * 2 + 1], s2 = uvs[c * 2] - uvs[a * 2], t2 = uvs[c * 2 + 1] - uvs[a * 2 + 1];
+            float turned = s1 * t2 - s2 * t1;
+            if (turned == 0f) {
+                continue;
+            }
+            // The way the place moves as the texture is gone down, across staying put.
+            float x = (vx * s1 - ux * s2) / turned, y = (vy * s1 - uy * s2) / turned, z = (vz * s1 - uz * s2) / turned;
+            float length = (float) Math.sqrt(x * x + y * y + z * z);
+            float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            float area = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (!(length > 0f) || !Float.isFinite(length)) {
+                continue;
+            }
+            for (int of = 0; of < 3; of++) {
+                int to = one[elements[corner + of]] * 3;
+                sum[to] += x / length * area;
+                sum[to + 1] += y / length * area;
+                sum[to + 2] += z / length * area;
+            }
+        }
+        boolean[] open = new boolean[vertices];
+        for (var side : sides.entrySet()) {
+            if (side.getValue() == 1) {
+                open[(int) (side.getKey() >>> 32)] = true;
+                open[(int) (long) side.getKey()] = true;
+            }
+        }
+        float[] along = new float[vertices * 4];
+        for (int vertex = 0; vertex < vertices; vertex++) {
+            int of = one[vertex] * 3;
+            float length = (float) Math.sqrt(sum[of] * sum[of] + sum[of + 1] * sum[of + 1] + sum[of + 2] * sum[of + 2]);
+            if (length > 0f) {
+                along[vertex * 4] = sum[of] / length;
+                along[vertex * 4 + 1] = sum[of + 1] / length;
+                along[vertex * 4 + 2] = sum[of + 2] / length;
+            }
+            along[vertex * 4 + 3] = open[one[vertex]] ? 1f : 0f;
+        }
+        return along;
+    }
+
+    /**
+     * How far over a mesh's surface one whole width of its texture goes, and one whole height,
+     * in the mesh's own measure: the mean over its triangles, by their area. With these a
+     * pattern laid in the texture's own lines is as wide on one mesh as on another. Nought and
+     * nought for a mesh whose texture is laid nowhere.
+     */
+    static float[] laid(float[] places, float[] uvs, int[] elements, int count) {
+        double across = 0, down = 0, whole = 0;
+        for (int corner = 0; corner + 2 < count; corner += 3) {
+            int a = elements[corner], b = elements[corner + 1], c = elements[corner + 2];
+            float ux = places[b * 3] - places[a * 3], uy = places[b * 3 + 1] - places[a * 3 + 1], uz = places[b * 3 + 2] - places[a * 3 + 2];
+            float vx = places[c * 3] - places[a * 3], vy = places[c * 3 + 1] - places[a * 3 + 1], vz = places[c * 3 + 2] - places[a * 3 + 2];
+            float s1 = uvs[b * 2] - uvs[a * 2], t1 = uvs[b * 2 + 1] - uvs[a * 2 + 1], s2 = uvs[c * 2] - uvs[a * 2], t2 = uvs[c * 2 + 1] - uvs[a * 2 + 1];
+            float turned = s1 * t2 - s2 * t1;
+            if (turned == 0f) {
+                continue;
+            }
+            double sx = (ux * t2 - vx * t1) / turned, sy = (uy * t2 - vy * t1) / turned, sz = (uz * t2 - vz * t1) / turned;
+            double tx = (vx * s1 - ux * s2) / turned, ty = (vy * s1 - uy * s2) / turned, tz = (vz * s1 - uz * s2) / turned;
+            float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            double area = Math.sqrt(nx * nx + ny * ny + nz * nz);
+            double wide = Math.sqrt(sx * sx + sy * sy + sz * sz), high = Math.sqrt(tx * tx + ty * ty + tz * tz);
+            if (!Double.isFinite(wide) || !Double.isFinite(high)) {
+                continue;
+            }
+            across += wide * area;
+            down += high * area;
+            whole += area;
+        }
+        return whole > 0 ? new float[] {(float) (across / whole), (float) (down / whole)} : new float[2];
     }
 
     /**
@@ -1396,15 +2079,7 @@ final class CharacterDraw {
      */
     static float[] smoothNormals(float[] places, float[] normals, int[] elements, int count) {
         int vertices = places.length / 3;
-        HashMap<Spot, Integer> firstAt = new HashMap<>();
-        int[] one = new int[vertices];
-        for (int vertex = 0; vertex < vertices; vertex++) {
-            // Adding zero makes the two zeros one.
-            Spot spot = new Spot(Float.floatToIntBits(places[vertex * 3] + 0f), Float.floatToIntBits(places[vertex * 3 + 1] + 0f),
-                    Float.floatToIntBits(places[vertex * 3 + 2] + 0f));
-            Integer first = firstAt.putIfAbsent(spot, vertex);
-            one[vertex] = first == null ? vertex : first;
-        }
+        int[] one = firstAt(places);
         float[] sum = new float[vertices * 3];
         for (int corner = 0; corner + 2 < count; corner += 3) {
             int a = elements[corner] * 3, b = elements[corner + 1] * 3, c = elements[corner + 2] * 3;

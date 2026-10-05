@@ -66,6 +66,9 @@ public final class Tests {
         faceOutsideTheTrimmedSpriteAddsNothing();
         uprightSpriteStandsOnItsAnchor();
         smoothNormalsAgreeAcrossASeam();
+        partsAreToldByTheirNames();
+        textureRunsDownAMeshTheSameEitherSideOfASeam();
+        fringeThinsOutWithDistance();
         fineSkinFileIsNamedAfterTheGamesTexture();
         hookBeforeAReturnGetsTheResultAndTheFirstArgument();
         packedModelIsReadBack();
@@ -1084,6 +1087,50 @@ public final class Tests {
         Class<?> defined = MethodHandles.lookup().defineClass(hooked);
         Object made = defined.getMethod("make", String.class).invoke(defined.getConstructor().newInstance(), "steps");
         check("made from steps".equals(made), "the hook is given what the method was about to return and the method's first argument, and its answer is returned");
+    }
+
+    private static void partsAreToldByTheirNames() {
+        String media = "C:\\Games\\Leather Goods\\ProjectZomboid\\media\\textures\\";
+        check(CharacterDraw.wearOf("skinned/hair/m_hair_picard", media + "F_Hair_White.png", false) == CharacterDraw.HAIR, "a head of hair is hair by its model's name");
+        check(CharacterDraw.wearOf("Bob_Beard_Full", "SmartTexture", false) == CharacterDraw.HAIR, "a beard is hair");
+        check(CharacterDraw.wearOf("FemaleBody", "SmartTexture", true) == CharacterDraw.BODY, "a character's composed skin is a body");
+        check(CharacterDraw.wearOf("Skinned\\MaleBody", media + "Body\\M_ZedBody01.png", false) == CharacterDraw.BODY, "a body is a body by its name");
+        check(CharacterDraw.wearOf("Bob_Jacket", media + "Clothes\\Jacket\\Jacket_Denim.png", false) == CharacterDraw.TWILL,
+                "denim is twill, and the folder the game is installed in says nothing of it");
+        check(CharacterDraw.wearOf("Kate_JacketLeather", "SmartTexture", false) == CharacterDraw.LEATHER, "leather is told by the model when the texture is composed");
+        check(CharacterDraw.wearOf("Bob_Jumper", media + "Clothes\\Jumper\\Jumper_Roundneck.png", false) == CharacterDraw.KNIT, "a jumper is knitted");
+        check(CharacterDraw.wearOf("Bob_JacketPadded", "SmartTexture", false) == CharacterDraw.WEAVE, "a padded jacket is cloth, not a pad");
+        check(CharacterDraw.wearOf("Bob_Kneepad_L", "SmartTexture", false) == CharacterDraw.SLEEK, "a knee pad is hard and smooth");
+        check(CharacterDraw.wearOf("Bob_Poncho", null, false) == CharacterDraw.WEAVE, "what nothing is known of is plain cloth");
+    }
+
+    private static void textureRunsDownAMeshTheSameEitherSideOfASeam() {
+        // A square of four triangles round its middle, which the mesh holds twice. The
+        // texture is laid on it upright, twice as wide as the square and half as high.
+        float[] places = {0f, 0.5f, 0f, -1f, 1f, 0f, 1f, 1f, 0f, 1f, 0f, 0f, -1f, 0f, 0f, 0f, 0.5f, 0f};
+        float[] uvs = new float[12];
+        for (int vertex = 0; vertex < 6; vertex++) {
+            uvs[vertex * 2] = places[vertex * 3] / 2f;
+            uvs[vertex * 2 + 1] = (1f - places[vertex * 3 + 1]) * 2f;
+        }
+        int[] elements = {0, 1, 2, 0, 2, 3, 5, 3, 4, 5, 4, 1};
+        float[] along = CharacterDraw.along(places, uvs, elements, 12);
+        for (int vertex = 0; vertex < 6; vertex++) {
+            check(near(along[vertex * 4], 0f) && near(along[vertex * 4 + 1], -1f) && near(along[vertex * 4 + 2], 0f), "the texture runs straight down the mesh at every vertex");
+            check(along[vertex * 4 + 3] == (vertex == 0 || vertex == 5 ? 0f : 1f), "the middle is inside the mesh though it is held twice, and the corners are on its open edge");
+        }
+        float[] lay = CharacterDraw.laid(places, uvs, elements, 12);
+        check(near(lay[0], 2f) && near(lay[1], 0.5f), "a whole width of the texture goes two units over the mesh and a whole height half a unit");
+        float[] nowhere = CharacterDraw.laid(places, new float[12], elements, 12);
+        check(nowhere[0] == 0f && nowhere[1] == 0f, "a mesh whose texture is laid nowhere has no lie");
+        float[] unsaid = CharacterDraw.along(places, new float[12], elements, 12);
+        check(unsaid[0] == 0f && unsaid[1] == 0f && unsaid[2] == 0f, "and its texture runs no way");
+    }
+
+    private static void fringeThinsOutWithDistance() {
+        check(CharacterDraw.fringe(CharacterDraw.HAIR, 1.3f) > CharacterDraw.fringe(CharacterDraw.HAIR, 4f), "hair near the eye has more layers of fringe than hair further off");
+        check(CharacterDraw.fringe(CharacterDraw.HAIR, 4f) > 0 && CharacterDraw.fringe(CharacterDraw.HAIR, 9f) == 0, "and far off it has none");
+        check(CharacterDraw.fringe(CharacterDraw.KNIT, 1f) == 0, "nothing but hair has a fringe");
     }
 
     private static void smoothNormalsAgreeAcrossASeam() {
