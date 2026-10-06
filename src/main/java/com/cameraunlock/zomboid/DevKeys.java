@@ -28,7 +28,7 @@ import zombie.vehicles.VehiclePart;
  * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  *
- * The backslash takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
+ * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
  * sits the player in the driver's seat, whatever state it was found in. For looking at
  * vehicles and driving without first finding one that runs.
  *
@@ -57,8 +57,8 @@ import zombie.vehicles.VehiclePart;
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
-    /** The backslash in the key codes the game's keyboard uses. */
-    private static final int TAKE_VEHICLE_KEY = 43;
+    /** F7 in the key codes the game's keyboard uses. */
+    private static final int TAKE_VEHICLE_KEY = 65;
     private static final float TAKE_WITHIN = 5f;
     /** The apostrophe. */
     private static final int INVINCIBLE_KEY = 40;

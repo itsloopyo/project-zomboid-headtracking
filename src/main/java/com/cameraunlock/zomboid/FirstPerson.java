@@ -37,12 +37,12 @@ import zombie.vehicles.BaseVehicle;
  * Everything here runs on the game's logic thread.
  */
 public final class FirstPerson {
-    /** F7 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it, F8 or F9. */
-    private static final int TOGGLE_KEY = 65;
-    /** F8. Goes to the next graphics mode: see Quality. In every mode but Low the picture draws the game's own view as well. */
-    private static final int MODE_KEY = 66;
-    /** F9. Goes to the next picture style: see Style. */
-    private static final int STYLE_KEY = 67;
+    /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it or F9. */
+    private static final int TOGGLE_KEY = 66;
+    /** F9. Goes to the next graphics mode: see Quality. In every mode but Low the picture draws the game's own view as well. */
+    private static final int MODE_KEY = 67;
+    /** F10. Goes to the next picture style: see Style. The game's default bindings have Take screenshot on it, and the press is left to the game as well. */
+    private static final int STYLE_KEY = 68;
     /** How long the name of a graphics mode or picture style just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
     private static long saidAt;
