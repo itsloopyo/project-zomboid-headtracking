@@ -376,6 +376,9 @@ final class Pipeline {
         }
     }
     private static volatile float lastMillis;
+    /** Whether any texture unit has been found with a sampler of the game's or another mod's bound to it, and how often they are looked at until one has. */
+    private static boolean samplersSeen;
+    private static final int SAMPLERS_ASKED_EVERY = 256;
 
     private Pipeline() {}
 
@@ -431,9 +434,17 @@ final class Pipeline {
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        // The game binds no sampler to any unit, so most frames there is nothing to ask: every
+        // question put to a driver that runs on a thread of its own waits for that thread, and
+        // this was thirty-two of them a frame. They are asked on one frame in 256, and on every
+        // frame from then on once any unit has held one, which another mod could see to.
+        boolean looked = samplersSeen || (frameNumber & SAMPLERS_ASKED_EVERY - 1) == 1;
         for (int unit = 0; unit < UNITS; unit++) {
-            GL13.glActiveTexture(GL_TEXTURE0 + unit);
-            samplers[unit] = bound(GL_SAMPLER_BINDING);
+            if (looked) {
+                GL13.glActiveTexture(GL_TEXTURE0 + unit);
+                samplers[unit] = bound(GL_SAMPLER_BINDING);
+                samplersSeen |= samplers[unit] != 0;
+            }
             GL33.glBindSampler(unit, 0);
         }
         GL13.glActiveTexture(GL_TEXTURE0);
