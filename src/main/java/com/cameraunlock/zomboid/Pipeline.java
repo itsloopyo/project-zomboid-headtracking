@@ -2612,14 +2612,7 @@ final class Pipeline {
             if (!prepared || failure != null || width == 0) {
                 return;
             }
-            for (int old : sizedTargets) {
-                GL30.glDeleteFramebuffers(old);
-            }
-            for (int old : sizedTextures) {
-                GL11.glDeleteTextures(old);
-            }
-            sizedTargets.clear();
-            sizedTextures.clear();
+            giveBackSized();
             width = 0;
             height = 0;
             for (int map : new int[] {nearMap, farMap, roofMap, beamMap}) {
@@ -2633,10 +2626,12 @@ final class Pipeline {
         }
     };
 
-    /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */
-    private static String resize(int newWidth, int newHeight) {
-        // The last size's are given back first. Left alone they are held until the game
-        // ends, a set for every size the picture has been.
+    /**
+     * Gives the sized textures and targets back to the graphics card. The driver hands the same
+     * numbers out again for the next ones made, so whoever told a texture of these apart by its
+     * number is told they are gone: a target of their own still holds the one given back.
+     */
+    private static void giveBackSized() {
         for (int old : sizedTargets) {
             GL30.glDeleteFramebuffers(old);
         }
@@ -2645,6 +2640,15 @@ final class Pipeline {
         }
         sizedTargets.clear();
         sizedTextures.clear();
+        OwnWeapon.forgetTarget();
+        HeldDepth.forgetTarget();
+    }
+
+    /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */
+    private static String resize(int newWidth, int newHeight) {
+        // The last size's are given back first. Left alone they are held until the game
+        // ends, a set for every size the picture has been.
+        giveBackSized();
         sizing = true;
         try {
             return makeSized(newWidth, newHeight);

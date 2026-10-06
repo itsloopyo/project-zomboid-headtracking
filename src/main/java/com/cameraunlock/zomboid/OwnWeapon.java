@@ -405,6 +405,12 @@ final class OwnWeapon {
         placed = false;
     }
 
+    /** The picture's colour and the hands' depth were given back, and the target is to take the next ones. */
+    static void forgetTarget() {
+        targetColor = 0;
+        targetDepth = 0;
+    }
+
     /**
      * Begins the drawing: the program is in use, for the picture to give it the light of the
      * frame under the names its own programs know it by (the sky, the sun and its two shadow

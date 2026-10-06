@@ -25,6 +25,11 @@ final class HeldDepth {
 
     private static int target, color, depth, wide, high;
 
+    /** The picture's colour was given back, and the target is to take the next one. */
+    static void forgetTarget() {
+        color = 0;
+    }
+
     /**
      * Makes the target ready for a frame's held things, its depth cleared.
      *
