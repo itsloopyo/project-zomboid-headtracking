@@ -50,6 +50,14 @@ final class PipelineShaders {
                 return given;
             }
 
+            // What they give the air at p, for the eye to see as a beam. Dipped lamps throw
+            // nothing above their own height, so the lit air lies low over the road.
+            float beamInAir(int i, vec3 p) {
+                vec3 dir;
+                float given = beamAt(i, p, dir);
+                return given * (1.0 - smoothstep(-0.03, 0.04, dir.z - uBeamWay[i].z));
+            }
+
             // And what they give a surface there that faces n. Leaves and grass take light
             // from any side.
             vec3 beams(vec3 p, vec3 n, float leafy) {
@@ -2906,8 +2914,7 @@ final class PipelineShaders {
                     lit += sun * exp(-max(p.z, 0.0) * 0.12);
                     for (int b = 0; b < 2; b++) {
                         if (uBeamAt[b].w > 0.0) {
-                            vec3 dir;
-                            beamed += beamAt(b, p.xyz, dir);
+                            beamed += beamInAir(b, p.xyz);
                         }
                     }
                 }
@@ -2923,8 +2930,8 @@ final class PipelineShaders {
                 vec3 glow = pow(uLightColor, vec3(2.2));
                 glow = mix(glow, vec3(dot(glow, vec3(0.3, 0.5, 0.2))) * vec3(1.0, 0.82, 0.62), 0.65);
                 vec3 caught = glow * (lit / float(STEPS) * ahead * along * uMist * towards);
-                // A beam shows in clear night air too, on the dust in it, and far more in mist.
-                caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0012 + 1.2 * uMist));
+                // A beam barely shows in clear night air, on the dust in it, and more in mist.
+                caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0004 + 0.2 * uMist));
                 gl_FragColor = vec4(caught, 1.0);
             }
             """;
