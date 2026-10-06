@@ -26,6 +26,19 @@ final class Wind {
     /** How fast the gusts cross the ground in tiles a second: in the lightest air, and more for each unit of the push. */
     private static final float TRAVEL_STILL = 0.5f, TRAVEL_PER_PUSH = 1.6f;
 
+    /**
+     * How hard what grows is pushed by a wind of the game's intensity, which is 0 in still
+     * air and 1 at 120 kilometres an hour. The picture's plants lean as far as they ever do
+     * at a push of 1.5. In the light air of most days, 10 kilometres an hour or so, grass
+     * only stirs: a blade's tip moves by a few hundredths of its height. It was a quarter
+     * of the way to flat in a dead calm before this was tied to the game's wind, and never
+     * still. A fresh breeze of 40 has it leaning and running in waves, and from 80 up it
+     * is laid over.
+     */
+    static float push(float intensity) {
+        return 0.02f + 2f * (float) Math.pow(Math.clamp(intensity, 0f, 1f), 1.2);
+    }
+
     /** The way what grows is pushed, scaled by how hard. */
     float pushX, pushY;
     /** How far the gusts have been carried, in tiles. */

@@ -164,7 +164,7 @@ final class SkyState {
         rayBlue = through * 0.55f * mix(0.25f, 0.80f, white);
 
         float windAngle = climate.getWindAngleRadians();
-        float windStrength = 0.35f + 1.4f * Math.clamp(climate.getWindIntensity(), 0f, 1f);
+        float windStrength = Wind.push(climate.getWindIntensity());
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);

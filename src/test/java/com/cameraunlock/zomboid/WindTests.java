@@ -7,6 +7,7 @@ final class WindTests {
     private WindTests() {}
 
     static void run() {
+        pushFollowsTheGamesWind();
         windThatTurnsRoundAtOnceMovesTheGrassNoFasterThanItBlows();
         pushComesRoundToANewWindInAFewSeconds();
         gustsAreCarriedTheWayTheWindBlows();
@@ -17,6 +18,14 @@ final class WindTests {
         if (!condition) {
             throw new AssertionError(what);
         }
+    }
+
+    private static void pushFollowsTheGamesWind() {
+        check(Wind.push(0f) < 0.05f, "in still air next to nothing pushes the grass: " + Wind.push(0f));
+        check(Wind.push(0.08f) < 0.15f, "light air of 10 kilometres an hour only stirs it: " + Wind.push(0.08f));
+        check(Wind.push(0.33f) > 0.4f && Wind.push(0.33f) < 0.7f, "a fresh breeze of 40 leans it part of the way: " + Wind.push(0.33f));
+        check(Wind.push(0.7f) > 1.2f, "a gale lays it over: " + Wind.push(0.7f));
+        check(Wind.push(-1f) == Wind.push(0f) && Wind.push(3f) == Wind.push(1f), "an intensity outside the game's range is its nearest end");
     }
 
     /** How far apart two places on a ring of that length are. */
