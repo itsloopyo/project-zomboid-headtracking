@@ -105,7 +105,7 @@ final class ConfigTests {
 
     private static void contentRowsAreReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
         String text = Files.readString(file, StandardCharsets.US_ASCII);
-        for (String row : new String[] {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies"}) {
+        for (String row : new String[] {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople"}) {
             check(text.contains("\r\n" + row + "=true\r\n"), "the file holds " + row + ", on");
         }
         edit(file, text.replace("OwnWeapons=true", "OwnWeapons=false").replace("OwnPlants=true", "OwnPlants=false"));

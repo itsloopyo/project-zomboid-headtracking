@@ -1,9 +1,10 @@
-"""Bakes the zombies' skins from the pictures tools/skins/generate.py made.
+"""Bakes the skins of zombies and of the living from the pictures tools/skins/generate.py made.
 
-The game draws a zombie's body with one picture laid out over its body model: the front of the
-torso here, an arm there, the face in a patch near the top. This makes that picture anew for each
-sex, skin tone and state of decay. It reads the body model for where each dot of the picture lies
-on the body and which way the body faces there, and nothing of the game's own picture.
+The game draws a body with one picture laid out over its body model: the front of the torso here,
+an arm there, the face in a patch near the top. This makes that picture anew for each sex, skin
+tone and state of decay of a zombie, and for each sex and skin tone of the living. It reads the
+body model for where each dot of the picture lies on the body and which way the body faces there,
+and nothing of the game's own picture.
 
 - Skin is laid on from three sides by where a dot is on the body, so it runs unbroken over the
   joins of the layout.
@@ -13,8 +14,10 @@ on the body and which way the body faces there, and nothing of the game's own pi
   crown, nose and chin, and the body's skin takes its colour from the face's.
 - Briefs, and a band across the chest of a woman, are cotton.
 - The two sheets of the body model that a skirt is painted on are left see-through, as the game's own skin leaves them.
+- The living have clean skin, no cloth on it, the game's five tones, and for a man the hair on chest, arms and legs that the
+  game's second skin of each tone has.
 
-    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 ...] [--preview DIR] [--size 2048]
+    python tools/skins/bake.py --game "<game folder>" --pictures DIR [--only M_ZedBody01 MaleBody03a ...] [--preview DIR] [--size 2048]
 Writes src/main/resources/skins/body/<the game's name in small letters>.jpg with a .cut.png beside it, and with --preview a view of each body wearing its skin.
 """
 import argparse
@@ -59,6 +62,21 @@ SEEN = {
 }
 # The model made the darkest tone's faces paler than the game's fourth tone is: their pictures are multiplied by this.
 DEEPER = {'face-m4': (0.8, 0.72, 0.66), 'face-f4': (0.6, 0.5, 0.43)}
+# The faces of the living, measured the same way. One seed framed the five men alike, and the women nearly.
+SEEN.update({f'live-m{tone}': (0.495, 0.244, 0.058, 0.595, 0.825) for tone in range(1, 6)})
+SEEN.update({'live-f1': (0.503, 0.210, 0.095, 0.575, 0.765), 'live-f2': (0.500, 0.207, 0.095, 0.560, 0.745),
+             'live-f3': (0.500, 0.207, 0.095, 0.560, 0.745), 'live-f4': (0.500, 0.207, 0.095, 0.560, 0.745),
+             'live-f5': (0.500, 0.205, 0.095, 0.535, 0.727)})
+# The colour of the skin of each of the game's five tones of the living, 0 to 1: read off the game's own skins as one
+# colour each, so that a character is as dark here, and as warm, as where the player chose the tone. A face's picture is
+# made that light, and its colour brought part of the way to that one.
+TONE = {1: (0.98, 0.886, 0.725), 2: (0.937, 0.788, 0.553), 3: (0.812, 0.659, 0.467), 4: (0.522, 0.369, 0.239), 5: (0.349, 0.255, 0.141)}
+# How far a face's own colour gives way to the tone's: the game's are stronger in colour than skin is.
+TONED = 0.55
+# The most a face's picture is lightened to be that light: more than this and its highlights burn out.
+LIGHTENED_MOST = 1.18
+# What skin is multiplied by under body hair at its thickest.
+HAIRED = numpy.array([0.5, 0.42, 0.36], dtype=numpy.float32)
 
 
 def model(path):
@@ -190,7 +208,20 @@ def ramp(low, high, value):
 
 
 def portrait(pictures, name, state):
-    """A face's picture in a state of decay, 0 to 1."""
+    """A zombie's face in a state of decay, or with no state the face of the living, 0 to 1."""
+    if state is None:
+        seen = numpy.asarray(Image.open(pictures / f'{name}.png').convert('RGB')).astype(numpy.float32) / 255.0
+        middle, half, crown, nose, chin = SEEN[name]
+        high, wide = seen.shape[:2]
+        box = seen[int(high * (crown + 0.2 * (nose - crown))):int(high * (chin - 0.25 * (chin - nose))),
+                   int(wide * (middle - 0.7 * half)):int(wide * (middle + 0.7 * half))]
+        weigh = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
+        own = numpy.percentile(box.reshape(-1, 3), 62, axis=0).astype(numpy.float32)
+        tone = numpy.array(TONE[int(name[-1])], dtype=numpy.float32)
+        lighter = min(float(tone @ weigh) / float(own @ weigh), LIGHTENED_MOST)
+        # What turns the face's colour into the tone's at the same lightness, taken part of the way.
+        warmer = 1.0 + TONED * ((tone / float(tone @ weigh)) / (own / float(own @ weigh)) - 1.0)
+        return numpy.clip(seen * lighter * warmer, 0.0, 1.0)
     seen = numpy.asarray(Image.open(pictures / f'{name}-{state}.png').convert('RGB')).astype(numpy.float32) / 255.0
     return seen * numpy.array(DEEPER.get(name, (1.0, 1.0, 1.0)), dtype=numpy.float32)
 
@@ -276,7 +307,8 @@ def baked(sex, tone, state, maps, pictures, density):
     if f'face-{sex.lower()}{tone}' not in SEEN:
         raise SystemExit(f'face-{sex.lower()}{tone}-0.png has not been measured: add it to SEEN')
     # The skin's picture gives the grain. Its colour is the face's, so that head and body are one person's.
-    tint = complexion(sex, tone, pictures)
+    # On the face as it was when just turned.
+    tint = complexion(f'face-{sex.lower()}{tone}', 0, pictures)
     skin = wrapped(pictures, 'skin', where, facing, SPAN['skin'], density, grain=True) * tint
     # Broad unevenness, so the skin's tile is not counted across a back.
     colour = skin * (0.9 + 0.2 * cloudy(where, 5.0, 3))[..., None]
@@ -315,7 +347,36 @@ def baked(sex, tone, state, maps, pictures, density):
             colour = colour * (1 - torn[..., None]) + gore * 0.8 * torn[..., None]
 
     colour = dressed(sex, state, colour, where, facing, pictures, density)
-    colour = faced(sex, tone, state, colour, where, facing, on, pictures)
+    colour = faced(sex, f'face-{sex.lower()}{tone}', state, colour, where, facing, on, pictures)
+    return spread(numpy.clip(colour, 0.0, 1.0), on)
+
+
+def alive(sex, tone, hairy, maps, pictures, density):
+    """The skin of the living: clean, with the face of its sex and tone, and for a hairy man the hair of his body."""
+    where, facing, on, _ = maps
+    x, y = where[..., 0], where[..., 1]
+    name = f'live-{sex.lower()}{tone}'
+    if name not in SEEN:
+        raise SystemExit(f'{name}.png has not been measured: add it to SEEN')
+    tint = complexion(name, None, pictures)
+    skin = wrapped(pictures, 'skin', where, facing, SPAN['skin'], density, grain=True) * tint
+    colour = skin * (0.94 + 0.12 * cloudy(where, 5.0, 3))[..., None]
+    # Blood near the skin: a little redder at the knees, elbows, knuckles and soles, where a patchy noise picks.
+    flushed = ramp(0.55, 0.8, cloudy(where, 7.0, 19)) * 0.1
+    colour = colour * (1 - flushed[..., None] * (1 - numpy.array([1.0, 0.86, 0.84], dtype=numpy.float32)))
+    if hairy:
+        # Fine strands: a noise far finer than a finger, thick on the chest and the belly's middle line, the forearms and the shins.
+        front = ramp(0.0, 0.4, -facing[..., 2])
+        side = numpy.abs(x)
+        chest = ramp(0.6, 0.66, y) * ramp(0.76, 0.7, y) * ramp(0.13, 0.07, side) * front
+        line = ramp(0.5, 0.54, y) * ramp(0.62, 0.58, y) * ramp(0.03, 0.008, side) * front
+        forearms = ramp(0.2, 0.26, side) * ramp(0.4, 0.34, side)
+        shins = ramp(0.06, 0.1, y) * ramp(0.27, 0.22, y) * (side < 0.14)
+        grown = numpy.maximum(numpy.maximum(chest, line), numpy.maximum(0.6 * forearms, 0.55 * shins))
+        strands = ramp(0.38, 0.62, cloudy(where, 420.0, 83, layers=2)) * (0.55 + 0.45 * ramp(0.3, 0.6, cloudy(where, 30.0, 87, layers=2)))
+        haired = (grown * strands * 0.5)[..., None]
+        colour = colour * (1 - haired * (1 - HAIRED))
+    colour = faced(sex, name, None, colour, where, facing, on, pictures)
     return spread(numpy.clip(colour, 0.0, 1.0), on)
 
 
@@ -347,10 +408,10 @@ CHEST = 0.69
 TORSO = 0.11
 
 
-def complexion(sex, tone, pictures):
-    """The colour of a face's skin: what its forehead and cheeks mostly are, on the face as it was when just turned."""
-    middle, half, crown, nose, chin = SEEN[f'face-{sex.lower()}{tone}']
-    photo = portrait(pictures, f'face-{sex.lower()}{tone}', 0)
+def complexion(name, state, pictures):
+    """The colour of a face's skin: what its forehead and cheeks mostly are."""
+    middle, half, crown, nose, chin = SEEN[name]
+    photo = portrait(pictures, name, state)
     high, wide = photo.shape[:2]
     box = photo[int(high * (crown + 0.2 * (nose - crown))):int(high * (chin - 0.25 * (chin - nose))),
                 int(wide * (middle - 0.7 * half)):int(wide * (middle + 0.7 * half))]
@@ -358,8 +419,7 @@ def complexion(sex, tone, pictures):
     return numpy.percentile(box.reshape(-1, 3), 62, axis=0).astype(numpy.float32)
 
 
-def faced(sex, tone, state, colour, where, facing, on, pictures):
-    name = f'face-{sex.lower()}{tone}'
+def faced(sex, name, state, colour, where, facing, on, pictures):
     middle, half, crown, nose, chin = SEEN[name]
     skull, crown_at, nose_at, chin_at = HEAD[sex]
     photo = portrait(pictures, name, state)
@@ -428,13 +488,16 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for sex, file in MODELS.items():
         names = [(f'{sex}_ZedBody0{tone}' + (f'_level{state}' if state else ''), tone, state) for tone in (1, 2, 3, 4) for state in (0, 1, 2, 3)]
+        # The living: the game's five tones, and for a man a second skin of each with hair on his body. Their state is no number.
+        names += [(f'{file}0{tone}{hair}', tone, 'hairy' if hair else 'living') for tone in (1, 2, 3, 4, 5) for hair in (('', 'a') if sex == 'M' else ('',))]
         names = [each for each in names if not args.only or each[0] in args.only]
         if not names:
             continue
         vertices, triangles, places, facings = model(pathlib.Path(args.game) / 'media' / 'models_X' / 'Skinned' / f'{file}.x')
         maps = laid_out(vertices, triangles, places, facings, args.size)
         for name, tone, state in names:
-            skin = baked(sex, tone, state, maps, pictures, DENSITY * args.size / 2048.0)
+            density = DENSITY * args.size / 2048.0
+            skin = baked(sex, tone, state, maps, pictures, density) if isinstance(state, int) else alive(sex, tone, state == 'hairy', maps, pictures, density)
             Image.fromarray((skin * 255.0).round().astype(numpy.uint8), 'RGB').save(OUT / f'{name.lower()}.jpg', quality=90, subsampling=0)
             # What of the picture is body, white, and what is left see-through, black: a JPEG has no such thing of its own.
             Image.fromarray(~maps[3]).save(OUT / f'{name.lower()}.cut.png', optimize=True)

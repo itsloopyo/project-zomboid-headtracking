@@ -73,6 +73,9 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
     table.Local("Content", "OwnZombies", &Config::own_zombies, cameraunlock::config::BoolCodec(),
                 "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"
                 "false: the game's own painted skins.");
+    table.Local("Content", "OwnPeople", &Config::own_people, cameraunlock::config::BoolCodec(),
+                "true: the mod's own skins for your character and the other living, in the game's\n"
+                "five skin tones, each with a lifelike face. false: the game's own painted skins.");
     return table;
 }
 

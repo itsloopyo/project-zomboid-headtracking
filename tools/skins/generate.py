@@ -1,10 +1,11 @@
-"""Makes the pictures the zombies' skins are baked from, from text prompts alone.
+"""Makes the pictures the skins of zombies and of the living are baked from, from text prompts alone.
 
 Two sorts. A SURFACE is a close picture of skin, of what has become of it, or of cloth, that joins
 up with itself at its edges. A FACE is one bald head seen from straight ahead. The first face of a
-sex and a skin tone is made from its prompt alone; the three states of decay after it are that
-same picture given back to the model part noised with a prompt that says how far gone it is, so
-the eyes and the mouth stay where they were and one measuring of them serves all four.
+zombie of a sex and a skin tone is made from its prompt alone; the three states of decay after it
+are that same picture given back to the model part noised with a prompt that says how far gone it
+is, so the eyes and the mouth stay where they were and one measuring of them serves all four. The
+face of the living of a sex and a tone, live-m1 to live-f5, is made from its prompt alone.
 
 Stable Diffusion XL base 1.0, through the maker tools/materials/generate.py has. Run with the venv
 that has torch and diffusers (see .lab/NOTES.md, "Generated materials"):
@@ -69,9 +70,32 @@ def face(sex, tone, state):
 
 
 FACES = {f'face-{sex}{tone}-{state}': (sex, tone, state) for sex in SEXES for tone in TONES for state in STATES}
+
+# The game has five skin tones for the living, palest first.
+LIVING_TONES = {
+    1: 'very fair pale pink skin',
+    2: 'fair light beige skin',
+    3: 'light olive tan skin',
+    4: 'medium brown skin',
+    5: 'African, dark brown skin',
+}
+LIVING_NEGATIVE = ('hair, beard, moustache, stubble, hat, hood, glasses, earrings, jewellery, makeup, lipstick, smile, teeth, profile, three quarter view, '
+                   'tilted head, looking away, hands, shadows, dramatic lighting, picture frame, border, vignette, black and white, monochrome, sepia, '
+                   'antique photograph, painting, illustration, drawing, cartoon, 3d render, text, watermark, blurry, wounds, blood, scars, tattoo')
+
+
+def living(sex, tone):
+    return (f'passport photograph, front view of the face of a bald {SEXES[sex]} thirty five years old, shaved head, {LIVING_TONES[tone]}, healthy, '
+            'neutral expression, mouth closed, eyes open looking into the camera, head centred and facing the camera, symmetrical, '
+            'flat even lighting, plain grey background, photorealistic, sharp focus, skin pores')
+
+
+LIVING = {f'live-{sex}{tone}': (sex, tone) for sex in SEXES for tone in LIVING_TONES}
 # One seed for each sex, so the four tones of it are framed alike. The fourth woman came out of hers as an old brown photograph.
 SEEDS = {'m': 1993, 'f': 7}
 OWN_SEEDS = {'face-f4': 1993}
+# The seed of each face of the living that did not come out of its sex's seed as a face to use.
+LIVING_SEEDS = {}
 
 
 def pixels(picture):
@@ -100,7 +124,7 @@ def main():
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    names = list(SURFACES) + list(FACES)
+    names = list(SURFACES) + list(FACES) + list(LIVING)
     tail = '' if args.seed == 1993 else f'-{args.seed}'
     unknown = [name for name in args.only if name not in names]
     if unknown:
@@ -111,7 +135,7 @@ def main():
               and not (out / f'{name}{tail if name in SURFACES else ""}.png').exists()]
     # A state of decay is made from its first face, which has to be there.
     wanted = [name for name in wanted
-              if name in SURFACES or FACES[name][2] == 0 or (out / f'{name[:-1]}0.png').exists() or f'{name[:-1]}0' in wanted]
+              if name in SURFACES or name in LIVING or FACES[name][2] == 0 or (out / f'{name[:-1]}0.png').exists() or f'{name[:-1]}0' in wanted]
     wanted.sort(key=lambda name: name in FACES and FACES[name][2] > 0)
     if args.most:
         wanted = wanted[:args.most]
@@ -121,12 +145,15 @@ def main():
 
     prompts = {}
     for name in wanted:
-        prompts[name] = (SURFACES[name], OWN_NEGATIVE.get(name, SURFACE_NEGATIVE)) if name in SURFACES else (face(*FACES[name]), FACE_NEGATIVE)
+        prompts[name] = ((SURFACES[name], OWN_NEGATIVE.get(name, SURFACE_NEGATIVE)) if name in SURFACES
+                         else (living(*LIVING[name]), LIVING_NEGATIVE) if name in LIVING else (face(*FACES[name]), FACE_NEGATIVE))
     maker = materials.Maker()
     words = maker.words(prompts)
     for name in wanted:
         if name in SURFACES:
             image = maker.make(words[name], args.seed, 1024, name not in PLAIN, 6.0)
+        elif name in LIVING:
+            image = maker.make(words[name], LIVING_SEEDS.get(name, SEEDS[LIVING[name][0]]), 1024, False, 7.0)
         else:
             sex, _, state = FACES[name]
             if state == 0:

@@ -59,7 +59,7 @@ std::int32_t OwnBits(const pzht::Config& c) {
     return (c.own_weapons ? kPzhtOwnWeapons : 0) | (c.own_furniture ? kPzhtOwnFurniture : 0) |
            (c.own_pictures ? kPzhtOwnPictures : 0) | (c.own_plants ? kPzhtOwnPlants : 0) |
            (c.own_textures ? kPzhtOwnTextures : 0) | (c.own_buildings ? kPzhtOwnBuildings : 0) |
-           (c.own_zombies ? kPzhtOwnZombies : 0);
+           (c.own_zombies ? kPzhtOwnZombies : 0) | (c.own_people ? kPzhtOwnPeople : 0);
 }
 
 void Register(const char* row, const std::string& keys, std::int32_t bit) {

@@ -33,7 +33,7 @@ import zombie.core.textures.TextureID;
  * Skins finer than the game's, for the people the picture draws near the eye. The game
  * composes what a person wears from pictures on disk: skin, dirt, blood, clothes painted on
  * the body, the holes in them. The mod has pictures of its own for some of those, the bodies
- * of zombies, and a folder on the player's own machine may hold more of the same pictures at
+ * of zombies and of the living, and a folder on the player's own machine may hold more of the same pictures at
  * a higher resolution. Where either has one the same composition is run again from those, by
  * the game's own combiner, and the picture's draw wears the result. The game's own textures
  * and its own view are untouched.
@@ -104,6 +104,15 @@ public final class FineSkins {
          */
         static String resource(String relative) {
             return "/skins/" + relative.substring(0, relative.length() - 4).toLowerCase(Locale.ROOT) + ".jpg";
+        }
+
+        /**
+         * Which row of [Content] the mod's picture for the game's texture at this path under a
+         * media/textures folder answers to, as one of Own's bits: a zombie's body, or the body
+         * of the living.
+         */
+        static int row(String relative) {
+            return relative.toLowerCase(Locale.ROOT).contains("zedbody") ? Own.ZOMBIES : Own.PEOPLE;
         }
 
         /** Where the picture is that says what of the skin at this place in the jar is see-through. */
@@ -205,8 +214,8 @@ public final class FineSkins {
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
     private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
     private static long fineBytes;
-    /** Whether the mod's own skins were worn when the finer textures now kept were composed: the [Content] row for zombies. */
-    private static boolean ownWorn = true;
+    /** Which of the mod's own skins were worn when the finer textures now kept were composed: the [Content] rows for zombies and for the living, as Own's bits. */
+    private static int ownWorn = Own.ZOMBIES | Own.PEOPLE;
     /** The mod's own picture at each place in the jar that has been asked for, null where the jar has none. */
     private static final HashMap<String, Read> own = new HashMap<>();
     /** A 2048 by 2048 picture takes a tenth of a second to read: not on the thread that draws. */
@@ -328,9 +337,9 @@ public final class FineSkins {
         }
         waiting = false;
         gone = false;
-        if (Own.zombies() != ownWorn) {
-            // The player has switched the mod's own skins on or off: what was composed with the row as it was is composed again.
-            ownWorn = !ownWorn;
+        if ((Own.on() & (Own.ZOMBIES | Own.PEOPLE)) != ownWorn) {
+            // The player has switched some of the mod's own skins on or off: what was composed with the rows as they were is composed again.
+            ownWorn = Own.on() & (Own.ZOMBIES | Own.PEOPLE);
             for (Fine each : fine.values()) {
                 TextureCombiner.instance.releaseTexture(each.texture);
             }
@@ -435,7 +444,7 @@ public final class FineSkins {
         if (relative == null) {
             return null;
         }
-        Read mine = ownWorn ? own(relative) : null;
+        Read mine = (ownWorn & Jar.row(relative)) != 0 ? own(relative) : null;
         if (mine != null) {
             if (mine.texture == null) {
                 waiting = true;
