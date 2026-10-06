@@ -7,7 +7,7 @@ final class CabinTests {
     private CabinTests() {}
 
     static void run() {
-        steeringWheelTurnsEightTimesTheRoadWheelsAndStops();
+        steeringWheelTurnsTwiceTheGamesSteering();
         driverIsSeatedOnTheWheelsSide();
         bodyIsToldIntoSeatsDashDoorAndBonnet();
         mirroredBodyIsToldTheSame();
@@ -89,13 +89,11 @@ final class CabinTests {
         return Math.abs(a - b) < 1e-4f;
     }
 
-    private static void steeringWheelTurnsEightTimesTheRoadWheelsAndStops() {
+    private static void steeringWheelTurnsTwiceTheGamesSteering() {
         check(Cabins.wheelTurn(0f) == 0f, "wheels straight, wheel straight");
-        check(near(Cabins.wheelTurn(0.1f), 0.8f), "the wheel turns eight times as far as the road wheels");
-        check(near(Cabins.wheelTurn(-0.25f), -2f), "and the same the other way");
-        float most = (float) (2.5 * Math.PI);
-        check(near(Cabins.wheelTurn(1f), most), "a turn and a quarter is as far as it goes");
-        check(near(Cabins.wheelTurn(-40f), -most), "either way");
+        check(near(Cabins.wheelTurn(0.1f), 0.2f), "the wheel turns twice as far as the game counts the steering");
+        check(near(Cabins.wheelTurn(-0.25f), -0.5f), "and the same the other way");
+        check(Math.abs(Cabins.wheelTurn(0.9f)) < Math.PI * 0.6, "full lock is a little over a quarter turn");
     }
 
     /** The script's seats: across, up and along from the model's middle. Front left, front right, rear left, rear right. */

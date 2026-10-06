@@ -283,12 +283,15 @@ final class Cabins {
         return script.contains("Lights") ? PATROL : PLAIN;
     }
 
-    /** The game's full lock of 0.9 is a little over a turn of the steering wheel, and a turn and a quarter is the most either way. */
-    private static final float STEERING_RATIO = 8f, MOST_TURN = 2.5f * (float) Math.PI;
+    /**
+     * The game's full lock of 0.9 is a little over a quarter turn of the steering wheel. A key
+     * winds the lock on in two thirds of a second, so a wheel geared like a real one spins.
+     */
+    private static final float STEERING_RATIO = 2f;
 
     /** How far the steering wheel is turned, in radians, with the vehicle steered that far as the game counts it. */
     static float wheelTurn(float steering) {
-        return Math.clamp(steering * STEERING_RATIO, -MOST_TURN, MOST_TURN);
+        return steering * STEERING_RATIO;
     }
 
     /**

@@ -46,13 +46,13 @@ final class CabinShader {
             vec3 gGrip[2], gOutward[2], gAlong[2], gWrist[2], gElbow[2];
 
             // At ten and two with the wheel straight. The hands go round with the wheel for
-            // the first of a turn. Past that they feed it: both slide down their own sides
-            // and up again as the wheel goes on round, one holding the rim while the other
-            // lets it slip, so neither leaves the wheel nor crosses the other up to full lock.
+            // the first of a turn. Past that they feed it: both slide a little down their
+            // own sides, one holding the rim while the other lets it slip, so neither
+            // leaves the wheel nor crosses the other up to full lock.
             void poseArms() {
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 float follow = uSteer / sqrt(1.0 + 4.0 * uSteer * uSteer);
-                float feed = 0.42 * (1.0 - cos(1.9 * max(abs(uSteer) - 0.35, 0.0)));
+                float feed = 0.15 * (1.0 - cos(1.9 * max(abs(uSteer) - 0.35, 0.0)));
                 for (int i = 0; i < 2; i++) {
                     float way = i == 0 ? -1.0 : 1.0;
                     float turn = 1.5708 - way * (0.96 + feed) - follow;
