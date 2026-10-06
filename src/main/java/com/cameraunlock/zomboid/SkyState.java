@@ -18,7 +18,7 @@ final class SkyState {
     /** The sun's height, as the sine of its elevation, at which the day's colours are fully in. */
     private static final float FULL_DAY = 0.28f;
     /** Below this height the sky is the night's. */
-    private static final float FULL_NIGHT = -0.22f;
+    static final float FULL_NIGHT = -0.22f;
     /** How much of the sky the clouds fill with the game's cloud intensity at 0 and at 1. */
     private static final float COVER_CLEAR = 0.29f, COVER_OVERCAST = 0.9f;
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
@@ -50,6 +50,8 @@ final class SkyState {
     float night;
     /** The game's light for a square of open ground that no lamp shines on. The scene sets it. */
     float openRed, openGreen, openBlue;
+    /** How much of the daylight the game gives the open ground the picture keeps: see Evening. */
+    float daylightKept = 1f;
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
     float cover;

@@ -99,6 +99,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Made the ground in the first person view go dark with the sky. The game holds its daylight at full until the season's dusk and then fades it over the hours to midnight, and before dawn it has it back before the sun is up, while the first person sun has already set and its sky is black and full of stars. For over an hour each evening and morning the land was lit as at noon under a night sky. The light on the ground now follows the sun: it begins to go as the sun gets low, the sunset is still lit, and it is night on the ground when it is night in the sky. Street lamps and lit windows keep their light, and the dead of night is as dark as the game makes it.
 - Turned the steering wheel and the driver's hands the way the vehicle is steered. In first person they went the opposite way: steering right wound the wheel to the left.
 - Made the first person view turn with the vehicle you are in. It stayed pointing the same way on the map, so after a bend you were looking out of a side window until you turned the view back with the mouse.
 - Filled the rear view mirror in a vehicle with its picture of the road behind. The picture sat in the middle of the glass inside a dark surround drawn as the cabin round the back window, which left most of the mirror black.

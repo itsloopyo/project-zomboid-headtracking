@@ -1056,7 +1056,7 @@ public final class Characters {
             return;
         }
         ColorInfo light = square.lighting[viewer.getIndex()].lightInfo();
-        CharacterDraw.stands((light.r + light.g + light.b) / 3f, square.isOutside());
+        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, WorldScene.openNow, WorldScene.daylightKeptNow), square.isOutside());
     }
 
     /**

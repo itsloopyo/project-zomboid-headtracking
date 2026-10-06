@@ -1300,6 +1300,7 @@ final class Pipeline {
         world.set("uTorch", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2], carried[CarriedLight.REACH]);
         world.set("uTorchWay", carried[CarriedLight.WAY], carried[CarriedLight.WAY + 1], carried[CarriedLight.WAY + 2], carried[CarriedLight.CONE]);
         world.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        world.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         setFlash(world);
         world.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         world.set("uFogStart", fogStart);

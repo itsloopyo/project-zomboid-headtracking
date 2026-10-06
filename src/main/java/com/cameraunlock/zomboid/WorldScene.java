@@ -37,6 +37,7 @@ import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
+import zombie.iso.weather.ClimateManager;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -403,6 +404,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     /** The light a square out of doors has with no lamp on it: see OpenLight.floor. */
     private static float floorRed, floorGreen, floorBlue;
+    /** The open ground's light the last time the game had it full night. */
+    private static float nightOpen = Evening.NIGHT_OPEN;
+    /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
+    static volatile float openNow, daylightKeptNow = 1f;
     private final ColorInfo unseenLight = new ColorInfo();
     private final float[] box = new float[4];
     private int overLayer;
@@ -638,6 +643,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         sky.openRed = floorRed;
         sky.openGreen = floorGreen;
         sky.openBlue = floorBlue;
+        float gameOpen = (floorRed + floorGreen + floorBlue) / 3f;
+        if (ClimateManager.getInstance().getNightStrength() >= 1f) {
+            nightOpen = gameOpen;
+        }
+        sky.daylightKept = Evening.kept(sky.sunUp, gameOpen, nightOpen);
+        openNow = gameOpen;
+        daylightKeptNow = sky.daylightKept;
         // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
         sky.carried = CarriedLight.light;
         exposure = adaptEye(player, fromOutside);
@@ -1087,7 +1099,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // Out of doors by day, sunlit ground comes out about as bright as the sprite was painted.
         // As the game's own light for the open ground falls, towards night, the eye opens up to
         // it, though never so far that night stops being dark.
-        float ground = (float) Math.pow((unseenRed + unseenGreen + unseenBlue) / 3f, 2.2);
+        float gameOpen = (floorRed + floorGreen + floorBlue) / 3f;
+        float ground = (float) Math.pow(Evening.dimmed((unseenRed + unseenGreen + unseenBlue) / 3f, gameOpen, sky.daylightKept), 2.2);
         float outdoors = Math.min(1.4f / (0.8f * ground + 1.83f * (float) Math.pow(strongest, 2.2)), EXPOSURE_MOST);
         // An eye in the dark does not get back what the day had: it sees less, and that is
         // what makes a lit window or a pair of headlights the brightest thing in the night.
@@ -1095,7 +1108,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float here = 1f;
         if (under != null) {
             ColorInfo light = under.lighting[player.getIndex()].lightInfo();
-            here = (float) Math.pow((light.r + light.g + light.b) / 3f, 2.2);
+            here = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept), 2.2);
         }
         // By day an eye indoors opens up to a dim room. At night it has less to open with: an
         // unlit room stays dark, and one with a lamp on is seen by the lamp.

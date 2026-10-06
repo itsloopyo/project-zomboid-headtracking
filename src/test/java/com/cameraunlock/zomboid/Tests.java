@@ -74,6 +74,7 @@ public final class Tests {
         staticIntFieldIsRequiredAsDeclared();
         attackHoldsTheAimForAShortTail();
         keysHeldThroughTheLandingKeepTheirWalk();
+        theGroundLosesItsLightWithTheSun();
         zoomScalesWhatMovesAcrossThePicture();
         fieldOfViewEasesToTheAimedZoomAndBack();
         firstPersonKeysReplaceTheStockOnes();
@@ -1946,6 +1947,24 @@ public final class Tests {
             refused = true;
         }
         check(refused, "a class without the method is rejected");
+    }
+
+    private static void theGroundLosesItsLightWithTheSun() {
+        float night = Evening.NIGHT_OPEN;
+        check(Evening.open(0.9f, night) == 1f, "with the sun high the open ground has all its light");
+        check(near(Evening.open(SkyState.FULL_NIGHT, night), night) && near(Evening.open(-0.8f, night), night),
+                "by the time the sky is the night's the ground has the night's light");
+        float last = 1f;
+        for (float sunUp = 0.3f; sunUp >= SkyState.FULL_NIGHT; sunUp -= 0.01f) {
+            float light = Evening.open(sunUp, night);
+            check(light <= last && last - light < 0.03f, "the light goes evenly as the sun goes down");
+            last = light;
+        }
+        check(near(Evening.kept(-0.3f, 1f, night), night), "the game still at full daylight under a night sky is taken down to the night's");
+        check(Evening.kept(-0.3f, night, night) == 1f && Evening.kept(-0.3f, 0.1f, night) == 1f, "a game as dark as the night or darker is left as it is");
+        check(Evening.kept(0.9f, 1f, night) == 1f, "by day nothing is taken");
+        check(near(Evening.dimmed(0.5f, 0.9f, 0.2f), 0.1f), "a square with no more than the open ground's light loses its share");
+        check(near(Evening.dimmed(1f, 0.6f, 0.5f), 0.7f), "what a square has over the open ground's light came from a lamp and stays");
     }
 
     private static void keysHeldThroughTheLandingKeepTheirWalk() {
