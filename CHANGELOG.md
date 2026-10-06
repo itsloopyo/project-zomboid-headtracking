@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Tied the wind in the first person view's grass and trees to the game's own gusts. The game's wind rises and falls a little over half a minute or so, and it sways its own plants and slants its own rain and snow by that. The first person view's grass and trees now lean and ease with the same lulls and gusts.
 - Stopped mixing each frame of the first person picture with the one before it, which softened and smeared whatever moved across the picture as you turned or walked. Every frame is now drawn on its own. A new row of `CameraUnlock.ini`, `FrameBlending`, turns the mixing back on for a steadier still view, and is read again while the game runs.
 - Made the land in the first person view hillier. It now swells and dips about a tile every hundred and thirty squares or so, streets with it, so a long street goes over crests and down into dips at up to one in twenty. The swells die away towards water, and a street is still level from kerb to kerb.
 - Made roofs in the first person view meet cleanly where one runs into another. Where a wing's roof met the side of the main roof, the join was a stair of whole tiles with a gap at each step, and on the side the game's own view never shows it was a flat block standing in the valley. Each slope now runs on until it goes under the other, so the two meet along one straight valley, and the wing's ridge runs on into the main roof the same way. The lowest row of a slope that faces away from the game's view is laid as part of its slope, where it was a level ledge with a step behind it.

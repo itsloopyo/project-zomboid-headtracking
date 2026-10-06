@@ -10,4 +10,5 @@ public final class ClimateManager {
     public boolean isSnowing() { throw new UnsupportedOperationException("reference stub"); }
     public float getWindIntensity() { throw new UnsupportedOperationException("reference stub"); }
     public float getWindAngleRadians() { throw new UnsupportedOperationException("reference stub"); }
+    public static double getWindTickFinal() { throw new UnsupportedOperationException("reference stub"); }
 }

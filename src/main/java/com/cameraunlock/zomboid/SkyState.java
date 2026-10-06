@@ -164,7 +164,10 @@ final class SkyState {
         rayBlue = through * 0.55f * mix(0.25f, 0.80f, white);
 
         float windAngle = climate.getWindAngleRadians();
-        float windStrength = Wind.push(climate.getWindIntensity());
+        // The game's wind as it is this moment: its intensity with the game's own lulls and
+        // gusts in it, which is what the game sways its trees and slants its rain by. So the
+        // grass here rises and falls with them.
+        float windStrength = Wind.push((float) ClimateManager.getWindTickFinal());
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
