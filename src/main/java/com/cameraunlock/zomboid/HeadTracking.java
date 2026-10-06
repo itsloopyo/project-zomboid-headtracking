@@ -132,6 +132,7 @@ final class HeadTracking {
         Settings settings = loaded.settings();
         Settings.current = settings;
         Own.set(loaded.own());
+        Quality.set(loaded.quality());
         Log.info("the mod's own in first person: " + Own.described(Own.on()));
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
@@ -148,7 +149,7 @@ final class HeadTracking {
                 TimeUnit.MILLISECONDS);
     }
 
-    /** FieldOfView and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
     private static void watchSettings() {
         try {
             NativeConfig.Live live = config.reloadLive();
@@ -156,6 +157,9 @@ final class HeadTracking {
                 FieldOfView.set(live.fieldOfView());
                 Log.info(NativeConfig.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView()
                         + " degrees vertical");
+            }
+            if (live != null) {
+                Quality.set(live.quality());
             }
             if (live != null && live.own() != Own.on()) {
                 Own.set(live.own());

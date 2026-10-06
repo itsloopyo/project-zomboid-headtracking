@@ -53,11 +53,6 @@ import zombie.util.list.PZArrayList;
  * keeps frames in flight between its two threads.
  */
 final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground {
-    /**
-     * How far the view draws, in tiles. The game keeps at most 19 chunks of 8 tiles a side
-     * around the player, so nothing further than this from the player is ever in memory.
-     */
-    private static final int RADIUS = 80;
     /** How far the aim is traced. */
     static final float REACH = 30f;
     static final int CHUNK_TILES = 8;
@@ -759,7 +754,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int tiles = IsoChunkMap.chunkGridWidth * CHUNK_TILES;
         float toEdge = Math.min(Math.min(player.getX() - map.getWorldXMinTiles(), map.getWorldXMinTiles() + tiles - player.getX()),
                 Math.min(player.getY() - map.getWorldYMinTiles(), map.getWorldYMinTiles() + tiles - player.getY()));
-        fogEnd = Math.min(toEdge, RADIUS);
+        fogEnd = Math.min(toEdge, Quality.sight());
         float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
         // Looking straight up or down the view faces no way along the ground, and nothing is left out.
         float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;

@@ -222,6 +222,24 @@ void TestContentRowsAreOnAndReadAgainWhileTheGameRuns() {
           "with the rows nobody touched still on");
 }
 
+void TestQualityIsAutomaticAndReadAgainWhileTheGameRuns() {
+    const Scratch s(L"quality");
+    cfg::ConfigOwner<Config> owner(s.Options());
+    const auto loaded = owner.Load();
+    Check(loaded.config.quality == pzht::Quality::Automatic, "a first start finds its own level");
+    std::string bytes = ReadBytes(s.ConfigPath());
+    const std::string row = "Quality=Automatic";
+    Check(Holds(bytes, row), "and the file it creates says so");
+    bytes.replace(bytes.find(row), row.size(), "Quality=low");
+    WriteBytes(s.ConfigPath(), bytes);
+    // The watch goes by the file's write time, and two writes can land on one tick of it.
+    fs::last_write_time(s.ConfigPath(), fs::last_write_time(s.ConfigPath()) + std::chrono::seconds(2));
+    Check(owner.FileChanged(), "an edit is seen");
+    const auto reloaded = owner.Reload();
+    Check(reloaded.status == cfg::ConfigReloadStatus::Applied && reloaded.config && reloaded.config->quality == pzht::Quality::Low,
+          "and the reload gives the level asked for, however it is capitalised");
+}
+
 void TestEndNeverSaves() {
     const Scratch s(L"end");
     const std::string committed = Committed();
@@ -258,6 +276,7 @@ int main(int argc, char** argv) {
         TestTheModesSave();
         TestFieldOfViewIsReadAgainWhileTheGameRuns();
         TestContentRowsAreOnAndReadAgainWhileTheGameRuns();
+        TestQualityIsAutomaticAndReadAgainWhileTheGameRuns();
         TestEndNeverSaves();
     } catch (const std::exception& e) {
         std::printf("FAIL: %s\n", e.what());

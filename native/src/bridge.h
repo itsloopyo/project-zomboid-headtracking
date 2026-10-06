@@ -33,12 +33,15 @@ struct PzhtSettings {
     float field_of_view;
     // The rows of [Content] that are on, as the kPzhtOwn bits below.
     std::int32_t own;
+    // The Quality row, as pzht::Quality numbers it.
+    std::int32_t quality;
 };
 
 // What the rows read again while the game runs hold. NativeConfig.java reads this by offset.
 struct PzhtLive {
     float field_of_view;
     std::int32_t own;
+    std::int32_t quality;
 };
 
 // The bits of PzhtSettings::own and PzhtLive::own. Own.java holds the same numbers.
@@ -62,7 +65,7 @@ PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 // fills `out` with the settings the session runs on.
 PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out);
 
-// FieldOfView and the rows of [Content] are read again while the game runs. When the file or
+// FieldOfView, Quality and the rows of [Content] are read again while the game runs. When the file or
 // Defaults.ini has changed since the owner last read or wrote it, reads both again, puts what
 // they give those rows in `out` and answers 1. Answers 0, and leaves `out` alone, when nothing
 // changed or the file cannot be read.

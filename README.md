@@ -182,6 +182,8 @@ In first person a window also shows your character in its glass, with their head
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
+The first person view costs a graphics card far more than the game's own view does. `Quality` in `CameraUnlock.ini` says how much of it is drawn: `High` is the whole picture, `Medium` draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps, and `Low` draws three fifths of the pixels each way, sees 48 tiles and leaves out the shading of corners, the lit air and the depth in near surfaces. It starts at `Automatic`, which begins at `High` and goes down a step each time the first person view has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed, so set the row to the level you want if `Automatic` settles lower than your PC needs. The row is read again while the game runs, like `FieldOfView`. The game's own view is never changed.
+
 The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, and skins for zombies. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings` and `OwnZombies`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `F8` is the switch for that.
@@ -274,6 +276,15 @@ DataFreshnessMs=default
 ; same ratio. Read again while the game runs, so a change shows as soon as the file
 ; is saved.
 FieldOfView=65.0
+; How much of the first person picture is drawn, for a graphics card that cannot
+; keep up with all of it. High: the whole picture. Medium: four fifths of the
+; pixels each way, sight to 64 tiles and smaller shadow maps. Low: three fifths
+; of the pixels each way, sight to 48 tiles, smaller shadow maps, and no shading
+; of corners, lit air or depth in surfaces. Automatic: begins at High and goes
+; down a step each time the picture is drawn fewer than 45 times a second for
+; three seconds, until the game is closed. Read again while the game runs. The
+; game's own view is never changed.
+Quality=Automatic
 
 [Smoothing]
 ; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
@@ -488,9 +499,9 @@ pixi run install    # deploys to every installed copy of the game
 
 ## Community & Support
 
-- [Discord](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
-- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch of head-tracking mods
-- [Headcam](https://headcam.app) - free app that turns your phone into a head tracker
+- Discord: [Loop's Head Tracking Hangout](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
+- [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch for the released head-tracking mods
+- [Headcam](https://headcam.app) - free app that turns your iPhone or Android phone into the head tracker
 
 ## License
 

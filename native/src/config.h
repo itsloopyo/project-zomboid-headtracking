@@ -5,6 +5,7 @@
 #include <cameraunlock/config/defaults_file.h>
 #include <cameraunlock/config/head_tracking_config.h>
 
+#include <cstdint>
 #include <string>
 
 namespace pzht {
@@ -19,8 +20,12 @@ inline constexpr float kDefaultFieldOfView = 65.0f;
 inline constexpr float kMinFieldOfView = 40.0f;
 inline constexpr float kMaxFieldOfView = 110.0f;
 
+// How much the first person picture costs to draw. Quality.java holds the same numbers.
+enum class Quality : std::int32_t { Automatic = 0, Low = 1, Medium = 2, High = 3 };
+
 struct Config : cameraunlock::HeadTrackingConfig {
     float field_of_view = kDefaultFieldOfView;
+    Quality quality = Quality::Automatic;
     // What the mod made itself and shows in first person in place of the game's own. Each is
     // a row of [Content], and with a row off the game's own is drawn there.
     bool own_weapons = true;
@@ -39,8 +44,8 @@ struct Config : cameraunlock::HeadTrackingConfig {
 };
 
 // The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
-// rows are Writable: their hotkeys save. End changes the session only. FieldOfView and the rows
-// of [Content] are the mod's own, and the ones read again while the game runs.
+// rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality and
+// the rows of [Content] are the mod's own, and the ones read again while the game runs.
 cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 
 // The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test

@@ -39,6 +39,7 @@ final class ConfigTests {
         changedModesAreSavedAndReadAtTheNextStart(config, file);
         fieldOfViewIsReadAgainWhenTheFileChanges(config, file);
         contentRowsAreReadAgainWhenTheFileChanges(config, file);
+        qualityIsReadAgainWhenTheFileChanges(config, file);
         zoomCompensationIsCores();
     }
 
@@ -117,6 +118,19 @@ final class ConfigTests {
         edit(file, text);
         live = config.reloadLive();
         check(live != null && live.own() == Own.ALL, "switched back on, they are on again");
+    }
+
+    private static void qualityIsReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.US_ASCII);
+        check(text.contains("\r\nQuality=Automatic\r\n"), "the file holds the quality, automatic");
+        check(config.load(file).quality() == Quality.AUTOMATIC, "which is what a start runs on");
+        edit(file, text.replace("Quality=Automatic", "Quality=Medium"));
+        NativeConfig.Live live = config.reloadLive();
+        check(live != null && live.quality() == Quality.MEDIUM, "an edited quality is read while the game runs");
+        check(live.own() == Own.ALL, "with the mod's own as it was");
+        edit(file, text);
+        live = config.reloadLive();
+        check(live != null && live.quality() == Quality.AUTOMATIC, "and set back, it is automatic again");
     }
 
     private static void edit(Path file, String text) throws IOException {

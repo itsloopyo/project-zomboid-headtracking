@@ -105,6 +105,7 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->light_multiplier = c.light.multiplier;
         out->field_of_view = c.field_of_view;
         out->own = OwnBits(c);
+        out->quality = static_cast<std::int32_t>(c.quality);
         return static_cast<std::int32_t>(loaded.status);
     });
 }
@@ -118,6 +119,7 @@ std::int32_t PzhtConfigReloadLive(PzhtLive* out) {
         if (!reloaded.config) return 0;
         out->field_of_view = reloaded.config->field_of_view;
         out->own = OwnBits(*reloaded.config);
+        out->quality = static_cast<std::int32_t>(reloaded.config->quality);
         return 1;
     });
 }

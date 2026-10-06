@@ -4469,7 +4469,7 @@ final class PipelineShaders {
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 float ahead = placeAt(uv).z;
-                vec4 around = mix(ofItsOwnDepth(uOcclusion, uv, ahead), vec4(1.0), uWithout.x);
+                vec4 around = mix(ofItsOwnDepth(uOcclusion, uv, ahead), vec4(0.0, 0.0, 0.0, 1.0), uWithout.x);
                 vec4 here = texture2D(uScene, uv);
                 vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
                 // The light lent by what stands near, taken on by the surface in its own colour.

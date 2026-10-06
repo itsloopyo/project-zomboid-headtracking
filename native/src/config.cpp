@@ -30,6 +30,19 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "field of view setting of its own. Aiming a firearm still narrows the view by the\n"
                 "same ratio. Read again while the game runs, so a change shows as soon as the file\n"
                 "is saved.");
+    table.Local("General", "Quality", &Config::quality,
+                cameraunlock::config::EnumCodec<Quality>{{"Automatic", Quality::Automatic},
+                                                         {"Low", Quality::Low},
+                                                         {"Medium", Quality::Medium},
+                                                         {"High", Quality::High}},
+                "How much of the first person picture is drawn, for a graphics card that cannot\n"
+                "keep up with all of it. High: the whole picture. Medium: four fifths of the\n"
+                "pixels each way, sight to 64 tiles and smaller shadow maps. Low: three fifths\n"
+                "of the pixels each way, sight to 48 tiles, smaller shadow maps, and no shading\n"
+                "of corners, lit air or depth in surfaces. Automatic: begins at High and goes\n"
+                "down a step each time the picture is drawn fewer than 45 times a second for\n"
+                "three seconds, until the game is closed. Read again while the game runs. The\n"
+                "game's own view is never changed.");
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in the first person view in place of the game's\n"
                 "own. Set a row to false and the game's own is drawn there instead, as the game or\n"

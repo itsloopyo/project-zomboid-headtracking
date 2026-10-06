@@ -41,7 +41,8 @@ import zombie.core.textures.TextureDraw;
  * is saved before the frame and put back after it.
  */
 final class Pipeline {
-    private static final int SHADOW_SIZE = 4096;
+    /** How many texels across the shadow maps are: see Quality.shadowSize. */
+    private static int shadowSize;
     /** Half the width of the ground each shadow map covers, in tiles, and how far along the light it reaches. */
     private static final float NEAR_EXTENT = 24f, FAR_EXTENT = 96f;
     private static final float NEAR_RANGE = 120f, FAR_RANGE = 220f;
@@ -172,6 +173,8 @@ final class Pipeline {
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
+    /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see Quality.mapsTakeTurns. */
+    private static boolean farDrawn, roofDrawn, castFar;
     /** What is overhead near the eye, seen from straight above: where rain cannot fall. */
     private static int roofMap, roofTarget;
     private static final float[] roofMatrix = new float[16];
@@ -271,7 +274,8 @@ final class Pipeline {
     /** How far behind the viewer, away from the camera, the cut begins, in tiles of x and y together along the map's diagonal. */
     private static final float CUT_BEHIND = 1.5f;
     /**
-     * How many of the picture's pixels there are to each of the window's, each way. Leaves,
+     * Dev only, on top of Quality.scale:
+     * how many of the picture's pixels there are to each of the window's, each way. Leaves,
      * blades of grass, fence wire and roof edges are finer than a pixel, and drawn one sample
      * to a pixel each is there or not there as the head moves by a hair: the whole picture
      * crawls. Drawn finer and brought down to the window, each pixel is the mean of several
@@ -474,10 +478,17 @@ final class Pipeline {
         while (failure == null && !prepared) {
             failure = prepareNext();
         }
-        if (failure == null && nearMap == 0) {
-            failure = makeShadowMaps();
+        if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize()) {
+            giveBackShadowMaps();
         }
-        int wide = Math.round(viewport[2] * SCALE), high = Math.round(viewport[3] * SCALE);
+        if (failure == null && nearMap == 0) {
+            shadowSize = Quality.shadowSize();
+            failure = makeShadowMaps();
+            farDrawn = false;
+            roofDrawn = false;
+        }
+        float scale = SCALE * Quality.scale();
+        int wide = Math.round(viewport[2] * scale), high = Math.round(viewport[3] * scale);
         if (failure == null && (wide != width || high != height)) {
             failure = resize(wide, high);
         }
@@ -529,10 +540,12 @@ final class Pipeline {
             }
             drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             stage(STAGE_SKY);
-            drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
+            if (Quality.shadedAndLit()) {
+                drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
+            }
             stage(STAGE_OCCLUSION);
             // Seen from overhead the picture is developed without the lit air.
-            if (!overhead) {
+            if (!overhead && Quality.shadedAndLit()) {
                 drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_AIR);
@@ -881,7 +894,13 @@ final class Pipeline {
 
     private static void drawShadows(SkyState state, boolean figures) {
         lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE);
-        lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE);
+        boolean turns = Quality.mapsTakeTurns();
+        castFar = !turns || !farDrawn || (frameNumber & 1) == 0;
+        boolean castRoof = !turns || !roofDrawn || (frameNumber & 1) == 1;
+        if (castFar) {
+            lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE);
+            farDrawn = true;
+        }
         GL11.glDisable(GL_SCISSOR_TEST);
         GL11.glDisable(GL_STENCIL_TEST);
         GL11.glDisable(GL_CULL_FACE);
@@ -897,7 +916,7 @@ final class Pipeline {
         // light than the surface it was drawn from.
         GL11.glEnable(GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(2.5f, 6f);
-        GL11.glViewport(0, 0, SHADOW_SIZE, SHADOW_SIZE);
+        GL11.glViewport(0, 0, shadowSize, shadowSize);
         shadow.use();
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
@@ -911,7 +930,10 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + BEAM_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, beamMap);
         GL13.glActiveTexture(GL_TEXTURE0);
-        castRoof(state);
+        if (castRoof) {
+            castRoof(state);
+            roofDrawn = true;
+        }
         heldOf = drawn.size();
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
@@ -919,7 +941,7 @@ final class Pipeline {
 
     /** The near and the far shadow map, along the light. */
     private static void castSun(SkyState state, boolean figures) {
-        for (int map = 0; map < 2; map++) {
+        for (int map = 0; map < (castFar ? 2 : 1); map++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
@@ -931,7 +953,7 @@ final class Pipeline {
         if (figures) {
             // The game's own draw of each character, with the light's matrix where its camera
             // would be. It sets its own program, buffers and culling, so the frame's are put back.
-            for (int map = 0; map < 2; map++) {
+            for (int map = 0; map < (castFar ? 2 : 1); map++) {
                 GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
                 Characters.cast(map == 0 ? nearMatrix : farMatrix);
             }
@@ -989,7 +1011,7 @@ final class Pipeline {
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
     private static void castRoof(SkyState state) {
-        float texel = 2f * ROOF_EXTENT / SHADOW_SIZE;
+        float texel = 2f * ROOF_EXTENT / shadowSize;
         Arrays.fill(roofMatrix, 0f);
         roofMatrix[0] = 1f / ROOF_EXTENT;
         roofMatrix[12] = -(float) Math.floor(focusX / texel) * texel / ROOF_EXTENT;
@@ -1145,7 +1167,7 @@ final class Pipeline {
             ry /= flat;
         }
         float ux = -lu * ry, uy = lu * rx, uu = lx * ry - ly * rx;
-        float texel = 2f * extent / SHADOW_SIZE;
+        float texel = 2f * extent / shadowSize;
         float centreRight = (float) Math.floor((rx * focusX + ry * focusY) / texel) * texel;
         float centreUp = (float) Math.floor((ux * focusX + uy * focusY + uu * focusUp) / texel) * texel;
         float centreAlong = lx * focusX + ly * focusY + lu * focusUp;
@@ -1266,7 +1288,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         world.set("uNearMatrix", nearMatrix);
         world.set("uFarMatrix", farMatrix);
-        world.set("uShadowTexel", 1f / SHADOW_SIZE);
+        world.set("uShadowTexel", 1f / shadowSize);
         GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 2);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL33.glBindSampler(UNITS - 2, depthSampler);
@@ -1281,7 +1303,7 @@ final class Pipeline {
         world.set("uCover", state.cover);
         world.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
-        world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * SHADOW_SIZE / (2f * NEAR_EXTENT));
+        world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
         world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         world.set("uRangeFrom", rangeFrom);
         world.set("uCutAbove", cutAbove);
@@ -1367,7 +1389,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
         world.set("uSprigs", SPRIG_UNIT);
-        world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() ? 0f : 1f);
+        world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() ? 0f : 1f);
         world.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
@@ -1595,7 +1617,8 @@ final class Pipeline {
         develop.set("uBloom", 1);
         develop.set("uDepth", 2);
         develop.set("uOcclusion", 3);
-        develop.set("uWithout", WITHOUT.contains("occlusion") ? 1f : 0f, WITHOUT.contains("air") || overhead ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
+        develop.set("uWithout", WITHOUT.contains("occlusion") || !Quality.shadedAndLit() ? 1f : 0f,
+                WITHOUT.contains("air") || overhead || !Quality.shadedAndLit() ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
         develop.set("uVolume", 4);
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
         GL11.glBindTexture(GL_TEXTURE_2D, softVolumeColor);
@@ -2608,6 +2631,16 @@ final class Pipeline {
         return sampler;
     }
 
+    private static void giveBackShadowMaps() {
+        for (int map : new int[] {nearMap, farMap, roofMap, beamMap}) {
+            GL11.glDeleteTextures(map);
+        }
+        for (int target : new int[] {nearTarget, farTarget, roofTarget, beamTarget}) {
+            GL30.glDeleteFramebuffers(target);
+        }
+        nearMap = 0;
+    }
+
     /** The four shadow maps, the mirror's picture and the picture of who stands behind. Null, or what the driver refused. */
     private static String makeShadowMaps() {
         int[] made = new int[2];
@@ -2668,7 +2701,7 @@ final class Pipeline {
     private static String shadowMap(int[] made) {
         int map = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, map);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, SHADOW_SIZE, SHADOW_SIZE, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowSize, shadowSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
         filter(GL_LINEAR);
         // The texture answers "is this point nearer the light than what the map holds" itself,
         // and blends the four answers around a sample, which is what softens the shadow's edge.
@@ -2700,13 +2733,7 @@ final class Pipeline {
             giveBackSized();
             width = 0;
             height = 0;
-            for (int map : new int[] {nearMap, farMap, roofMap, beamMap}) {
-                GL11.glDeleteTextures(map);
-            }
-            for (int target : new int[] {nearTarget, farTarget, roofTarget, beamTarget}) {
-                GL30.glDeleteFramebuffers(target);
-            }
-            nearMap = 0;
+            giveBackShadowMaps();
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
         }
     };
