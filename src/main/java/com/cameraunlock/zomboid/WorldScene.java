@@ -522,6 +522,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     int waiting() {
         return chunksWaiting;
     }
+    /** How far the eye may be, in tiles, from where a chunk right by it was built from and still count as held, and how far its right may have turned. */
+    private static final float EYE_HELD_WITHIN = 0.006f, TURN_HELD_WITHIN = 0.004f;
+
+    /** Whether the eye is as good as where a build was made from: further off, a chunk's cards turn less for the same step, and the step may be longer. */
+    private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance) {
+        float within = EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f));
+        return Math.abs(built.eyeX - view.eyeX) <= within && Math.abs(built.eyeY - view.eyeY) <= within && Math.abs(built.eyeUp - view.eyeUp) <= within
+                && (!built.acrossView || Math.abs(built.rightX - rightX) <= TURN_HELD_WITHIN && Math.abs(built.rightY - rightY) <= TURN_HELD_WITHIN);
+    }
+
     /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
     private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
     /** How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES} wait for the next. */
@@ -813,7 +823,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // that is still, found unchanged, is not read through again for a thirtieth of
                 // a second, where it was read through on every frame.
                 long since = start - (missing ? 0L : current.checkedNanos);
-                boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !eyeStill || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
+                // A head that is tracked is never where it was to the last bit, and neither is a
+                // player standing in a crowd. An eye within a few millimetres of where a chunk
+                // was built from, looking the same way to a quarter of a degree, is still as far
+                // as that chunk goes: its cards would turn by less than can be seen.
+                boolean still = missing ? eyeStill : heldSince(current, view, distance);
+                boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                 || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
@@ -824,13 +839,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // build's was is kept: a new build would be the same triangles.
                 long read = 0;
                 int summedFrom = missing ? frames : current.summedFrom;
-                boolean summed = eyeStill && (missing || due) && frames >= summedFrom;
+                boolean summed = still && (missing || due) && frames >= summedFrom;
                 if (summed) {
                     seenOutside.copyTo(seenBefore);
                     int seen = squaresSeen;
                     read = signature(chunk, chunkX, chunkY, lowest);
-                    boolean sameEye = due && current.signed && current.eyeX == view.eyeX && current.eyeY == view.eyeY && current.eyeUp == view.eyeUp
-                            && (!current.acrossView || current.rightX == rightX && current.rightY == rightY);
+                    boolean sameEye = due && current.signed;
                     if (sameEye && current.signature == read
                             && (frames - current.builtFrame < KEPT_UNCHANGED_FRAMES || start - current.builtNanos < KEPT_UNCHANGED_FRAMES * NANOS_A_FRAME_COUNTED)) {
                         // The squares it read count towards this frame's light as a build's would.

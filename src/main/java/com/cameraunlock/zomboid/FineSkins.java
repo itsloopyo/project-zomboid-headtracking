@@ -358,6 +358,13 @@ public final class FineSkins {
         if (recipe.plain) {
             return bound;
         }
+        // Whether a finer one could be composed now is asked before what it would be composed
+        // of: that is read out of the names of every texture the recipe uses, and with a crowd
+        // on the screen and no room for more skins it was read for every part of every one of
+        // them on every frame, which held a frame for a fifteenth of a second.
+        if (now - composedAt < BETWEEN_NANOS || fineBytes >= MOST_BYTES && now - fine.values().iterator().next().used < KEPT_NANOS) {
+            return bound;
+        }
         boolean any = anyPacked(recipe);
         if (gone) {
             recipe.plain = true;
@@ -372,9 +379,6 @@ public final class FineSkins {
         }
         if (!any) {
             recipe.plain = true;
-            return bound;
-        }
-        if (now - composedAt < BETWEEN_NANOS) {
             return bound;
         }
         while (fineBytes >= MOST_BYTES) {
@@ -427,7 +431,7 @@ public final class FineSkins {
         if (name == null) {
             return null;
         }
-        String relative = Pack.relative(name);
+        String relative = relativeOf(name);
         if (relative == null) {
             return null;
         }
@@ -460,12 +464,25 @@ public final class FineSkins {
         return pack;
     }
 
+    /** Pack.relative of each texture name asked about, which is worked out of the name letter by letter. */
+    private static final HashMap<String, String> relatives = new HashMap<>();
+    private static final HashMap<String, String> resources = new HashMap<>();
+
+    private static String relativeOf(String name) {
+        String relative = relatives.get(name);
+        if (relative == null && !relatives.containsKey(name)) {
+            relative = Pack.relative(name);
+            relatives.put(name, relative);
+        }
+        return relative;
+    }
+
     /**
      * The mod's own picture for the game's texture at this path under media/textures, or null
      * where the jar has none. Its texture is null until it has been read.
      */
     private static Read own(String relative) {
-        String path = Jar.resource(relative);
+        String path = resources.computeIfAbsent(relative, Jar::resource);
         if (!own.containsKey(path)) {
             Read asked = FineSkins.class.getResource(path) == null ? null : new Read();
             own.put(path, asked);
