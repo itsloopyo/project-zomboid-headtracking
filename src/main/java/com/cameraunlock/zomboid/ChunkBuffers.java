@@ -256,7 +256,8 @@ final class ChunkBuffers {
         private IntBuffer firsts = ints(1 << 12), counts = ints(1 << 12);
         private int[] rangeTexture = new int[256], rangeTint = new int[256], rangeFrom = new int[256], rangeRuns = new int[256];
         private int ranges, solidRanges;
-        private final Runs solidRuns = new Runs(), laidRuns = new Runs();
+        /** What is laid is drawn in the order listed, each over the last: what grows on the ground first, and what lies on it, a path spread over a lawn's edge, over that. */
+        private final Runs solidRuns = new Runs(), grownRuns = new Runs(), laidRuns = new Runs();
 
         /**
          * Lists the chunks of a frame that ChunkBuffers.load has made ready, leaving out those
@@ -266,6 +267,7 @@ final class ChunkBuffers {
          */
         void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo) {
             solidRuns.clear();
+            grownRuns.clear();
             laidRuns.clear();
             for (int i = 0; i < chunks.size(); i++) {
                 if (left != null && left[i]) {
@@ -274,10 +276,10 @@ final class ChunkBuffers {
                 WorldScene.ChunkMeshes build = chunks.get(i);
                 solidRuns.count(build, 0, build.solidRuns);
                 if (laidToo) {
-                    laidRuns.count(build, build.solidRuns, build.runs);
+                    (build.grown ? grownRuns : laidRuns).count(build, build.solidRuns, build.runs);
                 }
             }
-            int most = solidRuns.used + laidRuns.used;
+            int most = solidRuns.used + grownRuns.used + laidRuns.used;
             if (most > rangeTexture.length) {
                 rangeTexture = new int[most * 2];
                 rangeTint = new int[most * 2];
@@ -287,6 +289,7 @@ final class ChunkBuffers {
             ranges = 0;
             int runs = place(solidRuns, 0);
             solidRanges = ranges;
+            runs = place(grownRuns, runs);
             runs = place(laidRuns, runs);
             if (runs > firsts.capacity()) {
                 firsts = ints(Integer.highestOneBit(runs) * 2);
@@ -303,7 +306,7 @@ final class ChunkBuffers {
                 // The order a build's runs were sent in.
                 int at = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
-                    Runs of = run < build.solidRuns ? solidRuns : laidRuns;
+                    Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
                     if (of == solidRuns || laidToo) {
                         int slot = of.slot(build.runTexture[run], build.runTint[run]);
                         firsts.put(of.cursor[slot], at / SpriteGeometry.VERTEX_FLOATS);

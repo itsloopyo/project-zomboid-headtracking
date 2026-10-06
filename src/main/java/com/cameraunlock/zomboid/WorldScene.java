@@ -161,6 +161,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private boolean eyeRead;
         /** How far from the eye the chunk's middle was when the build was made, in tiles. */
         private float builtAway;
+        /** Whether the build is of what grows on a chunk's ground and not of the chunk: see latestGrown. */
+        boolean grown;
         /** For each square of the chunk's ground, how many layers its floor has: what grows on it is laid over them. */
         private final byte[] groundLayers = new byte[CHUNK_TILES * CHUNK_TILES];
         /** Whether what the build read of the map was summed as it was made, and the sum: see signature. */
@@ -1033,6 +1035,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     addBacks(chunk, chunkX, chunkY);
                     fresh.acrossView = acrossView;
                     fresh.eyeRead = eyeRead;
+                    fresh.grown = false;
                     fresh.builtAway = distance;
                     fresh.fill(solid, laid);
                     if (current != null) {
@@ -1068,6 +1071,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.facedX = facedX;
                     fresh.facedY = facedY;
                     fresh.acrossView = false;
+                    fresh.grown = true;
                     fresh.users = 1;
                     placed = fresh.placed;
                     building = current;
