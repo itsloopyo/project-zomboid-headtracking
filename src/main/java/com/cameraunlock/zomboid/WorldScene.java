@@ -953,7 +953,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 float nearest = nearest(view, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                 boolean still = missing ? eyeStill
                         : inBand(current.band, nearest) && layersStandFor(current, distance) && (eyeStill || current.signed);
-                boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
+                // A build that is held is only read through to see whether its chunk has changed: half as often will do,
+                // and a change twenty tiles off shows a tenth of a second later.
+                boolean held = !missing && still && current.signed;
+                boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED * (held ? 2 : 1) : !held || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                 || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
@@ -978,8 +981,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     int seen = squaresSeen;
                     read = signature(chunk, chunkX, chunkY, lowest);
                     boolean sameEye = still && due && current.signed;
-                    boolean young = !missing
-                            && start - current.builtNanos < (start - current.bornNanos < SETTLES_IN_NANOS ? KEPT_WHILE_SETTLING_NANOS : KEPT_UNCHANGED_NANOS);
+                    // A chunk that has only just come onto the map far off is made again for what loads late
+                    // after a quarter of a second, then a half, then one: at a car's speed a dozen builds each
+                    // of every chunk coming over the horizon were half of all the building there was.
+                    long settling = distance < BUILT_EVERY_FRAME || missing ? KEPT_WHILE_SETTLING_NANOS
+                            : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2);
+                    boolean young = !missing && start - current.builtNanos < (start - current.bornNanos < SETTLES_IN_NANOS ? settling : KEPT_UNCHANGED_NANOS);
                     if (due) {
                         builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
                     }
@@ -1218,9 +1225,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * limbs and its crown's fineness, a bole, a bush's cards, a rock's faces and long grass
      * grown plant by plant all go by distance: taken tree by tree from the eye itself, every
      * chunk with a plant in it was a different build at every step. By band, a chunk is the
-     * same build until it crosses into the next, about three chunks a frame at a car's speed.
+     * same build until it crosses into the next, about two chunks a frame at a car's speed.
+     * The further out a band ends the more chunks cross its end, so the last ends where a crown
+     * stops being made, and a bole is made only as far as that, where it was made to sixty tiles.
      */
-    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f, 60f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 50f, 70f};
+    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
     private static final float BAND_SLACK = 0.5f;
 
