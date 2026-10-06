@@ -738,6 +738,18 @@ public final class FirstPerson {
     }
 
     /**
+     * Whether the first person picture is drawn over the whole of the game's own view, so that
+     * what the game draws of the weather there is never seen: the eye has landed, and is not on
+     * its way between the two views, when the game's own shows through. Called from the game's code.
+     */
+    public static boolean coversTheGamesView() {
+        return landed && !WITHOUT_COVER;
+    }
+
+    /** Dev only: the game draws its weather under the picture as it always did, to measure what leaving it out saves. */
+    private static final boolean WITHOUT_COVER = Boolean.getBoolean("cameraunlock.zomboid.withoutCover");
+
+    /**
      * Called as the game's window is about to show or hide its cursor to suit the game. The
      * game shows and hides its pointer as the player aims and fires, and each change puts the
      * window's cursor back where it was before: the look, which goes by how far the cursor

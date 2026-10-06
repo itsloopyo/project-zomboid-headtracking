@@ -140,6 +140,7 @@ public final class Agent {
         if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
             instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
         }
+        instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -220,6 +221,30 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(FIRST_PERSON, "cursorY", "(I)I"));
                     });
                 }));
+    }
+
+    /**
+     * Apart again, and each from the other: what the game draws of the weather for its own view,
+     * which is left out while the first person picture covers that view whole. The picture has
+     * rain, puddles and fog of its own, and the game's were built drop by drop on its logic
+     * thread and written out corner by corner on its render thread, only to be painted over: in
+     * rain they were a quarter of what the game's logic thread did and most of what its render
+     * thread did outside the graphics driver. Each of these draws and keeps nothing the game
+     * goes by: where the rain falls, how wet the ground is and what the weather is are worked
+     * out elsewhere and are as they were.
+     */
+    private static List<Patch> coveredPatches() {
+        String world = "zombie/iso/IsoWorld", cell = "zombie/iso/fboRenderChunk/FBORenderCell";
+        CallSite.Method covered = new CallSite.Method(FIRST_PERSON, "coversTheGamesView", "()Z");
+        return List.of(
+                new Patch(world, "renderWeatherFX left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(world, "renderWeatherFX", "()V"), covered)),
+                new Patch(cell, "renderPuddles left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(cell, "renderPuddles", "(I)V"), covered)),
+                new Patch(cell, "renderRainSplashes left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(cell, "renderRainSplashes", "(II)V"), covered)),
+                new Patch(cell, "renderFog left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(cell, "renderFog", "(I)V"), covered)));
     }
 
     /**
