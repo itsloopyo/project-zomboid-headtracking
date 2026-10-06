@@ -194,7 +194,9 @@ public final class FirstPerson {
             return;
         }
         on = !on;
-        if (on) {
+        if (on && player.getVehicle() != null) {
+            setLook(Ride.heading(player.getVehicle()), 0f);
+        } else if (on) {
             Vector2 facing = player.getForwardDirection();
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
         }
@@ -401,13 +403,18 @@ public final class FirstPerson {
 
     /**
      * Getting into a vehicle is getting behind its wheel: the view goes to the seat by itself,
-     * and goes back to how it was on getting out.
+     * looking straight ahead out of the windscreen, and goes back to how it was on getting out.
      */
     private static void followTheRide(IsoPlayer player) {
         boolean riding = player != null && player.getVehicle() != null;
-        if (riding && !wasRiding && !on) {
-            toggle();
-            onForTheRide = on;
+        if (riding && !wasRiding) {
+            if (on) {
+                // Left alone the view keeps the way the character faced on foot, whichever way the seat faces.
+                setLook(Ride.heading(player.getVehicle()), 0f);
+            } else {
+                toggle();
+                onForTheRide = on;
+            }
         } else if (!riding && wasRiding && onForTheRide && on) {
             toggle();
         }

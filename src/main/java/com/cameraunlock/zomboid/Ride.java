@@ -103,6 +103,12 @@ final class Ride {
         }
     }
 
+    /** The way the vehicle faces on the map, as a yaw. The game gives its forward vector with y as up. */
+    static float heading(BaseVehicle vehicle) {
+        vehicle.getForwardVector(facing);
+        return (float) Math.atan2(facing.z, facing.x);
+    }
+
     private static void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across
