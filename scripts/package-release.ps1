@@ -4,7 +4,7 @@
 # Produces two ZIPs:
 #   ProjectZomboidHeadTracking-v{version}-installer.zip (GitHub Release)
 #   ProjectZomboidHeadTracking-v{version}-dev.zip       (never published: the
-#       installer with the development keys switched on)
+#       installer with the development jar, which has the development keys)
 #
 # There is no Nexus ZIP. Installing the mod is the jar next to the game exe
 # plus a site JVM config that install.cmd generates from the game's own
@@ -40,6 +40,11 @@ Write-Host ""
 $jarPath = Join-Path $projectDir "build/$modName.jar"
 if (-not (Test-Path $jarPath)) {
     throw "$modName.jar not found at: $jarPath. Run 'pixi run build' first."
+}
+
+$devJarPath = Join-Path $projectDir "build/dev/$modName.jar"
+if (-not (Test-Path $devJarPath)) {
+    throw "the development $modName.jar not found at: $devJarPath. Run 'pixi run build' first."
 }
 
 $dllPath = Join-Path $projectDir "build/$modName.dll"
@@ -105,19 +110,11 @@ try { Compress-Archive -Path '.\*' -DestinationPath $installerZip -Force } final
 $installerKb = [math]::Round((Get-Item $installerZip).Length / 1KB, 1)
 Write-Host ("  $installerZip ({0:N1} KB)" -f $installerKb) -ForegroundColor Green
 
-# The development ZIP is the installer plus the marker DevKeys looks for, which
-# its install.cmd copies next to the jar. Its name must not end in
-# -installer.zip: build.yml and the release paths pick the installer up by that
-# ending, and a ZIP that switches the development keys on never goes to a player.
-$marker = "$modName.dev"
-Set-Content -Path (Join-Path $pluginsDir $marker) -Value 'development install' -Encoding ascii
-$stagedInstall = Join-Path $staging 'install.cmd'
-$payloadLine   = "set `"MOD_DLLS=$modName.jar $modName.dll`""
-$installText   = [System.IO.File]::ReadAllText($stagedInstall)
-if (-not $installText.Contains($payloadLine)) {
-    throw "scripts/install.cmd no longer has the line $payloadLine, so the development ZIP's installer cannot be told to copy $marker."
-}
-[System.IO.File]::WriteAllText($stagedInstall, $installText.Replace($payloadLine, "set `"MOD_DLLS=$modName.jar $modName.dll $marker`""), (New-Object System.Text.ASCIIEncoding))
+# The development ZIP is the installer with the development jar in the place of
+# the one that ships. Its name must not end in -installer.zip: build.yml and the
+# release paths pick the installer up by that ending, and a ZIP with the
+# development keys in it never goes to a player.
+Copy-Item $devJarPath -Destination $pluginsDir -Force
 
 $devZip = Join-Path $releaseDir "$modName-v$version-dev.zip"
 if (Test-Path $devZip) { Remove-Item $devZip -Force }
@@ -126,7 +123,7 @@ try { Compress-Archive -Path '.\*' -DestinationPath $devZip -Force } finally { P
 Remove-Item -Recurse -Force $staging
 
 $devKb = [math]::Round((Get-Item $devZip).Length / 1KB, 1)
-Write-Host ("  $devZip ({0:N1} KB, development keys on)" -f $devKb) -ForegroundColor Green
+Write-Host ("  $devZip ({0:N1} KB, development keys in)" -f $devKb) -ForegroundColor Green
 
 if ($hasManifest) {
     & node (Join-Path $projectDir 'cameraunlock-core/scripts/validate-manifest.mjs') $installerZip

@@ -7,7 +7,7 @@ final class StyleTests {
     static void run() {
         Style before = Style.current();
         try {
-            f7GoesRoundTheThree();
+            f10GoesRoundTheThree();
             vividIsThePictureAsItWas();
             eachStyleAfterVividIsQuieter();
         } finally {
@@ -21,7 +21,7 @@ final class StyleTests {
         }
     }
 
-    private static void f7GoesRoundTheThree() {
+    private static void f10GoesRoundTheThree() {
         Style.set(Style.VIVID.ordinal());
         check(Style.current() == Style.VIVID, "the row asked for is the style in use");
         check(Style.VIVID.next() == Style.NATURAL, "F10 goes from Vivid to Natural");

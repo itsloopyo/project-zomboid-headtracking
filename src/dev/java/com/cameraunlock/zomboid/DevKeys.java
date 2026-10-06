@@ -1,8 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.reflect.Field;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Set;
 import zombie.GameTime;
@@ -23,8 +21,8 @@ import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
 
 /**
- * Keys for whoever is working on the mod, there only in a development install: the deploy
- * script leaves a marker file beside the jar, and the installer a player runs does not.
+ * Keys for whoever is working on the mod, there only in a development build: the jar a
+ * player installs is compiled with the empty class of this name in src/shipped in this one's place.
  * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  *
@@ -55,8 +53,8 @@ import zombie.vehicles.VehiclePart;
  * the beam that follows the head, and for night, without finding one and a battery. A weapon
  * in the right hand stays there.
  */
-final class DevKeys {
-    static final String MARKER = "ProjectZomboidHeadTracking.dev";
+public final class DevKeys {
+    static final boolean PRESENT = true;
     /** F7 in the key codes the game's keyboard uses. */
     private static final int TAKE_VEHICLE_KEY = 65;
     private static final float TAKE_WITHIN = 5f;
@@ -120,36 +118,28 @@ final class DevKeys {
     private static Field cannotDie;
     private static Field godModes;
     private static Object godMode;
-    private static boolean looked;
-    private static boolean enabled;
+    private static boolean said;
 
     private DevKeys() {}
 
     /**
      * Called with whether the game allows its own cheats, which outside its debug mode and off
      * a server it does not: its god mode then reads as off whatever is set. While the key has the
-     * player invincible in a development install they are allowed. A game joined to a server
-     * allows them by its own rules already, so this never adds anything there.
+     * player invincible they are allowed. A game joined to a server allows them by its own
+     * rules already, so this never adds anything there.
      */
-    static boolean cheatsAllowed(boolean stock) {
+    public static boolean cheatsAllowed(boolean stock) {
         return stock || invincible;
     }
 
-    /**
-     * Logic thread, once a frame. The marker is looked for here and not as the agent starts:
-     * this class names the game's player class, and a class the agent loads before its patches
-     * are in place brings the game's classes in unpatched.
-     */
+    /** Logic thread, once a frame. */
     static void poll() {
-        if (!looked) {
-            looked = true;
-            enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
-            if (enabled) {
-                Log.info("development install: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, \\ takes the nearest vehicle");
-            }
+        if (!said) {
+            said = true;
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
-        if (!enabled || GameClient.client) {
+        if (GameClient.client) {
             invincible = false;
             cleared = false;
             armed = false;

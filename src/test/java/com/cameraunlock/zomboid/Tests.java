@@ -1049,6 +1049,7 @@ public final class Tests {
         StyleTests.run();
         GameFixTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
+        theBuildThatShipsHasNoDevelopmentKeys();
         System.out.println("all tests passed");
     }
 
@@ -1710,6 +1711,14 @@ public final class Tests {
         check(WorldQuery.cylinderDistance(aim, -5f, 0f, 0f) == Float.POSITIVE_INFINITY, "a figure behind is missed");
         ViewCamera.Pose over = cleanPose(0f, 0f, 1.6f, 0f, radians(20));
         check(WorldQuery.cylinderDistance(over, 5f, 0f, 0f) == Float.POSITIVE_INFINITY, "an aim over its head is missed");
+    }
+
+    /** These tests run on the classes the installer's jar is made of. */
+    private static void theBuildThatShipsHasNoDevelopmentKeys() {
+        check(!DevKeys.PRESENT, "the classes that ship have the empty DevKeys");
+        check(DevKeys.class.getDeclaredFields().length == 1 && DevKeys.class.getDeclaredMethods().length == 1
+                && DevKeys.class.getNestMembers().length == 1, "and it holds nothing but its flag and an empty poll");
+        check(DevPatches.list().isEmpty(), "and nothing of the game's is patched for them");
     }
 
     private static void check(boolean condition, String what) {

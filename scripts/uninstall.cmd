@@ -38,7 +38,7 @@ set "MOD_SEED_FILES="
 set "PRESERVE_FILES=CameraUnlock.ini"
 :: Config and log files the mod writes at runtime, removed from wherever the
 :: DLLs were deployed.
-set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log ProjectZomboidHeadTracking.dev"
+set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log"
 :: Files to remove from the game root. Only needed by a mod deployed BELOW the
 :: root (see ASI_SUBDIR) that still resolves its config and log from the exe's
 :: own directory.

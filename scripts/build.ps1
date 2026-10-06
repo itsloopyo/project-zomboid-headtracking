@@ -21,10 +21,15 @@ New-Item -ItemType Directory -Force build | Out-Null
 
 $javac = @('--release', '25', '-Xlint:all', '-Werror')
 Invoke-Tool javac ($javac + @('-d', 'build/stubs') + (Get-JavaSources stubs))
-Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/classes') + (Get-JavaSources src/main/java))
+# Two jars from one source tree. The one that ships is compiled with src/shipped, whose DevKeys
+# is empty. The development one is compiled with src/dev, whose DevKeys is the development
+# keys, so none of that code is in a jar a player installs.
+Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/classes') + (Get-JavaSources src/main/java) + (Get-JavaSources src/shipped/java))
+Invoke-Tool javac ($javac + @('-cp', 'build/stubs', '-d', 'build/dev-classes') + (Get-JavaSources src/main/java) + (Get-JavaSources src/dev/java))
 Invoke-Tool javac ($javac + @('-cp', 'build/classes', '-d', 'build/test-classes') + (Get-JavaSources src/test/java))
 
 Copy-Item -Recurse -Force src/main/resources/* build/classes/
+Copy-Item -Recurse -Force src/main/resources/* build/dev-classes/
 
 @(
     'Premain-Class: com.cameraunlock.zomboid.Agent'
@@ -34,6 +39,9 @@ Copy-Item -Recurse -Force src/main/resources/* build/classes/
 ) | Set-Content -Encoding ascii build/MANIFEST.MF
 Invoke-Tool jar @('--create', '--file', 'build/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/classes', '.')
 Write-Host "Built build/ProjectZomboidHeadTracking.jar $version"
+New-Item -ItemType Directory -Force build/dev | Out-Null
+Invoke-Tool jar @('--create', '--file', 'build/dev/ProjectZomboidHeadTracking.jar', '--manifest', 'build/MANIFEST.MF', '-C', 'build/dev-classes', '.')
+Write-Host "Built build/dev/ProjectZomboidHeadTracking.jar $version (development keys in)"
 
 # cameraunlock-core's config owner and hotkey poller are C++, so they are built into a DLL the
 # agent loads from beside its jar. The same build makes the config tests, which test.ps1 runs.

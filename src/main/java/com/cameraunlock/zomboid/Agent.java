@@ -128,6 +128,7 @@ public final class Agent {
         instrumentation.addTransformer(new PatchTransformer(basePatches()));
         firstPerson = new PatchTransformer(firstPersonPatches());
         instrumentation.addTransformer(firstPerson);
+        instrumentation.addTransformer(new PatchTransformer(DevPatches.list()));
 
         fineSkins = new PatchTransformer(fineSkinPatches());
         instrumentation.addTransformer(fineSkins);
@@ -182,9 +183,6 @@ public final class Agent {
                 new Patch("org/lwjglx/opengl/Display", "updateMouseCursor left alone while the look has the mouse",
                         classBytes -> CallSite.returnAtOnceIf(classBytes, new CallSite.Method("org/lwjglx/opengl/Display", "updateMouseCursor", "()V"),
                                 new CallSite.Method(FIRST_PERSON, "holdsMouse", "()Z"))),
-                new Patch("zombie/characters/PlayerCheats", "isCheatAllowed before its returns", classBytes -> CallSite.filterReturn(classBytes,
-                        new CallSite.Method("zombie/characters/PlayerCheats", "isCheatAllowed", "()Z"),
-                        new CallSite.Method(CONTROLS, "cheatsAllowed", "(Z)Z"))),
                 after(new CallSite.Method("zombie/iso/LightingJNI", "updatePlayer", "(I)V"),
                         new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
                         new CallSite.Method(FIRST_PERSON, "sightVector", VECTOR2_FILTER)),

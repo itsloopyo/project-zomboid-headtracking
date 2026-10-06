@@ -33,8 +33,8 @@ clean = "powershell -NoProfile -Command \"Get-Item build, build-native, release 
 # rewrites the per_game of a launcher-manifest.json config descriptor where there is one.
 render-config = { cmd = "build-native/Release/config_tests.exe --render-config config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
 
-# The installer ZIP and a development ZIP (the same, with the development keys
-# on) in release/. package-release.ps1 says why there is no Nexus ZIP.
+# The installer ZIP and a development ZIP (the same, with the development jar
+# in it) in release/. package-release.ps1 says why there is no Nexus ZIP.
 package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-release.ps1", depends-on = ["build", "test"] }
 
 # Both read what is already there, so neither depends on package.
