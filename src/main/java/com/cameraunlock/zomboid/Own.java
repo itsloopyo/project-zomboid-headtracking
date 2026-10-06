@@ -22,9 +22,9 @@ final class Own {
 
     private Own() {}
 
-    /** The rows that are on. In the Low graphics mode none is, whatever the file says. */
+    /** The rows that are on. In the Low graphics mode none is, and in Medium the plants are the game's, whatever the file says. */
     static int on() {
-        return Quality.plain() ? 0 : on;
+        return Quality.plain() ? 0 : Quality.gamesPlants() ? on & ~PLANTS : on;
     }
 
     static void set(int bits) {

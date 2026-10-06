@@ -61,6 +61,15 @@ final class Quality {
     }
 
     /**
+     * Whether the mode is Medium, where grass, trees, bushes and rocks are the game's own
+     * sprites: the mod's are the dearest thing in the picture to draw. Automatic come down to
+     * Medium's level keeps the mod's.
+     */
+    static boolean gamesPlants() {
+        return row == MEDIUM;
+    }
+
+    /**
      * Counts a frame of the first person view drawn while the game runs. With the row at
      * Automatic, a count that comes out under {@link #SLOWEST} frames a second takes the
      * picture down a level. It is never taken up again in a session: what made the frames slow

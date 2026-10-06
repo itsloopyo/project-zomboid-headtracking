@@ -40,9 +40,11 @@ final class OwnTests {
         Quality.set(Quality.AUTOMATIC);
         check(Own.plants() && Own.people() && Own.taken(), "Automatic shows all of it again");
         Quality.set(Quality.MEDIUM);
-        check(Own.plants() && !Own.taken(), "as Medium does, with nothing to build again between the two");
+        check(!Own.plants() && Own.furniture() && Own.textures() && Own.buildings() && Own.people() && Own.taken(),
+                "Medium shows all of it but the plants, which are the game's, and has the world built again");
         check(Quality.next() == Quality.HIGH, "F9 goes from Medium to High");
         Quality.set(Quality.HIGH);
+        check(Own.plants() && Own.taken(), "High has the mod's plants back");
         check(Quality.next() == Quality.LOW, "from High round to Low");
         Quality.set(Quality.LOW);
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
