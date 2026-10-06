@@ -317,7 +317,23 @@ final class OwnRifle {
         return null;
     }
 
+    /** Begins unpacking the model and its pictures on other threads, for {@link #prepare} to find them unpacked. */
+    static void readAhead() {
+        for (String path : new String[] {MESH, COLOUR, SURFACE}) {
+            Ahead.begin(path, () -> unpacked(path));
+        }
+    }
+
+    /** Whether everything {@link #readAhead} began is unpacked. */
+    static boolean isRead() {
+        return Ahead.done(MESH) && Ahead.done(COLOUR) && Ahead.done(SURFACE);
+    }
+
     private static byte[] read(String path) throws IOException {
+        return Ahead.take(path, () -> unpacked(path));
+    }
+
+    private static byte[] unpacked(String path) throws IOException {
         try (InputStream packed = OwnRifle.class.getResourceAsStream(path)) {
             if (packed == null) {
                 throw new IOException("the jar has no " + path);

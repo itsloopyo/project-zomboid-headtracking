@@ -511,6 +511,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
     private final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
     private float buildMillis;
+    /** Chunks in view that had no build yet when the frame had spent its time on building. */
+    private int chunksWaiting;
+    /**
+     * Set round a build nobody will see, made so that the first build somebody does see is not
+     * the first there ever was: then nothing is built whatever it takes. See FirstPerson.rehearse.
+     */
+    static boolean rehearsing;
+    /** How many chunks the build before this one left waiting. */
+    private static int waitedLast;
+
+    /** How many chunks in view the last build left for the next frames. */
+    int waiting() {
+        return chunksWaiting;
+    }
+    /** How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES} wait for the next. */
+    private static final long BUILD_NANOS_A_FRAME = 5_000_000L;
+    /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
+    private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
 
     /** The square being added. */
     private IsoGridSquare here;
@@ -559,10 +577,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         return scenes[nextScene];
     }
 
+    /** What the frame cost: said when a frame was long enough to feel. */
+    String timing() {
+        return String.format(Locale.ROOT, "%d chunks built in %.1f ms and %d left for the next frames, the picture drawn in %.1f ms",
+                chunksBuilt, buildMillis, chunksWaiting, Pipeline.lastMillis());
+    }
+
     String describe() {
-        return String.format(Locale.ROOT, "chunks %d built %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
+        return String.format(Locale.ROOT, "chunks %d waiting %d built %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
-                chunksDrawn, chunksBuilt, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                chunksDrawn, chunksWaiting, chunksBuilt, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
@@ -613,6 +637,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         chunksDrawn = 0;
         chunksBuilt = 0;
         chunksKept = 0;
+        chunksWaiting = 0;
         eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
         lastEyeX = view.eyeX;
         lastEyeY = view.eyeY;
@@ -768,10 +793,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // together: its old build is still good enough to show. Without this the frames
                 // on which dozens fall due are several times as long as the rest.
                 int every = missing ? 0 : buildEvery(distance, slot);
+                // On the frame the view comes on, after a jump across the map or as the head turns
+                // fast, hundreds of chunks want building at once, and built in one frame they held it
+                // for most of a second. What is near is built whatever it takes. The rest is built
+                // until the frame has spent its time on building, and the others come on the next frames.
+                boolean late = (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME;
+                if (missing && late) {
+                    chunksWaiting++;
+                    continue;
+                }
                 // One that has waited twice its time waits no longer: the chunks are walked in the same
                 // order every frame, and the last of them would wait as long as the first kept falling due.
-                boolean due = !missing && frames - current.checkedFrame >= every
-                        && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every || remakes++ < REMAKES_A_FRAME);
+                // While chunks wait for their first build, the time goes to them: one built already
+                // and not right by the eye is shown as it is, or those at the end of the walk would
+                // wait for as long as the ones before them kept falling due.
+                boolean hurried = late || waitedLast > 0;
+                boolean due = !missing && !rehearsing && frames - current.checkedFrame >= every
+                        && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
+                                || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
                 // The eye's place is in every build: which way a card faces, how far apart
                 // two sprites on one plane stand, how much detail a square is given. While it
                 // moves a chunk that is due is made again. While it is still, what the build
@@ -897,6 +936,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         for (int i = 0; i < shown.size(); i++) {
             triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
         }
+        waitedLast = chunksWaiting;
         buildMillis = (System.nanoTime() - start) / 1e6f;
     }
 

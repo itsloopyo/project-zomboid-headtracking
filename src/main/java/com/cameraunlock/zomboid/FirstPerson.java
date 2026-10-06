@@ -121,6 +121,8 @@ public final class FirstPerson {
     /** With tracing on, the memory the logic thread took for the picture since the last pace line. */
     private static long paceBuiltBytes;
     private static WorldScene paceScene;
+    /** A frame this long is a hitch the player feels: the log says what the frame before it built and drew. */
+    private static final long LONG_FRAME_NANOS = 100_000_000L;
     private static boolean haveRawX, haveRawY;
     private static int lastRawX, lastRawY;
     private static int cursorX, cursorY;
@@ -352,6 +354,11 @@ public final class FirstPerson {
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
+            if (Pipeline.unprepared() && allowed(player)) {
+                SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
+            } else if (!rehearsed && !Characters.wanted && allowed(player) && !GameTime.isGamePaused() && !player.isDead()) {
+                rehearse(player);
+            }
             if (Characters.wanted) {
                 drawOverhead(player);
             } else if (pictureUp) {
@@ -463,6 +470,9 @@ public final class FirstPerson {
         }
         paceFrames++;
         paceWorst = Math.max(paceWorst, frameNanos);
+        if (frameNanos > LONG_FRAME_NANOS && paceScene != null) {
+            Log.info(String.format(Locale.ROOT, "first person long frame: %.0f ms, %s", frameNanos / 1e6, paceScene.timing()));
+        }
         if (now - paceSince > paceWait) {
             Runtime memory = Runtime.getRuntime();
             Log.info(String.format(Locale.ROOT, "first person pace: %.1f ms a frame, worst %.1f, heap %d of %d MB, %s",
@@ -490,6 +500,41 @@ public final class FirstPerson {
         float aimHeight = player.getAimOriginPosZ();
         cursorX = Math.round(IsoUtils.XToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
         cursorY = Math.round(IsoUtils.YToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
+    }
+
+    /** Whether the world round the player has been built once, unseen, this session. */
+    private static boolean rehearsed;
+    private static int rehearsals;
+
+    /**
+     * Builds the world as first person would see it from where the player stands, a few
+     * milliseconds a frame, draws none of it and lets it go. The first build of a session reads
+     * the mod's models out of its jar, reads every sprite's shape for the first time and runs
+     * code Java has not yet made fast: left to the frame that switches to first person, the
+     * chunks round the player alone held that frame for a fifth of a second.
+     */
+    private static void rehearse(IsoPlayer player) {
+        float x = player.getX(), y = player.getY(), level = player.getZ();
+        Vector2 facing = player.getForwardDirection();
+        ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, level) + eyeHeight(player),
+                (float) Math.atan2(facing.y, facing.x), 0f);
+        Headlights.gather(x, y);
+        float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
+        CarriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
+        WorldScene scene = WorldScene.next();
+        WorldScene.rehearsing = true;
+        try {
+            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), false, false);
+        } finally {
+            WorldScene.rehearsing = false;
+        }
+        rehearsals++;
+        if (scene.waiting() == 0) {
+            rehearsed = true;
+            WorldScene.forgetAll();
+            WorldScene.setDown();
+            Log.info("first person world rehearsed over " + rehearsals + " frames");
+        }
     }
 
     /**

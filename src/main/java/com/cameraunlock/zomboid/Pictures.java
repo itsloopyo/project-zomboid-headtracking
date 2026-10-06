@@ -45,22 +45,20 @@ final class Pictures {
      * The gain is the first picture's. heights may be null, for a surface that has none.
      */
     static int load(String path, String heights, boolean repeats) throws IOException {
-        ByteBuffer pixels = read(path);
+        Decoded picture = read(path);
         if (heights != null) {
-            int pictureWide = wide, pictureHigh = high;
-            float first = gain;
-            ByteBuffer raised = read(heights);
-            if (wide != pictureWide || high != pictureHigh) {
-                throw new IOException(heights + " is " + wide + " by " + high + ", and " + path + " is " + pictureWide + " by " + pictureHigh);
+            Decoded raised = read(heights);
+            if (raised.wide != picture.wide || raised.high != picture.high) {
+                throw new IOException(heights + " is " + raised.wide + " by " + raised.high + ", and " + path + " is " + picture.wide + " by " + picture.high);
             }
-            for (int at = 0; at < pictureWide * pictureHigh * 4; at += 4) {
-                pixels.put(at + 3, raised.get(at));
+            for (int at = 0; at < picture.wide * picture.high * 4; at += 4) {
+                picture.pixels.put(at + 3, raised.pixels.get(at));
             }
-            gain = first;
         }
+        gain = picture.gain;
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, wide, high, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
         finish(GL_TEXTURE_2D, repeats);
         return texture;
     }
@@ -70,30 +68,40 @@ final class Pictures {
      * of the first and all repeating: a shader picks one by its number. The gain is the first's.
      */
     static int loadLayers(String[] paths) throws IOException {
-        ByteBuffer pixels = read(paths[0]);
-        int layerWide = wide, layerHigh = high;
-        float first = gain;
+        Decoded first = read(paths[0]);
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
-        GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, layerWide, layerHigh, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, first.wide, first.high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
         for (int layer = 0; layer < paths.length; layer++) {
-            if (layer > 0) {
-                pixels = read(paths[layer]);
-                if (wide != layerWide || high != layerHigh) {
-                    throw new IOException(paths[layer] + " is " + wide + " by " + high + ", and " + paths[0] + " is " + layerWide + " by " + layerHigh);
-                }
+            Decoded picture = layer == 0 ? first : read(paths[layer]);
+            if (picture.wide != first.wide || picture.high != first.high) {
+                throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + first.wide + " by " + first.high);
             }
-            GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, layerWide, layerHigh, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, first.wide, first.high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
         }
-        gain = first;
+        gain = first.gain;
         finish(GL_TEXTURE_2D_ARRAY, true);
         return texture;
     }
 
-    private static int wide, high;
+    /** A picture as four bytes a pixel, with what it is multiplied by to be 1 on average over what of it is solid. */
+    private record Decoded(ByteBuffer pixels, int wide, int high, float gain) {}
 
-    /** The jar's picture at path as four bytes a pixel, its size in wide and high and its gain in gain. */
-    private static ByteBuffer read(String path) throws IOException {
+    /** Begins reading the jar's picture at path on another thread. */
+    static void readAhead(String path) {
+        Ahead.begin(path, () -> decode(path));
+    }
+
+    /** Whether the picture at path has been read ahead and is waiting to be asked for. */
+    static boolean isRead(String path) {
+        return Ahead.done(path);
+    }
+
+    private static Decoded read(String path) throws IOException {
+        return Ahead.take(path, () -> decode(path));
+    }
+
+    private static Decoded decode(String path) throws IOException {
         BufferedImage image;
         try (InputStream in = Pictures.class.getResourceAsStream(path)) {
             if (in == null) {
@@ -104,8 +112,7 @@ final class Pictures {
         if (image == null) {
             throw new IOException(path + " is not a picture this Java can read");
         }
-        wide = image.getWidth();
-        high = image.getHeight();
+        int wide = image.getWidth(), high = image.getHeight();
         int[] row = new int[wide];
         ByteBuffer pixels = ByteBuffer.allocateDirect(wide * high * 4);
         long light = 0, solid = 0;
@@ -122,9 +129,8 @@ final class Pictures {
         if (light == 0) {
             throw new IOException(path + " is black or cut away all over");
         }
-        gain = 255f * 1000f * solid / light;
         pixels.flip();
-        return pixels;
+        return new Decoded(pixels, wide, high, 255f * 1000f * solid / light);
     }
 
     /** Gives the texture bound to target its smaller copies and says how it is read. */

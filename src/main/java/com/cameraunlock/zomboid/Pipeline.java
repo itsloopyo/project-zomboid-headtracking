@@ -6,9 +6,12 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
@@ -393,6 +396,7 @@ final class Pipeline {
     }
 
     /**
+     * @param chunks     what to draw, or null to make the next piece of what the picture is drawn with and draw nothing
      * @param viewport   the part of the game's picture the frame is written to: x, y, width, height
      * @param exposure   how much light the eye is letting in: lower in the open at noon than in a room
      * @param fogEnd     the distance, in tiles, at which the world has faded into the sky
@@ -433,7 +437,11 @@ final class Pipeline {
         // Whatever the frame throws, the game gets its own state back: a frame that left its
         // pushes behind would leave more on every frame the fault came again.
         try {
-            picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
+            if (chunks == null) {
+                failure = prepareNext();
+            } else {
+                picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
+            }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it ends the game's whole frame, its own panels with it, and comes again
             // on the next. The view goes off instead, and the log has why.
@@ -463,9 +471,8 @@ final class Pipeline {
     private static void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
             float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
             int drawTarget) {
-        if (!prepared) {
-            prepared = true;
-            failure = prepare();
+        while (failure == null && !prepared) {
+            failure = prepareNext();
         }
         if (failure == null && nearMap == 0) {
             failure = makeShadowMaps();
@@ -2392,48 +2399,143 @@ final class Pipeline {
         GL11.glEnd();
     }
 
-    /** Builds the programs and the textures that do not depend on the picture's size. Null, or what the driver refused. */
-    private static String prepare() {
-        String problem = linkPrograms();
-        if (problem != null) {
-            return problem;
+    /**
+     * The programs and the textures that do not depend on the picture's size are made a piece
+     * at a time: made all at once on the frame that first draws the picture, they held that
+     * frame for three and a half seconds. FirstPerson has a piece made on each frame from the
+     * moment a save is being played, so by the first switch to first person they are there.
+     */
+    private static int preparing;
+    private static long preparingNanos, preparingWorst;
+    private static final String NOISE_AHEAD = "cloud noise";
+
+    /**
+     * One piece: its making, null from that or what went wrong, and before it what its making
+     * reads out of the jar or works out, begun on other threads and done or not.
+     */
+    private record Piece(Runnable begin, BooleanSupplier begun, Supplier<String> make) {
+        Piece(Supplier<String> make) {
+            this(() -> { }, () -> true, make);
         }
+
+        static Piece ofPictures(Supplier<String> make, String... paths) {
+            return new Piece(() -> {
+                for (String path : paths) {
+                    Pictures.readAhead(path);
+                }
+            }, () -> {
+                for (String path : paths) {
+                    if (!Pictures.isRead(path)) {
+                        return false;
+                    }
+                }
+                return true;
+            }, make);
+        }
+    }
+
+    private static final List<Piece> PIECES = pieces();
+
+    private static List<Piece> pieces() {
+        List<Piece> pieces = new ArrayList<>();
+        pieces.add(new Piece(Pipeline::linkPrograms));
+        pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+            makeWhite();
+            return makeNoise();
+        }));
+        for (int each = 0; each < MATERIALS.length; each++) {
+            int material = each;
+            if (material == BARK) {
+                String[] barks = new String[BARKS.length];
+                for (int bark = 0; bark < BARKS.length; bark++) {
+                    barks[bark] = "/materials/" + BARKS[bark] + ".jpg";
+                }
+                pieces.add(Piece.ofPictures(() -> loadBarks(barks), barks));
+                continue;
+            }
+            String picture = "/materials/" + MATERIALS[material] + (material == FIRST_CUTOUT ? ".png" : ".jpg");
+            if (RAISED.contains(MATERIALS[material])) {
+                String heights = "/materials/" + MATERIALS[material] + ".high.jpg";
+                pieces.add(Piece.ofPictures(() -> loadPicture(picture, heights, materialTexture, materialGain, material), picture, heights));
+            } else {
+                pieces.add(Piece.ofPictures(() -> loadPicture(picture, null, materialTexture, materialGain, material), picture));
+            }
+        }
+        for (int each = 0; each < NATURE.length; each++) {
+            int nature = each;
+            String picture = "/materials/" + NATURE[nature] + (nature >= FIRST_NATURE_CUTOUT ? ".png" : ".jpg");
+            pieces.add(Piece.ofPictures(() -> loadPicture(picture, null, natureTexture, natureGain, nature), picture));
+        }
+        pieces.add(Piece.ofPictures(() -> {
+            try {
+                sprigs = Pictures.load(SPRIGS, false);
+                return null;
+            } catch (IOException e) {
+                return "the sprigs could not be read: " + e.getMessage();
+            }
+        }, SPRIGS));
+        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
+        pieces.add(new Piece(Scope::prepare));
+        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
+        pieces.add(new Piece(() -> {
+            makeSamplers();
+            String problem = makeMirror();
+            makeRainDrops();
+            return problem;
+        }));
+        return pieces;
+    }
+
+    private static final String SPRIGS = "/materials/sprigs.png";
+    private static boolean readingAhead;
+
+    /** Whether there is anything left to make before the first picture can be drawn. */
+    static boolean unprepared() {
+        return !prepared && failure == null;
+    }
+
+    /**
+     * Queued on frames that draw no picture while {@link #unprepared}: makes the next piece, or
+     * nothing on a frame where what that piece reads out of the jar is still being read.
+     */
+    static final TextureDraw.GenericDrawer PREPARE = new TextureDraw.GenericDrawer() {
+        @Override
+        public void render() {
+            if (!readingAhead) {
+                readingAhead = true;
+                for (Piece piece : PIECES) {
+                    piece.begin.run();
+                }
+            }
+            if (!prepared && failure == null && PIECES.get(preparing).begun.getAsBoolean()) {
+                draw(null, null, null, 0f, 0f, 0f, 0f, 0f, 0f, null);
+            }
+        }
+    };
+
+    /** Makes the next piece. Null, or what the driver refused or the jar lacked. */
+    private static String prepareNext() {
         long start = System.nanoTime();
-        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-        makeNoise();
-        makeWhite();
-        problem = loadMaterials();
+        String problem = PIECES.get(preparing++).make.get();
+        prepared = preparing == PIECES.size();
         if (problem == null) {
-            problem = OwnWeapon.prepare();
+            int error = GL11.glGetError();
+            if (error != 0) {
+                problem = "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
+            }
         }
-        if (problem == null) {
-            problem = Scope.prepare();
+        long took = System.nanoTime() - start;
+        preparingNanos += took;
+        preparingWorst = Math.max(preparingWorst, took);
+        if (prepared && problem == null) {
+            Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, cloud noise %d cubed, in %d pieces taking %.0f ms in all, the longest %.0f ms",
+                    17, NOISE_SIZE, preparing, preparingNanos / 1e6, preparingWorst / 1e6));
         }
-        if (problem == null) {
-            problem = OwnRifle.prepare();
-        }
-        if (problem != null) {
-            return problem;
-        }
-        makeSamplers();
-        problem = makeShadowMaps();
-        if (problem == null) {
-            problem = makeMirror();
-        }
-        if (problem != null) {
-            return problem;
-        }
-        makeRainDrops();
-        int error = GL11.glGetError();
-        if (error != 0) {
-            return "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
-        }
-        Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, four %d shadow maps, cloud noise %d cubed, in %.0f ms",
-                17, SHADOW_SIZE, NOISE_SIZE, (System.nanoTime() - start) / 1e6));
-        return null;
+        return problem;
     }
 
     /** Null, or what the driver refused. */
@@ -2460,7 +2562,13 @@ final class Pipeline {
         return problem.length() > 0 ? problem.toString() : null;
     }
 
-    private static void makeNoise() {
+    private static String makeNoise() {
+        ByteBuffer cells;
+        try {
+            cells = Ahead.take(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE));
+        } catch (IOException unread) {
+            return unread.getMessage();
+        }
         noiseTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -2468,9 +2576,8 @@ final class Pipeline {
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-        GL12.glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                CloudNoise.build(NOISE_SIZE));
-
+        GL12.glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, cells);
+        return null;
     }
 
     private static void makeWhite() {
@@ -2482,29 +2589,6 @@ final class Pipeline {
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
         filter(GL_NEAREST);
 
-    }
-
-    /** Null, or the picture that could not be loaded. */
-    private static String loadMaterials() {
-        for (int material = 0; material < MATERIALS.length; material++) {
-            String missing = material == BARK ? loadBarks() : loadPicture(MATERIALS[material], material == FIRST_CUTOUT, materialTexture, materialGain, material);
-            if (missing != null) {
-                return missing;
-            }
-        }
-        for (int nature = 0; nature < NATURE.length; nature++) {
-            String missing = loadPicture(NATURE[nature], nature >= FIRST_NATURE_CUTOUT, natureTexture, natureGain, nature);
-            if (missing != null) {
-                return missing;
-            }
-        }
-        try {
-            sprigs = Pictures.load("/materials/sprigs.png", false);
-        } catch (IOException e) {
-            return "the sprigs could not be read: " + e.getMessage();
-        }
-
-        return null;
     }
 
     private static void makeSamplers() {
@@ -2773,9 +2857,9 @@ final class Pipeline {
      * Reads a material's picture out of the jar and gives it to the graphics card, noting its
      * texture and its gain at index. Null, or what went wrong.
      */
-    private static String loadPicture(String name, boolean cutout, int[] textures, float[] gains, int index) {
+    private static String loadPicture(String picture, String heights, int[] textures, float[] gains, int index) {
         try {
-            textures[index] = Pictures.load("/materials/" + name + (cutout ? ".png" : ".jpg"), RAISED.contains(name) ? "/materials/" + name + ".high.jpg" : null, true);
+            textures[index] = Pictures.load(picture, heights, true);
         } catch (IOException e) {
             return e.getMessage();
         }
@@ -2783,11 +2867,7 @@ final class Pipeline {
         return null;
     }
 
-    private static String loadBarks() {
-        String[] paths = new String[BARKS.length];
-        for (int bark = 0; bark < BARKS.length; bark++) {
-            paths[bark] = "/materials/" + BARKS[bark] + ".jpg";
-        }
+    private static String loadBarks(String[] paths) {
         try {
             materialTexture[BARK] = Pictures.loadLayers(paths);
         } catch (IOException e) {
