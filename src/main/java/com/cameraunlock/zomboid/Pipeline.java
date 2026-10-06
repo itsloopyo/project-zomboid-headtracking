@@ -351,6 +351,13 @@ final class Pipeline {
     /** Nearer the mirror than this, in tiles, is the vehicle it hangs in, and is left out of its picture. */
     private static final float MIRROR_NEAR = 2.6f;
     private static boolean inMirror;
+    /**
+     * How long the mirror shows one picture of the road behind before it is drawn again: thirty
+     * times a second. It is a second drawing of the world, a seventh of a frame's work on the
+     * graphics card, for a picture a hand's breadth across.
+     */
+    private static final long MIRROR_EVERY_NANOS = 33_000_000L;
+    private static long mirrorDrawnAt;
     /** While set, the world is drawn into the picture a scope's eyepiece shows. */
     private static boolean inScope;
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
@@ -525,7 +532,9 @@ final class Pipeline {
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
             float[] cabin = seated ? Cabins.wheel(Ride.seatedIn) : null;
-            if (cabin != null) {
+            // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
+            if (cabin != null && System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS) {
+                mirrorDrawnAt = System.nanoTime();
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
             }
             if (Scope.wanted(Characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
