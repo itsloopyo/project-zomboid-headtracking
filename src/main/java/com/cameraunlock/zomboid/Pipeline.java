@@ -1845,6 +1845,7 @@ final class Pipeline {
             setBasis(figureLight, camera);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
+            figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
@@ -2192,6 +2193,7 @@ final class Pipeline {
             setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
+            figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
@@ -2263,6 +2265,7 @@ final class Pipeline {
         setBasis(figureLight, inGlass);
         figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(figureLight);
+        figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
         setFlash(figureLight);
         figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         figureLight.set("uFogStart", fogStart);

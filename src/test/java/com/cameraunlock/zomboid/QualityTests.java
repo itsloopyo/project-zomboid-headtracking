@@ -36,6 +36,9 @@ final class QualityTests {
                 "high is the whole picture");
         frames(SECOND, 10f, 20f);
         check(Quality.scale() == 1f, "and stays the whole picture however slowly it is drawn");
+        Quality.set(Quality.MEDIUM);
+        check(Quality.scale() == 0.8f && Quality.sight() == 64 && !Quality.shadedAndLit() && !Quality.relief(),
+                "medium is fewer pixels, shorter sight and no shading of corners, lit air, mirrors or depth in surfaces");
         Quality.set(Quality.LOW);
         check(Quality.scale() < 0.7f && Quality.sight() == 48 && Quality.shadowSize() == 2048 && !Quality.shadedAndLit() && !Quality.relief(),
                 "low is fewer pixels, shorter sight, smaller maps and no shading of corners");

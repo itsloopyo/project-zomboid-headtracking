@@ -40,13 +40,15 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "own look as there is: the game's own view is the game's own picture, and first\n"
                 "person is drawn with the game's own sprites, models and textures in place of\n"
                 "everything the mod made, at three fifths of the pixels each way, sight to 48\n"
-                "tiles, smaller shadow maps, and no shading of corners, lit air or depth in\n"
-                "surfaces. Medium and High draw both views with everything the mod made. High:\n"
-                "the whole picture. Medium: four fifths of the pixels each way, sight to 64\n"
-                "tiles and smaller shadow maps. Automatic, which only this file can set: begins\n"
-                "at High and draws less, as Medium and then Low do but still with everything the\n"
-                "mod made, each time the picture is drawn fewer than 45 times a second for three\n"
-                "seconds, until the game is closed. Read again while the game runs.")
+                "tiles, smaller shadow maps, and no shading of corners, lit air, reflections or\n"
+                "depth in surfaces. Medium and High draw both views with everything the mod\n"
+                "made. High: the whole picture. Medium: no shading of corners, lit air,\n"
+                "reflections or depth in surfaces either, four fifths of the pixels each way,\n"
+                "sight to 64 tiles and smaller shadow maps. Automatic, which only this file can\n"
+                "set: begins at High and draws less, as Medium and then Low do but still with\n"
+                "everything the mod made, each time the picture is drawn fewer than 45 times a\n"
+                "second for three seconds, until the game is closed. Read again while the game\n"
+                "runs.")
         .Writable();
     table.Local("General", "Style", &Config::style,
                 cameraunlock::config::EnumCodec<Style>{{"Vivid", Style::Vivid},

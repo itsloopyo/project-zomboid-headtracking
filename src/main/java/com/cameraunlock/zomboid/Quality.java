@@ -5,8 +5,8 @@ import java.util.Locale;
 /**
  * How much the first person picture costs to draw: the Quality row of CameraUnlock.ini. High
  * is the whole picture. Medium and Low draw it with fewer pixels, shorter sight, smaller
- * shadow maps and, on Low, without the passes that shade corners and light the air, for a
- * graphics card that cannot keep up with the whole of it. Automatic begins at High and steps
+ * shadow maps and without the passes that shade corners, light the air, mirror and give
+ * surfaces depth, for a graphics card that cannot keep up with the whole of it. Automatic begins at High and steps
  * down while the picture is being drawn slower than {@link #SLOWEST} frames a second.
  *
  * The row is read again while the game runs. The thread that watches the file sets it, the
@@ -121,14 +121,14 @@ final class Quality {
         return level == HIGH ? 80 : level == MEDIUM ? 64 : 48;
     }
 
-    /** Whether corners are shaded and lent the light of what stands near, and the air is lit, each by a pass of its own. */
+    /** Whether corners are shaded and lent the light of what stands near, the air is lit, and wet roads, polished floors and glass mirror. */
     static boolean shadedAndLit() {
-        return level != LOW;
+        return level == HIGH;
     }
 
     /** Whether near surfaces are given the depth of what they show. */
     static boolean relief() {
-        return level != LOW;
+        return level == HIGH;
     }
 
 }
