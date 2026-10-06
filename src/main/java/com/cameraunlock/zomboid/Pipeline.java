@@ -286,11 +286,10 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world drawn once with no pass for its depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
-            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10;
+            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13;
     private static final long[] stageNanos = new long[STAGE_NAMES.length];
-    private static long stageStart;
     private static int stageFrames;
     private static final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
     private static final int[] upTarget = new int[BLOOM_LEVELS - 1], upColor = new int[BLOOM_LEVELS - 1];
@@ -516,8 +515,7 @@ final class Pipeline {
         if (failure == null) {
             float aspect = (float) viewport[2] / viewport[3];
             if (TIMES) {
-                GL11.glFinish();
-                stageStart = System.nanoTime();
+                beginStages();
             }
             SpriteColours.read();
             drawn = chunks;
@@ -528,7 +526,7 @@ final class Pipeline {
             boolean figures = Characters.ready();
             glazed = false;
             drawShadows(state, figures);
-            boolean inTheGlass = figures && !outside && !seated && reflection != null
+            boolean inTheGlass = figures && !outside && !seated && reflection != null && Quality.shadedAndLit()
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
             float[] cabin = seated ? Cabins.wheel(Ride.seatedIn) : null;
@@ -1267,9 +1265,17 @@ final class Pipeline {
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
+        // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the mirror and the scope.
+        boolean own = !inMirror && !inScope;
+        if (own) {
+            stage(STAGE_DEPTH);
+        }
         drawRanges(all, 0, all.solidRanges(), world);
         // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
         drawModels(world, true, inMirror ? null : camera, far);
+        if (own) {
+            stage(STAGE_SOLID);
+        }
         if (depthFirst) {
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDepthMask(true);
@@ -1282,6 +1288,9 @@ final class Pipeline {
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
         drawRanges(all, all.solidRanges(), all.ranges());
+        if (own) {
+            stage(STAGE_LAID);
+        }
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         leaveWorld();
@@ -1527,19 +1536,50 @@ final class Pipeline {
         GL11.glDisable(GL_DEPTH_TEST);
     }
 
+    private static final int GL_TIME_ELAPSED = 0x88BF, GL_QUERY_RESULT = 0x8866;
+    /** The timer queries of a frame, in the order its stages ended, and the stage each was for. */
+    private static final int[] stageQuery = new int[32], stageOf = new int[32];
+    private static int stageQueries;
+    private static boolean stageOpen;
+
     /**
-     * With -Dcameraunlock.zomboid.gpuTimes=true, waits for the graphics card to finish what it
-     * has been given and charges the time since the last stage to this one. The wait itself
-     * slows the frame, so the figures are for comparing stages, not for the frame rate.
+     * With -Dcameraunlock.zomboid.gpuTimes=true, reads how long the graphics card took over
+     * each stage of the frame before, and begins timing this one. The card is asked for its
+     * own time, by timer queries: waiting for it to finish after each stage charged a stage
+     * with the time the driver took to be handed it as well, and held the whole frame up.
      */
-    private static void stage(int stage) {
-        if (!TIMES) {
+    private static void beginStages() {
+        if (stageOpen) {
+            GL15.glEndQuery(GL_TIME_ELAPSED);
+            stageOpen = false;
+        }
+        for (int i = 0; i < stageQueries; i++) {
+            stageNanos[stageOf[i]] += GL15.glGetQueryObjecti(stageQuery[i], GL_QUERY_RESULT);
+        }
+        stageQueries = 0;
+        openStage();
+    }
+
+    private static void openStage() {
+        if (stageQueries == stageQuery.length) {
             return;
         }
-        GL11.glFinish();
-        long now = System.nanoTime();
-        stageNanos[stage] += now - stageStart;
-        stageStart = now;
+        if (stageQuery[stageQueries] == 0) {
+            stageQuery[stageQueries] = GL15.glGenQueries();
+        }
+        GL15.glBeginQuery(GL_TIME_ELAPSED, stageQuery[stageQueries]);
+        stageOpen = true;
+    }
+
+    /** Charges what the graphics card has done since the last stage ended to this one. */
+    private static void stage(int stage) {
+        if (!TIMES || !stageOpen) {
+            return;
+        }
+        GL15.glEndQuery(GL_TIME_ELAPSED);
+        stageOf[stageQueries++] = stage;
+        stageOpen = false;
+        openStage();
     }
 
     private static void reportStages() {

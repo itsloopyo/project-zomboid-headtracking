@@ -1264,6 +1264,13 @@ final class CharacterDraw {
         return found;
     }
 
+    /**
+     * Whether the arms on a held weapon are the picture's own sleeves, from shoulders out of
+     * sight to the game's hands on the weapon. Off for now by the owner's word (2026-10-06):
+     * the game's own arms are drawn whole with their hands, carried where the weapon is held.
+     */
+    static final boolean OWN_ARMS = false;
+
     private static float[][] armBones(SkinningData skeleton) {
         float[][] found = arms.get(skeleton);
         if (found == null) {
@@ -1274,9 +1281,10 @@ final class CharacterDraw {
                     boolean right = kinds[bone] <= KINDS, hand = (kinds[bone] - 1) % KINDS + 1 == HAND;
                     found[1][bone] = 1f;
                     found[0][bone] = right ? 1f : 0f;
-                    found[3][bone] = hand ? 1f : 0f;
-                    found[2][bone] = hand && right ? 1f : 0f;
-                    found[4][bone] = hand && !right ? 1f : 0f;
+                    boolean carried = hand || !OWN_ARMS;
+                    found[3][bone] = carried ? 1f : 0f;
+                    found[2][bone] = carried && right ? 1f : 0f;
+                    found[4][bone] = carried && !right ? 1f : 0f;
                 }
             }
             arms.put(skeleton, found);

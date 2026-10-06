@@ -890,7 +890,7 @@ public final class Characters {
             }
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
-            for (int part = 0; arms[side] && part < parts(data).size(); part++) {
+            for (int part = 0; CharacterDraw.OWN_ARMS && arms[side] && part < parts(data).size(); part++) {
                 CharacterDraw.sleeve(parts(data).get(part), side == 1, joints[side], bends[side], cuffs[side], wides[side]);
             }
         }
