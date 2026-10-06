@@ -2713,7 +2713,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static final float CROWN_FAR_DETAIL = 0.3f;
     private static final int CROWN_LEAST_PLACES = 12;
     /** Within how far of the eye a crown is one stood under, with twigs and more leaves inside it, and from how far it comes to that by degrees; and how far off its limbs are made. */
-    private static final float CROWN_CLOSE = 5f, CROWN_CLOSING = 11f, LIMB_REACH = 16f;
+    private static final float CROWN_CLOSE = 4f, CROWN_CLOSING = 9f, LIMB_REACH = 16f;
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
     private int boleX = Integer.MIN_VALUE, boleY, boleBark;
     private float boleThick, boleTall;

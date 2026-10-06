@@ -1071,14 +1071,18 @@ final class PipelineShaders {
                     vec2 at = (cell + 0.5) / 2048.0;
                     vec2 wide = uTexel * 4.0;
                     vec4 sum = vec4(0.0);
+                    float solid = 0.0;
                     for (int i = 0; i < 5; i++) {
                         vec2 off = i == 0 ? vec2(0.0) : i == 1 ? vec2(wide.x, 0.0) : i == 2 ? vec2(-wide.x, 0.0) : i == 3 ? vec2(0.0, wide.y) : vec2(0.0, -wide.y);
                         vec4 painted = texture2D(uTexture, at + off);
                         sum += vec4(painted.rgb * painted.a, painted.a);
+                        solid = i == 0 ? painted.a : solid;
                     }
                     // A sprig whose place on the sprite turns out to have nothing painted round it
-                    // has no colour to take, and is not drawn black: it is not drawn.
-                    if (sum.a < 0.5) {
+                    // has no colour to take, and is not drawn black: it is not drawn. Nor is one
+                    // whose place is painted faintly: that is the shade the game paints on the
+                    // trunk and between the boughs, a dark wash and not a leaf.
+                    if (sum.a < 0.5 || solid < 0.6) {
                         discard;
                     }
                     vec3 season = sum.rgb / sum.a;

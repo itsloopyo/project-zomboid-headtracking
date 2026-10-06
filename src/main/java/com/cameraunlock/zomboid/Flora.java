@@ -180,11 +180,11 @@ final class Flora {
     /**
      * Near the eye a crown is looked into and not at, and what is between its sprigs shows:
      * how many more sprigs it has then, as a share of what it has from further off, all of
-     * them inside the crown; the share of its sprite's places that may bear one; and the share
+     * them inside the crown, where a place on the sprite may bear a second; and the share
      * of its sprigs that are borne on a twig, which is how long for the sprig's size, how
      * thick where it leaves the bough and at its tip, and how far it drops for its length.
      */
-    private static final float CLOSE_FILL = 0.6f, CLOSE_MOST_OF_PLACES = 0.92f, TWIG_SHARE = 0.45f, TWIG_LONG = 0.45f, TWIG_THICK = 0.01f, TWIG_TIP = 0.004f,
+    private static final float CLOSE_FILL = 1.3f, TWIG_SHARE = 0.45f, TWIG_LONG = 0.45f, TWIG_THICK = 0.01f, TWIG_TIP = 0.004f,
             TWIG_DROP = 0.45f;
     /**
      * The wood inside a crown: a leader up its middle, as thin at its top as LIMB_TIP, and
@@ -195,6 +195,12 @@ final class Flora {
     private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4;
     /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
     private static final float WOOD_UP = 3f;
+    /**
+     * A leaf sprite also paints, faintly, the shade the crown throws on the trunk: a thin
+     * column under the leaves that is no part of the crown. Going down from where the sprite
+     * is widest, the crown ends where it is first narrower than this share of that.
+     */
+    private static final float TRUNK_SHADE = 0.22f;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
     private static final float CROWN_MOST_OF_PLACES = 0.6f;
     /** How far a sprig's tip moves in the wind beyond what its height gives it. */
@@ -252,14 +258,53 @@ final class Flora {
         }
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
         float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
-        float widest = 0f, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
-        for (int i = 0; i < count; i++) {
-            widest = Math.max(widest, Math.abs(places[i * 2] - footU) * across);
-            lowest = Math.min(lowest, (footV - places[i * 2 + 1]) * up);
-            highest = Math.max(highest, (footV - places[i * 2 + 1]) * up);
-        }
-        if (widest < 0.05f) {
-            return false;
+        float widest = 0f, lowest = 0f, highest = 0f, tall = 0f, under = -Float.MAX_VALUE;
+        // How far out the crown reaches at each height: half of how wide the sprite paints it there.
+        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS];
+        for (int pass = 0; pass < 2; pass++) {
+            widest = 0f;
+            lowest = Float.MAX_VALUE;
+            highest = -Float.MAX_VALUE;
+            for (int i = 0; i < count; i++) {
+                float high = (footV - places[i * 2 + 1]) * up;
+                if (high < under) {
+                    continue;
+                }
+                widest = Math.max(widest, Math.abs(places[i * 2] - footU) * across);
+                lowest = Math.min(lowest, high);
+                highest = Math.max(highest, high);
+            }
+            if (widest < 0.05f) {
+                return false;
+            }
+            tall = Math.max(highest - lowest, 1e-3f);
+            java.util.Arrays.fill(reachLeft, 0f);
+            java.util.Arrays.fill(reachRight, 0f);
+            for (int i = 0; i < count; i++) {
+                float high = (footV - places[i * 2 + 1]) * up;
+                if (high < under) {
+                    continue;
+                }
+                int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
+                float side = (places[i * 2] - footU) * across;
+                reachLeft[band] = Math.max(reachLeft[band], -side);
+                reachRight[band] = Math.max(reachRight[band], side);
+            }
+            int broadest = 0, from = 0;
+            for (int band = 1; band < CROWN_BANDS; band++) {
+                if (reachLeft[band] + reachRight[band] > reachLeft[broadest] + reachRight[broadest]) {
+                    broadest = band;
+                }
+            }
+            for (int band = broadest - 1; band >= 0 && from == 0; band--) {
+                if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * (reachLeft[broadest] + reachRight[broadest])) {
+                    from = band + 1;
+                }
+            }
+            if (pass == 1 || from == 0) {
+                break;
+            }
+            under = lowest + tall * from / CROWN_BANDS;
         }
         boolean shrub = sprig == SHRUB;
         float size = (shrub ? Math.clamp(widest * 0.8f, SHRUB_SMALLEST, SHRUB_LARGEST) : Math.clamp(widest * 0.36f, SPRIG_SMALLEST, SPRIG_LARGEST))
@@ -271,28 +316,21 @@ final class Flora {
             size *= (float) Math.sqrt(wanted / (count * CROWN_MOST_OF_PLACES));
             wanted = count * CROWN_MOST_OF_PLACES;
         }
-        float filled = Math.min(wanted * (1f + CLOSE_FILL * close), Math.max(wanted, count * CLOSE_MOST_OF_PLACES));
+        float filled = wanted * (1f + CLOSE_FILL * close);
         float middle = lowest + (highest - lowest) * 0.45f;
         float reach = Math.max(widest, (highest - lowest) / 2f);
-        // How far out the crown reaches at each height: half of how wide the sprite paints it there.
-        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS];
-        float tall = Math.max(highest - lowest, 1e-3f);
-        for (int i = 0; i < count; i++) {
-            int band = Math.min((int) (((footV - places[i * 2 + 1]) * up - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
-            float side = (places[i * 2] - footU) * across;
-            reachLeft[band] = Math.max(reachLeft[band], -side);
-            reachRight[band] = Math.max(reachRight[band], side);
-        }
         mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
         int boughs = mix(seed, 0, 93);
         int lobes = shrub ? 2 + (boughs & 1) : 3 + (boughs & 0xff) % 3;
         float rows = shrub ? 1f : Math.clamp(1.6f * tall / Math.max(widest, 1e-3f), 1.5f, 4f);
         float turnOne = unit(boughs, 8) * 6.2832f, turnTwo = unit(boughs, 16) * 6.2832f, turnThree = unit(boughs, 24) * 6.2832f;
-        for (int i = 0; i < count; i++) {
-            int hash = mix(seed, i, 91);
+        // Each place is gone through once, and again for a crown near enough to be filled, whose places may each bear a second sprig.
+        for (int go = 0; go < (close > 0f ? 2 * count : count); go++) {
+            int i = go % count;
+            int hash = mix(seed, go, 91);
             float high = (footV - places[i * 2 + 1]) * up;
-            float drawn = unit(hash, 0);
-            if (drawn > filled / count) {
+            float drawn = unit(hash, 0) + go / count;
+            if (high < under || drawn > filled / count) {
                 continue;
             }
             // The leaves of a tree are its outside: most sprigs stand in a shell at the crown's
@@ -309,7 +347,7 @@ final class Flora {
             float swellUp = (bough(round, share + 0.03f, lobes, rows, turnOne, turnTwo, turnThree) - bough(round, share - 0.03f, lobes, rows, turnOne, turnTwo, turnThree)) / 0.06f;
             float full = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f);
             float surface = 1f - BOUGH_HOLLOW * (1f - swell);
-            float out = full * (filling ? surface * (0.35f + 0.5f * unit(hash, 20)) : inner ? 0.3f + 0.3f * unit(hash, 20)
+            float out = full * (filling ? surface * (0.12f + 0.73f * unit(hash, 20)) : inner ? 0.3f + 0.3f * unit(hash, 20)
                     : surface * (0.86f + 0.14f * unit(hash, 20)));
             float cosRound = (float) Math.cos(round), sinRound = (float) Math.sin(round);
             float px = out * cosRound, py = out * sinRound, pz = high - middle;
