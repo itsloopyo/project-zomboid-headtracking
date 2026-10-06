@@ -39,24 +39,63 @@ final class Wind {
         return 0.02f + 2f * (float) Math.pow(Math.clamp(intensity, 0f, 1f), 1.2);
     }
 
+    /**
+     * How fast the air itself moves in a wind of the game's intensity, in tiles a second:
+     * 120 kilometres an hour at 1, which is the game's own scale. Rain and snow are carried
+     * along at this, so rain that falls at a dozen tiles a second comes down nearly straight
+     * in light air and at half a right angle in a gale, and snow, which falls at one or two,
+     * goes by almost level in any wind at all.
+     */
+    static float speed(float intensity) {
+        return 33.3f * Math.clamp(intensity, 0f, 1f);
+    }
+
+    /**
+     * Rain and snow are drawn in a box of air round the eye this many tiles across, and what
+     * falls out of one side comes in at the other: how far the air has carried them is kept
+     * within it. The rain and snow shaders have half of it as BOX.
+     */
+    static final float CARRIED_WRAP = 28f;
+    /**
+     * The clocks rain and snow fall by start again after this many seconds. A drop falls a
+     * whole number of sixteenths of ten tiles a second and a flake a whole number of
+     * hundredths of fifteen, the box is twelve tiles high, and in these times each has
+     * fallen through it a whole number of times: nothing moves when a clock starts again.
+     */
+    static final float RAIN_CLOCK = 19.2f, SNOW_CLOCK = 80f;
+
     /** The way what grows is pushed, scaled by how hard. */
     float pushX, pushY;
+    /** How fast the air moves, in tiles a second, eased as the push is. */
+    float airX, airY;
+    /** How far the air has carried what falls through it, in tiles, and the seconds on the clocks rain and snow fall by. */
+    float carriedX, carriedY, rainClock, snowClock;
     /** How far the gusts have been carried, in tiles. */
     float travelX, travelY;
     /** Seconds on the clock the blades shiver by. */
     float flutter;
     private boolean blowing;
 
-    /** Moves the wind on by elapsed seconds, in which the game's wind is (towardX, towardY). */
-    void blow(float towardX, float towardY, float elapsed) {
+    /** Moves the wind on by elapsed seconds, in which the game's wind pushes by (towardX, towardY) and its air moves that way at airSpeed. */
+    void blow(float towardX, float towardY, float airSpeed, float elapsed) {
+        float toward = (float) Math.sqrt(towardX * towardX + towardY * towardY);
+        float airToX = toward > 1e-6f ? towardX / toward * airSpeed : 0f, airToY = toward > 1e-6f ? towardY / toward * airSpeed : 0f;
         if (!blowing) {
             pushX = towardX;
             pushY = towardY;
+            airX = airToX;
+            airY = airToY;
             blowing = true;
         }
         float take = 1f - (float) Math.exp(-elapsed / SETTLES);
         pushX += (towardX - pushX) * take;
         pushY += (towardY - pushY) * take;
+        airX += (airToX - airX) * take;
+        airY += (airToY - airY) * take;
+        carriedX = wrapped(carriedX + airX * elapsed, CARRIED_WRAP);
+        carriedY = wrapped(carriedY + airY * elapsed, CARRIED_WRAP);
+        rainClock = wrapped(rainClock + elapsed, RAIN_CLOCK);
+        snowClock = wrapped(snowClock + elapsed, SNOW_CLOCK);
         float push = (float) Math.sqrt(pushX * pushX + pushY * pushY);
         if (push > 1e-4f) {
             float speed = TRAVEL_STILL + TRAVEL_PER_PUSH * push;

@@ -69,6 +69,10 @@ final class SkyState {
     float mist;
     /** How hard it is raining, 0 to 1. Snow is not rain. */
     float rain;
+    /** How hard it is snowing, 0 to 1, and how much of the ground snow lies on, 0 to 1. */
+    float snow, snowLying;
+    /** How fast the air moves, in tiles a second, how far it has carried the rain and the snow, in tiles, and the clocks each falls by: see Wind. */
+    float airX, airY, carriedX, carriedY, rainClock, snowClock;
     /** How wet the ground is, 0 to 1: it takes a while to wet in rain and longer to dry after it. */
     float wet;
     /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene. */
@@ -116,7 +120,8 @@ final class SkyState {
         float twilight = Math.max(0f, 1f - Math.abs(sunUp) / FULL_DAY);
         float clouds = Math.clamp(climate.getCloudIntensity(), 0f, 1f);
         float rain = Math.clamp(climate.getRainIntensity(), 0f, 1f);
-        float overcast = Math.max((float) Math.pow(clouds, 1.6) * 0.7f, rain);
+        float snowing = Math.clamp(climate.getSnowIntensity(), 0f, 1f);
+        float overcast = Math.max((float) Math.pow(clouds, 1.6) * 0.7f, Math.max(rain, snowing));
         // The game's figure is half way up for a day of broken cloud, which still shows a
         // good deal of blue: the sky only closes over near the top of it, or in rain.
         cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max((float) Math.pow(clouds, 1.6) * 0.75f, rain);
@@ -167,12 +172,15 @@ final class SkyState {
         // The game's wind as it is this moment: its intensity with the game's own lulls and
         // gusts in it, which is what the game sways its trees and slants its rain by. So the
         // grass here rises and falls with them.
-        float windStrength = Wind.push((float) ClimateManager.getWindTickFinal());
+        float gusting = (float) ClimateManager.getWindTickFinal();
+        float windStrength = Wind.push(gusting);
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
 
         this.rain = climate.isSnowing() ? 0f : rain;
+        snow = snowing;
+        snowLying = Math.clamp(climate.getSnowFracNow(), 0f, 1f);
         long now = System.nanoTime();
         if (lastNanos != 0 && !GameTime.isGamePaused()) {
             float elapsed = Math.min((now - lastNanos) / 1e9f, 0.25f);
@@ -183,13 +191,19 @@ final class SkyState {
             // The noise repeats every 1, and a float that only ever grew would lose the fraction.
             driftedX -= (float) Math.floor(driftedX);
             driftedY -= (float) Math.floor(driftedY);
-            wind.blow((float) Math.cos(windAngle) * windStrength, (float) Math.sin(windAngle) * windStrength, elapsed);
+            wind.blow((float) Math.cos(windAngle) * windStrength, (float) Math.sin(windAngle) * windStrength, Wind.speed(gusting), elapsed);
         }
         windX = wind.pushX;
         windY = wind.pushY;
         gustX = wind.travelX;
         gustY = wind.travelY;
         flutter = wind.flutter;
+        airX = wind.airX;
+        airY = wind.airY;
+        carriedX = wind.carriedX;
+        carriedY = wind.carriedY;
+        rainClock = wind.rainClock;
+        snowClock = wind.snowClock;
         lastNanos = now;
         wet = wetness;
         driftX = driftedX;

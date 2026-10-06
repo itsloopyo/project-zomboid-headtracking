@@ -343,6 +343,8 @@ final class PipelineShaders {
             uniform float uLaid;
             uniform float uDepthOnly;
             uniform float uWet;
+            // How much of the ground snow lies on, 0 to 1.
+            uniform float uSnowLying;
             // 1 where a wet road, a polished floor and glass are mirrors, which the last pass traces: 0 outside the High graphics mode.
             uniform float uMirrors;
             varying vec2 vUv;
@@ -2283,6 +2285,23 @@ final class PipelineShaders {
                 // wall turned from the sun is lit by the street in front of it, and without
                 // that the shaded side of every building is a flat dark slab.
                 lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open);
+                // Snow that has settled. It lies on whatever is under the open sky and faces up:
+                // the ground, a roof, the top of a wall or a car. It comes in patches that
+                // spread and join as more of it lies, and goes the same way. Grass stands up
+                // through thin snow and is buried by deep, and a crown carries a dusting on
+                // what of it faces the sky.
+                if (uSnowLying > 0.0 && open > 0.5 && !water && !model) {
+                    float patchy = patches(vWorld.xy * 0.7) * 0.6 + patches(vWorld.xy * 3.1 + 9.0) * 0.4;
+                    float lies = smoothstep(patchy - 0.2, patchy + 0.2, uSnowLying * 1.4 - 0.2) * smoothstep(0.35, 0.8, n.z);
+                    if (strip || grass) {
+                        lies *= 0.35 + 0.65 * uSnowLying - 0.3 * bladeUp * (1.0 - uSnowLying);
+                    } else if (crown || core) {
+                        lies *= 0.55;
+                    } else if (card) {
+                        lies = 0.0;
+                    }
+                    texel.rgb = mix(texel.rgb, vec3(0.9, 0.92, 0.96) * (0.94 + 0.06 * grain(floor(vWorld.xy * 40.0))), clamp(lies, 0.0, 1.0));
+                }
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
@@ -2565,12 +2584,17 @@ final class PipelineShaders {
      * takes it in, somewhere in a box of air that goes with the eye: a drop that falls out of
      * the bottom of the box, or is left behind, comes back in on the other side. A vertex
      * carries where in the box its drop started, and which corner of the streak it is.
+     *
+     * Where a drop has got to is never the wind times the clock: the wind changes, and every
+     * drop would be somewhere else. uFall is how far the air has carried the rain so far and
+     * the seconds it has been falling, both kept by Wind, which only move on, and uAir is how
+     * fast the air moves now, which is what slants the streak.
      */
     static final String RAIN_VERTEX = """
             #version 120
             uniform vec3 uEye;
-            uniform float uTime;
-            uniform vec2 uWind;
+            uniform vec3 uFall;
+            uniform vec2 uAir;
             uniform float uRain;
             varying vec3 vWorld;
             varying vec2 vIn;
@@ -2581,20 +2605,100 @@ final class PipelineShaders {
             void main() {
                 vec3 seed = gl_Vertex.xyz;
                 float corner = gl_Vertex.w;
-                float speed = 11.0 + 5.0 * fract(seed.x * 37.0 + seed.y * 91.0);
-                vec3 moving = vec3(uWind * 2.5, -speed);
-                vec3 p = vec3(seed.xy * 2.0 * BOX, seed.z * HIGH) + moving * uTime;
+                // A whole number of sixteenths of ten tiles a second: see Wind.RAIN_CLOCK.
+                float speed = 0.625 * (18.0 + floor(8.0 * fract(seed.x * 37.0 + seed.y * 91.0)));
+                vec3 p = vec3(seed.xy * 2.0 * BOX + uFall.xy, seed.z * HIGH - speed * uFall.z);
                 p.xy = mod(p.xy - uEye.xy + BOX, 2.0 * BOX) - BOX + uEye.xy;
                 p.z = mod(p.z - uEye.z + HIGH * 0.35, HIGH) - HIGH * 0.35 + uEye.z;
-                vec3 way = normalize(moving);
+                vec3 way = normalize(vec3(uAir, -speed));
                 vec3 side = normalize(cross(way, uEye - p));
                 float along = corner > 1.5 ? 1.0 : 0.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                vec3 at = p - way * (0.032 * speed * along) + side * (across * 0.008);
+                vec3 at = p - way * (0.032 * length(vec3(uAir, speed)) * along) + side * (across * 0.008);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
                 gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uRain ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+            }
+            """;
+
+    /**
+     * Snow as flakes in the world, in the same box of air as the rain and from the same
+     * vertices. A flake falls at a tile or two a second, so the air carries it much further
+     * than it falls: in any wind snow goes by slantwise, and in a gale nearly level. Each
+     * also wanders from side to side as it comes down, a whole number of times in the
+     * eighty seconds its clock runs, and turns a face of its own size to the eye.
+     */
+    static final String SNOW_VERTEX = """
+            #version 120
+            uniform vec3 uEye;
+            uniform vec3 uFall;
+            uniform vec2 uAir;
+            uniform float uSnow;
+            varying vec3 vWorld;
+            varying vec2 vIn;
+
+            const float BOX = 14.0;
+            const float HIGH = 12.0;
+
+            void main() {
+                vec3 seed = gl_Vertex.xyz;
+                float corner = gl_Vertex.w;
+                // A whole number of hundredths of fifteen tiles a second: see Wind.SNOW_CLOCK.
+                float speed = 0.15 * (6.0 + floor(7.0 * fract(seed.x * 37.0 + seed.y * 91.0)));
+                float turn = uFall.z * 0.0785398;
+                float often = 20.0 + floor(40.0 * fract(seed.y * 53.0 + seed.z * 17.0));
+                // It wanders less the harder the wind drives it.
+                float wide = (0.06 + 0.14 * fract(seed.z * 29.0 + seed.x * 3.0)) / (1.0 + 0.15 * length(uAir));
+                vec2 wander = vec2(sin(turn * often + seed.x * 40.0), cos(turn * (often + 7.0) + seed.z * 40.0)) * wide;
+                vec3 p = vec3(seed.xy * 2.0 * BOX + uFall.xy + wander, seed.z * HIGH - speed * uFall.z);
+                p.xy = mod(p.xy - uEye.xy + BOX, 2.0 * BOX) - BOX + uEye.xy;
+                p.z = mod(p.z - uEye.z + HIGH * 0.35, HIGH) - HIGH * 0.35 + uEye.z;
+                vec3 toEye = normalize(uEye - p);
+                vec3 side = normalize(cross(vec3(0.0, 0.0, 1.0), toEye) + vec3(1e-5, 0.0, 0.0));
+                vec3 over = cross(toEye, side);
+                // Driven hard, a flake is a short streak along the way it is going.
+                vec3 going = vec3(uAir, -speed);
+                float along = corner > 1.5 ? 1.0 : -1.0;
+                float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
+                float size = 0.014 + 0.016 * fract(seed.x * 71.0 + seed.z * 13.0);
+                vec3 at = p + side * (across * size) + over * (along * size) + going * (0.0025 * along);
+                vWorld = at;
+                vIn = vec2(across, along);
+                // The harder it snows the more of the flakes there are.
+                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uSnow ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+            }
+            """;
+
+    static final String SNOW_FRAGMENT = """
+            #version 120
+            uniform sampler2DShadow uRoof;
+            uniform mat4 uRoofMatrix;
+            uniform vec3 uTint;
+            uniform vec3 uEye;
+            uniform float uSeated;
+            varying vec3 vWorld;
+            varying vec2 vIn;
+            """ + BEAMS + """
+
+            void main() {
+                // The vehicle the viewer sits in has a roof the map of roofs knows nothing of.
+                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
+                    discard;
+                }
+                // A flake under a roof never fell there.
+                vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
+                float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
+                float body = 1.0 - smoothstep(0.35, 1.0, length(vIn));
+                // Snow in a beam is what a driver sees of a night's snowfall: each flake a spark coming at the glass.
+                vec3 dir;
+                float lit = 0.0;
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        lit += beamAt(i, vWorld, dir);
+                    }
+                }
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * 1.6), body * open * 0.9);
             }
             """;
 

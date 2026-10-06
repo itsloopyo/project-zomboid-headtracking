@@ -159,6 +159,7 @@ final class Pipeline {
     private static volatile String failure;
     private static boolean prepared;
     private static Program rain;
+    private static Program snow;
     private static Program steady, copy;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private static final int[] keptColor = new int[2], keptTarget = new int[2];
@@ -547,7 +548,7 @@ final class Pipeline {
             }
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
-            if (state.rain > 0f && !overhead) {
+            if ((state.rain > 0f || state.snow > 0f) && !overhead) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             // After the sky and the rain, which are both beyond any glass: the sky is painted
@@ -1154,7 +1155,7 @@ final class Pipeline {
         GL11.glDepthMask(true);
     }
 
-    /** The rain, into the picture after the world and the sky and before anything is made of the picture. */
+    /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
     private static void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
@@ -1177,23 +1178,43 @@ final class Pipeline {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
-        // Added to what is there. The picture's alpha is left alone: it says what mirrors.
-        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
-        rain.use();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
-        rain.set("uRoof", 0);
-        rain.set("uRoofMatrix", roofMatrix);
-        rain.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-        rain.set("uTime", state.seconds);
-        rain.set("uWind", state.windX, state.windY);
-        rain.set("uRain", state.rain);
-        rain.set("uSeated", seated ? 1f : 0f);
-        setBeams(rain);
-        // A drop shows the sky it falls through.
-        rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
-                1.6f * (float) Math.pow(state.horizonBlue, 2.2));
-        GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+        if (state.rain > 0f) {
+            // Added to what is there. The picture's alpha is left alone: it says what mirrors.
+            GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+            rain.use();
+            rain.set("uRoof", 0);
+            rain.set("uRoofMatrix", roofMatrix);
+            rain.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+            rain.set("uFall", state.carriedX, state.carriedY, state.rainClock);
+            rain.set("uAir", state.airX, state.airY);
+            rain.set("uRain", state.rain);
+            rain.set("uSeated", seated ? 1f : 0f);
+            setBeams(rain);
+            // A drop shows the sky it falls through.
+            rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
+                    1.6f * (float) Math.pow(state.horizonBlue, 2.2));
+            GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+        }
+        if (state.snow > 0f) {
+            // A flake is white and hides what is behind it: laid over the picture, not added to it.
+            GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+            snow.use();
+            snow.set("uRoof", 0);
+            snow.set("uRoofMatrix", roofMatrix);
+            snow.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+            snow.set("uFall", state.carriedX, state.carriedY, state.snowClock);
+            snow.set("uAir", state.airX, state.airY);
+            snow.set("uSnow", state.snow);
+            snow.set("uSeated", seated ? 1f : 0f);
+            setBeams(snow);
+            // A flake is lit by the whole sky, and by the sun or the moon when there is one.
+            snow.set("uTint", (float) Math.pow(0.5f * (state.horizonRed + state.zenithRed) + 0.35f * state.lightRed, 2.2),
+                    (float) Math.pow(0.5f * (state.horizonGreen + state.zenithGreen) + 0.35f * state.lightGreen, 2.2),
+                    (float) Math.pow(0.5f * (state.horizonBlue + state.zenithBlue) + 0.35f * state.lightBlue, 2.2));
+            GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+        }
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
@@ -1432,6 +1453,7 @@ final class Pipeline {
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);
         world.set("uRaining", state.rain);
+        world.set("uSnowLying", state.snowLying);
         world.set("uDark", state.night);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
@@ -2724,6 +2746,7 @@ final class Pipeline {
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
         shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem);
         rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
+        snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
         figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);

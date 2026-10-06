@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Added
+- Added snow to the first person view. When the game snows, flakes fall in the world round you, each wandering from side to side as it comes down, more of them the harder it snows, and none under a roof. Snow that the game says has settled lies on the ground, on roofs and on whatever else faces the sky, in patches that spread and join as more of it lies. Grass stands up through thin snow and is buried by deep, and tree crowns carry a dusting on top. The first person view showed nothing of the game's snow before.
+- Made the wind carry the first person view's rain and snow at the game's own wind speed. Rain comes down nearly straight in light air and at half a right angle in a gale. Snow, which falls far slower, goes by slantwise in any wind and nearly level in a strong one.
 - Tied the wind in the first person view's grass and trees to the game's own gusts. The game's wind rises and falls a little over half a minute or so, and it sways its own plants and slants its own rain and snow by that. The first person view's grass and trees now lean and ease with the same lulls and gusts.
 - Stopped mixing each frame of the first person picture with the one before it, which softened and smeared whatever moved across the picture as you turned or walked. Every frame is now drawn on its own. A new row of `CameraUnlock.ini`, `FrameBlending`, turns the mixing back on for a steadier still view, and is read again while the game runs.
 - Made the land in the first person view hillier. It now swells and dips about a tile every hundred and thirty squares or so, streets with it, so a long street goes over crests and down into dips at up to one in twenty. The swells die away towards water, and a street is still level from kerb to kerb.
@@ -118,6 +120,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Fixed the first person view's rain jumping sideways when the game's wind changed. Where a drop was had been worked out from the wind and the time the game had been running, so any change of wind moved every drop at once, and further the longer the session.
 - Made `Medium` a graphics mode of its own. It was `High` with fewer pixels, shorter sight and smaller shadow maps, and looked the same. The shading of corners and the light they take from what stands near, the lit air, the reflections and the depth in near surfaces are now what `High` adds, and so are the mod's own plants: `Medium` shows the game's own grass, trees, bushes and rocks beside the mod's buildings, textures and shadows.
 - Took the reflections off car paint in the `Low` and `Medium` graphics modes: the sky in the lacquer of every car, and the world mirrored in your own bonnet from the driver's seat. `Low` was meant to mirror nothing and still did both.
 - Took the white haze out of the headlights in the `Medium` and `High` graphics modes. The air in front of the car was lit as a wide wedge that rose from the lamps into the sky, bright enough to wash out the road and, from the driver's seat, a glare across the windscreen. Lit air now stops at the height of the lamps and is faint on a clear night, so the lamps show as the pool of light on the road, as they do in `Low`.
