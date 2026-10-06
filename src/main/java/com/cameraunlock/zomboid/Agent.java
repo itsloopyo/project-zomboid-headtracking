@@ -136,6 +136,10 @@ public final class Agent {
 
         modelHead = new PatchTransformer(modelHeadPatches());
         instrumentation.addTransformer(modelHead);
+
+        if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
+            instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
+        }
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -216,6 +220,26 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(FIRST_PERSON, "cursorY", "(I)I"));
                     });
                 }));
+    }
+
+    /**
+     * Apart from everything else, and each from the other: what the game does over and over
+     * for an answer that does not change. Neither changes an answer, so the game plays as it
+     * did, in its own view as in first person. See GameFixes. One that does not fit a build of
+     * the game leaves that method as the game has it, and the log says so.
+     */
+    private static List<Patch> gameFixPatches() {
+        String component = "zombie/characters/ecs/ECSComponent", player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
+        return List.of(
+                new Patch(component, "getECSClass answered from what a class's kind was found to be", classBytes -> CallSite.answerAtOnceUnlessNull(classBytes,
+                        new CallSite.Method(component, "getECSClass", "(Ljava/lang/Class;)Ljava/lang/Class;"),
+                        new CallSite.Method("com/cameraunlock/zomboid/GameFixes", "componentKind", "(Ljava/lang/Class;)Ljava/lang/Class;"))),
+                // The game asks of every bone of every character on every frame whether the bone is
+                // among those hung on another skeleton, by boxing the bone's number, taking a
+                // predicate out of a pool that keeps its own in a hash set, and walking the list
+                // with it. For all but a few characters the list is empty.
+                new Patch(player, "isBoneReparented answered at once while no bone is", classBytes -> CallSite.falseAtOnceWhileEmpty(classBytes,
+                        new CallSite.Method(player, "isBoneReparented", "(I)Z"), "reparentedBoneBindings")));
     }
 
     /**

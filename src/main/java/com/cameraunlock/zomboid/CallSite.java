@@ -78,6 +78,60 @@ final class CallSite {
         return transform(classBytes, within, insert);
     }
 
+    /**
+     * Makes {@code within}, a static method that takes one object and returns one, return what
+     * the static method {@code answer} makes of its argument whenever the argument is not null.
+     */
+    static byte[] answerAtOnceUnlessNull(byte[] classBytes, Method within, Method answer) {
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                code.aload(0);
+                code.ifThen(Opcode.IFNONNULL, asked -> {
+                    asked.aload(0);
+                    invokeStatic(asked, answer);
+                    asked.areturn();
+                });
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
+    /**
+     * Makes {@code within}, which is not static and returns a boolean, return false at once
+     * whenever the ArrayList in the class's own {@code field} holds nothing. Throws unless the
+     * class declares the field so: see requireStaticInt.
+     */
+    static byte[] falseAtOnceWhileEmpty(byte[] classBytes, Method within, String field) {
+        ClassModel model = ClassFile.of().parse(classBytes);
+        boolean declared = false;
+        for (FieldModel candidate : model.fields()) {
+            declared |= candidate.fieldName().equalsString(field) && candidate.fieldType().equalsString("Ljava/util/ArrayList;")
+                    && !candidate.flags().has(AccessFlag.STATIC);
+        }
+        if (!declared) {
+            throw new IllegalStateException("no ArrayList " + field + " of its own in " + model.thisClass().asInternalName());
+        }
+        ClassDesc list = ClassDesc.ofDescriptor("Ljava/util/ArrayList;");
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                code.aload(0);
+                code.getfield(ClassDesc.ofInternalName(within.owner()), field, list);
+                code.invoke(Opcode.INVOKEVIRTUAL, list, "isEmpty", MethodTypeDesc.ofDescriptor("()Z"), false);
+                code.ifThen(Opcode.IFNE, empty -> {
+                    empty.iconst_0();
+                    empty.ireturn();
+                });
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
     /** Inserts {@code code} before every return of {@code within}, which has to have at least one. */
     static byte[] insertBeforeReturns(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
         int[] matches = {0};
