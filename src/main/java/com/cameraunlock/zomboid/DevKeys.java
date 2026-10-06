@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Set;
 import zombie.GameTime;
+import zombie.VirtualZombieManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -14,6 +15,7 @@ import zombie.inventory.InventoryItem;
 import zombie.inventory.InventoryItemFactory;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponPart;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
 import zombie.iso.weather.ClimateManager;
 import zombie.network.GameClient;
@@ -64,6 +66,9 @@ final class DevKeys {
     /** 0 on the number row. */
     private static final int CLEAR_KEY = 11;
     private static boolean cleared;
+    /** Zombies put back when the clearing is switched off: how many places are tried, the nearest in tiles, and how much further each next ring is. */
+    private static final int BACK_TRIED = 18;
+    private static final float BACK_NEAREST = 9f, BACK_STEP = 4f;
     /** The full stop and the comma. */
     private static final int NEXT_PLACE_KEY = 52, LAST_PLACE_KEY = 51;
 
@@ -140,7 +145,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: 0 clears out the zombies, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, F7 takes the nearest vehicle");
             }
         }
         // On a server every one of these would be a cheat against the other players.
@@ -163,6 +168,9 @@ final class DevKeys {
         if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
             cleared = !cleared;
             Log.info("0: zombies cleared " + cleared);
+            if (!cleared && safe != null) {
+                bringZombiesBack(safe);
+            }
         }
         if (cleared && IsoWorld.instance.currentCell != null) {
             ArrayList<IsoZombie> zombies = IsoWorld.instance.currentCell.getZombieList();
@@ -255,6 +263,25 @@ final class DevKeys {
             safe.getBodyDamage().RestoreToFullHealth();
         }
         wasInvincible = invincible;
+    }
+
+    /**
+     * The game brings zombies back into a place by itself only over hours, so switching the
+     * clearing off puts a ring of them round the player, out of doors and out of arm's reach.
+     */
+    private static void bringZombiesBack(IsoPlayer player) {
+        int made = 0;
+        for (int i = 0; i < BACK_TRIED; i++) {
+            double angle = 2 * Math.PI * i / BACK_TRIED;
+            float away = BACK_NEAREST + (i % 3) * BACK_STEP;
+            float x = player.getX() + (float) Math.cos(angle) * away, y = player.getY() + (float) Math.sin(angle) * away;
+            IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(player.getZ()));
+            if (square != null && square.isOutside() && !square.isSolid() && !square.isSolidTrans()) {
+                VirtualZombieManager.instance.createRealZombieNow(x, y, player.getZ());
+                made++;
+            }
+        }
+        Log.info("0: " + made + " zombies put back round the player");
     }
 
     private static void takeNearestVehicle() {
