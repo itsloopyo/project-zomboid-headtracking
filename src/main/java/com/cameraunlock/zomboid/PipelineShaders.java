@@ -2071,7 +2071,7 @@ final class PipelineShaders {
                 }
                 vec3 given = pow(vColor.rgb, vec3(2.2));
                 vec3 held = vec3(0.0);
-                if (uTorch.w > 0.0 && open > 0.5) {
+                if (uTorch.w > 0.0 && (open > 0.5 || uDaylightKept < 1.0)) {
                     // A torch the character carries. The game lights every square in its cone
                     // by where the square lies on the ground, the same from the grass to the
                     // top of a tree and from no side, and lit as the sky lights it a wood at
@@ -2079,13 +2079,20 @@ final class PipelineShaders {
                     // over the open ground's own light came from the torch: it falls from the
                     // hand, on what the beam is turned to and on the side that faces it, less
                     // with distance, and a little spills round the beam. A lantern has no beam.
-                    vec3 over = max(given - pow(uOpenLight, vec3(2.2)), 0.0) * (1.0 - smoothstep(uTorch.w, uTorch.w + 3.0, length(vWorld.xy - uTorch.xy)));
+                    float within = 1.0 - smoothstep(uTorch.w, uTorch.w + 3.0, length(vWorld.xy - uTorch.xy));
+                    vec3 over = open > 0.5 ? max(given - pow(uOpenLight, vec3(2.2)), 0.0) * within : vec3(0.0);
+                    // In the evening and before dawn the game still has every square at full
+                    // daylight, in the beam and out of it, and the picture has taken that
+                    // daylight down (see Evening): nothing is left over for the torch to be
+                    // read from. By as much as the daylight is held back, the torch lights
+                    // whatever is within its reach, with nothing known of what stands in its way.
+                    vec3 lit = max(over, vec3((1.0 - uDaylightKept) * within));
                     vec3 to = vWorld - uTorch.xyz;
                     float far2 = dot(to, to);
                     vec3 dir = to * inversesqrt(max(far2, 0.0001));
                     float beam = mix(1.0, 0.1 + 0.9 * smoothstep(0.62, 0.95, dot(dir, uTorchWay.xyz)), uTorchWay.w);
                     float turned = card ? 0.75 : 0.2 + 0.8 * max(dot(n, -dir), 0.0);
-                    held = over * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * beam * turned / (1.0 + 0.035 * far2));
+                    held = lit * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * beam * turned / (1.0 + 0.035 * far2));
                     given -= over;
                 }
                 // The game holds its daylight at full until dusk, when the picture's sun is
