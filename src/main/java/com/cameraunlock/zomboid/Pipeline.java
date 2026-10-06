@@ -967,7 +967,11 @@ final class Pipeline {
             // would be. It sets its own program, buffers and culling, so the frame's are put back.
             for (int map = 0; map < (castFar ? 2 : 1); map++) {
                 GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
-                Characters.cast(map == 0 ? nearMatrix : farMatrix);
+                if (map == 0) {
+                    Characters.cast(nearMatrix);
+                } else {
+                    Characters.castBeyond(farMatrix, nearMatrix);
+                }
             }
             resumeCasting();
         }
