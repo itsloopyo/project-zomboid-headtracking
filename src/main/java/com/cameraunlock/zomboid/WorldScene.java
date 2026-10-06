@@ -142,8 +142,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private int builtFrame;
         /** The frame the build was last made in or found still to be what a new one would be. */
         private int checkedFrame;
-        /** When it was last built or found unchanged, and when it was built, on System.nanoTime's clock. */
-        private long checkedNanos, builtNanos;
+        /** When it was last built or found unchanged, when it was built, and when its chunk was first built, on System.nanoTime's clock. */
+        private long checkedNanos, builtNanos, bornNanos;
         /** Where the eye was when the build was made, and which way lay to the right of the view. */
         private float eyeX, eyeY, eyeUp, rightX, rightY;
         /** Where the camera the build was to be drawn from was: see WorldScene.facedX. */
@@ -267,11 +267,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static final int MOST_SPARE = 96;
     private static final int FORGET_EVERY_FRAMES = 120;
     /**
-     * A build found unchanged is still made again after this many frames. The sum of what a
+     * A build found unchanged is still made again once it is this old. The sum of what a
      * build reads leaves out what it is told by the roofs, the wall finishes and the sprite
-     * colours, which are worked out over several frames as the map round a chunk loads, and
-     * a far chunk has always shown those up to this late.
+     * colours, which are worked out over several frames as the map round a chunk loads: for
+     * its first three seconds a chunk is built again a quarter of a second after it was last,
+     * which is how late it has always shown those. After that they have settled, and it is
+     * built again every two seconds, where every quarter second was a view standing still
+     * building five chunks a frame for nothing.
      */
+    private static final long KEPT_UNCHANGED_NANOS = 2_000_000_000L, KEPT_WHILE_SETTLING_NANOS = 240_000_000L, SETTLES_IN_NANOS = 3_000_000_000L;
+    /** For this many frames a chunk that was found changed is built as it falls due without being read through first. */
     private static final int KEPT_UNCHANGED_FRAMES = 30;
     /** Where the eye was in the frame before this one, and whether it is in the same place now. */
     private static float lastEyeX = Float.NaN, lastEyeY, lastEyeUp;
@@ -404,9 +409,26 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * square the character has not seen has no light of its own yet: the game holds it black
      * until it is seen.
      */
-    private final OpenLight seenOutside = new OpenLight();
+    private static final OpenLight seenOutside = new OpenLight();
     /** The tally as it stood before a chunk was read only to be summed. */
-    private final OpenLight seenBefore = new OpenLight();
+    private static final OpenLight seenBefore = new OpenLight();
+    /**
+     * The tally is kept over half a second, each chunk counted in it once, and the open
+     * ground's light is taken from it when the half second is up. Taken afresh every frame
+     * from whichever chunks that frame happened to read, it was never quite the same twice,
+     * and it is part of what every chunk with an unseen square beside it is built from: such
+     * chunks, which at night are most of them, were built again on every frame for it. A step
+     * of under a five-hundredth in the light is left untaken, for the same reason.
+     */
+    private static final long OPEN_LIGHT_TAKEN_EVERY_NANOS = 500_000_000L;
+    private static final float OPEN_LIGHT_STEP = 1f / 512f;
+    private static long openLightTakenAt;
+    private static boolean openLightTaken;
+    /** The tally a chunk's squares were last counted in, by the chunk's place in the table, and the number of the one being kept. */
+    private static final int[] talliedIn = new int[TABLE_SIDE * TABLE_SIDE];
+    private static int tally = 1;
+    /** Whether the squares of the chunk being read are counted in the tally. */
+    private boolean tallied;
     private final float[] openLight = new float[3];
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     /** The light a square out of doors has with no lamp on it: see OpenLight.floor. */
@@ -518,6 +540,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final byte[] lightOpen = new byte[LIGHT_SPAN * LIGHT_SPAN];
     private final float[] heldRed = new float[4], heldGreen = new float[4], heldBlue = new float[4];
     private float buildMillis;
+    /**
+     * Why each chunk built this frame was: it had no build, the eye had moved, something on it
+     * had changed, it had been kept as long as one is, its build was made while the eye moved and
+     * so was not signed, or it had changed a moment ago and was not read through. KEPT_ON counts
+     * those found unchanged, which are not built.
+     */
+    private static final int NEW = 0, MOVED = 1, CHANGED = 2, AGED = 3, UNSIGNED = 4, LEFT_UNREAD = 5, KEPT_ON = 6;
+    private final int[] builtBecause = new int[7];
     /** Chunks in view that had no build yet when the frame had spent its time on building. */
     private int chunksWaiting;
     /**
@@ -556,6 +586,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float thenX = built.facedX - middleX, thenY = built.facedY - middleY, nowX = facedX - middleX, nowY = facedY - middleY;
         float lengths = (float) Math.sqrt((thenX * thenX + thenY * thenY) * (nowX * nowX + nowY * nowY));
         return thenX * nowX + thenY * nowY > 0f && Math.abs(thenX * nowY - thenY * nowX) <= TURN_HELD_WITHIN * lengths;
+    }
+
+    private static boolean stepped(float[] light, float red, float green, float blue) {
+        return Math.abs(light[0] - red) > OPEN_LIGHT_STEP || Math.abs(light[1] - green) > OPEN_LIGHT_STEP || Math.abs(light[2] - blue) > OPEN_LIGHT_STEP;
     }
 
     /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
@@ -619,9 +653,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     String describe() {
-        return String.format(Locale.ROOT, "chunks %d waiting %d built %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
+        return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
-                chunksDrawn, chunksWaiting, chunksBuilt, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                chunksDrawn, chunksWaiting, chunksBuilt, builtBecause[NEW], builtBecause[MOVED], builtBecause[CHANGED], builtBecause[AGED],
+                builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
@@ -676,6 +711,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         chunksBuilt = 0;
         chunksKept = 0;
         chunksWaiting = 0;
+        Arrays.fill(builtBecause, 0);
         eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
         lastEyeX = view.eyeX;
         lastEyeY = view.eyeY;
@@ -791,7 +827,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         unseenLight.r = unseenRed;
         unseenLight.g = unseenGreen;
         unseenLight.b = unseenBlue;
-        seenOutside.clear();
 
         // The loaded map is a square of chunks around the player, and it ends in nothing. The
         // picture fades into the sky before the nearest of its four edges, so the edge is never seen.
@@ -870,13 +905,21 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 long read = 0;
                 int summedFrom = missing ? frames : current.summedFrom;
                 boolean summed = still && (missing || due) && frames >= summedFrom;
+                if (missing || due) {
+                    tallied = talliedIn[slot] != tally;
+                    talliedIn[slot] = tally;
+                }
                 if (summed) {
                     seenOutside.copyTo(seenBefore);
                     int seen = squaresSeen;
                     read = signature(chunk, chunkX, chunkY, lowest);
                     boolean sameEye = due && current.signed;
-                    if (sameEye && current.signature == read
-                            && (frames - current.builtFrame < KEPT_UNCHANGED_FRAMES || start - current.builtNanos < KEPT_UNCHANGED_FRAMES * NANOS_A_FRAME_COUNTED)) {
+                    boolean young = !missing
+                            && start - current.builtNanos < (start - current.bornNanos < SETTLES_IN_NANOS ? KEPT_WHILE_SETTLING_NANOS : KEPT_UNCHANGED_NANOS);
+                    if (due) {
+                        builtBecause[!current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
+                    }
+                    if (sameEye && current.signature == read && young) {
                         // The squares it read count towards this frame's light as a build's would.
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
@@ -894,6 +937,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         }
                     }
                 }
+                if (missing) {
+                    builtBecause[NEW]++;
+                } else if (due && !summed) {
+                    builtBecause[still ? LEFT_UNREAD : MOVED]++;
+                }
                 if (missing || due) {
                     ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
                     solid.clear();
@@ -905,6 +953,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.checkedFrame = frames;
                     fresh.checkedNanos = start;
                     fresh.builtNanos = start;
+                    fresh.bornNanos = missing ? start : current.bornNanos;
                     fresh.eyeX = view.eyeX;
                     fresh.eyeY = view.eyeY;
                     fresh.eyeUp = view.eyeUp;
@@ -979,15 +1028,23 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
             }
         }
-        if (!seenOutside.isEmpty()) {
+        if (!seenOutside.isEmpty() && (!openLightTaken || start - openLightTakenAt >= OPEN_LIGHT_TAKEN_EVERY_NANOS)) {
             seenOutside.commonest(openLight);
-            unseenRed = openLight[0];
-            unseenGreen = openLight[1];
-            unseenBlue = openLight[2];
+            if (!openLightTaken || stepped(openLight, unseenRed, unseenGreen, unseenBlue)) {
+                unseenRed = openLight[0];
+                unseenGreen = openLight[1];
+                unseenBlue = openLight[2];
+            }
             seenOutside.floor(openLight);
-            floorRed = openLight[0];
-            floorGreen = openLight[1];
-            floorBlue = openLight[2];
+            if (!openLightTaken || stepped(openLight, floorRed, floorGreen, floorBlue)) {
+                floorRed = openLight[0];
+                floorGreen = openLight[1];
+                floorBlue = openLight[2];
+            }
+            seenOutside.clear();
+            tally++;
+            openLightTaken = true;
+            openLightTakenAt = start;
         }
         for (int i = 0; i < shown.size(); i++) {
             triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
@@ -1274,7 +1331,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     light = unseenLight;
                 } else if (inChunk) {
                     squaresSeen++;
-                    if (outside) {
+                    if (outside && tallied) {
                         seenOutside.add(light.r, light.g, light.b);
                     }
                 }
