@@ -89,7 +89,7 @@ public final class FirstPerson {
     private static boolean landed;
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
     private static boolean fromTheEye;
-    private static boolean wasRiding, onForTheRide;
+    private static boolean wasRiding;
     /** The view is played in, the game is running and the character is alive. */
     private static boolean active;
     private static boolean lookCaptured;
@@ -270,7 +270,7 @@ public final class FirstPerson {
             WorldScene.forgetAll();
         }
         IsoPlayer player = IsoPlayer.getInstance();
-        followTheRide(player);
+        faceAheadOnGettingIn(player);
         if ((on || !Flight.home()) && !allowed(player)) {
             if (on) {
                 Log.info("first person off: " + whyNot(player));
@@ -402,24 +402,14 @@ public final class FirstPerson {
     }
 
     /**
-     * Getting into a vehicle is getting behind its wheel: the view goes to the seat by itself,
-     * looking straight ahead out of the windscreen, and goes back to how it was on getting out.
+     * Getting into a vehicle in first person is sitting down facing the way the seat does. Left
+     * alone the view keeps the way the character faced on foot. In the game's own view nothing
+     * changes.
      */
-    private static void followTheRide(IsoPlayer player) {
+    private static void faceAheadOnGettingIn(IsoPlayer player) {
         boolean riding = player != null && player.getVehicle() != null;
-        if (riding && !wasRiding) {
-            if (on) {
-                // Left alone the view keeps the way the character faced on foot, whichever way the seat faces.
-                setLook(Ride.heading(player.getVehicle()), 0f);
-            } else {
-                toggle();
-                onForTheRide = on;
-            }
-        } else if (!riding && wasRiding && onForTheRide && on) {
-            toggle();
-        }
-        if (!riding) {
-            onForTheRide = false;
+        if (riding && !wasRiding && on) {
+            setLook(Ride.heading(player.getVehicle()), 0f);
         }
         wasRiding = riding;
     }
