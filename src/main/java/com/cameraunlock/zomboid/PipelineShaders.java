@@ -312,6 +312,8 @@ final class PipelineShaders {
             uniform float uLaid;
             uniform float uDepthOnly;
             uniform float uWet;
+            // 1 where a wet road, a polished floor and glass are mirrors, which the last pass traces: 0 in the Low graphics mode.
+            uniform float uMirrors;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
@@ -2392,7 +2394,7 @@ final class PipelineShaders {
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
-                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - max(max(shine, polish) * step(0.8, n.z), pane));
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(shine, polish) * step(0.8, n.z), pane));
             }
             """;
 

@@ -1467,6 +1467,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, sprigForm);
         world.set("uSprigForm", SPRIG_FORM_UNIT);
         world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() ? 0f : 1f);
+        world.set("uMirrors", Quality.shadedAndLit() ? 1f : 0f);
         world.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 

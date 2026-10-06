@@ -112,7 +112,7 @@
 
 ### Fixed
 - Went back to the game's own arms on a held weapon in first person. The mod drew sleeves of its own from the shoulders to the hands on the weapon; the game's arms are drawn again, whole, carried with the weapon. The sleeves are still in the mod, switched off.
-- Left your own reflection in a window out of the `Low` graphics mode.
+- Left reflections out of the `Low` graphics mode: your own in a window, and what a polished floor, a wet road and a pane of glass mirrored of the room or the street.
 - Drew the dead as bodies in the first person view. A body on the ground was a dark rectangle the size of a doormat. The game keeps a picture of each body, clothes, blood and all, and that picture now lies on the ground where the body does. A body the game's own view has not yet had in it has no picture, and shows once it has.
 - Stopped glasses, hats and whatever else a character wears on their head from showing through the head in first person. The game's shader takes the depth of such a piece from the body it hangs on, which still carried the shift the game fits a whole person among its sprites with, so the piece was drawn nearer the eye than the head it was on.
 - Left the game's own rain, puddles, splashes and fog undrawn while the first person picture covers the game's view. The game built its rain drop by drop on its logic thread and wrote it out corner by corner on its render thread, to be painted over by the picture's own rain. In rain the first person view now takes a seventh less of the logic thread and a fifth less of the render thread. The weather itself, and what is wet, are as they were.
