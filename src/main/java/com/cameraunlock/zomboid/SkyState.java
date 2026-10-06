@@ -54,6 +54,8 @@ final class SkyState {
     float daylightKept = 1f;
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
+    /** The box round what the Interact key would act on in this picture, or null: see CentreUse.marked. */
+    float[] marked;
     float cover;
     float driftX, driftY;
     float seconds;

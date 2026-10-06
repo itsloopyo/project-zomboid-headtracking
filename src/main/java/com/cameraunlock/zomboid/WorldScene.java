@@ -686,6 +686,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         daylightKeptNow = sky.daylightKept;
         // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
         sky.carried = CarriedLight.light;
+        sky.marked = CentreUse.marked;
         exposure = adaptEye(player, fromOutside);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;

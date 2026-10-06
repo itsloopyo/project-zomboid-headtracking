@@ -1673,6 +1673,18 @@ final class Pipeline {
         develop.set("uUp", camera.rightUp, camera.upUp, camera.forwardUp);
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
+        float[] marked = overhead ? null : state.marked;
+        if (marked == null) {
+            develop.set("uMarkedLow", 1f, 1f, 1f);
+            develop.set("uMarkedHigh", 0f, 0f, 0f);
+        } else {
+            develop.set("uMarkedLow", marked[0], marked[1], marked[2]);
+            develop.set("uMarkedHigh", marked[3], marked[4], marked[5]);
+            develop.set("uEyeAt", camera.eyeX, camera.eyeY, camera.eyeUp);
+            develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
+            develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
+            develop.set("uAhead", camera.forwardX, camera.forwardY, camera.forwardUp);
+        }
         boolean sunAhead = ViewCamera.project(camera, tanHalfFieldOfView, aspect, camera.eyeX + state.sunX, camera.eyeY + state.sunY,
                 camera.eyeUp + state.sunUp, sunNdc);
         if (sunAhead) {

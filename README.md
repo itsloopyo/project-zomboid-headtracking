@@ -151,7 +151,7 @@ The inventory, crafting, the health panel, the map and the game's menus all need
 - The inventory and loot panels are the game's own and behave as they do there: unless you have pinned them, each one unfolds when the pointer is over it.
 - A window you leave open would keep the pointer out. Pressing the inventory key twice goes back to the look past whatever is open, and the pointer comes out again the next time something opens. A window that was already open when you switched to first person does not bring it out.
 - Hold the middle mouse button and right click to get the game's menu for something in the world. The menu then keeps the pointer out until you pick from it or close it.
-- A click on the world goes to what the game's own view has under the pointer, which is drawn beneath the first person picture and is not what the picture shows there. `E` acts on what your character faces and is the surer way to use a door or a window.
+- A click on the world goes to what the game's own view has under the pointer, which is drawn beneath the first person picture and is not what the picture shows there. `E` acts on what the middle of the view is on, and is the surer way to use a door or a window. Whatever `E` would act on is drawn with a pale line round it: a door, a window, a curtain, a light switch, a piece of furniture that holds things, a body, or something lying on the ground.
 - `Tab` and every other key are as the game has them.
 - If you have bound something to the middle mouse button, it does both.
 

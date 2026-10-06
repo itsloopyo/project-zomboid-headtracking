@@ -384,6 +384,11 @@ public final class FirstPerson {
         ViewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        if (lookCaptured && vehicle == null) {
+            CentreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
+        } else {
+            CentreUse.marked = null;
+        }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
         HeadTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp, vehicle == null, trackedView);
         // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.

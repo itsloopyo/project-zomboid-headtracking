@@ -54,6 +54,66 @@ final class CentreUse {
 
     private CentreUse() {}
 
+    /**
+     * The box round what the key would act on this frame, for the picture to outline: its
+     * least x, y and height and its greatest, in tiles. Null when the view is on nothing the
+     * key acts on. Replaced whole each frame, never written to.
+     */
+    static volatile float[] marked;
+    /** How far either side of an edge a door or a window is taken to reach, and how far in from a square's edges its furniture is. */
+    private static final float EDGE_HALF = 0.16f, INSET = 0.07f;
+    /** How high above the floor things are taken to stand, as parts of a storey. */
+    private static final float DOOR_TOP = 0.86f, PANE_FOOT = 0.28f, PANE_TOP = 0.82f, SWITCH_FOOT = 0.38f, SWITCH_TOP = 0.6f, FURNITURE_TOP = 0.9f;
+    /** How far above the floor a box begins, so that the floor is no part of it, and how large a thing lying on the ground and a body are. */
+    private static final float OFF_THE_FLOOR = 0.04f, ITEM_HALF = 0.2f, ITEM_HIGH = 0.3f, BODY_HIGH = 0.45f;
+
+    /** Notes what the key would act on with the view as it is, or that there is nothing. */
+    static void mark(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
+        marked = found == null ? null : boxOf(found);
+    }
+
+    private static float[] boxOf(IsoObject found) {
+        if (found instanceof IsoWorldInventoryObject item) {
+            float x = item.getWorldPosX(), y = item.getWorldPosY();
+            float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, (int) Math.floor(item.getWorldPosZ()));
+            return new float[] {x - ITEM_HALF, y - ITEM_HALF, up + OFF_THE_FLOOR * 0.5f, x + ITEM_HALF, y + ITEM_HALF, up + ITEM_HIGH};
+        }
+        IsoGridSquare square = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
+        if (square == null) {
+            return null;
+        }
+        float x = square.getX(), y = square.getY();
+        float floor = square.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x + 0.5f, y + 0.5f, square.getZ());
+        float storey = ViewCamera.LEVEL_HEIGHT;
+        if (found instanceof IsoDoor door) {
+            return onEdge(x, y, door.north, false, floor + OFF_THE_FLOOR, floor + DOOR_TOP * storey);
+        }
+        if (found instanceof IsoThumpable thumpable && thumpable.isDoor()) {
+            return onEdge(x, y, thumpable.north, false, floor + OFF_THE_FLOOR, floor + DOOR_TOP * storey);
+        }
+        if (found instanceof IsoWindow pane) {
+            return onEdge(x, y, pane.getNorth(), false, floor + PANE_FOOT * storey, floor + PANE_TOP * storey);
+        }
+        if (found instanceof IsoCurtain hung) {
+            IsoObjectType type = hung.getType();
+            boolean north = type == IsoObjectType.curtainN || type == IsoObjectType.curtainS;
+            return onEdge(x, y, north, type == IsoObjectType.curtainS || type == IsoObjectType.curtainE, floor + PANE_FOOT * storey, floor + PANE_TOP * storey);
+        }
+        if (found instanceof IsoLightSwitch) {
+            return new float[] {x - EDGE_HALF, y - EDGE_HALF, floor + SWITCH_FOOT * storey, x + 1f + EDGE_HALF, y + 1f + EDGE_HALF, floor + SWITCH_TOP * storey};
+        }
+        float top = found instanceof IsoMovingObject ? BODY_HIGH : FURNITURE_TOP * storey;
+        return new float[] {x + INSET, y + INSET, floor + OFF_THE_FLOOR, x + 1f - INSET, y + 1f - INSET, floor + top};
+    }
+
+    /** The box of what stands on a square's north or west edge, or on its far one. */
+    private static float[] onEdge(float x, float y, boolean north, boolean far, float foot, float top) {
+        float at = (north ? y : x) + (far ? 1f : 0f);
+        return north ? new float[] {x + INSET, at - EDGE_HALF, foot, x + 1f - INSET, at + EDGE_HALF, top}
+                : new float[] {at - EDGE_HALF, y + INSET, foot, at + EDGE_HALF, y + 1f - INSET, top};
+    }
+
     /** What the game's Lua lacks for the key to work, or null. */
     static String gap() {
         String gap = gap(CLICK_HANDLER, PRESS);
