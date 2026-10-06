@@ -362,6 +362,8 @@ final class PipelineShaders {
             // joint in brick and in stone, in tiles. Each divides sixty tiles a whole number
             // of times: see vPlace.
             const float BRICK_LONG = 0.2, BRICK_HIGH = 0.0625, BRICK_JOINT = 0.0045, LAP_HIGH = 0.125, STONE_JOINT = 0.008;
+            // A cast block, three courses of brick high and three bricks long, and half its joint.
+            const float BLOCK_LONG = 0.6, BLOCK_HIGH = 0.1875, BLOCK_JOINT = 0.005;
             // 1 while timber() is making a post or a brace and not a wall of boards.
             float arcWhole = 0.0;
 
@@ -654,28 +656,28 @@ final class PipelineShaders {
             // worn round. The mortar lies back between them. lean says how far the surface
             // turns at a brick's edge, along the wall and up it, so the sun picks the courses
             // out. Whatever is finer than a pixel is left as its mean.
-            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, out vec2 lean) {
+            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, vec2 size, float gapHalf, float vary, out vec2 lean) {
                 vec2 soft = vec2(fwidth(run), fwidth(up));
-                float course = up / BRICK_HIGH;
+                float course = up / size.y;
                 float row = floor(course);
-                float along = run / BRICK_LONG + 0.5 * mod(row, 2.0);
+                float along = run / size.x + 0.5 * mod(row, 2.0);
                 float which = mod(floor(along), 300.0), tier = mod(row, 960.0);
                 vec2 part = vec2(fract(along), fract(course));
-                vec2 edge = min(part, 1.0 - part) * vec2(BRICK_LONG, BRICK_HIGH);
+                vec2 edge = min(part, 1.0 - part) * size;
                 // A joint under a pixel wide would be drawn in some pixels and missed in the
                 // next: it thins out as it gets there, and the wall takes its share of it.
-                vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / vec2(BRICK_LONG, BRICK_HIGH));
-                vec2 gap = 1.0 - smoothstep(vec2(BRICK_JOINT) - 0.5 * soft, vec2(BRICK_JOINT) + 0.5 * soft + 0.001, edge);
+                vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / size);
+                vec2 gap = 1.0 - smoothstep(vec2(gapHalf) - 0.5 * soft, vec2(gapHalf) + 0.5 * soft + 0.001, edge);
                 float joint = max(gap.x * seen.x, gap.y * seen.y);
                 float r1 = facHash(vec2(which, tier)), r2 = facHash(vec2(which + 17.0, tier + 5.0)), r3 = facHash(vec2(which + 41.0, tier + 29.0));
-                float own = min(seen.x, seen.y);
+                float own = min(seen.x, seen.y) * vary;
                 vec3 made = body * mix(1.0, (0.9 + 0.2 * r1) * (1.0 - 0.2 * step(0.93, r3)), own)
                         * mix(vec3(1.0), mix(vec3(1.05, 0.99, 0.93), vec3(0.96, 1.0, 1.05), r2), own);
                 float near = 1.0 - smoothstep(0.003, 0.014, max(soft.x, soft.y));
                 float mottle = patches(vec2(run * 27.0 + r1 * 9.0, up * 41.0 + r2 * 9.0)) * 0.6 + patches(vec2(run * 113.0, up * 131.0) + 7.0) * 0.4;
                 float pit = smoothstep(0.74, 0.9, patches(vec2(run * 230.0 + r2 * 50.0, up * 250.0)));
                 made *= 1.0 + near * (0.2 * (mottle - 0.5) - 0.2 * pit);
-                vec2 eased = (1.0 - smoothstep(vec2(BRICK_JOINT), vec2(BRICK_JOINT + 0.007), edge)) * seen;
+                vec2 eased = (1.0 - smoothstep(vec2(gapHalf), vec2(gapHalf + 0.007), edge)) * seen;
                 lean = vec2(part.x < 0.5 ? -eased.x : eased.x, part.y < 0.5 ? -eased.y : eased.y) * (1.0 - joint);
                 vec3 bed = mortar * (0.8 + 0.16 * patches(vec2(run * 61.0, up * 67.0) + 3.0));
                 // What the joints that are too fine to draw take from the wall's colour.
@@ -995,32 +997,38 @@ final class PipelineShaders {
                 vec3 bent = vec3(0.0);
                 // A wall of brick, of lapped boards or of stone is laid here and not shown as
                 // the game painted it: see facBrick. uTint.a is 4 for brick, 5 for lapped
-                // boards and 6 for stone, uTint.rgb the colour most of the wall's sprite is
+                // boards, 6 for stone and 7 for blocks, uTint.rgb the colour most of the wall's sprite is
                 // and uJoint the colour of its joints. What on the sprite is neither colour,
                 // the casing round a window, stays as painted. climb is lean up the wall.
                 float climb = 0.0;
-                if (uTint.a > 3.5) {
+                bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
+                if (uTint.a > 3.5 && !boarded) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;
-                    // From 8 up the sprite is another wall's, the paper of the room behind: it
+                    // From 12 up the sprite is another wall's, the paper of the room behind: it
                     // gives the wall its outline and none of its colour.
-                    float how = uTint.a > 7.5 ? uTint.a - 8.0 : uTint.a;
-                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, vPlace.z, turned)
-                            : how < 5.5 ? facLapped(uTint.rgb, run, vPlace.z, turned) : facStone(uTint.rgb, uJoint, run, vPlace.z, turned);
-                    float own = uTint.a > 7.5 ? 1.0 : 1.0 - smoothstep(0.3, 0.45, min(length(texel.rgb - uTint.rgb), length(texel.rgb - uJoint)));
+                    float how = uTint.a > 11.5 ? uTint.a - 8.0 : uTint.a;
+                    // A block is a brick three times the size, and every one the same grey.
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, vPlace.z, vec2(BRICK_LONG, BRICK_HIGH), BRICK_JOINT, 1.0, turned)
+                            : how < 5.5 ? facLapped(uTint.rgb, run, vPlace.z, turned)
+                            : how < 6.5 ? facStone(uTint.rgb, uJoint, run, vPlace.z, turned)
+                            : facBrick(uTint.rgb, uJoint, run, vPlace.z, vec2(BLOCK_LONG, BLOCK_HIGH), BLOCK_JOINT, 0.3, turned);
+                    float own = uTint.a > 11.5 ? 1.0 : 1.0 - smoothstep(0.3, 0.45, min(length(texel.rgb - uTint.rgb), length(texel.rgb - uJoint)));
                     texel.rgb = mix(texel.rgb, laid, own);
                     lean = turned.x * own;
                     climb = turned.y * own;
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
-                if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && uTint.a < 0.5 && uTexel.x > 0.0) {
+                if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && (uTint.a < 0.5 || boarded) && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
                     // The strokes run up the boards, so the colour is taken from far to either
-                    // side of the place and a little above and below it.
+                    // side of the place and a little above and below it. A wall is told the
+                    // colour most of its sprite is instead (uTint.a is 8): near a wall's
+                    // end, far to either side is the next sprite on the game's sheet.
                     vec3 round = texel.rgb;
                     float found = 1.0;
-                    for (int i = 0; i < 12; i++) {
+                    for (int i = 0; i < 12 && !boarded; i++) {
                         float far = i < 8 ? (i < 2 ? 3.0 : i < 4 ? 7.0 : i < 6 ? 11.0 : 16.0) : (i < 10 ? 6.0 : 14.0);
                         vec2 off = (i < 8 ? vec2(far, 0.0) : vec2(0.0, far)) * (mod(float(i), 2.0) < 0.5 ? 1.0 : -1.0) * uTexel;
                         vec4 beside = texture2D(uTexture, vUv + off);
@@ -1028,7 +1036,7 @@ final class PipelineShaders {
                         round += beside.rgb * counts;
                         found += counts;
                     }
-                    round /= found;
+                    round = boarded ? uTint.rgb : round / found;
                     timbered = step(0.03, round.r - round.b) * step(round.b, round.g + 0.02)
                             * (1.0 - smoothstep(0.2, 0.34, abs(dot(texel.rgb - round, tone))));
                     vec3 facing = normalize(vNormal);

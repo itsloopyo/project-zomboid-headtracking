@@ -19,8 +19,10 @@ import java.util.HashMap;
 final class WallSides {
     /** How a skin is painted over: plain paint, or boards lapped one over the next. */
     static final int FLAT = 1, SIDING = 2;
-    /** How a wall that shows its own sprite is laid over it: bricks, boards lapped along it, or cut stone. See Masonry and laid. */
-    static final int BRICK = 4, LAPPED = 5, STONE = 6;
+    /** How a wall that shows its own sprite is laid over it: bricks, boards lapped along it, cut stone, or cast blocks. See Masonry and laid. */
+    static final int BRICK = 4, LAPPED = 5, STONE = 6, BLOCK = 7;
+    /** A wall of upright boards, which the picture makes board by board in the colour given. It has no colour of joints, and is never laid over another wall's sprite. */
+    static final int BOARDED = 8;
     private static final int BODY_LEVELS = 31, JOINT_LEVELS = 15;
     private static final int OVER = 8;
     /** In place of a colour: the triangles are the panes of windows, which the picture draws after everything else. No colour packs to this, a painted one being FLAT or SIDING with a colour above it. */

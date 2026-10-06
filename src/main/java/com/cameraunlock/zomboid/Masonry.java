@@ -6,8 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
 /**
- * What a wall is built of, read off its sprite: brick, boards lapped along it, cut stone, or
- * none of those.
+ * What a wall is built of, read off its sprite: brick, boards lapped along it, cast blocks,
+ * cut stone, or none of those.
  *
  * The game's picture of a brick wall is a few dots to a brick, and stood in front of it in
  * first person each brick is a blurred slab. The picture lays such a wall itself, brick by
@@ -17,7 +17,8 @@ import zombie.core.textures.Texture;
  * laid in courses is the same few rows over and over: every so many rows there is a row
  * lighter than the rest, the mortar, or darker, the shadow under a board. Between those rows a
  * brick wall has short upright lines of mortar where two bricks meet, and a boarded one has
- * none. Stone has the upright lines and no even spacing of its courses.
+ * none. Blocks are brick with courses three times as deep and faces all of one grey. Stone has
+ * the upright lines and faces that differ from one stone to the next.
  *
  * A sprite's dots are held by OpenGL and are read on the thread that draws, from the sheet
  * SpriteColours copies: the build asks, and is told nothing until a frame has been drawn.
@@ -36,12 +37,15 @@ final class Masonry {
     private static final float EVEN = 0.4f;
     /** Upright joints to a course along the strip: a boarded wall has fewer than the first, a brick one at least the second, a stone one at least the third. */
     private static final float NO_UPRIGHTS = 0.1f, BRICK_UPRIGHTS = 0.3f, STONE_UPRIGHTS = 0.5f;
-    /** The least a stone wall's rows differ in brightness. */
-    private static final float STONE_SPREAD = 0.03f;
     private static final int LONGEST_COURSE = 48, SHORTEST_COURSE = 3;
-    private static final float NEARLY = 0.7f;
-    /** The deepest a course of brick is, as a share of the sprite's height: deeper, the wall is of blocks or of stone. */
-    private static final float DEEPEST_BRICK = 0.065f;
+    private static final float NEARLY = 0.7f, HALFWAY = 0.4f;
+    /**
+     * The deepest a course of brick is and the shallowest a course of blocks, in dots. Not a share of the sprite's height: a
+     * parapet's sprite is half as high as a wall's and its bricks the same size.
+     */
+    private static final int DEEPEST_BRICK = 14, SHALLOWEST_BLOCK = 20;
+    /** How much the faces between the joints differ among themselves, in brightness from 0 to 1: under the first they are cast blocks, over the second cut stone. */
+    private static final float EVEN_FACE = 0.02f, ROUGH_FACE = 0.03f;
     private static final float RED = 0.299f, GREEN = 0.587f, BLUE = 0.114f;
 
     /** For each sprite read: how the picture lays it, as WallSides.laid gives it, or 0 for a wall that is shown as painted. */
@@ -198,12 +202,21 @@ final class Masonry {
         // A course is the fewest rows that suit nearly as well as the best: twice and three
         // times a course suit as well as one.
         int course = SHORTEST_COURSE;
-        while (course < alike.length - 1 && alike[course] < NEARLY * even) {
+        // And the first that suits better than the one after it: on the way up to a peak a
+        // few rows short of the course suit nearly as well as the course.
+        while (course < alike.length - 1 && (alike[course] < NEARLY * even || alike[course] < alike[course + 1])) {
             course++;
+        }
+        // Brick laid half a brick along from course to course is most like itself two courses
+        // up, where the upright joints come round again: half of that is the course, if the
+        // wall is like itself there too.
+        if (course % 2 == 0 && course / 2 >= SHORTEST_COURSE && course / 2 <= DEEPEST_BRICK && alike[course / 2] >= HALFWAY * even) {
+            course /= 2;
         }
         // Between two joints is a course. Along it, an upright joint is a dot as far from
         // the usual as a joint is, with such dots above and below it for the course's height.
-        int courses = 0, uprights = 0;
+        int courses = 0, uprights = 0, faceDots = 0;
+        double faceSquares = 0;
         long red = 0, green = 0, blue = 0;
         int jointDots = 0;
         for (int i = 0; i < count; ) {
@@ -231,7 +244,12 @@ final class Masonry {
                         blue += sheet.get(at + 2) & 0xff;
                         jointDots++;
                     } else {
-                        run = (bright(sheet, at) - usual) * sign > 0.5f * stands ? run + 1 : 0;
+                        float off = bright(sheet, at) - usual;
+                        run = off * sign > 0.5f * stands ? run + 1 : 0;
+                        if (off * sign <= 0.5f * stands) {
+                            faceSquares += off * off;
+                            faceDots++;
+                        }
                         longest = Math.max(longest, run);
                     }
                 }
@@ -249,9 +267,13 @@ final class Masonry {
         }
         float toACourse = uprights / (float) courses;
         float jointRed = red / (255f * jointDots), jointGreen = green / (255f * jointDots), jointBlue = blue / (255f * jointDots);
+        // How much the dots of the faces between the joints differ among themselves: cast
+        // blocks are one grey, and no two stones of a stone wall are the same.
+        float mottle = (float) Math.sqrt(faceSquares / Math.max(1, faceDots));
         int how = even > EVEN && toACourse < NO_UPRIGHTS && sign < 0f ? WallSides.LAPPED
-                : even > EVEN && toACourse >= BRICK_UPRIGHTS && course <= DEEPEST_BRICK * high ? WallSides.BRICK
-                : toACourse >= STONE_UPRIGHTS && spread >= STONE_SPREAD ? WallSides.STONE : 0;
+                : even > EVEN && toACourse >= BRICK_UPRIGHTS && course <= DEEPEST_BRICK ? WallSides.BRICK
+                : even > EVEN && toACourse >= BRICK_UPRIGHTS && course >= SHALLOWEST_BLOCK && mottle < EVEN_FACE ? WallSides.BLOCK
+                : toACourse >= STONE_UPRIGHTS && mottle >= ROUGH_FACE && course > DEEPEST_BRICK ? WallSides.STONE : 0;
         float[] body = new float[4];
         if (how == 0 || !WallSides.usualColour(sheet, width, left, top, right, bottom, body)) {
             return 0;

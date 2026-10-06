@@ -4347,7 +4347,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
     private boolean laidWall, gableSheet;
-    /** How far a low wall's colour may be from that of its building's walls, summed over red, green and blue, for it to be built as they are. */
+    /** How far a wall's colour may be from that of its building's walls, summed over red, green and blue, for it to be built as they are. */
     private static final float SAME_FINISH = 0.3f;
     private final float[] laidTint = new float[4];
 
@@ -4358,47 +4358,62 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * sheet of outside walls.
      */
     private SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits) {
-        if (overLayer != 0 || !suits || !Own.textures()) {
+        if (overLayer != 0 || !Own.textures()) {
             return mesh;
         }
-        // The wall under a roof's end is a sprite cut to the roof's slope, with a vent in it
-        // or a board up its edge, and reads as anything. It is built of what the walls under
-        // it are: the sprite most of the building's outside walls show says how it is laid.
-        int how = gableSheet ? 0 : Masonry.of(texture);
-        boolean unread = !gableSheet && Masonry.unread(texture);
-        if (how == 0 && !unread) {
-            // So is a wall too low to read, a parapet, where it is the colour of those walls.
-            // A wall on a building's south or east side stands on the square outside it, so the
-            // building is looked for under the square and then under the two the wall may face.
-            Texture finish = null;
-            for (int side = 0; side < 3 && finish == null; side++) {
-                int underX = here.getX() - (side == 2 ? 1 : 0), underY = here.getY() - (side == 1 ? 1 : 0);
-                for (int level = 0; level <= here.getZ() && finish == null; level++) {
-                    IsoGridSquare under = cell.getGridSquare(underX, underY, level);
-                    IsoBuilding standing = under == null ? null : under.getBuilding();
-                    if (standing != null) {
-                        finish = WallFinish.outside(cell, standing, level, under.getRoomID(), frames);
-                    }
+        // Upright boards are made board by board in the sprite's own colour: see timber.
+        if (frame.material == BOARDS) {
+            float[] colour = SpriteColours.of(texture);
+            if (colour == null) {
+                building.signed &= !SpriteColours.unread(texture);
+                return mesh;
+            }
+            return solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
+        }
+        if (!suits) {
+            return mesh;
+        }
+        // A building's walls are many sprites, with a window in one, a doorway in the next and
+        // a low one along the roof, each read on its own, and a few read wrongly: the piece
+        // round a doorway has little wall in it to read. What the plain walls of the building
+        // show is read from the most wall. So a wall of the colour of the building's finish is
+        // built as that finish is, whatever it reads as itself, and one wall is one thing
+        // from end to end. The wall under a roof's end, cut to the slope with a vent in it,
+        // is built so whatever its colour.
+        // A wall on a building's south or east side stands on the square outside it, so the
+        // building is looked for under the square and then under the two the wall may face.
+        Texture finish = null;
+        for (int side = 0; side < 3 && finish == null; side++) {
+            int underX = here.getX() - (side == 2 ? 1 : 0), underY = here.getY() - (side == 1 ? 1 : 0);
+            for (int level = 0; level <= here.getZ() && finish == null; level++) {
+                IsoGridSquare under = cell.getGridSquare(underX, underY, level);
+                IsoBuilding standing = under == null ? null : under.getBuilding();
+                if (standing != null) {
+                    finish = WallFinish.outside(cell, standing, level, under.getRoomID(), frames);
                 }
             }
-            if (finish != null && finish != texture) {
-                int built = Masonry.of(finish);
-                unread = Masonry.unread(finish);
-                if (built != 0 && !gableSheet) {
-                    float[] own = SpriteColours.of(texture);
-                    WallSides.tint(built, laidTint);
-                    unread = own == null;
-                    built = own != null && Math.abs(own[0] - laidTint[0]) + Math.abs(own[1] - laidTint[1]) + Math.abs(own[2] - laidTint[2]) <= SAME_FINISH ? built : 0;
-                }
-                how = built;
+        }
+        boolean unread = false;
+        int how = 0;
+        if (finish != null && finish != texture) {
+            int built = Masonry.of(finish);
+            unread = Masonry.unread(finish);
+            if (built != 0 && !gableSheet) {
+                float[] own = SpriteColours.of(texture);
+                WallSides.tint(built, laidTint);
+                unread |= SpriteColours.unread(texture);
+                built = own != null && Math.abs(own[0] - laidTint[0]) + Math.abs(own[1] - laidTint[1]) + Math.abs(own[2] - laidTint[2]) <= SAME_FINISH ? built : 0;
             }
+            how = built;
+        }
+        if (how == 0 && !gableSheet) {
+            how = Masonry.of(texture);
+            unread |= Masonry.unread(texture);
         }
         if (how == 0) {
             // A sprite is read by the next frame drawn. A build that went without is made
             // again when next due, though nothing it read of the map has changed.
-            if (unread) {
-                building.signed = false;
-            }
+            building.signed &= !unread;
             return mesh;
         }
         return solid.get(texture.getID(), how);

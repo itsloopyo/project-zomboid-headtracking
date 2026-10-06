@@ -179,7 +179,7 @@ final class WallFinish {
                 vote(room, square, false);
                 IsoGridSquare south = cell.getGridSquare(x, y + 1, z), east = cell.getGridSquare(x + 1, y, z);
                 level.whole &= z != 0 || south != null && east != null;
-                if (south != null && south.getRoomID() == -1L) {
+                if (south != null && south.getRoomID() == -1L && !papered(south, true)) {
                     vote(outside, south, true);
                     vote(southFace, south, true);
                     int style = styleOn(south, true);
@@ -188,7 +188,7 @@ final class WallFinish {
                         outsides.shows(square.getRoomID(), style);
                     }
                 }
-                if (east != null && east.getRoomID() == -1L) {
+                if (east != null && east.getRoomID() == -1L && !papered(east, false)) {
                     vote(outside, east, false);
                     vote(eastFace, east, false);
                     int style = styleOn(east, false);
@@ -238,6 +238,18 @@ final class WallFinish {
             }
         }
         return level;
+    }
+
+    /**
+     * Whether the wall on the square's north or west edge is of a sheet of inside walls. A
+     * square with no room is not always out of doors: a passage or an alcove the map gives no
+     * room to has papered walls, and a wall of it is no part of the building's outside. Taken
+     * for one, the room beside it was pink bathroom tiles on its far side.
+     */
+    private static boolean papered(IsoGridSquare square, boolean north) {
+        IsoObject wall = WorldScene.wallOn(square, north);
+        String name = wall == null ? null : wall.getSprite().getName();
+        return name != null && name.startsWith("walls_interior");
     }
 
     private static long at(int x, int y) {

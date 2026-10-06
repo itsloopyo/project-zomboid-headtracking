@@ -14,7 +14,10 @@ final class FacadeTests {
     static void run() {
         brickIsToldByItsUprightJoints();
         lappedBoardsHaveShadowsAndNoUprightJoints();
-        stoneHasUprightJointsAndUnevenCourses();
+        lowWallOfBrickIsBrick();
+        blocksAreDeepCoursesOfOneGrey();
+        stoneHasDeepCoursesAndNoTwoStonesAlike();
+        boardedWallCarriesItsColour();
         paintedWallIsLeftAsPainted();
         onlyOutsideWallsAreLaid();
         wireIsReadAsItsTwoEndsOverTheSquare();
@@ -32,12 +35,12 @@ final class FacadeTests {
     }
 
     /** A wall's sprite: the wall as the game's view shows it from the side, a dot down for every two along. */
-    private static ByteBuffer sprite(Wall wall) {
-        ByteBuffer pixels = ByteBuffer.allocateDirect(WIDE * HIGH * 4);
-        for (int y = 0; y < HIGH; y++) {
+    private static ByteBuffer sprite(Wall wall, int high) {
+        ByteBuffer pixels = ByteBuffer.allocateDirect(WIDE * high * 4);
+        for (int y = 0; y < high; y++) {
             for (int x = 0; x < WIDE; x++) {
                 int row = y - (x + 1) / 2;
-                int colour = row < 0 || row >= HIGH - WIDE ? 0 : wall.at(x, row);
+                int colour = row < 0 || row >= high - WIDE / 2 ? 0 : wall.at(x, row);
                 pixels.put((byte) (colour >> 16)).put((byte) (colour >> 8)).put((byte) colour).put((byte) (colour == 0 ? 0 : 255));
             }
         }
@@ -46,10 +49,27 @@ final class FacadeTests {
     }
 
     private static int laid(Wall wall) {
-        return Masonry.measure(sprite(wall), WIDE, 0, 0, WIDE, HIGH);
+        return laid(wall, HIGH);
+    }
+
+    private static int laid(Wall wall, int high) {
+        return Masonry.measure(sprite(wall, high), WIDE, 0, 0, WIDE, high);
+    }
+
+    /** A colour a little lighter or darker than the one given, by a number from 0 to 1. */
+    private static int shade(int colour, float by) {
+        float much = 0.8f + 0.4f * by;
+        return Math.min(255, (int) ((colour >> 16 & 255) * much)) << 16 | Math.min(255, (int) ((colour >> 8 & 255) * much)) << 8 | Math.min(255, (int) ((colour & 255) * much));
+    }
+
+    /** A number from 0 to 1 for each pair of whole numbers, with no pattern from one pair to the next. */
+    private static float chance(int a, int b) {
+        int mixed = (a * 73856093 ^ b * 19349663) * 0x9E3779B1;
+        return (mixed >>> 8) / (float) (1 << 24);
     }
 
     private static final int BRICK = 0xa04030, MORTAR = 0xd8c8b8, BOARD = 0xe0dcc8, SHADOW = 0x6a6658, STONE = 0xc0a870, PAINT = 0x8090a0;
+    private static final int BLOCK = 0xd0d0c4, BLOCK_JOINT = 0xb4b4a8;
 
     private static void brickIsToldByItsUprightJoints() {
         // Courses eight rows deep, bricks twenty dots long, each course half a brick along from the last.
@@ -73,14 +93,34 @@ final class FacadeTests {
         check((how & 15) == WallSides.LAPPED, "a wall with a dark line every board and no upright joints is lapped boards: " + Integer.toHexString(how));
     }
 
-    private static void stoneHasUprightJointsAndUnevenCourses() {
-        // Courses of fourteen and twenty-two rows by turns, the stones of each a different length.
+    private static void lowWallOfBrickIsBrick() {
+        // A parapet: the same brick in a sprite half as high.
+        int how = laid((along, row) -> row % 8 == 0 || (along + row / 8 % 2 * 10) % 20 == 0 ? MORTAR : BRICK, 106);
+        check((how & 15) == WallSides.BRICK, "a low wall's bricks are the size a whole wall's are: " + Integer.toHexString(how));
+    }
+
+    private static void blocksAreDeepCoursesOfOneGrey() {
+        // Courses twenty-eight rows deep, blocks thirty dots long, every block the same grey with a darker joint two dots wide.
+        int how = laid((along, row) -> row % 28 < 2 || (along + row / 28 % 2 * 15) % 30 < 2 ? BLOCK_JOINT : BLOCK);
+        check((how & 15) == WallSides.BLOCK, "a wall in deep even courses of one grey is cast blocks: " + Integer.toHexString(how));
+    }
+
+    private static void stoneHasDeepCoursesAndNoTwoStonesAlike() {
+        // Courses twenty rows deep, the stones of each a different length and each its own shade, mottled.
         int how = laid((along, row) -> {
-            int within = row % 36, course = row / 36 * 2 + (within < 14 ? 0 : 1);
-            boolean bed = within == 0 || within == 14;
-            return bed || (along + course * 7) % (course % 2 == 0 ? 17 : 23) == 0 ? SHADOW : STONE;
+            int course = row / 20, stone = (along + course * 7) / (course % 2 == 0 ? 17 : 23);
+            boolean joint = row % 20 == 0 || (along + course * 7) % (course % 2 == 0 ? 17 : 23) == 0;
+            return joint ? SHADOW : shade(STONE, 0.6f * chance(stone, course) + 0.4f * chance(along, row));
         });
-        check((how & 15) == WallSides.STONE, "a wall in deep uneven courses with upright joints is stone: " + Integer.toHexString(how));
+        check((how & 15) == WallSides.STONE, "a wall in deep courses of stones each its own shade is stone: " + Integer.toHexString(how));
+    }
+
+    private static void boardedWallCarriesItsColour() {
+        int key = WallSides.laid(0.5f, 0.3f, 0.2f, 0f, 0f, 0f, WallSides.BOARDED);
+        float[] tint = new float[4];
+        WallSides.tint(key, tint);
+        check(tint[3] == WallSides.BOARDED && Math.abs(tint[0] - 0.5f) < 0.02f && Math.abs(tint[2] - 0.2f) < 0.02f, "a boarded wall is told its sprite's colour: " + tint[0]);
+        check(tint[3] < WallSides.over(WallSides.BRICK) && tint[3] > WallSides.BLOCK, "and is neither a laid wall nor one laid over another's sprite");
     }
 
     private static void paintedWallIsLeftAsPainted() {

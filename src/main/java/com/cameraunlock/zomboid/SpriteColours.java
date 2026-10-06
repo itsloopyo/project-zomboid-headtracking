@@ -47,6 +47,12 @@ final class SpriteColours {
         return colour.length == 0 ? null : colour;
     }
 
+    /** Whether the sprite has still to be read: of() gives null for it, and may not once a frame has been drawn. */
+    static boolean unread(Texture texture) {
+        float[] colour = known.get(texture);
+        return colour == null || colour == ASKED;
+    }
+
     /** Has the sprite's sheet read on the next frame drawn though its colour is known: for Windows, which measures a sprite from the same copy. */
     static void readAgain(Texture texture) {
         asked.add(texture);
