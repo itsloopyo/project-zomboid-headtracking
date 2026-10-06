@@ -89,25 +89,48 @@ final class PipelineShaders {
     /**
      * The wind in grass. A blade is stiff at its root and limp at its tip, so it is pushed
      * over by the square of its height near the ground and evenly above that, and sinks as it
-     * goes over, since it is no longer than it was. The wind does not blow evenly: gusts cross
-     * a field as fronts, one after another, with the grass lying over under each and standing
-     * again behind it, finer ripples run over those, and every blade shivers at its own rate.
+     * goes over, since it is no longer than it was. The wind does not blow evenly: gusts the
+     * size of a yard drift over the ground with the grass lying over under each and standing
+     * again behind it, smaller swells ride on those, ripples run through both more slowly,
+     * and every blade shivers at a rate of its own.
+     *
+     * None of it is worked out from the way the wind blows. The gusts are a pattern laid over
+     * the map, and uGust is how far the wind has carried it, which only ever moves on: see
+     * Wind, which has the numbers the pattern repeats over. The push, uWind, eases after the
+     * game's wind. So a blade moves no faster than the air does, whatever the game's wind does.
      */
     private static final String GRASS_WIND = """
+            uniform vec3 uGust;
+
+            // Smooth noise that repeats every so many of its cells.
+            float gustAt(vec2 q, float cells) {
+                vec2 cell = floor(q), part = fract(q);
+                part = part * part * (3.0 - 2.0 * part);
+                vec2 low = mod(cell, cells), high = mod(cell + 1.0, cells);
+                float a = fract(sin(dot(low, vec2(12.9898, 78.233))) * 43758.5453);
+                float b = fract(sin(dot(vec2(high.x, low.y), vec2(12.9898, 78.233))) * 43758.5453);
+                float c = fract(sin(dot(vec2(low.x, high.y), vec2(12.9898, 78.233))) * 43758.5453);
+                float d = fract(sin(dot(high, vec2(12.9898, 78.233))) * 43758.5453);
+                return mix(mix(a, b, part.x), mix(c, d, part.x), part.y);
+            }
+
             vec3 swayed(vec3 at, float high, float seed) {
-                float strength = length(uWind.xy);
-                if (strength < 0.001 || high <= 0.0) {
+                float blows = length(uWind.xy);
+                if (blows < 0.001 || high <= 0.0) {
                     return at;
                 }
-                vec2 way = uWind.xy / strength;
+                float strength = min(blows, 1.5);
+                vec2 way = uWind.xy / blows;
                 vec2 beside = vec2(-way.y, way.x);
-                float along = dot(at.xy, way), over = dot(at.xy, beside);
-                float front = 0.5 + 0.5 * sin(along * 0.42 - uWind.z * 1.5 + 1.8 * sin(over * 0.23 + uWind.z * 0.17));
-                float ripple = sin(along * 2.9 - uWind.z * 4.1 + over * 1.3 + seed * 2.0);
-                float shiver = sin(uWind.z * (6.0 + 5.0 * seed) + seed * 37.0);
+                vec2 carried = at.xy - uGust.xy;
+                float gust = smoothstep(0.2, 0.85, gustAt(carried * 0.125, 8.0));
+                float swell = gustAt(carried * 0.5 + 3.7, 32.0);
+                float ripple = gustAt((at.xy - 0.25 * uGust.xy) * 2.0, 128.0) - 0.5;
+                // A whole number of shivers in the eight seconds the clock runs before it starts again.
+                float shiver = sin(uGust.z * 0.7853982 * (16.0 + floor(seed * 12.0)) + seed * 37.0);
                 float limp = high * high / (high + 0.12);
-                float push = min(strength, 1.5) * (0.14 + 0.62 * front * front + 0.1 * ripple) * 0.75 * limp;
-                at.xy += way * push + beside * (shiver * 0.035 * min(strength, 1.5) * limp);
+                float push = strength * (0.1 + 0.5 * gust + 0.22 * swell + 0.16 * ripple) * 0.75 * limp;
+                at.xy += way * push + beside * (shiver * 0.03 * strength * limp);
                 at.z -= min(push * push / (2.0 * max(high, 0.02)), 0.6 * high);
                 return at;
             }
@@ -1080,6 +1103,54 @@ final class PipelineShaders {
                 // and a pattern on the screen would leave out different leaves every frame.
                 bool bushy = vMaterial > 62.5 && vMaterial < 63.5;
                 bool crown = vMaterial > 71.5 && vMaterial < 79.5;
+                // The inside of a crown: see Flora.CORE. It is leaves in shade all over, no part
+                // of it cut away, so whatever is looked at through the crown's sprigs is more
+                // crown. Its texture coordinate's whole number is where on the plant's sprite
+                // it takes its colour, as a sprig's is, and the part over it says which kind of
+                // sprig its leaves are.
+                bool core = vMaterial > 80.5 && vMaterial < 81.5;
+                if (core) {
+                    // Standing in a tree, the inside of its crown is not a wall round the eye.
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.7) {
+                        discard;
+                    }
+                    vec2 cell = floor(vUv);
+                    float which = floor((vUv.x - cell.x) * 8.0);
+                    vec2 at = (cell + 0.5) / 2048.0;
+                    vec2 wide = uTexel * 4.0;
+                    vec4 sum = vec4(0.0);
+                    for (int i = 0; i < 5; i++) {
+                        vec2 off = i == 0 ? vec2(0.0) : i == 1 ? vec2(wide.x, 0.0) : i == 2 ? vec2(-wide.x, 0.0) : i == 3 ? vec2(0.0, wide.y) : vec2(0.0, -wide.y);
+                        vec4 painted = texture2D(uTexture, at + off);
+                        sum += vec4(painted.rgb * painted.a, painted.a);
+                    }
+                    if (sum.a < 0.5) {
+                        discard;
+                    }
+                    vec3 season = sum.rgb / sum.a;
+                    season *= mix(1.0, 0.4 / max(dot(season, vec3(0.299, 0.587, 0.114)), 0.05), 0.6);
+                    // The sprigs' picture laid over it by where it is, whichever way it faces:
+                    // leaves where the picture has them and the dark between leaves where it has none.
+                    vec3 faces = normalize(vNormal);
+                    vec2 lies = (abs(faces.z) > 0.75 ? vPlace.xy : abs(faces.x) > abs(faces.y) ? vPlace.yz : vPlace.xz) * 2.1;
+                    vec2 one = vec2(0.25, 0.5);
+                    vec2 kindAt = vec2(mod(which, 4.0), floor(which / 4.0));
+                    vec4 sprig = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(lies)) * one, dFdx(lies) * one, dFdy(lies) * one);
+                    // A sprig's picture is a spray with nothing round it, and laid side by side its
+                    // edges would rule the crown in squares: a second lot lies over the gaps of the first.
+                    vec2 over = lies.yx * 1.37 + 0.41;
+                    vec4 behind = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(over)) * one, dFdx(over) * one, dFdy(over) * one);
+                    if (sprig.a < 0.5) {
+                        sprig = vec4(behind.rgb * 0.8, behind.a);
+                    }
+                    // Only the leaves' light and dark is taken from the picture, never its colour:
+                    // its twigs are brown, and in here a twig is a hand across.
+                    float tone = clamp(dot(sprig.rgb / vec3(0.26, 0.42, 0.12), vec3(0.299, 0.587, 0.114)), 0.65, 1.3);
+                    float leaf = smoothstep(0.3, 0.6, sprig.a);
+                    vec3 leafy = season * mix(0.5, tone, leaf);
+                    texel = vec4(clamp(leafy, 0.0, 1.0), 1.0);
+                    small = false;
+                }
                 vec2 sprigAt = vec2(0.0);
                 if (crown) {
                     // A sprig of a crown: a branch tip in leaf, cut out of its card. Its texture
@@ -1562,7 +1633,7 @@ final class PipelineShaders {
                 // as the mean of two samples one texel apart across, each step is averaged with
                 // the next and the edge comes out straight.
                 vec2 half = vec2(0.5 * uTexel.x, 0.0);
-                float cover = uTexel.x > 0.0 && !small && !crown ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
+                float cover = uTexel.x > 0.0 && !small && !crown && !core ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
                 // A wire or an aerial painted one texel wide never covers more than half of two
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
@@ -1775,7 +1846,7 @@ final class PipelineShaders {
     static final String WORLD_FRAGMENT_MAIN_REST = """
                 vec3 toEye = uEye - vWorld;
                 // What stands as a card and is not water: see card below.
-                if (vKind > 1.5 && !(vKind > 3.5 && !grass) && !grass && !grown && !crown && length(vNormal.xy) > 0.1 * length(vNormal)) {
+                if (vKind > 1.5 && !(vKind > 3.5 && !grass) && !grass && !grown && !crown && !core && length(vNormal.xy) > 0.1 * length(vNormal)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
                     float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
@@ -2214,7 +2285,7 @@ final class PipelineShaders {
                     // A blade lets most through near its tip, where it is thinnest.
                     // A crown's leaves each pass what their own turn and thickness let them, and
                     // a little more, as all foliage does, straight towards the eye.
-                    float through = grass ? 0.55 + 0.9 * bladeUp : crown ? LEAF_GLOW_AGAINST * leafThrough : 1.0;
+                    float through = grass ? 0.55 + 0.9 * bladeUp : crown ? LEAF_GLOW_AGAINST * leafThrough : core ? 0.2 : 1.0;
                     color += leaf * pow(uLightColor, vec3(2.2)) * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z));
                     if (crown && reached > 0.0) {
                         // The upper skin of a leaf is waxed, and throws the sun off as a
@@ -2435,7 +2506,7 @@ final class PipelineShaders {
                 float material = floor((gl_Color.a + 0.5) / 32.0);
                 vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 || material > 79.5 && material < 80.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
-                if (material > 71.5 && material < 79.5) {
+                if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
                     return;
                 }

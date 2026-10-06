@@ -157,6 +157,23 @@ final class Flora {
      * and shadow shaders have the same numbers.
      */
     static final float CROWN = 72f, SHADE = 80f;
+    /**
+     * The inside of a crown: a closed mass of leaves in shade, within the sprigs, so that a
+     * look through the crown ends on leaves and not on the sky behind the tree. A real crown
+     * is leaves all the way in, and only its rim is seen through. The world and shadow shaders
+     * have the same number.
+     */
+    static final float CORE = 81f;
+    /**
+     * How far out the inside of a crown comes, as a share of the crown's own reach, between
+     * which shares of its height it stands, how much of the crown's light gets to it, how
+     * far it draws in at its foot as a share of how far out it is there, and how many rings
+     * it is made of and how many faces round.
+     */
+    private static final float CORE_OF_REACH = 0.74f, CORE_FOOT = 0.06f, CORE_HEAD = 0.95f, CORE_SHADE = 0.6f, CORE_UNDER = 0.3f;
+    private static final int CORE_RINGS = 6, CORE_ROUND = 10;
+    /** How many kinds of sprig a vertex of the inside can say it is among: its texture coordinate's part over the whole number is the kind's place in so many. */
+    static final float CORE_KINDS = 8f;
     /** The sprigs in their picture, four to a row. */
     static final int LINDEN = 0, MAPLE = 1, BIRCH = 2, PINE = 3, HEMLOCK = 4, HOLLY = 5, SHRUB = 6;
     /** How many places are tried on a plant's sprite for where it paints leaves. */
@@ -416,6 +433,7 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
+        addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig);
         if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
             mark(wood, frame.open, 0f, TRUNK);
             // Up the middle, from the bole's top.
@@ -468,6 +486,71 @@ final class Flora {
         }
         wood.sway = 0f;
         return true;
+    }
+
+    /**
+     * The inside of the crown addCrown is making: rings from near its foot to near its top,
+     * each as far out as CORE_OF_REACH of the crown there with the boughs' swells and hollows
+     * in it, closed over at the top and drawn in underneath to a hole the limbs come in by. Each ring takes its colour from a place
+     * the sprite paints leaves at that height, half way out from the plant's middle.
+     */
+    private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
+            float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
+            float turnThree, int sprig) {
+        int count = places.length / 2;
+        int[] placeOf = new int[CORE_RINGS];
+        float[] nearest = new float[CORE_RINGS];
+        java.util.Arrays.fill(placeOf, -1);
+        java.util.Arrays.fill(nearest, Float.MAX_VALUE);
+        for (int i = 0; i < count; i++) {
+            float high = (footV - places[i * 2 + 1]) * up;
+            if (high < under) {
+                continue;
+            }
+            float share = (high - lowest) / tall;
+            int ring = Math.clamp((int) ((share - CORE_FOOT) / (CORE_HEAD - CORE_FOOT) * CORE_RINGS), 0, CORE_RINGS - 1);
+            // Half way out to one side: up the sprite's middle is where it paints the trunk's shade, and at its rim the leaves' edges.
+            float half = 0.5f * reachAt(reachLeft, reachRight, share) / across;
+            float off = Math.abs(Math.abs(places[i * 2] - footU) - half);
+            if (off < nearest[ring]) {
+                nearest[ring] = off;
+                placeOf[ring] = i;
+            }
+        }
+        // A ring at whose height the sprite paints nothing has the colour of the ring nearest it that has one.
+        for (int ring = 0; ring < CORE_RINGS; ring++) {
+            for (int off = 1; placeOf[ring] < 0 && off < CORE_RINGS; off++) {
+                int below = ring - off, above = ring + off;
+                placeOf[ring] = below >= 0 && placeOf[below] >= 0 ? placeOf[below] : above < CORE_RINGS && placeOf[above] >= 0 ? placeOf[above] : -1;
+            }
+        }
+        mark(mesh, frame.open, SpriteGeometry.CARD, CORE);
+        float red = frame.red * CORE_SHADE, green = frame.green * CORE_SHADE, blue = frame.blue * CORE_SHADE;
+        float kind = (sprig + 0.5f) / CORE_KINDS;
+        for (int ring = 0; ring < CORE_RINGS; ring++) {
+            int place = placeOf[ring];
+            float u = (float) Math.rint((frame.uStart + (places[place * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS) + kind;
+            float v = (float) Math.rint((frame.vStart + (places[place * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS) + 0.5f;
+            float shareLow = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * ring / CORE_RINGS, shareHigh = CORE_FOOT + (CORE_HEAD - CORE_FOOT) * (ring + 1) / CORE_RINGS;
+            boolean top = ring == CORE_RINGS - 1;
+            for (int face = 0; face < CORE_ROUND; face++) {
+                float roundFrom = face * 6.2832f / CORE_ROUND, roundTo = (face + 1) * 6.2832f / CORE_ROUND;
+                // The top ring closes to a point, which makes the second of a face's two triangles nothing: it is left out.
+                for (int at = 0; at < (top ? 3 : QUAD.length); at++) {
+                    int corner = QUAD[at];
+                    boolean high = corner >= 2, to = corner == 1 || corner == 2;
+                    float round = to ? roundTo : roundFrom, share = high ? shareHigh : shareLow;
+                    float out = top && high ? 0f : (ring == 0 && !high ? CORE_UNDER : 1f) * CORE_OF_REACH * reachAt(reachLeft, reachRight, share)
+                            * (1f - BOUGH_HOLLOW * (1f - bough(round, share, lobes, rows, turnOne, turnTwo, turnThree)));
+                    float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
+                    float over = lowest + share * tall;
+                    mesh.face(cos, sin, 0.1f + 1.4f * (share - 0.4f));
+                    mesh.sway = Math.clamp(over * SWAY_PER_TILE, 0f, SWAY_MOST);
+                    mesh.add(x + cos * out, y + sin * out, base + over, u, v, red, green, blue);
+                }
+            }
+        }
+        mesh.sway = 0f;
     }
 
     /** How far out a crown reaches at a share of the way up it: see addCrown. */

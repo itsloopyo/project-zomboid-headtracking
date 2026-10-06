@@ -61,8 +61,10 @@ final class SkyState {
     float cover;
     float driftX, driftY;
     float seconds;
-    /** The way the wind blows, scaled by how hard: what growing things lean and shake along. */
+    /** The way the wind pushes what grows, scaled by how hard, eased after the game's wind: see Wind. */
     float windX, windY;
+    /** How far the wind has carried its gusts over the ground, in tiles, and the seconds on the clock grass shivers by: see Wind. */
+    float gustX, gustY, flutter;
     /** How much there is in the air for light to catch: a little on a clear day, a lot in fog. */
     float mist;
     /** How hard it is raining, 0 to 1. Snow is not rain. */
@@ -73,6 +75,7 @@ final class SkyState {
     float outdoors;
 
     private static float driftedX, driftedY;
+    private static final Wind wind = new Wind();
     private static float wetness;
     private static final float SECONDS_TO_WET = 12f, SECONDS_TO_DRY = 180f;
     private static long lastNanos;
@@ -162,8 +165,6 @@ final class SkyState {
 
         float windAngle = climate.getWindAngleRadians();
         float windStrength = 0.35f + 1.4f * Math.clamp(climate.getWindIntensity(), 0f, 1f);
-        windX = (float) Math.cos(windAngle) * windStrength;
-        windY = (float) Math.sin(windAngle) * windStrength;
         mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
@@ -174,13 +175,18 @@ final class SkyState {
             float elapsed = Math.min((now - lastNanos) / 1e9f, 0.25f);
             wetness = Math.clamp(wetness + (this.rain > 0.05f ? elapsed / SECONDS_TO_WET : -elapsed / SECONDS_TO_DRY), 0f, 1f);
             float speed = DRIFT_STILL + DRIFT_PER_WIND * Math.clamp(climate.getWindIntensity(), 0f, 1f);
-            float wind = climate.getWindAngleRadians();
-            driftedX += (float) Math.cos(wind) * speed * elapsed;
-            driftedY += (float) Math.sin(wind) * speed * elapsed;
+            driftedX += (float) Math.cos(windAngle) * speed * elapsed;
+            driftedY += (float) Math.sin(windAngle) * speed * elapsed;
             // The noise repeats every 1, and a float that only ever grew would lose the fraction.
             driftedX -= (float) Math.floor(driftedX);
             driftedY -= (float) Math.floor(driftedY);
+            wind.blow((float) Math.cos(windAngle) * windStrength, (float) Math.sin(windAngle) * windStrength, elapsed);
         }
+        windX = wind.pushX;
+        windY = wind.pushY;
+        gustX = wind.travelX;
+        gustY = wind.travelY;
+        flutter = wind.flutter;
         lastNanos = now;
         wet = wetness;
         driftX = driftedX;

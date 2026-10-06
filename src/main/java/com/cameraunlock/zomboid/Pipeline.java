@@ -954,6 +954,7 @@ final class Pipeline {
         shadow.use();
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
+        shadow.set("uGust", state.gustX, state.gustY, state.flutter);
         shadow.set("uFaced", state.facedX, state.facedY);
         shadow.set("uAcross", state.acrossX, state.acrossY);
         shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
@@ -1408,6 +1409,7 @@ final class Pipeline {
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
         world.set("uWind", state.windX, state.windY, state.seconds);
+        world.set("uGust", state.gustX, state.gustY, state.flutter);
         world.set("uFaced", state.facedX, state.facedY);
         world.set("uAcross", state.acrossX, state.acrossY);
         world.set("uWet", state.wet);

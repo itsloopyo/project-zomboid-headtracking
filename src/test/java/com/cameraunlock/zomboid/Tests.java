@@ -1035,6 +1035,7 @@ public final class Tests {
         ShapeTests.run();
         CrownTests.run();
         GrassTests.run();
+        WindTests.run();
         WindowTests.run();
         ReflectionTests.run();
         DecorTests.run();

@@ -51,7 +51,8 @@ final class CrownTests {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7), "a painted crown makes a crown");
         int vertices = mesh.floats / SpriteGeometry.VERTEX_FLOATS;
-        check(vertices >= 6 * 20 && vertices % 6 == 0, "the crown is whole sprigs of two triangles, a good many of them: " + vertices / 6);
+        int sprigs = sprigVertices(mesh), inside = 0;
+        check(sprigs >= 6 * 20 && sprigs % 6 == 0, "the crown is whole sprigs of two triangles, a good many of them: " + sprigs / 6);
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS, up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL;
         // The painted disc is 50 pixels round a middle 160 above the foot, and a sprig reaches at most its own length past where it grows.
         float reach = 50f * across + 1f, low = 110f * up - 1f, high = 210f * up + 1f;
@@ -62,15 +63,36 @@ final class CrownTests {
             check(z >= low && z <= high, "every sprig is at the height the sprite paints leaves at, not " + z);
             float u = mesh.vertices[at + 3], v = mesh.vertices[at + 4];
             float partU = u - (float) Math.floor(u), partV = v - (float) Math.floor(v);
-            check(Math.abs(partU - 0.25f) < 1e-3f || Math.abs(partU - 0.75f) < 1e-3f, "a corner is a quarter in from the whole number across");
-            check(Math.abs(partV - 0.25f) < 1e-3f || Math.abs(partV - 0.75f) < 1e-3f, "and down");
+            float material = (float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f);
+            boolean core = material == Flora.CORE;
+            if (core) {
+                // The inside of the crown: within the sprigs, in shade, and saying which kind of leaf it is made of.
+                inside++;
+                check(Math.sqrt(dx * dx + dy * dy) <= 50f * across * 0.8f, "the inside of a crown keeps inside its sprigs");
+                check(Math.abs(partU - (Flora.MAPLE + 0.5f) / Flora.CORE_KINDS) < 1e-3f, "the inside says which sprig its leaves are");
+                check(mesh.vertices[at + 5] < 0.8f * 0.7f, "the inside of a crown is in the shade of its outside");
+            } else {
+                check(Math.abs(partU - 0.25f) < 1e-3f || Math.abs(partU - 0.75f) < 1e-3f, "a corner is a quarter in from the whole number across");
+                check(Math.abs(partV - 0.25f) < 1e-3f || Math.abs(partV - 0.75f) < 1e-3f, "and down");
+                check(material == Flora.CROWN + Flora.MAPLE, "every vertex is marked as a sprig of the asked kind");
+            }
             // The whole number is a place in the sprite's own part of its texture, which the crown is coloured from.
             float spriteU = (float) Math.floor(u) / Flora.CROWN_STEPS, spriteV = (float) Math.floor(v) / Flora.CROWN_STEPS;
             check(spriteU >= 0.25f - 1e-3f && spriteU <= 0.5f + 1e-3f && spriteV >= 0.5f - 1e-3f && spriteV <= 1f + 1e-3f,
                     "the colour is taken from inside the sprite's frame");
-            float material = (float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f);
-            check(material == Flora.CROWN + Flora.MAPLE, "every vertex is marked as a sprig of the asked kind");
         }
+        check(inside >= 3 * 40 && inside % 3 == 0, "a crown has an inside, of whole triangles all the way round it: " + inside / 3);
+    }
+
+    /** How many of a crown's vertices are its sprigs', and not its inside's. */
+    private static int sprigVertices(SpriteGeometry.Mesh mesh) {
+        int count = 0;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) != Flora.CORE) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static void crownFurtherOffIsFewerSprigs() {
@@ -79,7 +101,8 @@ final class CrownTests {
         SpriteGeometry.Mesh near = new SpriteGeometry.Mesh(), far = new SpriteGeometry.Mesh();
         Flora.addCrown(near, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
         Flora.addCrown(far, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
-        check(far.floats > 0 && far.floats * 2 < near.floats, "a crown at a quarter of the detail has under half the sprigs: " + far.floats + " of " + near.floats);
+        int farSprigs = sprigVertices(far), nearSprigs = sprigVertices(near);
+        check(farSprigs > 0 && farSprigs * 2 < nearSprigs, "a crown at a quarter of the detail has under half the sprigs: " + farSprigs + " of " + nearSprigs);
     }
 
     private static void spriteWithNextToNothingPaintedHasNoCrown() {

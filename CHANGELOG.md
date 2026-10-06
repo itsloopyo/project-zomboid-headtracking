@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Filled in the crowns of trees and bushes in the first person view. A crown was a shell of leaves with nothing inside it, so the sky showed through it all over. It now has leaves in shade all the way in, and a look through the crown ends on more of the tree. Only the rim of a crown is seen through, as on a real tree.
 - Built walls of concrete block in the first person view block by block, as brick walls are built brick by brick. They were still the game's small picture of a wall, stretched.
 - Built the low wall round a flat roof of the same brick as the walls under it. It was drawn as large stone blocks on top of a brick shop.
 - Made every piece of one wall the same material in the first person view. A piece with a doorway or a window in it could come out as stone in a brick wall, and the wall under a roof's end a shade off the wall below it.
@@ -111,6 +112,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Fixed the grass in the first person view swaying for a few seconds and then snapping back. The game turns its wind a little every few seconds, and the grass's gusts were laid out along the wind's direction, so each small turn threw every blade somewhere else at once. The gusts now drift over the ground on their own and only ever move on, and the lean of grass and trees eases round to a new wind over a few seconds, so nothing moves faster than the air does. Large gusts cross a yard with smaller swells and ripples in them, and each blade shivers at its own rate.
 - Laid every street level from one kerb to the other in the first person view. A street beside a building was pulled up or down on that side to the height of the building's floor, and a street along a hillside leaned with the hill, so one side of a road stood proud of the other. A street now rises and falls only along its length, the ground beside it is graded to meet it, and a building near water stands at the height of the valley it is in.
 - Went back to the game's own arms on a held weapon in first person. The mod drew sleeves of its own from the shoulders to the hands on the weapon; the game's arms are drawn again, whole, carried with the weapon. The sleeves are still in the mod, switched off.
 - Left reflections out of the `Low` graphics mode: your own in a window, and what a polished floor, a wet road and a pane of glass mirrored of the room or the street.
