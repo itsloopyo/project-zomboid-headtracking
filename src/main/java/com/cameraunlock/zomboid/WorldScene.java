@@ -16,6 +16,7 @@ import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.core.Core;
 import zombie.core.properties.PropertyContainer;
+import zombie.core.skinnedmodel.DeadBodyAtlas;
 import zombie.core.textures.ColorInfo;
 import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
@@ -32,6 +33,7 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
+import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
@@ -144,6 +146,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private long checkedNanos, builtNanos;
         /** Where the eye was when the build was made, and which way lay to the right of the view. */
         private float eyeX, eyeY, eyeUp, rightX, rightY;
+        /** Where the camera the build was to be drawn from was: see WorldScene.facedX. */
+        private float facedX, facedY;
         /** Whether a square of the build was so near the eye that its cards lie across the view. */
         private boolean acrossView;
         /** Whether what the build read of the map was summed as it was made, and the sum: see signature. */
@@ -336,6 +340,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private float rightX, rightY;
     /** The direction an upright sprite on the square being added runs along. */
     private float cardRightX, cardRightY;
+    /**
+     * Where the camera the frame is drawn from is, which is what an upright sprite is turned to
+     * face. Seen from outside that is not the eye the scene is built round: turned to the
+     * viewer, every card in the game's own view swung round as the viewer walked past it.
+     */
+    private float facedX, facedY;
     private float tanHalfFieldOfView;
     private float tanHalfSet;
 
@@ -525,11 +535,27 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** How far the eye may be, in tiles, from where a chunk right by it was built from and still count as held, and how far its right may have turned. */
     private static final float EYE_HELD_WITHIN = 0.006f, TURN_HELD_WITHIN = 0.004f;
 
-    /** Whether the eye is as good as where a build was made from: further off, a chunk's cards turn less for the same step, and the step may be longer. */
-    private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance) {
+    /**
+     * Whether the eye is as good as where a build was made from: further off, a chunk's cards
+     * turn less for the same step, and the step may be longer. The camera the cards face has to
+     * be as good as where it was too, or to lie the same way from the chunk.
+     */
+    private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance, float middleX, float middleY) {
         float within = EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f));
         return Math.abs(built.eyeX - view.eyeX) <= within && Math.abs(built.eyeY - view.eyeY) <= within && Math.abs(built.eyeUp - view.eyeUp) <= within
-                && (!built.acrossView || Math.abs(built.rightX - rightX) <= TURN_HELD_WITHIN && Math.abs(built.rightY - rightY) <= TURN_HELD_WITHIN);
+                && (!built.acrossView || Math.abs(built.rightX - rightX) <= TURN_HELD_WITHIN && Math.abs(built.rightY - rightY) <= TURN_HELD_WITHIN)
+                && (Math.abs(built.facedX - facedX) <= within && Math.abs(built.facedY - facedY) <= within || facedTheSameWay(built, middleX, middleY));
+    }
+
+    /**
+     * Whether the camera lies the same way from the middle of a chunk as when its build was
+     * made. The camera of the game's own view is thousands of tiles off and moves as that view
+     * is scrolled: the way to it, which is all a card goes by, does not change.
+     */
+    private boolean facedTheSameWay(ChunkMeshes built, float middleX, float middleY) {
+        float thenX = built.facedX - middleX, thenY = built.facedY - middleY, nowX = facedX - middleX, nowY = facedY - middleY;
+        float lengths = (float) Math.sqrt((thenX * thenX + thenY * thenY) * (nowX * nowX + nowY * nowY));
+        return thenX * nowX + thenY * nowY > 0f && Math.abs(thenX * nowY - thenY * nowX) <= TURN_HELD_WITHIN * lengths;
     }
 
     /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
@@ -618,13 +644,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * @param tanHalfFieldOfView the tangent of half the vertical field of view the frame is drawn with
      * @param tanHalfSet         the tangent of half the vertical field of view the player set, which
      *                           the first is narrower than while a firearm is aimed
-     * @param fromOutside        the frame is drawn by a camera that is somewhere else: see seenFrom
+     * @param from               the camera the frame is drawn by when that is somewhere else, or null: see seenFrom
      * @param opened             what is over a viewer indoors is not built, as the game leaves it out of its own view
      */
     void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
-            boolean fromOutside, boolean opened) {
+            ViewCamera.Pose from, boolean opened) {
         long start = System.nanoTime();
+        boolean fromOutside = from != null;
         camera.set(view);
+        facedX = fromOutside ? from.eyeX : view.eyeX;
+        facedY = fromOutside ? from.eyeY : view.eyeY;
         aim.set(aimed);
         outside = false;
         opacity = 1f;
@@ -828,7 +857,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // player standing in a crowd. An eye within a few millimetres of where a chunk
                 // was built from, looking the same way to a quarter of a degree, is still as far
                 // as that chunk goes: its cards would turn by less than can be seen.
-                boolean still = missing ? eyeStill : heldSince(current, view, distance);
+                boolean still = missing ? eyeStill : heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                 boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
@@ -881,6 +910,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.eyeUp = view.eyeUp;
                     fresh.rightX = rightX;
                     fresh.rightY = rightY;
+                    fresh.facedX = facedX;
+                    fresh.facedY = facedY;
                     fresh.signed = summed;
                     fresh.signature = read;
                     fresh.summedFrom = summedFrom;
@@ -1080,11 +1111,25 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     for (int k = 0; k < bodies.size(); k++) {
                         IsoMovingObject body = bodies.get(k);
                         sum = sum(sum(sum(sum, Float.floatToRawIntBits(body.getX())), Float.floatToRawIntBits(body.getY())), Float.floatToRawIntBits(body.getZ()));
+                        if (body instanceof IsoDeadBody dead) {
+                            sum = sum(sum, pictured(dead));
+                        }
                     }
                 }
             }
         }
         return sum;
+    }
+
+    /** The picture the game has of a body and where it draws it, as one number: 0 while it has none. */
+    private static long pictured(IsoDeadBody body) {
+        DeadBodyAtlas.BodyTexture picture = body.getAtlasTexture();
+        Texture texture = picture == null ? null : picture.getTexture();
+        if (!usable(texture) || !texture.isReady()) {
+            return 0;
+        }
+        return (long) System.identityHashCode(texture) << 32
+                | (Float.floatToRawIntBits(picture.getRenderX(0f)) * 31 + Float.floatToRawIntBits(picture.getRenderY(0f))) & 0xffffffffL;
     }
 
     /** A sprite and the texture it shows this frame turned that way, as one number. */
@@ -1320,7 +1365,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // Leaves stand on the same card as their trunk. Each layer is moved a little towards
         // the eye from the one under it, or the two would be drawn through each other.
         overLayer++;
-        float toX = camera.eyeX - (x + 0.5f), toY = camera.eyeY - (y + 0.5f);
+        float toX = facedX - (x + 0.5f), toY = facedY - (y + 0.5f);
         float away = Math.max((float) Math.sqrt(toX * toX + toY * toY), 0.5f);
         float nearer = overLayer * (CARD_LAYER + 4f * standOff);
         geometry.nudgeX = toX / away * nearer;
@@ -2091,10 +2136,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // An upright sprite faces the eye, not the way the view is turned, so it holds still
         // while the head or the mouse turns. On the eye's own square there is no such
         // direction, and it lies across the view.
-        float along = (float) Math.sqrt(toX * toX + toY * toY);
+        float facedToX = x + 0.5f - facedX, facedToY = y + 0.5f - facedY;
+        float along = (float) Math.sqrt(facedToX * facedToX + facedToY * facedToY);
         if (along > 0.5f) {
-            cardRightX = -toY / along;
-            cardRightY = toX / along;
+            cardRightX = -facedToY / along;
+            cardRightY = facedToX / along;
         } else {
             cardRightX = rightX;
             cardRightY = rightY;
@@ -2206,11 +2252,45 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
         for (int i = 0; i < bodies.size() && !unexplored; i++) {
-            IsoMovingObject body = bodies.get(i);
-            solid.get(PLAIN).open = frame.open;
-            SpriteGeometry.addPlainFlat(solid.get(PLAIN), body.getX(), body.getY(),
-                    body.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(body.getX(), body.getY(), body.getZ()) + 0.08f,
-                    0.85f, 0.3f, 0.35f * frame.red, 0.2f * frame.green, 0.18f * frame.blue);
+            if (bodies.get(i) instanceof IsoDeadBody body) {
+                addBody(body);
+            }
+        }
+    }
+
+    /** How far above the floor a body's picture is laid, in tiles: clear of the blood and the litter laid on the floor under it. */
+    private static final float BODY_UP = 0.08f;
+    private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
+
+    /**
+     * A body lying on the ground. The game has no model standing there to draw: it keeps a
+     * picture of the body as its own view sees it, made once, and draws that where the body
+     * lies. The same picture is laid on the ground here, every texel of it where the game's
+     * view has it, so it is the body the game shows, lying as the game shows it. The game
+     * makes the picture when the body first comes into its own view, and until then there is
+     * none to lay.
+     */
+    private void addBody(IsoDeadBody body) {
+        DeadBodyAtlas.BodyTexture picture = body.getAtlasTexture();
+        Texture texture = picture == null ? null : picture.getTexture();
+        if (!usable(texture) || !texture.isReady()) {
+            return;
+        }
+        SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+        mesh.open = frame.open;
+        mesh.face(0f, 0f, 1f);
+        float x = body.getX(), y = body.getY(), z = body.getZ();
+        // Where the game draws the picture, in its own pixels from where it draws the body's place on the floor.
+        float left = picture.getRenderX(0f), top = picture.getRenderY(0f), wide = picture.getRenderWidth(), high = picture.getRenderHeight();
+        float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
+        // What is above the floor is drawn further up the screen, so the picture lies this much nearer the game's view than it would on the floor.
+        float nearer = BODY_UP / ViewCamera.LEVEL_HEIGHT * SpriteGeometry.PIXELS_PER_LEVEL / (2f * SpriteGeometry.PIXELS_DOWN_PER_TILE);
+        for (int corner : BODY_CORNERS) {
+            boolean right = corner == 1 || corner == 2, low = corner >= 2;
+            float u = (left + (right ? wide : 0f)) / across, v = (top + (low ? high : 0f)) / down;
+            float atX = x + (v + u) / 2f + nearer, atY = y + (v - u) / 2f + nearer;
+            mesh.add(atX, atY, z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(atX, atY, z) + BODY_UP,
+                    right ? texture.getXEnd() : texture.getXStart(), low ? texture.getYEnd() : texture.getYStart(), frame.red, frame.green, frame.blue);
         }
     }
 
@@ -2681,7 +2761,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // clear of the one under it on the side the eye is on, square to this card:
             // a move straight towards the eye does nothing for a card seen at a slant.
             float squareX = alongY, squareY = -alongX;
-            float eyeSide = Math.signum(squareX * (camera.eyeX - x - 0.5f) + squareY * (camera.eyeY - y - 0.5f));
+            float eyeSide = Math.signum(squareX * (facedX - x - 0.5f) + squareY * (facedY - y - 0.5f));
             float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
             geometry.nudgeX = squareX * clear;
             geometry.nudgeY = squareY * clear;

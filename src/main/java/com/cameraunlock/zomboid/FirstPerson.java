@@ -402,7 +402,7 @@ public final class FirstPerson {
         aimView.eyeUp += carried[2];
         WorldScene scene = WorldScene.next();
         if (landed) {
-            scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), false, false);
+            scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
         } else {
             fly(player, scene, floorUp);
         }
@@ -438,11 +438,11 @@ public final class FirstPerson {
             standingView.eyeY = eye[1];
             standingView.eyeUp = eye[2];
             Ride.seated = false;
-            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), true, false);
+            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, Flight.tanHalfFieldOfView(), Flight.away(), Flight.share());
         } else {
             fromTheEye = true;
-            scene.build(player, flightView, aimView, Flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), false, false);
+            scene.build(player, flightView, aimView, Flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
         }
         scene.mixed(Flight.shown());
     }
@@ -535,7 +535,7 @@ public final class FirstPerson {
         WorldScene scene = WorldScene.next();
         WorldScene.rehearsing = true;
         try {
-            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), false, false);
+            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
         } finally {
             WorldScene.rehearsing = false;
         }
@@ -575,7 +575,7 @@ public final class FirstPerson {
         Ride.seated = false;
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
         WorldScene scene = WorldScene.next();
-        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), true, true);
+        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
