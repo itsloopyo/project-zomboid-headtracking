@@ -140,6 +140,7 @@ public final class FirstPerson {
     private static float shotDistance;
 
     private static final Vector2 forward = new Vector2();
+    private static final Stride stride = new Stride();
     private static final Vector2 traceAim = new Vector2();
     private static float traceMoveX, traceMoveY;
     private static long lastTrace;
@@ -281,7 +282,13 @@ public final class FirstPerson {
         notePace(now, frameNanos);
         lastFrameNanos = now;
         Flight.advance(on, sinceLastFrame, !overhead);
+        boolean wasLanded = landed;
         landed = on && Flight.landed();
+        if (landed && !wasLanded && player.getVehicle() == null) {
+            stride.land(traceMoveX, traceMoveY, yaw, now);
+        } else if (!landed) {
+            stride.reset();
+        }
         active = landed && !GameTime.isGamePaused() && !player.isDead();
         if (!landed) {
             pointer.reset();
@@ -715,12 +722,13 @@ public final class FirstPerson {
             return move;
         }
         if (move.x == 0f && move.y == 0f) {
+            stride.reset();
             if (!player.isAiming()) {
                 player.setForwardDirection(forward.set((float) Math.cos(yaw), (float) Math.sin(yaw)));
             }
             return move;
         }
-        float turn = yaw - STOCK_FORWARD_YAW;
+        float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);
         return move.set(move.x * cos - move.y * sin, move.x * sin + move.y * cos);

@@ -73,6 +73,7 @@ public final class Tests {
         returnedBooleanGoesThroughTheFilter();
         staticIntFieldIsRequiredAsDeclared();
         attackHoldsTheAimForAShortTail();
+        keysHeldThroughTheLandingKeepTheirWalk();
         zoomScalesWhatMovesAcrossThePicture();
         fieldOfViewEasesToTheAimedZoomAndBack();
         firstPersonKeysReplaceTheStockOnes();
@@ -1945,6 +1946,29 @@ public final class Tests {
             refused = true;
         }
         check(refused, "a class without the method is rejected");
+    }
+
+    private static void keysHeldThroughTheLandingKeepTheirWalk() {
+        long start = Long.MAX_VALUE - Stride.ADJUST_NANOS / 2, late = start + Stride.ADJUST_NANOS;
+        float stock = radians(-135), facing = radians(-45), turned = radians(-30);
+
+        Stride stride = new Stride();
+        stride.land(1f, 0f, facing, start);
+        check(stride.turn(1f, 0f, facing, stock, start) == 0f, "a key held through the landing goes on the way it was walking");
+        check(near(stride.turn(1f, 0f, turned, stock, late), turned - facing), "and turns with the view for as long as it is held");
+        check(near(stride.turn(0f, -1f, turned, stock, late), turned - stock), "another key after the time to adjust goes by the view");
+        check(near(stride.turn(1f, 0f, turned, stock, late), turned - stock), "and so does the first key from then on");
+
+        stride.land(1f, 0f, facing, start);
+        check(stride.turn(0f, -1f, facing, stock, late - 1) == 0f, "another key within the time to adjust keeps the walk, across the clock's wrap");
+        check(near(stride.turn(0f, -1f, facing, stock, late), facing - stock), "and goes by the view once the time is up");
+
+        stride.land(0f, 0f, facing, start);
+        check(near(stride.turn(1f, 0f, facing, stock, start), facing - stock), "a landing with no key down keeps nothing");
+
+        stride.land(1f, 0f, facing, start);
+        stride.reset();
+        check(near(stride.turn(1f, 0f, facing, stock, start), facing - stock), "a walk that stopped is not kept");
     }
 
     private static void attackHoldsTheAimForAShortTail() {

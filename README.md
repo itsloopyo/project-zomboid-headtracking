@@ -100,7 +100,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. Until it lands the game is played as it is in its own view. In first person the mouse turns the view and the movement keys follow it. The first person view is for single player: it stays off in multiplayer and split screen.
+`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. Until it lands the game is played as it is in its own view. In first person the mouse turns the view and the movement keys follow it. Movement keys held while the camera lands keep the walk they were making, steered by the mouse, until you let go or press other keys, and for half a second after the landing other movement keys keep that walk too. The first person view is for single player: it stays off in multiplayer and split screen.
 
 ### In first person
 
