@@ -1741,6 +1741,11 @@ final class Pipeline {
         develop.set("uSize", (float) width, (float) height);
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
+        Style style = Style.current();
+        develop.set("uGrade", style.curve, style.saturation, style.vignette);
+        develop.set("uLens", style.bloom, style.flare);
+        develop.set("uShade", style.shade[0], style.shade[1], style.shade[2]);
+        develop.set("uSunlit", style.sunlit[0], style.sunlit[1], style.sunlit[2]);
         develop.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         develop.set("uNear", near);
         develop.set("uFar", far);

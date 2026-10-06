@@ -4360,6 +4360,13 @@ final class PipelineShaders {
             // The size of the passes drawn at half the picture's: the shade and the lit air.
             uniform vec2 uLow;
             uniform float uExposure;
+            // The picture's style, see Style: how far it is bent towards an S, how full its
+            // colours are and how dark its corners; how much of the glow and of the sun's glare
+            // in the lens is shown; and what its dark and its bright are multiplied by.
+            uniform vec3 uGrade;
+            uniform vec2 uLens;
+            uniform vec3 uShade;
+            uniform vec3 uSunlit;
             uniform vec2 uSunAt;
             uniform vec3 uRayColor;
             uniform float uAspect;
@@ -4596,18 +4603,20 @@ final class PipelineShaders {
                     c += shafts(uv);
                 }
                 c += ofItsOwnDepth(uVolume, uv, ahead).rgb * (1.0 - uWithout.y);
-                c += flare(uv);
-                c += texture2D(uBloom, uv).rgb * (0.1 * (1.0 - uWithout.z));
+                if (uLens.y > 0.0) {
+                    c += flare(uv) * uLens.y;
+                }
+                c += texture2D(uBloom, uv).rgb * (uLens.x * (1.0 - uWithout.z));
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
-                c = mix(c, c * c * (3.0 - 2.0 * c), 0.34);
-                // A clear day photographs warm where the sun falls and cool in the shade, and
-                // with its greens and blues full.
+                c = mix(c, c * c * (3.0 - 2.0 * c), uGrade.x);
+                // In the Vivid style a clear day photographs warm where the sun falls and cool
+                // in the shade, with its greens and blues full.
                 float grey = dot(c, vec3(0.2126, 0.7152, 0.0722));
-                c = mix(vec3(grey), c, 1.08);
-                c *= mix(vec3(0.96, 0.99, 1.05), vec3(1.05, 1.01, 0.95), smoothstep(0.25, 0.8, grey));
+                c = mix(vec3(grey), c, uGrade.y);
+                c *= mix(uShade, uSunlit, smoothstep(0.25, 0.8, grey));
                 vec2 fromCentre = uv - 0.5;
-                c *= 1.0 - dot(fromCentre, fromCentre) * 0.32;
+                c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
                 c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;
                 if (uMarkedHigh.x > uMarkedLow.x) {
                     // What the Interact key would act on has a line round it, where what stands

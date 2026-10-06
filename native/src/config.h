@@ -23,9 +23,13 @@ inline constexpr float kMaxFieldOfView = 110.0f;
 // The graphics mode: how much of the mod's own picture is drawn. Quality.java holds the same numbers.
 enum class Quality : std::int32_t { Automatic = 0, Low = 1, Medium = 2, High = 3 };
 
+// How the mod's picture is developed: its contrast, colour and lens. Style.java holds the same numbers.
+enum class Style : std::int32_t { Vivid = 0, Natural = 1, Bleak = 2 };
+
 struct Config : cameraunlock::HeadTrackingConfig {
     float field_of_view = kDefaultFieldOfView;
     Quality quality = Quality::Low;
+    Style style = Style::Vivid;
     // What the mod made itself and shows in first person in place of the game's own. Each is
     // a row of [Content], and with a row off the game's own is drawn there.
     bool own_weapons = true;
@@ -45,8 +49,8 @@ struct Config : cameraunlock::HeadTrackingConfig {
 };
 
 // The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
-// rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality and
-// the rows of [Content] are the mod's own, and the ones read again while the game runs.
+// rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style
+// and the rows of [Content] are the mod's own, and the ones read again while the game runs.
 cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 
 // The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test

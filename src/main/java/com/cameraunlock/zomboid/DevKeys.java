@@ -28,7 +28,7 @@ import zombie.vehicles.VehiclePart;
  * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  *
- * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
+ * The backslash takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
  * sits the player in the driver's seat, whatever state it was found in. For looking at
  * vehicles and driving without first finding one that runs.
  *
@@ -57,8 +57,8 @@ import zombie.vehicles.VehiclePart;
  */
 final class DevKeys {
     static final String MARKER = "ProjectZomboidHeadTracking.dev";
-    /** F7 in the key codes the game's keyboard uses. */
-    private static final int TAKE_VEHICLE_KEY = 65;
+    /** The backslash in the key codes the game's keyboard uses. */
+    private static final int TAKE_VEHICLE_KEY = 43;
     private static final float TAKE_WITHIN = 5f;
     /** The apostrophe. */
     private static final int INVINCIBLE_KEY = 40;
@@ -145,7 +145,7 @@ final class DevKeys {
             looked = true;
             enabled = Files.exists(Path.of("").toAbsolutePath().resolve(MARKER));
             if (enabled) {
-                Log.info("development install: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, F7 takes the nearest vehicle");
+                Log.info("development install: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, ' makes you invincible, \\ takes the nearest vehicle");
             }
         }
         // On a server every one of these would be a cheat against the other players.
@@ -299,7 +299,7 @@ final class DevKeys {
             }
         }
         if (nearest == null) {
-            Log.info("F7: no vehicle within " + TAKE_WITHIN + " tiles");
+            Log.info("no vehicle within " + TAKE_WITHIN + " tiles");
             return;
         }
         nearest.repair();
@@ -309,6 +309,6 @@ final class DevKeys {
         }
         nearest.setHotwired(true);
         boolean seated = nearest.enter(0, player);
-        Log.info("F7: took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), seated " + seated);
+        Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), seated " + seated);
     }
 }

@@ -1044,6 +1044,7 @@ public final class Tests {
         KerbTests.run();
         FacadeTests.run();
         QualityTests.run();
+        StyleTests.run();
         GameFixTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         System.out.println("all tests passed");

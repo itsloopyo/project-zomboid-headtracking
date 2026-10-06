@@ -100,7 +100,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view is for single player: it stays off in multiplayer and split screen.
+`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F7` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view is for single player: it stays off in multiplayer and split screen.
 
 ### In first person
 
@@ -183,6 +183,8 @@ In first person a window also shows your character in its glass, with their head
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
 The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through three graphics modes, `Low`, `Medium` and `High`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with everything the mod made: `High` is the whole picture, and `Medium` draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. The game starts in `Low` until you press `F9`. The row also takes `Automatic`, which only the file can set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`.
+
+`F7` goes through three picture styles, says on the screen which one it went to and saves it as `Style` in `CameraUnlock.ini`. A style is how the mod's picture is developed from the light in it, and nothing else: the light, the weather, the hour and what the world is built of are the same in all three, and none costs more to draw than another. `Vivid`, which the game starts in, has strong contrast and full colours, cool in the shade and warm in the sun, with dark corners, glare off the sun and a glow round bright lights. `Natural` shows the colours as they are lit, with no tint, less contrast, and less of the dark corners, the glare and the glow. `Bleak` is washed out and low in contrast under a faint drab cast, with no glare off the sun, nearer the colours of the game's own view. The style applies wherever the mod draws the picture: first person in every graphics mode, and the game's own view in `Medium` and `High`. The row is read again while the game runs.
 
 The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, and skins for zombies and for the living. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies` and `OwnPeople`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
 
@@ -284,11 +286,20 @@ FieldOfView=65.0
 ; tiles, smaller shadow maps, and no shading of corners, lit air or depth in
 ; surfaces. Medium and High draw both views with everything the mod made. High:
 ; the whole picture. Medium: four fifths of the pixels each way, sight to 64
-; tiles and smaller shadow maps. Automatic: begins at High and draws less, as
-; Medium and then Low do but still with everything the mod made, each time the
-; picture is drawn fewer than 45 times a second for three seconds, until the game
-; is closed. Read again while the game runs.
-Quality=Automatic
+; tiles and smaller shadow maps. Automatic, which only this file can set: begins
+; at High and draws less, as Medium and then Low do but still with everything the
+; mod made, each time the picture is drawn fewer than 45 times a second for three
+; seconds, until the game is closed. Read again while the game runs.
+Quality=Low
+; How the mod's picture is developed, in every graphics mode. F7 goes from one to
+; the next and saves it here. Vivid: strong contrast and full colours, cool in the
+; shade and warm in the sun, with dark corners, glare off the sun and a glow round
+; bright lights. Natural: the colours as they are lit, with no tint, less contrast,
+; and less of the dark corners, the glare and the glow. Bleak: washed out colours
+; and low contrast under a faint drab cast, with no glare off the sun, nearer the
+; colours of the game's own view. The light, the weather and the hour are the same
+; in all three. Read again while the game runs.
+Style=Vivid
 
 [Smoothing]
 ; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.

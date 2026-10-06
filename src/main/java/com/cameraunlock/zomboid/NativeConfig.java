@@ -29,11 +29,11 @@ final class NativeConfig {
             {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
-    private static final int SETTINGS_BYTES = 92;
+    private static final int SETTINGS_BYTES = 96;
     private static final ValueLayout.OfInt INT = ValueLayout.JAVA_INT;
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT;
 
-    private final MethodHandle load, reloadLive, saveTrackingMode, saveWorldSpaceYaw, saveAimMode, saveQuality,
+    private final MethodHandle load, reloadLive, saveTrackingMode, saveWorldSpaceYaw, saveAimMode, saveQuality, saveStyle,
             hotkeysStart, hotkeysTake, takeLog;
 
     @SuppressWarnings("restricted")
@@ -47,6 +47,7 @@ final class NativeConfig {
         saveWorldSpaceYaw = bind(linker, lookup, "PzhtConfigSaveWorldSpaceYaw", FunctionDescriptor.of(INT, INT));
         saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT, INT));
         saveQuality = bind(linker, lookup, "PzhtConfigSaveQuality", FunctionDescriptor.of(INT, INT));
+        saveStyle = bind(linker, lookup, "PzhtConfigSaveStyle", FunctionDescriptor.of(INT, INT));
         hotkeysStart = bind(linker, lookup, "PzhtHotkeysStart", FunctionDescriptor.of(INT));
         hotkeysTake = bind(linker, lookup, "PzhtHotkeysTake", FunctionDescriptor.of(INT));
         takeLog = bind(linker, lookup, "PzhtTakeLog", FunctionDescriptor.of(INT, pointer, INT));
@@ -63,11 +64,11 @@ final class NativeConfig {
         return linker.downcallHandle(lookup.findOrThrow(name), descriptor);
     }
 
-    /** What a load found, the settings the session runs on, the rows of [Content] that are on, as Own's bits, and the Quality row, as Quality numbers it. */
-    record Loaded(int status, Settings settings, int own, int quality) {}
+    /** What a load found, the settings the session runs on, the rows of [Content] that are on, as Own's bits, the Quality row, as Quality numbers it, and the Style row, as Style orders it. */
+    record Loaded(int status, Settings settings, int own, int quality, int style) {}
 
-    /** What the rows read again while the game runs hold: the field of view in degrees, Own's bits and the Quality row. */
-    record Live(float fieldOfView, int own, int quality) {}
+    /** What the rows read again while the game runs hold: the field of view in degrees, Own's bits, the Quality row and the Style row. */
+    record Live(float fieldOfView, int own, int quality, int style) {}
 
     /** Reads the file, creating it where there is none. */
     Loaded load(Path file) {
@@ -85,25 +86,25 @@ final class NativeConfig {
                     out.get(INT, 32) != 0, out.get(INT, 36) != 0, out.get(FLOAT, 40), out.get(FLOAT, 44),
                     out.get(FLOAT, 48), out.get(FLOAT, 52), out.get(FLOAT, 56), out.get(FLOAT, 60),
                     out.get(FLOAT, 64), out.get(FLOAT, 68), out.get(FLOAT, 72), out.get(FLOAT, 76), out.get(FLOAT, 80)),
-                    out.get(INT, 84), out.get(INT, 88));
+                    out.get(INT, 84), out.get(INT, 88), out.get(INT, 92));
         }
     }
 
     /**
-     * FieldOfView, Quality and the rows of [Content] are read again while the game runs. When
+     * FieldOfView, Quality, Style and the rows of [Content] are read again while the game runs. When
      * CameraUnlock.ini or Defaults.ini has changed since core's owner last read or wrote it,
      * reads both again and answers what they give those rows. Null when nothing changed or the
      * file cannot be read.
      */
     Live reloadLive() {
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment out = arena.allocate(Float.BYTES + 2 * Integer.BYTES, Integer.BYTES);
+            MemorySegment out = arena.allocate(Float.BYTES + 3 * Integer.BYTES, Integer.BYTES);
             int status = call(reloadLive, out);
             writeLog();
             if (status < 0) {
                 throw new IllegalStateException(FILE_NAME + " could not be read again: " + Log.FILE_NAME + " has the reason");
             }
-            return status == 0 ? null : new Live(out.get(FLOAT, 0), out.get(INT, 4), out.get(INT, 8));
+            return status == 0 ? null : new Live(out.get(FLOAT, 0), out.get(INT, 4), out.get(INT, 8), out.get(INT, 12));
         }
     }
 
@@ -118,6 +119,10 @@ final class NativeConfig {
 
     boolean saveQuality(int quality) {
         return saved("graphics mode", call(saveQuality, quality));
+    }
+
+    boolean saveStyle(Style style) {
+        return saved("picture style", call(saveStyle, style.ordinal()));
     }
 
     boolean saveAimMode(AimMode mode) {

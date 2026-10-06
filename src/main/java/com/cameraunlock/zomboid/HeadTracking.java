@@ -133,6 +133,7 @@ final class HeadTracking {
         Settings.current = settings;
         Own.set(loaded.own());
         Quality.set(loaded.quality());
+        Style.set(loaded.style());
         Log.info("the mod's own in first person: " + Own.described(Own.on()));
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
@@ -149,7 +150,7 @@ final class HeadTracking {
                 TimeUnit.MILLISECONDS);
     }
 
-    /** FieldOfView, Quality and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
     private static void watchSettings() {
         try {
             NativeConfig.Live live = config.reloadLive();
@@ -160,6 +161,7 @@ final class HeadTracking {
             }
             if (live != null) {
                 Quality.set(live.quality());
+                Style.set(live.style());
             }
             if (live != null && live.own() != Own.on()) {
                 Own.set(live.own());
@@ -246,6 +248,13 @@ final class HeadTracking {
         int next = Quality.next();
         Quality.set(next);
         save(() -> config.saveQuality(next));
+    }
+
+    /** F7: the picture style after the one the session is in, kept for the next start. */
+    static void cycleStyle() {
+        Style next = Style.current().next();
+        Style.set(next.ordinal());
+        save(() -> config.saveStyle(next));
     }
 
     static void cycleAimMode() {

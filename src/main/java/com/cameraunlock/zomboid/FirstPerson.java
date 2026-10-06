@@ -41,9 +41,12 @@ public final class FirstPerson {
     private static final int TOGGLE_KEY = 66;
     /** F9. Goes to the next graphics mode: see Quality. In every mode but Low the picture draws the game's own view as well. */
     private static final int MODE_KEY = 67;
-    /** How long the name of a graphics mode just gone to stays on the screen. */
+    /** F7. Goes to the next picture style: see Style. Nothing in the game's default bindings uses it. */
+    private static final int STYLE_KEY = 65;
+    /** How long the name of a graphics mode or picture style just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
-    private static long modeSaidAt;
+    private static long saidAt;
+    private static String said;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
@@ -264,10 +267,10 @@ public final class FirstPerson {
         try {
             frame();
             // After the picture, which would cover it.
-            if (modeSaidAt != 0L && System.nanoTime() - modeSaidAt < SAID_FOR_NANOS) {
+            if (said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS) {
                 int index = IsoPlayer.getInstance().getIndex();
                 TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
-                        "Graphics: " + Quality.name(), 1.0, 1.0, 1.0, 1.0);
+                        said, 1.0, 1.0, 1.0, 1.0);
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
@@ -297,7 +300,13 @@ public final class FirstPerson {
         DevKeys.poll();
         if (GameKeyboard.isKeyPressed(MODE_KEY)) {
             HeadTracking.cycleGraphicsMode();
-            modeSaidAt = System.nanoTime();
+            said = "Graphics: " + Quality.name();
+            saidAt = System.nanoTime();
+        }
+        if (GameKeyboard.isKeyPressed(STYLE_KEY)) {
+            HeadTracking.cycleStyle();
+            said = "Style: " + Style.current().label;
+            saidAt = System.nanoTime();
         }
         overhead = !Quality.plain() && failure == null && allowed(IsoPlayer.getInstance());
         if (Terrain.level != overhead()) {

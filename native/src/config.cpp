@@ -48,6 +48,19 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "mod made, each time the picture is drawn fewer than 45 times a second for three\n"
                 "seconds, until the game is closed. Read again while the game runs.")
         .Writable();
+    table.Local("General", "Style", &Config::style,
+                cameraunlock::config::EnumCodec<Style>{{"Vivid", Style::Vivid},
+                                                       {"Natural", Style::Natural},
+                                                       {"Bleak", Style::Bleak}},
+                "How the mod's picture is developed, in every graphics mode. F7 goes from one to\n"
+                "the next and saves it here. Vivid: strong contrast and full colours, cool in the\n"
+                "shade and warm in the sun, with dark corners, glare off the sun and a glow round\n"
+                "bright lights. Natural: the colours as they are lit, with no tint, less contrast,\n"
+                "and less of the dark corners, the glare and the glow. Bleak: washed out colours\n"
+                "and low contrast under a faint drab cast, with no glare off the sun, nearer the\n"
+                "colours of the game's own view. The light, the weather and the hour are the same\n"
+                "in all three. Read again while the game runs.")
+        .Writable();
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in the first person view in place of the game's\n"
                 "own. Set a row to false and the game's own is drawn there instead, as the game or\n"

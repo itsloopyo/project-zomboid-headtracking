@@ -40,6 +40,7 @@ final class ConfigTests {
         fieldOfViewIsReadAgainWhenTheFileChanges(config, file);
         contentRowsAreReadAgainWhenTheFileChanges(config, file);
         qualityIsReadAgainWhenTheFileChanges(config, file);
+        styleIsSavedAndReadAgainWhenTheFileChanges(config, file);
         zoomCompensationIsCores();
     }
 
@@ -131,6 +132,22 @@ final class ConfigTests {
         edit(file, text);
         live = config.reloadLive();
         check(live != null && live.quality() == Quality.LOW, "and set back, it is low again");
+    }
+
+    private static void styleIsSavedAndReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.US_ASCII);
+        check(text.contains("\r\nStyle=Vivid\r\n"), "the file holds the picture style, vivid");
+        check(config.load(file).style() == Style.VIVID.ordinal(), "which is what a start runs on");
+        edit(file, text.replace("Style=Vivid", "Style=Bleak"));
+        NativeConfig.Live live = config.reloadLive();
+        check(live != null && live.style() == Style.BLEAK.ordinal(), "an edited style is read while the game runs");
+        check(live.quality() == Quality.LOW && live.own() == Own.ALL, "with the graphics mode and the mod's own as they were");
+        check(config.saveStyle(Style.NATURAL), "the style F7 went to saves");
+        check(Files.readString(file, StandardCharsets.US_ASCII).contains("\r\nStyle=Natural\r\n"), "and the file holds it");
+        check(config.load(file).style() == Style.NATURAL.ordinal(), "so the next start is in it");
+        edit(file, text);
+        live = config.reloadLive();
+        check(live != null && live.style() == Style.VIVID.ordinal(), "and set back, it is vivid again");
     }
 
     private static void edit(Path file, String text) throws IOException {

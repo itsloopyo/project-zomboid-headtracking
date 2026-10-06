@@ -35,6 +35,8 @@ struct PzhtSettings {
     std::int32_t own;
     // The Quality row, as pzht::Quality numbers it.
     std::int32_t quality;
+    // The Style row, as pzht::Style numbers it.
+    std::int32_t style;
 };
 
 // What the rows read again while the game runs hold. NativeConfig.java reads this by offset.
@@ -42,6 +44,7 @@ struct PzhtLive {
     float field_of_view;
     std::int32_t own;
     std::int32_t quality;
+    std::int32_t style;
 };
 
 // The bits of PzhtSettings::own and PzhtLive::own. Own.java holds the same numbers.
@@ -66,7 +69,7 @@ PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 // fills `out` with the settings the session runs on.
 PZHT_EXPORT std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out);
 
-// FieldOfView, Quality and the rows of [Content] are read again while the game runs. When the file or
+// FieldOfView, Quality, Style and the rows of [Content] are read again while the game runs. When the file or
 // Defaults.ini has changed since the owner last read or wrote it, reads both again, puts what
 // they give those rows in `out` and answers 1. Answers 0, and leaves `out` alone, when nothing
 // changed or the file cannot be read.
@@ -76,6 +79,7 @@ PZHT_EXPORT std::int32_t PzhtConfigReloadLive(PzhtLive* out);
 PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::int32_t position);
 PZHT_EXPORT std::int32_t PzhtConfigSaveWorldSpaceYaw(std::int32_t world);
 PZHT_EXPORT std::int32_t PzhtConfigSaveQuality(std::int32_t quality);
+PZHT_EXPORT std::int32_t PzhtConfigSaveStyle(std::int32_t style);
 PZHT_EXPORT std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
                                                std::int32_t stock_sights);
 

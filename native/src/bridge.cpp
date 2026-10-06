@@ -106,6 +106,7 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->field_of_view = c.field_of_view;
         out->own = OwnBits(c);
         out->quality = static_cast<std::int32_t>(c.quality);
+        out->style = static_cast<std::int32_t>(c.style);
         return static_cast<std::int32_t>(loaded.status);
     });
 }
@@ -120,6 +121,7 @@ std::int32_t PzhtConfigReloadLive(PzhtLive* out) {
         out->field_of_view = reloaded.config->field_of_view;
         out->own = OwnBits(*reloaded.config);
         out->quality = static_cast<std::int32_t>(reloaded.config->quality);
+        out->style = static_cast<std::int32_t>(reloaded.config->style);
         return 1;
     });
 }
@@ -137,6 +139,10 @@ std::int32_t PzhtConfigSaveWorldSpaceYaw(std::int32_t world) {
 
 std::int32_t PzhtConfigSaveQuality(std::int32_t quality) {
     return Save("saving the graphics mode", [=](pzht::Config& c) { c.quality = static_cast<pzht::Quality>(quality); });
+}
+
+std::int32_t PzhtConfigSaveStyle(std::int32_t style) {
+    return Save("saving the picture's style", [=](pzht::Config& c) { c.style = static_cast<pzht::Style>(style); });
 }
 
 std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
