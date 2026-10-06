@@ -143,6 +143,16 @@ public final class FirstPerson {
 
     private static final Vector2 forward = new Vector2();
     private static final Stride stride = new Stride();
+    /** A read of the mouse this soon after the look takes it may be of a cursor the window has just moved, not of the hand. */
+    private static final long LOOK_SETTLES_NANOS = 150_000_000L;
+    private static long capturedNanos;
+    private static boolean wasCaptured;
+    /** For the line said a second after a landing: when it was, and what the mouse has turned the view by since, in all and the most in one read. */
+    private static long landedNanos;
+    private static boolean landingSaid = true;
+    private static float mouseTurned;
+    private static int mouseMost;
+    private static final Vector2 drawn = new Vector2();
     private static final Vector2 traceAim = new Vector2();
     private static float traceMoveX, traceMoveY;
     private static long lastTrace;
@@ -202,7 +212,15 @@ public final class FirstPerson {
             Vector2 facing = player.getForwardDirection();
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
         }
-        Log.info("first person " + (on ? "on" : "off"));
+        Log.info("first person " + (on ? "on, " + facings(player) : "off"));
+    }
+
+    /** The ways the game has of saying which way a character faces, in degrees on the map: a landing that looks wrong is read off these. */
+    private static String facings(IsoPlayer player) {
+        Vector2 facing = player.getForwardDirection();
+        player.getAnimForwardDirection(drawn);
+        return String.format(Locale.ROOT, "character facing %.0f and drawn facing %.0f",
+                Math.toDegrees(Math.atan2(facing.y, facing.x)), Math.toDegrees(Math.atan2(drawn.y, drawn.x)));
     }
 
     private static boolean allowed(IsoPlayer player) {
@@ -288,6 +306,14 @@ public final class FirstPerson {
         Flight.advance(on, sinceLastFrame, !overhead);
         boolean wasLanded = landed;
         landed = on && Flight.landed();
+        if (landed && !wasLanded) {
+            landedNanos = now;
+            landingSaid = false;
+            mouseTurned = 0f;
+            mouseMost = 0;
+            Log.info(String.format(Locale.ROOT, "first person landed looking %.0f, %s, movement keys (%.2f, %.2f), %s",
+                    Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, HeadTracking.describe()));
+        }
         if (landed && !wasLanded && player.getVehicle() == null) {
             stride.land(traceMoveX, traceMoveY, yaw, now);
         } else if (!landed) {
@@ -300,6 +326,17 @@ public final class FirstPerson {
             point();
         }
         lookCaptured = active && !pointer.on();
+        if (lookCaptured && !wasCaptured) {
+            capturedNanos = now;
+        }
+        wasCaptured = lookCaptured;
+        if (!landed) {
+            landingSaid = true;
+        } else if (!landingSaid && now - landedNanos > 1_000_000_000L) {
+            landingSaid = true;
+            Log.info(String.format(Locale.ROOT, "a second after landing: looking %.0f, %s, the mouse turned the view %.1f degrees in all and %d pixels at most in one read",
+                    Math.toDegrees(yaw), facings(player), Math.toDegrees(mouseTurned), mouseMost));
+        }
         boolean flown = on || !Flight.home();
         Characters.wanted = flown || overhead && allowed(player) && !player.isDead();
         MouseGrab.wanted = lookCaptured;
@@ -666,11 +703,14 @@ public final class FirstPerson {
             haveRawX = false;
             return raw;
         }
-        if (MouseGrab.moved.get() > 0) {
+        if (MouseGrab.moved.get() > 0 || System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
             haveRawX = false;
         }
         if (haveRawX && !MouseGrab.ISOLATED) {
-            setLook(yaw + (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn(), pitch);
+            float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn();
+            mouseTurned += turn;
+            mouseMost = Math.max(mouseMost, Math.abs(raw - lastRawX));
+            setLook(yaw + turn, pitch);
         }
         lastRawX = raw;
         haveRawX = true;
@@ -686,6 +726,9 @@ public final class FirstPerson {
         if (MouseGrab.moved.get() > 0) {
             haveRawY = false;
             MouseGrab.moved.decrementAndGet();
+        }
+        if (System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
+            haveRawY = false;
         }
         if (haveRawY && !MouseGrab.ISOLATED) {
             setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn());
