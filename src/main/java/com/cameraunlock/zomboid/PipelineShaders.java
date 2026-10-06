@@ -278,6 +278,7 @@ final class PipelineShaders {
             uniform vec4 uTint;
             uniform vec3 uJoint;
             uniform float uLaid;
+            uniform float uDepthOnly;
             uniform float uWet;
             varying vec2 vUv;
             varying vec4 vColor;
@@ -1719,6 +1720,22 @@ final class PipelineShaders {
     /** The rest of main: the whole of it in one constant is longer than a class file can hold. */
     static final String WORLD_FRAGMENT_MAIN_REST = """
                 vec3 toEye = uEye - vWorld;
+                // What stands as a card and is not water: see card below.
+                if (vKind > 1.5 && !(vKind > 3.5 && !grass) && !grass && !grown && !crown && length(vNormal.xy) > 0.1 * length(vNormal)) {
+                    // A card seen edge on is a streak of smeared leaves. It thins out and goes
+                    // before it gets there: the other cards of the fan are what is seen then.
+                    float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
+                    if (square < 0.2 + 0.25 * grain(gl_FragCoord.xy)) {
+                        discard;
+                    }
+                }
+                // Every pixel that is left out has been left out by here. Asked only where the
+                // solid world is, the program stops: what follows is the light, which is most
+                // of its work. See Pipeline.drawWorld.
+                if (uDepthOnly > 0.5) {
+                    gl_FragColor = vec4(0.0);
+                    return;
+                }
                 float away = length(toEye);
                 vec3 view = toEye / away;
                 float range = max(away - uRangeFrom, 0.0);
@@ -1989,14 +2006,6 @@ final class PipelineShaders {
                     }
                 }
                 bool card = !water && vKind > 1.5;
-                if (card && !grass && !grown && !crown && length(vNormal.xy) > 0.1 * length(vNormal)) {
-                    // A card seen edge on is a streak of smeared leaves. It thins out and goes
-                    // before it gets there: the other cards of the fan are what is seen then.
-                    float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
-                    if (square < 0.2 + 0.25 * grain(gl_FragCoord.xy)) {
-                        discard;
-                    }
-                }
                 float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
                 if (crown) {

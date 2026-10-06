@@ -83,6 +83,7 @@ final class Pipeline {
     private static final int GL_REPEAT = 0x2901;
     private static final int GL_LINEAR_MIPMAP_LINEAR = 0x2703;
     private static final int GL_CLAMP_TO_EDGE = 0x812F;
+    private static final int GL_EQUAL = 0x0202;
     private static final int GL_LEQUAL = 0x0203;
     private static final int GL_SRC_ALPHA = 0x0302;
     private static final int GL_ONE_MINUS_SRC_ALPHA = 0x0303;
@@ -282,7 +283,7 @@ final class Pipeline {
      * and changes by degrees.
      */
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
-    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief. */
+    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world drawn once with no pass for its depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
     private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
@@ -1220,9 +1221,30 @@ final class Pipeline {
         }
         tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
+        // The solid world is drawn twice. The first time only its depth is kept, and the
+        // program stops once it knows whether a pixel is left out. The second time a pixel is
+        // worked out only where it is the nearest thing there: the program leaves pixels out,
+        // so drawn once the graphics card worked every pixel of every surface out in full
+        // before finding most of them hidden, which was three quarters of the pass's time.
+        // One program does both, so the two agree to the bit on which pixels there are.
+        boolean depthFirst = !WITHOUT.contains("depth");
+        if (depthFirst) {
+            world.set("uDepthOnly", 1f);
+            GL11.glColorMask(false, false, false, false);
+            drawRanges(all, 0, all.solidRanges(), world);
+            drawModels(world, true, inMirror ? null : camera, far);
+            GL11.glColorMask(true, true, true, true);
+            world.set("uDepthOnly", 0f);
+            GL11.glDepthFunc(GL_EQUAL);
+            GL11.glDepthMask(false);
+        }
         drawRanges(all, 0, all.solidRanges(), world);
         // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
         drawModels(world, true, inMirror ? null : camera, far);
+        if (depthFirst) {
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDepthMask(true);
+        }
         // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
         // that stands on them.
         GL11.glEnable(GL_BLEND);
