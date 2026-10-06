@@ -25,7 +25,8 @@ final class Quality {
 
     private static volatile int row = AUTOMATIC;
     private static volatile int level = HIGH;
-    private static long countedSince;
+    private static final long HITCH_NANOS = 250_000_000L;
+    private static long countedSince, lastFrame;
     private static int counted;
 
     private Quality() {}
@@ -54,6 +55,15 @@ final class Quality {
             if (countedSince == 0L) {
                 countedSince = now;
             }
+            counted = 0;
+            return;
+        }
+        // One frame that took a quarter of a second is a hitch, a save being written or a jump
+        // across the map, and not a picture too heavy for the card: the count begins again.
+        boolean hitch = now - lastFrame > HITCH_NANOS;
+        lastFrame = now;
+        if (hitch) {
+            countedSince = now;
             counted = 0;
             return;
         }

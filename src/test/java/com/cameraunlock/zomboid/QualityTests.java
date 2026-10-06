@@ -68,5 +68,10 @@ final class QualityTests {
         check(Quality.sight() == 64, "slow frames later on are still acted on");
         frames(now, 120f, 60f);
         check(Quality.sight() == 64, "and it does not go back up in the session");
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = frames(now + 60 * SECOND, 100f, 2f);
+        now = frames(now + 6 * SECOND, 100f, 2f);
+        check(Quality.sight() == 80, "one frame of six seconds among fast ones is a hitch and takes nothing down");
     }
 }
