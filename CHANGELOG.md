@@ -100,6 +100,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Filled the rear view mirror in a vehicle with its picture of the road behind. The picture sat in the middle of the glass inside a dark surround drawn as the cabin round the back window, which left most of the mirror black.
 - Turned the first person view straight ahead on getting into a vehicle: level, along the way the vehicle faces, out of the windscreen. It used to keep the way your character faced on foot, which left you looking out of a side window or at the back seat. Switching first person on with `F8` while seated faces ahead too.
 - Kept the walk going the same way through the switch into first person. A movement key held as the camera landed changed its meaning in that instant, from a direction across the screen to a direction from the view, so walking right across the screen turned a quarter turn to the right as first person began. The keys held at the landing now go on making the walk they were making, steered by the mouse, for as long as they stay held, and for half a second after the landing any other movement key makes that walk too, which is the time to move your fingers to the keys that mean it in first person. Letting go of every key ends it.
 - Stopped the mod's own shotgun from going missing in first person after the view had been switched off and on again: the hands held nothing, though the game still had the weapon in them.

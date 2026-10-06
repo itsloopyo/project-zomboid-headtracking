@@ -4164,14 +4164,7 @@ final class PipelineShaders {
                     // The glass shows the world behind, left for right, and the sky where the
                     // world stops.
                     vec2 on = vec2(0.5 - (wheelPlace.y - uMirror.y) / 0.224, 0.5 + (wheelPlace.z - uMirror.z) / 0.058);
-                    // The world behind is seen out of the back of the vehicle: through its
-                    // back window, narrower at the top, between the pillars either side of
-                    // it and over the shelf below it, all in the dark of the cabin.
-                    vec2 across = vec2((on.x - 0.5) * 3.86 / (1.0 - 0.12 * on.y), on.y - 0.54);
-                    vec2 past = abs(across) - vec2(1.22, 0.3);
-                    float frame = length(max(past, 0.0)) + min(max(past.x, past.y), 0.0) - 0.12;
-                    vec3 lining = pow(uDashColor, vec3(2.2)) * (0.012 + 0.05 * skyGives) * (1.0 - 0.6 * smoothstep(0.0, 0.05, frame));
-                    color = mix(behindAt(on), lining, smoothstep(-0.015, 0.015, frame));
+                    color = behindAt(on);
                 }
                 if (wheel && wheelPart > 7.5 && wheelPart < 8.5) {
                     vec3 housed = wheelPlace - uDoorMirror;
