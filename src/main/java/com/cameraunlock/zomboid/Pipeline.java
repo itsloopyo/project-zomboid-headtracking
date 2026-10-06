@@ -653,6 +653,9 @@ final class Pipeline {
     private static void showSmoothed(int drawTarget, int[] viewport) {
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        // The game's own picture has a depth of its own, with the game's vehicles in it: tested
+        // against that, the picture would leave each of them showing through.
+        GL11.glDisable(GL_DEPTH_TEST);
         if (opacity < 1f) {
             GL11.glEnable(GL_BLEND);
             GL14.glBlendColor(0f, 0f, 0f, opacity);
@@ -1347,6 +1350,7 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
         leaveWorld();
     }
 
