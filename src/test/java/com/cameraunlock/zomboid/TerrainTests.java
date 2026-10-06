@@ -10,6 +10,7 @@ final class TerrainTests {
 
     static void run() {
         streetAlongAHillsideIsLevelFromSideToSide();
+        swellsAreSeenFromAStreetAndNoSteeperThanOneInTwenty();
         boolean was = Terrain.level;
         Terrain.level = true;
         try {
@@ -45,9 +46,29 @@ final class TerrainTests {
             check(Math.abs(Terrain.corner(x + row, y + j, row, j) - kerb) < 1e-5f, "a street along a hillside is as high at one kerb as at the other");
         }
         float along = Terrain.corner(x + row + 1, y + street, row + 1, street);
-        check(along != kerb && Math.abs(along - kerb) < 0.07f, "a street rises and falls along its length, no steeper than the hills");
+        check(along != kerb && Math.abs(along - kerb) < 0.15f, "a street rises and falls along its length, no steeper than the land");
         float beside = Terrain.corner(x + row, y + street - 1, row, street - 1);
         check(Math.abs(beside - kerb) < 0.25f, "the ground beside a street meets it without a step");
+    }
+
+    private static void swellsAreSeenFromAStreetAndNoSteeperThanOneInTwenty() {
+        float steepest = 0f, lowest = 0f, highest = 0f;
+        for (int x = 10000; x < 10600; x++) {
+            for (int y = 9000; y < 9600; y++) {
+                float here = Terrain.swells(x, y);
+                steepest = Math.max(steepest, Math.max(Math.abs(Terrain.swells(x + 1, y) - here), Math.abs(Terrain.swells(x, y + 1) - here)));
+                lowest = Math.min(lowest, here);
+                highest = Math.max(highest, here);
+            }
+        }
+        check(steepest <= 0.05f, "the land swells no steeper than one in twenty");
+        check(steepest > 0.035f && highest > 0.8f && lowest < -0.8f, "the land swells and dips most of a tile either way");
+        float crests = 0;
+        for (int x = 10000; x < 11000; x++) {
+            float before = Terrain.swells(x - 1, 9300), here = Terrain.swells(x, 9300), after = Terrain.swells(x + 1, 9300);
+            crests += here > before && here >= after ? 1 : 0;
+        }
+        check(crests >= 6 && crests <= 10, "a street crosses a crest every hundred paces or so");
     }
 
     private static void streetPastABuildingIsAsHighOnOneSideAsTheOther() {

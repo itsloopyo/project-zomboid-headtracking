@@ -20,9 +20,11 @@ import zombie.iso.sprite.IsoSprite;
  * <ul>
  * <li>The country rises and falls over hundreds of paces, and hills stand on it. A road climbs
  * a hill at a grade a car can take, because the hills are that gentle.</li>
- * <li>Water lies low. Hills only ever rise from the base of the country, and they die away
- * towards water over the width of a valley's side, so a pond or a river is in the bottom of
- * its valley, and its banks fall to it.</li>
+ * <li>Over the hills the land swells and dips a tile or so every hundred paces or more, streets
+ * with it, so that a long street is seen to go over a crest and down into a dip.</li>
+ * <li>Water lies low. Hills only ever rise from the base of the country, and they and the
+ * swells die away towards water over the width of a valley's side, so a pond or a river is
+ * level in the bottom of its valley, and its banks fall to it.</li>
  * <li>A building stands on a level pad at the height the land has in the middle of it, and the
  * ground round it is graded to meet the pad.</li>
  * <li>A street is level from one side to the other. It rises and falls along its length with
@@ -492,7 +494,7 @@ final class Terrain {
 
     /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */
     private static float base(float x, float y) {
-        return country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY);
+        return country(x, y) + (hills(x, y) + swells(x, y)) * smooth(toWaterChunk(x, y) / VALLEY);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
@@ -516,6 +518,19 @@ final class Terrain {
         float ridge = (float) (Math.sin(x * 0.033 - y * 0.022 + 2.0) * Math.sin(y * 0.03 + x * 0.009 + 0.9));
         float up = Math.max(0f, 0.5f + 0.42f * broad + 0.16f * ridge);
         return 2.4f * up * up;
+    }
+
+    /**
+     * The swells and dips of the land, streets and all: a tile or so from top to bottom and
+     * some hundred and thirty tiles from one crest to the next, which is near enough to see
+     * both from a street. Never steeper than one in twenty.
+     */
+    static float swells(float x, float y) {
+        if (level) {
+            return 0f;
+        }
+        return 0.65f * (float) (Math.sin(x * 0.047 + 2.6) * Math.sin(y * 0.041 + 0.5))
+                + 0.37f * (float) Math.sin((x * 0.6 + y * 0.8) * 0.052 + 1.9);
     }
 
     /**
