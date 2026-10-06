@@ -34,7 +34,7 @@ final class Ride {
     static volatile boolean instrumentsLit;
     /** What the instruments of the vehicle the viewer sits in show, each as a part of its gauge's full scale. */
     static volatile float roadSpeed, engineSpeed, fuel;
-    /** How far the road wheels of the vehicle the viewer sits in are turned, in radians, to the right positive. */
+    /** How far the vehicle the viewer sits in is steered, as the game counts it (0.9 at full lock standing still), to the right positive. */
     static volatile float steering;
     /** Whether the vehicle the viewer sits in has its headlights on. */
     static volatile boolean lampsOn;
@@ -87,7 +87,8 @@ final class Ride {
         engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
         VehiclePart tank = vehicle.getPartById("GasTank");
         fuel = tank == null || tank.getContainerCapacity() <= 0 ? 0f : tank.getContainerContentAmount() / tank.getContainerCapacity();
-        steering = vehicle.getCurrentSteering();
+        // The game counts a turn to the left as positive: with the right key held it read -0.9 at full lock.
+        steering = -vehicle.getCurrentSteering();
         lampsOn = vehicle.getHeadlightsOn();
 
         int seat = vehicle.getSeat(player);
