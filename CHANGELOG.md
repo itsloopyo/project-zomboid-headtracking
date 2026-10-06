@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- Made roofs in the first person view meet cleanly where one runs into another. Where a wing's roof met the side of the main roof, the join was a stair of whole tiles with a gap at each step, and on the side the game's own view never shows it was a flat block standing in the valley. Each slope now runs on until it goes under the other, so the two meet along one straight valley, and the wing's ridge runs on into the main roof the same way. The lowest row of a slope that faces away from the game's view is laid as part of its slope, where it was a level ledge with a step behind it.
+- Hung one straight board under the edge of a roof where it runs out over a gable, in the first person view. The game paints that board a square's length at a time, and stood on the wall those lengths were a row of blocks stepping up the gable.
+- Gave the air conditioners on the outside walls of houses a model of the mod's own in the first person view: a steel case standing out of the wall on two brackets, with a grille of slats across its face, slots down its sides and a lid that overhangs. It was the game's sprite laid flat on the wall. It belongs to the mod's furniture, so `OwnFurniture=false` turns it off with the rest.
 - Filled in the crowns of trees and bushes in the first person view. A crown was a shell of leaves with nothing inside it, so the sky showed through it all over. It now has leaves in shade all the way in, and a look through the crown ends on more of the tree. Only the rim of a crown is seen through, as on a real tree.
 - Built walls of concrete block in the first person view block by block, as brick walls are built brick by brick. They were still the game's small picture of a wall, stretched.
 - Built the low wall round a flat roof of the same brick as the walls under it. It was drawn as large stone blocks on top of a brick shop.

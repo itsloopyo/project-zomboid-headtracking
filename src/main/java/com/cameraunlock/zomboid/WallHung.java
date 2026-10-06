@@ -86,6 +86,16 @@ final class WallHung {
     }
 
     /**
+     * Whether what painted found is something that stands out from the wall as far as its
+     * model is deep. Such a thing is painted to one side of the wall and a little up or down
+     * it, by up to that depth, and so past the ends painted keeps a flat thing within.
+     */
+    static boolean paintedProud(float[] found, float deep) {
+        return found[TO] - found[FROM] >= NARROWEST && found[TOP] - found[BOTTOM] >= LOWEST && found[FROM] >= -SLACK - deep && found[TO] <= 1f + SLACK + deep
+                && found[BOTTOM] >= -SLACK - deep / 3f && found[TOP] <= 1f + SLACK + deep / 3f;
+    }
+
+    /**
      * How much further along its wall, in tiles, something is that stands out tiles proud of
      * the wall than its painting is found by painted, which takes it for flat on the wall. The
      * game's view looks down the map's diagonal, so what stands out into the square is painted

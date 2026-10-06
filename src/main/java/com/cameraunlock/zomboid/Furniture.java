@@ -237,6 +237,12 @@ final class Furniture {
                 String lamp = group.equals("Fancy") ? "wall_bowl" : group.equals("Modern") || group.equals("Oval") ? "bulkhead_light" : "wall_lantern";
                 return new Furniture(sprite, lamp, faces).hang(WallHung.behind(facing), false).ownSize();
             }
+            // An air conditioner is let through its wall and stands out of it: the case of one, on
+            // the sheet of things a works has. The flat grilles the game calls by the same
+            // name are flat, and stay as their sprites paint them.
+            if (called.equals("Conditioner") && name.startsWith("industry_") && grid == null) {
+                return new Furniture(sprite, "air_conditioner", faces).hang(WallHung.behind(facing), false).ownSize();
+            }
             // One square of a mirror or a picture that is longer than a square has no frame of
             // its own, and each square's length of it meets the next.
             if (called.equals("Mirror") && name.startsWith("walls_decoration")) {

@@ -21,6 +21,70 @@ final class RoofTests {
         chimneySquareInASlopeIsMended();
         roofWithBothSidesAndMoreBuildingBeyondGetsNoMore();
         hipTileOfTheMapIsBothItsSlopes();
+        wingRunsIntoTheMainRoofInAStraightValley();
+        slopeIsNotCarriedOverAHip();
+        valleyTileThatReadsLevelIsFolded();
+        lowestRowThatReadsLevelIsTheSlopeGoingOnDown();
+    }
+
+    /** The east slope of a main roof three tiles deep over rows 0 to 6, and the south slope of a wing two tiles deep that ends at its east edge. */
+    private static List<RoofFit.Tile> mainRoofAndWing() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 6; y++) {
+            for (int x = 0; x < 3; x++) {
+                roof.add(new RoofFit.Tile(x, y, 1, RoofFit.ALONG_X, true, 2f - x * THIRD, 2f - (x + 1) * THIRD));
+            }
+        }
+        roof.add(new RoofFit.Tile(3, 4, 1, RoofFit.ALONG_Y, true, 1f + 2f * THIRD, 1f + THIRD));
+        roof.add(new RoofFit.Tile(3, 5, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        RoofFit.fit(roof);
+        return roof;
+    }
+
+    private static void wingRunsIntoTheMainRoofInAStraightValley() {
+        List<RoofFit.Tile> carried = RoofFit.valleys(mainRoofAndWing(), new ArrayList<>());
+        check(carried.size() == 3, "the wing's slope is carried over the three squares of the main roof it stands above, not " + carried.size());
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : carried) {
+            check(tile.carried && tile.fitAxis == RoofFit.ALONG_Y && !tile.shaped, "what is carried is the wing's own plane, whole");
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        RoofFit.Tile upper = over.get(RoofFit.key(1, 4, 0)), lower = over.get(RoofFit.key(2, 5, 0));
+        check(upper != null && near(upper.fitLow, 1f + 2f * THIRD) && near(upper.fitHigh, 1f + THIRD), "the upper row goes on two squares, at the heights it had");
+        check(lower != null && over.containsKey(RoofFit.key(2, 4, 0)) && !over.containsKey(RoofFit.key(1, 5, 0)), "and the lower row one: each stops where the main roof is over it everywhere");
+    }
+
+    private static void slopeIsNotCarriedOverAHip() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        roof.add(new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        roof.add(new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        RoofFit.fit(roof);
+        check(RoofFit.valleys(roof, new ArrayList<>()).isEmpty(), "a slope that falls the way another would be carried over it meets it in a hip, and nothing is carried");
+    }
+
+    private static void valleyTileThatReadsLevelIsFolded() {
+        float sixth = THIRD / 2f;
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        // The main roof comes down from the north to the valley's square, and the wing's west slope comes up to it from the south.
+        roof.add(new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_Y, true, 1f + 2f * sixth, 1f + sixth));
+        RoofFit.Tile valley = new RoofFit.Tile(0, 1, 1, RoofFit.LEVEL, true, 1f + sixth, 1f + sixth);
+        roof.add(valley);
+        roof.add(new RoofFit.Tile(0, 2, 1, RoofFit.ALONG_X, true, 1f, 1f + sixth));
+        RoofFit.fit(roof);
+        check(RoofFit.valleys(roof, new ArrayList<>()).isEmpty() && valley.shaped && valley.crease == RoofFit.NE_SW, "the tile between two slopes that meet over it is folded along the line they meet on");
+        check(near(valley.corners[0], 1f + sixth) && near(valley.corners[1], 1f + sixth) && near(valley.corners[2], 1f + sixth) && near(valley.corners[3], 1f),
+                "with its one low corner at the foot of the valley");
+    }
+
+    private static void lowestRowThatReadsLevelIsTheSlopeGoingOnDown() {
+        float sixth = THIRD / 2f;
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        RoofFit.Tile foot = new RoofFit.Tile(0, 0, 1, RoofFit.LEVEL, true, 1f, 1f);
+        roof.add(foot);
+        roof.add(new RoofFit.Tile(0, 1, 1, RoofFit.ALONG_Y, true, 1f + sixth, 1f + 2f * sixth));
+        roof.add(new RoofFit.Tile(0, 2, 1, RoofFit.ALONG_Y, true, 1f + 2f * sixth, 1f + 3f * sixth));
+        RoofFit.fit(roof);
+        check(foot.fitAxis == RoofFit.ALONG_Y && near(foot.fitLow, 1f) && near(foot.fitHigh, 1f + sixth), "a level tile a tile's climb under the low edge of a slope is the slope's lowest row");
     }
 
     /**

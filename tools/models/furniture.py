@@ -2053,6 +2053,46 @@ def wall_sink():
     return model
 
 
+def air_conditioner():
+    """An air conditioner hung through an outside wall: the steel case that stands out of the wall on two brackets, a
+    grille of slats across its face, slots down both sides and a lid that overhangs. Its back is at +Y."""
+    model = Model("air_conditioner")
+    half, front, back, low, top = 0.29, -0.2, 0.2, 0.05, 0.4
+
+    case = bmesh.new()
+    cuboid(case, -half, half, front, back, low, top)
+    cuboid(case, -half - 0.012, half + 0.012, front - 0.014, back, top, top + 0.016)
+    # The frame the grille sits in.
+    for z0, z1 in ((low + 0.025, low + 0.05), (top - 0.05, top - 0.025)):
+        cuboid(case, -half + 0.03, half - 0.03, front - 0.012, front, z0, z1)
+    for x0, x1 in ((-half + 0.03, -half + 0.055), (half - 0.055, half - 0.03)):
+        cuboid(case, x0, x1, front - 0.012, front, low + 0.05, top - 0.05)
+    model.hard(case, "enamel", bevel=0.006, segments=2)
+
+    dark = bmesh.new()
+    cuboid(dark, -half + 0.055, half - 0.055, front - 0.002, front, low + 0.05, top - 0.05)
+    for side in (-1, 1):
+        for slot in range(6):
+            z = low + 0.07 + slot * 0.04
+            cuboid(dark, side * half - 0.002, side * half + 0.002, front + 0.07, back - 0.09, z, z + 0.016)
+    model.plain(dark, "rubber")
+
+    slats = bmesh.new()
+    for slat in range(8):
+        z = low + 0.062 + slat * 0.0305
+        # Each slat leans, its lower edge out, to shed the rain.
+        prism_y(slats, (0.0, z + 0.005, 2 * half - 0.11, 0.004, front - 0.012), (0.0, z + 0.019, 2 * half - 0.11, 0.004, front - 0.001))
+    model.hard(slats, "metal", bevel=0.002, segments=1)
+
+    brackets = bmesh.new()
+    for x in (-half + 0.06, half - 0.09):
+        cuboid(brackets, x, x + 0.03, front + 0.03, back, low - 0.012, low)
+        cuboid(brackets, x, x + 0.03, back - 0.012, back, 0.0, low - 0.012)
+        prism_y(brackets, (x + 0.015, low - 0.02, 0.012, 0.006, front + 0.06), (x + 0.015, 0.012, 0.012, 0.006, back - 0.012))
+    model.hard(brackets, "steel", bevel=0.002, segments=1)
+    return model
+
+
 def serving_counter():
     """A length of a canteen's serving counter: a steel body with a pan let into its top, and over it a sheet of
     glass sloping down to the side the food is served to, the front, from a rail on two posts at the back. A metre
@@ -2100,7 +2140,7 @@ def main():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
-              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter()]
+              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()]
     data = [b"CUFM", struct.pack("<II", 2, len(models))]
     for model in models:
         model.finish()

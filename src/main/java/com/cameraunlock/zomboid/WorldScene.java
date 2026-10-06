@@ -2585,6 +2585,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
 
+        if (z > 0 && sprite.getName() != null && sprite.getName().startsWith("roofs_accents") && underARake(x, y, z)) {
+            return;
+        }
+
         if (overLayer == 0 && addHung(object, sprite, texture, x, y, z)) {
             return;
         }
@@ -3361,7 +3365,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // furniture is on or it has a picture to show.
         int picture = piece != null && Own.pictures() ? piece.picture : Decor.NONE;
         if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
-                || !WallHung.painted(frame, piece.wall, hungAt)) {
+                || !WallHung.painted(frame, piece.wall, hungAt) && !(piece.ownSize && WallHung.paintedProud(hungAt, piece.model.depth()))) {
             return false;
         }
         if (picture != Decor.NONE && piece.grid != null) {
@@ -3639,6 +3643,17 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
+            if (tile.carried) {
+                // A slope carried into a valley is its plane and nothing else: it has no edge of its own on this square.
+                if (tile.peak > 0f) {
+                    addPeak(sheet, tile);
+                } else {
+                    float[] over = tile.corners;
+                    SpriteGeometry.addOver(sheet, tile.x, tile.y, over[0] * ViewCamera.LEVEL_HEIGHT + lift[0], over[1] * ViewCamera.LEVEL_HEIGHT + lift[1],
+                            over[2] * ViewCamera.LEVEL_HEIGHT + lift[2], over[3] * ViewCamera.LEVEL_HEIGHT + lift[3], roofU, roofV, frame.red, frame.green, frame.blue);
+                }
+                continue;
+            }
             addGable(tile.x, tile.y, tile.z, tile.corners[0] - tile.z, tile.corners[1] - tile.z, tile.corners[3] - tile.z, tile.peak, tile.peakAxis);
             if (tile.shaped) {
                 addFolded(sheet, tile, 3, false);
@@ -3836,8 +3851,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean alongX = tile.peakAxis == RoofFit.ALONG_X;
         float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
         float edge = tile.fitLow * ViewCamera.LEVEL_HEIGHT + lift, top = (tile.fitLow + tile.peak) * ViewCamera.LEVEL_HEIGHT + lift;
-        float from = hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z) ? 0f : -RAKE;
-        float to = hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z) ? 1f : 1f + RAKE;
+        float from = tile.carried || hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z) ? 0f : -RAKE;
+        float to = tile.carried || hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z) ? 1f : 1f + RAKE;
         float[] c = eave;
         for (int side = 0; side < 2; side++) {
             float low = side, high = 0.5f;
@@ -3853,6 +3868,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 set(c, 3, tile.x + to, tile.y + low, edge);
             }
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
+            // At a gable the half slope's edge has its board, as a whole slope's has.
+            if (from < 0f) {
+                addBarge(sheet, c[0], c[1], c[2], c[3], c[4], c[5]);
+            }
+            if (to > 1f) {
+                addBarge(sheet, c[9], c[10], c[11], c[6], c[7], c[8]);
+            }
         }
     }
 
@@ -5718,7 +5740,48 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 set(c, 3, x + edge + out, y, low);
             }
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, frame.red, frame.green, frame.blue);
+            addBarge(sheet, c[9], c[10], c[11], c[6], c[7], c[8]);
         }
+    }
+
+    /**
+     * The board under the edge of a roof where it runs out over a gable, from one end of a
+     * length of that edge to the other: it hangs from the roof and follows its slope, as the
+     * board along an eave follows the eave.
+     */
+    private void addBarge(SpriteGeometry.Mesh sheet, float x0, float y0, float up0, float x1, float y1, float up1) {
+        SpriteGeometry.Mesh plain = solid.get(PLAIN);
+        // The roofing itself goes in this mesh when the roof has no colour of its own yet.
+        float roofing = sheet.open;
+        plain.open = frame.open;
+        float[] c = barge;
+        set(c, 0, x0, y0, up0);
+        set(c, 1, x1, y1, up1);
+        set(c, 2, x1, y1, up1 - BARGE);
+        set(c, 3, x0, y0, up0 - BARGE);
+        SpriteGeometry.addPlainQuad(plain, c, 0.55f * frame.red, 0.55f * frame.green, 0.53f * frame.blue);
+        sheet.open = roofing;
+    }
+
+    private final float[] barge = new float[12];
+    /** How deep the board under a gable's edge is, in tiles: deep enough to cover where the wall's own pieces stop short of the roof. */
+    private static final float BARGE = 0.2f;
+
+    /**
+     * Whether a trim from the sheet of a roof's accents is the board the map paints under the
+     * edge of a gable: the roof beside it, to the west or the north, slopes along the edge it
+     * is on. Each square's length of that board is painted for the game's view, and stood on
+     * its wall the lengths are a row of blocks. The picture hangs a board of its own from the
+     * roof's edge, and the map's is left out. A trim along an eave is level, and stays.
+     */
+    private boolean underARake(int x, int y, int z) {
+        return slopesAlong(x - 1, y, z, RoofFit.ALONG_Y) || slopesAlong(x, y - 1, z, RoofFit.ALONG_X);
+    }
+
+    private boolean slopesAlong(int x, int y, int z, int axis) {
+        Roofs.Laid map = Roofs.at(cell, x, y, z, frames, frame.scale), made = Roofs.madeAt(x, y, z, frames);
+        return map != null && !map.tile.shaped && !map.tile.fitting && map.tile.fitAxis == axis
+                || made != null && !made.tile.shaped && (made.tile.fitAxis == axis || made.tile.peak > 0f && made.tile.peakAxis == axis);
     }
 
     /**

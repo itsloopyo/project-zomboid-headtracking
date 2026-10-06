@@ -192,6 +192,13 @@ final class Roofs {
             for (RoofFit.Cap cap : RoofFit.caps(tiles, backs)) {
                 keep(new Capped(cap, roof));
             }
+            List<RoofFit.Tile> valleys = RoofFit.valleys(tiles, backs);
+            for (RoofFit.Tile over : valleys) {
+                keep(new Laid(over, null, roof));
+            }
+            for (RoofFit.Cap cap : RoofFit.capsOf(valleys)) {
+                keep(new Capped(cap, roof));
+            }
         }
     }
 
@@ -235,8 +242,17 @@ final class Roofs {
         return held;
     }
 
+    /**
+     * What a made tile is kept under. A slope carried over the square of another is kept apart
+     * from the tile that is the roof of the square, by the way it runs: both may lie on one square.
+     */
+    private static long keyOf(RoofFit.Tile tile) {
+        int kind = !tile.carried ? 0 : tile.peak > 0f ? 3 : tile.fitAxis;
+        return RoofFit.key(tile.x, tile.y, kind << 6 | tile.z);
+    }
+
     private static void keep(Laid back) {
-        long key = RoofFit.key(back.tile.x, back.tile.y, back.tile.z);
+        long key = keyOf(back.tile);
         long chunk = RoofFit.key(Math.floorDiv(back.tile.x, WorldScene.CHUNK_TILES), Math.floorDiv(back.tile.y, WorldScene.CHUNK_TILES), 0);
         ArrayList<Laid> held = madeByChunk.computeIfAbsent(chunk, unused -> new ArrayList<>());
         Laid was = made.put(key, back);
@@ -262,7 +278,7 @@ final class Roofs {
             Laid back = held.get(i);
             if (now - back.roof.stamp > MADE_KEPT) {
                 held.remove(i);
-                made.remove(RoofFit.key(back.tile.x, back.tile.y, back.tile.z), back);
+                made.remove(keyOf(back.tile), back);
             }
         }
         return held;

@@ -85,6 +85,8 @@ final class RoofFit {
          */
         float peak;
         int peakAxis;
+        /** Whether the tile is a slope carried on over the square of another, to meet it in a valley: see valleys. */
+        boolean carried;
         private int group = -1;
 
         Tile(int x, int y, int z, int axis, boolean sure, float low, float high) {
@@ -204,7 +206,34 @@ final class RoofFit {
                 fold(tile, at);
             } else if (!tile.fitted && tile.axis != LEVEL && !tile.sure) {
                 adopt(tile, at);
+            } else if (tile.axis == LEVEL && !tile.fitting && tile.half == 0) {
+                goOnDown(tile, at);
             }
+        }
+    }
+
+    /**
+     * The lowest row of a slope that faces away from the game's view is a sliver of sprite, and
+     * reads as a level tile at the height of the eave. Laid level it is a ledge along the foot
+     * of the roof with a step up to the slope behind it. Where a level tile lies at the low
+     * edge of a slope, a tile's climb below that edge, it is the slope going on down.
+     */
+    private static void goOnDown(Tile tile, HashMap<Long, Tile> at) {
+        for (int side = 0; side < 4; side++) {
+            int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+            Tile above = at.get(key(tile.x + dx, tile.y + dy, tile.z));
+            if (above == null || !above.slopes() || above.fitAxis != (dx != 0 ? ALONG_X : ALONG_Y) || above.up() != dx + dy) {
+                continue;
+            }
+            float edge = Math.min(above.fitLow, above.fitHigh), rise = Math.abs(above.fitHigh - above.fitLow);
+            if (rise < LEAST_RISE || Math.abs(tile.low - (edge - rise)) > PITCH_SLACK) {
+                continue;
+            }
+            tile.fitAxis = above.fitAxis;
+            tile.fitLow = dx + dy > 0 ? edge - rise : edge;
+            tile.fitHigh = dx + dy > 0 ? edge : edge - rise;
+            tile.fitted = true;
+            return;
         }
     }
 
@@ -789,6 +818,154 @@ final class RoofFit {
                 break;
             }
         }
+    }
+
+    /** A slope is carried into another only from this near above it, in levels: further up it is the roof of another storey. */
+    private static final float VALLEY_REACH = 2f * PITCH;
+
+    /**
+     * The valleys where one roof runs into the side of another: a wing whose ridge meets the
+     * slope of the main roof, a dormer. The map gives each square one slope, the wing's as far
+     * as its last square and the main roof's from there, so the two meet in a stair of whole
+     * tiles with a step open at every one. They are two planes, and where two planes meet is
+     * a straight line.
+     *
+     * So each slope is carried on along its level lines over the squares of a slope that runs
+     * across it and climbs the way it is being carried, for as long as it stands above that
+     * slope anywhere on the square. Under the other slope it is out of sight inside the roof;
+     * above it, it is the roof of the wing, and the line where it goes under is the valley. A
+     * ridge that runs along the middle of its squares is carried on the same way. A slope that
+     * falls the way it would be carried is a hip, which backs folds, and nothing is carried there.
+     *
+     * tiles are the fitted tiles of the map and made those of backs and peaks. Returns the
+     * carried tiles, each marked so.
+     */
+    static List<Tile> valleys(List<Tile> tiles, List<Tile> made) {
+        HashMap<Long, ArrayList<Tile>> at = new HashMap<>();
+        ArrayList<Tile> all = new ArrayList<>(tiles);
+        all.addAll(made);
+        for (Tile tile : all) {
+            if (!tile.fitting && tile.half == 0) {
+                at.computeIfAbsent(key(tile.x, tile.y, 0), unused -> new ArrayList<>()).add(tile);
+            }
+        }
+        ArrayList<Tile> carried = new ArrayList<>();
+        float[] own = new float[4], other = new float[4];
+        for (Tile tile : all) {
+            boolean peaked = tile.peak > 0f && !tile.shaped && tile.fitAxis == LEVEL;
+            if (!peaked && !tile.slopes() || tile.fitting || tile.half != 0) {
+                continue;
+            }
+            // The axis the heights of the tile change along, and so the one its level lines run across.
+            int axis = peaked ? tile.peakAxis : tile.fitAxis;
+            cornersOf(peaked ? LEVEL : tile.fitAxis, tile.fitLow, peaked ? tile.fitLow : tile.fitHigh, own);
+            float lowest = peaked ? tile.fitLow : Math.min(tile.fitLow, tile.fitHigh), highest = peaked ? tile.fitLow + tile.peak : Math.max(tile.fitLow, tile.fitHigh);
+            for (int step = -1; step <= 1; step += 2) {
+                int dx = axis == ALONG_X ? 0 : step, dy = axis == ALONG_X ? step : 0;
+                for (int x = tile.x + dx, y = tile.y + dy; ; x += dx, y += dy) {
+                    ArrayList<Tile> here = at.get(key(x, y, 0));
+                    Tile across = null, flat = null;
+                    boolean ends = here == null;
+                    for (int i = 0; !ends && i < here.size(); i++) {
+                        Tile on = here.get(i);
+                        // The next tile of the slope itself, or a tile the map has folded there, has the square already.
+                        ends = on.shaped || sameRoof(tile, peaked, axis, on);
+                        if (on.slopes() && on.fitAxis != axis && on.up() == step) {
+                            across = on;
+                        } else if (on.axis == LEVEL && on.peak == 0f && !on.fitted) {
+                            flat = on;
+                        }
+                    }
+                    if (!ends && across == null && flat != null && !peaked) {
+                        foldValley(flat, own, tile, at.get(key(x + dx, y + dy, 0)), axis, step);
+                    }
+                    if (ends || across == null) {
+                        break;
+                    }
+                    cornersOf(across.fitAxis, across.fitLow, across.fitHigh, other);
+                    boolean above = false;
+                    for (int corner = 0; corner < 4; corner++) {
+                        above |= (peaked ? highest : own[corner]) > other[corner] + SAME;
+                    }
+                    if (!above || lowest - Math.max(across.fitLow, across.fitHigh) >= VALLEY_REACH - SAME) {
+                        break;
+                    }
+                    Tile over = new Tile(x, y, (int) Math.floor(lowest + LEAST_RISE), tile.fitAxis, true, tile.fitLow, tile.fitHigh);
+                    over.fitted = true;
+                    over.carried = true;
+                    over.peak = peaked ? tile.peak : 0f;
+                    over.peakAxis = tile.peakAxis;
+                    System.arraycopy(own, 0, over.corners, 0, 4);
+                    carried.add(over);
+                }
+            }
+        }
+        return carried;
+    }
+
+    /** A tile the map has for the foot of a valley reads as level this near the height of the valley's higher corners, in levels. */
+    private static final float VALLEY_READ = 0.1f;
+
+    /**
+     * The tile at the foot of a valley on the side the game's view does not see. The map has
+     * one there, and its sprite is the valley seen from behind: it reads as a level tile at
+     * the height of the valley's three higher corners, and laid level it is a block standing
+     * in the valley with a step down at two of its sides. It is the two slopes it lies
+     * between: the one being carried onto its square, whose heights there are carried, and
+     * the one that comes down to it from the square beyond, one of which beyond holds. Where
+     * both are there and the tile reads as high as they say, it is folded along the line they
+     * meet on.
+     */
+    private static void foldValley(Tile flat, float[] carried, Tile from, ArrayList<Tile> beyond, int axis, int step) {
+        if (beyond == null) {
+            return;
+        }
+        for (Tile down : beyond) {
+            if (!down.slopes() || down.fitAxis == axis || down.up() != step) {
+                continue;
+            }
+            float low = Math.min(down.fitLow, down.fitHigh), rise = Math.abs(down.fitHigh - down.fitLow);
+            float[] other = new float[4], higher = new float[4];
+            cornersOf(down.fitAxis, step < 0 ? low : low - rise, step < 0 ? low - rise : low, other);
+            float highest = 0f;
+            for (int corner = 0; corner < 4; corner++) {
+                higher[corner] = Math.max(carried[corner], other[corner]);
+                highest = Math.max(highest, higher[corner]);
+            }
+            int crease = creaseOf(higher, Math.max((from.fitLow + from.fitHigh) / 2f, low - rise / 2f));
+            if (crease == UNCREASED || Math.abs(flat.fitLow - highest) > VALLEY_READ) {
+                continue;
+            }
+            System.arraycopy(higher, 0, flat.corners, 0, 4);
+            flat.crease = crease;
+            flat.shaped = true;
+            flat.own = 0;
+            return;
+        }
+    }
+
+    /** Whether a tile on the next square along a level line of another is the same slope, or the same ridge, going on. */
+    private static boolean sameRoof(Tile tile, boolean peaked, int axis, Tile on) {
+        if (Math.abs(on.fitLow - tile.fitLow) > JOIN) {
+            return false;
+        }
+        if (peaked) {
+            return on.peak > 0f && on.peakAxis == axis;
+        }
+        return on.slopes() && on.fitAxis == axis && on.up() == tile.up();
+    }
+
+    /** The caps along the ridges that valleys carried on, each as far as its ridge goes. */
+    static List<Cap> capsOf(List<Tile> carried) {
+        ArrayList<Cap> caps = new ArrayList<>();
+        for (Tile tile : carried) {
+            if (tile.peak > 0f) {
+                float high = tile.fitLow + tile.peak;
+                caps.add(tile.peakAxis == ALONG_X ? new Cap(tile.x + 0.5f, tile.y, high, tile.x + 0.5f, tile.y + 1f, high, 2f * tile.peak)
+                        : new Cap(tile.x, tile.y + 0.5f, high, tile.x + 1f, tile.y + 0.5f, high, 2f * tile.peak));
+            }
+        }
+        return caps;
     }
 
     static float cornerX(int corner) {
