@@ -246,6 +246,24 @@ public final class Agent {
                         new CallSite.Method(cell, "renderRainSplashes", "(II)V"), covered)),
                 new Patch(cell, "renderFog left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(cell, "renderFog", "(I)V"), covered)),
+                // The rest of what the game draws of the world into its own view while the picture
+                // covers it: the squares of each chunk, into the chunk's own texture; the trees,
+                // plants, windows and whatever else it draws afresh over those every frame, sprite by
+                // sprite; and what lies and moves on the ground. With the lawn of a garden in view the
+                // second was a tenth of the game's logic thread and most of what its render thread
+                // did. The people and the vehicles are drawn by other steps, which run: the picture
+                // draws them from what those leave. A chunk whose texture was not drawn is still due
+                // its drawing when the game's own view is next shown.
+                new Patch(cell, "the game's drawing of its own covered view left out under the first person picture", classBytes -> {
+                    for (String name : new String[] {"renderTranslucentObjects", "renderTranslucentFloorObjects"}) {
+                        classBytes = CallSite.returnAtOnceIf(classBytes, new CallSite.Method(cell, name, "(IILzombie/core/opengl/Shader;Lzombie/core/opengl/Shader;J)V"), covered);
+                    }
+                    for (String name : new String[] {"renderItemsInWorld", "renderWater", "renderWaterShore", "renderFlies", "renderAnimatedAttachments"}) {
+                        classBytes = CallSite.returnAtOnceIf(classBytes, new CallSite.Method(cell, name, "(I)V"), covered);
+                    }
+                    return CallSite.returnAtOnceIf(classBytes,
+                            new CallSite.Method(cell, "renderOneChunk", "(Lzombie/iso/IsoChunk;Lzombie/iso/IsoCell$PerPlayerRender;IJLzombie/core/opengl/Shader;Lzombie/core/opengl/Shader;)V"), covered);
+                }),
                 // The game's own draw of each part of each person into its own view, which the
                 // picture then covers: the picture draws every one of them again itself, by this
                 // same method. Everything round the draw runs as it did: where the model's
