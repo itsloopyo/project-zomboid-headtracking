@@ -353,9 +353,10 @@ final class Pipeline {
     private static boolean inMirror;
     /** While set, the world is drawn into the picture a scope's eyepiece shows. */
     private static boolean inScope;
-    private static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180, MIRROR_UNIT = 21;
+    static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
+    private static final int MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
-    private static final float MIRROR_TAN = 0.1f;
+    static final float MIRROR_TAN = 0.1f;
     private static final ViewCamera.Pose behind = new ViewCamera.Pose();
     private static final ViewCamera.Pose lamp = new ViewCamera.Pose();
     /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */

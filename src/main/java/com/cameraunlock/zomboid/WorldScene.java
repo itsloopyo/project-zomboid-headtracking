@@ -62,6 +62,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static final float CHUNK_REACH = 6f;
     /** How much wider than the picture's corners the drawn cone is, so nothing pops in at the edges. */
     private static final float CONE_MARGIN = (float) Math.toRadians(8);
+    /** The cosine of the angle either side of straight behind that a driver's mirror takes in, with the same margin. */
+    private static final float COS_MIRROR_CONE =
+            (float) Math.cos(Math.atan(Pipeline.MIRROR_TAN * Pipeline.MIRROR_WIDTH / Pipeline.MIRROR_HEIGHT) + CONE_MARGIN);
     /** The world fades into the sky from this share of the way to the edge of the loaded map. */
     private static final float FOG_START = 0.78f;
     /**
@@ -564,17 +567,31 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
     /** How far the eye may be, in tiles, from where a chunk right by it was built from and still count as held, and how far its right may have turned. */
     private static final float EYE_HELD_WITHIN = 0.006f, TURN_HELD_WITHIN = 0.004f;
+    /** The tangent of how far round a chunk the eye may have gone since its build, seen from the chunk's nearest point: two degrees. */
+    private static final float HELD_ROUND = 0.035f;
+    /** A build made while the eye moves is summed when the eye stays as good as there for more than this many steps like its last. */
+    private static final float HELD_STEPS_SUMMED = 3f;
 
     /**
      * Whether the eye is as good as where a build was made from: further off, a chunk's cards
-     * turn less for the same step, and the step may be longer. The camera the cards face has to
-     * be as good as where it was too, or to lie the same way from the chunk.
+     * turn less for the same step, and the step may be longer. A card two degrees off facing the
+     * eye is a thousandth narrower than one that faces it, so the eye may go that far round the
+     * nearest point of a chunk before its build is made again: walking, only the chunks right by
+     * the eye are built every frame. The camera the cards face has to be as good as where it was
+     * too, or to lie the same way from the chunk.
      */
     private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance, float middleX, float middleY) {
-        float within = EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f));
+        float within = heldWithin(view, distance, middleX, middleY);
         return Math.abs(built.eyeX - view.eyeX) <= within && Math.abs(built.eyeY - view.eyeY) <= within && Math.abs(built.eyeUp - view.eyeUp) <= within
                 && (!built.acrossView || Math.abs(built.rightX - rightX) <= TURN_HELD_WITHIN && Math.abs(built.rightY - rightY) <= TURN_HELD_WITHIN)
                 && (Math.abs(built.facedX - facedX) <= within && Math.abs(built.facedY - facedY) <= within || facedTheSameWay(built, middleX, middleY));
+    }
+
+    /** How far the eye may be from where a chunk's build was made from, in tiles, and the build still do. */
+    private static float heldWithin(ViewCamera.Pose view, float distance, float middleX, float middleY) {
+        float clearX = Math.max(Math.abs(view.eyeX - middleX) - CHUNK_TILES / 2f, 0f), clearY = Math.max(Math.abs(view.eyeY - middleY) - CHUNK_TILES / 2f, 0f);
+        float nearest = (float) Math.sqrt(clearX * clearX + clearY * clearY);
+        return Math.max(EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f)), nearest * HELD_ROUND);
     }
 
     /**
@@ -713,6 +730,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         chunksWaiting = 0;
         Arrays.fill(builtBecause, 0);
         eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
+        float eyeStep = Math.max(Math.max(Math.abs(view.eyeX - lastEyeX), Math.abs(view.eyeY - lastEyeY)), Math.abs(view.eyeUp - lastEyeUp));
         lastEyeX = view.eyeX;
         lastEyeY = view.eyeY;
         lastEyeUp = view.eyeUp;
@@ -835,6 +853,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 Math.min(player.getY() - map.getWorldYMinTiles(), map.getWorldYMinTiles() + tiles - player.getY()));
         fogEnd = Math.min(toEdge, Quality.sight());
         float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
+        // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
+        boolean mirrored = !fromOutside && seated && Cabins.wheel(Ride.seatedIn) != null;
+        float behindX = -Ride.aheadX, behindY = -Ride.aheadY;
         // Looking straight up or down the view faces no way along the ground, and nothing is left out.
         float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
 
@@ -856,7 +877,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 if (distance > fogEnd + CHUNK_REACH) {
                     continue;
                 }
-                if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH) {
+                if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
+                        && !(mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH)) {
                     continue;
                 }
                 chunksDrawn++;
@@ -892,7 +914,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // player standing in a crowd. An eye within a few millimetres of where a chunk
                 // was built from, looking the same way to a quarter of a degree, is still as far
                 // as that chunk goes: its cards would turn by less than can be seen.
-                boolean still = missing ? eyeStill : heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
+                // A build with no sum cannot be found unchanged: while the eye moves it is made again
+                // in its turn, as one the eye has left behind is, and not at once.
+                boolean still = missing ? eyeStill
+                        : heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f) && (eyeStill || current.signed);
                 boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
@@ -904,7 +929,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // build's was is kept: a new build would be the same triangles.
                 long read = 0;
                 int summedFrom = missing ? frames : current.summedFrom;
-                boolean summed = still && (missing || due) && frames >= summedFrom;
+                // A build made while the eye moves is summed as well where the eye will be as good
+                // as there for some frames to come: those frames then find it unchanged, where a
+                // build with no sum would be made a second time for one.
+                float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
+                boolean summed = (still || heldWithin(view, distance, middleX, middleY) > HELD_STEPS_SUMMED * eyeStep) && (missing || due) && frames >= summedFrom;
                 if (missing || due) {
                     tallied = talliedIn[slot] != tally;
                     talliedIn[slot] = tally;
@@ -913,11 +942,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     seenOutside.copyTo(seenBefore);
                     int seen = squaresSeen;
                     read = signature(chunk, chunkX, chunkY, lowest);
-                    boolean sameEye = due && current.signed;
+                    boolean sameEye = still && due && current.signed;
                     boolean young = !missing
                             && start - current.builtNanos < (start - current.bornNanos < SETTLES_IN_NANOS ? KEPT_WHILE_SETTLING_NANOS : KEPT_UNCHANGED_NANOS);
                     if (due) {
-                        builtBecause[!current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
+                        builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
                     }
                     if (sameEye && current.signature == read && young) {
                         // The squares it read count towards this frame's light as a build's would.
@@ -1225,10 +1254,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private float cosDrawnCone(ViewCamera.Pose view, float flat) {
         float aspect = drawnAspect;
         if (aspect == 0f || flat <= 1e-3f) {
-            return -1f;
-        }
-        // A driver with a mirror sees behind as well.
-        if (Ride.seated && Cabins.wheel(Ride.seatedIn) != null) {
             return -1f;
         }
         float widest = 0f;
