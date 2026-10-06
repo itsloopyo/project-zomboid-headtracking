@@ -230,10 +230,23 @@ public final class Agent {
      */
     private static List<Patch> gameFixPatches() {
         String component = "zombie/characters/ecs/ECSComponent", player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
+        String character = "zombie/characters/IsoGameCharacter";
         return List.of(
                 new Patch(component, "getECSClass answered from what a class's kind was found to be", classBytes -> CallSite.answerAtOnceUnlessNull(classBytes,
                         new CallSite.Method(component, "getECSClass", "(Ljava/lang/Class;)Ljava/lang/Class;"),
                         new CallSite.Method("com/cameraunlock/zomboid/GameFixes", "componentKind", "(Ljava/lang/Class;)Ljava/lang/Class;"))),
+                // What a character is made of is kept in a map by kind, and its state machine is
+                // asked for out of that map dozens of times a frame, by each zombie of itself and
+                // by every zombie of each one near it as they push apart: with 300 on the screen
+                // the looking up was a ninth of the game's logic thread. A character is given
+                // its state machine once, when it is made. It is kept beside the map, and let go
+                // whenever anything is put in the map or taken out of it.
+                new Patch(character, "getStateMachineComponent kept once found", classBytes -> CallSite.keepInField(classBytes,
+                        new CallSite.Method(character, "getStateMachineComponent", "()Lzombie/characters/component/StateMachineComponent;"),
+                        "cameraUnlockStateMachine", "zombie/iso/IsoMovingObject", List.of(
+                                new CallSite.Method(character, "setECSComponent", "(L" + component + ";)V"),
+                                new CallSite.Method(character, "removeECSComponent", "(L" + component + ";)V"),
+                                new CallSite.Method(character, "removeECSComponent", "(Ljava/lang/Class;)V")))),
                 // The game asks of every bone of every character on every frame whether the bone is
                 // among those hung on another skeleton, by boxing the bone's number, taking a
                 // predicate out of a pool that keeps its own in a hash set, and walking the list

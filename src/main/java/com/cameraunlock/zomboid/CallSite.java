@@ -132,6 +132,72 @@ final class CallSite {
         return transform(classBytes, within, insert);
     }
 
+    /**
+     * Has {@code getter}, which is not static, takes nothing and returns an object, keep what
+     * it returns in a field added to the class under the name {@code field}, and return that
+     * from then on without working it out again. Nothing is kept while the answer is null. The
+     * class is also given a method of its own for each of {@code changers}, which it inherits
+     * from {@code parent} and which each take one object and return nothing: each forgets what
+     * is kept and then does what the inherited one does, so an answer that could have changed
+     * is worked out afresh. Throws where the class already has the field or any of the methods.
+     */
+    static byte[] keepInField(byte[] classBytes, Method getter, String field, String parent, java.util.List<Method> changers) {
+        ClassFile classFile = ClassFile.of();
+        ClassModel model = classFile.parse(classBytes);
+        ClassDesc owner = model.thisClass().asSymbol();
+        MethodTypeDesc got = MethodTypeDesc.ofDescriptor(getter.descriptor());
+        ClassDesc kept = got.returnType();
+        if (got.parameterCount() != 0 || kept.isPrimitive()) {
+            throw new IllegalStateException(getter + " does not take nothing and return an object");
+        }
+        for (FieldModel candidate : model.fields()) {
+            if (candidate.fieldName().equalsString(field)) {
+                throw new IllegalStateException(model.thisClass().asInternalName() + " already has a field " + field);
+            }
+        }
+        boolean[] found = {false};
+        for (java.lang.classfile.MethodModel method : model.methods()) {
+            boolean isGetter = method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor());
+            if (isGetter && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
+                throw new IllegalStateException(getter + " is static or has no body");
+            }
+            found[0] |= isGetter;
+            for (Method changer : changers) {
+                if (method.methodName().equalsString(changer.name()) && method.methodType().equalsString(changer.descriptor())) {
+                    throw new IllegalStateException(model.thisClass().asInternalName() + " already has its own " + changer.name() + changer.descriptor());
+                }
+            }
+        }
+        if (!found[0]) {
+            throw new IllegalStateException("no method " + getter);
+        }
+        boolean[] begun = {false};
+        CodeTransform keep = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                code.aload(0).getfield(owner, field, kept);
+                code.ifThen(Opcode.IFNONNULL, has -> has.aload(0).getfield(owner, field, kept).areturn());
+            }
+            if (element instanceof ReturnInstruction) {
+                code.dup().aload(0).swap().putfield(owner, field, kept);
+            }
+            code.with(element);
+        };
+        ClassTransform keeping = ClassTransform.transformingMethodBodies(
+                method -> method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor()), keep);
+        ClassTransform adding = ClassTransform.endHandler(made -> {
+            made.withField(field, kept, ClassFile.ACC_PRIVATE | ClassFile.ACC_TRANSIENT | ClassFile.ACC_SYNTHETIC);
+            for (Method changer : changers) {
+                MethodTypeDesc type = MethodTypeDesc.ofDescriptor(changer.descriptor());
+                made.withMethodBody(changer.name(), type, ClassFile.ACC_PUBLIC | ClassFile.ACC_SYNTHETIC, code -> code
+                        .aload(0).aconst_null().putfield(owner, field, kept)
+                        .aload(0).aload(1).invokespecial(ClassDesc.ofInternalName(parent), changer.name(), type)
+                        .return_());
+            }
+        });
+        return classFile.transformClass(model, keeping.andThen(adding));
+    }
+
     /** Inserts {@code code} before every return of {@code within}, which has to have at least one. */
     static byte[] insertBeforeReturns(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
         int[] matches = {0};
