@@ -243,14 +243,14 @@ final class HeadTracking {
         save(() -> config.saveWorldSpaceYaw(saved));
     }
 
-    /** F9: the graphics mode after the one the session is in, kept for the next start. */
+    /** F8: the graphics mode after the one the session is in, kept for the next start. */
     static void cycleGraphicsMode() {
         int next = Quality.next();
         Quality.set(next);
         save(() -> config.saveQuality(next));
     }
 
-    /** F7: the picture style after the one the session is in, kept for the next start. */
+    /** F9: the picture style after the one the session is in, kept for the next start. */
     static void cycleStyle() {
         Style next = Style.current().next();
         Style.set(next.ordinal());

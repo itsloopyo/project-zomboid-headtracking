@@ -142,7 +142,7 @@ final class ConfigTests {
         NativeConfig.Live live = config.reloadLive();
         check(live != null && live.style() == Style.BLEAK.ordinal(), "an edited style is read while the game runs");
         check(live.quality() == Quality.LOW && live.own() == Own.ALL, "with the graphics mode and the mod's own as they were");
-        check(config.saveStyle(Style.NATURAL), "the style F7 went to saves");
+        check(config.saveStyle(Style.NATURAL), "the style F9 went to saves");
         check(Files.readString(file, StandardCharsets.US_ASCII).contains("\r\nStyle=Natural\r\n"), "and the file holds it");
         check(config.load(file).style() == Style.NATURAL.ordinal(), "so the next start is in it");
         edit(file, text);

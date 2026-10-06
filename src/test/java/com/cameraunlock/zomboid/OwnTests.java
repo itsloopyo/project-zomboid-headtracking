@@ -41,7 +41,7 @@ final class OwnTests {
         check(Own.plants() && Own.people() && Own.taken(), "Automatic shows all of it again");
         Quality.set(Quality.MEDIUM);
         check(Own.plants() && !Own.taken(), "as Medium does, with nothing to build again between the two");
-        check(Quality.next() == Quality.HIGH, "F9 goes from Medium to High");
+        check(Quality.next() == Quality.HIGH, "F8 goes from Medium to High");
         Quality.set(Quality.HIGH);
         check(Quality.next() == Quality.LOW, "from High round to Low");
         Quality.set(Quality.LOW);

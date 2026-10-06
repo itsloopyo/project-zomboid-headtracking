@@ -41,7 +41,7 @@ final class Quality {
         Log.info("graphics mode: " + NAMES[asked]);
     }
 
-    /** The mode F9 goes to from the one the session is in: Low, Medium, High and round again. Automatic is only ever set in the file. */
+    /** The mode F8 goes to from the one the session is in: Low, Medium, High and round again. Automatic is only ever set in the file. */
     static int next() {
         return row == LOW ? MEDIUM : row == MEDIUM ? HIGH : LOW;
     }

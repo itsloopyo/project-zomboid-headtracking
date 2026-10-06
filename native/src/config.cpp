@@ -35,7 +35,7 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                                                          {"Low", Quality::Low},
                                                          {"Medium", Quality::Medium},
                                                          {"High", Quality::High}},
-                "The graphics mode: how much of the mod's own picture is drawn. F9 goes from one\n"
+                "The graphics mode: how much of the mod's own picture is drawn. F8 goes from one\n"
                 "to the next, Low, Medium, High, and saves it here. Low is as near the game's\n"
                 "own look as there is: the game's own view is the game's own picture, and first\n"
                 "person is drawn with the game's own sprites, models and textures in place of\n"
@@ -52,7 +52,7 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 cameraunlock::config::EnumCodec<Style>{{"Vivid", Style::Vivid},
                                                        {"Natural", Style::Natural},
                                                        {"Bleak", Style::Bleak}},
-                "How the mod's picture is developed, in every graphics mode. F7 goes from one to\n"
+                "How the mod's picture is developed, in every graphics mode. F9 goes from one to\n"
                 "the next and saves it here. Vivid: strong contrast and full colours, cool in the\n"
                 "shade and warm in the sun, with dark corners, glare off the sun and a glow round\n"
                 "bright lights. Natural: the colours as they are lit, with no tint, less contrast,\n"

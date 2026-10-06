@@ -1,6 +1,6 @@
 package com.cameraunlock.zomboid;
 
-/** Tests of the Style row: the order F7 goes through, and that a style changes nothing but what the last pass makes of the light. */
+/** Tests of the Style row: the order F9 goes through, and that a style changes nothing but what the last pass makes of the light. */
 final class StyleTests {
     private StyleTests() {}
 
@@ -24,7 +24,7 @@ final class StyleTests {
     private static void f7GoesRoundTheThree() {
         Style.set(Style.VIVID.ordinal());
         check(Style.current() == Style.VIVID, "the row asked for is the style in use");
-        check(Style.VIVID.next() == Style.NATURAL, "F7 goes from Vivid to Natural");
+        check(Style.VIVID.next() == Style.NATURAL, "F9 goes from Vivid to Natural");
         check(Style.NATURAL.next() == Style.BLEAK, "from Natural to Bleak");
         check(Style.BLEAK.next() == Style.VIVID, "and from Bleak round to Vivid");
         check(Style.VIVID.ordinal() == 0 && Style.NATURAL.ordinal() == 1 && Style.BLEAK.ordinal() == 2,
