@@ -55,6 +55,8 @@ public final class HeadFollowLight {
 
     /** Called where the game reads the look direction a carried torch shines along. */
     public static Vector2 direction(Vector2 look) {
+        // The game's look is the body's, and in first person the body faces the way it walks.
+        FirstPerson.sightVector(look);
         float by = turn;
         if (by == 0f) {
             return look;
