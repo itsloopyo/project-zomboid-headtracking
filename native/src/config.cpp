@@ -43,10 +43,10 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "tiles, smaller shadow maps, and no shading of corners, lit air or depth in\n"
                 "surfaces. Medium and High draw both views with everything the mod made. High:\n"
                 "the whole picture. Medium: four fifths of the pixels each way, sight to 64\n"
-                "tiles and smaller shadow maps. Automatic: begins at High and draws less, as\n"
-                "Medium and then Low do but still with everything the mod made, each time the\n"
-                "picture is drawn fewer than 45 times a second for three seconds, until the game\n"
-                "is closed. Read again while the game runs.")
+                "tiles and smaller shadow maps. Automatic, which only this file can set: begins\n"
+                "at High and draws less, as Medium and then Low do but still with everything the\n"
+                "mod made, each time the picture is drawn fewer than 45 times a second for three\n"
+                "seconds, until the game is closed. Read again while the game runs.")
         .Writable();
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in the first person view in place of the game's\n"

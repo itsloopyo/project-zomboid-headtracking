@@ -25,7 +25,7 @@ enum class Quality : std::int32_t { Automatic = 0, Low = 1, Medium = 2, High = 3
 
 struct Config : cameraunlock::HeadTrackingConfig {
     float field_of_view = kDefaultFieldOfView;
-    Quality quality = Quality::Automatic;
+    Quality quality = Quality::Low;
     // What the mod made itself and shows in first person in place of the game's own. Each is
     // a row of [Content], and with a row off the game's own is drawn there.
     bool own_weapons = true;

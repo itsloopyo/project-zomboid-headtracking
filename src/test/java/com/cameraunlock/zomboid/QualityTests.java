@@ -9,6 +9,7 @@ final class QualityTests {
         aLevelAskedForIsKept();
         automaticStepsDownWhileThePictureIsSlow();
         automaticStaysWhereThePictureKeepsUp();
+        Quality.set(Quality.HIGH);
         System.out.println("all tests passed");
     }
 

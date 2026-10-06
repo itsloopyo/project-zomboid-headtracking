@@ -60,6 +60,8 @@ public final class Tests {
         CabinTests.run();
         AimTests.run();
         ConfigTests.run();
+        // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
+        Quality.set(Quality.HIGH);
         ArmTests.run();
         BufferTests.run();
         LinkTests.run();

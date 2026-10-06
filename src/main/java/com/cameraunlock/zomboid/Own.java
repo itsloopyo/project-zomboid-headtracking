@@ -60,7 +60,7 @@ final class Own {
     }
 
     static boolean people() {
-        return (on & PEOPLE) != 0;
+        return (on() & PEOPLE) != 0;
     }
 
     /**

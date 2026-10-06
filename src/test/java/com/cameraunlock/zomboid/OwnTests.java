@@ -5,11 +5,14 @@ final class OwnTests {
     private OwnTests() {}
 
     static void run() {
+        Quality.set(Quality.HIGH);
         int before = Own.on();
         try {
             everythingIsOnUntilARowSaysOtherwise();
             aSwitchedRowHasTheWorldBuiltAgainOnce();
+            theLowGraphicsModeShowsNothingOfTheModsOwn();
         } finally {
+            Quality.set(Quality.HIGH);
             Own.set(before);
             Own.taken();
         }
@@ -25,6 +28,24 @@ final class OwnTests {
         Own.set(Own.PICTURES);
         check(Own.pictures() && !Own.weapons() && !Own.furniture() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.zombies(),
                 "one row on shows that and nothing else");
+    }
+
+    private static void theLowGraphicsModeShowsNothingOfTheModsOwn() {
+        Own.set(Own.ALL);
+        Own.taken();
+        Quality.set(Quality.LOW);
+        check(!Own.weapons() && !Own.furniture() && !Own.pictures() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.zombies()
+                && !Own.people(), "in Low every row reads off, whatever the file says");
+        check(Own.taken() && !Own.taken(), "and going to it has the world built again, once");
+        Quality.set(Quality.AUTOMATIC);
+        check(Own.plants() && Own.people() && Own.taken(), "Automatic shows all of it again");
+        Quality.set(Quality.MEDIUM);
+        check(Own.plants() && !Own.taken(), "as Medium does, with nothing to build again between the two");
+        check(Quality.next() == Quality.HIGH, "F9 goes from Medium to High");
+        Quality.set(Quality.HIGH);
+        check(Quality.next() == Quality.LOW, "from High round to Low");
+        Quality.set(Quality.LOW);
+        check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
     }
 
     private static void aSwitchedRowHasTheWorldBuiltAgainOnce() {

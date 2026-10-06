@@ -23,8 +23,8 @@ final class Quality {
     /** How long the frame rate is counted for before it is judged, and how long after a step before counting begins again. */
     private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L;
 
-    private static volatile int row = AUTOMATIC;
-    private static volatile int level = HIGH;
+    private static volatile int row = LOW;
+    private static volatile int level = LOW;
     private static final long HITCH_NANOS = 250_000_000L;
     private static long countedSince, lastFrame;
     private static int counted;
