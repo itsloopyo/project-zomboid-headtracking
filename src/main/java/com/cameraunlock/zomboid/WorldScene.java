@@ -770,6 +770,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
         sky.carried = CarriedLight.light;
         sky.marked = CentreUse.marked;
+        sky.facedX = facedX;
+        sky.facedY = facedY;
+        sky.acrossX = rightX;
+        sky.acrossY = rightY;
         exposure = adaptEye(player, fromOutside);
         playerIndex = player.getIndex();
         cell = IsoWorld.instance.currentCell;
@@ -1447,11 +1451,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // Leaves stand on the same card as their trunk. Each layer is moved a little towards
         // the eye from the one under it, or the two would be drawn through each other.
         overLayer++;
-        float toX = facedX - (x + 0.5f), toY = facedY - (y + 0.5f);
-        float away = Math.max((float) Math.sqrt(toX * toX + toY * toY), 0.5f);
-        float nearer = overLayer * (CARD_LAYER + 4f * standOff);
-        geometry.nudgeX = toX / away * nearer;
-        geometry.nudgeY = toY / away * nearer;
+        geometry.nearer = overLayer * (CARD_LAYER + 4f * standOff);
         if (!isFloor && addHung(object, over, texture, x, y, z)) {
             return;
         }
@@ -2280,7 +2280,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             sprites++;
             overLayer = 0;
-            geometry.nudgeX = geometry.nudgeY = 0f;
+            geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
             ArrayList<IsoSpriteInstance> leaves = object.getAttachedAnimSprite();
             // A tree in leaf shows its bole and not the branches in its crown: they are
             // inside the leaves. Drawn, they cross from one card of the fan through the leaves
@@ -2308,7 +2308,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
             }
             addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
-            geometry.nudgeX = geometry.nudgeY = 0f;
+            geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
         }
         geometry.raised = 0f;
         frame.material = 0f;
@@ -2663,7 +2663,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
             if (under > 0.05f) {
                 geometry.keep = Math.min(under, 1f);
-                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, true, false);
                 geometry.keep = 1f;
             }
             return;
@@ -2681,7 +2681,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (overLayer == 0 && properties.getSurface() <= 0 && !properties.isTable() && addInWallLine(mesh, sprite, texture, x, y, z)) {
             return;
         }
-        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, false);
+        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, true, false);
     }
 
     /** A floor, or what the game lays on one, flat on the ground of its square. */
@@ -2847,7 +2847,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
             geometry.nudgeX = squareX * clear;
             geometry.nudgeY = squareY * clear;
-            geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, true);
+            geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, false, true);
         }
         frame.material = fanned;
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
@@ -2861,7 +2861,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 float side = (outer & 1) == 0 ? 1f : -1f;
                 geometry.nudgeX = outX * BUSH_SPREAD;
                 geometry.nudgeY = outY * BUSH_SPREAD;
-                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -outY * side, outX * side, true);
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, -outY * side, outX * side, false, true);
             }
         }
         geometry.nudgeX = geometry.nudgeY = 0f;

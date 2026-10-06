@@ -665,6 +665,13 @@ final class Pipeline {
         return asked[0];
     }
 
+    /** Switches off the array of what a vertex carries for a card: only the frame's own vertices have it. */
+    private static void cardArrayOff() {
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
+    }
+
     /** Points OpenGL at the frame's vertices. Done again after the game has drawn anything, which leaves its own arrays set. */
     private static void arrays() {
         GL30.glBindVertexArray(0);
@@ -685,6 +692,9 @@ final class Pipeline {
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glEnableClientState(GL_COLOR_ARRAY);
         GL11.glEnableClientState(GL_NORMAL_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
         ChunkBuffers.point();
     }
 
@@ -796,6 +806,7 @@ final class Pipeline {
         GL11.glVertexPointer(3, GL_FLOAT, MODEL_STRIDE, 0L);
         GL11.glNormalPointer(GL_FLOAT, MODEL_STRIDE, 3L * Float.BYTES);
         GL11.glTexCoordPointer(2, GL_FLOAT, MODEL_STRIDE, 6L * Float.BYTES);
+        cardArrayOff();
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
@@ -934,6 +945,8 @@ final class Pipeline {
         shadow.use();
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
+        shadow.set("uFaced", state.facedX, state.facedY);
+        shadow.set("uAcross", state.acrossX, state.acrossY);
         shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
         // The game magnifies its sprites pixel by pixel, which up close is a wall of squares.
         // This frame reads them through a sampler of its own that blends between pixels, and
@@ -1133,6 +1146,7 @@ final class Pipeline {
         ViewCamera.view(camera, viewed);
         GL11.glLoadMatrixf(viewed);
         arrays();
+        cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -1374,6 +1388,8 @@ final class Pipeline {
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
         world.set("uWind", state.windX, state.windY, state.seconds);
+        world.set("uFaced", state.facedX, state.facedY);
+        world.set("uAcross", state.acrossX, state.acrossY);
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);
         world.set("uRaining", state.rain);
@@ -1389,6 +1405,7 @@ final class Pipeline {
         GL33.glBindSampler(UNITS - 1, 0);
 
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
+        cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -1898,6 +1915,7 @@ final class Pipeline {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
         arrays();
+        cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -1931,6 +1949,7 @@ final class Pipeline {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
         arrays();
+        cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -2201,6 +2220,7 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         arrays();
+        cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);

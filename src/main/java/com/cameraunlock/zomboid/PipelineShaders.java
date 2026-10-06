@@ -113,6 +113,23 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * Where a vertex of the frame's own arrays stands once its card is turned to the camera.
+     * Its second texture coordinate says how far along its card it is, how far towards the
+     * camera it stands off, and whether the card is one that turns: see SpriteGeometry.Mesh.
+     */
+    static final String FACED = """
+            uniform vec2 uFaced;
+            uniform vec2 uAcross;
+            vec4 faced(vec4 at, out vec2 right) {
+                vec2 from = at.xy - uFaced;
+                float off = length(from);
+                // On the camera's own square there is no way to it, and a card lies across the view.
+                right = off > 0.5 ? vec2(-from.y, from.x) / off : uAcross;
+                return vec4(at.xy + right * gl_MultiTexCoord1.x - from / max(off, 0.5) * gl_MultiTexCoord1.y, at.zw);
+            }
+            """;
+
     static final String WORLD_VERTEX = """
             #version 120
             varying vec2 vUv;
@@ -128,7 +145,7 @@ final class PipelineShaders {
             varying vec4 vBlade;
             uniform vec3 uWind;
             uniform float uLaid;
-            """ + GRASS_WIND + MODEL_STANDS + """
+            """ + GRASS_WIND + MODEL_STANDS + FACED + """
             uniform vec3 uLit;
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
@@ -159,6 +176,13 @@ final class PipelineShaders {
             void main() {
                 vec4 stands = gl_Vertex;
                 vec3 looks = gl_Normal;
+                if (uModel < 0.5) {
+                    vec2 right;
+                    stands = faced(gl_Vertex, right);
+                    if (gl_MultiTexCoord1.z > 0.5) {
+                        looks = normalize(vec3(right.y, -right.x, 0.9)) * length(gl_Normal);
+                    }
+                }
                 // Where a model's vertex is from the eye: see the end of main.
                 vec3 fromEye = vec3(0.0);
                 vUv = gl_MultiTexCoord0.xy;
@@ -2377,7 +2401,7 @@ final class PipelineShaders {
             }
             varying float vLeaves;
             varying vec3 vAt;
-            """ + GRASS_WIND + MODEL_STANDS + """
+            """ + GRASS_WIND + MODEL_STANDS + FACED + """
             void main() {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
@@ -2397,14 +2421,16 @@ final class PipelineShaders {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
                     return;
                 }
-                vAt = gl_Vertex.xyz;
+                vec2 right;
+                vec4 stands = faced(gl_Vertex, right);
+                vAt = stands.xyz;
                 // A strip of grass carries its height over its root, not a facing: see SpriteGeometry.addStrip.
                 if (mod(gl_Color.a, 32.0) > 23.5) {
                     float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
                     gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
                     return;
                 }
-                gl_Position = uMatrix * blown(gl_Vertex, gl_Normal);
+                gl_Position = uMatrix * blown(stands, gl_Normal);
             }
             """;
 

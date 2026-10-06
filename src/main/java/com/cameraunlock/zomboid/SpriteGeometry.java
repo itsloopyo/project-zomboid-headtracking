@@ -23,7 +23,7 @@ final class SpriteGeometry {
      * Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue, how open to the sky the
      * vertex's square is, then the unit vector its face looks along.
      */
-    static final int VERTEX_FLOATS = 12;
+    static final int VERTEX_FLOATS = 15;
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
     static final float CARD = 2f;
     /** Added to a vertex's openness to mark it as the surface of water. */
@@ -94,6 +94,14 @@ final class SpriteGeometry {
          * uses the direction.
          */
         float sway;
+        /**
+         * For a card that turns to face the camera, which the picture does as it draws: how
+         * far along the card from its foot the vertices added next are, and that they are of
+         * such a card. Their place is then given as the foot's. And for anything, how far
+         * towards the camera the vertices added next stand off from where they are given.
+         */
+        float along, nearer;
+        boolean faces;
 
         void face(float x, float y, float up) {
             float length = (float) Math.sqrt(x * x + y * y + up * up);
@@ -127,6 +135,9 @@ final class SpriteGeometry {
             vertices[floats++] = normalX * (1f + sway);
             vertices[floats++] = normalY * (1f + sway);
             vertices[floats++] = normalUp * (1f + sway);
+            vertices[floats++] = along;
+            vertices[floats++] = nearer;
+            vertices[floats++] = faces ? 1f : 0f;
         }
     }
 
@@ -317,6 +328,8 @@ final class SpriteGeometry {
     float[] cover;
     /** How far an upright card is moved from where it stands, in tiles: see WorldScene.addOver. */
     float nudgeX, nudgeY;
+    /** How far towards the camera that draws it the upright added next stands off from its place, in tiles. */
+    float nearer;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
     /** How much of an upright card is left out, from its foot up: the shaft of a post that stands there as a solid, under the head the card still shows. */
@@ -717,10 +730,11 @@ final class SpriteGeometry {
     /**
      * Adds the whole trimmed sprite as an upright rectangle standing on the
      * point (a, b, h) of the tile, the frame pixel the game drew there staying
-     * on that point, turned so that (rightX, rightY) runs along its width.
+     * on that point, turned so that (rightX, rightY) runs along its width, or, where faces is
+     * set, left for the picture to turn to the camera that draws it.
      */
     void addUpright(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ,
-            float a, float b, float h, float rightX, float rightY, boolean sways) {
+            float a, float b, float h, float rightX, float rightY, boolean faces, boolean sways) {
         float anchorU = frameU(frame, a, b);
         float anchorV = frameV(frame, a, b, h);
         float across = TILES_PER_PIXEL_ACROSS / frame.scale;
@@ -749,27 +763,38 @@ final class SpriteGeometry {
         float baseX = tileX + a + nudgeX;
         float baseY = tileY + b + nudgeY;
         float baseUp = (tileZ + h + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
-        float x0 = baseX + rightX * leftOffset, y0 = baseY + rightY * leftOffset;
-        float x1 = baseX + rightX * rightOffset, y1 = baseY + rightY * rightOffset;
+        float x0 = faces ? baseX : baseX + rightX * leftOffset, y0 = faces ? baseY : baseY + rightY * leftOffset;
+        float x1 = faces ? baseX : baseX + rightX * rightOffset, y1 = faces ? baseY : baseY + rightY * rightOffset;
+        float along0 = faces ? leftOffset : 0f, along1 = faces ? rightOffset : 0f;
 
         // A flat card stands in for something round, a bush or a chair, so it is lit as if it
         // leaned back: partly from the side it faces and partly from above.
         mesh.open = frame.open + CARD + 32f * frame.material;
         mesh.face(rightY, -rightX, 0.9f);
+        mesh.faces = faces;
+        mesh.nearer = nearer;
         // What grows moves with the wind, the more the higher it stands above its root.
         float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
         float high = sways ? Math.clamp(topHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
         mesh.sway = low;
+        mesh.along = along0;
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
+        mesh.along = along1;
         mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = low;
+        mesh.along = along0;
         mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
+        mesh.along = along1;
         mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
+        mesh.along = along0;
         mesh.add(x0, y0, baseUp + topHeight, frame.uStart, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
+        mesh.along = 0f;
+        mesh.nearer = 0f;
+        mesh.faces = false;
     }
 
     /**
@@ -927,6 +952,9 @@ final class SpriteGeometry {
         to[at + 9] = edge;
         to[at + 10] = code;
         to[at + 11] = high;
+        to[at + 12] = 0f;
+        to[at + 13] = 0f;
+        to[at + 14] = 0f;
         return at + VERTEX_FLOATS;
     }
 
@@ -1201,13 +1229,13 @@ final class SpriteGeometry {
         frame.material = material;
         if (headed) {
             skipped = post.shaftShare;
-            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, false);
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, true, false);
             skipped = 0f;
         }
         if (post.footShare > 0f) {
             float kept = keep;
             keep = post.footShare;
-            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, false);
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, true, false);
             keep = kept;
         }
     }

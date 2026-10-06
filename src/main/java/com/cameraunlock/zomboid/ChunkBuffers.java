@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL31;
@@ -34,6 +35,7 @@ import org.lwjgl.opengl.GL31;
 final class ChunkBuffers {
     private static final int GL_TRIANGLES = 0x0004;
     private static final int GL_FLOAT = 0x1406;
+    private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_ARRAY_BUFFER = 0x8892;
     private static final int GL_COPY_READ_BUFFER = 0x8F36;
     private static final int GL_COPY_WRITE_BUFFER = 0x8F37;
@@ -231,13 +233,16 @@ final class ChunkBuffers {
                 (long) capacity * Float.BYTES >> 20, longer ? "made longer" : "put in order", holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
     }
 
-    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer. Leaves no buffer bound. */
+    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, and the second texture coordinate array at what a vertex carries for a card. Leaves no buffer bound. */
     static void point() {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         GL11.glVertexPointer(3, GL_FLOAT, STRIDE, 0L);
         GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, 3L * Float.BYTES);
         GL11.glColorPointer(4, GL_FLOAT, STRIDE, 5L * Float.BYTES);
         GL11.glNormalPointer(GL_FLOAT, STRIDE, 9L * Float.BYTES);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, 12L * Float.BYTES);
+        GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 

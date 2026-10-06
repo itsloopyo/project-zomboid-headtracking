@@ -1856,7 +1856,7 @@ public final class Tests {
 
     private static void uprightSpriteStandsOnItsAnchor() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        new SpriteGeometry().addUpright(mesh, wholeFrame(), 4, 6, 0, 0.5f, 0.5f, 0f, 0f, 1f, false);
+        new SpriteGeometry().addUpright(mesh, wholeFrame(), 4, 6, 0, 0.5f, 0.5f, 0f, 0f, 1f, false, false);
         check(mesh.triangles() == 2, "an upright sprite is two triangles");
         float halfWidth = (float) (Math.sqrt(2.0) / 2.0);
         check(hasVertex(mesh, 4.5f, 6.5f - halfWidth, ViewCamera.LEVEL_HEIGHT * 224f / 192f, 0f, 0f),

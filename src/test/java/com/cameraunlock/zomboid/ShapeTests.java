@@ -216,7 +216,7 @@ final class ShapeTests {
         SpriteGeometry geometry = new SpriteGeometry();
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         geometry.skipped = 0.75f;
-        geometry.addUpright(mesh, frame, 0, 0, 0, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        geometry.addUpright(mesh, frame, 0, 0, 0, 0.5f, 0.5f, 0f, 1f, 0f, false, false);
         float lowest = Float.MAX_VALUE, lowestV = 0f;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             lowest = Math.min(lowest, mesh.vertices[at + 2]);
@@ -235,7 +235,7 @@ final class ShapeTests {
         frame.height = 136f;
         SpriteGeometry geometry = new SpriteGeometry();
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false, false);
         float floor = ViewCamera.LEVEL_HEIGHT, lowest = Float.MAX_VALUE;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             lowest = Math.min(lowest, mesh.vertices[at + 2]);
@@ -243,7 +243,7 @@ final class ShapeTests {
         check(lowest < floor - 0.3f, "with no floor under it a card reaches below its square as far as its sprite does: " + lowest);
         mesh.clear();
         geometry.floored = true;
-        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false, false);
         lowest = Float.MAX_VALUE;
         float lowestV = 0f;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -255,7 +255,7 @@ final class ShapeTests {
         check(mesh.triangles() == 2, "it is still one card");
         mesh.clear();
         geometry.raised = 0.5f;
-        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false);
+        geometry.addUpright(mesh, frame, 5, 7, 1, 0.5f, 0.5f, 0f, 1f, 0f, false, false);
         lowest = Float.MAX_VALUE;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             lowest = Math.min(lowest, mesh.vertices[at + 2]);
