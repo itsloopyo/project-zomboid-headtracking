@@ -4278,7 +4278,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // place, the skin on it is that side's surface. Only the wall itself: ivy or a
         // stain over it is on the side it was painted on, and is no part of the wall's colour.
         float material = frame.material;
-        int tint = overLayer == 0 && Own.buildings() ? farTint(texture, x, y, z, da != 0f) : 0;
+        int tint = overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
         // Out of doors the far skin is the building's own outside wall, the sprite its other
         // faces show, where the pieces round this wall's opening can take it: a wall whose
         // opening is cut out of its sprite alone would be closed by a sprite with none, and
