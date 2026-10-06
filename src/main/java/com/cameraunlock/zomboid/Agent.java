@@ -20,6 +20,7 @@ public final class Agent {
     private static final String EXCEPTION_LOGGER = "zombie/core/logger/ExceptionLogger";
     private static final String RETICLE = "zombie/input/AimingReticle";
     private static final String CHARACTER_DRAW = "zombie/core/skinnedmodel/model/ModelSlotRenderData";
+    private static final String PART_DRAW = "zombie/core/skinnedmodel/model/ModelInstanceRenderData";
     private static final String COMBINER = "zombie/core/textures/TextureCombiner";
     private static final String TEXTURE = "Lzombie/core/textures/Texture;";
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
@@ -244,7 +245,14 @@ public final class Agent {
                 new Patch(cell, "renderRainSplashes left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(cell, "renderRainSplashes", "(II)V"), covered)),
                 new Patch(cell, "renderFog left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
-                        new CallSite.Method(cell, "renderFog", "(I)V"), covered)));
+                        new CallSite.Method(cell, "renderFog", "(I)V"), covered)),
+                // The game's own draw of each part of each person into its own view, which the
+                // picture then covers: the picture draws every one of them again itself, by this
+                // same method. Everything round the draw runs as it did: where the model's
+                // camera is stood, which the picture reads, and what says a model was shown.
+                new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
+                        new CallSite.Method("com/cameraunlock/zomboid/Characters", "gamesOwnDrawIsCovered", "()Z"))));
     }
 
     /**

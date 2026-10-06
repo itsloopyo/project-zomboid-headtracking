@@ -86,7 +86,7 @@ public final class FirstPerson {
     /** The view the player has asked for. The camera may still be on its way there. */
     private static boolean on;
     /** The camera is at the eye, and the view is played in. */
-    private static boolean landed;
+    private static volatile boolean landed;
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
     private static boolean fromTheEye;
     private static boolean wasRiding;
@@ -740,7 +740,10 @@ public final class FirstPerson {
     /**
      * Whether the first person picture is drawn over the whole of the game's own view, so that
      * what the game draws of the weather there is never seen: the eye has landed, and is not on
-     * its way between the two views, when the game's own shows through. Called from the game's code.
+     * its way between the two views, when the game's own shows through. Called from the game's
+     * code on its logic thread, and for Characters on its render thread, which draws the frame
+     * the logic thread built a moment before: on the one frame where the two differ the picture
+     * is as good as whole.
      */
     public static boolean coversTheGamesView() {
         return landed && !WITHOUT_COVER;

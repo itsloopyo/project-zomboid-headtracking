@@ -41,6 +41,27 @@ public final class Characters {
     private static final float CHARACTER_SCALE = 1.5f;
     /** The depth the game's model shader leaves a model at when it is not being fitted among sprites. */
     private static final float NO_DEPTH_SHIFT = 0.5f;
+    /** Whether the part being drawn is being drawn by the picture, and not by the game for its own view. Render thread. */
+    private static boolean ours;
+
+    /**
+     * Whether a part the game is about to draw is one of its own view's, under a first person
+     * picture that covers that view: it is then not drawn. Called from the game's code.
+     */
+    public static boolean gamesOwnDrawIsCovered() {
+        return !ours && FirstPerson.coversTheGamesView();
+    }
+
+    /** Has the game draw one part of a model for the picture. */
+    private static void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
+        ours = true;
+        try {
+            model.RenderCharacter(data);
+        } finally {
+            ours = false;
+        }
+    }
+
     /**
      * Has the game's shader leave a part at the depth it is drawn at. For a part that hangs on
      * another, a pair of glasses or a hat on a head, the shader takes the shift from the model
@@ -850,7 +871,7 @@ public final class Characters {
             }
             unshifted(model.modelInstance);
             GL11.glDepthMask(true);
-            model.RenderCharacter(data);
+            drawPart(model, data);
         }
         CharacterDraw.begin(data, handViews[0], projection, false);
         for (int part = 0; part < parts(data).size(); part++) {
@@ -1083,7 +1104,7 @@ public final class Characters {
             // writes off. Without them the next part, or the next model, is painted over
             // whatever is nearer.
             GL11.glDepthMask(true);
-            model.RenderCharacter(data);
+            drawPart(model, data);
         }
         EYE.End();
     }
@@ -1121,7 +1142,7 @@ public final class Characters {
             ModelInstanceRenderData model = parts(data).get(part);
             unshifted(model.modelInstance);
             GL11.glDepthMask(true);
-            model.RenderCharacter(data);
+            drawPart(model, data);
         }
         EYE.End();
     }
