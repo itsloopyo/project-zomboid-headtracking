@@ -134,6 +134,7 @@ final class HeadTracking {
         Own.set(loaded.own());
         Quality.set(loaded.quality());
         Style.set(loaded.style());
+        FrameBlending.set(loaded.frameBlending());
         Log.info("the mod's own in first person: " + Own.described(Own.on()));
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
@@ -150,7 +151,7 @@ final class HeadTracking {
                 TimeUnit.MILLISECONDS);
     }
 
-    /** FieldOfView, Quality, Style and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style, FrameBlending and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
     private static void watchSettings() {
         try {
             NativeConfig.Live live = config.reloadLive();
@@ -162,6 +163,7 @@ final class HeadTracking {
             if (live != null) {
                 Quality.set(live.quality());
                 Style.set(live.style());
+                FrameBlending.set(live.frameBlending());
             }
             if (live != null && live.own() != Own.on()) {
                 Own.set(live.own());

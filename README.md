@@ -186,6 +186,8 @@ The mod's own picture costs a graphics card far more than the game's own view do
 
 `F9` goes through three picture styles, says on the screen which one it went to and saves it as `Style` in `CameraUnlock.ini`. A style is how the mod's picture is developed from the light in it, and nothing else: the light, the weather, the hour and what the world is built of are the same in all three, and none costs more to draw than another. `Vivid`, which the game starts in, has strong contrast and full colours, cool in the shade and warm in the sun, with dark corners, glare off the sun and a glow round bright lights. `Natural` shows the colours as they are lit, with no tint, less contrast, and less of the dark corners, the glare and the glow. `Bleak` is washed out and low in contrast under a faint drab cast, with no glare off the sun, nearer the colours of the game's own view. The style applies wherever the mod draws the picture: first person in every graphics mode, and the game's own view in `Medium` and `High`. The row is read again while the game runs.
 
+Each frame of the first person picture is drawn on its own, so the picture is as sharp while you turn or walk as it is standing still. `FrameBlending=true` in `CameraUnlock.ini` mixes each frame with the one before it instead: fine edges, leaves and the grain of soft shadows are steadier in a still view, and what moves across the picture is softened and can smear. It is `false` unless you change it, and it is read again while the game runs.
+
 The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, and skins for zombies and for the living. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies` and `OwnPeople`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `F7` is the switch for that.
@@ -300,6 +302,12 @@ Quality=Low
 ; colours of the game's own view. The light, the weather and the hour are the same
 ; in all three. Read again while the game runs.
 Style=Vivid
+; Whether each frame of the first person picture is mixed with the one before it.
+; false: every frame is drawn on its own, so the picture is as sharp while you turn
+; or walk as it is standing still. true: fine edges, leaves and the grain of soft
+; shadows are steadier in a still view, and what moves across the picture is
+; softened and can smear. Read again while the game runs.
+FrameBlending=false
 
 [Smoothing]
 ; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.

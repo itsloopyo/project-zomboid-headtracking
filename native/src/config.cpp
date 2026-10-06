@@ -61,6 +61,12 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "colours of the game's own view. The light, the weather and the hour are the same\n"
                 "in all three. Read again while the game runs.")
         .Writable();
+    table.Local("General", "FrameBlending", &Config::frame_blending, cameraunlock::config::BoolCodec(),
+                "Whether each frame of the first person picture is mixed with the one before it.\n"
+                "false: every frame is drawn on its own, so the picture is as sharp while you turn\n"
+                "or walk as it is standing still. true: fine edges, leaves and the grain of soft\n"
+                "shadows are steadier in a still view, and what moves across the picture is\n"
+                "softened and can smear. Read again while the game runs.");
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in the first person view in place of the game's\n"
                 "own. Set a row to false and the game's own is drawn there instead, as the game or\n"

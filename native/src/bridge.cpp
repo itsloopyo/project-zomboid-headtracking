@@ -107,6 +107,7 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->own = OwnBits(c);
         out->quality = static_cast<std::int32_t>(c.quality);
         out->style = static_cast<std::int32_t>(c.style);
+        out->frame_blending = c.frame_blending;
         return static_cast<std::int32_t>(loaded.status);
     });
 }
@@ -122,6 +123,7 @@ std::int32_t PzhtConfigReloadLive(PzhtLive* out) {
         out->own = OwnBits(*reloaded.config);
         out->quality = static_cast<std::int32_t>(reloaded.config->quality);
         out->style = static_cast<std::int32_t>(reloaded.config->style);
+        out->frame_blending = reloaded.config->frame_blending;
         return 1;
     });
 }

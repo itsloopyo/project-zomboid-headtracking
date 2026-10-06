@@ -30,6 +30,8 @@ struct Config : cameraunlock::HeadTrackingConfig {
     float field_of_view = kDefaultFieldOfView;
     Quality quality = Quality::Low;
     Style style = Style::Vivid;
+    // Whether each frame of the first person picture is mixed with the one before it.
+    bool frame_blending = false;
     // What the mod made itself and shows in first person in place of the game's own. Each is
     // a row of [Content], and with a row off the game's own is drawn there.
     bool own_weapons = true;
@@ -49,8 +51,8 @@ struct Config : cameraunlock::HeadTrackingConfig {
 };
 
 // The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
-// rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style
-// and the rows of [Content] are the mod's own, and the ones read again while the game runs.
+// rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
+// FrameBlending and the rows of [Content] are the mod's own, and the ones read again while the game runs.
 cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 
 // The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test

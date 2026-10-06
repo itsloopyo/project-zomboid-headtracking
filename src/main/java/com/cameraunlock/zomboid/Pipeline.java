@@ -171,6 +171,8 @@ final class Pipeline {
     private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
     private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
     private static int jitterAt;
+    /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
+    private static float asideX, asideY;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
@@ -559,7 +561,11 @@ final class Pipeline {
             if (glazed) {
                 drawGlass();
             }
-            drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
+            if (FrameBlending.on()) {
+                drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
+            } else {
+                keptAny = false;
+            }
             stage(STAGE_SKY);
             if (Quality.shadedAndLit()) {
                 drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
@@ -1244,10 +1250,17 @@ final class Pipeline {
         // and with more detail than one frame's pixels hold.
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         if (!inMirror && !inScope) {
-            jitterAt = (jitterAt + 1) % JITTER_X.length;
-            projection[8] += JITTER_X[jitterAt] / width;
-            projection[9] += JITTER_Y[jitterAt] / height;
-            Characters.aside(JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+            if (FrameBlending.on()) {
+                jitterAt = (jitterAt + 1) % JITTER_X.length;
+                asideX = JITTER_X[jitterAt] / width;
+                asideY = JITTER_Y[jitterAt] / height;
+            } else {
+                asideX = 0f;
+                asideY = 0f;
+            }
+            projection[8] += asideX;
+            projection[9] += asideY;
+            Characters.aside(asideX, asideY);
         }
         tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
@@ -2486,12 +2499,12 @@ final class Pipeline {
         if (OwnRifle.waiting()) {
             lightHeld(OwnRifle.begin(), camera, state);
             OwnRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
-                    JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+                    asideX, asideY);
         }
         if (Scope.waiting()) {
             lightHeld(Scope.begin(), camera, state);
             Scope.draw(camera, Characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
-                    JITTER_X[jitterAt] / width, JITTER_Y[jitterAt] / height);
+                    asideX, asideY);
         }
         if (ViewModel.hasMuzzle) {
             MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);

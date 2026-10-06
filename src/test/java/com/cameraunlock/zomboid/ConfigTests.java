@@ -41,6 +41,7 @@ final class ConfigTests {
         contentRowsAreReadAgainWhenTheFileChanges(config, file);
         qualityIsReadAgainWhenTheFileChanges(config, file);
         styleIsSavedAndReadAgainWhenTheFileChanges(config, file);
+        frameBlendingIsReadAgainWhenTheFileChanges(config, file);
         zoomCompensationIsCores();
     }
 
@@ -148,6 +149,20 @@ final class ConfigTests {
         edit(file, text);
         live = config.reloadLive();
         check(live != null && live.style() == Style.VIVID.ordinal(), "and set back, it is vivid again");
+    }
+
+    private static void frameBlendingIsReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
+        String text = Files.readString(file, StandardCharsets.US_ASCII);
+        check(text.contains("\r\nFrameBlending=false\r\n"), "the file holds frame blending, off");
+        check(!config.load(file).frameBlending(), "which is what a start runs on");
+        edit(file, text.replace("FrameBlending=false", "FrameBlending=true"));
+        NativeConfig.Live live = config.reloadLive();
+        check(live != null && live.frameBlending(), "switched on, it is read while the game runs");
+        check(live.quality() == Quality.LOW && live.own() == Own.ALL, "with the graphics mode and the mod's own as they were");
+        check(config.load(file).frameBlending(), "and the next start runs on it");
+        edit(file, text);
+        live = config.reloadLive();
+        check(live != null && !live.frameBlending(), "and set back, it is off again");
     }
 
     private static void edit(Path file, String text) throws IOException {
