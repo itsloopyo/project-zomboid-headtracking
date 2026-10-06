@@ -696,6 +696,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
             ViewCamera.Pose from, boolean opened) {
         long start = System.nanoTime();
+        Stall.beat();
         boolean fromOutside = from != null;
         camera.set(view);
         facedX = fromOutside ? from.eyeX : view.eyeX;
