@@ -41,6 +41,19 @@ public final class Characters {
     private static final float CHARACTER_SCALE = 1.5f;
     /** The depth the game's model shader leaves a model at when it is not being fitted among sprites. */
     private static final float NO_DEPTH_SHIFT = 0.5f;
+    /**
+     * Has the game's shader leave a part at the depth it is drawn at. For a part that hangs on
+     * another, a pair of glasses or a hat on a head, the shader takes the shift from the model
+     * it hangs on, which still had the one the game fits a whole person among its sprites with:
+     * such a part was drawn nearer the eye than the head it was on, and showed through it.
+     */
+    private static void unshifted(ModelInstance instance) {
+        instance.targetDepth = NO_DEPTH_SHIFT;
+        if (instance.parent != null) {
+            instance.parent.targetDepth = NO_DEPTH_SHIFT;
+        }
+    }
+
     /** How far from the eye a model still casts a shadow, in tiles. */
     private static final float SHADOW_REACH = 45f;
     /** A vehicle whose middle is this near the eye of a seated viewer is the one the viewer is in: tiles. */
@@ -835,7 +848,7 @@ public final class Characters {
                     || model.ignoreLighting && MUZZLE.equals(model.modelInstance.attachmentNameParent)) {
                 continue;
             }
-            model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
+            unshifted(model.modelInstance);
             GL11.glDepthMask(true);
             model.RenderCharacter(data);
         }
@@ -873,6 +886,34 @@ public final class Characters {
     static void cast(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         draw(lightMatrix, true, true, lightMatrix, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+    }
+
+    /**
+     * The same into the far map, leaving out every person who stands wholly within the near
+     * map. Both maps look along the same rays, so a caster and its shadow lie on the same spot
+     * of each: whatever a person inside the near map's square shades is inside it too, and is
+     * shaded from the near map. Cast into both, a crowd round the viewer was drawn a third time
+     * for nothing.
+     */
+    static void castBeyond(float[] farMatrix, float[] nearMatrix) {
+        within = nearMatrix;
+        cast(farMatrix);
+        within = null;
+    }
+
+    private static float[] within;
+    /** How far from where they stand a person and what they hold reach, in tiles. */
+    private static final float PERSON_REACH = 1.5f;
+    /** The world's program reads the near map up to this far from its middle, of 1: see inside in PipelineShaders. */
+    private static final float NEAR_MAP_READ = 0.98f;
+
+    private static boolean wholeWithin(float[] map, ModelSlotRenderData data) {
+        float up = data.z * ViewCamera.LEVEL_HEIGHT;
+        float across = map[0] * data.x + map[4] * data.y + map[8] * up + map[12];
+        float along = map[1] * data.x + map[5] * data.y + map[9] * up + map[13];
+        float acrossReach = PERSON_REACH * (float) Math.sqrt(map[0] * map[0] + map[4] * map[4] + map[8] * map[8]);
+        float alongReach = PERSON_REACH * (float) Math.sqrt(map[1] * map[1] + map[5] * map[5] + map[9] * map[9]);
+        return Math.abs(across) + acrossReach < NEAR_MAP_READ && Math.abs(along) + alongReach < NEAR_MAP_READ;
     }
 
     /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
@@ -948,6 +989,9 @@ public final class Characters {
                 continue;
             }
             if (map != null && outside(map, data)) {
+                continue;
+            }
+            if (within != null && data.character != null && !data.inVehicle && wholeWithin(within, data)) {
                 continue;
             }
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
@@ -1034,7 +1078,7 @@ public final class Characters {
             } else if (!own && CharacterDraw.part(model)) {
                 continue;
             }
-            model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
+            unshifted(model.modelInstance);
             // The game's draw ends by putting its own remembered state back, which has depth
             // writes off. Without them the next part, or the next model, is painted over
             // whatever is nearer.
@@ -1075,7 +1119,7 @@ public final class Characters {
         ModelCamera.instance = gameCamera;
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
-            model.modelInstance.targetDepth = NO_DEPTH_SHIFT;
+            unshifted(model.modelInstance);
             GL11.glDepthMask(true);
             model.RenderCharacter(data);
         }
