@@ -214,7 +214,8 @@ final class Pipeline {
     private static final float[] natureGain = new float[NATURE.length];
     /** The sprigs a crown is made of, all in one picture: see Flora.addCrown. */
     private static final int SPRIG_UNIT = 28;
-    private static int sprigs;
+    private static int sprigs, sprigForm;
+    private static final int SPRIG_FORM_UNIT = 29;
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
@@ -1426,6 +1427,9 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
         world.set("uSprigs", SPRIG_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_FORM_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, sprigForm);
+        world.set("uSprigForm", SPRIG_FORM_UNIT);
         world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() ? 0f : 1f);
         world.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
@@ -2545,11 +2549,12 @@ final class Pipeline {
         pieces.add(Piece.ofPictures(() -> {
             try {
                 sprigs = Pictures.load(SPRIGS, false);
+                sprigForm = Pictures.load(SPRIG_FORM, false);
                 return null;
             } catch (IOException e) {
                 return "the sprigs could not be read: " + e.getMessage();
             }
-        }, SPRIGS));
+        }, SPRIGS, SPRIG_FORM));
         pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
         pieces.add(new Piece(Scope::prepare));
         pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
@@ -2562,7 +2567,7 @@ final class Pipeline {
         return pieces;
     }
 
-    private static final String SPRIGS = "/materials/sprigs.png";
+    private static final String SPRIGS = "/materials/sprigs.png", SPRIG_FORM = "/materials/sprigs-form.png";
     private static boolean readingAhead;
 
     /** Whether there is anything left to make before the first picture can be drawn. */

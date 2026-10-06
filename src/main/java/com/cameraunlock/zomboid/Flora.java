@@ -169,6 +169,14 @@ final class Flora {
     private static final float CROWN_FILL = 15f;
     private static final int CROWN_BANDS = 12;
     private static final int CROWN_LEAST = 12;
+    /**
+     * A crown is not one round mass but several boughs, each a mass of its own with hollows
+     * between: how far in from the crown's reach the deepest hollow lies, as a share of the
+     * reach, how much darker it is there than on a bough's top (most of the way up a swell the
+     * crown is as dark as it was before it had boughs), and how much more the light
+     * is made of the swell than its true slope gives.
+     */
+    private static final float BOUGH_HOLLOW = 0.34f, BOUGH_SHADE = 0.3f, BOUGH_RELIEF = 1.4f;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
     private static final float CROWN_MOST_OF_PLACES = 0.6f;
     /** How far a sprig's tip moves in the wind beyond what its height gives it. */
@@ -253,6 +261,10 @@ final class Flora {
             reachRight[band] = Math.max(reachRight[band], side);
         }
         mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
+        int boughs = mix(seed, 0, 93);
+        int lobes = shrub ? 2 + (boughs & 1) : 3 + (boughs & 0xff) % 3;
+        float rows = shrub ? 1f : Math.clamp(1.6f * tall / Math.max(widest, 1e-3f), 1.5f, 4f);
+        float turnOne = unit(boughs, 8) * 6.2832f, turnTwo = unit(boughs, 16) * 6.2832f, turnThree = unit(boughs, 24) * 6.2832f;
         for (int i = 0; i < count; i++) {
             int hash = mix(seed, i, 91);
             float high = (footV - places[i * 2 + 1]) * up;
@@ -265,11 +277,27 @@ final class Flora {
             // further in, and are what shows, in shade, through the gaps of the first.
             boolean inner = (hash >>> 29 & 3) == 0;
             int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
-            float out = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f) * (inner ? 0.3f + 0.3f * unit(hash, 20) : 0.74f + 0.26f * unit(hash, 20));
-            double round = unit(hash, 8) * 2.0 * Math.PI;
-            float px = out * (float) Math.cos(round), py = out * (float) Math.sin(round), pz = high - middle;
+            float round = unit(hash, 8) * 6.2832f, share = (high - lowest) / tall;
+            // How far this place is up a bough's swell, 1 its top and 0 the hollow, and how that changes round the crown and up it.
+            float swell = bough(round, share, lobes, rows, turnOne, turnTwo, turnThree);
+            float swellRound = (bough(round + 0.05f, share, lobes, rows, turnOne, turnTwo, turnThree) - bough(round - 0.05f, share, lobes, rows, turnOne, turnTwo, turnThree)) / 0.1f;
+            float swellUp = (bough(round, share + 0.03f, lobes, rows, turnOne, turnTwo, turnThree) - bough(round, share - 0.03f, lobes, rows, turnOne, turnTwo, turnThree)) / 0.06f;
+            float full = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f);
+            float surface = 1f - BOUGH_HOLLOW * (1f - swell);
+            float out = full * (inner ? 0.3f + 0.3f * unit(hash, 20) : surface * (0.86f + 0.14f * unit(hash, 20)));
+            float cosRound = (float) Math.cos(round), sinRound = (float) Math.sin(round);
+            float px = out * cosRound, py = out * sinRound, pz = high - middle;
             float far = (float) Math.sqrt(px * px + py * py + pz * pz);
             float ox = far > 0.01f ? px / far : 0f, oy = far > 0.01f ? py / far : 0f, oz = far > 0.01f ? pz / far : 1f;
+            // The way the crown's outside faces here: out from its middle, turned down the swell's slope.
+            float slopeRound = BOUGH_RELIEF * BOUGH_HOLLOW * swellRound / surface, slopeUp = BOUGH_RELIEF * BOUGH_HOLLOW * swellUp * full / tall;
+            ox += sinRound * slopeRound;
+            oy -= cosRound * slopeRound;
+            oz -= slopeUp;
+            float faces = Math.max((float) Math.sqrt(ox * ox + oy * oy + oz * oz), 1e-3f);
+            ox /= faces;
+            oy /= faces;
+            oz /= faces;
             // Which way the sprig's flat faces: out of the crown, tilted any way by up to a third of a turn.
             int turn = mix(hash, i, 92);
             float ax = ox + 1.1f * (unit(turn, 0) - 0.5f), ay = oy + 1.1f * (unit(turn, 8) - 0.5f), az = oz + 1.1f * (unit(turn, 16) - 0.5f);
@@ -298,9 +326,9 @@ final class Flora {
             float tipX = stemX + lx, tipY = stemY + ly, tipUp = stemUp + lz;
             // Lit as the round crown it is part of, not as the flat card it is: from the side
             // the crown's middle is on, a little turned up.
-            mesh.face(ox, oy, oz + 0.35f);
-            // The middle of a crown is in the shade of its outside.
-            float shade = inner ? 0.5f : 0.8f + 0.2f * Math.min(far / reach, 1f);
+            mesh.face(ox, oy, oz + 0.2f);
+            // The middle of a crown is in the shade of its outside, and a hollow in that of the boughs either side.
+            float shade = inner ? 0.5f : (0.8f + 0.2f * Math.min(far / reach, 1f)) * (1f + BOUGH_SHADE * (swell - 0.7f));
             float red = frame.red * shade, green = frame.green * shade, blue = frame.blue * shade;
             float u = (float) Math.rint((frame.uStart + (places[i * 2] - frame.left) / frame.width * (frame.uEnd - frame.uStart)) * CROWN_STEPS);
             float v = (float) Math.rint((frame.vStart + (places[i * 2 + 1] - frame.top) / frame.height * (frame.vEnd - frame.vStart)) * CROWN_STEPS);
@@ -317,6 +345,13 @@ final class Flora {
         }
         mesh.sway = 0f;
         return true;
+    }
+
+    /** How far up a bough's swell the crown's outside is at an angle round it and a share of the way up it: 0 in a hollow, 1 on a bough's top. */
+    private static float bough(float round, float share, int lobes, float rows, float turnOne, float turnTwo, float turnThree) {
+        float about = (float) Math.sin(lobes * round + turnOne + 2f * Math.sin(4f * share + turnTwo));
+        float along = (float) Math.sin(Math.PI * rows * share + turnThree + 1.2f * Math.sin(round + turnTwo));
+        return 0.5f + 0.5f * about * along;
     }
 
     /**

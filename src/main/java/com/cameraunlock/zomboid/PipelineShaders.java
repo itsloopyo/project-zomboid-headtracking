@@ -319,6 +319,11 @@ final class PipelineShaders {
             const float RELIEF = 0.05;
             // How bright a carried torch makes what its beam is on at arm's length, against what the game gives the square.
             const float TORCH_GIVES = 1.6;
+            // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
+            // when turned full to it; how much of the sun on its back shows through, and how
+            // much more of it looking straight towards the sun; and how smooth its skin is.
+            const float CROWN_CLEAR = 2.2;
+            const float LEAF_SHADE = 0.5, LEAF_SUN = 1.15, LEAF_GLOW = 2.0, LEAF_GLOW_AGAINST = 0.6, LEAF_ROUGH = 0.42;
             // How wide a board of a boarded wall is, in tiles: about 15 cm.
             const float BOARD_WIDE = 0.15;
             // A brick and the mortar round it, a lapped board's show, and half the width of a
@@ -372,6 +377,7 @@ final class PipelineShaders {
             uniform sampler2D uFrond;
             uniform sampler2D uIvy;
             uniform sampler2D uSprigs;
+            uniform sampler2D uSprigForm;
             uniform vec2 uNatureGain;
 
             // The light and dark of a material's picture on a rounded thing. A sprite's face is
@@ -1032,6 +1038,7 @@ final class PipelineShaders {
                 // and a pattern on the screen would leave out different leaves every frame.
                 bool bushy = vMaterial > 62.5 && vMaterial < 63.5;
                 bool crown = vMaterial > 71.5 && vMaterial < 79.5;
+                vec2 sprigAt = vec2(0.0);
                 if (crown) {
                     // A sprig of a crown: a branch tip in leaf, cut out of its card. Its texture
                     // coordinate is two things at once. The whole number is where on the
@@ -1053,7 +1060,8 @@ final class PipelineShaders {
                         discard;
                     }
                     float which = floor(vMaterial - 71.5);
-                    vec4 sprig = texture2D(uSprigs, (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5));
+                    sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5);
+                    vec4 sprig = texture2D(uSprigs, sprigAt);
                     // Far off, the smaller copies of the picture have every leaf part solid,
                     // and cut at half the crown would thin to twigs.
                     float fine = max(fwidth(on.x), fwidth(on.y));
@@ -1745,6 +1753,29 @@ final class PipelineShaders {
                 if (dot(n, view) < 0.0 && !crown) {
                     n = -n;
                 }
+                // A sprig is a card, and the leaves on it are not: each is turned its own way
+                // out of the card, domed, curled over at its edge and ribbed, and where two
+                // lie one on the other less light comes through. The sprigs' second picture
+                // has that for every pixel (pack.py, form): the slope across and down the
+                // picture, and how much light passes.
+                vec3 leafFace = n;
+                float leafThrough = 1.0;
+                if (crown) {
+                    vec3 shape = texture2D(uSprigForm, sprigAt).rgb;
+                    vec3 acrossX = dFdx(vPlace), acrossY = dFdy(vPlace);
+                    vec3 flatOf = normalize(cross(acrossX, acrossY) + vec3(1e-12));
+                    if (dot(flatOf, view) < 0.0) {
+                        flatOf = -flatOf;
+                    }
+                    // Which ways in the world the picture's across and down run on this card.
+                    vec3 r1 = cross(acrossY, flatOf), r2 = cross(flatOf, acrossX);
+                    vec2 atX = dFdx(sprigAt), atY = dFdy(sprigAt);
+                    vec3 right = r1 * atX.x + r2 * atY.x, down = r1 * atX.y + r2 * atY.y;
+                    vec2 tip = shape.rg * 2.0 - 1.0;
+                    leafFace = normalize(flatOf * sqrt(max(1.0 - dot(tip, tip), 0.05))
+                            + (right * tip.x + down * tip.y) * inversesqrt(max(dot(right, right), dot(down, down)) + 1e-20));
+                    leafThrough = shape.b;
+                }
                 // A tuft of grass is lit as the ground it grows from is, from above. Lit as the
                 // card it is drawn on, each tuft is a flat pane brighter or darker than the
                 // next, and a lawn is a heap of green blocks.
@@ -1987,7 +2018,7 @@ final class PipelineShaders {
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
                 // Less of it where relieve has tilted the surface by its real height.
-                float relief = water || grass ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear);
+                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {
@@ -2008,11 +2039,19 @@ final class PipelineShaders {
                 bool card = !water && vKind > 1.5;
                 float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
+                // How much sun a leaf of a crown passes from its far side to the one seen.
+                float leafBehind = 0.0;
                 if (crown) {
                     // A crown is a round mass of leaves: bright where it is turned to the sun,
                     // going over to shade round its side, and never black, for the light
                     // comes through and round the leaves.
-                    facing = 0.3 + 0.7 * pow(clamp(0.5 + 0.5 * dot(n, uLight), 0.0, 1.0), 1.5);
+                    float round = 0.3 + 0.7 * pow(clamp(0.5 + 0.5 * dot(n, uLight), 0.0, 1.0), 1.5);
+                    // And within that each leaf has the sun on the side seen, or edge on, or
+                    // on its back and glowing through: no two leaves of a sprig alike.
+                    float turned = dot(leafFace, uLight);
+                    facing = round * (LEAF_SHADE + LEAF_SUN * max(turned, 0.0));
+                    // The sun on a leaf's back reaches the underside of a crown as well as its sunny side.
+                    leafBehind = (0.5 + 0.5 * round) * max(-turned, 0.0) * leafThrough;
                 } else if (card) {
                     facing = 0.5 + 0.4 * facing;
                 }
@@ -2023,7 +2062,9 @@ final class PipelineShaders {
                     // and their shadows on one another would flicker all over the tree. A card
                     // asks about the shade a little way towards the sun, past its own fan.
                     // Further off the surface than the soft edge is wide, or a level surface shades itself.
-                    vec4 from = vec4(vWorld + n * 0.16 + (card ? uLight * 0.9 : vec3(0.0)), 1.0);
+                    // A sprig on the side of its crown the sun is on asks further off still, clear of
+                    // the crown it is the outside of: its shade is other trees', not its own.
+                    vec4 from = vec4(vWorld + n * 0.16 + (card ? uLight * (0.9 + (crown ? CROWN_CLEAR * max(dot(n, uLight), 0.0) : 0.0)) : vec3(0.0)), 1.0);
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     if (inside(c)) {
                         // A shadow is sharp where the thing that casts it touches the ground and
@@ -2065,6 +2106,10 @@ final class PipelineShaders {
                 // falling straight on it. Out of doors that light comes from the sky, more of it
                 // onto what faces up and bluer than the sun.
                 vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
+                if (crown) {
+                    // A leaf turned up has more of the sky on it than one turned down.
+                    fromSky *= 0.88 + 0.16 * leafFace.z;
+                }
                 // A crown is the leaves the sky is seen through, not something under them.
                 if (open > 0.5 && range < 40.0 && !crown) {
                     // Under trees the sky's light is thinned and green, not gone.
@@ -2121,8 +2166,17 @@ final class PipelineShaders {
                     float against = pow(max(dot(-view, uLight), 0.0), 1.5);
                     vec3 leaf = pow(texel.rgb, vec3(2.2)) * vec3(1.25, 1.2, 0.55);
                     // A blade lets most through near its tip, where it is thinnest.
-                    float through = grass ? 0.55 + 0.9 * bladeUp : 1.0;
-                    color += leaf * pow(uLightColor, vec3(2.2)) * (2.8 * through * against * reached * step(0.0, uLight.z));
+                    // A crown's leaves each pass what their own turn and thickness let them, and
+                    // a little more, as all foliage does, straight towards the eye.
+                    float through = grass ? 0.55 + 0.9 * bladeUp : crown ? LEAF_GLOW_AGAINST * leafThrough : 1.0;
+                    color += leaf * pow(uLightColor, vec3(2.2)) * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z));
+                    if (crown && reached > 0.0) {
+                        // The upper skin of a leaf is waxed, and throws the sun off as a
+                        // white glint where the leaf is turned just so. Far off, where a
+                        // leaf is under a pixel, the glints would only crawl.
+                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * step(0.0, uLight.z) * (1.0 - smoothstep(16.0, 34.0, range))
+                                * glossed(leafFace, view, uLight, LEAF_ROUGH, 0.05));
+                    }
                     if (grass && reached > 0.0) {
                         // A blade of grass is glossy, and throws the sun off its flat as a
                         // sheen. Each is turned its own way round its stalk and leans back more
