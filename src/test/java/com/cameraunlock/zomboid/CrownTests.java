@@ -49,7 +49,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        check(Flora.addCrown(mesh, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, Flora.MAPLE, 7), "a painted crown makes a crown");
+        check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7), "a painted crown makes a crown");
         int vertices = mesh.floats / SpriteGeometry.VERTEX_FLOATS;
         check(vertices >= 6 * 20 && vertices % 6 == 0, "the crown is whole sprigs of two triangles, a good many of them: " + vertices / 6);
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS, up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL;
@@ -77,8 +77,8 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
         SpriteGeometry.Mesh near = new SpriteGeometry.Mesh(), far = new SpriteGeometry.Mesh();
-        Flora.addCrown(near, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, Flora.LINDEN, 7);
-        Flora.addCrown(far, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, Flora.LINDEN, 7);
+        Flora.addCrown(near, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
+        Flora.addCrown(far, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 0.25f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
         check(far.floats > 0 && far.floats * 2 < near.floats, "a crown at a quarter of the detail has under half the sprigs: " + far.floats + " of " + near.floats);
     }
 
@@ -86,7 +86,7 @@ final class CrownTests {
         SpriteGeometry.Frame frame = frame();
         float[] places = Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        check(!Flora.addCrown(mesh, frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, Flora.LINDEN, 7) && mesh.floats == 0,
+        check(!Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7) && mesh.floats == 0,
                 "a sprite with one dot painted makes no crown and adds nothing");
     }
 

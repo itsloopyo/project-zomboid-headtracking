@@ -2712,6 +2712,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** How coarse the crown of a plant at CROWN_REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
     private static final float CROWN_FAR_DETAIL = 0.3f;
     private static final int CROWN_LEAST_PLACES = 12;
+    /** Within how far of the eye a crown is one stood under, with twigs and more leaves inside it, and from how far it comes to that by degrees; and how far off its limbs are made. */
+    private static final float CROWN_CLOSE = 5f, CROWN_CLOSING = 11f, LIMB_REACH = 16f;
+    /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
+    private int boleX = Integer.MIN_VALUE, boleY, boleBark;
+    private float boleThick, boleTall;
 
     /**
      * Stands a crown of sprigs for the plant whose leaves the frame is set to, in the mesh of
@@ -2733,11 +2738,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             leafPlaces.put(texture, places);
         }
-        return Flora.addCrown(solid.get(texture.getID()), frame, places, x + 0.5f, y + 0.5f,
+        float away = (float) Math.sqrt(away2);
+        boolean limbed = !bush && boleX == x && boleY == y && away < LIMB_REACH;
+        int seed = Flora.mix(x, y, 83);
+        return Flora.addCrown(solid.get(texture.getID()), solid.get(PLAIN), frame, places, x + 0.5f, y + 0.5f,
                 z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f) + geometry.raised * ViewCamera.LEVEL_HEIGHT,
                 SpriteGeometry.frameU(frame, 0.5f, 0.5f), SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f),
-                1f + (CROWN_FAR_DETAIL - 1f) * Math.clamp(((float) Math.sqrt(away2) - CROWN_NEAR) / (CROWN_REACH - CROWN_NEAR), 0f, 1f),
-                Flora.sprigOf(name, bush), Flora.mix(x, y, 83));
+                1f + (CROWN_FAR_DETAIL - 1f) * Math.clamp((away - CROWN_NEAR) / (CROWN_REACH - CROWN_NEAR), 0f, 1f),
+                Math.clamp((CROWN_CLOSING - away) / (CROWN_CLOSING - CROWN_CLOSE), 0f, 1f), limbed ? boleThick : 0f, boleTall,
+                limbed ? boleBark : Flora.barkOf(name, seed), Flora.sprigOf(name, bush), seed);
     }
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
@@ -2988,6 +2997,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f);
         flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, Flora.barkOf(sprite.getName(), seed), seed, frame);
+        boleX = x;
+        boleY = y;
+        boleThick = bole[0];
+        boleTall = bole[1];
+        boleBark = Flora.barkOf(sprite.getName(), seed);
         if (near && Flora.ivied(x, y)) {
             flora.addIvy(laid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, frame);
         }

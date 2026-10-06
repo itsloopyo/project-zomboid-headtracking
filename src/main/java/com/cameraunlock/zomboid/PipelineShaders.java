@@ -1050,7 +1050,7 @@ final class PipelineShaders {
                     float each = grain(cell);
                     // Standing in a tree, the sprigs within reach are gone, a whole sprig at
                     // a time, and the view is of the wood beyond them.
-                    if ((length(uEye - vWorld) - uRangeFrom) < 0.45 + 0.8 * each) {
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.22 + 0.3 * each) {
                         discard;
                     }
                     // A card seen along its own flat is a smear of leaves a pixel deep. It is left

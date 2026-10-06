@@ -177,6 +177,24 @@ final class Flora {
      * is made of the swell than its true slope gives.
      */
     private static final float BOUGH_HOLLOW = 0.34f, BOUGH_SHADE = 0.3f, BOUGH_RELIEF = 1.4f;
+    /**
+     * Near the eye a crown is looked into and not at, and what is between its sprigs shows:
+     * how many more sprigs it has then, as a share of what it has from further off, all of
+     * them inside the crown; the share of its sprite's places that may bear one; and the share
+     * of its sprigs that are borne on a twig, which is how long for the sprig's size, how
+     * thick where it leaves the bough and at its tip, and how far it drops for its length.
+     */
+    private static final float CLOSE_FILL = 0.6f, CLOSE_MOST_OF_PLACES = 0.92f, TWIG_SHARE = 0.45f, TWIG_LONG = 0.45f, TWIG_THICK = 0.01f, TWIG_TIP = 0.004f,
+            TWIG_DROP = 0.45f;
+    /**
+     * The wood inside a crown: a leader up its middle, as thin at its top as LIMB_TIP, and
+     * limbs off it out to the boughs, each as thick where it leaves as LIMB_OF_LEADER of the
+     * leader there, with branches off each to the leaves either side.
+     */
+    private static final float LEADER_TOP = 0.8f, LIMB_TIP = 0.014f, LIMB_OF_LEADER = 0.7f, LIMB_OUT = 0.8f, BRANCH_OF_LIMB = 0.5f, BRANCH_TIP = 0.008f;
+    private static final int LEADER_SIDES = 6, LIMB_SIDES = 5, BRANCH_SIDES = 4, TWIG_SIDES = 3, LIMB_PIECES = 4;
+    /** How far up the bark's picture wood in a crown starts: clear of the moss a bole has at its foot. */
+    private static final float WOOD_UP = 3f;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
     private static final float CROWN_MOST_OF_PLACES = 0.6f;
     /** How far a sprig's tip moves in the wind beyond what its height gives it. */
@@ -219,11 +237,15 @@ final class Flora {
      *
      * places is leafPlaces of the frame; (x, y, base) the plant's foot, which the sprite shows
      * at the frame pixel (footU, footV). detail is 1 for a plant near the eye and less for one
-     * further off, which is made of fewer and larger sprigs that cover as much. False, and
-     * nothing made, when the sprite shows too little to make a crown of.
+     * further off, which is made of fewer and larger sprigs that cover as much. close is 0
+     * for a plant looked at from outside and 1 for one stood under: by as much, it has more
+     * sprigs inside it and twigs to bear them, made in wood in the bark that is bark's
+     * number. A tree whose bole is boleRadius thick at its top, boleTall over its foot, has
+     * a leader and limbs in wood as well: 0 for a plant with no bole, or too far off for them.
+     * False, and nothing made, when the sprite shows too little to make a crown of.
      */
-    static boolean addCrown(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
-            float detail, int sprig, int seed) {
+    static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
+            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed) {
         int count = places.length / 2;
         if (count < CROWN_LEAST) {
             return false;
@@ -249,6 +271,7 @@ final class Flora {
             size *= (float) Math.sqrt(wanted / (count * CROWN_MOST_OF_PLACES));
             wanted = count * CROWN_MOST_OF_PLACES;
         }
+        float filled = Math.min(wanted * (1f + CLOSE_FILL * close), Math.max(wanted, count * CLOSE_MOST_OF_PLACES));
         float middle = lowest + (highest - lowest) * 0.45f;
         float reach = Math.max(widest, (highest - lowest) / 2f);
         // How far out the crown reaches at each height: half of how wide the sprite paints it there.
@@ -268,14 +291,16 @@ final class Flora {
         for (int i = 0; i < count; i++) {
             int hash = mix(seed, i, 91);
             float high = (footV - places[i * 2 + 1]) * up;
-            if (unit(hash, 0) > wanted / count) {
+            float drawn = unit(hash, 0);
+            if (drawn > filled / count) {
                 continue;
             }
             // The leaves of a tree are its outside: most sprigs stand in a shell at the crown's
             // reach, each lying along the crown's surface there, give or take, so that from
             // any side they are seen flat on and cover what is behind them. The rest stand
             // further in, and are what shows, in shade, through the gaps of the first.
-            boolean inner = (hash >>> 29 & 3) == 0;
+            boolean filling = drawn > wanted / count;
+            boolean inner = filling || (hash >>> 29 & 3) == 0;
             int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
             float round = unit(hash, 8) * 6.2832f, share = (high - lowest) / tall;
             // How far this place is up a bough's swell, 1 its top and 0 the hollow, and how that changes round the crown and up it.
@@ -284,7 +309,8 @@ final class Flora {
             float swellUp = (bough(round, share + 0.03f, lobes, rows, turnOne, turnTwo, turnThree) - bough(round, share - 0.03f, lobes, rows, turnOne, turnTwo, turnThree)) / 0.06f;
             float full = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f);
             float surface = 1f - BOUGH_HOLLOW * (1f - swell);
-            float out = full * (inner ? 0.3f + 0.3f * unit(hash, 20) : surface * (0.86f + 0.14f * unit(hash, 20)));
+            float out = full * (filling ? surface * (0.35f + 0.5f * unit(hash, 20)) : inner ? 0.3f + 0.3f * unit(hash, 20)
+                    : surface * (0.86f + 0.14f * unit(hash, 20)));
             float cosRound = (float) Math.cos(round), sinRound = (float) Math.sin(round);
             float px = out * cosRound, py = out * sinRound, pz = high - middle;
             float far = (float) Math.sqrt(px * px + py * py + pz * pz);
@@ -342,9 +368,118 @@ final class Flora {
                 mesh.add((tip ? tipX : stemX) + rx * side, (tip ? tipY : stemY) + ry * side, (tip ? tipUp : stemUp) + rz * side,
                         u + (right != mirrored ? 1f - CROWN_INSET : CROWN_INSET), v + (tip ? CROWN_INSET : 1f - CROWN_INSET), red, green, blue);
             }
+            if ((hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
+                // The twig the sprig is on: from the middle of its leaves back and down into the crown, towards the bough it grew from.
+                float back = Math.min(TWIG_LONG * each / Math.max(out, 1e-3f), 0.7f);
+                float sway = Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST);
+                mark(wood, frame.open, 0f, TRUNK);
+                prism(wood, x + px * (1f - back), y + py * (1f - back), base + high - TWIG_DROP * TWIG_LONG * each, x + px, y + py, base + high,
+                        TWIG_THICK, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP, sway, sway, hash, frame);
+            }
         }
         mesh.sway = 0f;
+        if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
+            mark(wood, frame.open, 0f, TRUNK);
+            // Up the middle, from the bole's top.
+            float topUp = lowest + LEADER_TOP * tall, thick = boleRadius * TAPER;
+            int limbs = Math.clamp(Math.round(4f + 2.5f * widest), 5, 9);
+            for (int piece = 0; piece < 3; piece++) {
+                float from = boleTall + (topUp - boleTall) * piece / 3f, to = boleTall + (topUp - boleTall) * (piece + 1) / 3f;
+                prism(wood, x, y, base + from, x, y, base + to, thick + (LIMB_TIP - thick) * piece / 3f, thick + (LIMB_TIP - thick) * (piece + 1) / 3f,
+                        LEADER_SIDES, BARK_UP * bark + WOOD_UP, limbSway(from, boleTall), limbSway(to, boleTall), seed + piece, frame);
+            }
+            for (int limb = 0; limb < limbs; limb++) {
+                int own = mix(seed, limb, 94);
+                // Where up the leader it leaves, the lowest limbs first, and where on the crown's outside it ends.
+                float leaves = (limb + 0.3f + 0.4f * unit(own, 0)) / limbs * 0.78f;
+                float fromUp = boleTall + (topUp - boleTall) * leaves;
+                float round = turnOne + limb * 2.39996f + 0.5f * (unit(own, 8) - 0.5f);
+                float share = Math.clamp((fromUp - lowest) / tall + 0.16f + 0.22f * unit(own, 16), 0.08f, 0.94f);
+                float reachAt = reachAt(reachLeft, reachRight, share) * (1f - BOUGH_HOLLOW * (1f - bough(round, share, lobes, rows, turnOne, turnTwo, turnThree)));
+                float endOut = LIMB_OUT * reachAt, endUp = lowest + share * tall;
+                float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
+                float limbThick = Math.max((thick + (LIMB_TIP - thick) * leaves) * LIMB_OF_LEADER, LIMB_TIP * 1.4f);
+                // It leaves the leader nearly level and turns up to its end: a curve through a point out beside where it leaves.
+                float bendOut = 0.7f * endOut, bendUp = fromUp + 0.1f * (endUp - fromUp);
+                float lastOut = 0f, lastUp = fromUp;
+                for (int piece = 1; piece <= LIMB_PIECES; piece++) {
+                    float t = (float) piece / LIMB_PIECES, s = 1f - t;
+                    float outAt = 2f * s * t * bendOut + t * t * endOut, upAt = s * s * fromUp + 2f * s * t * bendUp + t * t * endUp;
+                    // It keeps its thickness most of its length, and thins fastest at its end.
+                    float thickFrom = limbThick + (LIMB_TIP - limbThick) * (t - 1f / LIMB_PIECES) * (t - 1f / LIMB_PIECES), thickTo = limbThick + (LIMB_TIP - limbThick) * t * t;
+                    prism(wood, x + cos * lastOut, y + sin * lastOut, base + lastUp, x + cos * outAt, y + sin * outAt, base + upAt, thickFrom, thickTo,
+                            LIMB_SIDES, BARK_UP * bark + WOOD_UP, limbSway(lastUp, boleTall), limbSway(upAt, boleTall), own + piece, frame);
+                    if (piece >= 2) {
+                        // Two branches off the end of each piece but the first, to the leaves on either side of the limb and above it.
+                        for (int side = 0; side < 2; side++) {
+                            int which = mix(own, piece, 95 + side);
+                            float toRound = round + (side == 0 ? 1f : -1f) * (0.35f + 0.45f * unit(which, 0));
+                            float toShare = Math.clamp((upAt - lowest) / tall + 0.22f * unit(which, 8), 0.05f, 0.97f);
+                            float toOut = 0.85f * reachAt(reachLeft, reachRight, toShare)
+                                    * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, rows, turnOne, turnTwo, turnThree)));
+                            float toUp = lowest + toShare * tall;
+                            prism(wood, x + cos * outAt, y + sin * outAt, base + upAt, x + (float) Math.cos(toRound) * toOut, y + (float) Math.sin(toRound) * toOut,
+                                    base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
+                                    limbSway(upAt, boleTall), limbSway(toUp, boleTall), which, frame);
+                        }
+                    }
+                    lastOut = outAt;
+                    lastUp = upAt;
+                }
+            }
+        }
+        wood.sway = 0f;
         return true;
+    }
+
+    /** How far out a crown reaches at a share of the way up it: see addCrown. */
+    private static float reachAt(float[] reachLeft, float[] reachRight, float share) {
+        int band = Math.clamp((int) (share * CROWN_BANDS), 0, CROWN_BANDS - 1);
+        return (reachLeft[band] + reachRight[band]) / 2f;
+    }
+
+    /** How much of the wind wood in a crown takes at a height over the plant's foot: what a sprig there takes, and nothing where it joins the bole, which stands still. */
+    private static float limbSway(float high, float boleTall) {
+        return Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST) * Math.clamp((high - boleTall) / 0.6f, 0f, 1f);
+    }
+
+    /**
+     * A round piece of wood from one point to another, thickFrom at the first and thickTo at
+     * the second, in the bark whose picture starts at up: open at both ends, which the next
+     * piece or the leaves cover. A quarter of the bark's picture goes round it.
+     */
+    private static void prism(Mesh mesh, float fromX, float fromY, float fromUp, float toX, float toY, float toUp, float thickFrom, float thickTo, int sides,
+            float up, float swayFrom, float swayTo, int seed, SpriteGeometry.Frame frame) {
+        float dx = toX - fromX, dy = toY - fromY, dz = toUp - fromUp;
+        float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length < 1e-4f) {
+            return;
+        }
+        dx /= length;
+        dy /= length;
+        dz /= length;
+        // Two ways square to it and to each other.
+        float ax = Math.abs(dz) > 0.95f ? 1f : -dy, ay = Math.abs(dz) > 0.95f ? 0f : dx;
+        float flat = (float) Math.sqrt(ax * ax + ay * ay);
+        ax /= flat;
+        ay /= flat;
+        float bx = -dz * ay, by = dz * ax, bz = dx * ay - dy * ax;
+        float across = BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
+        float span = Math.max((thickFrom + thickTo) * (float) Math.PI * 4f, 0.2f);
+        for (int side = 0; side < sides; side++) {
+            for (int corner : QUAD) {
+                int on = corner == 1 || corner == 2 ? 1 : 0;
+                boolean far = corner >= 2;
+                double angle = (side + on) * 2.0 * Math.PI / sides;
+                float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
+                float outX = ax * cos + bx * sin, outY = ay * cos + by * sin, outUp = bz * sin;
+                float thick = far ? thickTo : thickFrom;
+                mesh.face(outX, outY, outUp);
+                mesh.sway = far ? swayTo : swayFrom;
+                mesh.add((far ? toX : fromX) + outX * thick, (far ? toY : fromY) + outY * thick, (far ? toUp : fromUp) + outUp * thick,
+                        across + (side + on) * 0.25f / sides, up + (far ? length / span : 0f), frame.red, frame.green, frame.blue);
+            }
+        }
     }
 
     /** How far up a bough's swell the crown's outside is at an angle round it and a share of the way up it: 0 in a hollow, 1 on a bough's top. */
