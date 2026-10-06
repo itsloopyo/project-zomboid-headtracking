@@ -90,6 +90,8 @@ public final class FirstPerson {
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
     private static boolean fromTheEye;
     private static boolean wasRiding;
+    /** The way the vehicle the player is in faced on the last frame. */
+    private static float rideHeading;
     /** The view is played in, the game is running and the character is alive. */
     private static boolean active;
     private static boolean lookCaptured;
@@ -270,7 +272,7 @@ public final class FirstPerson {
             WorldScene.forgetAll();
         }
         IsoPlayer player = IsoPlayer.getInstance();
-        faceAheadOnGettingIn(player);
+        rideAlong(player);
         if ((on || !Flight.home()) && !allowed(player)) {
             if (on) {
                 Log.info("first person off: " + whyNot(player));
@@ -402,16 +404,21 @@ public final class FirstPerson {
     }
 
     /**
-     * Getting into a vehicle in first person is sitting down facing the way the seat does. Left
-     * alone the view keeps the way the character faced on foot. In the game's own view nothing
-     * changes.
+     * Getting into a vehicle in first person is sitting down facing the way the seat does: left
+     * alone the view keeps the way the character faced on foot. From then on the view turns with
+     * the vehicle, as a head does with the seat under it, and the mouse turns it from there. In
+     * the game's own view nothing changes.
      */
-    private static void faceAheadOnGettingIn(IsoPlayer player) {
-        boolean riding = player != null && player.getVehicle() != null;
-        if (riding && !wasRiding && on) {
-            setLook(Ride.heading(player.getVehicle()), 0f);
+    private static void rideAlong(IsoPlayer player) {
+        BaseVehicle vehicle = player == null ? null : player.getVehicle();
+        if (vehicle != null) {
+            float heading = Ride.heading(vehicle);
+            if (on) {
+                setLook(wasRiding ? yaw + heading - rideHeading : heading, wasRiding ? pitch : 0f);
+            }
+            rideHeading = heading;
         }
-        wasRiding = riding;
+        wasRiding = vehicle != null;
     }
 
     private static void notePace(long now, long frameNanos) {
