@@ -211,6 +211,7 @@ public final class FirstPerson {
         } else if (on) {
             Vector2 facing = player.getForwardDirection();
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
+            stride.begin(traceMoveX, traceMoveY, yaw);
         }
         Log.info("first person " + (on ? "on, " + facings(player) : "off"));
     }
@@ -314,9 +315,9 @@ public final class FirstPerson {
             Log.info(String.format(Locale.ROOT, "first person landed looking %.0f, %s, movement keys (%.2f, %.2f), %s",
                     Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, HeadTracking.describe()));
         }
-        if (landed && !wasLanded && player.getVehicle() == null) {
-            stride.land(traceMoveX, traceMoveY, yaw, now);
-        } else if (!landed) {
+        if (landed && !wasLanded) {
+            stride.landed(now);
+        } else if (!on) {
             stride.reset();
         }
         active = landed && !GameTime.isGamePaused() && !player.isDead();
@@ -362,12 +363,6 @@ public final class FirstPerson {
             return;
         }
 
-        if (on && !landed && player.getVehicle() == null) {
-            // Until the camera lands the character is still turned by the game's own controls,
-            // and the view it lands on is the way they face then.
-            Vector2 facing = player.getForwardDirection();
-            setLook((float) Math.atan2(facing.y, facing.x), 0f);
-        }
         float zoom = Core.getInstance().getZoom(player.getIndex());
         holdTheCursorAhead(player, zoom);
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
@@ -761,7 +756,8 @@ public final class FirstPerson {
     public static Vector2 moveVector(Vector2 move) {
         traceMoveX = move.x;
         traceMoveY = move.y;
-        if (!landed) {
+        // The keys are the view's from the moment first person is asked for, not from the landing: see Stride.
+        if (!on) {
             return move;
         }
         IsoPlayer player = IsoPlayer.getInstance();

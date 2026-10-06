@@ -1,34 +1,44 @@
 package com.cameraunlock.zomboid;
 
 /**
- * Which way the movement keys go once the first-person view has landed.
+ * Which way the movement keys go from the moment first person is asked for.
  *
  * In the game's own view a key moves the character along the screen, and in first person
- * along the view. The view lands facing the way the character faces, so a key held through
- * the landing would turn the walk by the angle between the two: walking right across the
- * screen became walking to the right of a view that already faced that way. The keys held at
- * the landing go on meaning the walk they were making, turned with the view from there on,
- * for as long as they stay held. Other keys pressed within a short time of the landing mean
- * that walk too, which is the time the player has to move their fingers to the keys that make
- * the same walk in the new view.
+ * along the view. The view lands facing the way the character faced when the key for first
+ * person was pressed, and the keys are the view's from that moment: left to the game until
+ * the camera landed, a key pressed while it flew in was a direction on the screen, turned
+ * the character to it, and the view landed looking that way and not the way the character
+ * had faced. A key already held at that moment would turn the walk the other way about, by
+ * the angle between the screen's forward and the character's. The keys held then go on
+ * meaning the walk they were making, turned with the view from there on, for as long as they
+ * stay held. Other keys pressed while the camera flies in, or within a short time of its
+ * landing, mean that walk too, which is the time the player has to move their fingers to the
+ * keys that make the same walk in the new view.
  *
  * Logic thread only.
  */
 final class Stride {
-    /** How long after the landing a change of keys still means the walk the landing found. */
+    /** How long after the landing a change of keys still means the walk the switch found. */
     static final long ADJUST_NANOS = 500_000_000L;
 
     private boolean kept;
+    private boolean flying;
     private float keptX, keptY;
-    private float landedYaw;
+    private float begunYaw;
     private long landedNanos;
 
-    /** The view has landed with these keys held, as the game reads them, and facing this way. */
-    void land(float keysX, float keysY, float yaw, long now) {
+    /** First person has been asked for with these keys held, as the game reads them, and the character facing this way. */
+    void begin(float keysX, float keysY, float yaw) {
         kept = keysX != 0f || keysY != 0f;
+        flying = true;
         keptX = keysX;
         keptY = keysY;
-        landedYaw = yaw;
+        begunYaw = yaw;
+    }
+
+    /** The camera has landed at the eye. */
+    void landed(long now) {
+        flying = false;
         landedNanos = now;
     }
 
@@ -42,8 +52,8 @@ final class Stride {
      * @param stockForwardYaw the way the forward key goes in the game's own view
      */
     float turn(float keysX, float keysY, float yaw, float stockForwardYaw, long now) {
-        if (kept && (keysX == keptX && keysY == keptY || now - landedNanos < ADJUST_NANOS)) {
-            return yaw - landedYaw;
+        if (kept && (keysX == keptX && keysY == keptY || flying || now - landedNanos < ADJUST_NANOS)) {
+            return yaw - begunYaw;
         }
         kept = false;
         return yaw - stockForwardYaw;

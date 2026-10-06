@@ -1972,20 +1972,22 @@ public final class Tests {
         float stock = radians(-135), facing = radians(-45), turned = radians(-30);
 
         Stride stride = new Stride();
-        stride.land(1f, 0f, facing, start);
-        check(stride.turn(1f, 0f, facing, stock, start) == 0f, "a key held through the landing goes on the way it was walking");
-        check(near(stride.turn(1f, 0f, turned, stock, late), turned - facing), "and turns with the view for as long as it is held");
-        check(near(stride.turn(0f, -1f, turned, stock, late), turned - stock), "another key after the time to adjust goes by the view");
-        check(near(stride.turn(1f, 0f, turned, stock, late), turned - stock), "and so does the first key from then on");
+        stride.begin(1f, 0f, facing);
+        check(stride.turn(1f, 0f, facing, stock, start - 1) == 0f, "a key held as first person is asked for goes on the way it was walking");
+        check(stride.turn(0f, -1f, facing, stock, start - 1) == 0f, "and another key pressed while the camera flies in keeps that walk");
+        stride.landed(start);
+        check(near(stride.turn(0f, -1f, turned, stock, late - 1), turned - facing), "as it does within the time to adjust, turning with the view, across the clock's wrap");
+        check(near(stride.turn(0f, -1f, turned, stock, late), turned - stock), "and goes by the view once the time is up");
+        check(near(stride.turn(1f, 0f, turned, stock, late), turned - stock), "as the first key does from then on");
 
-        stride.land(1f, 0f, facing, start);
-        check(stride.turn(0f, -1f, facing, stock, late - 1) == 0f, "another key within the time to adjust keeps the walk, across the clock's wrap");
-        check(near(stride.turn(0f, -1f, facing, stock, late), facing - stock), "and goes by the view once the time is up");
+        stride.begin(1f, 0f, facing);
+        stride.landed(start);
+        check(near(stride.turn(1f, 0f, turned, stock, late + late), turned - facing), "a key held all the while keeps its walk for as long as it is held");
 
-        stride.land(0f, 0f, facing, start);
-        check(near(stride.turn(1f, 0f, facing, stock, start), facing - stock), "a landing with no key down keeps nothing");
+        stride.begin(0f, 0f, facing);
+        check(near(stride.turn(0f, -1f, facing, stock, start), facing - stock), "with no key down at the press, a key pressed while the camera flies in goes by the view");
 
-        stride.land(1f, 0f, facing, start);
+        stride.begin(1f, 0f, facing);
         stride.reset();
         check(near(stride.turn(1f, 0f, facing, stock, start), facing - stock), "a walk that stopped is not kept");
     }
