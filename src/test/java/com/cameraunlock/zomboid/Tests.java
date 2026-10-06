@@ -1042,6 +1042,7 @@ public final class Tests {
         ScopeTests.run();
         RifleTests.run();
         KerbTests.run();
+        TerrainTests.run();
         FacadeTests.run();
         QualityTests.run();
         StyleTests.run();

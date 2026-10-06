@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
@@ -24,6 +25,10 @@ import zombie.iso.sprite.IsoSprite;
  * its valley, and its banks fall to it.</li>
  * <li>A building stands on a level pad at the height the land has in the middle of it, and the
  * ground round it is graded to meet the pad.</li>
+ * <li>A street is level from one side to the other. It rises and falls along its length with
+ * the country and the hills, at the height the land has down the middle of it, and the ground
+ * beside it is graded to meet it. It takes nothing from what stands beside it: the grade from
+ * a building's pad is done by the time it reaches the street.</li>
  * <li>Open ground has rises and hollows and is uneven underfoot. Made ground, a road or a
  * yard, is cut level through it.</li>
  * </ul>
@@ -40,11 +45,16 @@ final class Terrain {
     static final int CORNERS = CHUNK_TILES + 1;
     private static final int TABLE_SIDE = 64;
     /** How far from made ground, a building or water its hold on the height of the land reaches, in tiles. */
-    private static final int REACH = 6;
+    static final int REACH = 6;
     /** How far below the land round it water lies, and how far from it the bank starts to fall, in tiles. */
     private static final float WATER_BELOW = 0.34f;
     private static final float BANK_WIDTH = 2.6f;
-    private static final int SPAN = CHUNK_TILES + 2 * REACH;
+    /**
+     * A street is laid at the height the land has, taken over the street within this many tiles
+     * either way. No less than a street is wide, so that both its sides take it over the same squares.
+     */
+    static final int LEVELLED = 8;
+    static final int SPAN = CHUNK_TILES + 2 * LEVELLED;
 
     static final byte NATURAL = 0, MADE = 1, WATER = 2, UNKNOWN = 3, STREET = 4;
     /** How far a street lies below the ground beside it: the height of a kerb, in tiles. */
@@ -67,22 +77,29 @@ final class Terrain {
     private static final class Kinds {
         int wx, wy;
         final byte[] kinds = new byte[CHUNK_TILES * CHUNK_TILES];
-        /** The height of the pad of the building each square is in. NaN where there is none. */
-        final float[] pads = new float[CHUNK_TILES * CHUNK_TILES];
+        /** The middle of the building each square is in. NaN where there is none. */
+        final float[] midX = new float[CHUNK_TILES * CHUNK_TILES], midY = new float[CHUNK_TILES * CHUNK_TILES];
         boolean water;
     }
 
     private static final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE);
     private static final Kinds[] known = new Kinds[TABLE_SIDE * TABLE_SIDE];
     private static final Kinds passing = new Kinds();
-    private static final byte[] around = new byte[SPAN * SPAN];
-    private static final float[] padsAround = new float[SPAN * SPAN];
+    static final byte[] around = new byte[SPAN * SPAN];
+    static final float[] padsAround = new float[SPAN * SPAN];
+    /** The height of the land in the middle of each square of street of around. */
+    private static final float[] streetAround = new float[SPAN * SPAN];
+    private static final float[] midXAround = new float[SPAN * SPAN], midYAround = new float[SPAN * SPAN];
+    /** The height of the pad of each building whose pad can no longer change, by the middle of the building. */
+    private static final HashMap<Long, Float> pads = new HashMap<>();
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
     private static final int VALLEY_CHUNKS = 4;
     private static final float VALLEY = VALLEY_CHUNKS * CHUNK_TILES;
-    private static final int[] waterChunkX = new int[(2 * VALLEY_CHUNKS + 1) * (2 * VALLEY_CHUNKS + 1)];
+    /** How far round a chunk water is looked for, in chunks: a valley's width from anywhere within LEVELLED of it. */
+    private static final int WATER_CHUNKS = VALLEY_CHUNKS + (LEVELLED + CHUNK_TILES - 1) / CHUNK_TILES;
+    private static final int[] waterChunkX = new int[(2 * WATER_CHUNKS + 1) * (2 * WATER_CHUNKS + 1)];
     private static final int[] waterChunkY = new int[waterChunkX.length];
     private static int waterChunks;
 
@@ -151,12 +168,14 @@ final class Terrain {
         fresh.wx = wx;
         fresh.wy = wy;
         fresh.stamp = frame;
+        // In this order: gather looks for the water round each building, and the corners want the water round the chunk.
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
+        streets(wx * CHUNK_TILES - LEVELLED, wy * CHUNK_TILES - LEVELLED);
         for (int i = 0; i < CORNERS; i++) {
             for (int j = 0; j < CORNERS; j++) {
                 float x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                fresh.heights[i * CORNERS + j] = corner(x, y, i + REACH, j + REACH);
-                fresh.water[i * CORNERS + j] = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY) - WATER_BELOW;
+                fresh.heights[i * CORNERS + j] = corner(x, y, i + LEVELLED, j + LEVELLED);
+                fresh.water[i * CORNERS + j] = base(x, y) - WATER_BELOW;
             }
         }
         kerbs(cell, fresh, grid != null && grid.wx == wx && grid.wy == wy ? grid : null);
@@ -171,8 +190,8 @@ final class Terrain {
      */
     private static void kerbs(IsoCell cell, Grid fresh, Grid last) {
         boolean street = false;
-        for (int i = REACH - 1; i <= REACH + CHUNK_TILES && !street; i++) {
-            for (int j = REACH - 1; j <= REACH + CHUNK_TILES && !street; j++) {
+        for (int i = LEVELLED - 1; i <= LEVELLED + CHUNK_TILES && !street; i++) {
+            for (int j = LEVELLED - 1; j <= LEVELLED + CHUNK_TILES && !street; j++) {
                 street = around[i * SPAN + j] == STREET;
             }
         }
@@ -192,7 +211,7 @@ final class Terrain {
                     for (int j = 0; j < CHUNK_TILES; j++) {
                         int at = ((cx + reach) * CHUNK_TILES + i) * Kerbs.SPAN + (cy + reach) * CHUNK_TILES + j;
                         kerbKinds[at] = kinds == null ? UNKNOWN : kinds.kinds[i * CHUNK_TILES + j];
-                        kerbHard[at] = kinds != null && !Float.isNaN(kinds.pads[i * CHUNK_TILES + j]);
+                        kerbHard[at] = kinds != null && !Float.isNaN(kinds.midX[i * CHUNK_TILES + j]);
                         from = (from ^ kerbKinds[at] + (kerbHard[at] ? 8 : 0)) * 0x100000001B3L;
                     }
                 }
@@ -214,9 +233,20 @@ final class Terrain {
         }
     }
 
-    /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. */
-    private static float corner(float x, float y, int cornerI, int cornerJ) {
-        float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH;
+    /** Fills streetAround, for an around whose first square is (x, y) of the map. After findWater. */
+    static void streets(int x, int y) {
+        for (int i = 0; i < SPAN; i++) {
+            for (int j = 0; j < SPAN; j++) {
+                if (around[i * SPAN + j] == STREET) {
+                    streetAround[i * SPAN + j] = base(x + i + 0.5f, y + j + 0.5f);
+                }
+            }
+        }
+    }
+
+    /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. After streets. */
+    static float corner(float x, float y, int cornerI, int cornerJ) {
+        float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH, toStreet = REACH;
         float touchingPads = 0f, nearPads = 0f, nearWeight = 0f;
         int touching = 0;
         for (int di = -REACH; di < REACH; di++) {
@@ -233,6 +263,9 @@ final class Terrain {
                     toWater = Math.min(toWater, away);
                 } else {
                     toBuilt = Math.min(toBuilt, away);
+                }
+                if (kind == STREET) {
+                    toStreet = Math.min(toStreet, away);
                 }
                 float pad = padsAround[at];
                 if (!Float.isNaN(pad) && away < REACH) {
@@ -251,8 +284,23 @@ final class Terrain {
         if (touching > 0) {
             return touchingPads / touching;
         }
-        float land = country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY)
-                + (knolls(x, y) + roll(x, y)) * smooth(toMade / REACH)
+        float land = base(x, y);
+        if (toStreet < REACH) {
+            // In the same order from whichever chunk asks, so that two chunks give the corner they share one height.
+            float streets = 0f;
+            int count = 0;
+            for (int di = -LEVELLED; di < LEVELLED; di++) {
+                for (int dj = -LEVELLED; dj < LEVELLED; dj++) {
+                    int at = (cornerI + di) * SPAN + cornerJ + dj;
+                    if (around[at] == STREET) {
+                        streets += streetAround[at];
+                        count++;
+                    }
+                }
+            }
+            land += (streets / count - land) * (1f - smooth(toStreet / REACH));
+        }
+        land += (knolls(x, y) + roll(x, y)) * smooth(toMade / REACH)
                 // A bank falls to the water. A quay or a boardwalk does not: it runs level to its
                 // edge and the water lies below it.
                 - WATER_BELOW * (1f - smooth(toWater / BANK_WIDTH)) * smooth(toBuilt / 2f);
@@ -260,49 +308,75 @@ final class Terrain {
             return land;
         }
         float pad = nearPads / nearWeight;
-        return pad + (land - pad) * smooth(toPad / REACH);
+        return pad + (land - pad) * smooth(toPad / Math.min(REACH, toPad + toStreet));
     }
 
     /**
-     * Fills around and padsAround with what each square within REACH of the chunk is. False if
-     * some of it is not loaded: that ground counts as made.
+     * Fills around and padsAround with what each square within LEVELLED of the chunk is. False if
+     * some of it is not loaded, which counts as made ground, or if a pad may yet change.
      */
     private static boolean gather(IsoCell cell, int wx, int wy) {
         boolean all = true;
-        int reach = (REACH + CHUNK_TILES - 1) / CHUNK_TILES;
+        int reach = (LEVELLED + CHUNK_TILES - 1) / CHUNK_TILES;
         for (int cx = -reach; cx <= reach; cx++) {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = kinds(cell, wx + cx, wy + cy);
                 for (int i = 0; i < CHUNK_TILES; i++) {
-                    int row = cx * CHUNK_TILES + i + REACH;
+                    int row = cx * CHUNK_TILES + i + LEVELLED;
                     if (row < 0 || row >= SPAN) {
                         continue;
                     }
                     for (int j = 0; j < CHUNK_TILES; j++) {
-                        int column = cy * CHUNK_TILES + j + REACH;
+                        int column = cy * CHUNK_TILES + j + LEVELLED;
                         if (column < 0 || column >= SPAN) {
                             continue;
                         }
                         byte kind = kinds.kinds[i * CHUNK_TILES + j];
                         all &= kind != UNKNOWN;
                         around[row * SPAN + column] = kind;
-                        padsAround[row * SPAN + column] = kinds.pads[i * CHUNK_TILES + j];
+                        midXAround[row * SPAN + column] = kinds.midX[i * CHUNK_TILES + j];
+                        midYAround[row * SPAN + column] = kinds.midY[i * CHUNK_TILES + j];
                     }
                 }
             }
+        }
+        // Only now: finding a pad looks at other chunks, and what a chunk not all loaded is made of is kept in one place.
+        float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
+        for (int at = 0; at < midXAround.length; at++) {
+            float x = midXAround[at], y = midYAround[at];
+            if (Float.isNaN(x)) {
+                padsAround[at] = Float.NaN;
+                continue;
+            }
+            if (x != lastX || y != lastY) {
+                long key = (long) Float.floatToRawIntBits(x) << 32 | Float.floatToRawIntBits(y) & 0xFFFFFFFFL;
+                Float kept = pads.get(key);
+                if (kept == null) {
+                    boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
+                    kept = base(x, y);
+                    if (lasting) {
+                        pads.put(key, kept);
+                    }
+                    all &= lasting;
+                }
+                lastX = x;
+                lastY = y;
+                lastPad = kept;
+            }
+            padsAround[at] = lastPad;
         }
         return all;
     }
 
     /**
-     * Notes which chunks within VALLEY of the chunk hold water. False if some of them are not
-     * loaded, and so not known.
+     * Notes which chunks within WATER_CHUNKS of the chunk hold water. False if some of them are
+     * not loaded, and so not known.
      */
     private static boolean findWater(IsoCell cell, int wx, int wy) {
         boolean all = true;
         waterChunks = 0;
-        for (int cx = -VALLEY_CHUNKS; cx <= VALLEY_CHUNKS; cx++) {
-            for (int cy = -VALLEY_CHUNKS; cy <= VALLEY_CHUNKS; cy++) {
+        for (int cx = -WATER_CHUNKS; cx <= WATER_CHUNKS; cx++) {
+            for (int cy = -WATER_CHUNKS; cy <= WATER_CHUNKS; cy++) {
                 Kinds kept = known[slot(wx + cx, wy + cy)];
                 if (kept == null || kept.wx != wx + cx || kept.wy != wy + cy) {
                     // A chunk with its middle square missing is not loaded, and looking over
@@ -351,7 +425,8 @@ final class Terrain {
                 water |= kind == WATER;
                 IsoBuilding building = square == null ? null : square.getBuilding();
                 BuildingDef def = building == null ? null : building.getDef();
-                passing.pads[i * CHUNK_TILES + j] = def == null ? Float.NaN : pad(def);
+                passing.midX[i * CHUNK_TILES + j] = def == null ? Float.NaN : def.getX() + def.getW() / 2f;
+                passing.midY[i * CHUNK_TILES + j] = def == null ? Float.NaN : def.getY() + def.getH() / 2f;
             }
         }
         if (!whole) {
@@ -362,15 +437,10 @@ final class Terrain {
         fresh.wy = wy;
         fresh.water = water;
         System.arraycopy(passing.kinds, 0, fresh.kinds, 0, fresh.kinds.length);
-        System.arraycopy(passing.pads, 0, fresh.pads, 0, fresh.pads.length);
+        System.arraycopy(passing.midX, 0, fresh.midX, 0, fresh.midX.length);
+        System.arraycopy(passing.midY, 0, fresh.midY, 0, fresh.midY.length);
         known[slot] = fresh;
         return fresh;
-    }
-
-    /** The height a building's floor is at: the land's in the middle of it, without what is uneven underfoot. */
-    private static float pad(BuildingDef def) {
-        float x = def.getX() + def.getW() / 2f, y = def.getY() + def.getH() / 2f;
-        return country(x, y) + hills(x, y);
     }
 
     static byte kind(IsoGridSquare square) {
@@ -406,8 +476,8 @@ final class Terrain {
         for (int slot = 0; slot < grids.length(); slot++) {
             grids.set(slot, null);
         }
-        // What a building's floor stands at is kept with what its chunk is made of.
         Arrays.fill(known, null);
+        pads.clear();
     }
 
     /** What is drawn at (x, y), on any floor, stands this much above where the flat map has it. */
@@ -418,6 +488,11 @@ final class Terrain {
     private static float smooth(float t) {
         t = Math.clamp(t, 0f, 1f);
         return t * t * (3f - 2f * t);
+    }
+
+    /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */
+    private static float base(float x, float y) {
+        return country(x, y) + hills(x, y) * smooth(toWaterChunk(x, y) / VALLEY);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */

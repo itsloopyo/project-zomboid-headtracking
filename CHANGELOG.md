@@ -111,6 +111,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Laid every street level from one kerb to the other in the first person view. A street beside a building was pulled up or down on that side to the height of the building's floor, and a street along a hillside leaned with the hill, so one side of a road stood proud of the other. A street now rises and falls only along its length, the ground beside it is graded to meet it, and a building near water stands at the height of the valley it is in.
 - Went back to the game's own arms on a held weapon in first person. The mod drew sleeves of its own from the shoulders to the hands on the weapon; the game's arms are drawn again, whole, carried with the weapon. The sleeves are still in the mod, switched off.
 - Left reflections out of the `Low` graphics mode: your own in a window, and what a polished floor, a wet road and a pane of glass mirrored of the room or the street.
 - Drew the dead as bodies in the first person view. A body on the ground was a dark rectangle the size of a doormat. The game keeps a picture of each body, clothes, blood and all, and that picture now lies on the ground where the body does. A body the game's own view has not yet had in it has no picture, and shows once it has.
