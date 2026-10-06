@@ -1168,14 +1168,14 @@ final class SpriteGeometry {
      * Stands all of a post: its shaft as a solid, the braces of a timber one as timbers of
      * their own, a capital on a column, and whatever else its sprite shows above the shaft, a
      * lamp's head or a sign's plate, as the part of the sprite it is, on the post's axis and
-     * across the way to the eye (rightX, rightY).
+     * turned to the camera by the picture.
      *
      * timber is for a post of sawn wood: it takes one colour from its sprite and the picture
      * gives it grain. bracesAlongX is which upright plane its braces lie in. capital is
      * whether a column's top is its own and not the foot of another length of it.
      */
     void standPost(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, Posts post, float a, float b, boolean timber, boolean bracesAlongX,
-            boolean capital, float rightX, float rightY) {
+            boolean capital) {
         float material = frame.material;
         float half = post.half;
         float u = textureU(frame, a + half * POST_TEXELS_IN, b), v = textureV(frame, a + half * POST_TEXELS_IN, b, post.top() / 2f);
@@ -1235,13 +1235,13 @@ final class SpriteGeometry {
         frame.material = material;
         if (headed) {
             skipped = post.shaftShare;
-            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, true, false);
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, 1f, 0f, true, false);
             skipped = 0f;
         }
         if (post.footShare > 0f) {
             float kept = keep;
             keep = post.footShare;
-            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, rightX, rightY, true, false);
+            addUpright(mesh, frame, tileX, tileY, tileZ, a, b, 0f, 1f, 0f, true, false);
             keep = kept;
         }
     }

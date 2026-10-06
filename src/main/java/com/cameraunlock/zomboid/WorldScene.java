@@ -147,12 +147,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private int checkedFrame;
         /** When it was last built or found unchanged, when it was built, and when its chunk was first built, on System.nanoTime's clock. */
         private long checkedNanos, builtNanos, bornNanos;
-        /** Where the eye was when the build was made, and which way lay to the right of the view. */
-        private float eyeX, eyeY, eyeUp, rightX, rightY;
-        /** Where the camera the build was to be drawn from was: see WorldScene.facedX. */
-        private float facedX, facedY;
-        /** Whether a square of the build was so near the eye that its cards lie across the view. */
-        private boolean acrossView;
+        /** Where the eye was when the build was made. */
+        private float eyeX, eyeY, eyeUp;
         /**
          * Which band of distance from the eye the build was made for: see BAND_ENDS. A tree, a
          * bush, a rock and long grass are made by it, and nothing else of the build goes by
@@ -366,8 +362,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The aim the held weapon is drawn on: see FirstPerson. */
     private final ViewCamera.Pose aim = new ViewCamera.Pose();
     private float rightX, rightY;
-    /** The direction an upright sprite on the square being added runs along. */
-    private float cardRightX, cardRightY;
     /**
      * Where the camera the frame is drawn from is, which is what an upright sprite is turned to
      * face. Seen from outside that is not the eye the scene is built round: turned to the
@@ -414,8 +408,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int chunksBuilt, chunksKept;
     /** How many chunks had what grows on their ground made this frame. */
     private int chunksGrown;
-    /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
-    private boolean acrossView;
     /**
      * How far from the eye everything of the chunk being built is taken to be, in tiles, by
      * what is made finer or left out with distance: the middle of the chunk's band, one number
@@ -597,41 +589,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     int waiting() {
         return chunksWaiting;
     }
-    /** How far the eye may be, in tiles, from where a chunk right by it was built from and still count as held, and how far its right may have turned. */
-    private static final float EYE_HELD_WITHIN = 0.006f, TURN_HELD_WITHIN = 0.004f;
+    /** How far the eye may be, in tiles, from where what grows on a chunk right by it was made from and still count as there. */
+    private static final float EYE_HELD_WITHIN = 0.006f;
     /** The tangent of how far round a chunk the eye may have gone since its build, seen from the chunk's nearest point: two degrees. */
     private static final float HELD_ROUND = 0.035f;
-    /** A build made while the eye moves is summed when the eye stays as good as there for more than this many steps like its last. */
-    private static final float HELD_STEPS_SUMMED = 3f;
-
-    /**
-     * Whether the eye is as good as where a build was made from: further off, a chunk's cards
-     * turn less for the same step, and the step may be longer. A card two degrees off facing the
-     * eye is a thousandth narrower than one that faces it, so the eye may go that far round the
-     * nearest point of a chunk before its build is made again: walking, only the chunks right by
-     * the eye are built every frame. The camera the cards face has to be as good as where it was
-     * too, or to lie the same way from the chunk.
-     */
-    private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance, float middleX, float middleY) {
-        float within = heldWithin(view, distance, middleX, middleY);
-        return Math.abs(built.eyeX - view.eyeX) <= within && Math.abs(built.eyeY - view.eyeY) <= within && Math.abs(built.eyeUp - view.eyeUp) <= within
-                && (Math.abs(built.facedX - facedX) <= within && Math.abs(built.facedY - facedY) <= within || facedTheSameWay(built, middleX, middleY));
-    }
 
     /** How far the eye may be from where a chunk's build was made from, in tiles, and the build still do. */
     private static float heldWithin(ViewCamera.Pose view, float distance, float middleX, float middleY) {
         return Math.max(EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f)), nearest(view, middleX, middleY) * HELD_ROUND);
-    }
-
-    /**
-     * Whether the camera lies the same way from the middle of a chunk as when its build was
-     * made. The camera of the game's own view is thousands of tiles off and moves as that view
-     * is scrolled: the way to it, which is all a card goes by, does not change.
-     */
-    private boolean facedTheSameWay(ChunkMeshes built, float middleX, float middleY) {
-        float thenX = built.facedX - middleX, thenY = built.facedY - middleY, nowX = facedX - middleX, nowY = facedY - middleY;
-        float lengths = (float) Math.sqrt((thenX * thenX + thenY * thenY) * (nowX * nowX + nowY * nowY));
-        return thenX * nowX + thenY * nowY > 0f && Math.abs(thenX * nowY - thenY * nowX) <= TURN_HELD_WITHIN * lengths;
     }
 
     private static boolean stepped(float[] light, float red, float green, float blue) {
@@ -760,7 +725,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         chunksWaiting = 0;
         Arrays.fill(builtBecause, 0);
         eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
-        float eyeStep = Math.max(Math.max(Math.abs(view.eyeX - lastEyeX), Math.abs(view.eyeY - lastEyeY)), Math.abs(view.eyeUp - lastEyeUp));
         lastEyeX = view.eyeX;
         lastEyeY = view.eyeY;
         lastEyeUp = view.eyeUp;
@@ -1028,15 +992,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.eyeX = view.eyeX;
                     fresh.eyeY = view.eyeY;
                     fresh.eyeUp = view.eyeUp;
-                    fresh.rightX = rightX;
-                    fresh.rightY = rightY;
-                    fresh.facedX = facedX;
-                    fresh.facedY = facedY;
                     fresh.signed = summed;
                     fresh.signature = read;
                     fresh.summedFrom = summedFrom;
                     fresh.users = 1;
-                    acrossView = false;
                     fresh.band = band(nearest);
                     fresh.grows = false;
                     bandAway = BAND_AWAY[fresh.band];
@@ -1048,7 +1007,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     addSquares(chunk, chunkX, chunkY, lowest);
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
-                    fresh.acrossView = acrossView;
                     fresh.grown = false;
                     fresh.builtAway = distance;
                     fresh.fill(solid, laid);
@@ -1090,9 +1048,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.eyeX = view.eyeX;
                     fresh.eyeY = view.eyeY;
                     fresh.eyeUp = view.eyeUp;
-                    fresh.facedX = facedX;
-                    fresh.facedY = facedY;
-                    fresh.acrossView = false;
                     fresh.grown = true;
                     fresh.users = 1;
                     placed = fresh.placed;
@@ -2403,19 +2358,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private void addSquare(IsoGridSquare square, int x, int y, int z, int localX, int localY) {
         // One number for the whole chunk, by how far its middle is: the build is then the same wherever the eye stands in it.
         standOff = chunkStandOff;
-        // An upright sprite faces the eye, not the way the view is turned, so it holds still
-        // while the head or the mouse turns. On the eye's own square there is no such
-        // direction, and it lies across the view.
-        float facedToX = x + 0.5f - facedX, facedToY = y + 0.5f - facedY;
-        float along = (float) Math.sqrt(facedToX * facedToX + facedToY * facedToY);
-        if (along > 0.5f) {
-            cardRightX = -facedToY / along;
-            cardRightY = facedToX / along;
-        } else {
-            cardRightX = rightX;
-            cardRightY = rightY;
-            acrossView = true;
-        }
         floorLayer = westLayer = northLayer = eastLayer = southLayer = 0;
         waterLocalX = localX;
         waterLocalY = localY;
@@ -2849,7 +2791,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
             if (under > 0.05f) {
                 geometry.keep = Math.min(under, 1f);
-                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, true, false);
+                geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, 1f, 0f, true, false);
                 geometry.keep = 1f;
             }
             return;
@@ -2867,7 +2809,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (overLayer == 0 && properties.getSurface() <= 0 && !properties.isTable() && addInWallLine(mesh, sprite, texture, x, y, z)) {
             return;
         }
-        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, cardRightX, cardRightY, true, false);
+        geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, 1f, 0f, true, false);
     }
 
     /** A floor, or what the game lays on one, flat on the ground of its square. */
@@ -3220,7 +3162,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean bracesAlongX = edgeWest && a < IN_WALL_LINE && !(edgeNorth && b < a) ? false
                 : edgeNorth && b < IN_WALL_LINE ? true : post.armsAlongX();
         geometry.standPost(mesh, frame, x, y, z, post, a, b, wooden && post.kind == Posts.SQUARE, bracesAlongX,
-                postAt(x, y, z + 1, a, b) == null, cardRightX, cardRightY);
+                postAt(x, y, z + 1, a, b) == null);
         boxes++;
         return true;
     }
