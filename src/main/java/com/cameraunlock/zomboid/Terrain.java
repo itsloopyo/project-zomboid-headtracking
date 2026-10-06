@@ -374,10 +374,11 @@ final class Terrain {
     }
 
     static byte kind(IsoGridSquare square) {
-        if (square == null) {
-            return UNKNOWN;
-        }
-        IsoObject floor = square.getFloor();
+        return square == null ? UNKNOWN : kind(square, square.getFloor());
+    }
+
+    /** The same of a square whose floor the caller has already asked the game for: the asking is a walk through the square's objects. */
+    static byte kind(IsoGridSquare square, IsoObject floor) {
         IsoSprite sprite = floor == null ? null : floor.getSprite();
         if (sprite == null) {
             return MADE;

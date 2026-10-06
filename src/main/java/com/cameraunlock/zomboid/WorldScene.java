@@ -140,6 +140,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private int builtFrame;
         /** The frame the build was last made in or found still to be what a new one would be. */
         private int checkedFrame;
+        /** When it was last built or found unchanged, and when it was built, on System.nanoTime's clock. */
+        private long checkedNanos, builtNanos;
         /** Where the eye was when the build was made, and which way lay to the right of the view. */
         private float eyeX, eyeY, eyeUp, rightX, rightY;
         /** Whether a square of the build was so near the eye that its cards lie across the view. */
@@ -520,6 +522,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     int waiting() {
         return chunksWaiting;
     }
+    /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
+    private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
     /** How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES} wait for the next. */
     private static final long BUILD_NANOS_A_FRAME = 5_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
@@ -803,7 +807,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // and not right by the eye is shown as it is, or those at the end of the walk would
                 // wait for as long as the ones before them kept falling due.
                 boolean hurried = late || waitedLast > 0;
-                boolean due = !missing && !rehearsing && frames - current.checkedFrame >= every
+                // The numbers of frames were set at a hundred frames a second. On a faster PC a
+                // chunk waits out the time they stood for as well, or the faster the picture is
+                // drawn the more of every frame goes on building it. And one right by an eye
+                // that is still, found unchanged, is not read through again for a thirtieth of
+                // a second, where it was read through on every frame.
+                long since = start - (missing ? 0L : current.checkedNanos);
+                boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !eyeStill || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
+                boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                 || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
                 // The eye's place is in every build: which way a card faces, how far apart
@@ -820,9 +831,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     read = signature(chunk, chunkX, chunkY, lowest);
                     boolean sameEye = due && current.signed && current.eyeX == view.eyeX && current.eyeY == view.eyeY && current.eyeUp == view.eyeUp
                             && (!current.acrossView || current.rightX == rightX && current.rightY == rightY);
-                    if (sameEye && current.signature == read && frames - current.builtFrame < KEPT_UNCHANGED_FRAMES) {
+                    if (sameEye && current.signature == read
+                            && (frames - current.builtFrame < KEPT_UNCHANGED_FRAMES || start - current.builtNanos < KEPT_UNCHANGED_FRAMES * NANOS_A_FRAME_COUNTED)) {
                         // The squares it read count towards this frame's light as a build's would.
                         current.checkedFrame = frames;
+                        current.checkedNanos = start;
                         chunksKept++;
                         due = false;
                     } else {
@@ -846,6 +859,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.wy = chunk.wy;
                     fresh.builtFrame = frames;
                     fresh.checkedFrame = frames;
+                    fresh.checkedNanos = start;
+                    fresh.builtNanos = start;
                     fresh.eyeX = view.eyeX;
                     fresh.eyeY = view.eyeY;
                     fresh.eyeUp = view.eyeUp;
@@ -1181,8 +1196,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 IsoGridSquare square = inChunk ? chunk.getGridSquare(i - 1, j - 1, z) : cell.getGridSquare(chunkX + i - 1, chunkY + j - 1, z);
                 int at = i * LIGHT_SPAN + j;
                 if (z == 0) {
-                    groundKind[at] = Terrain.kind(square);
                     groundObject[at] = square == null ? null : square.getFloor();
+                    groundKind[at] = square == null ? Terrain.UNKNOWN : Terrain.kind(square, groundObject[at]);
                     groundTexture[at] = textureOf(groundObject[at]);
                     groundRank[at] = groundKind[at] == Terrain.NATURAL ? rank(groundObject[at].getSprite()) : 0;
                 }
