@@ -153,6 +153,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private float facedX, facedY;
         /** Whether a square of the build was so near the eye that its cards lie across the view. */
         private boolean acrossView;
+        /**
+         * Whether anything of the build was made by how far from the eye it stands: a tree, a
+         * bush, a rock or long grass. One with nothing of the kind is the same build wherever
+         * the eye is, but for how far apart its layers stand, which goes by builtAway.
+         */
+        private boolean eyeRead;
+        /** How far from the eye the chunk's middle was when the build was made, in tiles. */
+        private float builtAway;
+        /** For each square of the chunk's ground, how many layers its floor has: what grows on it is laid over them. */
+        private final byte[] groundLayers = new byte[CHUNK_TILES * CHUNK_TILES];
         /** Whether what the build read of the map was summed as it was made, and the sum: see signature. */
         private boolean signed;
         private long signature;
@@ -265,6 +275,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The latest build of each chunk, by the low bits of its position. The loaded map is at most 19 chunks a side, so no two of its chunks share a place. */
     private static final int TABLE_SIDE = 64;
     private static final ChunkMeshes[] latest = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
+    /**
+     * What grows on each chunk's ground, the lawn, ferns, flowers and fallen leaves, as a build
+     * of its own beside the chunk's: all of it is made by how far from the eye it is, and it is
+     * a tenth of the work of a chunk, so it is what is made again as the eye moves.
+     */
+    private static final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     private static final ArrayDeque<ChunkMeshes> spare = new ArrayDeque<>();
     /** Builds no chunk is using, kept to be filled again: as many as a turn of the head brings into view at once. */
     private static final int MOST_SPARE = 96;
@@ -392,8 +408,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The cut box as this frame was built with it. The statics are the next build's by the time the frame is drawn. */
     private int boxMinX, boxMinY, boxMaxX, boxMaxY;
     private int chunksBuilt, chunksKept;
+    /** How many chunks had what grows on their ground made this frame. */
+    private int chunksGrown;
     /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
     private boolean acrossView;
+    /** Whether the build being made has anything in it made by how far from the eye it stands. */
+    private boolean eyeRead;
+    /** Whether only what grows on the ground is being added: see latestGrown. */
+    private boolean growing;
     private int boxes;
     private int furnished;
     private int spreadFaces;
@@ -583,7 +605,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private boolean heldSince(ChunkMeshes built, ViewCamera.Pose view, float distance, float middleX, float middleY) {
         float within = heldWithin(view, distance, middleX, middleY);
         return Math.abs(built.eyeX - view.eyeX) <= within && Math.abs(built.eyeY - view.eyeY) <= within && Math.abs(built.eyeUp - view.eyeUp) <= within
-                && (!built.acrossView || Math.abs(built.rightX - rightX) <= TURN_HELD_WITHIN && Math.abs(built.rightY - rightY) <= TURN_HELD_WITHIN)
                 && (Math.abs(built.facedX - facedX) <= within && Math.abs(built.facedY - facedY) <= within || facedTheSameWay(built, middleX, middleY));
     }
 
@@ -670,10 +691,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     String describe() {
-        return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
+        return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) grown %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksWaiting, chunksBuilt, builtBecause[NEW], builtBecause[MOVED], builtBecause[CHANGED], builtBecause[AGED],
-                builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
@@ -726,6 +747,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         Terrain.frame(frames);
         chunksDrawn = 0;
         chunksBuilt = 0;
+        chunksGrown = 0;
         chunksKept = 0;
         chunksWaiting = 0;
         Arrays.fill(builtBecause, 0);
@@ -921,7 +943,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // A build with no sum cannot be found unchanged: while the eye moves it is made again
                 // in its turn, as one the eye has left behind is, and not at once.
                 boolean still = missing ? eyeStill
-                        : heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f) && (eyeStill || current.signed);
+                        : (current.eyeRead ? heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f) : layersStandFor(current, distance))
+                                && (eyeStill || current.signed);
                 boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
@@ -937,7 +960,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // as there for some frames to come: those frames then find it unchanged, where a
                 // build with no sum would be made a second time for one.
                 float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
-                boolean summed = (still || heldWithin(view, distance, middleX, middleY) > HELD_STEPS_SUMMED * eyeStep) && (missing || due) && frames >= summedFrom;
+                boolean summed = (still || missing || !current.eyeRead || heldWithin(view, distance, middleX, middleY) > HELD_STEPS_SUMMED * eyeStep)
+                        && (missing || due) && frames >= summedFrom;
                 if (missing || due) {
                     tallied = talliedIn[slot] != tally;
                     talliedIn[slot] = tally;
@@ -999,46 +1023,17 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.summedFrom = summedFrom;
                     fresh.users = 1;
                     acrossView = false;
+                    eyeRead = false;
                     placed = fresh.placed;
                     building = fresh;
                     chunksBuilt++;
-                    // Once for the chunk and not once a level: until the ground round a chunk is all
-                    // loaded its corners are worked out afresh at every asking.
-                    float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
-                    float[] water = Terrain.water(chunk.wx, chunk.wy);
-                    kerbs = Terrain.kerb(chunk.wx, chunk.wy);
-                    for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
-                        readLights(chunk, chunkX, chunkY, z);
-                        if (z == 0) {
-                            readWoods(chunk, chunkX, chunkY);
-                        }
-                        for (int localX = 0; localX < CHUNK_TILES; localX++) {
-                            for (int localY = 0; localY < CHUNK_TILES; localY++) {
-                                IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
-                                if (square == null || z > topLevel && cutAway(chunkX + localX, chunkY + localY)) {
-                                    continue;
-                                }
-                                squaresLoaded++;
-                                cornerLights(localX, localY);
-                                int corner = localX * Terrain.CORNERS + localY;
-                                // Water lies at its own height, and a street below its kerb.
-                                byte kind = z == 0 ? groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] : Terrain.MADE;
-                                float[] heights = kind == Terrain.WATER ? water : ground;
-                                float drop = z == 0 && kind != Terrain.WATER && kerbs != null ? kerbOver(kind, localX, localY) : noKerb();
-                                geometry.lift[0] = heights[corner] - drop;
-                                geometry.lift[1] = heights[corner + Terrain.CORNERS] - drop;
-                                geometry.lift[2] = heights[corner + Terrain.CORNERS + 1] - drop;
-                                geometry.lift[3] = heights[corner + 1] - drop;
-                                if (geometry.lift[0] != 0f) {
-                                    lifted++;
-                                }
-                                addSquare(square, chunkX + localX, chunkY + localY, z, localX, localY);
-                            }
-                        }
-                    }
+                    growing = false;
+                    addSquares(chunk, chunkX, chunkY, lowest);
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.acrossView = acrossView;
+                    fresh.eyeRead = eyeRead;
+                    fresh.builtAway = distance;
                     fresh.fill(solid, laid);
                     if (current != null) {
                         release(current);
@@ -1048,6 +1043,50 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
                 current.users++;
                 shown.add(current);
+                // What grows on the chunk's ground is made again with the chunk, and by itself
+                // as the eye moves while any of it is near enough to be made by how far off it is.
+                ChunkMeshes grown = latestGrown[slot];
+                boolean ungrown = grown == null || grown.wx != chunk.wx || grown.wy != chunk.wy || grown.builtFrame < current.builtFrame;
+                boolean regrown = !ungrown && !rehearsing && distance < GROWN_WITHIN && frames - grown.checkedFrame >= every
+                        && !heldSince(grown, view, distance, middleX, middleY);
+                if (Own.plants() && lowest <= 0 && (ungrown || regrown)) {
+                    if (!missing && !due) {
+                        tallied = talliedIn[slot] != tally;
+                        talliedIn[slot] = tally;
+                    }
+                    ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                    solid.clear();
+                    laid.clear();
+                    fresh.placed.clear();
+                    fresh.wx = chunk.wx;
+                    fresh.wy = chunk.wy;
+                    fresh.builtFrame = frames;
+                    fresh.checkedFrame = frames;
+                    fresh.eyeX = view.eyeX;
+                    fresh.eyeY = view.eyeY;
+                    fresh.eyeUp = view.eyeUp;
+                    fresh.facedX = facedX;
+                    fresh.facedY = facedY;
+                    fresh.acrossView = false;
+                    fresh.users = 1;
+                    placed = fresh.placed;
+                    building = current;
+                    growing = true;
+                    chunksGrown++;
+                    addSquares(chunk, chunkX, chunkY, 0);
+                    growing = false;
+                    noKerb();
+                    fresh.fill(solid, laid);
+                    if (grown != null) {
+                        release(grown);
+                    }
+                    latestGrown[slot] = fresh;
+                    grown = fresh;
+                }
+                if (grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
+                    grown.users++;
+                    shown.add(grown);
+                }
             }
         }
         // Where each standing character is, for the aim to be traced against. Read from the
@@ -1103,12 +1142,97 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         return meshes.wx >= mapWx - 1 && meshes.wx <= mapWx + mapSide && meshes.wy >= mapWy - 1 && meshes.wy <= mapWy + mapSide;
     }
 
+    /**
+     * Goes through the squares of a chunk from the level lowest up, adding each to the sets:
+     * all that stands on it, or, while growing is set, only what grows on its ground.
+     */
+    private void addSquares(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
+        // Once for the chunk and not once a level: until the ground round a chunk is all
+        // loaded its corners are worked out afresh at every asking.
+        float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
+        float[] water = Terrain.water(chunk.wx, chunk.wy);
+        kerbs = Terrain.kerb(chunk.wx, chunk.wy);
+        for (int z = Math.max(lowest, chunk.getMinLevel()); z <= (growing ? 0 : chunk.getMaxLevel()); z++) {
+            readLights(chunk, chunkX, chunkY, z);
+            if (z == 0) {
+                readWoods(chunk, chunkX, chunkY);
+            }
+            for (int localX = 0; localX < CHUNK_TILES; localX++) {
+                for (int localY = 0; localY < CHUNK_TILES; localY++) {
+                    IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
+                    if (square == null || z > topLevel && cutAway(chunkX + localX, chunkY + localY)) {
+                        continue;
+                    }
+                    if (!growing) {
+                        squaresLoaded++;
+                    }
+                    cornerLights(localX, localY);
+                    int corner = localX * Terrain.CORNERS + localY;
+                    // Water lies at its own height, and a street below its kerb.
+                    byte kind = z == 0 ? groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] : Terrain.MADE;
+                    float[] heights = kind == Terrain.WATER ? water : ground;
+                    float drop = z == 0 && kind != Terrain.WATER && kerbs != null ? kerbOver(kind, localX, localY) : noKerb();
+                    geometry.lift[0] = heights[corner] - drop;
+                    geometry.lift[1] = heights[corner + Terrain.CORNERS] - drop;
+                    geometry.lift[2] = heights[corner + Terrain.CORNERS + 1] - drop;
+                    geometry.lift[3] = heights[corner + 1] - drop;
+                    if (geometry.lift[0] != 0f) {
+                        lifted++;
+                    }
+                    if (growing) {
+                        grow(chunkX + localX, chunkY + localY, localX, localY);
+                    } else {
+                        addSquare(square, chunkX + localX, chunkY + localY, z, localX, localY);
+                    }
+                }
+            }
+        }
+    }
+
+    /** How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to be made by how far off it is: the furthest of the rings and a chunk's reach. */
+    private static final float GROWN_WITHIN = Math.max(Math.max(FERN_REACH, GRASS_REACH), Math.max(FALLEN_REACH, FLOWER_REACH)) + CHUNK_REACH;
+
+    /**
+     * Whether the layers of a build with nothing else of the eye in it still stand far enough
+     * apart: they are stood off by the square of how far the eye was, so that two on one plane
+     * do not show through each other, and a build made for nearer has too little of it only
+     * once the eye is a good deal further off.
+     */
+    private static boolean layersStandFor(ChunkMeshes built, float distance) {
+        return STAND_OFF + STAND_OFF_PER_TILE_SQUARED * built.builtAway * built.builtAway
+                >= 0.75f * (STAND_OFF + STAND_OFF_PER_TILE_SQUARED * distance * distance);
+    }
+
+    /** What grows on the ground of the square (x, y): the lawn, and what is strewn and springs up on it. */
+    private void grow(int x, int y, int localX, int localY) {
+        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
+        standOff = STAND_OFF + STAND_OFF_PER_TILE_SQUARED * (toX * toX + toY * toY + camera.eyeUp * camera.eyeUp);
+        floorLayer = building.groundLayers[localX * CHUNK_TILES + localY];
+        spreadLayers = 0;
+        waterLocalX = localX;
+        waterLocalY = localY;
+        geometry.floored = true;
+        int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+        if (groundTexture[own] != null) {
+            frameOf(groundObject[own], groundTexture[own]);
+        }
+        frame.material = 0f;
+        if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
+            growGrass(x, y, localX, localY);
+        }
+        strew(x, y, localX, localY, toX * toX + toY * toY);
+    }
+
     /** Lets go of every build: for when what all of them were built on has changed. */
     static void forgetAll() {
         for (int slot = 0; slot < latest.length; slot++) {
             if (latest[slot] != null) {
                 release(latest[slot]);
                 latest[slot] = null;
+            }
+            if (latestGrown[slot] != null) {
+                release(latestGrown[slot]);
+                latestGrown[slot] = null;
             }
         }
     }
@@ -1127,6 +1251,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (held != null && !near(held)) {
                 latest[slot] = null;
                 release(held);
+            }
+            ChunkMeshes grown = latestGrown[slot];
+            if (grown != null && !near(grown)) {
+                latestGrown[slot] = null;
+                release(grown);
             }
         }
         solid.clear();
@@ -1996,6 +2125,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     private boolean growLongGrass(int x, int y) {
+        eyeRead = true;
         int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
         if (groundTexture[own] == null) {
             return false;
@@ -2324,12 +2454,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             addEdges(x, y, localX, localY);
             spreadGround(x, y, localX, localY);
-            if (Own.plants()) {
-                if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) {
-                    growGrass(x, y, localX, localY);
-                }
-                strew(x, y, localX, localY, toX * toX + toY * toY);
-            }
+            // What grows here is a build of its own: see grow. It lies over these layers.
+            building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers);
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -2811,6 +2937,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * way the fan is turned comes from where the plant stands, so no two are alike.
      */
     private void addGrown(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
+        eyeRead = true;
         int cards = type == IsoObjectType.tree ? 5 : 3;
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
         // so the bole stands in for all its cards; a bare one keeps them for its branches.
@@ -2886,6 +3013,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * too far off for one or its texture shows too little to make one of.
      */
     private boolean addCrown(Texture texture, String name, boolean bush, int x, int y, int z) {
+        eyeRead = true;
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
         float away2 = toX * toX + toY * toY;
         if (away2 > CROWN_REACH * CROWN_REACH) {
@@ -3127,6 +3255,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * sprite whose outline is too flat to say: a stone lying in the grass, which stays as it is.
      */
     private boolean addRock(int x, int y, int z) {
+        eyeRead = true;
         if (!SpriteGeometry.boxOf(frame, box)) {
             return false;
         }
@@ -3142,6 +3271,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * the tree is too far off for one, or its sprite has no bole that can be read.
      */
     private boolean addBole(IsoSprite sprite, Texture texture, int x, int y, int z) {
+        eyeRead = true;
         float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
         float away2 = toX * toX + toY * toY;
         if (away2 > TRUNK_REACH * TRUNK_REACH) {
