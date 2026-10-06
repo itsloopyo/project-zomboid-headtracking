@@ -154,11 +154,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         /** Whether a square of the build was so near the eye that its cards lie across the view. */
         private boolean acrossView;
         /**
-         * Whether anything of the build was made by how far from the eye it stands: a tree, a
-         * bush, a rock or long grass. One with nothing of the kind is the same build wherever
-         * the eye is, but for how far apart its layers stand, which goes by builtAway.
+         * Which band of distance from the eye the build was made for: see BAND_ENDS. A tree, a
+         * bush, a rock and long grass are made by it, and nothing else of the build goes by
+         * where the eye is but how far apart its layers stand, which goes by builtAway.
          */
-        private boolean eyeRead;
+        private int band;
+        /** Whether any square of the chunk is open natural ground, where a lawn, ferns, flowers or fallen leaves may be. */
+        private boolean grows;
         /** How far from the eye the chunk's middle was when the build was made, in tiles. */
         private float builtAway;
         /** Whether the build is of what grows on a chunk's ground and not of the chunk: see latestGrown. */
@@ -414,8 +416,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int chunksGrown;
     /** Whether a square of the chunk being built is so near the eye that its cards lie across the view. */
     private boolean acrossView;
-    /** Whether the build being made has anything in it made by how far from the eye it stands. */
-    private boolean eyeRead;
+    /**
+     * How far from the eye everything of the chunk being built is taken to be, in tiles, by
+     * what is made finer or left out with distance: the middle of the chunk's band, one number
+     * for the whole chunk, so that the build is the same wherever in the band the eye is.
+     */
+    private float bandAway;
+    /** How far apart the layers of the chunk being built stand: see addSquare. */
+    private float chunkStandOff;
     /** Whether only what grows on the ground is being added: see latestGrown. */
     private boolean growing;
     private int boxes;
@@ -612,9 +620,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     /** How far the eye may be from where a chunk's build was made from, in tiles, and the build still do. */
     private static float heldWithin(ViewCamera.Pose view, float distance, float middleX, float middleY) {
-        float clearX = Math.max(Math.abs(view.eyeX - middleX) - CHUNK_TILES / 2f, 0f), clearY = Math.max(Math.abs(view.eyeY - middleY) - CHUNK_TILES / 2f, 0f);
-        float nearest = (float) Math.sqrt(clearX * clearX + clearY * clearY);
-        return Math.max(EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f)), nearest * HELD_ROUND);
+        return Math.max(EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f)), nearest(view, middleX, middleY) * HELD_ROUND);
     }
 
     /**
@@ -944,9 +950,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // as that chunk goes: its cards would turn by less than can be seen.
                 // A build with no sum cannot be found unchanged: while the eye moves it is made again
                 // in its turn, as one the eye has left behind is, and not at once.
+                float nearest = nearest(view, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                 boolean still = missing ? eyeStill
-                        : (current.eyeRead ? heldSince(current, view, distance, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f) : layersStandFor(current, distance))
-                                && (eyeStill || current.signed);
+                        : inBand(current.band, nearest) && layersStandFor(current, distance) && (eyeStill || current.signed);
                 boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED : !still || !current.signed || since >= UNCHANGED_READ_EVERY_NANOS);
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
@@ -962,8 +968,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // as there for some frames to come: those frames then find it unchanged, where a
                 // build with no sum would be made a second time for one.
                 float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
-                boolean summed = (still || missing || !current.eyeRead || heldWithin(view, distance, middleX, middleY) > HELD_STEPS_SUMMED * eyeStep)
-                        && (missing || due) && frames >= summedFrom;
+                boolean summed = (missing || due) && frames >= summedFrom;
                 if (missing || due) {
                     tallied = talliedIn[slot] != tally;
                     talliedIn[slot] = tally;
@@ -1025,7 +1030,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.summedFrom = summedFrom;
                     fresh.users = 1;
                     acrossView = false;
-                    eyeRead = false;
+                    fresh.band = band(nearest);
+                    fresh.grows = false;
+                    bandAway = BAND_AWAY[fresh.band];
+                    chunkStandOff = STAND_OFF + STAND_OFF_PER_TILE_SQUARED * (distance * distance + view.eyeUp * view.eyeUp);
                     placed = fresh.placed;
                     building = fresh;
                     chunksBuilt++;
@@ -1034,7 +1042,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.acrossView = acrossView;
-                    fresh.eyeRead = eyeRead;
                     fresh.grown = false;
                     fresh.builtAway = distance;
                     fresh.fill(solid, laid);
@@ -1050,9 +1057,17 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // as the eye moves while any of it is near enough to be made by how far off it is.
                 ChunkMeshes grown = latestGrown[slot];
                 boolean ungrown = grown == null || grown.wx != chunk.wx || grown.wy != chunk.wy || grown.builtFrame < current.builtFrame;
+                // A lawn's blades shorten over seven tiles and a half: made from half a tile off they are a fifteenth out.
+                float grownFrom = grown == null ? 0f
+                        : Math.max(Math.max(Math.abs(grown.eyeX - view.eyeX), Math.abs(grown.eyeY - view.eyeY)), Math.abs(grown.eyeUp - view.eyeUp));
                 boolean regrown = !ungrown && !rehearsing && distance < GROWN_WITHIN && frames - grown.checkedFrame >= every
-                        && !heldSince(grown, view, distance, middleX, middleY);
-                if (Own.plants() && lowest <= 0 && (ungrown || regrown)) {
+                        && grownFrom > Math.max(GROWN_HELD_WITHIN, heldWithin(view, distance, middleX, middleY));
+                if (!current.grows && grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
+                    release(grown);
+                    latestGrown[slot] = null;
+                    grown = null;
+                }
+                if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown)) {
                     if (!missing && !due) {
                         tallied = talliedIn[slot] != tally;
                         talliedIn[slot] = tally;
@@ -1194,7 +1209,38 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /** How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to be made by how far off it is: the furthest of the rings and a chunk's reach. */
+    private static final float GROWN_HELD_WITHIN = 0.5f;
     private static final float GROWN_WITHIN = Math.max(Math.max(FERN_REACH, GRASS_REACH), Math.max(FALLEN_REACH, FLOWER_REACH)) + CHUNK_REACH;
+
+    /**
+     * Where each band of distance from the eye ends, in tiles from the eye to the nearest edge
+     * of a chunk, and the distance everything in a chunk of the band is made for. A tree's
+     * limbs and its crown's fineness, a bole, a bush's cards, a rock's faces and long grass
+     * grown plant by plant all go by distance: taken tree by tree from the eye itself, every
+     * chunk with a plant in it was a different build at every step. By band, a chunk is the
+     * same build until it crosses into the next, about three chunks a frame at a car's speed.
+     */
+    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f, 60f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 50f, 70f};
+    /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
+    private static final float BAND_SLACK = 0.5f;
+
+    private static int band(float nearest) {
+        int band = 0;
+        while (band < BAND_ENDS.length && nearest >= BAND_ENDS[band]) {
+            band++;
+        }
+        return band;
+    }
+
+    private static boolean inBand(int band, float nearest) {
+        return (band == 0 || nearest >= BAND_ENDS[band - 1] - BAND_SLACK) && (band == BAND_ENDS.length || nearest < BAND_ENDS[band] + BAND_SLACK);
+    }
+
+    /** How far the eye is from the nearest point of the chunk whose middle is given, in tiles along the ground. */
+    private static float nearest(ViewCamera.Pose view, float middleX, float middleY) {
+        float clearX = Math.max(Math.abs(view.eyeX - middleX) - CHUNK_TILES / 2f, 0f), clearY = Math.max(Math.abs(view.eyeY - middleY) - CHUNK_TILES / 2f, 0f);
+        return (float) Math.sqrt(clearX * clearX + clearY * clearY);
+    }
 
     /**
      * Whether the layers of a build with nothing else of the eye in it still stand far enough
@@ -2129,7 +2175,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     private boolean growLongGrass(int x, int y) {
-        eyeRead = true;
         int own = (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
         if (groundTexture[own] == null) {
             return false;
@@ -2140,8 +2185,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float lowA = spillsTo(own - LIGHT_SPAN) ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + LIGHT_SPAN) ? 1f + GRASS_SPILL : 0.88f;
         float lowB = spillsTo(own - 1) ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) ? 1f + GRASS_SPILL : 0.88f;
         SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        float away = (float) Math.sqrt(toX * toX + toY * toY);
+        float away = bandAway;
         // Near the eye it is grown plant by plant. Far off, where a blade is finer than the
         // picture can draw, it is cards with the blades cut out of them, and between the two
         // the cards rise out of the ground as the plants sink into it.
@@ -2150,7 +2194,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             grownLocalX = waterLocalX;
             grownLocalY = waterLocalY;
             grownUnder = 0.7f;
-            Grass.rank(geometry, mesh, frame, x, y, camera.eyeX, camera.eyeY, camera.forwardX, camera.forwardY, lowA, highA, lowB, highB, this);
+            // Grown as from an eye the band's distance off and looking no way: none of it is left out as behind the view.
+            Grass.rank(geometry, mesh, frame, x, y, x + 0.5f - away, y + 0.5f, 0f, 0f, lowA, highA, lowB, highB, this);
         }
         float carded = Math.clamp((away - Grass.RANK_THINS) / (Grass.RANK_ENDS - Grass.RANK_THINS), 0f, 1f);
         for (int tuft = 0; tuft < LONG_TUFTS && carded > 0f; tuft++) {
@@ -2347,8 +2392,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     private void addSquare(IsoGridSquare square, int x, int y, int z, int localX, int localY) {
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY, toUp = z * ViewCamera.LEVEL_HEIGHT - camera.eyeUp;
-        standOff = STAND_OFF + STAND_OFF_PER_TILE_SQUARED * (toX * toX + toY * toY + toUp * toUp);
+        // One number for the whole chunk, by how far its middle is: the build is then the same wherever the eye stands in it.
+        standOff = chunkStandOff;
         // An upright sprite faces the eye, not the way the view is turned, so it holds still
         // while the head or the mouse turns. On the eye's own square there is no such
         // direction, and it lies across the view.
@@ -2460,6 +2505,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             spreadGround(x, y, localX, localY);
             // What grows here is a build of its own: see grow. It lies over these layers.
             building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers);
+            int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+            building.grows |= groundKind[own] == Terrain.NATURAL && lightOpen[own] == 1;
         }
 
         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -2941,7 +2988,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * way the fan is turned comes from where the plant stands, so no two are alike.
      */
     private void addGrown(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
-        eyeRead = true;
         int cards = type == IsoObjectType.tree ? 5 : 3;
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
         // so the bole stands in for all its cards; a bare one keeps them for its branches.
@@ -2973,16 +3019,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // Leaves lie on the same card as their trunk, and each layer has to stand
             // clear of the one under it on the side the eye is on, square to this card:
             // a move straight towards the eye does nothing for a card seen at a slant.
-            float squareX = alongY, squareY = -alongX;
-            float eyeSide = Math.signum(squareX * (facedX - x - 0.5f) + squareY * (facedY - y - 0.5f));
-            float clear = overLayer * (CARD_LAYER + 4f * standOff) * eyeSide;
-            geometry.nudgeX = squareX * clear;
-            geometry.nudgeY = squareY * clear;
+            // Which side that is, the picture finds as it draws: see PipelineShaders.FACED.
+            geometry.clear = overLayer * (CARD_LAYER + 4f * standOff);
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, side * alongX, side * alongY, false, true);
+            geometry.clear = 0f;
         }
         frame.material = fanned;
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        if (bush && !crowned && Own.plants() && toX * toX + toY * toY < BUSH_REACH * BUSH_REACH) {
+        if (bush && !crowned && Own.plants() && bandAway < BUSH_REACH) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
             // middle, each across the way out to it, so there are leaves on every side.
@@ -3017,10 +3060,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * too far off for one or its texture shows too little to make one of.
      */
     private boolean addCrown(Texture texture, String name, boolean bush, int x, int y, int z) {
-        eyeRead = true;
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        float away2 = toX * toX + toY * toY;
-        if (away2 > CROWN_REACH * CROWN_REACH) {
+        float away = bandAway;
+        if (away > CROWN_REACH) {
             return false;
         }
         float[] places = leafPlaces.get(texture);
@@ -3032,7 +3073,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             leafPlaces.put(texture, places);
         }
-        float away = (float) Math.sqrt(away2);
         boolean limbed = !bush && boleX == x && boleY == y && away < LIMB_REACH;
         int seed = Flora.mix(x, y, 83);
         return Flora.addCrown(solid.get(texture.getID()), solid.get(PLAIN), frame, places, x + 0.5f, y + 0.5f,
@@ -3259,14 +3299,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * sprite whose outline is too flat to say: a stone lying in the grass, which stays as it is.
      */
     private boolean addRock(int x, int y, int z) {
-        eyeRead = true;
         if (!SpriteGeometry.boxOf(frame, box)) {
             return false;
         }
         float a = Math.clamp(box[0], 0.2f, 0.8f), b = Math.clamp(box[1], 0.2f, 0.8f);
-        float toX = x + a - camera.eyeX, toY = y + b - camera.eyeY;
         flora.addRock(solid.get(PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b), Math.clamp(box[2] * 1.15f, 0.15f, 0.6f),
-                Math.clamp(box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), toX * toX + toY * toY < ROCK_NEAR * ROCK_NEAR, Flora.mix(x, y, 80), frame);
+                Math.clamp(box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), bandAway < ROCK_NEAR, Flora.mix(x, y, 80), frame);
         return true;
     }
 
@@ -3275,10 +3313,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * the tree is too far off for one, or its sprite has no bole that can be read.
      */
     private boolean addBole(IsoSprite sprite, Texture texture, int x, int y, int z) {
-        eyeRead = true;
-        float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
-        float away2 = toX * toX + toY * toY;
-        if (away2 > TRUNK_REACH * TRUNK_REACH) {
+        if (bandAway > TRUNK_REACH) {
             return false;
         }
         float[] bole = boles.get(sprite);
@@ -3289,7 +3324,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (bole.length == 0) {
             return false;
         }
-        boolean near = away2 < TRUNK_NEAR * TRUNK_NEAR;
+        boolean near = bandAway < TRUNK_NEAR;
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f);
         flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, Flora.barkOf(sprite.getName(), seed), seed, frame);

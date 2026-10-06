@@ -126,7 +126,15 @@ final class PipelineShaders {
                 float off = length(from);
                 // On the camera's own square there is no way to it, and a card lies across the view.
                 right = off > 0.5 ? vec2(-from.y, from.x) / off : uAcross;
-                return vec4(at.xy + right * gl_MultiTexCoord1.x - from / max(off, 0.5) * gl_MultiTexCoord1.y, at.zw);
+                vec2 stands = at.xy - from / max(off, 0.5) * gl_MultiTexCoord1.y;
+                if (gl_MultiTexCoord1.z > 1.5) {
+                    // A card that does not turn, standing clear of its own plane on the camera's side.
+                    vec2 square = normalize(gl_Normal.xy);
+                    stands -= square * (dot(square, from) > 0.0 ? 1.0 : -1.0) * gl_MultiTexCoord1.x;
+                } else {
+                    stands += right * gl_MultiTexCoord1.x;
+                }
+                return vec4(stands, at.zw);
             }
             """;
 
@@ -179,7 +187,7 @@ final class PipelineShaders {
                 if (uModel < 0.5) {
                     vec2 right;
                     stands = faced(gl_Vertex, right);
-                    if (gl_MultiTexCoord1.z > 0.5) {
+                    if (gl_MultiTexCoord1.z > 0.5 && gl_MultiTexCoord1.z < 1.5) {
                         looks = normalize(vec3(right.y, -right.x, 0.9)) * length(gl_Normal);
                     }
                 }

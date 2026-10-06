@@ -102,6 +102,8 @@ final class SpriteGeometry {
          */
         float along, nearer;
         boolean faces;
+        /** For a card that does not turn: that along is how far the vertices added next stand clear of the card's own plane, on the side the camera is. */
+        boolean clears;
 
         void face(float x, float y, float up) {
             float length = (float) Math.sqrt(x * x + y * y + up * up);
@@ -137,7 +139,7 @@ final class SpriteGeometry {
             vertices[floats++] = normalUp * (1f + sway);
             vertices[floats++] = along;
             vertices[floats++] = nearer;
-            vertices[floats++] = faces ? 1f : 0f;
+            vertices[floats++] = faces ? 1f : clears ? 2f : 0f;
         }
     }
 
@@ -330,6 +332,8 @@ final class SpriteGeometry {
     float nudgeX, nudgeY;
     /** How far towards the camera that draws it the upright added next stands off from its place, in tiles. */
     float nearer;
+    /** How far the upright added next stands clear of its own plane on the side of the camera that draws it, in tiles: for one that does not turn. */
+    float clear;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
     /** How much of an upright card is left out, from its foot up: the shaft of a post that stands there as a solid, under the head the card still shows. */
@@ -765,13 +769,14 @@ final class SpriteGeometry {
         float baseUp = (tileZ + h + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         float x0 = faces ? baseX : baseX + rightX * leftOffset, y0 = faces ? baseY : baseY + rightY * leftOffset;
         float x1 = faces ? baseX : baseX + rightX * rightOffset, y1 = faces ? baseY : baseY + rightY * rightOffset;
-        float along0 = faces ? leftOffset : 0f, along1 = faces ? rightOffset : 0f;
+        float along0 = faces ? leftOffset : clear, along1 = faces ? rightOffset : clear;
 
         // A flat card stands in for something round, a bush or a chair, so it is lit as if it
         // leaned back: partly from the side it faces and partly from above.
         mesh.open = frame.open + CARD + 32f * frame.material;
         mesh.face(rightY, -rightX, 0.9f);
         mesh.faces = faces;
+        mesh.clears = !faces && clear != 0f;
         mesh.nearer = nearer;
         // What grows moves with the wind, the more the higher it stands above its root.
         float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
@@ -795,6 +800,7 @@ final class SpriteGeometry {
         mesh.along = 0f;
         mesh.nearer = 0f;
         mesh.faces = false;
+        mesh.clears = false;
     }
 
     /**
