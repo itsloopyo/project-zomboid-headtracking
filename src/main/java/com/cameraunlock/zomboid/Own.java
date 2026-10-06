@@ -22,9 +22,9 @@ final class Own {
 
     private Own() {}
 
-    /** The rows that are on, as bits. */
+    /** The rows that are on. In the Low graphics mode none is, whatever the file says. */
     static int on() {
-        return on;
+        return Quality.plain() ? 0 : on;
     }
 
     static void set(int bits) {
@@ -32,31 +32,31 @@ final class Own {
     }
 
     static boolean weapons() {
-        return (on & WEAPONS) != 0;
+        return (on() & WEAPONS) != 0;
     }
 
     static boolean furniture() {
-        return (on & FURNITURE) != 0;
+        return (on() & FURNITURE) != 0;
     }
 
     static boolean pictures() {
-        return (on & PICTURES) != 0;
+        return (on() & PICTURES) != 0;
     }
 
     static boolean plants() {
-        return (on & PLANTS) != 0;
+        return (on() & PLANTS) != 0;
     }
 
     static boolean textures() {
-        return (on & TEXTURES) != 0;
+        return (on() & TEXTURES) != 0;
     }
 
     static boolean buildings() {
-        return (on & BUILDINGS) != 0;
+        return (on() & BUILDINGS) != 0;
     }
 
     static boolean zombies() {
-        return (on & ZOMBIES) != 0;
+        return (on() & ZOMBIES) != 0;
     }
 
     /**
@@ -65,7 +65,7 @@ final class Own {
      * to be built again.
      */
     static boolean taken() {
-        int now = on;
+        int now = on();
         if (now == built) {
             return false;
         }

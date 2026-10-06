@@ -33,7 +33,7 @@ final class NativeConfig {
     private static final ValueLayout.OfInt INT = ValueLayout.JAVA_INT;
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT;
 
-    private final MethodHandle load, reloadLive, saveTrackingMode, saveWorldSpaceYaw, saveAimMode,
+    private final MethodHandle load, reloadLive, saveTrackingMode, saveWorldSpaceYaw, saveAimMode, saveQuality,
             hotkeysStart, hotkeysTake, takeLog;
 
     @SuppressWarnings("restricted")
@@ -46,6 +46,7 @@ final class NativeConfig {
         saveTrackingMode = bind(linker, lookup, "PzhtConfigSaveTrackingMode", FunctionDescriptor.of(INT, INT, INT));
         saveWorldSpaceYaw = bind(linker, lookup, "PzhtConfigSaveWorldSpaceYaw", FunctionDescriptor.of(INT, INT));
         saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT, INT));
+        saveQuality = bind(linker, lookup, "PzhtConfigSaveQuality", FunctionDescriptor.of(INT, INT));
         hotkeysStart = bind(linker, lookup, "PzhtHotkeysStart", FunctionDescriptor.of(INT));
         hotkeysTake = bind(linker, lookup, "PzhtHotkeysTake", FunctionDescriptor.of(INT));
         takeLog = bind(linker, lookup, "PzhtTakeLog", FunctionDescriptor.of(INT, pointer, INT));
@@ -113,6 +114,10 @@ final class NativeConfig {
 
     boolean saveWorldSpaceYaw(boolean world) {
         return saved("yaw mode", call(saveWorldSpaceYaw, world ? 1 : 0));
+    }
+
+    boolean saveQuality(int quality) {
+        return saved("graphics mode", call(saveQuality, quality));
     }
 
     boolean saveAimMode(AimMode mode) {

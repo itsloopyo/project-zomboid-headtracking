@@ -38,7 +38,26 @@ final class Quality {
         row = asked;
         level = asked == AUTOMATIC ? HIGH : asked;
         countedSince = 0L;
-        Log.info("first person picture quality: " + NAMES[asked]);
+        Log.info("graphics mode: " + NAMES[asked]);
+    }
+
+    /** The mode F9 goes to from the one the session is in: Low, Medium, High and round again. Automatic is only ever set in the file. */
+    static int next() {
+        return row == LOW ? MEDIUM : row == MEDIUM ? HIGH : LOW;
+    }
+
+    static String name() {
+        return NAMES[row];
+    }
+
+    /**
+     * Whether the mode is Low, the nearest there is to the game's own look: the game's own
+     * view is then the game's own picture, and the first person view, which the game has no
+     * picture of, is drawn with nothing the mod made where the game has its own. Automatic
+     * come down to Low's level draws less and is not this.
+     */
+    static boolean plain() {
+        return row == LOW;
     }
 
     /**

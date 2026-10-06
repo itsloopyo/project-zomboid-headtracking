@@ -12,6 +12,8 @@ import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.network.GameClient;
+import zombie.ui.TextManager;
+import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -37,8 +39,11 @@ import zombie.vehicles.BaseVehicle;
 public final class FirstPerson {
     /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it. */
     private static final int TOGGLE_KEY = 66;
-    /** F9. Pressed in the game's own view, it has the picture draw that view. */
-    private static final int OVERHEAD_KEY = 67;
+    /** F9. Goes to the next graphics mode: see Quality. In every mode but Low the picture draws the game's own view as well. */
+    private static final int MODE_KEY = 67;
+    /** How long the name of a graphics mode just gone to stays on the screen. */
+    private static final long SAID_FOR_NANOS = 2_500_000_000L;
+    private static long modeSaidAt;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
@@ -258,6 +263,12 @@ public final class FirstPerson {
         long before = TRACE ? Allocation.byThisThread() : 0L;
         try {
             frame();
+            // After the picture, which would cover it.
+            if (modeSaidAt != 0L && System.nanoTime() - modeSaidAt < SAID_FOR_NANOS) {
+                int index = IsoPlayer.getInstance().getIndex();
+                TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
+                        "Graphics: " + Quality.name(), 1.0, 1.0, 1.0, 1.0);
+            }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
             // picture and panels pay for it. The view goes off for the session instead, the
@@ -284,10 +295,11 @@ public final class FirstPerson {
         }
         HeadTracking.pollHotkeys();
         DevKeys.poll();
-        if (!on && GameKeyboard.isKeyPressed(OVERHEAD_KEY)) {
-            overhead = !overhead && allowed(IsoPlayer.getInstance());
-            Log.info("the game's own view is drawn by " + (overhead ? "the picture" : "the game"));
+        if (GameKeyboard.isKeyPressed(MODE_KEY)) {
+            HeadTracking.cycleGraphicsMode();
+            modeSaidAt = System.nanoTime();
         }
+        overhead = !Quality.plain() && failure == null && allowed(IsoPlayer.getInstance());
         if (Terrain.level != overhead()) {
             Terrain.level(overhead());
             WorldScene.forgetAll();

@@ -100,7 +100,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view is for single player: it stays off in multiplayer and split screen.
+`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view is for single player: it stays off in multiplayer and split screen.
 
 ### In first person
 
@@ -182,7 +182,7 @@ In first person a window also shows your character in its glass, with their head
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
-The first person view costs a graphics card far more than the game's own view does. `Quality` in `CameraUnlock.ini` says how much of it is drawn: `High` is the whole picture, `Medium` draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps, and `Low` draws three fifths of the pixels each way, sees 48 tiles and leaves out the shading of corners, the lit air and the depth in near surfaces. It starts at `Automatic`, which begins at `High` and goes down a step each time the first person view has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed, so set the row to the level you want if `Automatic` settles lower than your PC needs. The row is read again while the game runs, like `FieldOfView`. The game's own view is never changed.
+The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through three graphics modes, `Low`, `Medium` and `High`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with everything the mod made: `High` is the whole picture, and `Medium` draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. The row starts at `Automatic`, which only the file can set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`.
 
 The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, and skins for zombies. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings` and `OwnZombies`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
 
@@ -276,14 +276,18 @@ DataFreshnessMs=default
 ; same ratio. Read again while the game runs, so a change shows as soon as the file
 ; is saved.
 FieldOfView=65.0
-; How much of the first person picture is drawn, for a graphics card that cannot
-; keep up with all of it. High: the whole picture. Medium: four fifths of the
-; pixels each way, sight to 64 tiles and smaller shadow maps. Low: three fifths
-; of the pixels each way, sight to 48 tiles, smaller shadow maps, and no shading
-; of corners, lit air or depth in surfaces. Automatic: begins at High and goes
-; down a step each time the picture is drawn fewer than 45 times a second for
-; three seconds, until the game is closed. Read again while the game runs. The
-; game's own view is never changed.
+; The graphics mode: how much of the mod's own picture is drawn. F9 goes from one
+; to the next, Low, Medium, High, and saves it here. Low is as near the game's
+; own look as there is: the game's own view is the game's own picture, and first
+; person is drawn with the game's own sprites, models and textures in place of
+; everything the mod made, at three fifths of the pixels each way, sight to 48
+; tiles, smaller shadow maps, and no shading of corners, lit air or depth in
+; surfaces. Medium and High draw both views with everything the mod made. High:
+; the whole picture. Medium: four fifths of the pixels each way, sight to 64
+; tiles and smaller shadow maps. Automatic: begins at High and draws less, as
+; Medium and then Low do but still with everything the mod made, each time the
+; picture is drawn fewer than 45 times a second for three seconds, until the game
+; is closed. Read again while the game runs.
 Quality=Automatic
 
 [Smoothing]

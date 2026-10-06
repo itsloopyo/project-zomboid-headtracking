@@ -241,6 +241,13 @@ final class HeadTracking {
         save(() -> config.saveWorldSpaceYaw(saved));
     }
 
+    /** F9: the graphics mode after the one the session is in, kept for the next start. */
+    static void cycleGraphicsMode() {
+        int next = Quality.next();
+        Quality.set(next);
+        save(() -> config.saveQuality(next));
+    }
+
     static void cycleAimMode() {
         aimMode = aimMode.next();
         Log.info(aimMode.label);

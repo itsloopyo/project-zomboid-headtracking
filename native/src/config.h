@@ -20,7 +20,7 @@ inline constexpr float kDefaultFieldOfView = 65.0f;
 inline constexpr float kMinFieldOfView = 40.0f;
 inline constexpr float kMaxFieldOfView = 110.0f;
 
-// How much the first person picture costs to draw. Quality.java holds the same numbers.
+// The graphics mode: how much of the mod's own picture is drawn. Quality.java holds the same numbers.
 enum class Quality : std::int32_t { Automatic = 0, Low = 1, Medium = 2, High = 3 };
 
 struct Config : cameraunlock::HeadTrackingConfig {

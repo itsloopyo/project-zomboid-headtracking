@@ -35,14 +35,19 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                                                          {"Low", Quality::Low},
                                                          {"Medium", Quality::Medium},
                                                          {"High", Quality::High}},
-                "How much of the first person picture is drawn, for a graphics card that cannot\n"
-                "keep up with all of it. High: the whole picture. Medium: four fifths of the\n"
-                "pixels each way, sight to 64 tiles and smaller shadow maps. Low: three fifths\n"
-                "of the pixels each way, sight to 48 tiles, smaller shadow maps, and no shading\n"
-                "of corners, lit air or depth in surfaces. Automatic: begins at High and goes\n"
-                "down a step each time the picture is drawn fewer than 45 times a second for\n"
-                "three seconds, until the game is closed. Read again while the game runs. The\n"
-                "game's own view is never changed.");
+                "The graphics mode: how much of the mod's own picture is drawn. F9 goes from one\n"
+                "to the next, Low, Medium, High, and saves it here. Low is as near the game's\n"
+                "own look as there is: the game's own view is the game's own picture, and first\n"
+                "person is drawn with the game's own sprites, models and textures in place of\n"
+                "everything the mod made, at three fifths of the pixels each way, sight to 48\n"
+                "tiles, smaller shadow maps, and no shading of corners, lit air or depth in\n"
+                "surfaces. Medium and High draw both views with everything the mod made. High:\n"
+                "the whole picture. Medium: four fifths of the pixels each way, sight to 64\n"
+                "tiles and smaller shadow maps. Automatic: begins at High and draws less, as\n"
+                "Medium and then Low do but still with everything the mod made, each time the\n"
+                "picture is drawn fewer than 45 times a second for three seconds, until the game\n"
+                "is closed. Read again while the game runs.")
+        .Writable();
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in the first person view in place of the game's\n"
                 "own. Set a row to false and the game's own is drawn there instead, as the game or\n"

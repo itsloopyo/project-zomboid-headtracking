@@ -135,6 +135,10 @@ std::int32_t PzhtConfigSaveWorldSpaceYaw(std::int32_t world) {
     return Save("saving the yaw mode", [=](pzht::Config& c) { c.world_space_yaw = world != 0; });
 }
 
+std::int32_t PzhtConfigSaveQuality(std::int32_t quality) {
+    return Save("saving the graphics mode", [=](pzht::Config& c) { c.quality = static_cast<pzht::Quality>(quality); });
+}
+
 std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
                                    std::int32_t stock_sights) {
     return Save("saving the aim mode", [=](pzht::Config& c) {

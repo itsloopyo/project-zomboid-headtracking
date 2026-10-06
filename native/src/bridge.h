@@ -74,6 +74,7 @@ PZHT_EXPORT std::int32_t PzhtConfigReloadLive(PzhtLive* out);
 // Each answers the owner's ConfigSaveStatus.
 PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::int32_t position);
 PZHT_EXPORT std::int32_t PzhtConfigSaveWorldSpaceYaw(std::int32_t world);
+PZHT_EXPORT std::int32_t PzhtConfigSaveQuality(std::int32_t quality);
 PZHT_EXPORT std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
                                                std::int32_t stock_sights);
 
