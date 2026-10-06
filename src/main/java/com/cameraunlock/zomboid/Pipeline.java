@@ -174,7 +174,7 @@ final class Pipeline {
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
     private static int nearMap, farMap, nearTarget, farTarget;
-    /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see Quality.mapsTakeTurns. */
+    /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see drawShadows. */
     private static boolean farDrawn, roofDrawn, castFar;
     /** What is overhead near the eye, seen from straight above: where rain cannot fall. */
     private static int roofMap, roofTarget;
@@ -926,9 +926,11 @@ final class Pipeline {
 
     private static void drawShadows(SkyState state, boolean figures) {
         lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE);
-        boolean turns = Quality.mapsTakeTurns();
-        castFar = !turns || !farDrawn || (frameNumber & 1) == 0;
-        boolean castRoof = !turns || !roofDrawn || (frameNumber & 1) == 1;
+        // The far map and the map of what is overhead are each drawn every other frame, turn about. Both are
+        // of things tens of tiles off or straight overhead, and each is read through the matrix it was last
+        // drawn with, so a frame late is not seen.
+        castFar = !farDrawn || (frameNumber & 1) == 0;
+        boolean castRoof = !roofDrawn || (frameNumber & 1) == 1;
         if (castFar) {
             lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE);
             farDrawn = true;

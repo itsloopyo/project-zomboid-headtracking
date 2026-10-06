@@ -32,7 +32,7 @@ final class QualityTests {
 
     private static void aLevelAskedForIsKept() {
         Quality.set(Quality.HIGH);
-        check(Quality.scale() == 1f && Quality.sight() == 80 && Quality.shadowSize() == 4096 && Quality.shadedAndLit() && !Quality.mapsTakeTurns(),
+        check(Quality.scale() == 1f && Quality.sight() == 80 && Quality.shadowSize() == 4096 && Quality.shadedAndLit(),
                 "high is the whole picture");
         frames(SECOND, 10f, 20f);
         check(Quality.scale() == 1f, "and stays the whole picture however slowly it is drawn");

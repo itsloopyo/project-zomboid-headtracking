@@ -131,12 +131,4 @@ final class Quality {
         return level != LOW;
     }
 
-    /**
-     * Whether the far shadow map and the map of what is overhead are each drawn every other
-     * frame, turn about. Both are of things tens of tiles off or straight overhead, and each
-     * is read through the matrix it was last drawn with, so a frame late is not seen.
-     */
-    static boolean mapsTakeTurns() {
-        return level != HIGH;
-    }
 }
