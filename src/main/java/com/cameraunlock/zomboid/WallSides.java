@@ -159,6 +159,23 @@ final class WallSides {
         return laid | OVER;
     }
 
+    /** How much lighter or darker one colour may be than another, as a ratio, and how far from it once made as light, summed over red, green and blue, for the two to be one paint. */
+    private static final float MOST_LIGHTER = 1.5f, SAME_PAINT = 0.12f;
+
+    /**
+     * Whether two colours, each red, green and blue from 0 to 1, are one paint seen in two
+     * lights: the one is the other made lighter or darker by no more than half.
+     */
+    static boolean oneColourInTwoLights(float[] one, float[] other) {
+        float sum = other[0] + other[1] + other[2];
+        if (sum <= 0f) {
+            return false;
+        }
+        float lighter = (one[0] + one[1] + one[2]) / sum;
+        return lighter <= MOST_LIGHTER && lighter >= 1f / MOST_LIGHTER
+                && Math.abs(one[0] - lighter * other[0]) + Math.abs(one[1] - lighter * other[1]) + Math.abs(one[2] - lighter * other[2]) <= SAME_PAINT;
+    }
+
     private static int part(float value, int levels) {
         return Math.round(Math.clamp(value, 0f, 1f) * levels);
     }

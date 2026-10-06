@@ -4300,8 +4300,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 frame.light(unseenLight.r, unseenLight.g, unseenLight.b);
                 frame.open = 1f;
             } else {
-                frame.light(lightRed[farLight], lightGreen[farLight], lightBlue[farLight]);
-                frame.open = lightOpen[farLight];
+                lightAlong(farLight, da != 0f);
             }
         }
         // The far skin is papered as the near one only where it shows the same sprite.
@@ -4342,6 +4341,34 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (overLayer == 0) {
             addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0,
                     startPainted && endPainted, x, y, z, a, b, da, db, inX, inY);
+        }
+    }
+
+    /**
+     * Lights the frame as the square a wall's far side stands in is lit, shaded from one end of
+     * the wall to the other as the squares along it are: each end is the mean of that square
+     * and the next one along the wall on that side, where the two are both indoors or both
+     * out. One light for the whole length made every square of a wall its own flat panel. By a
+     * lamp, whose light the game gives a colour, a shop's front was a teal square and a pink
+     * one in a grey wall.
+     */
+    private void lightAlong(int at, boolean north) {
+        int step = north ? LIGHT_SPAN : 1;
+        frame.light(lightRed[at], lightGreen[at], lightBlue[at]);
+        frame.open = lightOpen[at];
+        for (int end = 0; end < 2; end++) {
+            int beside = at + (end == 0 ? -step : step);
+            // The lights are read a square past the chunk and no further: a far side that is in that last row has nothing beyond one end.
+            boolean alike = beside >= 0 && beside < lightOpen.length && lightOpen[beside] == lightOpen[at];
+            float red = alike ? (lightRed[at] + lightRed[beside]) / 2f : lightRed[at];
+            float green = alike ? (lightGreen[at] + lightGreen[beside]) / 2f : lightGreen[at];
+            float blue = alike ? (lightBlue[at] + lightBlue[beside]) / 2f : lightBlue[at];
+            // The square's corners go north-west, north-east, south-east, south-west: a wall on its
+            // north edge ends at the first two, one on its west edge at the first and the last.
+            int near = end == 0 ? 0 : north ? 1 : 3, far = end == 0 ? (north ? 3 : 1) : 2;
+            frame.cornerRed[near] = frame.cornerRed[far] = red;
+            frame.cornerGreen[near] = frame.cornerGreen[far] = green;
+            frame.cornerBlue[near] = frame.cornerBlue[far] = blue;
         }
     }
 
@@ -4398,15 +4425,21 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (finish != null && finish != texture) {
             int built = Masonry.of(finish);
             unread = Masonry.unread(finish);
+            int read = gableSheet ? 0 : Masonry.of(texture);
+            unread |= !gableSheet && Masonry.unread(texture);
             if (built != 0 && !gableSheet) {
                 float[] own = SpriteColours.of(texture);
                 WallSides.tint(built, laidTint);
                 unread |= SpriteColours.unread(texture);
-                built = own != null && Math.abs(own[0] - laidTint[0]) + Math.abs(own[1] - laidTint[1]) + Math.abs(own[2] - laidTint[2]) <= SAME_FINISH ? built : 0;
+                // The game paints a wall on a north edge lighter than the same wall on a west
+                // edge, as its own light falls. A wall that reads as the finish does, or as
+                // nothing, is the finish if it is the finish's colour made lighter or darker.
+                boolean samePaint = own != null && (read == 0 || (read & 15) == (built & 15)) && WallSides.oneColourInTwoLights(own, laidTint);
+                boolean sameColour = own != null && Math.abs(own[0] - laidTint[0]) + Math.abs(own[1] - laidTint[1]) + Math.abs(own[2] - laidTint[2]) <= SAME_FINISH;
+                built = samePaint || sameColour ? built : 0;
             }
-            how = built;
-        }
-        if (how == 0 && !gableSheet) {
+            how = built != 0 ? built : read;
+        } else if (!gableSheet) {
             how = Masonry.of(texture);
             unread |= Masonry.unread(texture);
         }

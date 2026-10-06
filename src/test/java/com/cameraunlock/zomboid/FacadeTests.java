@@ -18,6 +18,7 @@ final class FacadeTests {
         blocksAreDeepCoursesOfOneGrey();
         stoneHasDeepCoursesAndNoTwoStonesAlike();
         boardedWallCarriesItsColour();
+        wallInAnotherLightIsTheSamePaint();
         paintedWallIsLeftAsPainted();
         onlyOutsideWallsAreLaid();
         wireIsReadAsItsTwoEndsOverTheSquare();
@@ -113,6 +114,14 @@ final class FacadeTests {
             return joint ? SHADOW : shade(STONE, 0.6f * chance(stone, course) + 0.4f * chance(along, row));
         });
         check((how & 15) == WallSides.STONE, "a wall in deep courses of stones each its own shade is stone: " + Integer.toHexString(how));
+    }
+
+    private static void wallInAnotherLightIsTheSamePaint() {
+        float[] west = {0.42f, 0.52f, 0.55f}, north = {0.57f, 0.63f, 0.66f};
+        check(WallSides.oneColourInTwoLights(north, west) && WallSides.oneColourInTwoLights(west, north), "a blue wall and the same blue a third lighter are one paint");
+        check(!WallSides.oneColourInTwoLights(new float[] {0.45f, 0.26f, 0.1f}, west), "brick red is not that blue in any light");
+        check(!WallSides.oneColourInTwoLights(new float[] {0.9f, 0.9f, 0.9f}, new float[] {0.3f, 0.3f, 0.3f}), "nor is white a dark grey: no light makes a wall three times as bright");
+        check(!WallSides.oneColourInTwoLights(west, new float[] {0f, 0f, 0f}), "and black is nothing made lighter");
     }
 
     private static void boardedWallCarriesItsColour() {
