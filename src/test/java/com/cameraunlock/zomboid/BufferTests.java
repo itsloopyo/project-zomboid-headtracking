@@ -201,7 +201,16 @@ final class BufferTests {
         FloatBuffer again = VertexLoans.take(8192);
         check(again == first && again.position() == 0 && again.limit() == 8192, "what was given back is lent again, empty");
         VertexLoans.give(again);
-        check(VertexLoans.take(100).capacity() == 4096, "no loan is shorter than the shortest");
+        FloatBuffer shortest = VertexLoans.take(100);
+        check(shortest.capacity() == 4096, "no loan is shorter than the shortest");
+        VertexLoans.give(shortest);
+        boolean twice = false;
+        try {
+            VertexLoans.give(shortest);
+        } catch (IllegalArgumentException expected) {
+            twice = true;
+        }
+        check(twice, "a buffer given back twice is refused: lent to two takers, it would be freed under one of them");
 
         // A burst of nine at once, then a steady two at a time: once the burst's are seen to
         // lie idle, all are let go but the two the steady pace keeps taking.
@@ -242,6 +251,15 @@ final class BufferTests {
         }
         VertexLoans.trim(clock += wait);
         check(VertexLoans.idleBytes() == 2 * bytes, "the seven no frame took are let go, the two in use kept");
+        int gone = 0;
+        for (FloatBuffer loan : burst) {
+            try {
+                VertexLoans.give(loan);
+            } catch (IllegalArgumentException expected) {
+                gone++;
+            }
+        }
+        check(gone == 9, "none of the nine can be given back again: seven are freed and two are not out on loan");
         FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each);
         check(same(burst, one) && same(burst, other), "and they still go round");
         VertexLoans.give(one);
@@ -253,6 +271,14 @@ final class BufferTests {
             refused = true;
         }
         check(refused, "a buffer that was never lent is refused");
+        long lentNow = VertexLoans.lentBytes();
+        FloatBuffer out = VertexLoans.take(each);
+        VertexLoans.letGoIdle();
+        check(VertexLoans.idleBytes() == 0 && VertexLoans.lentBytes() == lentNow + bytes, "with the view off every idle buffer is let go and one on loan is not");
+        out.put(0, 3f);
+        VertexLoans.give(out);
+        check(same(burst, out) || out.get(0) == 3f, "and the one on loan is still whole");
+        VertexLoans.letGoIdle();
     }
 
     /** Whether the very buffer is in the list: two buffers are equal when their floats are, and a buffer let go has none to read. */

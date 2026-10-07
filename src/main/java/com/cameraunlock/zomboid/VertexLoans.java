@@ -23,18 +23,28 @@ final class VertexLoans {
     private static final int LARGEST = 28;
     private static final int LENGTHS = LARGEST - SMALLEST + 1;
     /**
-     * How long a buffer lies idle before it is let go. A view standing still builds its chunks
-     * again in bursts two seconds apart, and between two bursts every buffer is idle: judged
-     * over less than several bursts, the whole pool was let go after each and made again for
-     * the next, forty megabytes at a time.
+     * How long the buffers are watched for before those that were never wanted in that time
+     * are let go. A view standing still builds its chunks again in bursts two seconds apart,
+     * and between two bursts every buffer is idle: the watch has to span several bursts to
+     * see which of them a burst takes.
      */
     static final long IDLE_FOR_NANOS = 20_000_000_000L;
     private static final FloatBuffer[][] idle = new FloatBuffer[LENGTHS][4];
     private static final int[] idleCount = new int[LENGTHS];
-    /** The fewest of each length that have been idle at once since buffers were last let go: those were never wanted. */
+    /** The fewest of each length that have been idle at once since the watch began: those were never wanted. */
     private static final int[] leastIdle = new int[LENGTHS];
-    /** The memory behind every buffer there is, lent or idle. */
-    private static final IdentityHashMap<FloatBuffer, OffHeap.Block> blocks = new IdentityHashMap<>();
+    /** The memory behind a buffer, and whether it is out on loan: one given back twice would be lent to two takers, and freed under one of them. */
+    private static final class Loan {
+        final OffHeap.Block block;
+        boolean lent = true;
+
+        Loan(OffHeap.Block block) {
+            this.block = block;
+        }
+    }
+
+    /** Every buffer there is, lent or idle. */
+    private static final IdentityHashMap<FloatBuffer, Loan> loans = new IdentityHashMap<>();
     private static long idleBytes;
     private static long lentBytes;
     private static long trimmedNanos;
@@ -50,27 +60,31 @@ final class VertexLoans {
         int power = Math.max(SMALLEST, 32 - Integer.numberOfLeadingZeros(floats - 1));
         int length = power - SMALLEST;
         long bytes = (long) Float.BYTES << power;
-        lentBytes += bytes;
         if (idleCount[length] > 0) {
             FloatBuffer kept = idle[length][--idleCount[length]];
             idle[length][idleCount[length]] = null;
             leastIdle[length] = Math.min(leastIdle[length], idleCount[length]);
             idleBytes -= bytes;
+            lentBytes += bytes;
+            loans.get(kept).lent = true;
             kept.clear();
             return kept;
         }
-        leastIdle[length] = 0;
         OffHeap.Block block = OffHeap.take((int) bytes);
+        leastIdle[length] = 0;
+        lentBytes += bytes;
         FloatBuffer made = block.bytes.asFloatBuffer();
-        blocks.put(made, block);
+        loans.put(made, new Loan(block));
         return made;
     }
 
     /** Gives back a buffer take handed out. Whoever gives it must not touch it again. */
     static synchronized void give(FloatBuffer buffer) {
-        if (!blocks.containsKey(buffer)) {
-            throw new IllegalArgumentException("a buffer of " + buffer.capacity() + " floats is not one that was taken");
+        Loan loan = loans.get(buffer);
+        if (loan == null || !loan.lent) {
+            throw new IllegalArgumentException("a buffer of " + buffer.capacity() + " floats is not one that is out on loan");
         }
+        loan.lent = false;
         int power = 31 - Integer.numberOfLeadingZeros(buffer.capacity());
         int length = power - SMALLEST;
         lentBytes -= (long) Float.BYTES << power;
@@ -82,8 +96,9 @@ final class VertexLoans {
     }
 
     /**
-     * Lets go of the buffers that have lain idle for all of IDLE_FOR_NANOS, and does nothing
-     * when called sooner than that after it last let any go. A journey to a new place builds
+     * Lets go of as many buffers of each length as have been idle at once all through the
+     * watch, and begins the watch again. Does nothing when called before a watch of
+     * IDLE_FOR_NANOS is over. A journey to a new place builds
      * every chunk in sight in one frame, and what carried them is more than any later frame
      * needs. What the frames since did need at once is kept, so a steady pace of building
      * finds its buffers here every time.
@@ -98,10 +113,23 @@ final class VertexLoans {
             for (int surplus = leastIdle[length]; surplus > 0; surplus--) {
                 FloatBuffer gone = idle[length][--idleCount[length]];
                 idle[length][idleCount[length]] = null;
-                blocks.remove(gone).free();
                 idleBytes -= (long) Float.BYTES << length + SMALLEST;
+                loans.remove(gone).block.free();
             }
             leastIdle[length] = idleCount[length];
+        }
+    }
+
+    /** Lets go of every buffer that is not out on loan: first person has been switched off, and nothing is being built. */
+    static synchronized void letGoIdle() {
+        for (int length = 0; length < LENGTHS; length++) {
+            while (idleCount[length] > 0) {
+                FloatBuffer gone = idle[length][--idleCount[length]];
+                idle[length][idleCount[length]] = null;
+                idleBytes -= (long) Float.BYTES << length + SMALLEST;
+                loans.remove(gone).block.free();
+            }
+            leastIdle[length] = 0;
         }
     }
 

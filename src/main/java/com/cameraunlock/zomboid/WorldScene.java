@@ -653,6 +653,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             scene.here = null;
             Arrays.fill(scene.groundObject, null);
         }
+        // Nothing is built or read while the view is off, so nothing would come to let these go.
+        VertexLoans.letGoIdle();
+        SpriteColours.letGoOfThePage();
     }
 
     static WorldScene next() {
@@ -1257,7 +1260,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     /**
      * Lets go of every build of a chunk the player has left behind, and of the room the sets
-     * and the loans have that nothing since the last time used. The table is far wider than
+     * have that nothing since the last time used. The loans keep their own watch: see VertexLoans.trim. The table is far wider than
      * the loaded map so that no two loaded chunks share a place in it, and a build stayed in
      * its place until another chunk took it: driving across the map, every chunk ever passed
      * was kept, grass and all, until there was no memory left. A build kept is a block of the

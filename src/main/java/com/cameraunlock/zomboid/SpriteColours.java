@@ -63,21 +63,29 @@ final class SpriteColours {
         asked.add(texture);
     }
 
+    /** Frees the page. Called by the logic thread too, as first person is switched off and no more frames are read for. */
+    static synchronized void letGoOfThePage() {
+        OffHeap.Block held = pageBlock;
+        pageBlock = null;
+        page = null;
+        if (held != null) {
+            held.free();
+        }
+    }
+
     /**
      * Reads the sprites asked for since the last frame. The game keeps many sprites on one
      * sheet, and OpenGL hands back a sheet whole, so every sprite waiting on one sheet is read
      * from one copy of it. One sheet a frame: a sheet is tens of megabytes to copy, and a
      * street's walls are on a handful of them.
      */
-    static void read() {
+    static synchronized void read() {
         for (Texture texture = asked.poll(); texture != null; texture = asked.poll()) {
             waiting.add(texture);
         }
         if (waiting.isEmpty()) {
-            if (pageBlock != null && System.nanoTime() - pageUsedNanos > PAGE_KEPT_NANOS) {
-                pageBlock.free();
-                pageBlock = null;
-                page = null;
+            if (System.nanoTime() - pageUsedNanos > PAGE_KEPT_NANOS) {
+                letGoOfThePage();
             }
             return;
         }
@@ -97,9 +105,7 @@ final class SpriteColours {
         int height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
         if (width > 0 && height > 0) {
             if (page == null || page.capacity() < width * height * 4) {
-                if (pageBlock != null) {
-                    pageBlock.free();
-                }
+                letGoOfThePage();
                 pageBlock = OffHeap.take(width * height * 4);
                 page = pageBlock.bytes;
             }
