@@ -24,6 +24,47 @@ final class BufferTests {
         aBufferJustMadeIsNeverMostlyEmpty();
         everyChunkThatCanBeDrawnIsKept();
         aPictureHalvedIsTheMeanOfItsDotsInFours();
+        chunksAreWalkedNearestFirstAndEachOnce();
+        onlyChunksUnderOrBesideABoxTouchIt();
+    }
+
+    private static void onlyChunksUnderOrBesideABoxTouchIt() {
+        // A building on squares 100 to 111 by 205 to 207: chunks are 8 squares a side.
+        int minX = 100, minY = 205, maxX = 112, maxY = 208;
+        for (int wx = 10; wx <= 15; wx++) {
+            for (int wy = 23; wy <= 28; wy++) {
+                boolean touches = ChunkBuffers.chunkTouches(wx, wy, minX, minY, maxX, maxY);
+                boolean under = wx * 8 <= 112 && wx * 8 + 7 >= 99 && wy * 8 <= 208 && wy * 8 + 7 >= 204;
+                check(touches == under, "a chunk touches a box when one of its squares is in it or a square from it: chunk " + wx + ", " + wy);
+            }
+        }
+        check(ChunkBuffers.chunkTouches(12, 25, minX, minY, maxX, maxY) && !ChunkBuffers.chunkTouches(15, 25, minX, minY, maxX, maxY)
+                && !ChunkBuffers.chunkTouches(12, 28, minX, minY, maxX, maxY), "the chunks under it do, and those two chunks off do not");
+    }
+
+    private static void chunksAreWalkedNearestFirstAndEachOnce() {
+        int side = 19;
+        int[] walk = ChunkBuffers.nearestFirst(side);
+        check(walk.length == 37 * 37 * 2 && walk[0] == 0 && walk[1] == 0, "the walk begins where the eye is and has every step there is on the map");
+        for (int fromX : new int[] {0, 9, 18}) {
+            for (int fromY : new int[] {0, 4, 18}) {
+                boolean[] reached = new boolean[side * side];
+                int last = 0, count = 0;
+                for (int step = 0; step < walk.length; step += 2) {
+                    int x = fromX + walk[step], y = fromY + walk[step + 1];
+                    int away = walk[step] * walk[step] + walk[step + 1] * walk[step + 1];
+                    check(away >= last, "no step is shorter than the one before it");
+                    last = away;
+                    if (x >= 0 && y >= 0 && x < side && y < side) {
+                        check(!reached[x * side + y], "no chunk is come to twice");
+                        reached[x * side + y] = true;
+                        count++;
+                    }
+                }
+                check(count == side * side, "and from anywhere on the map every chunk is come to");
+            }
+        }
+        check(ChunkBuffers.nearestFirst(side) == walk, "the order is worked out once for a map of one size");
     }
 
     private static void aPictureHalvedIsTheMeanOfItsDotsInFours() {

@@ -166,6 +166,40 @@ final class ChunkBuffers {
         return sight + WorldScene.CHUNK_REACH;
     }
 
+    private static int[] walk = new int[0];
+    private static int walkSide;
+
+    /**
+     * Every step from one place on a square map of this many chunks a side to another, as
+     * pairs of chunks across and chunks down, the shortest first. Logic thread.
+     */
+    static int[] nearestFirst(int side) {
+        if (walkSide != side) {
+            int reach = side - 1, across = 2 * reach + 1;
+            long[] keys = new long[across * across];
+            for (int dx = -reach; dx <= reach; dx++) {
+                for (int dy = -reach; dy <= reach; dy++) {
+                    keys[(dx + reach) * across + dy + reach] = (long) (dx * dx + dy * dy) << 32 | (long) (dx + reach) << 16 | dy + reach;
+                }
+            }
+            java.util.Arrays.sort(keys);
+            int[] steps = new int[keys.length * 2];
+            for (int i = 0; i < keys.length; i++) {
+                steps[i * 2] = (int) (keys[i] >> 16 & 0xffff) - reach;
+                steps[i * 2 + 1] = (int) (keys[i] & 0xffff) - reach;
+            }
+            walk = steps;
+            walkSide = side;
+        }
+        return walk;
+    }
+
+    /** Whether the chunk at (wx, wy) has a square in the box of squares from (minX, minY) up to but not (maxX, maxY), or right beside it. */
+    static boolean chunkTouches(int wx, int wy, int minX, int minY, int maxX, int maxY) {
+        int tiles = WorldScene.CHUNK_TILES;
+        return wx * tiles < maxX + 1 && (wx + 1) * tiles > minX - 1 && wy * tiles < maxY + 1 && (wy + 1) * tiles > minY - 1;
+    }
+
     private static void dropForgotten() {
         ArrayList<WorldScene.ChunkMeshes> gone;
         synchronized (forgottenLock) {

@@ -347,6 +347,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
     private static final float OVERHEAD_RANGE = 12f;
 
+    /** Where on the map the middle of the picture is and how far from it, in tiles, anything in the next build can be seen or cast a shadow into it. Float.MAX_VALUE for no such limit. */
+    private float seenRoundX, seenRoundY, seenWithin = Float.MAX_VALUE;
+
+    /** Says that the next build is of the game's own view, which takes in only what is within this many tiles of a place on the map. */
+    void seenOnlyWithin(float x, float y, float tiles) {
+        seenRoundX = x;
+        seenRoundY = y;
+        seenWithin = tiles;
+    }
+
     /**
      * @param landing how much of the way to the eye the camera has come: 0 from where the game's own view is drawn
      */
@@ -704,6 +714,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         long start = System.nanoTime();
         Stall.beat();
         boolean fromOutside = from != null;
+        if (!opened) {
+            seenWithin = Float.MAX_VALUE;
+        }
         camera.set(view);
         facedX = fromOutside ? from.eyeX : view.eyeX;
         facedY = fromOutside ? from.eyeY : view.eyeY;
@@ -832,12 +845,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean open = indoors && opened;
         int top = open ? level : Integer.MAX_VALUE;
         if (top != topLevel || open && (minX != cutMinX || minY != cutMinY || maxX != cutMaxX || maxY != cutMaxY)) {
+            // Only the chunks a cut-away building stands on are built by it: the one that was cut away and the one that is now.
+            if (topLevel != Integer.MAX_VALUE) {
+                forgetOver(cutMinX, cutMinY, cutMaxX, cutMaxY);
+            }
             topLevel = top;
             cutMinX = minX;
             cutMinY = minY;
             cutMaxX = maxX;
             cutMaxY = maxY;
-            forgetAll();
+            if (open) {
+                forgetOver(minX, minY, maxX, maxY);
+            }
         }
         float floorUp = level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level);
         cutFrom = indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
@@ -872,8 +891,19 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             keptRoundY = view.eyeY;
             forgetFar();
         }
-        for (int gridX = 0; gridX < IsoChunkMap.chunkGridWidth; gridX++) {
-            for (int gridY = 0; gridY < IsoChunkMap.chunkGridWidth; gridY++) {
+        // Nearest first. When the frame has spent its time on building, what waits is then what is
+        // furthest off, all round, where walked a row at a time it was one side of the picture.
+        int side = IsoChunkMap.chunkGridWidth;
+        int[] walk = ChunkBuffers.nearestFirst(side);
+        int eyeGridX = Math.floorDiv((int) Math.floor(view.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
+        int eyeGridY = Math.floorDiv((int) Math.floor(view.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
+        int builtLate = 0;
+        for (int step = 0; step < walk.length; step += 2) {
+            {
+                int gridX = eyeGridX + walk[step], gridY = eyeGridY + walk[step + 1];
+                if (gridX < 0 || gridY < 0 || gridX >= side || gridY >= side) {
+                    continue;
+                }
                 IsoChunk chunk = map.getChunk(gridX, gridY);
                 if (chunk == null) {
                     continue;
@@ -882,6 +912,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 float toChunkX = chunkX + CHUNK_TILES / 2f - view.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - view.eyeY;
                 float distance = (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY);
                 if (distance > ChunkBuffers.drawnWithin(fogEnd)) {
+                    continue;
+                }
+                // Drawn as the game's own view, the picture shows a patch of the map round the middle of the screen and no more.
+                if (seenWithin < Float.MAX_VALUE && Math.hypot(chunkX + CHUNK_TILES / 2f - seenRoundX, chunkY + CHUNK_TILES / 2f - seenRoundY) > ChunkBuffers.drawnWithin(seenWithin)) {
                     continue;
                 }
                 if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
@@ -901,7 +935,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // for most of a second. What is near is built whatever it takes. The rest is built
                 // until the frame has spent its time on building, and the others come on the next frames.
                 boolean late = (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME;
-                if (missing && late) {
+                // One chunk a frame is built however late the frame is: on a PC where what is near takes all
+                // of the frame's time, nothing further off would otherwise ever be built.
+                if (missing && late && builtLate++ > 0) {
                     chunksWaiting++;
                     continue;
                 }
@@ -963,7 +999,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     if (due) {
                         builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
                     }
-                    if (sameEye && current.signature == read && young) {
+                    // One that is unchanged and only old is made again when a frame has the time for it.
+                    if (sameEye && current.signature == read && (young || late)) {
                         // The squares it read count towards this frame's light as a build's would.
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
@@ -1013,12 +1050,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     building = fresh;
                     chunksBuilt++;
                     growing = false;
+                    long began = System.nanoTime();
                     addSquares(chunk, chunkX, chunkY, lowest);
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.grown = false;
                     fresh.builtAway = distance;
                     fresh.fill(solid, laid);
+                    slowed(began);
                     if (current != null) {
                         release(current);
                     }
@@ -1041,7 +1080,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     latestGrown[slot] = null;
                     grown = null;
                 }
-                if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown)) {
+                if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown) && !(late && builtLate++ > 0)) {
                     if (!missing && !due) {
                         tallied = talliedIn[slot] != tally;
                         talliedIn[slot] = tally;
@@ -1063,10 +1102,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     building = current;
                     growing = true;
                     chunksGrown++;
+                    long began = System.nanoTime();
                     addSquares(chunk, chunkX, chunkY, 0);
                     growing = false;
                     noKerb();
                     fresh.fill(solid, laid);
+                    slowed(began);
                     if (grown != null) {
                         release(grown);
                     }
@@ -1113,6 +1154,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         waitedLast = chunksWaiting;
         buildMillis = (System.nanoTime() - start) / 1e6f;
+    }
+
+    /** Dev only: a build takes this many times as long as it did, to see on a fast PC what a slow one does with the frame's time for building. */
+    private static final int SLOW_BUILDS = Integer.getInteger("cameraunlock.zomboid.slowBuilds", 1);
+
+    private static void slowed(long began) {
+        if (SLOW_BUILDS > 1) {
+            long until = System.nanoTime() + (System.nanoTime() - began) * (SLOW_BUILDS - 1);
+            while (System.nanoTime() < until) {
+                Thread.onSpinWait();
+            }
+        }
     }
 
     private static void release(ChunkMeshes meshes) {
@@ -1277,6 +1330,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         solid.trim();
         laid.trim();
         setDown();
+    }
+
+    /** Lets go of the builds of every chunk that has a square in the box of squares from (minX, minY) up to but not (maxX, maxY), or right beside it. */
+    private static void forgetOver(int minX, int minY, int maxX, int maxY) {
+        for (int slot = 0; slot < latest.length; slot++) {
+            ChunkMeshes held = latest[slot] != null ? latest[slot] : latestGrown[slot];
+            if (held == null || !ChunkBuffers.chunkTouches(held.wx, held.wy, minX, minY, maxX, maxY)) {
+                continue;
+            }
+            if (latest[slot] != null) {
+                release(latest[slot]);
+                latest[slot] = null;
+            }
+            if (latestGrown[slot] != null) {
+                release(latestGrown[slot]);
+                latestGrown[slot] = null;
+            }
+        }
     }
 
     /** Lets go of every build: for when what all of them were built on has changed. */
