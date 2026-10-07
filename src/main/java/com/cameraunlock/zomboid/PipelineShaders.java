@@ -4939,15 +4939,6 @@ final class PipelineShaders {
             }
             """;
 
-    static final String COPY = """
-            #version 120
-            uniform sampler2D uSource;
-            uniform vec2 uSize;
-            void main() {
-                gl_FragColor = texture2D(uSource, gl_FragCoord.xy / uSize);
-            }
-            """;
-
     /**
      * Smooths the stair-steps of edges, looking along each edge for how far to blend. The blend
      * is the FXAA pass of glsl-fxaa, used under its BSD licence: the notice is in
