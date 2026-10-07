@@ -1738,6 +1738,24 @@ final class CharacterDraw {
         return id;
     }
 
+    /**
+     * Gives the copies of the game's meshes back to the graphics card. Each is made again the
+     * next time its mesh is drawn, as it was the first time. Render thread.
+     *
+     * @return how many there were
+     */
+    static int letGo() {
+        int had = copies.size();
+        for (Copy copy : copies.values()) {
+            if (copy.count != 0) {
+                GL15.glDeleteBuffers(copy.vertices);
+                GL15.glDeleteBuffers(copy.indices);
+            }
+        }
+        copies.clear();
+        return had;
+    }
+
     /** The picture's copy of a model's mesh, made the first time it is drawn and again when the game loads the mesh anew. Null while the game has not loaded it. */
     private static Copy copy(Model model) {
         ModelMesh mesh = model.mesh;

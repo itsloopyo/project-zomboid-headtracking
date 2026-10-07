@@ -28,8 +28,8 @@ final class ArmModel {
     /** For each bone sixteen floats: from its parent's axes to its own as it rests. */
     final float[] locals;
     final int vertexCount, indexCount;
-    /** The file's vertices and its indices, in the order of bytes the machine keeps numbers in. */
-    final ByteBuffer vertices, indices;
+    /** The file's vertices and its indices, in the order of bytes the machine keeps numbers in: null once the graphics card has them. */
+    ByteBuffer vertices, indices;
     /** The parts of the mesh, each a run of the indices: the bare arm, what is worn over it down to the wrist, and what is worn over the hand. */
     static final int ARM = 0, SLEEVE = 1, GLOVE = 2;
     private static final String[] PARTS = {"arm", "sleeve", "glove"};

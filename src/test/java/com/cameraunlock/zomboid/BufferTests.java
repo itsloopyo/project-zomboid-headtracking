@@ -24,6 +24,8 @@ final class BufferTests {
         aBufferJustMadeIsNeverMostlyEmpty();
         everyChunkThatCanBeDrawnIsKept();
         aPictureHalvedIsTheMeanOfItsDotsInFours();
+        memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen();
+        aModelsPictureIsUnpackedToItsSizeOrRefused();
         chunksAreWalkedNearestFirstAndEachOnce();
         onlyChunksUnderOrBesideABoxTouchIt();
         noChunkOnTheScreenIsLeftOut();
@@ -121,6 +123,87 @@ final class BufferTests {
         }
         whole.free();
         half.free();
+    }
+
+    /** A block freed is told so by its second free being refused: OffHeap.Block.free throws on it. */
+    private static boolean freed(OffHeap.Block block) {
+        try {
+            block.free();
+            return false;
+        } catch (IllegalStateException twice) {
+            return true;
+        }
+    }
+
+    private static void memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen() {
+        try {
+            OffHeap.Block[] made = new OffHeap.Block[3];
+            Ahead.begin("test done then forgotten", () -> made[0] = OffHeap.take(64));
+            while (!Ahead.done("test done then forgotten")) {
+                Thread.sleep(1);
+            }
+            Ahead.forget("test done then forgotten");
+            check(freed(made[0]), "work that had ended when it was forgotten has its memory freed by the forgetting");
+
+            java.util.concurrent.CountDownLatch begun = new java.util.concurrent.CountDownLatch(1), forgotten = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.CountDownLatch ended = new java.util.concurrent.CountDownLatch(1);
+            Ahead.begin("test forgotten while under way", () -> {
+                begun.countDown();
+                forgotten.await();
+                made[1] = OffHeap.take(64);
+                // The thread that does the work frees it after this returns: the test waits a moment for that.
+                ended.countDown();
+                return made[1];
+            });
+            begun.await();
+            Ahead.forget("test forgotten while under way");
+            forgotten.countDown();
+            ended.await();
+            boolean gone = false;
+            for (int tries = 0; tries < 2000 && !gone; tries++) {
+                Thread.sleep(1);
+                try {
+                    // Read, not freed: a free here would race the worker's own.
+                    java.lang.reflect.Field flag = OffHeap.Block.class.getDeclaredField("freed");
+                    flag.setAccessible(true);
+                    gone = flag.getBoolean(made[1]);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+            check(gone, "work forgotten while a thread was on it has its memory freed by that thread when it ends");
+
+            Ahead.begin("test taken", () -> OffHeap.take(64));
+            made[2] = Ahead.take("test taken", () -> OffHeap.take(64));
+            Ahead.forget("test taken");
+            check(!freed(made[2]), "work that was taken is the taker's to free, and forgetting its name afterwards frees nothing");
+        } catch (InterruptedException | java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static void aModelsPictureIsUnpackedToItsSizeOrRefused() {
+        try {
+            OffHeap.Block picture = Pictures.unpacked("/models/arms.surface.gz", 2048);
+            check(picture.bytes.capacity() == 2048 * 2048 * 4, "a model's picture unpacks to four bytes a dot");
+            picture.free();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        for (int side : new int[] {1024, 4096}) {
+            try {
+                Pictures.unpacked("/models/arms.surface.gz", side).free();
+                check(false, "a picture that is not " + side + " square is refused");
+            } catch (java.io.IOException refused) {
+                check(refused.getMessage().contains("square"), "and the refusal says what size was expected: " + refused.getMessage());
+            }
+        }
+        try {
+            Pictures.unpacked("/models/no-such.gz", 2048).free();
+            check(false, "a picture the jar lacks is refused");
+        } catch (java.io.IOException refused) {
+            check(refused.getMessage().contains("the jar has no"), "and the refusal names it: " + refused.getMessage());
+        }
     }
 
     private static void aBufferJustMadeIsNeverMostlyEmpty() {

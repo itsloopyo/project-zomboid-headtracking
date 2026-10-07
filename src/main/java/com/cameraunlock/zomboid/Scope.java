@@ -359,8 +359,13 @@ final class Scope {
     private static final int[] arrays = new int[ScopeOptics.KNOWN.length];
     private static final ScopeModel[] models = new ScopeModel[ScopeOptics.KNOWN.length];
 
-    /** The picture for the eyepiece: its colour, its depth, and the people in it before they are lit. */
+    /**
+     * The picture for the eyepiece: its colour, its depth, and the people in it before they are
+     * lit. Four textures 1024 square, made by the first frame that draws a picture for an
+     * eyepiece and given back when none has for a while: zero while they are not made.
+     */
     static int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal;
+    private static long picturedNanos;
     private static final int HANDS_UNIT = 3;
 
     private static final float[] model = new float[16], projection = new float[16];
@@ -415,13 +420,25 @@ final class Scope {
         return forwardStop;
     }
 
-    /** Builds the program and the picture's targets. Null, or what the driver refused. */
+    /** Builds the program. Null, or what the driver refused. */
     static String prepare() {
         StringBuilder problem = new StringBuilder();
-        Program linked = Program.link("scope", VERTEX, FRAGMENT, problem);
-        if (linked == null) {
-            return problem.toString();
+        program = Program.link("scope", VERTEX, FRAGMENT, problem);
+        return program == null ? problem.toString() : null;
+    }
+
+    /**
+     * Has the picture's targets there for the frame about to draw into them, making them if
+     * they are not. Thrown, as a frame's fault, when the driver will not make them.
+     *
+     * @param now when the frame began
+     */
+    static void lendPicture(long now) {
+        picturedNanos = now;
+        if (pictureTarget != 0) {
+            return;
         }
+        long start = System.nanoTime();
         pictureColor = texture(GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         pictureDepth = texture(GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST, GL_NEAREST);
@@ -439,10 +456,33 @@ final class Scope {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, pictureDepth, 0);
         int figureStatus = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE || figureStatus != GL_FRAMEBUFFER_COMPLETE) {
-            return "the driver would not make the scope's picture (status 0x" + Integer.toHexString(status) + ", 0x" + Integer.toHexString(figureStatus) + ")";
+            throw new IllegalStateException("the driver would not make the scope's picture (status 0x" + Integer.toHexString(status) + ", 0x" + Integer.toHexString(figureStatus) + ")");
         }
-        program = linked;
-        return null;
+        Log.info(String.format(Locale.ROOT, "first person picture: the scope's picture made in %.1f ms", (System.nanoTime() - start) / 1e6));
+    }
+
+    /** Gives the picture's targets back if no frame has drawn into them since before. */
+    static void takeBackPicture(long before) {
+        if (pictureTarget != 0 && picturedNanos < before) {
+            giveBackPicture();
+            Log.info("first person picture: the scope's picture given back, unused");
+        }
+    }
+
+    /** Gives the picture's targets back to the graphics card. The next frame to draw a picture for an eyepiece makes them again. */
+    static void giveBackPicture() {
+        GL30.glDeleteFramebuffers(pictureTarget);
+        GL30.glDeleteFramebuffers(figureTarget);
+        GL11.glDeleteTextures(pictureColor);
+        GL11.glDeleteTextures(pictureDepth);
+        GL11.glDeleteTextures(figureColor);
+        GL11.glDeleteTextures(figureNormal);
+        pictureTarget = 0;
+        figureTarget = 0;
+        pictureColor = 0;
+        pictureDepth = 0;
+        figureColor = 0;
+        figureNormal = 0;
     }
 
     private static int texture(int kept, int format, int type, int smaller, int larger) {
@@ -664,8 +704,10 @@ final class Scope {
         program.set("uPictureTan", pictured ? pictureTan : 1f);
         program.set("uPictured", pictured ? 1f : 0f);
         program.set("uDots", glass.power() >= 8f ? 1f : 0f);
+        // A scope the eye is not behind has no picture, and the program multiplies what it reads of one by nought:
+        // with none made it reads a colour of nothing, where no texture at all is the driver's to answer for.
         GL13.glActiveTexture(GL_TEXTURE0 + PICTURE_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor != 0 ? pictureColor : Pipeline.none());
         GL13.glActiveTexture(GL_TEXTURE0 + HANDS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, handsDepth);
         GL13.glActiveTexture(GL_TEXTURE0);

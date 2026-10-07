@@ -160,7 +160,7 @@ final class Pipeline {
     private static volatile boolean prepared;
     private static Program rain;
     private static Program snow;
-    private static Program steady, copy;
+    private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private static final int[] keptColor = new int[2], keptTarget = new int[2];
     private static int keptNow;
@@ -176,6 +176,12 @@ final class Pipeline {
     private static float asideX, asideY;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static int whiteTexture, noiseTexture;
+    /**
+     * What stands in for a picture that is not made, where a program has a sampler for it: a
+     * colour of nothing at all, which is what such a picture is cleared to before it is drawn
+     * into, and for a shadow map a depth as far off as depth goes, which shades nothing.
+     */
+    private static int noneTexture, farDepth;
     private static int nearMap, farMap, nearTarget, farTarget;
     /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see drawShadows. */
     private static boolean farDrawn, roofDrawn, castFar;
@@ -221,6 +227,43 @@ final class Pipeline {
     private static final int SPRIG_FORM_UNIT = 29;
     private static int width, height;
     private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
+    /** The picture's colour as the passes after the steadying read it: the scene's, or with the frames blended the steadied one. */
+    private static int frameColor;
+    /** Quality.shadedAndLit as the frame began: the logic thread may change the mode between two passes of a frame. */
+    private static boolean shadedAndLit;
+
+    /**
+     * Pictures that only some frames draw into. Each set is made by the first frame that draws
+     * into it and given back once no frame has for LENT_FOR_NANOS: a player on foot does not
+     * carry a driver's, nor one in Low what only High draws.
+     */
+    private static final class Lent {
+        final String what;
+        final ArrayList<Integer> textures = new ArrayList<>(), targets = new ArrayList<>();
+        long usedNanos;
+
+        Lent(String what) {
+            this.what = what;
+        }
+
+        boolean made() {
+            return !textures.isEmpty();
+        }
+    }
+
+    /** What every frame draws into, at the picture's size. */
+    private static final Lent whole = new Lent("picture");
+    /** The steadied pair (FrameBlending), the cabin's three (seated), the viewer in a window's glass, and the shade and lit air (High). */
+    private static final Lent steadied = new Lent("steadied pictures"), cabin = new Lent("cabin's pictures"), glassed = new Lent("picture of the viewer in the glass"),
+            shaded = new Lent("pictures of shade and lit air");
+    /** The headlights' shadow map, at the shadow maps' size. */
+    private static final Lent beamed = new Lent("headlights' shadow map");
+    private static final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
+    private static final long LENT_FOR_NANOS = 10_000_000_000L;
+    /** The set whose pictures are being made, which texture and target note them in, or null. */
+    private static Lent making;
+    /** When the frame being drawn began. */
+    private static long frameNanos;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
     private static int ownTarget, ownColor, ownDepth;
     /** Beside the viewer's own body, which way each point of it faces, where the picture drew it itself. */
@@ -519,7 +562,7 @@ final class Pipeline {
             // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
             if (!coreBegun) {
                 coreBegun = true;
-                picturesSmall = Quality.smallerPictures();
+                picturesSmall = small();
                 Pictures.small = picturesSmall;
             }
             makes = CORE;
@@ -547,6 +590,9 @@ final class Pipeline {
             if (TIMES) {
                 beginStages();
             }
+            frameNanos = System.nanoTime();
+            shadedAndLit = Quality.shadedAndLit();
+            frameColor = sceneColor;
             SpriteColours.read();
             FineSkins.tend();
             drawn = chunks;
@@ -557,7 +603,7 @@ final class Pipeline {
             boolean figures = Characters.ready();
             glazed = false;
             drawShadows(state, figures);
-            boolean inTheGlass = figures && !outside && !seated && reflection != null && Quality.shadedAndLit()
+            boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
             float[] cabin = seated ? Cabins.wheel(Ride.seatedIn) : null;
@@ -596,12 +642,12 @@ final class Pipeline {
                 keptAny = false;
             }
             stage(STAGE_SKY);
-            if (Quality.shadedAndLit()) {
+            if (shadedAndLit) {
                 drawOcclusion(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_OCCLUSION);
             // Seen from overhead the picture is developed without the lit air.
-            if (!overhead && Quality.shadedAndLit()) {
+            if (!overhead && shadedAndLit) {
                 drawVolume(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             stage(STAGE_AIR);
@@ -613,6 +659,7 @@ final class Pipeline {
             Crosshair.draw(viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
+            takeBackLent();
             int error = GL11.glGetError();
             if (error != 0) {
                 failure = "OpenGL error 0x" + Integer.toHexString(error) + " drawing the picture";
@@ -667,6 +714,7 @@ final class Pipeline {
      */
     private static void drawThroughScope(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
         float tan = Scope.pictureTan();
+        Scope.lendPicture(frameNanos);
         inScope = true;
         drawWorld(Scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
         inScope = false;
@@ -845,7 +893,12 @@ final class Pipeline {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, modelBuffer);
         if (!made) {
             float[] models = Models.buffer();
-            GL15.glBufferData(GL_ARRAY_BUFFER, buffer(models.length).put(models).flip(), GL_STATIC_DRAW);
+            OffHeap.Block memory = OffHeap.take(models.length * Float.BYTES);
+            try {
+                GL15.glBufferData(GL_ARRAY_BUFFER, memory.bytes.asFloatBuffer().put(0, models), GL_STATIC_DRAW);
+            } finally {
+                memory.free();
+            }
         }
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL11.glVertexPointer(3, GL_FLOAT, MODEL_STRIDE, 0L);
@@ -1006,7 +1059,7 @@ final class Pipeline {
         castSun(state, figures);
         castBeams(state, figures);
         GL13.glActiveTexture(GL_TEXTURE0 + BEAM_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, beamMap);
+        GL11.glBindTexture(GL_TEXTURE_2D, beamed.made() ? beamMap : farDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
         if (castRoof) {
             castRoof(state);
@@ -1074,6 +1127,7 @@ final class Pipeline {
                     beamMatrix[column * 4 + row] = sum;
                 }
             }
+            lend(beamed, Pipeline::makeBeamed);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, beamTarget);
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
@@ -1143,6 +1197,7 @@ final class Pipeline {
     }
 
     private static void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(steadied, Pipeline::makeSteadied);
         int next = 1 - keptNow;
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_BLEND);
@@ -1173,13 +1228,8 @@ final class Pipeline {
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
         steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
         quad();
-        // The rest of the frame is made from the steadied picture.
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        copy.use();
-        GL11.glBindTexture(GL_TEXTURE_2D, keptColor[next]);
-        copy.set("uSource", 0);
-        copy.set("uSize", (float) width, (float) height);
-        quad();
+        // The rest of the frame is made from the steadied picture. Nothing is drawn into the scene after this.
+        frameColor = keptColor[next];
         keptNow = next;
         keptAny = true;
         before.set(camera);
@@ -1544,7 +1594,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
         world.set("uSprigForm", SPRIG_FORM_UNIT);
         world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() ? 0f : 1f);
-        world.set("uMirrors", Quality.shadedAndLit() ? 1f : 0f);
+        world.set("uMirrors", shadedAndLit ? 1f : 0f);
         world.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
@@ -1674,12 +1724,13 @@ final class Pipeline {
     }
 
     private static void drawOcclusion(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(shaded, Pipeline::makeShaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
         occlusion.set("uFull", (float) width, (float) height);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         occlusion.set("uDepth", 0);
@@ -1710,11 +1761,12 @@ final class Pipeline {
         soften.set("uSize", (float) levelWidth[0], (float) levelHeight[0]);
         quad();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
         GL13.glActiveTexture(GL_TEXTURE0);
     }
 
     private static void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(shaded, Pipeline::makeShaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, volumeTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         volume.use();
@@ -1770,7 +1822,7 @@ final class Pipeline {
         for (int level = 0; level < BLOOM_LEVELS; level++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, downTarget[level]);
             GL11.glViewport(0, 0, levelWidth[level], levelHeight[level]);
-            GL11.glBindTexture(GL_TEXTURE_2D, level == 0 ? sceneColor : downColor[level - 1]);
+            GL11.glBindTexture(GL_TEXTURE_2D, level == 0 ? frameColor : downColor[level - 1]);
             int sourceWidth = level == 0 ? width : levelWidth[level - 1];
             int sourceHeight = level == 0 ? height : levelHeight[level - 1];
             bloomDown.set("uSize", (float) levelWidth[level], (float) levelHeight[level]);
@@ -1803,19 +1855,19 @@ final class Pipeline {
         develop.set("uBloom", 1);
         develop.set("uDepth", 2);
         develop.set("uOcclusion", 3);
-        develop.set("uWithout", WITHOUT.contains("occlusion") || !Quality.shadedAndLit() ? 1f : 0f,
-                WITHOUT.contains("air") || overhead || !Quality.shadedAndLit() ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
+        develop.set("uWithout", WITHOUT.contains("occlusion") || !shadedAndLit ? 1f : 0f,
+                WITHOUT.contains("air") || overhead || !shadedAndLit ? 1f : 0f, WITHOUT.contains("glow") ? 1f : 0f);
         develop.set("uVolume", 4);
         GL13.glActiveTexture(GL_TEXTURE0 + 4);
-        GL11.glBindTexture(GL_TEXTURE_2D, softVolumeColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, shaded.made() ? softVolumeColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glBindTexture(GL_TEXTURE_2D, softColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, shaded.made() ? softColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, upColor[0]);
         GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, sceneColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
         develop.set("uSize", (float) width, (float) height);
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
@@ -1901,7 +1953,7 @@ final class Pipeline {
             setBasis(figureLight, camera);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
-            figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
+            figureLight.set("uShines", shadedAndLit ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
@@ -1930,6 +1982,7 @@ final class Pipeline {
         }
 
         if (seated) {
+            lend(cabin, Pipeline::makeCabin);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);
             GL11.glDepthMask(true);
             GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -1960,17 +2013,18 @@ final class Pipeline {
         if (parts != null) {
             drawPartKinds(parts);
         }
+        // On foot the cabin's pictures are not made: nothing is drawn in each, at any depth.
         GL13.glActiveTexture(GL_TEXTURE0 + PARTS_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, partsColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? partsColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + PARTS_DEPTH_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, partsDepth);
+        GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? partsDepth : whiteTexture);
         GL13.glActiveTexture(GL_TEXTURE0 + WOOD_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[WOOD]);
         // The carpet's own unit is among those the game's vehicle draw may have bound over.
         GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + CARPET);
         GL11.glBindTexture(GL_TEXTURE_2D, materialTexture[CARPET]);
         GL13.glActiveTexture(GL_TEXTURE0 + PANE_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, paneColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? paneColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
         figureLight.use();
         figureLight.set("uPanes", PANE_UNIT);
@@ -1987,7 +2041,7 @@ final class Pipeline {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
             figureLight.use();
             GL13.glActiveTexture(GL_TEXTURE0 + 4);
-            GL11.glBindTexture(GL_TEXTURE_2D, repaintedColor);
+            GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? repaintedColor : noneTexture);
             figureLight.set("uRepainted", 4);
             GL13.glActiveTexture(GL_TEXTURE0 + 3);
             GL11.glBindTexture(GL_TEXTURE_2D, ownDepth);
@@ -2250,7 +2304,7 @@ final class Pipeline {
             setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
-            figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
+            figureLight.set("uShines", shadedAndLit ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
             figureLight.set("uFogStart", fogStart);
@@ -2290,6 +2344,7 @@ final class Pipeline {
         if (!drawn) {
             return false;
         }
+        lend(glassed, Pipeline::makeGlassed);
         // The eye that sees the real viewer where this one sees them in the glass: with it
         // the light finds where they stand, in the room and not out in the street.
         OwnReflection.mirror(camera, reflection, inGlass);
@@ -2322,7 +2377,7 @@ final class Pipeline {
         setBasis(figureLight, inGlass);
         figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(figureLight);
-        figureLight.set("uShines", Quality.shadedAndLit() ? 1f : 0f);
+        figureLight.set("uShines", shadedAndLit ? 1f : 0f);
         setFlash(figureLight);
         figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         figureLight.set("uFogStart", fogStart);
@@ -2558,7 +2613,7 @@ final class Pipeline {
             drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
         }
         if (OwnRifle.waiting() || Scope.waiting()) {
-            HeldDepth.begin(sceneColor, width, height);
+            HeldDepth.begin(sceneColor, width, height, frameNanos);
         }
         if (OwnRifle.waiting()) {
             lightHeld(OwnRifle.begin(), camera, state);
@@ -2680,8 +2735,8 @@ final class Pipeline {
 
     /**
      * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
-     * the scope's own picture, the mirror and the rain. Nothing of it is made until first
-     * person is first asked for.
+     * the scope's program, the mirror, the rain and the surfaces every mode reads. Nothing of
+     * it is made until first person is first asked for.
      */
     private static final List<Piece> CORE = corePieces();
     /**
@@ -2703,17 +2758,18 @@ final class Pipeline {
             return makeNoise();
         }));
         pieces.add(new Piece(Scope::prepare));
-        for (int material = 0; material < MATERIALS.length; material++) {
-            if (ALWAYS_READ.contains(MATERIALS[material])) {
-                pieces.add(materialPiece(material));
-            }
-        }
         pieces.add(new Piece(() -> {
             makeSamplers();
             String problem = makeMirror();
             makeRainDrops();
             return problem;
         }));
+        // Last, one for each of ALWAYS_READ: LET_GO gives these back, and the making begins again from the first of them.
+        for (int material = 0; material < MATERIALS.length; material++) {
+            if (ALWAYS_READ.contains(MATERIALS[material])) {
+                pieces.add(materialPiece(material));
+            }
+        }
         return pieces;
     }
 
@@ -2755,23 +2811,10 @@ final class Pipeline {
                 return "the sprigs could not be read: " + e.getMessage();
             }
         }, SPRIGS, SPRIG_FORM));
-        // The pictures are given back when first person has been off a while and made again when it is asked for.
-        // The weapon and arm models are made once and kept.
-        pieces.add(new Piece(() -> {
-            if (!OwnWeapon.made()) {
-                OwnWeapon.readAhead();
-            }
-        }, () -> OwnWeapon.made() || OwnWeapon.isRead(), () -> OwnWeapon.made() ? null : OwnWeapon.prepare()));
-        pieces.add(new Piece(() -> {
-            if (!OwnRifle.made()) {
-                OwnRifle.readAhead();
-            }
-        }, () -> OwnRifle.made() || OwnRifle.isRead(), () -> OwnRifle.made() ? null : OwnRifle.prepare()));
-        pieces.add(new Piece(() -> {
-            if (!OwnArms.made()) {
-                OwnArms.readAhead();
-            }
-        }, () -> OwnArms.made() || OwnArms.isRead(), () -> OwnArms.made() ? null : OwnArms.prepare()));
+        // The weapon and arm models are given back with the pictures and made again with them: see giveBackContent.
+        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
+        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
+        pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
 
@@ -2781,10 +2824,21 @@ final class Pipeline {
     /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
     private static List<Piece> makes;
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
-    private static boolean picturesSmall;
+    private static volatile boolean picturesSmall;
     private static volatile List<Piece> resized;
     /** Whether a making of the core's surfaces at another size was given up part way, so that they are of both sizes. */
-    private static boolean coreMixed;
+    private static volatile boolean coreMixed;
+    /**
+     * Set for the rest of the session once the graphics card has had no room for the content:
+     * it is not asked again, the pictures stay the half size ones, and every mode is drawn
+     * with what Low is drawn with. First person needs none of the content.
+     */
+    private static volatile boolean contentRefused;
+    /** Set by whoever is told by the driver, while a piece is made, that it is out of memory: see noted. */
+    private static boolean noRoom;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
+    /** Dev only: the piece of the content, counted from 1, at whose making the graphics card is taken to have run out of room. */
+    private static final int NO_ROOM_AT = Integer.getInteger("cameraunlock.zomboid.noRoomAt", 0);
     private static int resizedNext;
     private static int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
@@ -2805,12 +2859,33 @@ final class Pipeline {
 
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
     static boolean contentWaited() {
-        return !Quality.plain() && !contentReady && failure == null;
+        return !Quality.plain() && !contentReady && !contentRefused && failure == null;
     }
 
-    /** Whether the making of the mod's own pictures has begun and not ended: it is seen through whatever the mode is now. */
+    /**
+     * Whether pieces wait to be made, or given back, with no picture being drawn to do it: a
+     * making of the content begun and not ended, and pictures that are not the size the mode
+     * now reads them at.
+     */
     static boolean contentHalfMade() {
-        return (contentBegun && !contentReady || resized != null) && failure == null;
+        return failure == null && (contentBegun && !contentReady || resized != null || prepared && (coreMixed || picturesSmall != small()));
+    }
+
+    /** Whether the pictures are to be the half size ones: in a mode that reads them so, and once the graphics card has had no room for the content. */
+    private static boolean small() {
+        return Quality.smallerPictures() || contentRefused;
+    }
+
+    /** Told each OpenGL error met while a piece is made, by whoever asks the driver for it: out of memory is not a fault of this build. */
+    static void noted(int error) {
+        if (error == GL_OUT_OF_MEMORY) {
+            noRoom = true;
+        }
+    }
+
+    /** A colour of nothing, for a sampler whose picture is not made. Render thread. */
+    static int none() {
+        return noneTexture;
     }
 
     /**
@@ -2838,31 +2913,30 @@ final class Pipeline {
         }
         if (!coreBegun) {
             coreBegun = true;
-            picturesSmall = Quality.smallerPictures();
+            picturesSmall = small();
             Pictures.small = picturesSmall;
-            for (Piece piece : CORE) {
-                piece.begin.run();
+            // From the next to be made: after LET_GO that is the first of the surfaces, and the pieces before it are made.
+            for (int piece = preparing; piece < CORE.size(); piece++) {
+                CORE.get(piece).begin.run();
             }
         }
         if (!prepared) {
             makes = CORE;
             return CORE.get(preparing).begun.getAsBoolean();
         }
-        // Once begun, the content is made to the end whatever the mode becomes: what was read ahead for it is
-        // only given back by the piece that takes it.
+        if (contentBegun && Quality.plain()) {
+            // The mode now shows none of the mod's own: its pictures are given back, made or half made.
+            giveBackContent();
+        }
         if (contentBegun && !contentReady) {
             makes = CONTENT;
             return CONTENT.get(contentPreparing).begun.getAsBoolean();
         }
-        if (contentReady && Quality.plain()) {
-            // The mode now shows none of the mod's own: its pictures are given back.
-            giveBackContent();
-        }
-        if (resized == null && (coreMixed || picturesSmall != Quality.smallerPictures())) {
+        if (resized == null && (coreMixed || picturesSmall != small())) {
             // The mode now shows the pictures at the other size: each is made again in its place, a
             // piece a frame, and the picture goes on being drawn from whichever a surface has.
             coreMixed = false;
-            picturesSmall = Quality.smallerPictures();
+            picturesSmall = small();
             Pictures.small = picturesSmall;
             resized = new ArrayList<>();
             for (Piece piece : CORE) {
@@ -2884,7 +2958,7 @@ final class Pipeline {
             makes = resized;
             return resized.get(resizedNext).begun.getAsBoolean();
         }
-        if (contentReady || Quality.plain()) {
+        if (contentReady || contentRefused || Quality.plain()) {
             return false;
         }
         contentBegun = true;
@@ -2898,6 +2972,7 @@ final class Pipeline {
     /** Makes the next piece of the core, or of the content once the core is made. Null, or what the driver refused or the jar lacked. */
     private static String prepareNext() {
         long start = System.nanoTime();
+        noRoom = false;
         String problem;
         boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
         if (makes == CORE) {
@@ -2912,9 +2987,28 @@ final class Pipeline {
         }
         if (problem == null) {
             int error = GL11.glGetError();
+            noted(error);
             if (error != 0) {
                 problem = "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
             }
+        }
+        if (problem == null && makes == CONTENT && contentPreparing == NO_ROOM_AT) {
+            noRoom = true;
+            problem = "cameraunlock.zomboid.noRoomAt asks for no room at piece " + NO_ROOM_AT;
+        }
+        boolean refused = problem != null && noRoom && makes != CORE && !contentRefused;
+        noRoom = false;
+        if (refused) {
+            // A graphics card with no room for the content has room for first person without it: the content
+            // goes back, whatever of it was made, and the core's surfaces are made at half size by the pieces after this.
+            Log.info("the graphics card has no room for the mod's own surfaces, plants and weapons (" + problem
+                    + "): they are given back, and for the rest of this session every graphics mode is drawn without them");
+            contentRefused = true;
+            giveBackContent();
+            clearErrors();
+            preparingNanos = 0;
+            preparingWorst = 0;
+            return null;
         }
         if (problem != null) {
             // No piece is made after this one, so nothing would take what was read ahead for the rest.
@@ -2925,8 +3019,8 @@ final class Pipeline {
         preparingWorst = Math.max(preparingWorst, took);
         if (lastOfCore && problem == null) {
             prepared = true;
-            Log.info(String.format(Locale.ROOT, "first person picture ready: cloud noise %d cubed, in %d pieces taking %.0f ms in all, the longest %.0f ms",
-                    NOISE_SIZE, preparing, preparingNanos / 1e6, preparingWorst / 1e6));
+            Log.info(String.format(Locale.ROOT, "first person picture ready: its pieces took %.0f ms in all, the longest %.0f ms",
+                    preparingNanos / 1e6, preparingWorst / 1e6));
             preparingNanos = 0;
             preparingWorst = 0;
         }
@@ -2969,7 +3063,6 @@ final class Pipeline {
         develop = Program.link("develop", SCREEN_VERTEX, PipelineShaders.DEVELOP, problem);
         smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, problem);
         steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, problem);
-        copy = Program.link("copy", SCREEN_VERTEX, PipelineShaders.COPY, problem);
         return problem.length() > 0 ? problem.toString() : null;
     }
 
@@ -2999,7 +3092,17 @@ final class Pipeline {
         white.put((byte) -1).put((byte) -1).put((byte) -1).put((byte) -1).flip();
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
         filter(GL_NEAREST);
-
+        noneTexture = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, ByteBuffer.allocateDirect(4));
+        filter(GL_NEAREST);
+        farDepth = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, farDepth);
+        ByteBuffer far = ByteBuffer.allocateDirect(Float.BYTES).order(ByteOrder.nativeOrder()).putFloat(0, 1f);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 1, 1, 0, GL_DEPTH_COMPONENT, GL_FLOAT, far);
+        filter(GL_NEAREST);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     }
 
     private static void makeSamplers() {
@@ -3020,16 +3123,17 @@ final class Pipeline {
     }
 
     private static void giveBackShadowMaps() {
-        for (int map : new int[] {nearMap, farMap, roofMap, beamMap}) {
+        for (int map : new int[] {nearMap, farMap, roofMap}) {
             GL11.glDeleteTextures(map);
         }
-        for (int target : new int[] {nearTarget, farTarget, roofTarget, beamTarget}) {
+        for (int target : new int[] {nearTarget, farTarget, roofTarget}) {
             GL30.glDeleteFramebuffers(target);
         }
         nearMap = 0;
+        giveBack(beamed);
     }
 
-    /** The four shadow maps: near, far, overhead and headlights. Null, or what the driver refused. */
+    /** The three shadow maps every frame draws: near, far and overhead. Null, or what the driver refused. */
     private static String makeShadowMaps() {
         int[] made = new int[2];
         String near = shadowMap(made);
@@ -3041,10 +3145,69 @@ final class Pipeline {
         String roof = shadowMap(made);
         roofMap = made[0];
         roofTarget = made[1];
-        String beam = shadowMap(made);
+        return near != null ? near : far != null ? far : roof;
+    }
+
+    /** The headlights' shadow map, for the frames in which a headlight is lit: at High's size it is 64 MB. */
+    private static String makeBeamed() {
+        int[] made = new int[2];
+        String problem = shadowMap(made);
         beamMap = made[0];
         beamTarget = made[1];
-        return near != null ? near : far != null ? far : roof != null ? roof : beam;
+        beamed.textures.add(beamMap);
+        beamed.targets.add(beamTarget);
+        return problem;
+    }
+
+    /**
+     * Has a set's pictures there for the pass about to draw into them, making them if they are
+     * not. A making binds a texture and a target: the pass sets its own after this. Thrown, as
+     * a frame's fault, when the driver will not make them.
+     */
+    private static void lend(Lent set, Supplier<String> make) {
+        set.usedNanos = frameNanos;
+        if (set.made()) {
+            return;
+        }
+        long start = System.nanoTime();
+        making = set;
+        String problem;
+        try {
+            problem = make.get();
+        } finally {
+            making = null;
+        }
+        if (problem != null) {
+            throw new IllegalStateException(problem);
+        }
+        Log.info(String.format(Locale.ROOT, "first person picture: the %s made in %.1f ms", set.what, (System.nanoTime() - start) / 1e6));
+    }
+
+    private static void giveBack(Lent set) {
+        for (int target : set.targets) {
+            GL30.glDeleteFramebuffers(target);
+        }
+        for (int texture : set.textures) {
+            GL11.glDeleteTextures(texture);
+        }
+        set.targets.clear();
+        set.textures.clear();
+    }
+
+    /** At the end of a frame: gives back each set that no frame has drawn into for a while. */
+    private static void takeBackLent() {
+        for (Lent set : SIZED) {
+            if (set != whole && set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
+                giveBack(set);
+                Log.info("first person picture: the " + set.what + " given back, unused");
+            }
+        }
+        if (beamed.made() && frameNanos - beamed.usedNanos > LENT_FOR_NANOS) {
+            giveBack(beamed);
+            Log.info("first person picture: the " + beamed.what + " given back, unused");
+        }
+        Scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
+        HeldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
     }
 
     private static String makeMirror() {
@@ -3112,21 +3275,25 @@ final class Pipeline {
         @Override
         public void render() {
             Characters.setDown();
-            if (!prepared || width == 0) {
+            if (width == 0) {
                 return;
             }
             giveBackSized();
             width = 0;
             height = 0;
             giveBackShadowMaps();
+            Scope.giveBackPicture();
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
         }
     };
 
     /**
      * Queued once first person has been off for a while and the logic thread has let every
-     * build go: gives back the graphics card's copy of the world and the pictures of the mod's
-     * own, which are most of what the view holds there. Asked for again, they are made again.
+     * build go: gives back the graphics card's copy of the world, the pictures and models of
+     * the mod's own, the surfaces every mode reads, the furniture's models and the copies of
+     * the game's meshes, and whatever was read ahead for a making that will not now happen.
+     * What is left is the programs, the cloud noise, the mirror and the rain, which are small.
+     * Asked for again, the rest is made again, as it was the first time.
      */
     static final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
         @Override
@@ -3135,14 +3302,30 @@ final class Pipeline {
             Decor.letGo();
             forgetTexels();
             FineSkins.letGo();
-            if (resized != null) {
-                Pictures.letGoOfReadAhead();
-                giveUpResize();
-            }
+            int copies = CharacterDraw.letGo();
+            VehicleMeshes.letGo();
+            GL15.glDeleteBuffers(modelBuffer);
+            modelBuffer = 0;
             if (contentBegun) {
                 giveBackContent();
-                Log.info("the mod's own surfaces and plants are given back to the graphics card");
+                Log.info("the mod's own surfaces, plants and weapons are given back to the graphics card");
             }
+            Pictures.letGoOfReadAhead();
+            Ahead.forget(NOISE_AHEAD);
+            resized = null;
+            coreMixed = false;
+            for (int material = 0; material < MATERIALS.length; material++) {
+                if (ALWAYS_READ.contains(MATERIALS[material])) {
+                    GL11.glDeleteTextures(materialTexture[material]);
+                    materialTexture[material] = 0;
+                    materialGain[material] = 1f;
+                }
+            }
+            // The surfaces are made again by the pieces of the core that made them, and their reading begun again with them.
+            preparing = Math.min(preparing, CORE.size() - ALWAYS_READ.size());
+            prepared = false;
+            coreBegun = false;
+            Log.info("first person has given back the surfaces every graphics mode reads, the furniture's models and its copies of " + copies + " of the game's meshes");
         }
     };
 
@@ -3157,7 +3340,7 @@ final class Pipeline {
         }
     }
 
-    /** Gives back the pictures of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
+    /** Gives back the pictures and models of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
     private static void giveBackContent() {
         Pictures.letGoOfReadAhead();
         // What was read ahead for a making at another size went with the rest, and its next piece would wait for it for good.
@@ -3179,6 +3362,9 @@ final class Pipeline {
         GL11.glDeleteTextures(sprigForm);
         sprigs = 0;
         sprigForm = 0;
+        OwnWeapon.letGo();
+        OwnRifle.letGo();
+        OwnArms.letGo();
         contentPreparing = 0;
         contentBegun = false;
         contentReady = false;
@@ -3197,14 +3383,9 @@ final class Pipeline {
      * number is told they are gone: a target of their own still holds the one given back.
      */
     private static void giveBackSized() {
-        for (int old : sizedTargets) {
-            GL30.glDeleteFramebuffers(old);
+        for (Lent set : SIZED) {
+            giveBack(set);
         }
-        for (int old : sizedTextures) {
-            GL11.glDeleteTextures(old);
-        }
-        sizedTargets.clear();
-        sizedTextures.clear();
         OwnWeapon.forgetTarget();
         HeldDepth.forgetTarget();
     }
@@ -3214,27 +3395,75 @@ final class Pipeline {
         // The last size's are given back first. Left alone they are held until the game
         // ends, a set for every size the picture has been.
         giveBackSized();
-        sizing = true;
+        width = newWidth;
+        height = newHeight;
+        making = whole;
         try {
-            return makeSized(newWidth, newHeight);
+            return makeWhole();
         } finally {
-            sizing = false;
+            making = null;
         }
     }
 
-    /** The textures and targets the last resize made, and whether one is being made now. */
-    private static final ArrayList<Integer> sizedTextures = new ArrayList<>(), sizedTargets = new ArrayList<>();
-    private static boolean sizing;
-
-    private static String makeSized(int newWidth, int newHeight) {
-        width = newWidth;
-        height = newHeight;
-        sceneColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
+    /** The steadied picture of the last frame and of this one: only with FrameBlending on. */
+    private static String makeSteadied() {
         for (int i = 0; i < 2; i++) {
             keptColor[i] = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
             keptTarget[i] = target(keptColor[i]);
         }
         keptAny = false;
+        return complete("steadied picture");
+    }
+
+    /** What is drawn of the vehicle sat in: only while seated. */
+    private static String makeCabin() {
+        repaintedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        repaintedDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        repaintedTarget = target(repaintedColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, repaintedDepth, 0);
+        String problem = complete("repainted vehicle");
+        paneColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        paneTarget = target(paneColor);
+        if (problem == null) {
+            problem = complete("window glass");
+        }
+        partsColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        partsDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        partsTarget = target(partsColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, partsDepth, 0);
+        if (problem == null) {
+            problem = complete("cabin parts");
+        }
+        return problem;
+    }
+
+    /** The viewer as a window's glass shows them: only in High, with a window near. */
+    private static String makeGlassed() {
+        selfColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
+        selfTarget = target(selfColor);
+        return complete("viewer in the glass");
+    }
+
+    /** The shade of what stands near and the lit air, at half the picture's size: only in High. */
+    private static String makeShaded() {
+        occlusionColor = texture(GL_RGBA8, levelWidth[0], levelHeight[0], GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR);
+        occlusionTarget = target(occlusionColor);
+        String problem = complete("occlusion");
+        softColor = texture(GL_RGBA8, levelWidth[0], levelHeight[0], GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR);
+        softTarget = target(softColor);
+        volumeColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
+        volumeTarget = target(volumeColor);
+        softVolumeColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
+        softVolumeTarget = target(softVolumeColor);
+        if (problem == null) {
+            problem = complete("lit air");
+        }
+        return problem;
+    }
+
+    /** What every frame draws into, at the picture's size. */
+    private static String makeWhole() {
+        sceneColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
         sceneDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         sceneTarget = target(sceneColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
@@ -3253,13 +3482,6 @@ final class Pipeline {
         if (problem == null) {
             problem = complete("character");
         }
-        repaintedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
-        repaintedDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
-        repaintedTarget = target(repaintedColor);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, repaintedDepth, 0);
-        if (problem == null) {
-            problem = complete("repainted vehicle");
-        }
         ownColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         ownDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         ownTarget = target(ownColor);
@@ -3268,23 +3490,6 @@ final class Pipeline {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, ownDepth, 0);
         if (problem == null) {
             problem = complete("viewer");
-        }
-        selfColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
-        selfTarget = target(selfColor);
-        if (problem == null) {
-            problem = complete("viewer in the glass");
-        }
-        paneColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
-        paneTarget = target(paneColor);
-        if (problem == null) {
-            problem = complete("window glass");
-        }
-        partsColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
-        partsDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
-        partsTarget = target(partsColor);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, partsDepth, 0);
-        if (problem == null) {
-            problem = complete("cabin parts");
         }
         int levelW = width, levelH = height;
         for (int level = 0; level < BLOOM_LEVELS && problem == null; level++) {
@@ -3302,19 +3507,11 @@ final class Pipeline {
             }
         }
         if (problem == null) {
-            occlusionColor = texture(GL_RGBA8, levelWidth[0], levelHeight[0], GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR);
-            occlusionTarget = target(occlusionColor);
-            softColor = texture(GL_RGBA8, levelWidth[0], levelHeight[0], GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR);
-            softTarget = target(softColor);
-            volumeColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
-            volumeTarget = target(volumeColor);
-            softVolumeColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
-            softVolumeTarget = target(softVolumeColor);
             cloudColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
             cloudTarget = target(cloudColor);
             softCloudColor = texture(GL_RGBA16F, levelWidth[0], levelHeight[0], GL_RGBA, GL_FLOAT, GL_LINEAR);
             softCloudTarget = target(softCloudColor);
-            problem = complete("occlusion");
+            problem = complete("clouds");
         }
         if (problem == null) {
             Log.info("first person picture sized " + width + "x" + height);
@@ -3324,8 +3521,8 @@ final class Pipeline {
 
     private static int texture(int internal, int w, int h, int format, int type, int filter) {
         int texture = GL11.glGenTextures();
-        if (sizing) {
-            sizedTextures.add(texture);
+        if (making != null) {
+            making.textures.add(texture);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);
@@ -3371,8 +3568,8 @@ final class Pipeline {
 
     private static int target(int color) {
         int target = GL30.glGenFramebuffers();
-        if (sizing) {
-            sizedTargets.add(target);
+        if (making != null) {
+            making.targets.add(target);
         }
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);

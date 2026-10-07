@@ -312,8 +312,9 @@ public final class FineSkins {
             Log.error("fine skins are off for this session, and characters wear the game's own: " + why, cause);
         }
         off = true;
+        // Destroyed, not handed to the combiner, which would keep each for a next skin of its size: with the skins off there is none.
         for (Fine each : fine.values()) {
-            TextureCombiner.instance.releaseTexture(each.texture);
+            each.texture.destroy();
         }
         recipes.clear();
         handedBackAt.clear();
@@ -542,7 +543,7 @@ public final class FineSkins {
         if (relative == null) {
             return null;
         }
-        Read mine = (ownWorn & Jar.row(relative)) != 0 ? own(relative) : null;
+        Read mine = (ownWorn & rows.computeIfAbsent(relative, Jar::row)) != 0 ? own(relative) : null;
         if (mine != null) {
             if (mine.texture == null) {
                 waiting = true;
@@ -575,6 +576,8 @@ public final class FineSkins {
     /** Pack.relative of each texture name asked about, which is worked out of the name letter by letter. */
     private static final HashMap<String, String> relatives = new HashMap<>();
     private static final HashMap<String, String> resources = new HashMap<>();
+    /** Jar.row of each path asked about: asked for every plainly textured part of every frame, and worked out by making a string. */
+    private static final HashMap<String, Integer> rows = new HashMap<>();
 
     private static String relativeOf(String name) {
         String relative = relatives.get(name);
@@ -766,9 +769,11 @@ public final class FineSkins {
         try {
             return composed(recipe, commands, onTheWay);
         } finally {
-            // Made or not, what was composed for the skin on the way is the combiner's to take back.
+            // Made or not, what was composed for the skin on the way is done with. Destroyed, as the combiner itself
+            // destroys what its pool has no room for: handed back, it keeps up to a hundred textures of each size for
+            // good, and one clothed body's skins left sixty of them there, 240 MB at 1024 square.
             for (Texture each : onTheWay) {
-                TextureCombiner.instance.releaseTexture(each);
+                each.destroy();
             }
         }
     }

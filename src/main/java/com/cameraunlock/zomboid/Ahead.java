@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  * draws the picture, the reading held that frame for seconds.
  */
 final class Ahead {
-    private static final Map<String, FutureTask<?>> BEGUN = new ConcurrentHashMap<>();
+    private static final Map<String, Task<?>> BEGUN = new ConcurrentHashMap<>();
     /** Two cores are left to the game's own two busy threads. The threads go when there is no more to do. */
     private static final ThreadPoolExecutor WORKERS = workers();
 
@@ -34,18 +34,50 @@ final class Ahead {
         return pool;
     }
 
+    /**
+     * Work whose result may be memory outside the heap. Taken, it is the taker's to free.
+     * Forgotten, nobody will take it, and it is freed here: by forget if the work had ended,
+     * and by the thread doing the work if it ends afterwards.
+     */
+    private static final class Task<T> extends FutureTask<T> {
+        private volatile T made;
+
+        Task(Callable<T> work) {
+            super(work);
+        }
+
+        @Override
+        protected void set(T result) {
+            made = result;
+            super.set(result);
+            if (isCancelled()) {
+                free();
+            }
+        }
+
+        void free() {
+            if (made instanceof OffHeap.Block block) {
+                block.free();
+            }
+        }
+    }
+
     /** Begins work, whose result {@link #take} hands over under the same name. */
-    static void begin(String name, Callable<?> work) {
-        FutureTask<?> task = new FutureTask<>(work);
+    static <T> void begin(String name, Callable<T> work) {
+        Task<T> task = new Task<>(work);
         BEGUN.put(name, task);
         WORKERS.execute(task);
     }
 
-    /** Lets go of work begun under name whose result nobody will take: it is not started if no thread has started on it. */
+    /**
+     * Lets go of work begun under name whose result nobody will take: it is not started if no
+     * thread has started on it, and a result that is memory outside the heap is given back.
+     */
     static void forget(String name) {
-        FutureTask<?> task = BEGUN.remove(name);
-        if (task != null) {
-            task.cancel(false);
+        Task<?> task = BEGUN.remove(name);
+        // Not cancelled is ended: with a result, which is then freed, or with a fault, which left none.
+        if (task != null && !task.cancel(false)) {
+            task.free();
         }
     }
 
@@ -61,7 +93,7 @@ final class Ahead {
      */
     @SuppressWarnings("unchecked")
     static <T> T take(String name, Callable<T> work) throws IOException {
-        FutureTask<T> task = (FutureTask<T>) BEGUN.remove(name);
+        Task<T> task = (Task<T>) BEGUN.remove(name);
         try {
             if (task == null) {
                 return work.call();

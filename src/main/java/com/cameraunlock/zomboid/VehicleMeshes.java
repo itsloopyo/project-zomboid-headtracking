@@ -207,25 +207,31 @@ final class VehicleMeshes {
             int bound = GL11.glGetInteger(GL_ARRAY_BUFFER_BINDING);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, bufferField.getInt(handle));
             int bytes = GL15.glGetBufferParameteri(GL_ARRAY_BUFFER, GL_BUFFER_SIZE);
-            ByteBuffer raw = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder());
-            GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
-            GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
-            boolean[] glass = glassIn(raw, stride, elements, instance, name);
-            float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name);
-            boolean[] front = new boolean[glass.length];
-            if (wheel != NONE) {
-                Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name);
-                parts.put(mesh, made);
-                front = made.front;
+            // The body's vertices as the graphics card has them, read once and given back when what is kept of them is made.
+            OffHeap.Block read = OffHeap.take(bytes);
+            try {
+                ByteBuffer raw = read.bytes;
+                GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
+                boolean[] glass = glassIn(raw, stride, elements, instance, name);
+                float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name);
+                boolean[] front = new boolean[glass.length];
+                if (wheel != NONE) {
+                    Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name);
+                    parts.put(mesh, made);
+                    front = made.front;
+                }
+                FloatBuffer loose = loose(raw, stride, elements, glass, front);
+                panes.put(mesh, loose);
+                int rear = 0;
+                for (int t = 0; t < glass.length; t++) {
+                    rear += glass[t] && !front[t] ? 3 : 0;
+                }
+                rearPanes.put(mesh, rear);
+                return wheel;
+            } finally {
+                read.free();
             }
-            FloatBuffer loose = loose(raw, stride, elements, glass, front);
-            panes.put(mesh, loose);
-            int rear = 0;
-            for (int t = 0; t < glass.length; t++) {
-                rear += glass[t] && !front[t] ? 3 : 0;
-            }
-            rearPanes.put(mesh, rear);
-            return wheel;
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
         }
@@ -276,15 +282,23 @@ final class VehicleMeshes {
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         GL11.glBindTexture(GL_TEXTURE_2D, instance.textureMask.getID());
         int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
-        ByteBuffer mask = ByteBuffer.allocateDirect(Math.max(width * height * 4, 4)).order(ByteOrder.nativeOrder());
-        if (width > 0 && height > 0) {
-            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, mask);
-        }
-        GL11.glBindTexture(GL_TEXTURE_2D, was);
         if (width <= 0 || height <= 0) {
+            GL11.glBindTexture(GL_TEXTURE_2D, was);
             Log.info("the vehicle model " + name + " has an empty mask: its windows are told by their colour");
             return none;
         }
+        // The mask is as big as the vehicle's skin: read out of memory that goes back when the triangles are told apart.
+        OffHeap.Block read = OffHeap.take(width * height * 4);
+        try {
+            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.bytes);
+            GL11.glBindTexture(GL_TEXTURE_2D, was);
+            return glassBy(read.bytes, width, height, raw, stride, elements, name);
+        } finally {
+            read.free();
+        }
+    }
+
+    private static boolean[] glassBy(ByteBuffer mask, int width, int height, ByteBuffer raw, int stride, int[] elements, String name) {
         int triangles = elements.length / 3;
         boolean[][] glass = new boolean[2][triangles];
         int[] found = new int[2];
@@ -318,7 +332,7 @@ final class VehicleMeshes {
         // The mask lies the same way up against every model: the first way.
         int way = 0;
         Log.info("glass of " + name + ": " + found[0] + " triangles one way up, " + found[1] + " the other, of " + triangles + "; mask " + width + "x" + height);
-        return found[way] < 6 || found[way] > triangles / 3 ? none : glass[way];
+        return found[way] < 6 || found[way] > triangles / 3 ? new boolean[triangles] : glass[way];
     }
 
     /**
@@ -420,30 +434,52 @@ final class VehicleMeshes {
         int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
         float[] mean = null;
         if (width > 0 && height > 0 && (long) width * height <= MOST_TEXELS) {
-            ByteBuffer texels = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder());
-            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
-            int fromX = Math.clamp((int) (Math.min(picture.getXStart(), picture.getXEnd()) * width), 0, width - 1);
-            int toX = Math.clamp((int) Math.ceil(Math.max(picture.getXStart(), picture.getXEnd()) * width), fromX + 1, width);
-            int fromY = Math.clamp((int) (Math.min(picture.getYStart(), picture.getYEnd()) * height), 0, height - 1);
-            int toY = Math.clamp((int) Math.ceil(Math.max(picture.getYStart(), picture.getYEnd()) * height), fromY + 1, height);
-            long red = 0, green = 0, blue = 0, solid = 0;
-            for (int y = fromY; y < toY; y++) {
-                for (int x = fromX; x < toX; x++) {
-                    int at = (y * width + x) * 4;
-                    int alpha = texels.get(at + 3) & 0xff;
-                    red += (texels.get(at) & 0xff) * alpha;
-                    green += (texels.get(at + 1) & 0xff) * alpha;
-                    blue += (texels.get(at + 2) & 0xff) * alpha;
-                    solid += alpha;
-                }
-            }
-            if (solid > 0) {
-                mean = new float[] {red / (255f * solid), green / (255f * solid), blue / (255f * solid)};
+            // A garment's picture is one piece of a sheet of up to 64 MB, read whole: out of memory that goes back at once.
+            OffHeap.Block read = OffHeap.take(width * height * 4);
+            try {
+                GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.bytes);
+                mean = meanOver(read.bytes, picture, width, height);
+            } finally {
+                read.free();
             }
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         means.put(picture, mean);
         return mean;
+    }
+
+    /**
+     * Gives up what was read of the game's meshes and pictures, which are the game's to load
+     * anew between saves: each is read again when it is next sat in or worn. Render thread.
+     */
+    static void letGo() {
+        middles.clear();
+        panes.clear();
+        rearPanes.clear();
+        parts.clear();
+        means.clear();
+        seatedPanes = null;
+        seatedParts = null;
+        seatedWheel = null;
+    }
+
+    private static float[] meanOver(ByteBuffer texels, Texture picture, int width, int height) {
+        int fromX = Math.clamp((int) (Math.min(picture.getXStart(), picture.getXEnd()) * width), 0, width - 1);
+        int toX = Math.clamp((int) Math.ceil(Math.max(picture.getXStart(), picture.getXEnd()) * width), fromX + 1, width);
+        int fromY = Math.clamp((int) (Math.min(picture.getYStart(), picture.getYEnd()) * height), 0, height - 1);
+        int toY = Math.clamp((int) Math.ceil(Math.max(picture.getYStart(), picture.getYEnd()) * height), fromY + 1, height);
+        long red = 0, green = 0, blue = 0, solid = 0;
+        for (int y = fromY; y < toY; y++) {
+            for (int x = fromX; x < toX; x++) {
+                int at = (y * width + x) * 4;
+                int alpha = texels.get(at + 3) & 0xff;
+                red += (texels.get(at) & 0xff) * alpha;
+                green += (texels.get(at + 1) & 0xff) * alpha;
+                blue += (texels.get(at + 2) & 0xff) * alpha;
+                solid += alpha;
+            }
+        }
+        return solid > 0 ? new float[] {red / (255f * solid), green / (255f * solid), blue / (255f * solid)} : null;
     }
 
     private static void multiply(float[] a, float[] b, float[] out) {

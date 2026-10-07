@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.util.zip.GZIPInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
@@ -250,6 +249,9 @@ final class OwnArms {
                 if (read.bones.length > MOST_BONES) {
                     throw new IOException("the arms file has " + read.bones.length + " bones and the program has room for " + MOST_BONES);
                 }
+                if (program == 0) {
+                    link();
+                }
                 make(read);
                 makeProps();
                 colour = texture(COLOUR);
@@ -257,13 +259,43 @@ final class OwnArms {
                 model = read;
                 Log.info("the arms on a held weapon are the mod's own: " + read.vertexCount + " corners, " + read.indexCount / 3 + " triangles");
             } catch (IOException | IllegalStateException e) {
+                giveBack();
                 Log.info("the arms on a held weapon are the game's own: " + e.getMessage());
             }
         }
         return model;
     }
 
-    private static void make(ArmModel read) {
+    /**
+     * Gives the arms' buffers and pictures back to the graphics card, and whatever was unpacked
+     * ahead for a making that will not now happen. The program is kept. Render thread.
+     */
+    static void letGo() {
+        for (String path : new String[] {COLOUR, SURFACE}) {
+            Ahead.forget(path);
+        }
+        giveBack();
+        model = null;
+        tried = false;
+    }
+
+    private static void giveBack() {
+        GL11.glDeleteTextures(colour);
+        GL11.glDeleteTextures(surface);
+        GL15.glDeleteBuffers(vertices);
+        GL15.glDeleteBuffers(indices);
+        GL15.glDeleteBuffers(props);
+        GL15.glDeleteBuffers(propIndices);
+        colour = 0;
+        surface = 0;
+        vertices = 0;
+        indices = 0;
+        props = 0;
+        propIndices = 0;
+    }
+
+    /** Links the program, once: it is kept when the buffers and pictures are given back. */
+    private static void link() {
         int id = GL20.glCreateProgram();
         int[] kinds = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
         String[] sources = {VERTEX, FRAGMENT};
@@ -275,6 +307,8 @@ final class OwnArms {
                 throw new IllegalStateException("stage " + (stage + 1) + " of the arms shader did not compile: " + GL20.glGetShaderInfoLog(shader));
             }
             GL20.glAttachShader(id, shader);
+            // The program keeps what it was linked from: the shader goes when the program does.
+            GL20.glDeleteShader(shader);
         }
         for (int attribute = 0; attribute < ATTRIBUTES.length; attribute++) {
             GL20.glBindAttribLocation(id, attribute, ATTRIBUTES[attribute]);
@@ -301,6 +335,9 @@ final class OwnArms {
         for (int bone = 0; bone < MOST_BONES; bone++) {
             boneAt[bone] = GL20.glGetUniformLocation(id, "uBones[" + bone + "]");
         }
+    }
+
+    private static void make(ArmModel read) {
         vertices = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, vertices);
         GL15.glBufferData(GL_ARRAY_BUFFER, read.vertices, GL_STATIC_DRAW);
@@ -309,6 +346,8 @@ final class OwnArms {
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
         GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, read.indices, GL_STATIC_DRAW);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        read.vertices = null;
+        read.indices = null;
     }
 
     /**
@@ -323,8 +362,16 @@ final class OwnArms {
     private static final int ROUND_SIDES = 16;
 
     private static void makeProps() {
-        ByteBuffer corners = ByteBuffer.allocateDirect(4096 * ArmModel.VERTEX_BYTES).order(ByteOrder.nativeOrder());
-        ByteBuffer triangles = ByteBuffer.allocateDirect(8192 * Integer.BYTES).order(ByteOrder.nativeOrder());
+        OffHeap.Block cornerMemory = OffHeap.take(4096 * ArmModel.VERTEX_BYTES), triangleMemory = OffHeap.take(8192 * Integer.BYTES);
+        try {
+            makeProps(cornerMemory.bytes, triangleMemory.bytes);
+        } finally {
+            cornerMemory.free();
+            triangleMemory.free();
+        }
+    }
+
+    private static void makeProps(ByteBuffer corners, ByteBuffer triangles) {
         int[] count = {0};
         // The magazine: its length up y.
         pieceFirst[0] = triangles.position() / Integer.BYTES;
@@ -454,16 +501,12 @@ final class OwnArms {
         GL11.glDrawElements(GL_TRIANGLES, model.partCount[which], GL_UNSIGNED_INT, (long) model.partFirst[which] * Integer.BYTES);
     }
 
-    /** Whether the arms are on the graphics card, or were refused it. */
-    static boolean made() {
-        return tried;
-    }
-
     /** Begins unpacking the arms' pictures on other threads, for {@link #prepare} to find them unpacked. */
     static void readAhead() {
-        ahead = Own.arms();
+        // The row as the file has it: Own.arms() is false until the content this is a piece of is made.
+        ahead = (Own.rows() & Own.ARMS) != 0;
         for (String path : ahead ? new String[] {COLOUR, SURFACE} : new String[0]) {
-            Ahead.begin(path, () -> unpacked(path));
+            Ahead.begin(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
         }
     }
 
@@ -486,25 +529,15 @@ final class OwnArms {
         return null;
     }
 
-    private static byte[] unpacked(String path) throws IOException {
-        try (InputStream packed = OwnArms.class.getResourceAsStream(path)) {
-            if (packed == null) {
-                throw new IOException("the jar has no " + path);
-            }
-            return new GZIPInputStream(packed).readAllBytes();
-        }
-    }
-
     private static int texture(String path) throws IOException {
-        byte[] bytes = Ahead.take(path, () -> unpacked(path));
-        if (bytes.length != TEXTURE_SIZE * TEXTURE_SIZE * 4) {
-            throw new IOException(path + " holds " + bytes.length + " bytes, not a picture " + TEXTURE_SIZE + " square");
-        }
-        ByteBuffer pixels = ByteBuffer.allocateDirect(bytes.length);
-        pixels.put(bytes).flip();
+        OffHeap.Block pixels = Ahead.take(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
         int made = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, made);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        try {
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.bytes);
+        } finally {
+            pixels.free();
+        }
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -512,6 +545,7 @@ final class OwnArms {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         int error = GL11.glGetError();
         if (error != 0) {
+            GL11.glDeleteTextures(made);
             throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the arms' model");
         }
         // A forearm is seen along its length. A driver without the means refuses the setting, and that

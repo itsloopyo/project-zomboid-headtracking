@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.zip.GZIPInputStream;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -219,6 +220,38 @@ final class Pictures {
         return new Decoded(half.bytes, half, wide / 2, high / 2, whole.gain);
     }
 
+    /**
+     * A model's picture, kept in the jar as its four bytes a dot gzipped, side dots square,
+     * unpacked into memory outside the heap that whoever takes it frees. Straight into that
+     * memory: unpacked into an array first, sixteen megabytes of heap went with each.
+     */
+    static OffHeap.Block unpacked(String path, int side) throws IOException {
+        int bytes = side * side * 4;
+        OffHeap.Block memory = OffHeap.take(bytes);
+        try (InputStream packed = Pictures.class.getResourceAsStream(path)) {
+            if (packed == null) {
+                throw new IOException("the jar has no " + path);
+            }
+            InputStream plain = new GZIPInputStream(packed, 1 << 16);
+            byte[] some = new byte[1 << 16];
+            int at = 0;
+            for (int read = plain.read(some); read >= 0; read = plain.read(some)) {
+                if (at + read > bytes) {
+                    throw new IOException(path + " holds more than the " + bytes + " bytes of a picture " + side + " square");
+                }
+                memory.bytes.put(at, some, 0, read);
+                at += read;
+            }
+            if (at != bytes) {
+                throw new IOException(path + " holds " + at + " bytes, not a picture " + side + " square");
+            }
+            return memory;
+        } catch (IOException | RuntimeException failed) {
+            memory.free();
+            throw failed;
+        }
+    }
+
     /** A picture of four bytes a dot at half its width and height, each dot the mean of the four it stands for. */
     static OffHeap.Block halved(ByteBuffer whole, int wide, int high) {
         int halfWide = wide / 2, halfHigh = high / 2;
@@ -244,6 +277,7 @@ final class Pictures {
         // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
         // a graphics card with no room for the picture says so now.
         int error = GL11.glGetError();
+        Pipeline.noted(error);
         if (error != 0) {
             GL11.glDeleteTextures(texture);
             throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of " + path);

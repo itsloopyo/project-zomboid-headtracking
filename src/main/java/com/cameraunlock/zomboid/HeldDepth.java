@@ -24,6 +24,7 @@ final class HeldDepth {
     private static final int GL_DEPTH_BUFFER_BIT = 0x0100;
 
     private static int target, color, depth, wide, high;
+    private static long usedNanos;
 
     /**
      * The picture's colour was given back. The target goes with it: a texture deleted while it
@@ -37,12 +38,21 @@ final class HeldDepth {
         color = 0;
     }
 
+    /** Gives the target and its depth back if no frame has drawn a held thing since before: a rifle put away needs neither. */
+    static void takeBack(long before) {
+        if (target != 0 && usedNanos < before) {
+            forgetTarget();
+        }
+    }
+
     /**
      * Makes the target ready for a frame's held things, its depth cleared.
      *
      * @param sceneColor the picture's colour, sceneWide by sceneHigh
+     * @param now        when the frame began
      */
-    static void begin(int sceneColor, int sceneWide, int sceneHigh) {
+    static void begin(int sceneColor, int sceneWide, int sceneHigh, long now) {
+        usedNanos = now;
         if (sceneColor != color || sceneWide != wide || sceneHigh != high) {
             if (target == 0) {
                 target = GL30.glGenFramebuffers();

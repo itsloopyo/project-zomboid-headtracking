@@ -8,5 +8,6 @@ public final class GL30 {
     public static int glCheckFramebufferStatus(int target) { throw new UnsupportedOperationException("reference stub"); }
     public static void glBindVertexArray(int array) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGenVertexArrays() { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDeleteVertexArrays(int array) { throw new UnsupportedOperationException("reference stub"); }
     public static void glGenerateMipmap(int target) { throw new UnsupportedOperationException("reference stub"); }
 }

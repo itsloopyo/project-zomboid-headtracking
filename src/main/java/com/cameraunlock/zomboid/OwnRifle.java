@@ -240,9 +240,11 @@ final class OwnRifle {
             }
             """;
 
+    /** Linked the first time the model is made and kept: the model's buffers and pictures are what is given back. */
+    private static Program program;
     /** Read by the game's logic thread too, to ask whether the model stands for what is held. */
-    private static volatile Program program;
-    private static int array, colour, surface;
+    private static volatile boolean onCard;
+    private static int array, vertexBuffer, indexBuffer, colour, surface;
     private static final int[] firstIndex = new int[PARTS], indexCount = new int[PARTS];
     private static final float[] muzzle = new float[3], port = new float[3];
     private static float travel;
@@ -276,23 +278,30 @@ final class OwnRifle {
     private static boolean caseThrown;
     private static long workedAsOf;
 
-    /** Whether the model is on the graphics card. */
-    static boolean made() {
-        return program != null;
-    }
-
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
-        return program != null && Own.weapons() && ITEM.equals(item);
+        return onCard && Own.weapons() && ITEM.equals(item);
     }
 
     /** Reads the model out of the jar and gives it to the graphics card. Null, or what went wrong. */
     static String prepare() {
-        StringBuilder problem = new StringBuilder();
-        Program linked = Program.link("own rifle", VERTEX, FRAGMENT, problem);
-        if (linked == null) {
-            return problem.toString();
+        if (program == null) {
+            StringBuilder problem = new StringBuilder();
+            program = Program.link("own rifle", VERTEX, FRAGMENT, problem);
+            if (program == null) {
+                return problem.toString();
+            }
         }
+        String problem = make();
+        if (problem == null) {
+            onCard = true;
+        } else {
+            letGo();
+        }
+        return problem;
+    }
+
+    private static String make() {
         try {
             ByteBuffer mesh = ByteBuffer.wrap(read(MESH)).order(ByteOrder.LITTLE_ENDIAN);
             if (mesh.remaining() < HEAD_BYTES || mesh.getInt() != MAGIC || mesh.getInt() != VERSION) {
@@ -321,24 +330,46 @@ final class OwnRifle {
             }
             muzzleFar = (float) Math.sqrt(muzzle[0] * muzzle[0] + muzzle[1] * muzzle[1] + muzzle[2] * muzzle[2]);
             foreEnd = heldY / muzzle[1];
-            upload(linked, mesh, vertices, indices);
+            upload(mesh, vertices, indices);
             colour = texture(COLOUR, GL_SRGB8_ALPHA8);
             surface = texture(SURFACE, GL_RGBA8);
         } catch (IOException e) {
             return e.getMessage();
         }
         int error = GL11.glGetError();
+        Pipeline.noted(error);
         if (error != 0) {
             return "OpenGL error 0x" + Integer.toHexString(error) + " making the rifle's model";
         }
-        program = linked;
         return null;
+    }
+
+    /**
+     * Gives the model's buffers and pictures back to the graphics card, made or half made, and
+     * whatever was unpacked ahead for a making that will not now happen. Render thread.
+     */
+    static void letGo() {
+        onCard = false;
+        for (String path : new String[] {MESH, COLOUR, SURFACE}) {
+            Ahead.forget(path);
+        }
+        GL11.glDeleteTextures(colour);
+        GL11.glDeleteTextures(surface);
+        GL15.glDeleteBuffers(vertexBuffer);
+        GL15.glDeleteBuffers(indexBuffer);
+        GL30.glDeleteVertexArrays(array);
+        colour = 0;
+        surface = 0;
+        vertexBuffer = 0;
+        indexBuffer = 0;
+        array = 0;
     }
 
     /** Begins unpacking the model and its pictures on other threads, for {@link #prepare} to find them unpacked. */
     static void readAhead() {
-        for (String path : new String[] {MESH, COLOUR, SURFACE}) {
-            Ahead.begin(path, () -> unpacked(path));
+        Ahead.begin(MESH, () -> unpacked(MESH));
+        for (String path : new String[] {COLOUR, SURFACE}) {
+            Ahead.begin(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
         }
     }
 
@@ -360,22 +391,27 @@ final class OwnRifle {
         }
     }
 
-    private static void upload(Program linked, ByteBuffer mesh, int vertices, int indices) {
+    private static void upload(ByteBuffer mesh, int vertices, int indices) {
         array = GL30.glGenVertexArrays();
         GL30.glBindVertexArray(array);
-        ByteBuffer data = ByteBuffer.allocateDirect(vertices * VERTEX_BYTES);
-        data.put(mesh.array(), mesh.position(), vertices * VERTEX_BYTES).flip();
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, GL15.glGenBuffers());
-        GL15.glBufferData(GL_ARRAY_BUFFER, data, GL_STATIC_DRAW);
-        ByteBuffer order = ByteBuffer.allocateDirect(indices * Integer.BYTES);
-        order.put(mesh.array(), mesh.position() + vertices * VERTEX_BYTES, indices * Integer.BYTES).flip();
-        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL15.glGenBuffers());
-        GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, order, GL_STATIC_DRAW);
-        attribute(linked, "aPlace", 3, GL_FLOAT, false, 0);
-        attribute(linked, "aNormal", 3, GL_SHORT, true, 12);
-        attribute(linked, "aTangent", 3, GL_SHORT, true, 18);
-        attribute(linked, "aWay", 1, GL_SHORT, false, 24);
-        attribute(linked, "aUv", 2, GL_UNSIGNED_SHORT, true, 26);
+        // The driver takes its copy from memory outside the heap, which is given back as soon as it has.
+        OffHeap.Block data = OffHeap.take(vertices * VERTEX_BYTES + indices * Integer.BYTES);
+        try {
+            data.bytes.put(0, mesh.array(), mesh.position(), data.bytes.capacity());
+            vertexBuffer = GL15.glGenBuffers();
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+            GL15.glBufferData(GL_ARRAY_BUFFER, data.bytes.slice(0, vertices * VERTEX_BYTES), GL_STATIC_DRAW);
+            indexBuffer = GL15.glGenBuffers();
+            GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+            GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.bytes.slice(vertices * VERTEX_BYTES, indices * Integer.BYTES), GL_STATIC_DRAW);
+        } finally {
+            data.free();
+        }
+        attribute(program, "aPlace", 3, GL_FLOAT, false, 0);
+        attribute(program, "aNormal", 3, GL_SHORT, true, 12);
+        attribute(program, "aTangent", 3, GL_SHORT, true, 18);
+        attribute(program, "aWay", 1, GL_SHORT, false, 24);
+        attribute(program, "aUv", 2, GL_UNSIGNED_SHORT, true, 26);
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -388,22 +424,23 @@ final class OwnRifle {
     }
 
     private static int texture(String path, int kept) throws IOException {
-        byte[] bytes = read(path);
-        if (bytes.length != TEXTURE_SIZE * TEXTURE_SIZE * 4) {
-            throw new IOException(path + " holds " + bytes.length + " bytes, not a picture " + TEXTURE_SIZE + " square");
-        }
-        ByteBuffer pixels = ByteBuffer.allocateDirect(bytes.length);
-        pixels.put(bytes).flip();
+        OffHeap.Block pixels = Ahead.take(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, kept, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+        try {
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, kept, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.bytes);
+        } finally {
+            pixels.free();
+        }
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         int error = GL11.glGetError();
+        Pipeline.noted(error);
         if (error != 0) {
+            GL11.glDeleteTextures(texture);
             throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the rifle's model");
         }
         // The barrel is seen along its length. A driver without the means refuses the setting, and that

@@ -533,7 +533,9 @@ public final class FirstPerson {
             if (making) {
                 SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
             }
-            if (Characters.wanted || gettingReady || making) {
+            // A mode in which the picture draws the game's own view keeps what it is drawn with while that view is not
+            // being drawn, a dead player's among them: let go, it would all be made again at once, and let go again a minute later.
+            if (Characters.wanted || gettingReady || making || overheadAsked) {
                 held = true;
                 offSince = now;
             } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
