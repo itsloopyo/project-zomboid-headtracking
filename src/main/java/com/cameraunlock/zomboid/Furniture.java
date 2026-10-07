@@ -72,6 +72,8 @@ final class Furniture {
     boolean pinned;
     /** How wide a frame is painted round that picture, in tiles: a painting on a board with no moulding has one. */
     float rail;
+    /** Whether this is a television, which shows a picture when it is on, and whether it is one with no colour. */
+    boolean television, blackAndWhite;
 
     Furniture(IsoSprite sprite, String model, int turns) {
         this.model = model == null ? null : Models.get(model);
@@ -482,14 +484,16 @@ final class Furniture {
             return new Furniture(sprite, "washing_machine", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f).stand(surfaceUp, WASHER_TOP, true);
         }
         if (called.equals("Television") && single) {
-            // A set on a table says how high the table is. One in a cabinet of its own stands on the floor.
-            if (onTable) {
-                return new Furniture(sprite, "tv", turns).stand(0f, 0f, false).raise(surfaceUp);
+            // A set on a table says how high the table it was painted for is. One in a cabinet of
+            // its own stands on the floor, and is old enough to have no colour.
+            Furniture set = onTable ? new Furniture(sprite, group.equals("Premium Technologies") ? "tv_wide" : "tv", turns).stand(0f, 0f, false).raise(surfaceUp)
+                    : surface >= 25 && surface <= 40
+                    ? new Furniture(sprite, "tv_console", turns).dye(1 << Models.WOOD, surfaceHigh * 0.25f).stand(surfaceUp, TV_CABINET_TOP, true) : null;
+            if (set != null) {
+                set.television = true;
+                set.blackAndWhite = !onTable;
             }
-            if (surface >= 25 && surface <= 40) {
-                return new Furniture(sprite, "tv_console", turns).dye(1 << Models.WOOD, surfaceHigh * 0.25f).stand(surfaceUp, TV_CABINET_TOP, true);
-            }
-            return null;
+            return set;
         }
         if (called.equals("Lamp") && onTable && single && surface > 0) {
             return new Furniture(sprite, "table_lamp", turns).stand(0f, 0f, false).raise(surfaceUp);

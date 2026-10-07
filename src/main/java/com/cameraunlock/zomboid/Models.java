@@ -22,21 +22,30 @@ import java.util.zip.GZIPInputStream;
  * belongs to one surface, which says what it is made of. There are no texture coordinates:
  * the picture gives a surface its colour and lays its grain on by where it is in the world.
  *
+ * A model comes twice. The whole one is what is seen from near. The plain one leaves out the
+ * narrow bevels and some of the roundness, in about a third of the triangles: it casts the
+ * model's shadow, and is drawn where the two are less than a pixel of the picture apart.
+ *
  * The file is gzip over this, all little-endian:
  *
  *   4 bytes   the ASCII letters CUFM
- *   uint32    format version, 2
+ *   uint32    format version, 3
  *   uint32    number of models
  *   per model:
  *     uint8     length of the name, then that many ASCII bytes
- *     float32   x 6: the least x, y, z and the greatest x, y, z
- *     uint32    number of triangles, in the order of their surfaces
- *     per vertex, three to a triangle:
- *       float32 x 3   position
- *       float32 x 3   unit normal
- *       uint8         surface: WOOD to VINYL below
- *       uint8         how much of the room's light reaches the vertex past the rest of the
- *                     model and the floor, 255 for all of it
+ *     float32   x 6: the least x, y, z and the greatest x, y, z of the whole one
+ *     float32   the furthest a vertex of either one is from the surface of the other
+ *     the whole one, then the plain one, each:
+ *       uint32    number of vertices, fewer than 65536
+ *       uint32    number of triangles
+ *       per vertex, in the order of their surfaces:
+ *         float32 x 3   position
+ *         float32 x 3   unit normal
+ *         uint8         surface: WOOD to VINYL below
+ *         uint8         how much of the room's light reaches the vertex past the rest of the
+ *                       model and the floor, 255 for all of it
+ *       per triangle, in the order of their surfaces:
+ *         uint16 x 3    its vertices, counted from the first of this one
  */
 final class Models {
     static final int WOOD = 0, DARK_WOOD = 1, CLOTH = 2, LINEN = 3, PILLOW = 4, METAL = 5, PAINT = 6, ENAMEL = 7, STEEL = 8, PLASTIC = 9,
@@ -62,7 +71,7 @@ final class Models {
 
     private static final String RESOURCE = "/models/furniture.bin.gz";
     private static final int MAGIC = 'C' | 'U' << 8 | 'F' << 16 | 'M' << 24;
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
     private static final int VERTEX_BYTES = 6 * Float.BYTES + 2;
     /** Floats per vertex of a Model: its position, then the way it looks. */
     static final int VERTEX_FLOATS = 6;
@@ -75,14 +84,22 @@ final class Models {
     static final class Model {
         final String name;
         final float minX, minY, minZ, maxX, maxY, maxZ;
-        /** VERTEX_FLOATS for each vertex, three vertices to a triangle. */
+        /** VERTEX_FLOATS for each vertex, which is here once however many triangles meet at it. */
         final float[] vertices;
         /** What each vertex is made of. They are in the order of their surfaces. */
         final byte[] surface;
         /** The first vertex of each surface, and after the last surface the number of vertices. */
         final int[] first = new int[SURFACES + 1];
+        /** The vertices of each triangle, three to a triangle, counted from the model's first. */
+        final int[] corners;
         /** The model's first vertex in the buffer of every model: see buffer. */
         final int start;
+        /** The model's first corner in the list of every model's: see corners. */
+        final int from;
+        /** The furthest a vertex of this model or of its plain one is from the surface of the other, in metres. */
+        final float apart;
+        /** The same thing in fewer triangles, or null if this is the plain one. */
+        final Model plain;
         /** For each vertex, how much of the room's light reaches it, 0 to 1. */
         final float[] reached;
         /**
@@ -92,9 +109,16 @@ final class Models {
          */
         final float[] dimmed;
 
-        private Model(String name, int start, float[] bounds, float[] vertices, byte[] surface, float[] reached) {
+        private Model(String name, float[] bounds, float apart, Shape shape, int start, int from, Model plain) {
             this.name = name;
             this.start = start;
+            this.from = from;
+            this.apart = apart;
+            this.plain = plain;
+            float[] vertices = shape.vertices;
+            byte[] surface = shape.surface;
+            float[] reached = shape.reached;
+            corners = shape.corners;
             minX = bounds[0];
             minY = bounds[1];
             minZ = bounds[2];
@@ -117,7 +141,7 @@ final class Models {
         }
 
         int triangles() {
-            return surface.length / 3;
+            return corners.length / 3;
         }
 
         /** From side to side, in metres. */
@@ -134,6 +158,9 @@ final class Models {
             return maxZ - minZ;
         }
     }
+
+    /** One of a model's two, as the file holds it. */
+    private record Shape(float[] vertices, byte[] surface, float[] reached, int[] corners) {}
 
     /** Read by the logic thread, which stands the models, and by the render thread, which hands them to the graphics card. */
     private static volatile Map<String, Model> loaded;
@@ -173,46 +200,62 @@ final class Models {
         }
         int count = in.getInt();
         Map<String, Model> models = new LinkedHashMap<>();
-        int start = 0;
+        int start = 0, from = 0;
         for (int i = 0; i < count; i++) {
             need(in, 1, "a model's name");
             byte[] letters = new byte[in.get() & 0xff];
-            need(in, letters.length + 6 * Float.BYTES + Integer.BYTES, "a model's name and bounds");
+            need(in, letters.length + 7 * Float.BYTES, "a model's name and bounds");
             in.get(letters);
             String name = new String(letters, StandardCharsets.US_ASCII);
             float[] bounds = new float[6];
             for (int k = 0; k < 6; k++) {
                 bounds[k] = in.getFloat();
             }
-            int triangles = in.getInt();
-            if (triangles < 0 || (long) triangles * 3 * VERTEX_BYTES > in.remaining()) {
-                throw new IOException(name + " says it has " + triangles + " triangles, and the file ends before that many");
-            }
-            float[] vertices = new float[triangles * 3 * VERTEX_FLOATS];
-            byte[] surface = new byte[triangles * 3];
-            float[] reached = new float[triangles * 3];
-            for (int vertex = 0; vertex < surface.length; vertex++) {
-                for (int k = 0; k < VERTEX_FLOATS; k++) {
-                    vertices[vertex * VERTEX_FLOATS + k] = in.getFloat();
-                }
-                surface[vertex] = in.get();
-                if (surface[vertex] < 0 || surface[vertex] >= SURFACES) {
-                    throw new IOException(name + " has a vertex of surface " + surface[vertex] + ", and there are " + SURFACES);
-                }
-                reached[vertex] = (in.get() & 0xff) / 255f;
-                if (vertex > 0 && surface[vertex] < surface[vertex - 1]) {
-                    throw new IOException(name + " has its vertices out of the order of their surfaces");
-                }
-            }
-            if (models.put(name, new Model(name, start, bounds, vertices, surface, reached)) != null) {
+            float apart = in.getFloat();
+            Shape whole = shape(in, name), less = shape(in, name);
+            Model plain = new Model(name, bounds, apart, less, start + whole.surface.length, from + whole.corners.length, null);
+            if (models.put(name, new Model(name, bounds, apart, whole, start, from, plain)) != null) {
                 throw new IOException("two models are called " + name);
             }
-            start += surface.length;
+            start += whole.surface.length + less.surface.length;
+            from += whole.corners.length + less.corners.length;
         }
         if (in.hasRemaining()) {
             throw new IOException(in.remaining() + " bytes follow the last model");
         }
         return models;
+    }
+
+    private static Shape shape(ByteBuffer in, String name) throws IOException {
+        need(in, 2 * Integer.BYTES, "the counts of " + name);
+        int vertices = in.getInt(), triangles = in.getInt();
+        if (vertices < 0 || vertices >= 1 << 16 || triangles < 0 || (long) vertices * VERTEX_BYTES + (long) triangles * 3 * Short.BYTES > in.remaining()) {
+            throw new IOException(name + " says it has " + vertices + " vertices and " + triangles + " triangles, and the file ends before that many");
+        }
+        float[] places = new float[vertices * VERTEX_FLOATS];
+        byte[] surface = new byte[vertices];
+        float[] reached = new float[vertices];
+        for (int vertex = 0; vertex < vertices; vertex++) {
+            for (int k = 0; k < VERTEX_FLOATS; k++) {
+                places[vertex * VERTEX_FLOATS + k] = in.getFloat();
+            }
+            surface[vertex] = in.get();
+            if (surface[vertex] < 0 || surface[vertex] >= SURFACES) {
+                throw new IOException(name + " has a vertex of surface " + surface[vertex] + ", and there are " + SURFACES);
+            }
+            reached[vertex] = (in.get() & 0xff) / 255f;
+            if (vertex > 0 && surface[vertex] < surface[vertex - 1]) {
+                throw new IOException(name + " has its vertices out of the order of their surfaces");
+            }
+        }
+        int[] corners = new int[triangles * 3];
+        for (int corner = 0; corner < corners.length; corner++) {
+            corners[corner] = in.getShort() & 0xffff;
+            if (corners[corner] >= vertices) {
+                throw new IOException(name + " has a triangle at vertex " + corners[corner] + ", and it has " + vertices);
+            }
+        }
+        return new Shape(places, surface, reached, corners);
     }
 
     private static void need(ByteBuffer in, int bytes, String what) throws IOException {
@@ -259,18 +302,46 @@ final class Models {
         return buffer(models.values());
     }
 
-    /** The models one after another, each from its start, BUFFER_FLOATS to a vertex. */
+    /** The models one after another, each from its start and its plain one after it, BUFFER_FLOATS to a vertex. */
     static float[] buffer(Collection<Model> models) {
         int vertices = 0;
         for (Model model : models) {
-            vertices += model.surface.length;
+            vertices += model.surface.length + model.plain.surface.length;
         }
         float[] out = new float[vertices * BUFFER_FLOATS];
+        for (Model whole : models) {
+            for (Model model : new Model[] {whole, whole.plain}) {
+                for (int vertex = 0, at = model.start * BUFFER_FLOATS; vertex < model.surface.length; vertex++, at += BUFFER_FLOATS) {
+                    System.arraycopy(model.vertices, vertex * VERTEX_FLOATS, out, at, VERTEX_FLOATS);
+                    out[at + 6] = model.surface[vertex];
+                    out[at + 7] = model.dimmed[vertex];
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Every model's triangles as the graphics card keeps them: see corners. */
+    static int[] corners() {
+        Map<String, Model> models = loaded;
+        if (models == null) {
+            throw new IllegalStateException("the models are asked for before any was stood");
+        }
+        return corners(models.values());
+    }
+
+    /** The triangles of the models one after another, each from where its model says and its plain one's after them, as vertices of buffer. */
+    static int[] corners(Collection<Model> models) {
+        int corners = 0;
         for (Model model : models) {
-            for (int vertex = 0, at = model.start * BUFFER_FLOATS; vertex < model.surface.length; vertex++, at += BUFFER_FLOATS) {
-                System.arraycopy(model.vertices, vertex * VERTEX_FLOATS, out, at, VERTEX_FLOATS);
-                out[at + 6] = model.surface[vertex];
-                out[at + 7] = model.dimmed[vertex];
+            corners += model.corners.length + model.plain.corners.length;
+        }
+        int[] out = new int[corners];
+        for (Model whole : models) {
+            for (Model model : new Model[] {whole, whole.plain}) {
+                for (int corner = 0; corner < model.corners.length; corner++) {
+                    out[model.from + corner] = model.start + model.corners[corner];
+                }
             }
         }
         return out;
@@ -319,10 +390,22 @@ final class Models {
          * taken is then where the model's origin is on the picture.
          */
         static final int PICTURE = 34;
-        static final int FLOATS = 38;
-        /** The model's first vertex in the buffer of every model, how many it has, and the texture that dyes the piece or 0. */
-        static final int FIRST = 0, COUNT = 1, TEXTURE = 2;
-        static final int INTS = 3;
+        /** The furthest the piece's plain model is from its whole one, in tiles. The picture's programs are not told it. */
+        static final int APART = 38;
+        static final int FLOATS = 39;
+        /**
+         * The model's first corner in the list of every model's and how many it has, the same of
+         * its plain one, and the texture that dyes the piece or 0.
+         */
+        static final int FIRST = 0, COUNT = 1, PLAIN_FIRST = 2, PLAIN_COUNT = 3, TEXTURE = 4;
+        static final int INTS = 5;
+        /**
+         * How much of a pixel a piece's two models may be apart where the plain one is drawn.
+         * A bevel the plain one leaves out shows as the groove between two boards, which is
+         * both their bevels and the dark between them: with the two a whole pixel apart a
+         * crate's grooves were two pixels wide in one and broken lines in the other.
+         */
+        static final float SEEN_APART = 0.3f;
 
         float[] floats = new float[FLOATS * 8];
         int[] ints = new int[INTS * 8];
@@ -333,11 +416,11 @@ final class Models {
         }
 
         int triangles() {
-            int vertices = 0;
+            int corners = 0;
             for (int i = 0; i < count; i++) {
-                vertices += ints[i * INTS + COUNT];
+                corners += ints[i * INTS + COUNT];
             }
-            return vertices / 3;
+            return corners / 3;
         }
 
         /**
@@ -377,8 +460,11 @@ final class Models {
             to[at + DYE + 2] = alsoU;
             to[at + DYE + 3] = alsoV;
             to[at + PICTURE] = to[at + PICTURE + 1] = to[at + PICTURE + 2] = to[at + PICTURE + 3] = 0f;
-            ints[whole + FIRST] = model.start;
-            ints[whole + COUNT] = model.surface.length;
+            to[at + APART] = model.apart * Math.max(scale, scaleUp);
+            ints[whole + FIRST] = model.from;
+            ints[whole + COUNT] = model.corners.length;
+            ints[whole + PLAIN_FIRST] = model.plain.from;
+            ints[whole + PLAIN_COUNT] = model.plain.corners.length;
             ints[whole + TEXTURE] = dyeTexture;
             stand(count, (model.minX + model.maxX) / 2f, (model.minY + model.maxY) / 2f, (model.minZ + model.maxZ) / 2f, to, at + BALL);
             float halfWide = model.width() * scale / 2f, halfDeep = model.depth() * scale / 2f, halfHigh = model.height() * scaleUp / 2f;
@@ -396,6 +482,17 @@ final class Models {
             floats[at + DYE] = mapping[0];
             floats[at + DYE + 1] = mapping[1];
             System.arraycopy(mapping, 2, floats, at + PICTURE, 4);
+        }
+
+        /**
+         * Whether a piece is drawn as its plain model in a picture whose eye its middle is ahead
+         * tiles in front of, where two things a tile from that eye and pixel apart are a pixel
+         * apart: whether its two models, at the piece's nearest, are nowhere SEEN_APART of a
+         * pixel apart.
+         */
+        boolean plain(int piece, float ahead, float pixel) {
+            int at = piece * FLOATS;
+            return floats[at + APART] < (ahead - floats[at + BALL + 3]) * pixel * SEEN_APART;
         }
 
         /** The light at the first corner, and what is added to it along each edge and across, into every third float from at. */

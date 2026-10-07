@@ -134,9 +134,9 @@ final class PipelineShaders {
                 float gust = smoothstep(0.2, 0.85, gustAt(carried * 0.125, 8.0));
                 float swell = gustAt(carried * 0.5 + 3.7, 32.0);
                 float ripple = gustAt((at.xy - 0.25 * uGust.xy) * 2.0, 128.0) - 0.5;
-                // A whole number of shivers in the sixteen seconds the clock runs before it starts
-                // again: one every second or two. Faster than that and a lawn looks restless.
-                float shiver = sin(uGust.z * 0.3926991 * (8.0 + floor(seed * 12.0)) + seed * 37.0);
+                // A whole number of shivers in the 160 seconds the clock runs before it starts
+                // again: one every ten or twenty seconds. Faster than that and a lawn looks restless.
+                float shiver = sin(uGust.z * 0.03926991 * (8.0 + floor(seed * 12.0)) + seed * 37.0);
                 float limp = high * high / (high + 0.12);
                 float push = strength * (0.1 + 0.5 * gust + 0.22 * swell + 0.16 * ripple) * 0.75 * limp;
                 at.xy += way * push + beside * (shiver * 0.03 * strength * limp);
@@ -224,6 +224,7 @@ final class PipelineShaders {
             uniform vec4 uDye;
             uniform vec4 uPicture;
             uniform vec3 uEye;
+            uniform float uPixel;
 
             // Whether the surface's bit is set in a whole number of them. The half is there for a
             // power of two worked out a hair too large, which would otherwise divide the
@@ -262,7 +263,8 @@ final class PipelineShaders {
                     vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
                     // What a frame holds shows the sprite itself, laid over the model's face: each
                     // vertex looks at its own place on it.
-                    if (dyed && surface > 15.5 && surface < 16.5) {
+                    // So does the glass of a set that is on.
+                    if (dyed && (surface > 15.5 && surface < 16.5 || surface > 9.5 && surface < 10.5)) {
                         vUv += gl_Vertex.x * uPicture.xy + gl_Vertex.z * uPicture.zw;
                     }
                     vColor = vec4(gl_MultiTexCoord0.y * (uLit + share.x * uLitAlong + share.y * uLitDown + share.x * share.y * uLitAcross),
@@ -317,6 +319,21 @@ final class PipelineShaders {
                     at.z -= trodden * high * 0.65;
                 }
                 vCover = strip ? 1.0 - vBlade.y : 2.0 - length(looks);
+                // An overhead wire is finer than a pixel from a street away, and what is finer
+                // than a pixel is drawn only where it crosses the middle of one: a row of
+                // dashes that crawl as the head moves. A wire is two strips, one upright and
+                // one level, and takes no texel: where a texel's place would be, its vertex
+                // carries the way it stands off the middle of the wire, the level strip's as
+                // a way on the map of length one and the upright strip's as up or down, of
+                // length two to tell it by. Here it is stood off the middle as far as makes
+                // the wire a pixel thick from where the eye is. 0.015 is half of
+                // WorldScene.WIRE_THICK.
+                if (uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5) {
+                    vec2 way = gl_MultiTexCoord0.xy;
+                    vec3 off = dot(way, way) > 2.0 ? vec3(0.0, 0.0, sign(way.x)) : vec3(way, 0.0);
+                    at.xyz += off * max(0.0, 0.6 * uPixel * length(at.xyz - uEye) - 0.015);
+                    vUv = vec2(0.0);
+                }
                 vWorld = at.xyz + lies;
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
@@ -361,6 +378,7 @@ final class PipelineShaders {
             uniform vec3 uLightColor;
             uniform float uFogStart;
             uniform float uFogEnd;
+            uniform vec3 uLoaded;
             uniform float uSeconds;
             uniform float uCut;
             uniform vec2 uTexel;
@@ -1771,6 +1789,8 @@ final class PipelineShaders {
                 // How far a model's wood is painted over, and whether what its frame holds is a picture.
                 float painted = 0.0;
                 bool pictured = false;
+                // Whether it is the glass of a television that is on, which shows a picture by its own light.
+                bool showing = false;
                 // A model is solid all over: what follows gives it its colour and leaves no pixel
                 // of it out, so the pass that keeps only depth goes round it.
                 if (model && uDepthOnly < 0.5) {
@@ -1803,7 +1823,10 @@ final class PipelineShaders {
                                 : which < 0.8 ? vec3(0.62, 0.5, 0.3) : vec3(0.75, 0.72, 0.66);
                         own *= 0.75 + 0.5 * grain(book + 7.0);
                     }
-                    if (dyed && surface > 15.5 && surface < 16.5) {
+                    if (dyed && surface > 9.5 && surface < 10.5) {
+                        showing = true;
+                        own = texel.rgb;
+                    } else if (dyed && surface > 15.5 && surface < 16.5) {
                         // A picture in its frame is the sprite's own painting of it. Where the
                         // sprite has nothing painted, at its ragged edge, the pane is the board
                         // behind a picture.
@@ -1890,8 +1913,10 @@ final class PipelineShaders {
     /** The rest of main: the whole of it in one constant is longer than a class file can hold. */
     static final String WORLD_FRAGMENT_MAIN_REST = """
                 vec3 toEye = uEye - vWorld;
-                // What stands as a card and is not water: see card below.
-                if (vKind > 1.5 && !(vKind > 3.5 && !grass) && !grass && !grown && !crown && !core && length(vNormal.xy) > 0.1 * length(vNormal)) {
+                // What stands as a card and is not water: see card below. Nor an overhead wire,
+                // whose upright strip is all there is of it from the side.
+                if (vKind > 1.5 && !(vKind > 3.5 && !grass) && !grass && !grown && !crown && !core && length(vNormal.xy) > 0.1 * length(vNormal)
+                        && !(vMaterial > 11.5 && vMaterial < 12.5)) {
                     // A card seen edge on is a streak of smeared leaves. It thins out and goes
                     // before it gets there: the other cards of the fan are what is seen then.
                     float square = abs(dot(normalize(vNormal.xy + vec2(1e-5)), normalize(toEye.xy + vec2(1e-5))));
@@ -2452,6 +2477,11 @@ final class PipelineShaders {
                     float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
                     color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);
                 }
+                // A set that is on is seen by the light of its own tube, by day and in the dark
+                // alike, and the room's light on its glass is next to nothing beside it.
+                if (showing) {
+                    color = 0.1 * color + pow(texel.rgb, vec3(2.2)) * 1.2;
+                }
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
                     vec3 back = reflect(-view, n);
@@ -2507,8 +2537,11 @@ final class PipelineShaders {
                 color = mix(color, air, 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
-                if (range > uFogStart) {
-                    color = mix(color, ridges(-view, air), smoothstep(uFogStart, uFogEnd, range));
+                // And it ends where the loaded map does, which at the wheel of a car at speed is
+                // further off ahead than behind: the game loads ahead of it.
+                float ends = max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(toEye.xy + uLoaded.xy)));
+                if (ends > 0.0) {
+                    color = mix(color, ridges(-view, air), ends);
                 }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
@@ -2530,7 +2563,7 @@ final class PipelineShaders {
                 float polish = vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
                 // So does a mirror in its frame, and more than either.
-                float pane = glazed > 0.5 ? 0.6 : surface > 9.5 && surface < 10.5 ? 0.4
+                float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
                 gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(shine, polish) * step(0.8, n.z), pane));
             }
@@ -3102,6 +3135,7 @@ final class PipelineShaders {
             uniform vec3 uLightColor;
             uniform float uFogStart;
             uniform float uFogEnd;
+            uniform vec3 uLoaded;
             uniform float uInside;
             uniform float uPainted;
             uniform float uGlassPass;
@@ -3568,6 +3602,40 @@ final class PipelineShaders {
             // from its middle, the driver's side below nought, and up from 0.3 under its foot.
             float gScreenHalf = 0.72;
 
+            // A wiper goes through this much of a turn and back, in so many seconds.
+            const float WIPER_SWEEP = 1.92, WIPER_BEAT = 1.5;
+
+            // Where a place on the front screen is to one of its two wipers: x how far round
+            // the blade's sweep it is, nought where the blade is parked to 1, and under
+            // nought where the blade does not come, y how far from the wiper's foot, in tiles.
+            vec2 bladeTo(vec2 on, int i) {
+                vec2 rel = on - vec2((i == 0 ? -0.62 : 0.06) * gScreenHalf, -0.30);
+                float far2 = length(rel);
+                float q = atan(rel.y, rel.x) / WIPER_SWEEP;
+                return vec2(q < 0.02 || q > 1.0 || far2 < 0.05 ? -1.0 : q, far2);
+            }
+
+            // What the wipers have done to a place on the front screen: x how many times a
+            // blade has passed it since uTime last began again, both blades counted, and y
+            // how many seconds ago the last was, 1000 where no blade comes.
+            vec2 wipedAt(vec2 on) {
+                float reach = 0.66 * gScreenHalf;
+                float beats = uTime / WIPER_BEAT;
+                float phase = fract(beats);
+                vec2 found = vec2(0.0, 1000.0);
+                for (int i = 0; i < 2; i++) {
+                    vec2 to = bladeTo(on, i);
+                    if (to.x < 0.0 || to.y >= reach) {
+                        continue;
+                    }
+                    // A blade passes on its way up and again on its way back.
+                    float up = 0.5 * to.x, back = 1.0 - up;
+                    found.x += 2.0 * floor(beats) + step(up, phase) + step(back, phase);
+                    found.y = min(found.y, min(fract(phase - up), fract(phase - back)) * WIPER_BEAT);
+                }
+                return found;
+            }
+
             // Where a place on the front screen is to its two wipers. They are parked along
             // its foot, pointing away from the driver's side, and sweep up together through
             // a little over a right angle and back. x is 1 where a blade wipes, y 1 on the
@@ -3575,16 +3643,14 @@ final class PipelineShaders {
             // last passed, 0 just now to 1 long enough for the rain to be back, and w 1 on
             // a blade itself while it rains.
             vec4 sweepAt(vec2 on) {
-                const float SWEEP = 1.92, BEAT = 1.5;
                 float reach = 0.66 * gScreenHalf;
-                float phase = fract(uTime / BEAT);
+                float phase = fract(uTime / WIPER_BEAT);
                 float at = phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase;
                 vec4 found = vec4(0.0, 0.0, 1.0, 0.0);
                 for (int i = 0; i < 2; i++) {
-                    vec2 rel = on - vec2((i == 0 ? -0.62 : 0.06) * gScreenHalf, -0.30);
-                    float far2 = length(rel);
-                    float q = atan(rel.y, rel.x) / SWEEP;
-                    if (q < 0.02 || q > 1.0 || far2 < 0.05) {
+                    vec2 to = bladeTo(on, i);
+                    float q = to.x, far2 = to.y;
+                    if (q < 0.0) {
                         continue;
                     }
                     float past = (far2 - reach) / 0.012;
@@ -3592,8 +3658,8 @@ final class PipelineShaders {
                     if (far2 < reach) {
                         found.x = 1.0;
                         float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
-                        found.z = min(found.z, clamp(since * BEAT / 1.1, 0.0, 1.0));
-                        found.w = max(found.w, 1.0 - smoothstep(0.004, 0.011, abs(q - at) * SWEEP * far2));
+                        found.z = min(found.z, clamp(since * WIPER_BEAT / 1.1, 0.0, 1.0));
+                        found.w = max(found.w, 1.0 - smoothstep(0.004, 0.011, abs(q - at) * WIPER_SWEEP * far2));
                     }
                 }
                 found.y *= 1.0 - found.x;
@@ -3601,10 +3667,12 @@ final class PipelineShaders {
             }
 
             vec4 flared(vec4 glass, vec3 look, float dirt);
+            """ + GlassRain.GLSL + """
 
             // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
-            // as the car moves. on is the place on the pane, in tiles.
+            // as the car moves, and the rain on it: see GlassRain. on is the place on the
+            // pane, in tiles.
             vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
                 float dust = smoothstep(0.35, 0.85, noiseAt(on * 5.0) * 0.55 + noiseAt(on * 15.0 + 3.0) * 0.3 + noiseAt(on * 61.0) * 0.15);
                 float runs = smoothstep(0.62, 0.95, noiseAt(vec2(on.x * 46.0, on.y * 2.2)));
@@ -3631,36 +3699,7 @@ final class PipelineShaders {
                 float cover = clamp(0.06 + 0.5 * glancing + dusty, 0.0, 0.8);
                 vec4 glass = vec4(mix(sheen, grime, clamp(dusty / cover, 0.0, 1.0)), cover);
                 if (uRaining > 0.0) {
-                    // Rain stands on the glass as drops. On the front screen the wipers go to
-                    // and fro and the drops come back behind the blade.
-                    float fresh = swept > 0.5 ? wiper.z : 1.0;
-                    float blade = wiper.w;
-                    vec2 grid = on * 46.0;
-                    vec2 cell = floor(grid);
-                    float chance = hash21(cell);
-                    vec2 middle = (vec2(hash21(cell + 3.1), hash21(cell + 7.7)) - 0.5) * 0.5;
-                    float size = 0.14 + 0.22 * chance;
-                    float off = length(fract(grid) - 0.5 - middle);
-                    float there = step(1.0 - uRaining * fresh * 0.8, hash21(cell + floor(uTime * 0.3 + chance * 9.0)));
-                    float bead = there * (1.0 - smoothstep(size * 0.7, size, off));
-                    float rim = there * smoothstep(size * 0.45, size * 0.9, off) * step(off, size);
-                    float wet = bead * 0.22 + rim * 0.5;
-                    // A drop is a lens: it holds the sky and, at night, the glare of the lamps.
-                    vec3 held = atmosphere(vec3(0.0, 0.0, 1.0)) * 1.3 + vec3(1.0, 0.92, 0.76) * (0.1 * swept * step(0.5, uBeamAt[0].w));
-                    glass.rgb = mix(glass.rgb, held, wet / (wet + glass.a));
-                    glass.a = min(glass.a + wet * 0.6, 0.9);
-                    // On the panes no wiper reaches the rain gathers and runs down in
-                    // trickles, and the glass mists over from its foot where the warm air
-                    // inside meets it.
-                    float still = 1.0 - (swept > 0.5 ? wiper.x : 0.0);
-                    float trickle = smoothstep(0.8, 0.97, noiseAt(vec2(on.x * 70.0, on.y * 2.5 + uTime * 0.35))) * smoothstep(0.35, 0.6, noiseAt(vec2(on.x * 9.0 + 4.0, on.y * 1.5 - uTime * 0.2)));
-                    float running = trickle * uRaining * still * (1.0 - 0.7 * swept);
-                    glass.rgb = mix(glass.rgb, held, running * 0.6 / (running * 0.6 + glass.a));
-                    glass.a = min(glass.a + running * 0.28, 0.9);
-                    float mist = uRaining * still * (1.0 - smoothstep(-0.32, 0.02 + 0.12 * noiseAt(on * 3.0), on.y)) * (0.5 + 0.5 * noiseAt(on * 11.0));
-                    glass.rgb = mix(glass.rgb, atmosphere(vec3(0.0, 0.0, 1.0)) * 0.9 + 0.01, mist * 0.3 / (mist * 0.3 + glass.a));
-                    glass.a = min(glass.a + mist * 0.3, 0.92);
-                    glass = mix(glass, vec4(0.004, 0.004, 0.005, 1.0), blade);
+                    glass = rained(glass, on, swept, wiper);
                 }
                 return flared(glass, -view, dirt);
             }
@@ -4562,7 +4601,8 @@ final class PipelineShaders {
                 }
 
                 float range = max(ahead * length(ray) - uRangeFrom, 0.0);
-                float haze = max(smoothstep(uFogStart, uFogEnd, range), 1.0 - exp(-range * 0.0022));
+                float ends = max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
+                float haze = max(ends, 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
                 // traces what the bonnet's lacquer shows of the world over it.

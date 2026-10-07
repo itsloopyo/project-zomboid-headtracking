@@ -373,6 +373,7 @@ public final class FirstPerson {
     /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */
     public static void afterWorldRender() {
         long before = TRACE ? Allocation.byThisThread() : 0L;
+        Controls.frame();
         try {
             frame();
             // After the picture, which would cover it.

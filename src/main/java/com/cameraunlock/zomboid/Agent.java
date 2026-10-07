@@ -130,9 +130,10 @@ public final class Agent {
             Log.info("the agent was started a second time: the first start stands");
             return;
         }
-        loaded = true;
         Path gameDirectory = Path.of("").toAbsolutePath();
         Log.open(gameDirectory);
+        // Only once there is a log: a second start after a first that could not open one has nowhere to say so.
+        loaded = true;
         Log.info("Project Zomboid Head Tracking " + Agent.class.getPackage().getImplementationVersion()
                 + " loaded, Java " + Runtime.version() + ", game directory " + gameDirectory);
         try {
@@ -178,6 +179,7 @@ public final class Agent {
             instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
         }
         instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
+        instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
         instrumentation.addTransformer(chunkMarks);
@@ -237,6 +239,7 @@ public final class Agent {
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getXA", "reticleX"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getYA", "reticleY"),
                 returning("zombie/characters/component/CharacterInputComponent", "isAimKeyDownInternal", "()Z", "aimKey", BOOLEAN_FILTER),
+                returning("zombie/characters/component/CharacterInputComponent", "isAttackButtonDown", "()Z", "attackKey", BOOLEAN_FILTER),
                 returning("zombie/characters/component/CharacterInputComponent", "isInteractButtonDownInternal", "()Z", "interactKey", BOOLEAN_FILTER),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
@@ -311,6 +314,37 @@ public final class Agent {
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
                         new CallSite.Method("com/cameraunlock/zomboid/Characters", "gamesOwnDrawIsCovered", "()Z"))));
+    }
+
+    /**
+     * Apart again: without it first person works as it does, and a vehicle comes into the
+     * picture where the game's own view would first show it. The game draws the model of a
+     * thing that moves only while it is on the game's own screen and on ground the viewer has
+     * seen: the picture sees further, and a vehicle within its sight is drawn. A zombie has a
+     * model at all only near the game's screen, and from a vehicle the zombies ahead keep
+     * theirs and are drawn as well. See FarModels.
+     */
+    private static List<Patch> farVehiclePatches() {
+        String cell = "zombie/iso/fboRenderChunk/FBORenderCell", vehicle = "zombie/vehicles/BaseVehicle";
+        String world = "zombie/iso/IsoWorld", zombie = "zombie/characters/IsoZombie";
+        return List.of(
+                new Patch(cell, "renderMovingObject asks the picture whether a vehicle is in view", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(cell, "renderMovingObject", "(Lzombie/iso/IsoMovingObject;)V"),
+                        new CallSite.Method("zombie/iso/IsoMovingObject", "isOnScreen", "()Z"),
+                        new CallSite.Method("com/cameraunlock/zomboid/FarModels", "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
+                new Patch(vehicle, "a vehicle's render asks the picture whether it is seen", classBytes -> {
+                    CallSite.Method render = new CallSite.Method(vehicle, "render", "(FFFLzombie/core/textures/ColorInfo;ZZLzombie/core/opengl/Shader;)V");
+                    CallSite.Method seen = new CallSite.Method("com/cameraunlock/zomboid/FarModels", "seen", "(Z)Z");
+                    classBytes = CallSite.insertAfter(classBytes, render, new CallSite.Method("zombie/iso/IsoGridSquare$ILighting", "bSeen", "()Z"), seen);
+                    return CallSite.insertAfter(classBytes, render, new CallSite.Method(vehicle, "couldSeeIntersectedSquare", "(I)Z"), seen);
+                }),
+                new Patch(world, "sceneCullZombies asks the picture where a zombie is on the screen", classBytes -> {
+                    CallSite.Method cull = new CallSite.Method(world, "sceneCullZombies", "()V");
+                    classBytes = CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperX", "(I)I"),
+                            new CallSite.Method("com/cameraunlock/zomboid/FarModels", "screenAcross", "(L" + zombie + ";I)I"), 1);
+                    return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
+                            new CallSite.Method("com/cameraunlock/zomboid/FarModels", "screenDown", "(L" + zombie + ";I)I"), 1);
+                }));
     }
 
     /**

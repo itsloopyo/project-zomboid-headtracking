@@ -24,6 +24,299 @@ final class OwnArmTests {
         leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model);
         somethingSwungInBothHandsHasAFistUnderTheOther(model);
         handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(model);
+        armsOnALongGunAreArmsFromShouldersOutOfThePicture(model);
+        handUnderAForeEndComesBackToWhereItsArmReaches(model);
+        handOnAPumpIsOnItAndGoesWithIt(model);
+        upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre(model);
+        elbowIsWhereTheTwoBonesMeet();
+        wristIsWhereTheArmPutsIt(model);
+        longGunIsHeldNearerAtTheHipThanItsSightsAsk();
+        armsAreTheSizeArmsAreAndStartWhereShouldersAre(model);
+    }
+
+    private static final float SCALE = 0.74f;
+    /** The tangent of half the height of the picture the game is seen in, how wide it is against that, and how far under the picture the middle of an elbow is asked to be and how thick an arm is about the ball of its shoulder, in metres. */
+    private static final float PICTURE = 0.6371f, WIDE = 16f / 9f, UNDER = 0.03f, BALL = 0.09f;
+    /**
+     * A hunting rifle and a pump gun of the mod's own, and one of the game's long guns: how far behind the grip the eye is with the sights up,
+     * how far under the barrel's line the grip is, how far ahead of the grip the fore-end is held and how far over it, in metres.
+     */
+    private static final float[][] LONG_GUNS = {{0.13f, 0.062f, 0.41f, 0.032f}, {0.26f, 0.053f, 0.4425f, 0.019f}, {ViewModel.AIMED_AHEAD / SCALE, 0.06f, 0.38f, 0.02f}};
+    private static final String[] LONG_GUN_NAMES = {"the rifle", "the pump gun", "one of the game's long guns"};
+    /** How a gun is tipped about its grip: its muzzle up, its muzzle to the left, and its top over to the left, in radians. The first is filled in with the cant a gun has at the hip. */
+    private static final float[][] TIPS = {{0f, 0f, 0f}, {0.3f, 0f, 0f}, {-0.3f, 0f, 0f}, {0f, 0.25f, 0f}, {0f, -0.25f, 0f}, {0f, 0f, 0.6f}, {0f, 0f, -0.6f}, {0.2f, -0.2f, -0.7f}};
+
+    private static float[] turned(float[] turn, float[] line) {
+        return new float[] {turn[0] * line[0] + turn[3] * line[1] + turn[6] * line[2], turn[1] * line[0] + turn[4] * line[1] + turn[7] * line[2],
+            turn[2] * line[0] + turn[5] * line[1] + turn[8] * line[2]};
+    }
+
+    /**
+     * A long gun where the mod holds one in its own hands: `raised` of the way from the hip to the sights, tipped about the line of its
+     * barrel, and its fore-end drawn back by `drawn` metres from where it rests.
+     */
+    private static ArmHolds.Weapon longGun(float[] gun, float raised, float[] tip, float drawn) {
+        float aimed = gun[0] * SCALE, hip = ViewModel.hipAhead(aimed);
+        float[] line = {ViewModel.HIP_LONG_X * (1f - raised), ViewModel.HIP_LONG_Y + (-0.02f - ViewModel.HIP_LONG_Y) * raised, -(hip + (aimed - hip) * raised)};
+        float[] rolled = new float[9], pitched = new float[9], yawed = new float[9];
+        ArmPose.about(new float[] {0f, 0f, -1f}, tip[2], rolled);
+        ArmPose.about(new float[] {1f, 0f, 0f}, tip[0], pitched);
+        ArmPose.about(new float[] {0f, 1f, 0f}, tip[1], yawed);
+        float[] pointing = turned(yawed, turned(pitched, turned(rolled, new float[] {0f, 0f, -1f}))), over = turned(yawed, turned(pitched, turned(rolled, new float[] {0f, 1f, 0f})));
+        float[] grip = new float[3], rests = new float[3], fore = new float[3];
+        for (int axis = 0; axis < 3; axis++) {
+            grip[axis] = line[axis] - over[axis] * gun[1] * SCALE;
+            rests[axis] = grip[axis] + (pointing[axis] * gun[2] + over[axis] * gun[3]) * SCALE;
+            fore[axis] = rests[axis] - pointing[axis] * drawn * SCALE;
+        }
+        return new ArmHolds.Weapon(true, false, grip, grip, pointing, over, fore, rests, ArmHolds.LONG);
+    }
+
+    private static ArmHolds.Doing holding(float raised) {
+        return new ArmHolds.Doing(raised, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+    }
+
+    /** Whether a place, with `clear` metres round it, is out of the picture of an eye that looks the way the aim does: behind the eye, or past an edge of the picture. */
+    private static boolean outOfThePicture(float[] at, float clear) {
+        float depth = -at[2];
+        return depth <= 0f || Math.abs(at[1]) - clear * SCALE > depth * PICTURE || Math.abs(at[0]) - clear * SCALE > depth * PICTURE * WIDE;
+    }
+
+    /** A place as a head tipped down by so many degrees from the aim sees it. */
+    private static float[] tippedDown(float[] at, float degrees) {
+        float[] turn = new float[9];
+        ArmPose.about(new float[] {1f, 0f, 0f}, (float) Math.toRadians(degrees), turn);
+        return turned(turn, at);
+    }
+
+    /** How far ahead of a weapon's grip, along its barrel, the left hand placed by `skins` holds it, in metres. */
+    private static float aheadOfTheGrip(ArmModel model, float[] skins, ArmHolds.Weapon weapon) {
+        float[] on = placed(skins, model.wrist, model.holds[model.pose("fore")]);
+        return ArmPose.dot(new float[] {on[0] - weapon.grip()[0], on[1] - weapon.grip()[1], on[2] - weapon.grip()[2]}, weapon.pointing()) / SCALE;
+    }
+
+    /** These are what the arms are measured by everywhere else here, so they are held to what a body is. */
+    private static void armsAreTheSizeArmsAreAndStartWhereShouldersAre(ArmModel model) {
+        float shortest = model.upperLength * ArmPose.UPPER_SHORTEST, longest = model.upperLength * ArmPose.UPPER_LONGEST;
+        check(shortest > 0.18f && longest < 0.34f && longest > model.foreLength, "an upper arm is drawn between 0.18 m and 0.34 m long, and at its longest is longer than the forearm: " + shortest + " to " + longest);
+        check(ArmPose.SHOULDER_GIVES > 0f && ArmPose.SHOULDER_GIVES <= 0.05f, "a shoulder gives no more than five centimetres");
+        check(ArmPose.WRIST_MOST <= Math.toRadians(35) && ArmHolds.REACH_EASY < ArmPose.STRAIGHTEST && ArmPose.STRAIGHTEST < 1f, "a hand asks for its wrist bent no more than 35 degrees, and an arm is never quite straight");
+        check(ArmHolds.NEAREST_FORE >= 0.14f, "the hand under a fore-end comes no nearer the middle of the grip than clears the hand that is on it");
+        float[][] shoulders = {{ArmHolds.SHOULDER[0], ArmHolds.SHOULDER[1], ArmHolds.SHOULDER[2]}, {-ArmHolds.SHOULDER[0], ArmHolds.SHOULDER[1], ArmHolds.SHOULDER[2]},
+            ArmHolds.LONG_SHOULDERS[0], ArmHolds.LONG_SHOULDERS[1]};
+        for (float[] shoulder : shoulders) {
+            check(Math.abs(shoulder[0]) >= 0.13f && Math.abs(shoulder[0]) <= 0.22f && shoulder[1] <= -0.18f && shoulder[1] >= -0.28f && shoulder[2] >= -0.03f && shoulder[2] <= 0.15f,
+                    "a shoulder is 13 to 22 cm to its side of the eye, 18 to 28 cm under it and no more than 3 cm ahead of it: " + java.util.Arrays.toString(shoulder));
+        }
+        check(ArmHolds.LONG_SHOULDERS[0][0] > 0f && ArmHolds.LONG_SHOULDERS[1][0] < 0f && ArmHolds.LONG_SHOULDERS[1][2] < ArmHolds.LONG_SHOULDERS[0][2],
+                "behind a long gun the right one is on the right and the left one is the further forward");
+    }
+
+    private static void armsOnALongGunAreArmsFromShouldersOutOfThePicture(ArmModel model) {
+        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        for (int which = 0; which < LONG_GUNS.length; which++) {
+            for (float raised = 0f; raised < 1.01f; raised += 0.125f) {
+                for (int tipped = 0; tipped < TIPS.length; tipped++) {
+                    // At the hip a gun is tipped over towards the middle, less as it comes up.
+                    float[] tip = tipped == 0 ? new float[] {0f, 0f, (float) Math.toRadians(8) * (1f - raised)} : TIPS[tipped];
+                    String how = LONG_GUN_NAMES[which] + " raised " + raised + ", tipped the way numbered " + tipped;
+                    check(ArmHolds.place(model, SCALE, longGun(LONG_GUNS[which], raised, tip, 0f), holding(raised), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2,
+                            "a long gun has both arms: " + how);
+                    for (int side = 0; side < 2; side++) {
+                        String arm = (side == 0 ? "the right arm on " : "the left arm on ") + how;
+                        float[] shoulder = placed(skins[side], model.upper, model.shoulder), elbow = placed(skins[side], model.upper, model.elbow);
+                        float[] wrist = placed(skins[side], model.fore, model.hand);
+                        float drawn = said[side][ArmPose.DRAWN];
+                        check(near(ArmPose.apart(elbow, wrist), model.foreLength * SCALE, 1e-4f), "the forearm is as long as it is: " + arm);
+                        check(drawn >= ArmPose.UPPER_SHORTEST && drawn <= ArmPose.UPPER_LONGEST && near(ArmPose.apart(shoulder, elbow), model.upperLength * drawn * SCALE, 1e-4f),
+                                "the upper arm is as long as it says, which is a length upper arms are: " + arm + ", " + drawn);
+                        for (int bone : new int[] {model.fore, model.foreTwist}) {
+                            for (int column = 0; column < 3; column++) {
+                                float x = skins[side][bone * 16 + column * 4], y = skins[side][bone * 16 + column * 4 + 1], z = skins[side][bone * 16 + column * 4 + 2];
+                                check(near((float) Math.sqrt(x * x + y * y + z * z), SCALE, 1e-4f), "the bone " + model.bones[bone] + " is drawn out no way: " + arm);
+                            }
+                        }
+                        float[] rests = ArmHolds.LONG_SHOULDERS[side];
+                        float moved = ArmPose.apart(shoulder, new float[] {rests[0] * SCALE, rests[1] * SCALE, rests[2] * SCALE});
+                        check(moved <= ArmPose.SHOULDER_GIVES * SCALE + 1e-4f && near(moved, said[side][ArmPose.GAVE], 1e-4f),
+                                "it starts at the shoulder behind a long gun, as near as a shoulder gives, and says how far that is: " + arm + ", " + moved);
+                        // One of the game's long guns has its sights so far from the eye that the arm does not reach even the back of its fore-end
+                        // with them up, and the shoulder comes after the hand: it is held to less.
+                        float tips = which < 2 ? 30f : tipped == 0 ? 20f : 0f;
+                        for (float down = 0f; down <= tips; down += 10f) {
+                            check(outOfThePicture(tippedDown(shoulder, down), BALL),
+                                    "the ball of that shoulder is out of the picture, so the arm runs out of it and does not end in it, with the head tipped down " + down + " degrees: " + arm);
+                        }
+                        check(which == 2 || outOfThePicture(tippedDown(shoulder, 40f), 0f), "and tipped down 40 the middle of it still is: " + arm);
+                        float bent = (float) Math.toDegrees(said[side][ArmPose.BENT]);
+                        check(bent < (side == 1 ? 33f : tipped == 0 ? 42f : 62f), "its wrist is bent no further than a wrist goes: " + arm + ", " + bent);
+                    }
+                    ArmHolds.Weapon held = longGun(LONG_GUNS[which], raised, tip, 0f);
+                    float[] palm = placed(skins[1], model.wrist, model.holds[model.pose("fore")]);
+                    float[] into = placed(skins[1], model.wrist, new float[] {model.holds[model.pose("fore")][0] + model.out[0], model.holds[model.pose("fore")][1] + model.out[1],
+                        model.holds[model.pose("fore")][2] + model.out[2]});
+                    float[] faces = {(into[0] - palm[0]) / SCALE, (into[1] - palm[1]) / SCALE, (into[2] - palm[2]) / SCALE};
+                    check(ArmPose.dot(faces, held.over()) > 0.4f && Math.abs(ArmPose.dot(faces, held.pointing())) < 1e-3f,
+                            "the palm of the hand under the fore-end faces up into it, square to the barrel: " + how + ", " + ArmPose.dot(faces, held.over()));
+                    float ahead = aheadOfTheGrip(model, skins[1], held);
+                    check(ahead >= ArmHolds.NEAREST_FORE - 1e-4f && ahead <= LONG_GUNS[which][2] + 1e-4f, "that hand is between the grip and where the fore-end is held: " + how + ", " + ahead);
+                    if (raised == 0f && tipped == 0) {
+                        float[] elbow = {said[1][ArmPose.ELBOW], said[1][ArmPose.ELBOW + 1], said[1][ArmPose.ELBOW + 2]};
+                        check(outOfThePicture(elbow, UNDER), "at the hip the middle of the left elbow is under the picture and the upper arm with it: the forearm is what comes up into it: " + how);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void handUnderAForeEndComesBackToWhereItsArmReaches(ArmModel model) {
+        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        float[] fore = model.holds[model.pose("fore")];
+        float[] rests = {ArmHolds.LONG_SHOULDERS[1][0] * SCALE, ArmHolds.LONG_SHOULDERS[1][1] * SCALE, ArmHolds.LONG_SHOULDERS[1][2] * SCALE};
+        float easy = ArmPose.whole(model) * SCALE * ArmHolds.REACH_EASY;
+        float nearest = 0f;
+        // The same gun with its fore-end held further and further out along its barrel.
+        for (float out = 0.2f; out < 0.9f; out += 0.05f) {
+            float[] grip = {0.1f, -0.16f, -0.2f}, end = {0.1f, -0.14f, -0.2f - out * SCALE};
+            ArmHolds.Weapon gun = new ArmHolds.Weapon(true, false, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, end, end, ArmHolds.LONG);
+            check(ArmHolds.place(model, SCALE, gun, holding(0f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a long gun has both arms however long it is");
+            float[] hand = placed(skins[1], model.wrist, fore);
+            float[] wrist = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
+            check(near(hand[0], end[0], 1e-4f) && near(hand[1], end[1], 1e-4f), "the left hand is under the barrel, on the line its fore-end is on");
+            float ahead = (grip[2] - hand[2]) / SCALE;
+            check(ahead <= out + 1e-4f && ahead >= ArmHolds.NEAREST_FORE - 1e-4f, "no further out than the fore-end is, and no nearer the grip than a hand comes: " + ahead);
+            if (ahead < out - 1e-3f) {
+                check(nearest == 0f || near(ahead, nearest, 1e-3f), "a fore-end out of reach has the hand as far out as the arm reaches, wherever the fore-end is: " + ahead);
+                nearest = ahead;
+                check(near(ArmPose.apart(rests, wrist), easy, 1e-3f), "and its wrist is then as far from where the shoulder rests as the arm reaches easily");
+            } else {
+                check(nearest == 0f, "a fore-end within reach has the hand on it");
+                check(ArmPose.apart(rests, wrist) <= easy + 1e-3f, "which is no further than the arm reaches easily");
+            }
+            check(said[1][ArmPose.GAVE] <= ArmPose.SHOULDER_GIVES * SCALE + 1e-5f, "and the shoulder is where a shoulder is, as near as one gives");
+        }
+        check(nearest > 0.3f, "the arm reaches a good way along the barrel: " + nearest);
+    }
+
+    private static void handOnAPumpIsOnItAndGoesWithIt(ArmModel model) {
+        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        float[] fore = model.holds[model.pose("fore")], pump = LONG_GUNS[1];
+        // The mod's own pump gun has its fore-end 0.195 m long about where it is held, and draws it back 0.094 m.
+        float behind = pump[2] - 0.0975f, travel = 0.094f;
+        for (float raised = 0f; raised < 1.01f; raised += 0.25f) {
+            float[] tip = {0f, 0f, (float) Math.toRadians(8) * (1f - raised)};
+            ArmHolds.Weapon rests = longGun(pump, raised, tip, 0f), back = longGun(pump, raised, tip, travel);
+            check(ArmHolds.place(model, SCALE, rests, holding(raised), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a pump gun has both arms");
+            float[] on = placed(skins[1], model.wrist, fore);
+            float[] from = {on[0] - rests.grip()[0], on[1] - rests.grip()[1], on[2] - rests.grip()[2]};
+            float ahead = ArmPose.dot(from, rests.pointing()) / SCALE;
+            check(ahead > behind + 0.01f && ahead <= pump[2] + 1e-4f, "its left hand is on its fore-end, ahead of the back of it, raised " + raised + ": " + ahead + " against " + behind);
+            check(ArmHolds.place(model, SCALE, back, holding(raised), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "and has both with the fore-end drawn back");
+            float[] drawn = placed(skins[1], model.wrist, fore);
+            float[] moved = {on[0] - drawn[0], on[1] - drawn[1], on[2] - drawn[2]};
+            check(near(ArmPose.dot(moved, rests.pointing()), travel * SCALE, 1e-3f) && near(ArmPose.apart(on, drawn), travel * SCALE, 1e-3f),
+                    "the hand goes back with the fore-end, as far as it goes and along the barrel, raised " + raised + ": " + ArmPose.apart(on, drawn) / SCALE);
+            // A shot kicks the whole gun back along its barrel and a step sways it. Where it is held still is where it was.
+            for (float kick : new float[] {0.06f, -0.03f}) {
+                float[] kickedGrip = new float[3], kickedFore = new float[3];
+                for (int axis = 0; axis < 3; axis++) {
+                    kickedGrip[axis] = rests.grip()[axis] - rests.pointing()[axis] * kick * SCALE + rests.over()[axis] * 0.01f * SCALE;
+                    kickedFore[axis] = rests.foreEnd()[axis] - rests.pointing()[axis] * kick * SCALE + rests.over()[axis] * 0.01f * SCALE;
+                }
+                ArmHolds.Weapon kicked = new ArmHolds.Weapon(true, false, kickedGrip, kickedGrip, rests.pointing(), rests.over(), kickedFore, rests.foreSteady(), ArmHolds.LONG);
+                check(ArmHolds.place(model, SCALE, kicked, holding(raised), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a gun that a shot has kicked has both arms");
+                check(near(aheadOfTheGrip(model, skins[1], kicked), ahead, 1e-3f), "its left hand is at the same place on its fore-end as before the shot, kicked " + kick + ", raised " + raised
+                        + ": " + aheadOfTheGrip(model, skins[1], kicked) + " against " + ahead);
+            }
+        }
+        // A fore-end the arm reaches wherever it is has the hand on it wherever it is.
+        float[] grip = {0.1f, -0.16f, -0.2f}, forward = {0.1f, -0.14f, -0.2f - 0.25f * SCALE}, back = {0.1f, -0.14f, -0.2f - 0.2f * SCALE};
+        ArmHolds.Weapon near = new ArmHolds.Weapon(true, false, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, back, forward, ArmHolds.LONG);
+        check(ArmHolds.place(model, SCALE, near, holding(0f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2
+                && ArmPose.apart(placed(skins[1], model.wrist, fore), back) < 1e-4f, "a fore-end within reach, drawn back, has the hand on it where it is and not where it rests");
+        // One of the game's pump guns with the sights up has its fore-end out of reach: the hand is as near the grip as a hand comes, and stays clear of the grip with the fore-end back.
+        ArmHolds.Weapon far = longGun(LONG_GUNS[2], 1f, new float[3], 0.108f);
+        check(ArmHolds.place(model, SCALE, far, holding(1f), SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "one of the game's pump guns has both arms with its fore-end back");
+        float clear = aheadOfTheGrip(model, skins[1], far);
+        check(clear >= ArmHolds.NEAREST_FORE - 1e-4f && clear <= LONG_GUNS[2][2] - 0.108f + 1e-4f, "its left hand is no nearer the grip than a hand comes, and no further out than the fore-end is: " + clear);
+    }
+
+    private static void upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre(ArmModel model) {
+        float[] shoulder = {0.14f, -0.16f, 0.05f}, pole = {0.25f, -0.42f, 0.09f}, across = {0f, 0.98f, -0.2f}, out = {-1f, 0f, 0f};
+        float[] skins = new float[model.bones.length * 16], said = new float[ArmPose.SAYS];
+        int exact = 0, short3 = 0, long3 = 0;
+        for (float ahead = 0.02f; ahead < 1.5f; ahead += 0.04f) {
+            check(ArmPose.solve(model, SCALE, only(model, "grip"), new float[] {0.13f, -0.14f, -ahead}, across, out, shoulder, pole, false, false, skins, said), "a hand has an arm however far off it is: " + ahead);
+            float[] starts = placed(skins, model.upper, model.shoulder), elbow = placed(skins, model.upper, model.elbow), wrist = placed(skins, model.fore, model.hand);
+            float drawn = said[ArmPose.DRAWN], upper = model.upperLength * drawn * SCALE;
+            check(near(ArmPose.apart(elbow, wrist), model.foreLength * SCALE, 1e-4f) && near(ArmPose.apart(starts, elbow), upper, 1e-4f),
+                    "its forearm is as long as it is and its upper arm as long as it says: " + ahead);
+            check(drawn >= ArmPose.UPPER_SHORTEST && drawn <= ArmPose.UPPER_LONGEST, "which is a length upper arms are: " + drawn);
+            check(near(ArmPose.apart(starts, shoulder), said[ArmPose.GAVE], 1e-4f), "it says how far its shoulder is from where it was asked for");
+            if (drawn > ArmPose.UPPER_SHORTEST && drawn < ArmPose.UPPER_LONGEST) {
+                exact++;
+                check(said[ArmPose.GAVE] < 1e-4f && said[ArmPose.BENT] <= ArmPose.WRIST_MOST + 1e-3f,
+                        "an elbow the upper arm reaches leaves the shoulder where it is, and the wrist bent no further than a hand would have it: " + ahead);
+            } else if (drawn == ArmPose.UPPER_SHORTEST) {
+                short3++;
+            } else {
+                long3++;
+                float straight = (model.upperLength * ArmPose.UPPER_LONGEST + model.foreLength) * SCALE * ArmPose.STRAIGHTEST;
+                if (ArmPose.apart(shoulder, wrist) > straight + ArmPose.SHOULDER_GIVES * SCALE) {
+                    check(near(ArmPose.apart(starts, wrist), straight, 1e-4f), "out of reach, the arm is as straight as an arm goes: " + ahead);
+                    float[] line = {wrist[0] - shoulder[0], wrist[1] - shoulder[1], wrist[2] - shoulder[2]}, moved = {starts[0] - shoulder[0], starts[1] - shoulder[1], starts[2] - shoulder[2]};
+                    check(ArmPose.dot(line, moved) > 0.99f * ArmPose.apart(shoulder, wrist) * said[ArmPose.GAVE], "and the shoulder has come after the hand");
+                }
+            }
+        }
+        check(exact > 2 && short3 > 0 && long3 > 5, "the hands asked for were some within reach, some too near and some too far: " + exact + ", " + short3 + ", " + long3);
+        check(shoulder[0] == 0.14f && shoulder[1] == -0.16f && shoulder[2] == 0.05f, "the shoulder asked for is the caller's own and is not written to");
+    }
+
+    private static void elbowIsWhereTheTwoBonesMeet() {
+        float upper = 0.3f, fore = 0.26f;
+        float[] from = {0.5f, -1f, 0f};
+        float[] shoulder = {0f, 0f, 0f}, wrist = {0f, 0f, -0.4f}, elbow = {0.1f, -0.3f, -0.2f};
+        check(ArmPose.jointed(shoulder, wrist, upper, fore, from, elbow) && shoulder[0] == 0f && shoulder[1] == 0f && shoulder[2] == 0f, "a wrist within reach has an elbow and leaves the shoulder be");
+        check(near(ArmPose.apart(shoulder, elbow), upper, 1e-5f) && near(ArmPose.apart(elbow, wrist), fore, 1e-5f), "the upper arm's length from the shoulder and the forearm's from the wrist");
+        check(elbow[0] > 0f && elbow[1] < 0f && near(elbow[1] / elbow[0], -3f, 1e-3f), "on the side of the line between them that it was asked for");
+        // Asked for on the line itself, which is no one way off it, it goes the way it was to come from.
+        float[] onLine = {0f, 0f, -0.2f};
+        check(ArmPose.jointed(shoulder, wrist, upper, fore, from, onLine), "an elbow asked for on the line from shoulder to wrist is still an elbow");
+        check(near(ArmPose.apart(shoulder, onLine), upper, 1e-5f) && onLine[0] > 0f && near(onLine[1] / onLine[0], -2f, 1e-3f), "off it towards where the forearm was to come from");
+        check(!ArmPose.jointed(shoulder, wrist, upper, fore, new float[] {0f, 0f, 1f}, new float[] {0f, 0f, -0.2f}), "with that on the line too there is no saying where the elbow is");
+        check(!ArmPose.jointed(shoulder, new float[] {0f, 0f, 0f}, upper, fore, from, new float[] {0.1f, -0.3f, -0.2f}), "nor for a wrist at the shoulder");
+        // Out of reach, and nearer than the two bones fold to.
+        float[] far = {0f, 0f, 0f}, farElbow = {0.1f, -0.3f, -0.4f};
+        check(ArmPose.jointed(far, new float[] {0f, 0f, -0.9f}, upper, fore, from, farElbow), "a wrist out of reach has an arm");
+        check(near(far[2], -(0.9f - (upper + fore) * ArmPose.STRAIGHTEST), 1e-5f) && far[0] == 0f && far[1] == 0f, "whose shoulder has come along the line to it by what the arm was short");
+        check(near(ArmPose.apart(far, farElbow), upper, 1e-5f) && near(ArmPose.apart(farElbow, new float[] {0f, 0f, -0.9f}), fore, 1e-5f), "and both bones are still their own lengths");
+        float[] close = {0f, 0f, 0f}, closeElbow = {0.1f, -0.3f, 0f};
+        check(ArmPose.jointed(close, new float[] {0f, 0f, -0.01f}, upper, fore, from, closeElbow) && close[2] > 0f, "a wrist nearer than the arm folds to sends the shoulder back from it");
+        check(near(ArmPose.apart(close, closeElbow), upper, 1e-5f) && near(ArmPose.apart(closeElbow, new float[] {0f, 0f, -0.01f}), fore, 1e-5f), "with both bones their own lengths");
+    }
+
+    private static void wristIsWhereTheArmPutsIt(ArmModel model) {
+        float[] centre = {0.05f, -0.2f, -0.35f}, across = {0.2f, 0.1f, -1f}, out = {0.3f, 0.9f, 0.1f}, shoulder = {0.14f, -0.16f, 0.05f}, from = {0.3f, -0.45f, 0f};
+        float[] skins = new float[model.bones.length * 16], said = new float[ArmPose.SAYS], wrist = new float[3];
+        for (int way = 0; way < 4; way++) {
+            boolean left = way % 2 == 1, round = way >= 2;
+            float side = left ? -1f : 1f;
+            float[] c = {centre[0] * side, centre[1], centre[2]}, a = {across[0] * side, across[1], across[2]}, o = {out[0] * side, out[1], out[2]};
+            float[] s = {shoulder[0] * side, shoulder[1], shoulder[2]}, f = {from[0] * side, from[1], from[2]};
+            String pose = round ? "handle" : "fore";
+            check(ArmPose.solve(model, SCALE, only(model, pose), c, a, o, s, f, left, round, skins, said) && ArmPose.wrist(model, SCALE, only(model, pose), c, a, o, f, left, round, wrist),
+                    "a hand is placed with an arm and without");
+            check(near(wrist[0], said[ArmPose.WRIST], 1e-5f) && near(wrist[1], said[ArmPose.WRIST + 1], 1e-5f) && near(wrist[2], said[ArmPose.WRIST + 2], 1e-5f),
+                    "its wrist is in the same place either way, " + (left ? "left" : "right") + (round ? " on a handle" : " on a fore-end"));
+        }
+    }
+
+    private static void longGunIsHeldNearerAtTheHipThanItsSightsAsk() {
+        check(ViewModel.hipAhead(ViewModel.AIMED_AHEAD) == ViewModel.HIP_AHEAD && ViewModel.HIP_AHEAD < ViewModel.AIMED_AHEAD,
+                "a long gun whose sights are far from the eye is held at the hip where every weapon is");
+        check(ViewModel.hipAhead(0.22f) == 0.22f, "one whose grip is nearer than that with the sights up is held as near at the hip, where the arm that reaches its fore-end with the sights up reaches it still");
+        check(ViewModel.hipAhead(0.05f) == ViewModel.HIP_NEAREST && ViewModel.HIP_NEAREST < ViewModel.HIP_AHEAD, "and none is held nearer than the nearest");
     }
 
     private static void handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(ArmModel model) {
@@ -55,7 +348,7 @@ final class OwnArmTests {
     private static void somethingSwungInBothHandsHasAFistUnderTheOther(ArmModel model) {
         float[] grip = {0.14f, -0.2f, -0.36f}, pointing = new float[3];
         ArmPose.unit(0f, 0.8f, -0.6f, pointing);
-        ArmHolds.Weapon bat = new ArmHolds.Weapon(false, false, grip, grip, pointing, new float[] {0.3f, 0.6f, 0.8f}, grip, ArmHolds.LONG);
+        ArmHolds.Weapon bat = new ArmHolds.Weapon(false, false, grip, grip, pointing, new float[] {0.3f, 0.6f, 0.8f}, grip, grip, ArmHolds.LONG);
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] handle = model.holds[model.pose("handle")];
@@ -70,14 +363,12 @@ final class OwnArmTests {
         check(said[1][ArmPose.ELBOW] < said[0][ArmPose.ELBOW], "the left elbow is to the left of the right one");
     }
 
-    /** A long gun held level before the eye, pointing straight ahead, and a handgun the same. */
+    /** A long gun held level before the eye, pointing straight ahead, its fore-end within reach, and a handgun the same. */
     private static ArmHolds.Weapon weapon(boolean handgun) {
-        float[] grip = {0.1f, -0.14f, -0.3f};
-        return new ArmHolds.Weapon(true, handgun, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, new float[] {0.1f, -0.13f, -0.55f},
-                handgun ? ArmHolds.HAND : ArmHolds.LONG);
+        float[] grip = {0.1f, -0.14f, handgun ? -0.3f : -0.2f}, fore = {0.1f, -0.13f, -0.4f};
+        return new ArmHolds.Weapon(true, handgun, grip, grip, new float[] {0f, 0f, -1f}, new float[] {0f, 1f, 0f}, fore, fore, handgun ? ArmHolds.HAND : ArmHolds.LONG);
     }
 
-    private static final float SCALE = 0.74f;
     private static final float[] SAME = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
     private static void actionIsKnownByTheGamesNameForIt() {
@@ -233,7 +524,7 @@ final class OwnArmTests {
             }
         }
         check(said[ArmPose.BENT] < 0.02f && Math.abs(said[ArmPose.TWISTED]) < 0.02f, "with its wrist neither bent nor turned further than it rests");
-        check(near(said[ArmPose.STRETCHED], 1f, 1e-3f), "and its upper arm its own length");
+        check(near(said[ArmPose.GAVE], 0f, 1e-3f) && near(said[ArmPose.DRAWN], 1f, 1e-3f), "its shoulder where it was asked for, and its upper arm the length the model has it");
     }
 
     private static void handIsLaidOnWhatItHoldsAndTheBonesKeepTheirLengths(ArmModel model) {
@@ -252,8 +543,7 @@ final class OwnArmTests {
                 "the thumb's side of the hand is the way it was asked to be");
         float[] elbow = {said[ArmPose.ELBOW], said[ArmPose.ELBOW + 1], said[ArmPose.ELBOW + 2]}, wrist = {said[ArmPose.WRIST], said[ArmPose.WRIST + 1], said[ArmPose.WRIST + 2]};
         check(near(ArmPose.apart(elbow, wrist), model.foreLength * scale, 1e-4f), "the forearm is its own length");
-        check(near(ArmPose.apart(shoulder, elbow), model.upperLength * scale * said[ArmPose.STRETCHED], 1e-4f), "and the upper arm as long as it says it is drawn");
-        check(said[ArmPose.BENT] <= ArmPose.WRIST_MOST + 1e-3f, "the wrist is bent no further than a wrist bends");
+        check(near(ArmPose.apart(placed(skins, model.upper, model.shoulder), elbow), model.upperLength * scale * said[ArmPose.DRAWN], 1e-4f), "and the upper arm as long as it says it is drawn");
         check(ArmPose.apart(placed(skins, model.fore, model.elbow), elbow) < 1e-4f && ArmPose.apart(placed(skins, model.fore, model.hand), wrist) < 1e-4f,
                 "the forearm's bone runs from the elbow to the wrist");
         check(ArmPose.apart(placed(skins, model.foreTwist, model.hand), wrist) < 1e-4f && ArmPose.apart(placed(skins, model.wrist, model.hand), wrist) < 1e-4f,

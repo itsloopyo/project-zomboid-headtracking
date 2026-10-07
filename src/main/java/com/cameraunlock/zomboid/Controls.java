@@ -98,6 +98,23 @@ public final class Controls {
     }
 
     /**
+     * Called with what the game's attack button reads. A firearm's shot is held back until
+     * the game has had the aim long enough to find what the shot is on: see AimInput.
+     */
+    public static boolean attackKey(boolean stock) {
+        IsoPlayer player = IsoPlayer.getInstance();
+        if (!FirstPerson.lookCaptured() || player == null || player.getVehicle() != null || Core.getInstance().isToggleToAim()) {
+            return stock;
+        }
+        return aim.attack(stock, player.isAimingFirearmEquipped());
+    }
+
+    /** Once a frame of the game's logic. */
+    static void frame() {
+        aim.frame();
+    }
+
+    /**
      * Whether a firearm's sights are up: the player's own aim input, never the
      * aim an attack click implies, with a firearm in hand and on foot.
      */
@@ -187,10 +204,17 @@ public final class Controls {
     }
 
     /**
-     * Called where the game's ballistics have just worked out where the muzzle is, which is
-     * where they start a shot from. With a firearm's sights up a lean moves the weapon with
-     * the eye, and the shot starts from where the weapon is drawn: the muzzle is moved by
-     * what of the lean the weapon has. The way the shot points is not changed.
+     * Called where the game's ballistics have just worked out where the muzzle is and which
+     * way it points, which is where they start a shot from and the way they send it when
+     * they have found nothing under the reticle, and the way a shotgun's spread is laid.
+     *
+     * With a firearm's sights up a lean moves the weapon with the eye, and the shot starts
+     * from where the weapon is drawn: the muzzle is moved by what of the lean the weapon has.
+     *
+     * The way it points is the game's own model's barrel, which the first person view does
+     * not draw: held low and across the body at the hip, most of a second in coming up to the
+     * aim, and some degrees off it when it is up. The weapon the view draws points at the
+     * aim point at the hip and with the sights up alike, so that is the way the shot goes.
      */
     public static void muzzle(BallisticsController ballistics) {
         IsoPlayer player = IsoPlayer.getInstance();
@@ -205,6 +229,10 @@ public final class Controls {
         muzzle.x += carried[0];
         muzzle.y += carried[1];
         muzzle.z += carried[2] / ViewCamera.LEVEL_HEIGHT;
+        Vector3 direction = ballistics.getMuzzleDirection();
+        direction.x = aimPointX - muzzle.x;
+        direction.y = aimPointY - muzzle.y;
+        direction.z = aimPointLevel - muzzle.z;
     }
 
     /**
@@ -267,6 +295,32 @@ public final class Controls {
             Log.info(said.append(String.format(Locale.ROOT, " aim point (%.2f, %.2f, %.2f)", aimPointX, aimPointY, aimPointLevel)).toString());
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's ballistics have changed: " + e, e);
+        }
+    }
+
+    /**
+     * For the trace, at each shot: what the game's to-hit sum has to go on. The game has
+     * made its list of what the shot can hit by now, each with its chance out of 100, and
+     * the aiming delay is the part of that sum that falls while the aim is held.
+     */
+    static void sayShot() {
+        IsoPlayer player = IsoPlayer.getInstance();
+        try {
+            Object delay = IsoPlayer.class.getMethod("getAimingDelay").invoke(player);
+            Object moving = IsoPlayer.class.getMethod("getBeenMovingFor").invoke(player);
+            java.util.List<?> hits = (java.util.List<?>) IsoPlayer.class.getMethod("getHitInfoList").invoke(player);
+            StringBuilder said = new StringBuilder(String.format(Locale.ROOT, "shot: aim stock %b filtered %b attack %b isAiming %b aiming delay %s moving %s can hit %d",
+                    stockAim, filteredAim, attackDown, player.isAiming(), delay, moving, hits.size()));
+            for (int i = 0; i < hits.size(); i++) {
+                Object hit = hits.get(i);
+                said.append(String.format(Locale.ROOT, " [chance %d at %.2f tiles]", hit.getClass().getField("chance").getInt(hit),
+                        Math.sqrt(hit.getClass().getField("distSq").getFloat(hit))));
+            }
+            Log.info(said.toString());
+            ballisticsSaid = 0L;
+            sayBallistics(player.getBallisticsController());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's hit list has changed: " + e, e);
         }
     }
 

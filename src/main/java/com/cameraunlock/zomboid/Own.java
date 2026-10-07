@@ -3,7 +3,7 @@ package com.cameraunlock.zomboid;
 /**
  * What the mod made itself and shows in first person in place of the game's own: its weapon
  * models, furniture, wall pictures, plants, surface textures, built windows and doors and the
- * skins of zombies and of the living. Each
+ * skins of zombies and of the living, and the cloth, leather and hair of what they wear. Each
  * is a row of [Content] in CameraUnlock.ini, on unless the player says otherwise, and with a
  * row off the picture draws what the game has there, which may be another mod's.
  *
@@ -13,8 +13,8 @@ package com.cameraunlock.zomboid;
  */
 final class Own {
     /** The bits of the rows that are on, in the order Config describes the rows of [Content]. */
-    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256;
-    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS;
+    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256, CLOTHES = 512;
+    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES;
 
     private static volatile int on = ALL;
     /** The rows the world was last built with, known to the logic thread alone. */
@@ -102,6 +102,7 @@ final class Own {
     static String described(int bits) {
         return "weapons " + ((bits & WEAPONS) != 0) + ", furniture " + ((bits & FURNITURE) != 0) + ", pictures " + ((bits & PICTURES) != 0)
                 + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0)
-                + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0) + ", arms " + ((bits & ARMS) != 0);
+                + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0) + ", arms " + ((bits & ARMS) != 0)
+                + ", clothes " + ((bits & CLOTHES) != 0);
     }
 }

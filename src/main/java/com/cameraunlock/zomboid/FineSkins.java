@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +10,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -16,6 +18,8 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -108,11 +112,11 @@ public final class FineSkins {
 
         /**
          * Which row of [Content] the mod's picture for the game's texture at this path under a
-         * media/textures folder answers to, as one of Own's bits: a zombie's body, or the body
-         * of the living.
+         * media/textures folder answers to, as one of Own's bits: a zombie's body, what people
+         * wear (Tailor), or the body of the living.
          */
         static int row(String relative) {
-            return relative.toLowerCase(Locale.ROOT).contains("zedbody") ? Own.ZOMBIES : Own.PEOPLE;
+            return relative.toLowerCase(Locale.ROOT).contains("zedbody") ? Own.ZOMBIES : Tailor.of(relative) != null ? Own.CLOTHES : Own.PEOPLE;
         }
 
         /** Where the picture is that says what of the skin at this place in the jar is see-through. */
@@ -133,6 +137,14 @@ public final class FineSkins {
         long used;
         /** Set when the picture is no longer wanted before its reader has done: the reader then frees what it read. */
         boolean dropped;
+        /** Made by Tailor from the game's own picture, not read out of the jar. */
+        boolean tailored;
+        /** Set by the reader of a tailored picture that needs no making: the game's is fine enough as it is. */
+        volatile boolean fineAsItIs;
+        /** Set by the reader of a tailored picture whose file Java could not read as a picture. */
+        volatile IOException unreadable;
+        /** What a tailored picture is counted as holding of the card, from when it is asked for until it is let go. */
+        long bytes;
     }
 
     /** One step of a composition, as the combiner was given it. */
@@ -232,8 +244,9 @@ public final class FineSkins {
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
     private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
     private static long fineBytes;
-    /** Which of the mod's own skins were worn when the finer textures now kept were composed: the [Content] rows for zombies and for the living, as Own's bits. */
-    private static int ownWorn = Own.ZOMBIES | Own.PEOPLE;
+    /** Which of the mod's own skins were worn when the finer textures now kept were composed: the [Content] rows for zombies, for the living and for what they wear, as Own's bits. */
+    private static final int WORN = Own.ZOMBIES | Own.PEOPLE | Own.CLOTHES;
+    private static int ownWorn = WORN;
     /** The mod's own picture at each place in the jar that has been asked for, null where the jar has none. */
     private static final HashMap<String, Read> own = new HashMap<>();
     /** A 2048 by 2048 picture takes a tenth of a second to read: not on the thread that draws. */
@@ -242,6 +255,19 @@ public final class FineSkins {
         thread.setDaemon(true);
         return thread;
     });
+    /** Tailor's work has a thread of its own: a crowd wears hundreds of pictures, and the bodies' skins do not wait behind them. */
+    private static final ExecutorService tailor = Executors.newSingleThreadExecutor(work -> {
+        Thread thread = new Thread(work, "CameraUnlock tailor");
+        thread.setDaemon(true);
+        return thread;
+    });
+    /** The paths the jar has no picture at, and each texture name's key in own for what Tailor makes of it: asked of every part of every frame. */
+    private static final HashSet<String> jarless = new HashSet<>();
+    private static final HashMap<String, String> tailoredKeys = new HashMap<>();
+    /** How much of the card the pictures Tailor made or is making hold, and the most they may. */
+    private static long tailoredBytes;
+    private static final long TAILORED_MOST_BYTES = 384L << 20;
+
     /** The pack's picture for each name the game has shown, null for a name the pack has nothing for. */
     private static final HashMap<String, Texture> packed = new HashMap<>();
     private static boolean composing;
@@ -250,7 +276,9 @@ public final class FineSkins {
     private static boolean goneSaid;
 
     private static final int SIZE_HELD = 128;
-    private static int said, ownSaid;
+    private static int said, tailorSaid, unreadableSaid;
+    /** How many of the jar's pictures in each of its folders have been said to be worn: the first three of each are. */
+    private static final HashMap<String, Integer> ownSaid = new HashMap<>();
 
     /**
      * What the picture's draw should wear in place of the texture the game gives a part: a
@@ -363,10 +391,17 @@ public final class FineSkins {
                 read.pixels = null;
             }
         }
+        tailoredBytes -= read.bytes;
+        read.bytes = 0;
         if (read.texture != null) {
             read.texture.destroy();
             read.texture = null;
         }
+    }
+
+    /** What a picture of this size holds of the card: four bytes a dot, and a third again for its smaller copies. */
+    private static long bytesOf(int wide, int high) {
+        return (long) wide * high * 16 / 3;
     }
 
     /**
@@ -439,10 +474,10 @@ public final class FineSkins {
         }
         waiting = false;
         gone = false;
-        if ((Own.on() & (Own.ZOMBIES | Own.PEOPLE)) != ownWorn || ownSmall != Quality.smallerPictures()) {
+        if ((Own.on() & WORN) != ownWorn || ownSmall != Quality.smallerPictures()) {
             // The player has switched some of the mod's own skins on or off, or gone to a graphics mode that reads them at
             // another size: what was composed with things as they were is composed again.
-            ownWorn = Own.on() & (Own.ZOMBIES | Own.PEOPLE);
+            ownWorn = Own.on() & WORN;
             letGoOfAll();
         }
         tendOwn();
@@ -543,7 +578,7 @@ public final class FineSkins {
         if (relative == null) {
             return null;
         }
-        Read mine = (ownWorn & rows.computeIfAbsent(relative, Jar::row)) != 0 ? own(relative) : null;
+        Read mine = (ownWorn & rows.computeIfAbsent(relative, Jar::row)) != 0 ? own(relative, name) : null;
         if (mine != null) {
             if (mine.texture == null) {
                 waiting = true;
@@ -589,24 +624,81 @@ public final class FineSkins {
     }
 
     /**
-     * The mod's own picture for the game's texture at this path under media/textures, or null
-     * where the jar has none. Its texture is null until it has been read.
+     * The mod's own picture for the game's texture of this name at this path under
+     * media/textures: the jar's, or with none there the game's own made finer by Tailor, or
+     * null where there is neither. Its texture is null until it has been read or made.
      */
-    private static Read own(String relative) {
+    private static Read own(String relative, String name) {
         String path = resources.computeIfAbsent(relative, Jar::resource);
-        if (!own.containsKey(path)) {
-            Read asked = FineSkins.class.getResource(path) == null ? null : new Read();
-            own.put(path, asked);
-            if (asked != null) {
-                reader.execute(() -> read(path, asked));
-            }
+        if (jarless.contains(path)) {
+            return tailored(relative, name);
         }
-        Read read = own.get(path);
+        if (!own.containsKey(path)) {
+            if (FineSkins.class.getResource(path) == null) {
+                jarless.add(path);
+                return tailored(relative, name);
+            }
+            Read asked = new Read();
+            own.put(path, asked);
+            reader.execute(() -> read(path, asked));
+        }
+        return made(own.get(path), path, name);
+    }
+
+    /**
+     * The game's own picture of this name made finer by Tailor, or null for one Tailor leaves
+     * alone or that is no file of its own. Kept by the texture's name, not by its path under
+     * media/textures: the game's file and another mod's of the same path are two pictures.
+     * With the card holding as much of what is worn as it is let, no more is made until some
+     * is let go, and whoever asked is told to wait, not that there is none.
+     */
+    private static Read tailored(String relative, String name) {
+        String key = tailoredKeys.computeIfAbsent(name, each -> "tailored " + each);
+        if (!own.containsKey(key)) {
+            Tailor.Fabric fabric = Tailor.of(relative);
+            Path file = fabric == null ? null : fileOf(name);
+            if (file == null) {
+                own.put(key, null);
+                return null;
+            }
+            boolean small = Quality.smallerPictures();
+            int across = small ? Tailor.FINE / 2 : Tailor.FINE;
+            long most = bytesOf(across, across);
+            if (tailoredBytes + most > TAILORED_MOST_BYTES) {
+                waiting = true;
+                return null;
+            }
+            Read asked = new Read();
+            asked.tailored = true;
+            asked.bytes = most;
+            tailoredBytes += most;
+            own.put(key, asked);
+            tailor.execute(() -> tailor(file, fabric, small, asked));
+        }
+        return made(own.get(key), key, name);
+    }
+
+    /** A picture asked for, made a texture of the game's once it has been read. */
+    private static Read made(Read read, String path, String name) {
         if (read == null || read.texture != null) {
             return read;
         }
+        if (read.fineAsItIs) {
+            tailoredBytes -= read.bytes;
+            own.put(path, null);
+            return null;
+        }
+        if (read.unreadable != null) {
+            // The game's file, or another mod's: one that Java cannot read is no fault of the mod's.
+            tailoredBytes -= read.bytes;
+            own.put(path, null);
+            if (unreadableSaid++ < 8) {
+                Log.info("what is worn from " + name + " could not be read to be made finer and stays the game's own: " + read.unreadable);
+            }
+            return null;
+        }
         if (read.failure != null) {
-            throw new IllegalStateException("the mod's own skin at " + path + " could not be read", read.failure);
+            throw new IllegalStateException("the mod's own skin at " + path + " could not be made", read.failure);
         }
         ByteBuffer pixels = read.pixels;
         if (pixels != null && ownMadeFrame != Pipeline.frame()) {
@@ -615,6 +707,12 @@ public final class FineSkins {
             // It copies the picture into memory of its own, so the picture as read is given back.
             int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
             read.texture = new Texture(new TextureID(read.wide, read.high, pixels), "CameraUnlock" + path);
+            if (read.tailored) {
+                // Counted as the most it could be when it was asked for, and as what it is now that it is made.
+                long is = bytesOf(read.wide, read.high);
+                tailoredBytes += is - read.bytes;
+                read.bytes = is;
+            }
             GL11.glBindTexture(GL_TEXTURE_2D, bound);
             Texture.lastTextureID = remembered;
             read.pixels = null;
@@ -623,17 +721,98 @@ public final class FineSkins {
                 read.memory = null;
             }
             read.used = System.nanoTime();
-            if (ownSaid++ < 3) {
-                Log.info("the mod's own skin " + path + " is worn, " + read.texture.getWidth() + "x" + read.texture.getHeight());
+            if (read.tailored ? tailorSaid++ < 3 : ownSaid.merge(path.substring(0, path.lastIndexOf('/')), 1, Integer::sum) <= 3) {
+                Log.info((read.tailored ? "what is worn from " + name + " is made finer, " : "the mod's own skin " + path + " is worn, ") + read.texture.getWidth() + "x" + read.texture.getHeight());
             }
         }
         return read;
     }
 
+    /** The file a texture of the game's was read from, by its name, or null for one that was not read from a file of its own. */
+    private static Path fileOf(String name) {
+        try {
+            Path file = Path.of(name);
+            return Files.isRegularFile(file) ? file : null;
+        } catch (InvalidPathException unnameable) {
+            return null;
+        }
+    }
+
+    /** Makes the game's picture in this file finer, and lays this fabric on it, into four bytes a dot. On the tailor's thread. */
+    private static void tailor(Path file, Tailor.Fabric fabric, boolean small, Read into) {
+        OffHeap.Block[] taken = new OffHeap.Block[1];
+        synchronized (into) {
+            if (into.dropped) {
+                return;
+            }
+        }
+        try {
+            // The game's file, or another mod's. Its size is read before its dots: one too large to need making finer is
+            // not read whole to learn that. Whatever Java's readers make of a file that is not what they expect is that
+            // file's fault, not the mod's.
+            BufferedImage image;
+            int times;
+            try (ImageInputStream in = ImageIO.createImageInputStream(file.toFile())) {
+                Iterator<ImageReader> decoders = in == null ? null : ImageIO.getImageReaders(in);
+                if (decoders == null || !decoders.hasNext()) {
+                    into.unreadable = new IOException(file + " is not a picture this Java can read");
+                    return;
+                }
+                ImageReader decoder = decoders.next();
+                try {
+                    decoder.setInput(in);
+                    times = Tailor.times(decoder.getWidth(0), decoder.getHeight(0), small);
+                    if (times == 0) {
+                        into.fineAsItIs = true;
+                        return;
+                    }
+                    image = decoder.read(0);
+                } finally {
+                    decoder.dispose();
+                }
+            } catch (IOException failure) {
+                into.unreadable = failure;
+                return;
+            } catch (RuntimeException failure) {
+                into.unreadable = new IOException(file + " could not be read as a picture", failure);
+                return;
+            }
+            int wide = image.getWidth(), high = image.getHeight();
+            int[] source = Tailor.dots(image);
+            float[] laid = fabric.name() == null ? null : Tailor.tile(Tailor.light(fabric.name()), Tailor.FABRIC_SIZE, Math.max(wide, high) * times, fabric.repeats());
+            wide *= times;
+            high *= times;
+            OffHeap.Block memory = OffHeap.take(wide * high * 4);
+            taken[0] = memory;
+            ByteBuffer pixels = memory.bytes;
+            Tailor.fine(source, wide / times, high / times, times, laid, Tailor.edged(source), pixels);
+            pixels.flip();
+            synchronized (into) {
+                taken[0] = null;
+                if (into.dropped) {
+                    memory.free();
+                    return;
+                }
+                into.wide = wide;
+                into.high = high;
+                into.memory = memory;
+                into.pixels = memory.bytes;
+            }
+        } catch (IOException | RuntimeException | Error failure) {
+            // The fabric is missing from the jar, or Tailor is wrong: the mod's own fault, and said as one.
+            into.failure = new IOException(file + " could not be made finer", failure);
+        } finally {
+            if (taken[0] != null) {
+                taken[0].free();
+            }
+        }
+    }
+
     /**
      * Reads one of the jar's pictures into four bytes a dot. A body model has sheets for a skirt
-     * to be painted on, which a skin leaves see-through, and a JPEG is solid all over: what is
-     * see-through is black in the picture beside it, of the same size. On the reader's thread.
+     * to be painted on, which a skin leaves see-through, a print has a shape, and a stain fades
+     * out, and a JPEG is solid all over: how much of it shows is the blue of the picture beside
+     * it, of the same size, black for none. On the reader's thread.
      */
     private static void read(String path, Read into) {
         String cutPath = Jar.cut(path);
@@ -658,15 +837,24 @@ public final class FineSkins {
                 throw new IOException(cutPath + " is not the size of " + path);
             }
             int[] row = new int[wide], cutRow = new int[wide];
+            boolean greyCut = cut.getType() == BufferedImage.TYPE_BYTE_GRAY;
+            if (!greyCut && cut.getColorModel().getColorSpace().getType() == ColorSpace.TYPE_GRAY) {
+                throw new IOException(cutPath + " is stored as greys that are not a byte each: what fades in it would be read lightened");
+            }
             OffHeap.Block memory = OffHeap.take(wide * high * 4);
             taken[0] = memory;
             ByteBuffer pixels = memory.bytes;
             for (int y = 0; y < high; y++) {
                 image.getRGB(0, y, wide, 1, row, 0, wide);
-                cut.getRGB(0, y, wide, 1, cutRow, 0, wide);
+                // Asked for as colours, a picture stored as greys is handed over lightened: its numbers are read as they are.
+                if (greyCut) {
+                    cut.getRaster().getSamples(0, y, wide, 1, 0, cutRow);
+                } else {
+                    cut.getRGB(0, y, wide, 1, cutRow, 0, wide);
+                }
                 for (int x = 0; x < wide; x++) {
                     int argb = row[x];
-                    pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) ((cutRow[x] & 0xff) > 127 ? 255 : 0));
+                    pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) cutRow[x]);
                 }
             }
             pixels.flip();

@@ -129,6 +129,15 @@ final class Decor {
         return picture == null ? NONE : picture;
     }
 
+    /** The picture of a name in the index. Thrown when the jar has none of that name. */
+    static int named(String name) {
+        int picture = index().names.indexOf(name);
+        if (picture < 0) {
+            throw new IllegalStateException("the jar's index of pictures has no " + name);
+        }
+        return picture;
+    }
+
     /** How many times as wide as it is high a picture is. */
     static float wideForHigh(int picture) {
         float[] size = index().sizes.get(picture);
@@ -222,7 +231,7 @@ final class Decor {
 
     /** The texture of the picture a piece carries as held left it, made the first time it is drawn. On the render thread. */
     static int texture(int held) {
-        int picture = -1 - held;
+        int picture = Screens.live(held) ? Screens.now(held) : -1 - held;
         synchronized (Decor.class) {
             if (textures[picture] == 0 || waiting[picture] != null) {
                 Read read = waiting[picture];

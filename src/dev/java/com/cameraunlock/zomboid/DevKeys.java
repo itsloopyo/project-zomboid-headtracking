@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Set;
 import zombie.GameTime;
 import zombie.VirtualZombieManager;
+import zombie.core.Core;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -38,8 +39,12 @@ import zombie.vehicles.VehiclePart;
  * The full stop moves the player to the next of the places worth looking at, round and round,
  * and the comma to the one before.
  *
- * 9 sets the clock to early evening, with the sun starting down: the hour the picture looks
- * its best.
+ * 9 puts the clock on by three hours, into the next day if that is where they end: for
+ * seeing the picture at any hour without waiting for it.
+ *
+ * Backspace holds the weather at the next of nine kinds, from a clear sky through cloud and
+ * rain to a blizzard over lying snow, and after the last gives it back to the game. The game
+ * keeps what it is held at in the save.
  *
  * The semicolon puts a pump action shotgun in the player's hands, and from then on whatever firearm is
  * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
@@ -74,11 +79,13 @@ public final class DevKeys {
     private record Place(String name, float x, float y) {}
 
     /**
-     * The first four and the West Point and Louisville ones are spots the picture has been
-     * judged from. The rest are the game's own spawn points for each town, so there is a
-     * floor to stand on at every one.
+     * The first is the street south of the map's tallest building, 28 floors over tiles
+     * 12751 to 12793 by 1512 to 1544. The next four and the West Point and Louisville ones
+     * are spots the picture has been judged from. The rest are the game's own spawn points
+     * for each town, so there is a floor to stand on at every one.
      */
     private static final Place[] PLACES = {
+            new Place("Louisville, the skyscraper", 12772.5f, 1565.5f),
             new Place("Riverside, the lake shore", 6442.5f, 5187.5f),
             new Place("a wood by the railway", 10900.5f, 8500.5f),
             new Place("open farmland", 9050.5f, 8700.5f),
@@ -99,9 +106,28 @@ public final class DevKeys {
     /** The place the player was last sent to, and none before the first press. */
     private static int place = -1;
     /** 9 on the number row. */
-    private static final int EVENING_KEY = 10;
-    /** How long before dusk the clock is set to, in hours. */
-    private static final float BEFORE_DUSK = 1.75f;
+    private static final int LATER_KEY = 10;
+    /** How far a press puts the clock on, in hours. */
+    private static final float LATER = 3f;
+    /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
+    private static final int WEATHER_KEY = 14;
+
+    /** A kind of weather as the game's climate has it: each of cloud, rain or snow, and wind from 0 to 1. */
+    private record Weather(String name, float cloud, float falling, float wind, boolean snow, boolean lying) {}
+
+    private static final Weather[] WEATHERS = {
+            new Weather("a clear sky", 0f, 0f, 0.05f, false, false),
+            new Weather("some clouds", 0.35f, 0f, 0.1f, false, false),
+            new Weather("cloudy", 0.85f, 0f, 0.15f, false, false),
+            new Weather("raining", 0.85f, 0.4f, 0.1f, false, false),
+            new Weather("rain with some wind", 0.9f, 0.5f, 0.4f, false, false),
+            new Weather("a storm of rain", 1f, 1f, 0.9f, false, false),
+            new Weather("snow on the ground", 0.35f, 0f, 0.1f, false, true),
+            new Weather("light snow falling", 0.85f, 0.3f, 0.15f, true, true),
+            new Weather("a blizzard", 1f, 1f, 0.9f, true, true),
+    };
+    /** The weather being held, and none while it is the game's own. */
+    private static int weather = -1;
     /** The semicolon. */
     private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
@@ -136,7 +162,7 @@ public final class DevKeys {
     static void poll() {
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 sets early evening, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next kind of weather, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
@@ -177,10 +203,15 @@ public final class DevKeys {
             safe.teleportTo(to.x(), to.y(), 0);
             Log.info((back ? "," : ".") + ": moved to " + to.name() + " (" + to.x() + ", " + to.y() + "), place " + (place + 1) + " of " + PLACES.length);
         }
-        if (GameKeyboard.isKeyPressed(EVENING_KEY)) {
-            float hour = ClimateManager.getInstance().getSeason().getDusk() - BEFORE_DUSK;
+        if (GameKeyboard.isKeyPressed(LATER_KEY)) {
+            // Past midnight is left as an hour over 24: the game's clock takes that as the next day.
+            float hour = GameTime.getInstance().getTimeOfDay() + LATER;
             GameTime.getInstance().setTimeOfDay(hour);
-            Log.info("9: the clock set to " + hour);
+            Log.info("9: the clock put on to " + hour);
+        }
+        if (GameKeyboard.isKeyPressed(WEATHER_KEY)) {
+            weather = weather + 1 < WEATHERS.length ? weather + 1 : -1;
+            hold(weather < 0 ? null : WEATHERS[weather]);
         }
         if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
@@ -215,6 +246,31 @@ public final class DevKeys {
         if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             takeNearestVehicle();
         }
+    }
+
+    /** Holds the game's climate at a kind of weather, or with none gives it back to the game. */
+    private static void hold(Weather held) {
+        ClimateManager climate = ClimateManager.getInstance();
+        if (held == null) {
+            climate.resetAdmin();
+            Core.getInstance().setForceSnow(false);
+            Log.info("Backspace: the weather is the game's own again");
+            return;
+        }
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_CLOUD_INTENSITY), held.cloud());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_PRECIPITATION_INTENSITY), held.falling());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_WIND_INTENSITY), held.wind());
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY), 0f);
+        ClimateManager.ClimateBool snow = climate.getClimateBool(ClimateManager.BOOL_IS_SNOW);
+        snow.setEnableAdmin(true);
+        snow.setAdminValue(held.snow());
+        Core.getInstance().setForceSnow(held.lying());
+        Log.info("Backspace: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
+    }
+
+    private static void hold(ClimateManager.ClimateFloat value, float at) {
+        value.setEnableAdmin(true);
+        value.setAdminValue(at);
     }
 
     private static void keepWhole(IsoPlayer safe) {

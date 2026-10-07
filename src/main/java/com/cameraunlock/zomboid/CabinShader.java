@@ -33,10 +33,27 @@ final class CabinShader {
                 return min(max(uPad.x, uWheel.x + 0.3), uScreen.x - 0.08);
             }
 
+            // How far round the rim from its top a hand holds it, in radians, and how much
+            // of the way from square to the rim to straight on from the forearm it lies.
+            const float HAND_PLACE = 1.08;
+            const float HAND_SLANT = 0.6;
+
             // Where each hand has the rim, the hand on the low side of across first: the
-            // place, the way out from the wheel's middle there and the way along the rim,
-            // and the wrist and the elbow behind it. Worked out once for a pixel.
-            vec3 gGrip[2], gOutward[2], gAlong[2], gWrist[2], gElbow[2];
+            // place and the way along the rim there towards its top; the ways out of the
+            // hand's back and across it towards the thumb; its knuckles, the two ends of
+            // its thumb, and the wrist and the elbow behind it. Worked out once for a pixel.
+            vec3 gGrip[2], gAlong[2], gBack[2], gThumbward[2], gKnuckles[2], gRoot[2], gTip[2], gWrist[2], gElbow[2];
+
+            // The elbow of an arm from that shoulder to that wrist. It hangs down and out
+            // between the two.
+            vec3 elbowOf(vec3 shoulder, vec3 wrist, float way) {
+                vec3 reach = wrist - shoulder;
+                float far2 = min(length(reach), 0.69);
+                vec3 to = normalize(reach);
+                float first = (far2 * far2 + 0.37 * 0.37 - 0.33 * 0.33) / (2.0 * far2);
+                vec3 pole = vec3(0.0, way * 0.55, -1.0);
+                return shoulder + to * first + normalize(pole - to * dot(pole, to)) * sqrt(max(0.37 * 0.37 - first * first, 0.0));
+            }
 
             // At ten and two with the wheel straight. The hands hold the rim and go round
             // with it all the way to full lock, which Cabins.STEERING_RATIO keeps short
@@ -46,21 +63,31 @@ final class CabinShader {
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                 for (int i = 0; i < 2; i++) {
                     float way = i == 0 ? -1.0 : 1.0;
-                    float turn = 1.5708 - way * 0.96 - uSteer;
+                    float turn = 1.5708 - way * HAND_PLACE - uSteer;
                     vec3 outward = vec3(0.0, cos(turn), 0.0) + rise * sin(turn);
+                    vec3 along = (vec3(0.0, -sin(turn), 0.0) + rise * cos(turn)) * way;
                     vec3 grip = uWheel.xyz + outward * (uWheel.w * uKit.x);
                     vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);
-                    vec3 wrist = grip - uWheelAxis * 0.1 + outward * 0.04 + vec3(0.0, 0.0, -0.025);
-                    // The elbow hangs down and out between the shoulder and the wrist.
-                    vec3 reach = wrist - shoulder;
-                    float far2 = min(length(reach), 0.69);
-                    vec3 to = normalize(reach);
-                    float first = (far2 * far2 + 0.37 * 0.37 - 0.33 * 0.33) / (2.0 * far2);
-                    vec3 pole = vec3(0.0, way * 0.55, -1.0);
-                    gElbow[i] = shoulder + to * first + normalize(pole - to * dot(pole, to)) * sqrt(max(0.37 * 0.37 - first * first, 0.0));
+                    // The hand carries on from the forearm. A fist square to the rim would
+                    // have the wrist bent sideways by all of the angle between the forearm
+                    // and the rim, so the hand lies part of the way between the two and the
+                    // rim crosses the palm at a slant for the rest. The forearm is taken to
+                    // the rim first and then to the wrist that gives.
+                    vec3 fore = normalize(grip - elbowOf(shoulder, grip, way));
+                    vec3 lie = normalize(mix(normalize(fore - along * dot(fore, along)), fore, HAND_SLANT));
+                    vec3 back = normalize(cross(along, lie));
+                    back *= sign(dot(back, outward - uWheelAxis));
+                    vec3 wrist = grip + back * (uKit.y + 0.017) - lie * 0.09;
+                    vec3 thumbward = cross(back, lie);
+                    thumbward *= sign(dot(thumbward, along));
+                    gElbow[i] = elbowOf(shoulder, wrist, way);
                     gGrip[i] = grip;
-                    gOutward[i] = outward;
-                    gAlong[i] = vec3(0.0, -sin(turn), 0.0) + rise * cos(turn);
+                    gAlong[i] = along;
+                    gBack[i] = back;
+                    gThumbward[i] = thumbward;
+                    gKnuckles[i] = grip + back * (uKit.y + 0.011) + lie * 0.012;
+                    gRoot[i] = wrist + lie * 0.03 + thumbward * 0.03 - back * 0.006;
+                    gTip[i] = grip + along * 0.062 + normalize(back - lie) * (uKit.y + 0.0105);
                     gWrist[i] = wrist;
                 }
             }
@@ -77,6 +104,17 @@ final class CabinShader {
                 return length(v - a - along * t) - mix(from, to, t);
             }
 
+            // A hand's back from a to b: wide across the hand and thin through it, as
+            // halves at a and at b.
+            float slab(vec3 v, vec3 a, vec3 b, vec3 across, vec3 through, vec2 from, vec2 to) {
+                vec3 along = b - a;
+                float t = clamp(dot(v - a, along) / dot(along, along), 0.0, 1.0);
+                vec3 off = v - a - along * t;
+                vec2 half2 = mix(from, to, t);
+                vec3 way = normalize(along);
+                return (length(vec3(dot(off, across) / half2.x, dot(off, through) / half2.y, dot(off, way) / half2.y)) - 1.0) * half2.y;
+            }
+
             // The driver's hands on the rim and the arms behind them, from shoulders that
             // stay with the seat when the head leans. Parts 23 a hand and 24 a sleeve.
             float arms(vec3 p, float nearest, inout float part) {
@@ -89,20 +127,19 @@ final class CabinShader {
                 }
                 for (int i = 0; i < 2; i++) {
                     float way = i == 0 ? -1.0 : 1.0;
-                    vec3 outward = gOutward[i], along = gAlong[i], grip = gGrip[i], wrist = gWrist[i], elbow = gElbow[i];
+                    vec3 along = gAlong[i], wrist = gWrist[i], elbow = gElbow[i];
                     vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);
-                    // Four fingers closed round the rim, the thumb along it on the driver's
-                    // side, and the back of the hand from the knuckles to the wrist.
-                    vec3 g = p - grip;
+                    // Four fingers closed round the rim, the back of the hand from the
+                    // knuckles over the rim to the wrist, and the thumb from the wrist's
+                    // side of the palm up along the face of the rim the driver sees.
+                    vec3 g = p - gGrip[i];
                     float run = dot(g, along);
-                    float fingers = length(vec2(dot(g, outward), dot(g, uWheelAxis))) - (uKit.y + 0.0125 - 0.003 * cos(run * 314.16));
+                    float fingers = length(g - along * run) - (uKit.y + 0.0125 - 0.003 * cos(run * 314.16));
                     vec2 ends = vec2(fingers, abs(run) - 0.036);
                     fingers = length(max(ends, 0.0)) + min(max(ends.x, ends.y), 0.0) - 0.004;
-                    vec3 knuckles = grip - uWheelAxis * (uKit.y + 0.006) + outward * (uKit.y + 0.006);
-                    float back = limb(p, knuckles, wrist, 0.03, 0.027);
-                    vec3 root = grip - uWheelAxis * (uKit.y + 0.011) - outward * 0.004 - along * (way * 0.012);
-                    float thumb = limb(p, root, root + along * (way * 0.06) - outward * 0.006, 0.0125, 0.0105);
-                    float hand = blend(blend(fingers, back, 0.012), thumb, 0.008);
+                    float palm = slab(p, gKnuckles[i], wrist, gThumbward[i], gBack[i], vec2(0.041, 0.015), vec2(0.031, 0.02));
+                    float thumb = limb(p, gRoot[i], gTip[i], 0.0145, 0.0105);
+                    float hand = blend(blend(fingers, palm, 0.012), thumb, 0.01);
                     if (hand < nearest) { nearest = hand; part = 23.0; }
                     // A bare arm is thinner than one in a sleeve.
                     float clad = uSleeve.w > 0.75 ? 1.0 : 0.86;
@@ -333,13 +370,13 @@ final class CabinShader {
                 }
                 if (part > 22.5) {
                     int hand = distance(p, gGrip[0]) < distance(p, gGrip[1]) ? 0 : 1;
-                    vec3 outward = gOutward[hand], along = gAlong[hand], grip = gGrip[hand], wrist = gWrist[hand];
+                    vec3 along = gAlong[hand], grip = gGrip[hand], wrist = gWrist[hand];
                     if (part < 23.5) {
                         // Skin, darker in the creases between the fingers and paler over the knuckles.
                         gGrain = 0.2;
                         gGloss = 0.12;
                         vec3 g = p - grip;
-                        float round2 = length(vec2(dot(g, outward), dot(g, uWheelAxis)));
+                        float round2 = length(g - along * dot(g, along));
                         float crease = round2 < uKit.y + 0.02 ? 0.5 + 0.5 * cos(dot(g, along) * 314.16) : 1.0;
                         // The skin of a bare arm is the arm's own, whatever is on the hand.
                         vec3 skin = round2 > 0.1 && uSleeve.w < 0.75 ? uBare : uSkin;

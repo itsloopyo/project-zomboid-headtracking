@@ -8,6 +8,11 @@ It writes src/main/resources/models/furniture.bin.gz and prints each model's
 triangle count and bounds. Every model is made here from nothing: no mesh,
 texture or measurement is read from the game.
 
+Every model is made twice. The whole one is what is seen from near. The plain
+one leaves out what is narrower than PLAIN_DETAIL, and the file says how far
+apart the two are at most: the mod casts shadows with the plain one, and draws
+it where that distance is under a pixel of the picture.
+
 A model is in metres, Z up, its origin on the floor at the centre of its
 footprint, with +Y the head of a bed and the back of everything else, so its
 front faces -Y. Each triangle belongs to one surface, which says what it is
@@ -17,18 +22,23 @@ triangle is in the world, so there are no texture coordinates.
 The file is gzip over this, all little-endian:
 
     4 bytes   the ASCII letters CUFM
-    uint32    format version, 2
+    uint32    format version, 3
     uint32    number of models
     per model:
       uint8     length of the name, then that many ASCII bytes
-      float32   x 6: the least x, y, z and the greatest x, y, z
-      uint32    number of triangles, in the order of their surfaces
-      per vertex, three to a triangle:
-        float32 x 3   position
-        float32 x 3   unit normal
-        uint8         surface: an index into SURFACES below
-        uint8         how much of the room's light reaches the vertex past the
-                      rest of the model and the floor, 255 for all of it
+      float32   x 6: the least x, y, z and the greatest x, y, z of the whole one
+      float32   the furthest a vertex of either one is from the surface of the other
+      the whole one, then the plain one, each:
+        uint32    number of vertices, fewer than 65536
+        uint32    number of triangles
+        per vertex, in the order of their surfaces:
+          float32 x 3   position
+          float32 x 3   unit normal
+          uint8         surface: an index into SURFACES below
+          uint8         how much of the room's light reaches the vertex past the
+                        rest of the model and the floor, 255 for all of it
+        per triangle, in the order of their surfaces:
+          uint16 x 3    its vertices, counted from the first of this one
 """
 
 import gzip
@@ -60,6 +70,20 @@ MOST_STEP = 0.25
 SHORTEST_CUT = 0.12
 REFINEMENTS = 12
 MOST_TRIANGLES = 6000
+# What the plain copy of a model leaves out: a bevel narrower than this, as much of the
+# roundness of something turned as moves its outline by less than half of it, and a level of
+# smoothing of its soft parts where that leaves it no further than this from the whole one.
+PLAIN_DETAIL = 0.012
+# Set while the plain copies are made, and the second while they are made with their soft parts whole.
+plain = False
+soft_whole = False
+
+
+def bevel_steps(width, asked):
+    """How many steps a bevel of that width is rounded in. Its faces are shaded as one curve
+    however many there are, so more steps only move its outline: by a fifth of its width from
+    one step to two, which under 8 mm is less than 2 mm, and by a twentieth from two to three."""
+    return min(asked, 1 if width < 0.008 else 2 if width < 0.02 else asked)
 
 
 def cuboid(bm, x0, x1, y0, y1, z0, z1):
@@ -96,6 +120,11 @@ def lathe(bm, profile, cx=0.0, cy=0.0, segments=20, sx=1.0, sy=1.0, closed=False
     closed joins the last ring to the first, for a ring such as a seat; caps closes an open end with a disc; to moves
     the whole afterwards, for something turned about another axis.
     """
+    if plain:
+        # As few sides as keep the widest ring within half of PLAIN_DETAIL of a circle.
+        widest = max(radius for radius, _ in profile) * max(sx, sy)
+        enough = math.ceil(math.pi / math.acos(max(1 - PLAIN_DETAIL / 2 / widest, 0.0)))
+        segments = min(segments, max(6, enough + enough % 2))
     rings = []
     for radius, z in profile:
         if radius <= 1e-6:
@@ -201,7 +230,11 @@ class Model:
 
     def hard(self, bm, surface, bevel=0.004, segments=2, inward=False):
         """A part of wood or metal: every edge rounded off, its flat faces kept flat."""
-        while True:
+        if plain and bevel < PLAIN_DETAIL:
+            self._take(bm, surface, lambda obj: None, sharp=30.0, inward=inward)
+            return
+        # The plain copy carries no joint's shade (see finish), so it needs no vertex near each joint.
+        while not plain:
             long = [edge for edge in bm.edges if edge.calc_length() > LONGEST_EDGE]
             if not long:
                 break
@@ -210,7 +243,7 @@ class Model:
         def modifiers(obj):
             rounded = obj.modifiers.new("bevel", "BEVEL")
             rounded.width = bevel
-            rounded.segments = segments
+            rounded.segments = 1 if plain else bevel_steps(bevel, segments)
             rounded.limit_method = "ANGLE"
             rounded.angle_limit = math.radians(30)
             flat = obj.modifiers.new("normals", "WEIGHTED_NORMAL")
@@ -223,7 +256,7 @@ class Model:
         """A part of cloth: the cage smoothed into a rounded body."""
         def modifiers(obj):
             smoothed = obj.modifiers.new("subdivision", "SUBSURF")
-            smoothed.levels = levels
+            smoothed.levels = max(levels - 1, 1) if plain and not soft_whole else levels
             smoothed.subdivision_type = "CATMULL_CLARK"
         self._take(bm, surface, modifiers)
 
@@ -260,13 +293,20 @@ class Model:
         bpy.data.objects.remove(obj)
         bpy.data.meshes.remove(mesh)
 
-    def finish(self):
-        """Stands the model on the floor over the middle of its footprint and works out what each vertex can see of the room."""
+    def finish(self, whole=None):
+        """Stands the model on the floor over the middle of its footprint and works out what each vertex can see of the room.
+
+        whole is given for a plain copy: it stands where the whole one does, and is said to be as big.
+        """
         low = Vector([min(v[0][axis] for v in self.vertices) for axis in range(3)])
         high = Vector([max(v[0][axis] for v in self.vertices) for axis in range(3)])
-        move = Vector(((low.x + high.x) / 2, (low.y + high.y) / 2, low.z)) if self.centred else Vector((0.0, 0.0, low.z))
+        if whole is None:
+            self.move = Vector(((low.x + high.x) / 2, (low.y + high.y) / 2, low.z)) if self.centred else Vector((0.0, 0.0, low.z))
+            self.low, self.high = low - self.move, high - self.move
+        else:
+            self.move, self.low, self.high = whole.move, whole.low, whole.high
+        move = self.move
         self.vertices = [(position - move, normal, surface) for position, normal, surface in self.vertices]
-        self.low, self.high = low - move, high - move
 
         points = [position for position, _, _ in self.vertices]
         faces = [(i, i + 1, i + 2) for i in range(0, len(points), 3)]
@@ -317,9 +357,12 @@ class Model:
         known = {}
         self.shaped = len(self.vertices) // 3
 
+        def alike(position, normal):
+            return (round(position.x, 4), round(position.y, 4), round(position.z, 4), round(normal.x, 1), round(normal.y, 1), round(normal.z, 1))
+
         def reached(position, normal):
             """What share of the room's light reaches a vertex, and whether the vertex is out in the room to be seen."""
-            key = (round(position.x, 4), round(position.y, 4), round(position.z, 4), round(normal.x, 1), round(normal.y, 1), round(normal.z, 1))
+            key = alike(position, normal)
             if key not in known:
                 side = normal.orthogonal().normalized()
                 other = normal.cross(side)
@@ -345,7 +388,7 @@ class Model:
         # much between the two ends of an edge the shade of a joint at one end would lie right
         # along the edge, and across a big face as a dark triangle. Such an edge is cut in two,
         # in every triangle that has it, until the shade is as short as the joint's really is.
-        for _ in range(REFINEMENTS):
+        for _ in range(REFINEMENTS if whole is None else 0):
             cut = set()
             for i in range(0, len(self.vertices), 3):
                 corners = self.vertices[i:i + 3]
@@ -380,6 +423,23 @@ class Model:
             self.vertices = cut_up
         self.light = [reached(position, normal)[0] for position, normal, _ in self.vertices]
         self.seen = [reached(position, normal)[1] for position, normal, _ in self.vertices]
+        if whole is not None:
+            # A plain copy's faces are not cut, so it cannot hold a joint's shade as short as the joint. The
+            # light is raised at the darker end of every edge it would change sharply along, wherever that
+            # vertex is, which leaves such a shade out and keeps the shade of a whole face.
+            same = {}
+            for i, (position, normal, _) in enumerate(self.vertices):
+                same.setdefault(alike(position, normal), []).append(i)
+            raised = True
+            while raised:
+                raised = False
+                for i in range(0, len(self.vertices), 3):
+                    for a, b in ((0, 1), (1, 2), (2, 0)):
+                        dark, bright = sorted((i + a, i + b), key=lambda vertex: self.light[vertex])
+                        if self.seen[dark] and self.seen[bright] and self.light[bright] - self.light[dark] > MOST_STEP:
+                            for vertex in same[alike(*self.vertices[dark][:2])]:
+                                self.light[vertex] = self.light[bright] - MOST_STEP * 0.999
+                            raised = True
         self.check()
 
     def check(self):
@@ -401,16 +461,32 @@ class Model:
             raise SystemExit("%s has no vertex where its light was to be looked at" % self.name)
         return min(found)
 
-    def packed(self):
+    def apart(self, other):
+        """The furthest a vertex of either model is from the surface of the other, both as they were made or both finished."""
+        def furthest(one, from_other):
+            points = [position for position, _, _ in from_other.vertices]
+            tree = BVHTree.FromPolygons(points, [(i, i + 1, i + 2) for i in range(0, len(points), 3)])
+            return max(tree.find_nearest(position)[3] for position, _, _ in one.vertices)
+        return max(furthest(self, other), furthest(other, self))
+
+    def header(self, apart):
         name = self.name.encode("ascii")
-        out = [struct.pack("<B", len(name)), name, struct.pack("<6f", *self.low, *self.high), struct.pack("<I", len(self.vertices) // 3)]
-        triangles = [(self.vertices[i:i + 3], self.light[i:i + 3]) for i in range(0, len(self.vertices), 3)]
-        # In the order of their surfaces, so that the mod adds each surface's triangles as one run.
-        triangles.sort(key=lambda triangle: triangle[0][0][2])
-        for corners, lights in triangles:
-            for (position, normal, surface), light in zip(corners, lights):
-                out.append(struct.pack("<6fBB", *position, *normal, surface, round(light * 255)))
-        return b"".join(out)
+        return struct.pack("<B", len(name)) + name + struct.pack("<7f", *self.low, *self.high, apart)
+
+    def packed(self):
+        """The model's vertices, each once however many triangles meet at it, and its triangles as numbers of them."""
+        triangles = [[struct.pack("<6fBB", *position, *normal, surface, round(light * 255))
+                      for (position, normal, surface), light in zip(self.vertices[i:i + 3], self.light[i:i + 3])]
+                     for i in range(0, len(self.vertices), 3)]
+        # Both in the order of their surfaces: the mod finds a surface's vertices as one run.
+        triangles.sort(key=lambda triangle: triangle[0][-2])
+        once = sorted(set(vertex for triangle in triangles for vertex in triangle), key=lambda vertex: (vertex[-2], vertex))
+        self.corners = len(once)
+        if self.corners >= 65536:
+            raise SystemExit("%s has %d vertices, and a triangle names its own in sixteen bits" % (self.name, self.corners))
+        number = {vertex: i for i, vertex in enumerate(once)}
+        return b"".join([struct.pack("<II", len(once), len(triangles))] + once
+                        + [struct.pack("<3H", *(number[vertex] for vertex in triangle)) for triangle in triangles])
 
 
 def bed(name, width, length, pillows):
@@ -989,28 +1065,42 @@ def office_chair():
     return model
 
 
-def television(model, low):
-    """A television set with a picture tube, its foot at height low."""
-    half, front, back, high = 0.33, -0.22, 0.24, 0.5
+def television(model, low, width, high, deep, glass, made_of):
+    """A television set with a picture tube, its foot at height low. glass is how wide and how high the tube's face
+    is: a set is little bigger than its tube, so the glass is most of its front."""
+    half, front, back = width / 2, -deep / 2, deep / 2
+    top = low + high
+    wide, tall = glass
+    glass_low = top - 0.04 - tall
     case = bmesh.new()
-    cuboid(case, -half, half, front, front + 0.16, low + 0.03, low + high)
-    prism_y(case, (0.0, low + 0.03 + (high - 0.03) / 2, 2 * half - 0.03, high - 0.05, front + 0.16), (0.0, low + 0.26, 0.34, 0.28, back))
-    cuboid(case, -0.2, 0.2, front + 0.03, back - 0.1, low, low + 0.03)
-    model.hard(case, "plastic", bevel=0.012, segments=2)
+    cuboid(case, -half, half, front, front + 0.14, low + 0.03, top)
+    prism_y(case, (0.0, low + 0.03 + (high - 0.03) / 2, width - 0.03, high - 0.05, front + 0.14), (0.0, low + 0.03 + high * 0.45, width * 0.55, high * 0.6, back))
+    cuboid(case, -half * 0.6, half * 0.6, front + 0.03, back - 0.1, low, low + 0.03)
+    model.hard(case, made_of, bevel=0.012, segments=2)
 
     tube = bmesh.new()
-    cuboid(tube, -half + 0.045, half - 0.045, front - 0.006, front + 0.002, low + 0.12, low + high - 0.04)
+    cuboid(tube, -wide / 2, wide / 2, front - 0.006, front + 0.002, glass_low, glass_low + tall)
     model.hard(tube, "screen", bevel=0.012, segments=2)
 
     dials = bmesh.new()
-    for x in (0.12, 0.17, 0.22, 0.27):
-        cuboid(dials, x - 0.015, x + 0.015, front - 0.005, front, low + 0.055, low + 0.075)
+    middle = (low + 0.03 + glass_low) / 2
+    for n in range(4):
+        x = wide / 2 - 0.02 - n * 0.05
+        cuboid(dials, x - 0.015, x + 0.015, front - 0.005, front, middle - 0.01, middle + 0.01)
     model.hard(dials, "rubber", bevel=0.002, segments=1)
 
 
 def tv():
+    """A set of twenty-odd inches in a black case, its tube three high for four wide."""
     model = Model("tv")
-    television(model, 0.0)
+    television(model, 0.0, 0.56, 0.48, 0.46, (0.44, 0.33), "plastic")
+    return model
+
+
+def tv_wide():
+    """A big set in a silver case, its tube nine high for sixteen wide."""
+    model = Model("tv_wide")
+    television(model, 0.0, 0.84, 0.56, 0.5, (0.72, 0.405), "steel")
     return model
 
 
@@ -1018,6 +1108,8 @@ def tv_console():
     """A set in a wooden cabinet that stands on the floor on its own legs."""
     model = Model("tv_console")
     half, front, back, low, top = 0.42, -0.22, 0.22, 0.2, 0.78
+    # The tube's face, three high for four wide.
+    left, right, foot, head = -half + 0.075, 0.135, low + 0.115, low + 0.475
 
     body = bmesh.new()
     cuboid(body, -half, half, front, back, low, top)
@@ -1027,22 +1119,37 @@ def tv_console():
     model.hard(body, "wood", bevel=0.008)
 
     trim = bmesh.new()
-    cuboid(trim, -half + 0.04, 0.15, front - 0.012, front, low + 0.06, top - 0.05)
+    cuboid(trim, left - 0.035, right + 0.035, front - 0.012, front, foot - 0.035, head + 0.035)
     for n in range(7):
-        cuboid(trim, 0.21, half - 0.05, front - 0.008, front, low + 0.07 + n * 0.028, low + 0.082 + n * 0.028)
+        cuboid(trim, 0.225, half - 0.05, front - 0.008, front, low + 0.07 + n * 0.028, low + 0.082 + n * 0.028)
     model.hard(trim, "rubber", bevel=0.004, segments=1)
 
     tube = bmesh.new()
-    cuboid(tube, -half + 0.075, 0.115, front - 0.018, front - 0.01, low + 0.095, top - 0.085)
+    cuboid(tube, left, right, front - 0.018, front - 0.01, foot, head)
     model.hard(tube, "screen", bevel=0.02, segments=3)
 
     dials = bmesh.new()
     for z in (top - 0.1, top - 0.19):
-        lathe(dials, [(0.0, 0.0), (0.026, 0.0), (0.022, 0.022), (0.0, 0.025)], segments=12, to=along_y(0.285, front, z))
+        lathe(dials, [(0.0, 0.0), (0.026, 0.0), (0.022, 0.022), (0.0, 0.025)], segments=12, to=along_y(0.295, front, z))
     lathe(dials, [(0.0, top), (0.05, top), (0.04, top + 0.025), (0.0, top + 0.03)], segments=12)
     for side in (-1, 1):
         prism(dials, (side * 0.01, 0.0, 0.007, 0.007, top + 0.02), (side * 0.2, 0.02, 0.004, 0.004, top + 0.42))
     model.turned(dials, "metal", sharp=35.0)
+    return model
+
+
+def lit_screen():
+    """The picture a set shows when it is on: a sheet a metre wide and a metre high with rounded corners, which the
+    mod stands just proud of a set's glass, as wide and as high as the glass is."""
+    model = Model("lit_screen")
+    sheet = bmesh.new()
+    round_, steps, outline = 0.06, 5, []
+    for cx, cz, start in ((0.5 - round_, round_, -90), (0.5 - round_, 1.0 - round_, 0), (-0.5 + round_, 1.0 - round_, 90), (-0.5 + round_, round_, 180)):
+        for i in range(steps + 1):
+            turn = math.radians(start + 90 * i / steps)
+            outline.append((cx + round_ * math.cos(turn), cz + round_ * math.sin(turn)))
+    outline_along_y(sheet, outline, -0.002, 0.002)
+    model.plain(sheet, "screen")
     return model
 
 
@@ -2124,12 +2231,12 @@ def serving_counter():
     return model
 
 
-def main():
-    models = [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
+def every():
+    return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
               cabinet("counter", 0.62, 0.90, True), cabinet("counter_sink", 0.62, 0.90, True, sink=True),
               cabinet("counter_corner", 0.62, 0.90, True, corner=True), cabinet("wall_cupboard", 0.34, 0.70, False),
-              cabinet("wall_cupboard_corner", 0.34, 0.70, False, corner=True), fridge(), oven(), bookcase(), locker(), tv(), tv_console(),
+              cabinet("wall_cupboard_corner", 0.34, 0.70, False, corner=True), fridge(), oven(), bookcase(), locker(), tv(), tv_wide(), tv_console(), lit_screen(),
               table_lamp(), toilet(), bath(), washing_machine(), wheelie_bin(), litter_bin(), mailbox(), postbox(), park_bench(),
               picnic_table(), crate(), barrel(),
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), wall_clock(),
@@ -2141,13 +2248,34 @@ def main():
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()]
-    data = [b"CUFM", struct.pack("<II", 2, len(models))]
-    for model in models:
+
+
+def main():
+    global plain, soft_whole
+    models = every()
+    plain = True
+    plains = every()
+    soft_whole = True
+    firmer = every()
+    plain = soft_whole = False
+    data = [b"CUFM", struct.pack("<II", 3, len(models))]
+    totals = [0, 0, 0, 0]
+    for model, less, firm in zip(models, plains, firmer):
+        if less.apart(model) > PLAIN_DETAIL:
+            less = firm
+        apart = less.apart(model)
         model.finish()
-        data.append(model.packed())
-        print("%-20s %5d triangles  x %.3f to %.3f  y %.3f to %.3f  z %.3f to %.3f  shaped %d  sharpest shade over %.3f" % (
-            model.name, len(model.vertices) // 3, model.low.x, model.high.x, model.low.y, model.high.y, model.low.z, model.high.z,
-            model.shaped, model.longest_shade))
+        less.finish(model)
+        data += [model.header(apart), model.packed(), less.packed()]
+        print("%-20s %5d triangles %5d vertices  plain %5d triangles %5d vertices, within %.4f  x %.3f to %.3f  y %.3f to %.3f  z %.3f to %.3f  "
+              "shaped %d  sharpest shade over %.3f" % (
+                  model.name, len(model.vertices) // 3, model.corners, len(less.vertices) // 3, less.corners, apart,
+                  model.low.x, model.high.x, model.low.y, model.high.y, model.low.z, model.high.z, model.shaped, model.longest_shade))
+        if less.longest_shade:
+            raise SystemExit("the plain %s still has a sharp shade over %.3f" % (model.name, less.longest_shade))
+        for i, count in enumerate((len(model.vertices) // 3, model.corners, len(less.vertices) // 3, less.corners)):
+            totals[i] += count
+    print("in all %d triangles %d vertices, plain %d triangles %d vertices" % tuple(totals))
     heavy = [model.name for model in models if len(model.vertices) // 3 > MOST_TRIANGLES]
     if heavy:
         raise SystemExit("more than %d triangles in %s" % (MOST_TRIANGLES, ", ".join(heavy)))

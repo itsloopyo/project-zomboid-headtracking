@@ -1190,6 +1190,33 @@ final class SpriteGeometry {
     }
 
     /**
+     * Adds a round thing standing upright on (x, y) from up0 to up1, all in tiles, r0 thick at
+     * its foot and r1 at its top and closed there, every vertex with the one texel (u, v).
+     */
+    static void addRound(Mesh mesh, float x, float y, float up0, float up1, float r0, float r1, int sides, float u, float v,
+            float red, float green, float blue) {
+        float rise = up1 - up0, lean = r0 - r1, length = (float) Math.sqrt(rise * rise + lean * lean);
+        float flat = rise / length, upward = lean / length;
+        for (int side = 0; side < sides; side++) {
+            for (int corner = 0; corner < 6; corner++) {
+                // Two triangles: low from, low to, high to, then low from, high to, high from.
+                boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
+                double angle = (far ? side + 1 : side) * 2.0 * Math.PI / sides;
+                float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle), r = high ? r1 : r0;
+                mesh.face(cos * flat, sin * flat, upward);
+                mesh.add(x + cos * r, y + sin * r, high ? up1 : up0, u, v, red, green, blue);
+            }
+        }
+        mesh.face(0f, 0f, 1f);
+        for (int side = 0; side < sides; side++) {
+            double from = side * 2.0 * Math.PI / sides, to = (side + 1) * 2.0 * Math.PI / sides;
+            mesh.add(x, y, up1, u, v, red, green, blue);
+            mesh.add(x + (float) Math.cos(from) * r1, y + (float) Math.sin(from) * r1, up1, u, v, red, green, blue);
+            mesh.add(x + (float) Math.cos(to) * r1, y + (float) Math.sin(to) * r1, up1, u, v, red, green, blue);
+        }
+    }
+
+    /**
      * Adds a square timber from one point to another, each (x, y, up) in tiles, half thick each
      * way from its middle line, closed at both ends, every vertex with the one texel (u, v): a
      * brace from a post up to the beam it carries.

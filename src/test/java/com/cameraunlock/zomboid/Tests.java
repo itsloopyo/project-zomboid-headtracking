@@ -16,6 +16,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,7 @@ public final class Tests {
         lightTakesTheHeadingOfItsAngles();
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
+        GlassPullTests.run();
         AimTests.run();
         ArmTests.run();
         OwnArmTests.run();
@@ -76,6 +78,7 @@ public final class Tests {
         returnedBooleanGoesThroughTheFilter();
         staticIntFieldIsRequiredAsDeclared();
         attackHoldsTheAimForAShortTail();
+        aFirearmsShotWaitsForTheAimToBear();
         keysHeldThroughTheLandingKeepTheirWalk();
         theGroundLosesItsLightWithTheSun();
         fieldOfViewEasesToTheAimedZoomAndBack();
@@ -125,6 +128,7 @@ public final class Tests {
         ScopeTests.run();
         RifleTests.run();
         KerbTests.run();
+        StairTests.run();
         TerrainTests.run();
         FacadeTests.run();
         QualityTests.run();
@@ -132,6 +136,7 @@ public final class Tests {
         GameFixTests.run();
         MarkTests.run();
         OnlineTests.run();
+        TailorTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         theBuildThatShipsHasNoDevelopmentKeys();
         heldWeaponPointsAheadWithItsBarrelOnTheLineAsked();
@@ -676,17 +681,28 @@ public final class Tests {
         return packedWedges("wedge");
     }
 
-    /** The same triangle under each of the names, one model after another. */
+    /**
+     * The same three vertices under each of the names, one model after another. The whole one
+     * is a triangle seen from both sides, so two that share their vertices, and the plain one
+     * the one triangle. They are said to be a quarter of a metre apart.
+     */
     private static ByteBuffer packedWedges(String... names) {
         ByteBuffer out = ByteBuffer.allocate(256 * names.length).order(ByteOrder.LITTLE_ENDIAN);
-        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(2).putInt(names.length);
+        out.put(new byte[] {'C', 'U', 'F', 'M'}).putInt(3).putInt(names.length);
         for (String name : names) {
             out.put((byte) name.length()).put(name.getBytes(StandardCharsets.US_ASCII));
             out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(1f).putFloat(2f).putFloat(1f);
-            out.putInt(1);
-            out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
-            out.putFloat(0f).putFloat(2f).putFloat(1f).putFloat(0f).putFloat(0f).putFloat(1f).put((byte) Models.CLOTH).put((byte) 51);
-            out.putFloat(1f).putFloat(0f).putFloat(0.5f).putFloat(1f).putFloat(0f).putFloat(0f).put((byte) Models.METAL).put((byte) 0);
+            out.putFloat(0.25f);
+            for (int triangles = 2; triangles >= 1; triangles--) {
+                out.putInt(3).putInt(triangles);
+                out.putFloat(-1f).putFloat(-2f).putFloat(0f).putFloat(0f).putFloat(-1f).putFloat(0f).put((byte) Models.WOOD).put((byte) 255);
+                out.putFloat(0f).putFloat(2f).putFloat(1f).putFloat(0f).putFloat(0f).putFloat(1f).put((byte) Models.CLOTH).put((byte) 51);
+                out.putFloat(1f).putFloat(0f).putFloat(0.5f).putFloat(1f).putFloat(0f).putFloat(0f).put((byte) Models.METAL).put((byte) 0);
+                if (triangles == 2) {
+                    out.putShort((short) 2).putShort((short) 1).putShort((short) 0);
+                }
+                out.putShort((short) 0).putShort((short) 1).putShort((short) 2);
+            }
         }
         return out.flip();
     }
@@ -707,7 +723,11 @@ public final class Tests {
         Map<String, Models.Model> models = Models.read(gzipped(packedWedge()));
         check(models.size() == 1 && models.containsKey("wedge"), "the file's one model is read under its name");
         Models.Model wedge = models.get("wedge");
-        check(wedge.triangles() == 1, "it has the one triangle");
+        check(wedge.triangles() == 2 && wedge.surface.length == 3, "it has its two triangles, and the vertices they share once");
+        check(Arrays.equals(wedge.corners, new int[] {2, 1, 0, 0, 1, 2}), "a triangle is three of its vertices, in the order packed");
+        check(wedge.plain.triangles() == 1 && wedge.plain.plain == null && Arrays.equals(wedge.plain.corners, new int[] {0, 1, 2}),
+                "its plain one is read after it");
+        check(near(wedge.apart, 0.25f) && near(wedge.plain.width(), 2f), "with how far apart the two are, and the plain one is said to be as big");
         check(near(wedge.width(), 2f) && near(wedge.depth(), 4f) && near(wedge.height(), 1f), "its bounds give its size");
         check(near(wedge.vertices[6], 0f) && near(wedge.vertices[7], 2f) && near(wedge.vertices[8], 1f), "the second vertex is where it was packed");
         check(near(wedge.vertices[11], 1f), "and looks up, as packed");
@@ -723,17 +743,22 @@ public final class Tests {
         otherFile.put(0, (byte) 'X');
         refused(otherFile, "does not start with CUFM");
         ByteBuffer laterFormat = packedWedge();
-        laterFormat.putInt(4, 3);
-        refused(laterFormat, "format 3");
+        laterFormat.putInt(4, 4);
+        refused(laterFormat, "format 4");
         ByteBuffer cutShort = packedWedge();
         cutShort.limit(cutShort.limit() - 10);
         refused(cutShort, "the file ends before that many");
         ByteBuffer unknownSurface = packedWedge();
-        unknownSurface.put(unknownSurface.limit() - 2, (byte) Models.SURFACES);
+        // The file ends with the plain one's last vertex, of metal, and its one triangle.
+        int lastSurface = unknownSurface.limit() - 3 * Short.BYTES - 2;
+        unknownSurface.put(lastSurface, (byte) Models.SURFACES);
         refused(unknownSurface, "surface " + Models.SURFACES);
         ByteBuffer shuffled = packedWedge();
-        shuffled.put(shuffled.limit() - 2, (byte) Models.WOOD);
+        shuffled.put(lastSurface, (byte) Models.WOOD);
         refused(shuffled, "out of the order of their surfaces");
+        ByteBuffer strayCorner = packedWedge();
+        strayCorner.putShort(strayCorner.limit() - Short.BYTES, (short) 3);
+        refused(strayCorner, "a triangle at vertex 3");
         ByteBuffer trailing = packedWedge();
         trailing.limit(trailing.limit() + 3);
         refused(trailing, "3 bytes follow the last model");
@@ -771,9 +796,14 @@ public final class Tests {
     private static void modelsAreLaidOutOneAfterAnotherForTheGraphicsCard() throws IOException {
         Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
         Models.Model first = models.get("first"), second = models.get("second");
-        check(first.start == 0 && second.start == 3, "each model starts where the one before it ends");
+        check(first.start == 0 && first.plain.start == 3 && second.start == 6 && second.plain.start == 9,
+                "each model starts where the one before it ends, and its plain one after it");
         float[] buffer = Models.buffer(models.values());
-        check(buffer.length == 6 * Models.BUFFER_FLOATS, "every vertex of every model is there");
+        check(buffer.length == 12 * Models.BUFFER_FLOATS, "every vertex of every model is there");
+        int[] corners = Models.corners(models.values());
+        check(corners.length == 18 && second.from == 9 && second.plain.from == 15, "and every triangle, a model's from where it says");
+        check(Arrays.equals(Arrays.copyOfRange(corners, 9, 18), new int[] {8, 7, 6, 6, 7, 8, 9, 10, 11}),
+                "a triangle names its vertices by where they are among every model's");
         int cloth = (second.start + 1) * Models.BUFFER_FLOATS;
         check(near(buffer[cloth], 0f) && near(buffer[cloth + 1], 2f) && near(buffer[cloth + 2], 1f), "a vertex is where the model has it, not turned or moved");
         check(near(buffer[cloth + 3], 0f) && near(buffer[cloth + 4], 0f) && near(buffer[cloth + 5], 1f), "and looks the way the model has it look");
@@ -797,10 +827,17 @@ public final class Tests {
     private static void pieceIsPackedAsThePictureIsToldIt() throws IOException {
         Map<String, Models.Model> models = Models.read(gzipped(packedWedges("first", "second")));
         Models.Instances pieces = stoodWedge(models.get("second"));
-        check(pieces.count == 1 && pieces.triangles() == 1, "a piece is one record whatever its model holds");
+        check(pieces.count == 1 && pieces.triangles() == 2, "a piece is one record whatever its model holds");
         float[] f = pieces.floats;
         int[] whole = pieces.ints;
-        check(whole[Models.Instances.FIRST] == 3 && whole[Models.Instances.COUNT] == 3, "it says which vertices of the buffer are its model");
+        check(whole[Models.Instances.FIRST] == 9 && whole[Models.Instances.COUNT] == 6, "it says which triangles of every model's are its model");
+        check(whole[Models.Instances.PLAIN_FIRST] == 15 && whole[Models.Instances.PLAIN_COUNT] == 3, "and which are its plain one");
+        // Stood at half size along the ground and a quarter up, so the greater of the two.
+        check(near(f[Models.Instances.APART], 0.125f), "how far apart the two are is in tiles, as the piece is stood");
+        float pixel = 2f / 1080f, least = 0.125f / (pixel * Models.Instances.SEEN_APART) + f[Models.Instances.BALL + 3];
+        check(!pieces.plain(0, least - 0.01f, pixel), "a piece near enough for that to show is drawn whole");
+        check(pieces.plain(0, least + 0.01f, pixel), "and from further off, where it does not, plain");
+        check(!pieces.plain(0, -1f, pixel), "a piece the eye is inside of is drawn whole");
         check(whole[Models.Instances.TEXTURE] == 77, "and which texture dyes it");
         check(near(f[Models.Instances.PLACE], 10f) && near(f[Models.Instances.PLACE + 1], 20f), "it is lit by the square it was stood on");
         check(near(f[Models.Instances.PLACE + 2], 0.5f) && near(f[Models.Instances.PLACE + 3], 0.25f), "it keeps its size along the ground and its size up apart");
@@ -820,11 +857,11 @@ public final class Tests {
         }
         f = pieces.floats;
         whole = pieces.ints;
-        check(pieces.count == 22 && pieces.triangles() == 22, "pieces are kept however many there are");
+        check(pieces.count == 22 && pieces.triangles() == 44, "pieces are kept however many there are");
         check(near(f[Models.Instances.PLACE], 10f) && whole[Models.Instances.TEXTURE] == 77, "and the first is as it was");
         check(whole[Models.Instances.INTS + Models.Instances.FIRST] == 0 && whole[Models.Instances.INTS + Models.Instances.TEXTURE] == 0,
                 "a piece that takes no dye names no texture");
-        check(near(f[21 * Models.Instances.FLOATS + Models.Instances.PLACE], 19f) && whole[21 * Models.Instances.INTS + Models.Instances.FIRST] == 3,
+        check(near(f[21 * Models.Instances.FLOATS + Models.Instances.PLACE], 19f) && whole[21 * Models.Instances.INTS + Models.Instances.FIRST] == 9,
                 "the last is where the last was put");
         pieces.clear();
         check(pieces.count == 0 && pieces.triangles() == 0, "a chunk built again starts with none");
@@ -1020,7 +1057,7 @@ public final class Tests {
     private static void jarHoldsEveryModelStoodOnTheFloor() {
         String[] names = {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "armchair", "bedside_cabinet", "dresser", "desk",
                 "office_chair", "counter", "counter_sink", "counter_corner", "wall_cupboard", "wall_cupboard_corner", "fridge", "oven", "bookcase", "locker",
-                "tv", "tv_console", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
+                "tv", "tv_wide", "tv_console", "lit_screen", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
                 "picnic_table", "crate", "barrel", "frame_tall", "frame_square", "frame_wide", "canvas", "wall_clock", "table_2", "table_3", "table_4",
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
                 "metal_rack", "store_shelves", "plastic_chair", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster",
@@ -1031,6 +1068,8 @@ public final class Tests {
             // A length of canvas is a bare slab. Everything else has parts.
             check((model.triangles() > 100 || name.equals("canvas")) && model.triangles() <= 6000,
                     name + " is a model of a size to draw, at " + model.triangles() + " triangles");
+            check(model.plain.triangles() < model.triangles(), name + " has a plain model of fewer triangles: " + model.plain.triangles());
+            check(model.apart < 0.02f, name + "'s plain model is nowhere far from it: " + model.apart);
             check(near(model.minZ, 0f), name + " stands on the floor");
             if (name.startsWith("shower")) {
                 // Built on its square, the wall at its back.
@@ -1893,17 +1932,87 @@ public final class Tests {
         AimInput aim = new AimInput();
         check(!aim.held(false, false, start), "nothing pressed is no aim");
         check(aim.held(true, false, start), "the game's own aim input is passed on");
-        check(aim.held(false, true, start), "the attack button holds the aim");
+        // What is in hand is not a firearm, and the game reads its attack button after its aim input.
+        check(aim.held(false, true, start) && aim.attack(true, false), "the attack button holds the aim");
         check(aim.held(false, false, start + frame), "the aim stays held on the frame after a one frame click");
         check(aim.held(false, false, start + AimInput.TAIL_NANOS - 1), "and to the end of the tail, across the clock's wrap");
         check(!aim.held(false, false, start + AimInput.TAIL_NANOS), "and no longer");
         aim.held(false, true, start);
+        aim.attack(true, false);
         aim.held(false, true, start + 10 * frame);
         check(aim.held(false, false, start + 10 * frame + AimInput.TAIL_NANOS - 1), "the tail runs from the last frame the button was down");
         aim.held(false, true, start);
         aim.reset();
         check(!aim.held(false, false, start + frame), "a tail that was reset holds nothing");
         check(aim.held(true, false, start + frame), "but the game's own aim input still does");
+    }
+
+    private static void aFirearmsShotWaitsForTheAimToBear() {
+        long now = 1_000L, frame = 16_000_000L;
+        AimInput aim = new AimInput();
+        // A click of one frame with nothing aimed.
+        check(aim.held(false, true, now) && !aim.attack(true, true), "a click holds the aim and is not yet an attack");
+        aim.frame();
+        for (int i = 1; i < AimInput.FRAMES_TO_BEAR; i++) {
+            now += frame;
+            check(aim.held(false, false, now), "the aim stays held for a click the game has not been told of, frame " + i);
+            check(!aim.attack(false, true), "and the game is not told of it, frame " + i);
+            aim.frame();
+        }
+        for (int i = 0; i < AimInput.FRAMES_PRESSED; i++) {
+            now += frame;
+            check(aim.held(false, false, now) && aim.attack(false, true), "then the click is passed on, held down, frame " + i);
+            aim.frame();
+        }
+        now += frame;
+        check(aim.held(false, false, now), "the tail runs from the click's last frame");
+        check(!aim.attack(false, true), "and the click is over");
+        check(!aim.held(false, false, now + AimInput.TAIL_NANOS + frame), "the aim goes down after the tail");
+
+        // The button held down: fire for as long as it is.
+        aim = new AimInput();
+        for (int i = 0; i < AimInput.FRAMES_TO_BEAR; i++) {
+            aim.held(false, true, now);
+            check(!aim.attack(true, true), "a held button waits as a click does, frame " + i);
+            aim.frame();
+        }
+        for (int i = 0; i < 10; i++) {
+            aim.held(false, true, now);
+            check(aim.attack(true, true), "and is then down for as long as it is held, frame " + i);
+            aim.frame();
+        }
+        aim.held(false, false, now);
+        aim.frame();
+        aim.held(false, false, now);
+        aim.frame();
+        aim.held(false, false, now);
+        check(!aim.attack(false, true), "and up soon after it is let go");
+
+        // The sights already up: no wait.
+        aim = new AimInput();
+        for (int i = 0; i < AimInput.FRAMES_TO_BEAR; i++) {
+            aim.held(true, false, now);
+            aim.frame();
+        }
+        aim.held(true, true, now);
+        check(aim.attack(true, true), "with the aim long held a click is an attack at once");
+
+        // Not a firearm: as the button reads.
+        aim = new AimInput();
+        aim.held(false, true, now);
+        check(aim.attack(true, false), "what is not a firearm attacks on the frame of the click");
+        aim.frame();
+        aim.held(false, false, now + frame);
+        check(!aim.attack(false, false), "and a click of it is not held down after it");
+
+        // A game that is not taking attacks does not have its aim held for good.
+        aim = new AimInput();
+        aim.held(false, true, now);
+        for (int i = 0; i < 20; i++) {
+            aim.frame();
+            aim.held(false, false, now);
+        }
+        check(!aim.held(false, false, now + AimInput.TAIL_NANOS + frame), "a click the game never asked after is dropped");
     }
 
     private static void fieldOfViewEasesToTheAimedZoomAndBack() {

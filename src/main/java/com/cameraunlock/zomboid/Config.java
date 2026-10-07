@@ -144,7 +144,10 @@ final class Config {
                             + "frames. false: the game's sprites of them.",
                     live, true),
             core.configLocalBool("Content", "OwnPictures",
-                    "true: the mod's photographs, paintings and posters on walls. false: the game's.", live, true),
+                    "true: the mod's photographs, paintings and posters on walls, and programmes on a\n"
+                            + "television that is on. false: the game's pictures, and only colour bars on a\n"
+                            + "television.",
+                    live, true),
             core.configLocalBool("Content", "OwnPlants",
                     "true: the mod's leaves, tree trunks, boulders, grass, ferns, flowers and fallen\n"
                             + "leaves. false: the game's sprites of trees, bushes and grass.",
@@ -170,6 +173,12 @@ final class Config {
                     "true: arms and hands of the mod's own on a held weapon, with fingers that close on\n"
                             + "it and go to its bolt, slide, magazine and loading port as it is worked and loaded,\n"
                             + "in the skin, sleeves and gloves your character has. false: the game's own arms.",
+                    live, true),
+            core.configLocalBool("Content", "OwnClothes",
+                    "true: what people and zombies wear is made finer near the eye: the game's picture\n"
+                            + "of each garment and head of hair enlarged with its outline smoothed, and the weave,\n"
+                            + "knit, grain or strands of what it is made of laid on from the mod's own photographs.\n"
+                            + "false: the game's own pictures as they are.",
                     live, true),
         };
     }

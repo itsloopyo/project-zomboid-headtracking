@@ -25,6 +25,8 @@ final class FacadeTests {
         brokenLineIsOneWire();
         wireLevelAcrossTheViewFillsItsSpriteAndIsStillAWire();
         onlyTheSheetsWiresAreWires();
+        wireRunsTheWayTheMapsWiresRun();
+        poleIsItsLengthsAndItsArm();
         halfTilesHeldALevelUpPeakTheRidgeTheyBelongTo();
         halfTileOnItsOwnSquareMakesItsRidge();
         halfTileThatJoinsNoSlopeMakesNothing();
@@ -193,8 +195,42 @@ final class FacadeTests {
         check(Wires.read((u, v) -> false, frame).length == 0, "a sprite with nothing on it has none");
     }
 
+    private static void wireRunsTheWayTheMapsWiresRun() {
+        SpriteGeometry.Frame frame = frame(0, 0, 128, 256);
+        // A wire along x drawn two dots down for every five across where it should be two for four: its ends are off its line.
+        float[] lines = Wires.read((u, v) -> u >= 20 && u < 100 && v == 80 + Math.round((u - 20) * 0.45f), frame);
+        check(lines.length == 4, "a line drawn a little off is one wire: " + lines.length / 4);
+        check(Math.abs(lines[1] - lines[3]) < 1e-4f && Math.abs(lines[0] - lines[2]) > 1f, "and runs along x: " + lines[1] + " to " + lines[3]);
+        // One that runs no way a wire does keeps the way its ends say.
+        float[] odd = Wires.read((u, v) -> u >= 20 && u < 100 && v == 80 + Math.round((u - 20) * 0.25f), frame);
+        check(odd.length == 4 && Math.abs(odd[1] - odd[3]) > 0.1f && Math.abs(odd[0] - odd[2]) > 0.1f, "a line between two ways is left as it is drawn");
+    }
+
+    private static void poleIsItsLengthsAndItsArm() {
+        check(Poles.length("appliances_com_01_88") && Poles.length("appliances_com_01_95"), "a length of shaft is a length of a pole");
+        check(!Poles.length("appliances_com_01_87") && !Poles.length("appliances_com_01_96") && !Poles.length("street_decoration_01_88") && !Poles.length(null),
+                "a projector, a wire and a sprite of another sheet are not");
+        check(Poles.arm("appliances_com_01_88") == null && Poles.arm("appliances_com_01_94") == null, "a bare length has no arm");
+        for (int index = 90; index <= 93; index++) {
+            Poles.Arm arm = Poles.arm("appliances_com_01_" + index);
+            check(arm != null && Math.abs(arm.alongX() * arm.alongX() + arm.alongY() * arm.alongY() - 1f) < 1e-5f, "the top of a pole has an arm that lies one way: " + index);
+            check(arm.outer() + Poles.INSULATOR < arm.half() && Math.abs(arm.middle()) < arm.outer(), "its wires cross it between its ends: " + index);
+            // The game looks down the map's diagonal from where x and y are greatest: the arm is on that side of its shaft.
+            check(-arm.alongY() + arm.alongX() > -1e-5f, "it is on the side of the shaft the game's view is on: " + index);
+        }
+        // The arm that lies along x, on a shaft 0.08 thick at its top in the middle of its square.
+        Poles.Arm alongX = Poles.arm("appliances_com_01_93");
+        float[] at = new float[2];
+        check(!Poles.insulator(alongX, 1, 0.5f, 0.5f, 0.08f, at) && Math.abs(at[0] - 1.3f) < 1e-5f && Math.abs(at[1] - 0.635f) < 1e-5f,
+                "an outer wire's insulator is on the arm, which is bolted to the near side of the shaft: " + at[0] + ", " + at[1]);
+        check(!Poles.insulator(alongX, 0, 0.5f, 0.5f, 0.08f, at) && Math.abs(at[0] - 0.34f) < 1e-5f, "the third wire's is beside the shaft: " + at[0]);
+        check(Poles.insulator(Poles.arm("appliances_com_01_90"), 0, 0.5f, 0.5f, 0.08f, at) && at[0] == 0.5f && at[1] == 0.5f,
+                "and on the shaft's top where that wire passes over it");
+    }
+
     private static void onlyTheSheetsWiresAreWires() {
-        check(Wires.hangs("appliances_com_01_96") && Wires.hangs("appliances_com_01_121"), "the sheet's wires are wires");
+        check(Wires.hangs("appliances_com_01_96") && Wires.hangs("appliances_com_01_121") && Wires.hangs("appliances_com_01_135"), "the sheet's wires are wires");
+        check(!Wires.hangs("appliances_com_01_136") && !Wires.hangs("appliances_com_01_167"), "a street lamp's arm on a pole and a band round one are not");
         check(!Wires.hangs("appliances_com_01_80") && !Wires.hangs("appliances_com_01_93") && !Wires.hangs("appliances_com_01_on_3") && !Wires.hangs(null),
                 "an aerial, a pole and a sprite of another sheet are not");
     }

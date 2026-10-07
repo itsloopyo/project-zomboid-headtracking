@@ -45,7 +45,7 @@ final class HeadTracking {
     private static Config config;
     private static CameraUnlock.Settings settings;
     /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
-    private static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
+    static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
         thread.setDaemon(true);
         return thread;

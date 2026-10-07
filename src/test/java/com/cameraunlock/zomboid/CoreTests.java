@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
@@ -33,8 +34,13 @@ import java.util.stream.Stream;
  * Every check runs, and the tally is printed once at the end.
  */
 public final class CoreTests {
-    /** Not 4242: a tracker may be running on the machine the tests run on. */
-    private static final int PORT = 14323;
+    /**
+     * A port the system says nothing holds, asked for just before core listens on it. Not 4242,
+     * where a tracker may be sending, and not one fixed number: another run of these tests on
+     * the same machine held it, and core then waited for the port while the poses sent here
+     * went to the other run.
+     */
+    private static int port;
     private static final float ASPECT = 16f / 9f;
     private static final float FRAME_SECONDS = 0.005f;
 
@@ -141,34 +147,45 @@ public final class CoreTests {
         return ran.output() + Files.readString(log.resolve(Log.FILE_NAME));
     }
 
-    private static String text() throws IOException {
-        return Files.readString(file, StandardCharsets.US_ASCII);
+    /**
+     * A save is made on the mod's own thread, a moment after the action, one save after another.
+     * This returns once every save asked for so far has been made or has failed, so nothing here
+     * reads or writes the file while a save is replacing it.
+     */
+    private static void savesMade() throws InterruptedException {
+        CountDownLatch made = new CountDownLatch(1);
+        HeadTracking.saver.execute(made::countDown);
+        made.await();
     }
 
-    private static boolean holds(String row) throws IOException {
+    private static byte[] bytes() throws IOException, InterruptedException {
+        savesMade();
+        return Files.readAllBytes(file);
+    }
+
+    private static String text() throws IOException, InterruptedException {
+        return new String(bytes(), StandardCharsets.US_ASCII);
+    }
+
+    private static boolean holds(String row) throws IOException, InterruptedException {
         return text().contains("\r\n" + row + "\r\n");
     }
 
-    /** A save is made on the mod's own thread, a moment after the action. */
     private static boolean saved(String... rows) throws IOException, InterruptedException {
-        for (int waited = 0; waited < 5000; waited += 20) {
-            boolean all = true;
-            for (String row : rows) {
-                all &= holds(row);
-            }
-            if (all) {
-                return true;
-            }
-            Thread.sleep(20);
+        String text = text();
+        boolean all = true;
+        for (String row : rows) {
+            all &= text.contains("\r\n" + row + "\r\n");
         }
-        return false;
+        return all;
     }
 
     private static long firstEdit;
     private static int edits;
 
     /** The player saving the file from an editor. */
-    private static void edit(String text) throws IOException {
+    private static void edit(String text) throws IOException, InterruptedException {
+        savesMade();
         Files.writeString(file, text, StandardCharsets.US_ASCII);
         if (edits == 0) {
             firstEdit = Files.getLastModifiedTime(file).toMillis();
@@ -284,7 +301,7 @@ public final class CoreTests {
         for (double value : new double[] {x * 100, y * 100, z * 100, yaw, pitch, roll}) {
             wire.putDouble(value);
         }
-        socket.send(new DatagramPacket(wire.array(), 48, InetAddress.getLoopbackAddress(), PORT));
+        socket.send(new DatagramPacket(wire.array(), 48, InetAddress.getLoopbackAddress(), port));
     }
 
     /**
@@ -343,7 +360,10 @@ public final class CoreTests {
     }
 
     private static void poseTurnsAndMovesTheView() throws IOException, InterruptedException {
-        HeadTracking.listen(PORT);
+        try (DatagramSocket free = new DatagramSocket(0)) {
+            port = free.getLocalPort();
+        }
+        HeadTracking.listen(port);
         cleanYaw = 0f;
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
         frame();
@@ -429,11 +449,10 @@ public final class CoreTests {
 
     private static void hotkeyActionsActAndSave() throws IOException, InterruptedException {
         int others = Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_STYLE;
-        byte[] before = Files.readAllBytes(file);
+        byte[] before = bytes();
         int handedBack = HeadTracking.act(others);
         String modes = HeadTracking.describe();
-        Thread.sleep(300);
-        check(handedBack == others && Arrays.equals(Files.readAllBytes(file), before) && modes.contains("mode rotation and position yaw about world up")
+        check(handedBack == others && Arrays.equals(bytes(), before) && modes.contains("mode rotation and position yaw about world up")
                         && modes.contains("Aim mode: sights locked"),
                 "the first person view's three actions are handed back for it to act on, and change and save nothing here");
 
@@ -495,7 +514,7 @@ public final class CoreTests {
     }
 
     private static void toggleSwitchesTrackingOffForTheSessionAndWritesNothing() throws IOException, InterruptedException {
-        byte[] before = Files.readAllBytes(file);
+        byte[] before = bytes();
         HeadTracking.act(Config.TOGGLE);
         frame();
         check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && HeadTracking.headTurn() == null && HeadTracking.describe().startsWith("tracking off"),
@@ -504,8 +523,7 @@ public final class CoreTests {
         frame();
         check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "and pressed again puts it at the tracker's pose at once: " + eye());
         HeadTracking.act(Config.TOGGLE);
-        Thread.sleep(300);
-        check(Arrays.equals(Files.readAllBytes(file), before), "neither press writes the file");
+        check(Arrays.equals(bytes(), before), "neither press writes the file");
     }
 
     /** Tracking is off in this session here, by the toggle key, which the file knows nothing of. */
@@ -543,6 +561,12 @@ public final class CoreTests {
         HeadTracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
         check(saved("Style=Bleak", "OwnArms=false"), "and leaves the edited row in the file");
+
+        edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
+        HeadTracking.cycleStyle();
+        check(saved("Style=Vivid", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
+        HeadTracking.watchSettings();
+        check(FieldOfView.degrees() == 80f && Style.current() == Style.VIVID, "and the watch still reads the edit: " + FieldOfView.degrees());
     }
 
     /**

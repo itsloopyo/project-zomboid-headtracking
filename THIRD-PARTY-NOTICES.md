@@ -36,7 +36,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## cameraunlock-core
 
-- **Version:** commit 29c708766bed394e9928ec9a58012283cdf9eb4c
+- **Version:** commit 9a9d4ed0e3646ec790fed9fef17ed1919eebd754
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
 - **Usage:** `CameraUnlockCore.dll` is built from it: the OpenTrack receiver, the pose pipeline, the settings file reader and writer, the hotkey poller and the log, which the jar loads from beside itself. Its two Java classes, the binding to that DLL and the class the game's launcher starts the mod through, are compiled into the jar. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides.
@@ -116,6 +116,17 @@ Copyright (c) 2026 itsloopyo
 - **Usage:** The game composes what a person wears from the body's skin, dirt, blood and clothes. For a zombie or one of the living near the eye the first person view has the game's own combiner compose it again with the mod's skin in place of the game's, and draws the result. The settled blood and veins on a zombie's skin and the hair on a man's body are arithmetic in `tools/skins/bake.py`, with no model. The prompts are in `tools/skins/generate.py`.
 - **Bundled:** the skins, yes. The model is not.
 
+
+---
+
+## Generated fabrics, T-shirt prints, blood and dirt
+
+- **Files:** inside the mod's jar, `fabric/*.jpg` (eight close photographs of cloth, leather and hair, one channel each), `skins/shirtdecals/*.jpg` (sixty prints for the chest of a T-shirt) and `skins/bloodtextures/*.jpg` (dried blood and dirt), each of the last two with a `.cut.png` beside it that says what of it shows.
+- **Version:** made by `tools/skins/fabrics.py` and `tools/skins/prints.py` in this repository with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. A print is a design of the mod's own on the theme the game's name for that print gives it (a slice of pizza for a pizza place, a wolf for a wolf): no brand, mascot or lettering of the game's is in it, and the game's prints were not read. Any lettering in one is the model's own scribble and spells nothing.
+- **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI, on the same terms as the generated material textures above.
+- **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+- **Usage:** In the first person view the mod makes the game's own picture of each garment, head of hair and beard finer as the game runs, reading it from the player's installed copy, and multiplies the light and dark of one of the fabrics into it. Nothing of the game's pictures is in the jar. The prints, the blood and the dirt stand in for the game's own where its combiner composes what a person wears.
+- **Bundled:** the pictures, yes. The model is not.
 ---
 
 ## Shotgun model

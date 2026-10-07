@@ -23,7 +23,7 @@ LONG = set()
 SHAPED = {}
 LETTERED = {}
 SEEDS = {'basketball-3': 7, 'boxing-3': 7, 'hockey-1': 7, 'hockey-2': 11, 'hockey-5': 7, 'football-4': 7, 'certificate': 7,
-         'music-05': 7, 'music-07': 7, 'music-08': 7}
+         'music-05': 7, 'music-07': 7, 'music-08': 7, 'screen-05': 7, 'screen-07': 11}
 
 
 def art(name, prompt, negative, size):
@@ -375,3 +375,26 @@ for _group, (_name, _prompt, _title, _line) in FILMS.items():
             LONG.add('Poster|' + _group + _shape)
 HUNG.append(('Banner|Movie', 'film-movie-broad'))
 LONG.add('Banner|Movie')
+
+# What a television that is on shows: stills of the programmes of 1993, four wide for three high as a tube is. They hang
+# nowhere, so no sprite is their key: SCREENS is their names in the order the mod numbers them, and pack.py makes each
+# again in black and white for a set with no colour, and draws the bars a set shows with nothing coming in.
+ON_AIR = ', still frame from a 1990s american television broadcast, analog video, NTSC colour, slightly soft, studio lighting'
+SCREEN_NEGATIVE = NO_TEXT + ', deformed, extra fingers, extra limbs, modern, smartphone, television set, screen bezel, monitor'
+PROGRAMMES = [
+    'a male news anchor in a grey suit and red tie sitting at a news desk, blue studio backdrop' + ON_AIR,
+    'a weather forecaster in a brown suit standing in front of a weather map with sun and cloud symbols' + ON_AIR,
+    'a cheerful woman in an apron stirring a pot in a television studio kitchen, cooking show' + ON_AIR,
+    'a bearded man in a plaid shirt and safety glasses sanding a wooden chair in a workshop, woodworking show' + ON_AIR,
+    'a man in a fishing vest and cap holding up a largemouth bass in a small boat on a lake, fishing show' + ON_AIR,
+    'a baseball pitcher in a plain white uniform throwing from the mound, green outfield grass behind him, televised baseball game' + ON_AIR,
+    'a glamorous woman with big blonde hair and a man in a tuxedo arguing in an opulent living room, daytime soap opera' + ON_AIR,
+    'saturday morning cartoon, a small blue cartoon robot and a green cartoon frog building a rocket in a garage, 1980s cel animation, flat bright colours, thick outlines',
+    'a white tailed deer standing in a misty forest clearing at dawn, nature documentary' + ON_AIR,
+    'a game show host in a sparkly blue jacket holding a microphone on a brightly lit stage with coloured lights, game show' + ON_AIR,
+    'a cowboy on horseback riding through a desert canyon, classic western film, technicolor' + ON_AIR,
+    'an aerobics instructor in a pink leotard and leg warmers leading a workout class, 1980s exercise show' + ON_AIR,
+]
+SCREENS = ['screen-%02d' % _i for _i in range(len(PROGRAMMES))]
+for _name, _prompt in zip(SCREENS, PROGRAMMES):
+    art(_name, _prompt, SCREEN_NEGATIVE, STOUT)

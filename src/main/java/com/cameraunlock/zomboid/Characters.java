@@ -726,7 +726,7 @@ public final class Characters {
         } else if (ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
             origin = ViewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), ViewModel.handgun, grip, origin, ViewModel.pointing, ViewModel.over, ViewModel.foreEnd, parts);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), ViewModel.handgun, grip, origin, ViewModel.pointing, ViewModel.over, ViewModel.foreEnd, ViewModel.foreSteady, parts);
         ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes());
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
@@ -872,8 +872,8 @@ public final class Characters {
         if (ownArms) {
             for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
                 float[] of = armSaid[side];
-                said.append(String.format(Locale.ROOT, "%s own arm: wrist bent %.0f, forearm turned %.0f, upper arm drawn %.2f, wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f)",
-                        side == 0 ? "right" : "; left", Math.toDegrees(of[ArmPose.BENT]), Math.toDegrees(of[ArmPose.TWISTED]), of[ArmPose.STRETCHED],
+                said.append(String.format(Locale.ROOT, "%s own arm: wrist bent %.0f, forearm turned %.0f, upper arm drawn %.2f, shoulder gave %.3f, wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f)",
+                        side == 0 ? "right" : "; left", Math.toDegrees(of[ArmPose.BENT]), Math.toDegrees(of[ArmPose.TWISTED]), of[ArmPose.DRAWN], of[ArmPose.GAVE],
                         of[ArmPose.WRIST], of[ArmPose.WRIST + 1], of[ArmPose.WRIST + 2], of[ArmPose.ELBOW], of[ArmPose.ELBOW + 1], of[ArmPose.ELBOW + 2]));
             }
             return said.append(String.format(Locale.ROOT, "; the game's hand was %.3f beside the weapon's middle", handAside)).toString();

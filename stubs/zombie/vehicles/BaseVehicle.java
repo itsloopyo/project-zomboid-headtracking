@@ -3,7 +3,7 @@ package zombie.vehicles;
 import org.joml.Vector3f;
 import zombie.characters.IsoGameCharacter;
 
-public final class BaseVehicle {
+public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public float getX() { throw new UnsupportedOperationException("reference stub"); }
     public float getZ() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getHeadlightsOn() { throw new UnsupportedOperationException("reference stub"); }
@@ -22,5 +22,6 @@ public final class BaseVehicle {
     public VehiclePart getPassengerDoor(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public VehiclePart getPartById(String id) { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.VehicleScript getScript() { throw new UnsupportedOperationException("reference stub"); }
+    public Vector3f getLinearVelocity(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSteering() { throw new UnsupportedOperationException("reference stub"); }
 }

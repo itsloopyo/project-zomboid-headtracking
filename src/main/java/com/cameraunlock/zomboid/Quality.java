@@ -6,7 +6,8 @@ import java.util.Locale;
  * How much the first person picture costs to draw: the Quality row of CameraUnlock.ini. High
  * is the whole picture. Medium and Low draw it with fewer pixels, shorter sight, smaller
  * shadow maps and without the passes that shade corners, light the air, mirror and give
- * surfaces depth, for a graphics card that cannot keep up with the whole of it. Automatic begins at High and steps
+ * surfaces depth, for a graphics card that cannot keep up with the whole of it. A vehicle's
+ * mirror shows Low's picture in every mode. Automatic begins at High and steps
  * down while the picture is being drawn slower than {@link #SLOWEST} frames a second.
  *
  * The row is read again while the game runs. The thread that watches the file sets it, the
@@ -22,6 +23,8 @@ final class Quality {
     private static final float SLOWEST = 45f;
     /** How long the frame rate is counted for before it is judged, and how long after a step before counting begins again. */
     private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L;
+
+    private static final int LOW_SIGHT = 48;
 
     private static volatile int row = LOW;
     private static volatile int level = LOW;
@@ -132,7 +135,24 @@ final class Quality {
 
     /** How far the view is built and drawn, in tiles, where the loaded map reaches that far. */
     static int sight() {
-        return level == HIGH ? 80 : level == MEDIUM ? 64 : 48;
+        return level == HIGH ? 80 : level == MEDIUM ? 64 : LOW_SIGHT;
+    }
+
+    /**
+     * How far a vehicle's mirror shows, in tiles. Its picture is Low's in every mode: it is a
+     * second drawing of the world for a strip of glass a hand wide.
+     */
+    static int sightBehind() {
+        return LOW_SIGHT;
+    }
+
+    /**
+     * How much of the rain on the panes of the viewer's vehicle is drawn: see GlassRain. 0 is
+     * drops of one grid, 1 specks among them and trickles down the panes no wiper reaches, 2
+     * three sizes of drop and drops that run down and leave a line of wet behind them.
+     */
+    static int glassRain() {
+        return level - LOW;
     }
 
     /** Whether corners are shaded and lent the light of what stands near, the air is lit, and wet roads, polished floors and glass mirror. */

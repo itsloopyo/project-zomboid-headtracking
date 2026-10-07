@@ -10,6 +10,7 @@ public final class Core {
     public KeyBinding getKeyBinding(String name) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isToggleToAim() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDoingTextEntry() { throw new UnsupportedOperationException("reference stub"); }
+    public void setForceSnow(boolean forced) { throw new UnsupportedOperationException("reference stub"); }
 
     public record KeyBinding(String name, int keyValue, int altKey, boolean shift, boolean ctrl, boolean alt) {}
 }

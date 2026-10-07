@@ -22,9 +22,9 @@ final class Wind {
      */
     static final float TRAVEL_WRAP = 256f;
     /** The clock every blade shivers by starts again after this many seconds, in which each has shivered a whole number of times. */
-    static final float FLUTTER_WRAP = 16f;
+    static final float FLUTTER_WRAP = 160f;
     /** How fast the gusts cross the ground in tiles a second: in the lightest air, and more for each unit of the push. */
-    private static final float TRAVEL_STILL = 0.5f, TRAVEL_PER_PUSH = 1.6f;
+    private static final float TRAVEL_STILL = 0.05f, TRAVEL_PER_PUSH = 0.16f;
 
     /**
      * How hard what grows is pushed by a wind of the game's intensity, which is 0 in still

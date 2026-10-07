@@ -154,6 +154,18 @@ final class Terrain {
 
     /** The height of the ground at (x, y) above the flat map, in tiles. 0 where it is not known. */
     static float height(float x, float y) {
+        return height(x, y, true);
+    }
+
+    /**
+     * The height of the land at (x, y) with no street cut into it: what hangs over the ground,
+     * a wire, keeps its height where it crosses a kerb. 0 where it is not known.
+     */
+    static float land(float x, float y) {
+        return height(x, y, false);
+    }
+
+    private static float height(float x, float y, boolean kerbed) {
         int tileX = (int) Math.floor(x), tileY = (int) Math.floor(y);
         int wx = Math.floorDiv(tileX, CHUNK_TILES), wy = Math.floorDiv(tileY, CHUNK_TILES);
         Grid grid = grids.get(slot(wx, wy));
@@ -165,7 +177,7 @@ final class Terrain {
         float[] h = grid.heights;
         int at = i * CORNERS + j;
         return (h[at] * (1f - a) + h[at + CORNERS] * a) * (1f - b) + (h[at + 1] * (1f - a) + h[at + CORNERS + 1] * a) * b
-                - (grid.kerb != null && Kerbs.at(grid.kerb, x - wx * CHUNK_TILES, y - wy * CHUNK_TILES) > 0f ? KERB : 0f);
+                - (kerbed && grid.kerb != null && Kerbs.at(grid.kerb, x - wx * CHUNK_TILES, y - wy * CHUNK_TILES) > 0f ? KERB : 0f);
     }
 
     /** Where the kerbs of a chunk run, as Kerbs keeps it, and null where the chunk has no street. After corners. */

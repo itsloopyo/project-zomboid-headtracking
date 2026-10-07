@@ -40,6 +40,7 @@ import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
+import zombie.iso.objects.IsoTelevision;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.sprite.IsoSprite;
@@ -188,8 +189,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         /** What ChunkMarks had counted round the chunk when the build was made or last found unchanged, and what every build went by then: see epoch. */
         private int marks, told;
         private long epoch;
-        /** The version of the chunk's heights the build was made on: see Terrain.version. */
-        private int land;
+        /** The heights the build was made on, and which chunks round its own it took any from: see landOf. */
+        private int land, heightsRound;
         /** Which of the chunk and the eight round it were loaded when it was last read, a bit each, and which chunks the map had loaded then: see loadedNow. */
         private int ring, loaded;
         /**
@@ -486,6 +487,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     int characters;
     private final SkyState sky = new SkyState();
     private float fogEnd;
+    /** The middle of the map the game has loaded, and how far from it the map reaches every way, in tiles. */
+    private float loadedX, loadedY, loadedWithin;
     /** How much light the eye lets in this frame: see adaptEye. */
     private float exposure;
     /** How much of its opening-up the eye is refused at full night. */
@@ -1040,6 +1043,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             ViewCamera.Pose from, boolean opened) {
         long start = System.nanoTime();
         Stall.beat();
+        Screens.readAhead();
         boolean fromOutside = from != null;
         boolean screenOnly = seenOnly;
         seenOnly = false;
@@ -1219,12 +1223,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         unseenLight.g = unseenGreen;
         unseenLight.b = unseenBlue;
 
-        // The loaded map is a square of chunks around the player, and it ends in nothing. The
-        // picture fades into the sky before the nearest of its four edges, so the edge is never seen.
-        int tiles = IsoChunkMap.chunkGridWidth * CHUNK_TILES;
-        float toEdge = Math.min(Math.min(player.getX() - map.getWorldXMinTiles(), map.getWorldXMinTiles() + tiles - player.getX()),
-                Math.min(player.getY() - map.getWorldYMinTiles(), map.getWorldYMinTiles() + tiles - player.getY()));
-        fogEnd = Math.min(toEdge, Quality.sight());
+        // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
+        // sky by the round that just fits inside it, so the edge is never seen. The square is not
+        // always about the player: the game keeps it ahead of a vehicle, a tile for every 5 km/h,
+        // and the road ahead of a car at speed is there to be seen for further than what is behind.
+        loadedWithin = IsoChunkMap.chunkGridWidth * CHUNK_TILES / 2f;
+        loadedX = map.getWorldXMinTiles() + loadedWithin;
+        loadedY = map.getWorldYMinTiles() + loadedWithin;
+        fogEnd = Quality.sight();
         float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
         // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
         boolean mirrored = !fromOutside && seated && Cabins.wheel(Ride.seatedIn) != null;
@@ -1264,7 +1270,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
                 float toChunkX = chunkX + CHUNK_TILES / 2f - view.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - view.eyeY;
                 float distance = (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY);
-                if (distance > ChunkBuffers.drawnWithin(fogEnd)) {
+                if (distance > ChunkBuffers.drawnWithin(fogEnd)
+                        || Math.hypot(chunkX + CHUNK_TILES / 2f - loadedX, chunkY + CHUNK_TILES / 2f - loadedY) > ChunkBuffers.drawnWithin(loadedWithin)) {
                     continue;
                 }
                 // Drawn as the game's own view, the picture shows a patch of the map round the middle of the screen and no more.
@@ -1333,8 +1340,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 int land = 0;
                 if (telling && !missing) {
                     pullLights(chunk, slot, lowest);
+                }
+                if (!missing) {
                     Terrain.corners(cell, chunk.wx, chunk.wy);
-                    land = Terrain.version(chunk.wx, chunk.wy);
+                    land = landOf(chunk.wx, chunk.wy, current.heightsRound);
                 }
                 // Read before the chunk is: a mark made from another thread while it is read is then one more than the build remembers.
                 int marks = ChunkMarks.around(chunk.wx, chunk.wy);
@@ -1424,7 +1433,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         }
                     }
                     // The same triangles: the same sum, and nothing a build is told that its sum does not hold is otherwise.
-                    boolean same = !missing && current.signature == read && current.told == toldSoFar && current.epoch == epoch;
+                    // The sum holds the chunk's own heights. Those of the chunks round it that its build went by are in land alone.
+                    boolean same = !missing && current.signature == read && current.told == toldSoFar && current.epoch == epoch && current.land == land;
                     unchanged = same;
                     // A chunk that has only just come onto the map far off is made again for what loads late
                     // after a quarter of a second, then a half, then one: at a car's speed a dozen builds each
@@ -1448,7 +1458,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
                         current.marks = marks;
-                        current.land = Terrain.version(chunk.wx, chunk.wy);
+                        current.land = land;
                         current.ring = ring;
                         current.loaded = loadedNow;
                         current.restless = restless;
@@ -1503,6 +1513,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.grows = false;
                     bandAway = BAND_AWAY[fresh.band];
                     alike = ALL_BANDS;
+                    heightsRound = 0;
                     placed = fresh.placed;
                     building = fresh;
                     chunksBuilt++;
@@ -1517,7 +1528,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     // while there was none. Remembered as told, that build stood without them until its chunk was next
                     // marked; remembered as not, the chunk is built once more.
                     fresh.told = toldSoFar;
-                    fresh.land = Terrain.version(chunk.wx, chunk.wy);
+                    fresh.heightsRound = heightsRound;
+                    fresh.land = landOf(chunk.wx, chunk.wy, heightsRound);
                     if (fresh.seen == null) {
                         fresh.seen = new OpenLight();
                     }
@@ -2437,6 +2449,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                                 thing = sum(thing, shown(attached.get(over).parentSprite, dir));
                                 restless |= moves(attached.get(over).parentSprite);
                             }
+                        }
+                        if (object instanceof IsoTelevision set) {
+                            // The game marks the chunk when a set goes on or off or between the bars and a programme, each of
+                            // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel.
+                            int showing = Screens.showing(set);
+                            sum = sum(sum, showing == Screens.PROGRAMME ? Screens.PROGRAMME + set.getDeviceData().getChannel() : showing);
                         }
                         if (object instanceof IsoDoor door) {
                             thing = sum(thing, door.IsOpen() ? 2 : 1);
@@ -3561,34 +3579,206 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 Log.info("wires read off " + texture.getName() + ": " + Arrays.toString(lines));
             }
         }
+        if (lines.length > 0) {
+            findInsulators(x, y, z);
+        }
         for (int i = 0; i < lines.length; i += 4) {
-            float x0 = x + lines[i], y0 = y + lines[i + 1], x1 = x + lines[i + 2], y1 = y + lines[i + 3];
-            // Over the square's own ground, an end that reaches past the square taking the height at its edge. Read off the
-            // map there, an end over the next chunk had that chunk's heights, which are worked out whenever that chunk is
-            // first read and tell this one nothing: the wire hung at the flat map's height until its chunk was next built.
-            float up = (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT;
-            cable(x0, y0, up + geometry.liftAt(lines[i], lines[i + 1]), x1, y1, up + geometry.liftAt(lines[i + 2], lines[i + 3]));
+            set(wireEnds, 0, x + lines[i], y + lines[i + 1], 0f);
+            set(wireEnds, 1, x + lines[i + 2], y + lines[i + 3], 0f);
+            for (int end = 0; end < 6; end += 3) {
+                // Where a run turns at a pole its sprites stop a hand or two short of the arm, each way.
+                float nearest = Poles.MADE_FAST * Poles.MADE_FAST, endX = wireEnds[end], endY = wireEnds[end + 1];
+                for (int at = 0; at < insulators; at += 2) {
+                    float awayX = insulatorsAt[at] - endX, awayY = insulatorsAt[at + 1] - endY, away = awayX * awayX + awayY * awayY;
+                    if (away < nearest) {
+                        nearest = away;
+                        wireEnds[end] = insulatorsAt[at];
+                        wireEnds[end + 1] = insulatorsAt[at + 1];
+                    }
+                }
+                // Over the land and not the street: a wire that crossed a kerb would step down by its height.
+                wireEnds[end + 2] = (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT + landAt(wireEnds[end], wireEnds[end + 1]);
+            }
+            cable(wireEnds[0], wireEnds[1], wireEnds[2], wireEnds[3], wireEnds[4], wireEnds[5]);
         }
         return lines.length > 0;
     }
 
-    /** A wire from one point to another: two strips crossed, so that it has a width from below as from the side. */
+    /** Which of the chunks round the one being built the build has taken the land's height from, a bit each: see landAt. */
+    private int heightsRound;
+
+    /**
+     * The height of the land at a point the build hangs something over, which may be over the
+     * next chunk: a wire's end at the insulator of a pole that stands there. That chunk's
+     * heights are worked out here if they are not yet, where the height read 0 until whatever
+     * first built that chunk had, and the build remembers that it goes by them (landOf): when
+     * they come out otherwise this chunk is built again, which nothing told it to be before.
+     */
+    private float landAt(float x, float y) {
+        int wx = Math.floorDiv((int) Math.floor(x), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(y), CHUNK_TILES);
+        if (wx != building.wx || wy != building.wy) {
+            Terrain.corners(cell, wx, wy);
+            heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
+        }
+        return Terrain.land(x, y);
+    }
+
+    /** The heights a build of a chunk goes by, as one number: the version of its own chunk's and of those round it the build took a height from. After corners. */
+    private int landOf(int wx, int wy, int round) {
+        int land = Terrain.version(wx, wy);
+        for (int bit = 0; bit < 9; bit++) {
+            if ((round >> bit & 1) != 0) {
+                Terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
+                land = land * 31 + Terrain.version(wx + bit / 3 - 1, wy + bit % 3 - 1);
+            }
+        }
+        return land;
+    }
+
+    private final float[] wireEnds = new float[6], insulatorsAt = new float[54], insulatorAt = new float[2];
+    private int insulators;
+
+    /** Fills insulatorsAt with where the insulators stand of every pole whose top is on a square or one beside it, two numbers each. */
+    private void findInsulators(int x, int y, int z) {
+        insulators = 0;
+        for (int beside = 0; beside < 9; beside++) {
+            int poleX = x + beside % 3 - 1, poleY = y + beside / 3 - 1;
+            Poles.Arm arm = Poles.arm(poleOn(poleX, poleY, z));
+            Posts shaft = arm == null ? null : shaftOf(poleX, poleY, z);
+            if (shaft == null) {
+                continue;
+            }
+            for (int which = -1; which <= 1; which++) {
+                Poles.insulator(arm, which, poleX + shaft.a, poleY + shaft.b, shaft.half * Poles.TAPER, insulatorAt);
+                insulatorsAt[insulators++] = insulatorAt[0];
+                insulatorsAt[insulators++] = insulatorAt[1];
+            }
+        }
+    }
+
+    /** The shaft of the pole that has a length on a square, as Posts reads the lowest of its lengths, or null. */
+    private Posts shaftOf(int x, int y, int z) {
+        while (z > lowestLevel && poleOn(x, y, z - 1) != null) {
+            z--;
+        }
+        PZArrayList<IsoObject> objects = cell.getGridSquare(x, y, z).getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite != null && Poles.length(sprite.getName())) {
+                Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                return usable(texture) ? postOf(object, sprite, texture) : null;
+            }
+        }
+        return null;
+    }
+
+    /** The sprite of the length of pole that stands on a square, by its name, or null. */
+    private String poleOn(int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && Poles.length(sprite.getName())) {
+                return sprite.getName();
+            }
+        }
+        return null;
+    }
+
+    private final float[] poleFrom = new float[3], poleTo = new float[3];
+
+    /**
+     * Builds a pole whole from the lowest of its lengths: one shaft from the ground to its
+     * top, and on it the arm its highest length shows, with its braces and the insulators its
+     * wires lie on. The lengths above the lowest add nothing more. The top is as high over the
+     * land as the wires are hung, so that they meet it. See Poles.
+     */
+    private boolean addPole(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
+        if (z > lowestLevel && poleOn(x, y, z - 1) != null) {
+            // Its foot has built it, unless its foot is a sprite Posts cannot read: then each length is left to stand as it did.
+            return shaftOf(x, y, z) != null;
+        }
+        Posts post = postOf(object, sprite, texture);
+        if (post == null) {
+            return false;
+        }
+        int top = z;
+        String highest = sprite.getName();
+        for (String above = poleOn(x, y, top + 1); above != null; above = poleOn(x, y, top + 1)) {
+            top++;
+            highest = above;
+        }
+        Poles.Arm arm = Poles.arm(highest);
+        float axisX = x + post.a, axisY = y + post.b, level = ViewCamera.LEVEL_HEIGHT;
+        float foot = z * level + geometry.liftAt(post.a, post.b), floor = top * level + landAt(axisX, axisY);
+        float head = floor + (arm == null ? Poles.LENGTH : Poles.TOP) * level, thin = post.half * Poles.TAPER;
+        float u = SpriteGeometry.textureU(frame, post.a, post.b), v = SpriteGeometry.textureV(frame, post.a, post.b, 0.5f);
+        mesh.open = frame.open + 32f * SpriteGeometry.TIMBER;
+        mesh.sway = 0f;
+        SpriteGeometry.addRound(mesh, axisX, axisY, foot, head, post.half, thin, 12, u, v, frame.red, frame.green, frame.blue);
+        boxes++;
+        if (arm == null) {
+            return true;
+        }
+        float alongX = arm.alongX(), alongY = arm.alongY(), out = thin + Poles.ARM_HALF;
+        float armX = axisX - alongY * out, armY = axisY + alongX * out, armUp = floor + Poles.ARM_UP * level;
+        set(poleFrom, 0, armX - alongX * arm.half(), armY - alongY * arm.half(), armUp);
+        set(poleTo, 0, armX + alongX * arm.half(), armY + alongY * arm.half(), armUp);
+        SpriteGeometry.addStrut(mesh, poleFrom, poleTo, Poles.ARM_HALF, u, v, frame.red, frame.green, frame.blue);
+        for (int side = -1; side <= 1; side += 2) {
+            float at = side * arm.half() * Poles.BRACE_AT;
+            set(poleFrom, 0, axisX - alongY * (thin + Poles.BRACE_HALF), axisY + alongX * (thin + Poles.BRACE_HALF), floor + Poles.BRACE_UP * level);
+            set(poleTo, 0, armX + alongX * at, armY + alongY * at, armUp - Poles.ARM_HALF);
+            SpriteGeometry.addStrut(mesh, poleFrom, poleTo, Poles.BRACE_HALF, u, v, frame.red, frame.green, frame.blue);
+        }
+        SpriteGeometry.Mesh glazed = solid.get(PLAIN, WallSides.key(Poles.INSULATOR_RED, Poles.INSULATOR_GREEN, Poles.INSULATOR_BLUE, WallSides.FLAT));
+        glazed.open = frame.open;
+        glazed.sway = 0f;
+        float wire = floor + Wires.UP * level;
+        for (int which = -1; which <= 1; which++) {
+            boolean onShaft = Poles.insulator(arm, which, axisX, axisY, thin, insulatorAt);
+            float atX = insulatorAt[0], atY = insulatorAt[1];
+            float from = onShaft ? head : armUp + Poles.ARM_HALF, neck = onShaft ? from : from + (wire - from) * Poles.PIN_SHARE;
+            if (!onShaft) {
+                SpriteGeometry.addRound(glazed, atX, atY, from, neck, Poles.PIN, Poles.PIN, 6, 0f, 0f, frame.red, frame.green, frame.blue);
+            }
+            SpriteGeometry.addRound(glazed, atX, atY, neck, wire, Poles.INSULATOR, Poles.INSULATOR * 0.6f, 8, 0f, 0f, frame.red, frame.green, frame.blue);
+        }
+        return true;
+    }
+
+    /** The corners of a strip in the order of its two triangles: which end of the wire each is at, and which side of its middle. */
+    private static final int[] STRIP_END = {0, 1, 1, 0, 1, 0}, STRIP_SIDE = {-1, -1, 1, -1, 1, 1};
+
+    /**
+     * A wire from one point to another: two strips crossed, so that it has a width from below
+     * as from the side. A wire has no texel, and where a texel's place is each vertex carries
+     * the way it stands off the middle of the wire: the picture stands it off further where
+     * the wire is far from the eye, so that it is never finer than a pixel. For the level
+     * strip that is a way on the map of length one, and for the upright strip up or down, as
+     * 2 or -2 across and nothing down.
+     */
     private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
         SpriteGeometry.Mesh plain = solid.get(PLAIN);
         plain.open = frame.open + SpriteGeometry.CARD + 32f * WIRE;
+        plain.sway = 0f;
         float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-        float sideX = -(y1 - y0) / length * WIRE_THICK / 2f, sideY = (x1 - x0) / length * WIRE_THICK / 2f;
-        float[] c = eave;
-        set(c, 0, x0, y0, up0 - WIRE_THICK / 2f);
-        set(c, 1, x1, y1, up1 - WIRE_THICK / 2f);
-        set(c, 2, x1, y1, up1 + WIRE_THICK / 2f);
-        set(c, 3, x0, y0, up0 + WIRE_THICK / 2f);
-        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
-        set(c, 0, x0 - sideX, y0 - sideY, up0);
-        set(c, 1, x1 - sideX, y1 - sideY, up1);
-        set(c, 2, x1 + sideX, y1 + sideY, up1);
-        set(c, 3, x0 + sideX, y0 + sideY, up0);
-        SpriteGeometry.addPlainQuad(plain, c, frame.red, frame.green, frame.blue);
+        float sideX = -(y1 - y0) / length, sideY = (x1 - x0) / length, half = WIRE_THICK / 2f;
+        for (int strip = 0; strip < 2; strip++) {
+            boolean upright = strip == 0;
+            float offX = upright ? 0f : sideX, offY = upright ? 0f : sideY, offUp = upright ? 1f : 0f;
+            plain.face(upright ? sideX : 0f, upright ? sideY : 0f, upright ? 0f : 1f);
+            for (int corner = 0; corner < 6; corner++) {
+                int side = STRIP_SIDE[corner];
+                boolean far = STRIP_END[corner] == 1;
+                plain.add((far ? x1 : x0) + offX * side * half, (far ? y1 : y0) + offY * side * half, (far ? up1 : up0) + offUp * side * half,
+                        upright ? 2f * side : sideX * side, upright ? 0f : sideY * side, frame.red, frame.green, frame.blue);
+            }
+        }
     }
 
     private boolean spreads(int at, int own, int mine) {
@@ -3815,9 +4005,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
 
+        if (kind.wire && Poles.length(sprite.getName()) && addPole(mesh, object, sprite, texture, x, y, z)) {
+            return;
+        }
+
         // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
-        // the lengths of wire that cross its square, painted as its view sees them. The upper
-        // lengths of the pole hang there too, and are no wire.
+        // the lengths of wire that cross its square, painted as its view sees them.
         if (z > 0 && hangsInAir && kind.wire && addWires(texture, sprite.getName(), x, y, z)) {
             return;
         }
@@ -4816,11 +5009,35 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         float[] lift = geometry.lift;
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
         building.plain = false;
-        placed.add(model, frame, x, y, x + piece.centreX, y + piece.centreY,
-                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised, piece.turns, piece.scale, piece.scaleUp,
+        // The game draws a thing that stands on a table higher than its sprite has it where the
+        // table is higher than the one the sprite was painted on: a set on a chest of drawers.
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised + geometry.raised * ViewCamera.LEVEL_HEIGHT;
+        placed.add(model, frame, x, y, x + piece.centreX, y + piece.centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
         furnished++;
+        if (piece.television && object instanceof IsoTelevision set) {
+            // The game's sprite of a lit screen is painted for its own view and has no place on
+            // the model: it is never drawn over one. With the mod's pictures switched off a set
+            // that is on shows the bars, which is what the game's sprite is a picture of.
+            int showing = Screens.showing(set);
+            if (showing != Screens.DARK) {
+                addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), x, y, foot);
+            }
+        }
         return true;
+    }
+
+    private final float[] screenAt = new float[2];
+
+    /** Stands a picture just proud of the glass of a set that is on, as wide and as high as the glass. held is what Screens.held gives for it. */
+    private void addLitScreen(Furniture piece, Models.Model set, int held, int x, int y, float foot) {
+        float[] glass = Screens.glass(set);
+        float wide = (glass[1] - glass[0]) * piece.scale, high = (glass[3] - glass[2]) * piece.scaleUp;
+        Models.turn(piece.turns, (glass[0] + glass[1]) / 2f * piece.scale, (glass[4] - Screens.PROUD) * piece.scale, screenAt);
+        placed.add(Models.get("lit_screen"), frame, x, y, x + piece.centreX + screenAt[0], y + piece.centreY + screenAt[1], foot + glass[2] * piece.scaleUp,
+                piece.turns, wide, high, held, 1 << Models.SCREEN, 0f, 0f, 0, 0f, 0f);
+        Decor.lay(-0.5f, 0.5f, 0f, 1f, wide, high, 0f, Screens.WIDE_FOR_HIGH, hungShows);
+        placed.picture(hungShows);
     }
 
     /** The object on a square that shows the sprite, or null. */
@@ -7283,7 +7500,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /**
-     * A flight is three squares, each a third of a level, rising towards -x (W) or -y (N).
+     * A flight is three squares, each a third of a level, rising towards -x (W) or -y (N): see
+     * Stairs. Each square is built as the four steps its sprite paints, every tread and riser
+     * showing what the sprite has there.
      * Returns false, adding nothing, for a sprite that is not a stair.
      */
     private boolean addStair(SpriteGeometry.Mesh mesh, Texture texture, IsoObjectType type, int x, int y, int z) {
@@ -7293,44 +7512,72 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (third < 0) {
             return false;
         }
-        float top = (third + 1) / 3f;
         boolean west = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
-        int added = west ? geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, -1f / 3f, 0f, 1f, 0f)
-                : geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 0f, 1f, -1f / 3f, 1f, 0f, 0f);
-        // A flight is solid under its treads: left as the slope alone it is a ramp of paper
-        // seen from the side, with the room showing under it. Each square is closed down
-        // to the floor along both its sides, and the top one across its back, in the colour
-        // the stair has half way up the square. Against a wall the side is inside the wall.
-        float middle = top - 1f / 6f;
-        if (added == 0 || !painted(texture, 0.5f, 0.5f, middle)) {
+        int added = 0;
+        for (int step = 0; step < Stairs.STEPS; step++) {
+            // The tread runs from its riser at near back to far, the way the flight climbs.
+            // A sprite stops short along the low edge of its square, where the game draws the
+            // next square's sprite over it, and its lowest step is cut ragged there. That step
+            // shows what the sprite has for the one above it: the steps of a flight are alike.
+            int shown = Math.max(step, 1);
+            float near = 1f - shown * Stairs.GOING, far = near - Stairs.GOING, high = Stairs.tread(third, shown);
+            float back = (shown - step) * Stairs.GOING;
+            geometry.shownA = west ? back : 0f;
+            geometry.shownB = west ? 0f : back;
+            geometry.shownUp = (step - shown) * Stairs.RISE;
+            added += west ? geometry.addFace(mesh, frame, x, y, z, far, 0f, high, Stairs.GOING, 0f, 0f, 0f, 1f, 0f)
+                    : geometry.addFace(mesh, frame, x, y, z, 0f, far, high, 0f, Stairs.GOING, 0f, 1f, 0f, 0f);
+            added += west ? geometry.addFace(mesh, frame, x, y, z, near, 0f, high - Stairs.RISE, 0f, 1f, 0f, 0f, 0f, Stairs.RISE)
+                    : geometry.addFace(mesh, frame, x, y, z, 0f, near, high - Stairs.RISE, 1f, 0f, 0f, 0f, 0f, Stairs.RISE);
+        }
+        geometry.shownA = geometry.shownB = geometry.shownUp = 0f;
+        // A flight the sprite paints with a side is closed: a string down each side from the
+        // steps to the underside, the underside itself, and a back under the top step. They
+        // are in the colour the sprite's own side has. Stairs of open treads, a fire escape
+        // or a flight of logs, have no side painted and are left as treads. The side the
+        // sprite shows is the one towards the game's view, south of a flight that climbs
+        // west and east of one that climbs north.
+        float middle = third + 0.5f, band = middle / 3f - Stairs.STRING / 2f;
+        float sideA = west ? 0.5f : 1f, sideB = west ? 1f : 0.5f;
+        if (added == 0 || !painted(texture, sideA, sideB, band)) {
             return true;
         }
-        float u = SpriteGeometry.textureU(frame, 0.5f, 0.5f), v = SpriteGeometry.textureV(frame, 0.5f, 0.5f, middle);
+        float u = SpriteGeometry.textureU(frame, sideA, sideB), v = SpriteGeometry.textureV(frame, sideA, sideB, band);
         mesh.open = frame.open + 32f * frame.material;
         mesh.sway = 0f;
-        float floor = z * ViewCamera.LEVEL_HEIGHT;
-        float high = top * ViewCamera.LEVEL_HEIGHT, low = (top - 1f / 3f) * ViewCamera.LEVEL_HEIGHT;
         float[] c = reveal;
         for (int side = 0; side <= 1; side++) {
-            // The high end of the slope, then the low end, along this side of the square.
-            float hx = west ? 0f : side, hy = west ? side : 0f, lx = west ? 1f : side, ly = west ? side : 1f;
-            float highFoot = floor + geometry.liftAt(hx, hy), lowFoot = floor + geometry.liftAt(lx, ly);
-            set(c, 0, x + hx, y + hy, highFoot + high);
-            set(c, 1, x + lx, y + ly, lowFoot + low);
-            set(c, 2, x + lx, y + ly, lowFoot);
-            set(c, 3, x + hx, y + hy, highFoot);
-            SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+            for (int step = 0; step < Stairs.STEPS; step++) {
+                float near = 1f - step * Stairs.GOING, far = near - Stairs.GOING, high = Stairs.tread(third, step);
+                float under = Stairs.underside(third + step * Stairs.GOING), underFar = Stairs.underside(third + (step + 1) * Stairs.GOING);
+                stairCorner(c, 0, x, y, z, west, near, side, high);
+                stairCorner(c, 1, x, y, z, west, far, side, high);
+                stairCorner(c, 2, x, y, z, west, far, side, underFar);
+                stairCorner(c, 3, x, y, z, west, near, side, under);
+                SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
+            }
         }
+        // The underside lies on the floor as far as the second riser of the flight.
+        float from = Math.max(third, Stairs.GOING), foot = 1f - (from - third);
+        stairCorner(c, 0, x, y, z, west, foot, 0f, Stairs.underside(from));
+        stairCorner(c, 1, x, y, z, west, 0f, 0f, Stairs.underside(third + 1f));
+        stairCorner(c, 2, x, y, z, west, 0f, 1f, Stairs.underside(third + 1f));
+        stairCorner(c, 3, x, y, z, west, foot, 1f, Stairs.underside(from));
+        SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
         if (third == 2) {
-            float foot0 = floor + geometry.liftAt(0f, 0f), foot1 = floor + (west ? geometry.liftAt(0f, 1f) : geometry.liftAt(1f, 0f));
-            float bx = west ? 0f : 1f, by = west ? 1f : 0f;
-            set(c, 0, x, y, foot0 + high);
-            set(c, 1, x + bx, y + by, foot1 + high);
-            set(c, 2, x + bx, y + by, foot1);
-            set(c, 3, x, y, foot0);
+            stairCorner(c, 0, x, y, z, west, 0f, 0f, 1f);
+            stairCorner(c, 1, x, y, z, west, 0f, 1f, 1f);
+            stairCorner(c, 2, x, y, z, west, 0f, 1f, Stairs.underside(3f));
+            stairCorner(c, 3, x, y, z, west, 0f, 0f, Stairs.underside(3f));
             SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
         }
         return true;
+    }
+
+    /** A corner of a flight's own faces: along is how far down the square from its high edge, across how far over it, high in levels above its floor. */
+    private void stairCorner(float[] c, int corner, int x, int y, int z, boolean west, float along, float across, float high) {
+        float a = west ? along : across, b = west ? across : along;
+        set(c, corner, x + a, y + b, (z + high) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b));
     }
 
     private static boolean isWall(PropertyContainer properties, IsoObjectType type) {
@@ -7431,6 +7678,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         Pipeline.cutBox[1] = boxMinY;
         Pipeline.cutBox[2] = boxMaxX;
         Pipeline.cutBox[3] = boxMaxY;
+        Pipeline.loadedX = loadedX;
+        Pipeline.loadedY = loadedY;
         Pipeline.focusX = camera.eyeX;
         Pipeline.focusY = camera.eyeY;
         Pipeline.focusUp = camera.eyeUp;
@@ -7439,12 +7688,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // From far overhead nothing fades into the sky: the edge of the loaded map is beyond
             // the picture's. The fade comes in from infinity as the camera comes down.
             float fogAt = landing == 0f ? Float.MAX_VALUE / 2f : fogEnd / landing;
+            Pipeline.loadedWithin = landing == 0f ? Float.MAX_VALUE / 2f : loadedWithin / landing;
             float nearest = Math.max(outsideAway - OVERHEAD_DEPTH, ViewCamera.nearPlane(NEAR_CORNER_DISTANCE, outsideTan, aspect));
             Pipeline.draw(shown, outsideCamera, sky, outsideTan, nearest, outsideAway + FAR, fogAt * FOG_START, fogAt, exposure, viewport);
             lastDrawMillis = Pipeline.lastMillis();
             return;
         }
         Pipeline.rangeFrom = 0f;
+        Pipeline.loadedWithin = loadedWithin;
         Pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
         lastDrawMillis = Pipeline.lastMillis();
     }

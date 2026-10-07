@@ -83,7 +83,7 @@ final class WindTests {
             float turned = (float) Math.hypot(wind.pushX - pushX, wind.pushY - pushY);
             check(turned < 3.5f * FRAME / Wind.SETTLES * 1.01f, "the push changed by " + turned + " in a frame of a wind that had swung round");
             float moved = (float) Math.hypot(apart(wind.travelX, travelX, Wind.TRAVEL_WRAP), apart(wind.travelY, travelY, Wind.TRAVEL_WRAP));
-            check(moved < 4f * FRAME, "the gusts were carried " + moved + " tiles in a frame: faster than any wind blows them");
+            check(moved < 0.4f * FRAME, "the gusts were carried " + moved + " tiles in a frame: faster than any wind blows them");
         }
     }
 
@@ -102,8 +102,8 @@ final class WindTests {
         for (int frame = 0; frame < 60; frame++) {
             wind.blow(0f, 1f, 6f, FRAME);
         }
-        check(Math.abs(wind.travelX) < 1e-3f && wind.travelY > 1.5f && wind.travelY < 2.5f,
-                "a second of wind of 1 along y carries the gusts about two tiles along y: " + wind.travelX + ", " + wind.travelY);
+        check(Math.abs(wind.travelX) < 1e-3f && wind.travelY > 0.15f && wind.travelY < 0.25f,
+                "a second of wind of 1 along y carries the gusts about a fifth of a tile along y: " + wind.travelX + ", " + wind.travelY);
         Wind still = new Wind();
         still.blow(0f, 0f, 6f, 1f);
         check(still.travelX == 0f && still.travelY == 0f, "with no wind the gusts stay where they are");

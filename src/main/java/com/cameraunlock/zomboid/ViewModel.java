@@ -160,6 +160,9 @@ public final class ViewModel {
 
     /** Called by the game straight after it starts its own muzzle flash, which is where a firearm's shot is taken. */
     public static void shot() {
+        if (FirstPerson.TRACE) {
+            Controls.sayShot();
+        }
         if (held != null) {
             kicks++;
             MuzzleFlash.fire();
@@ -419,8 +422,18 @@ public final class ViewModel {
      * up, and its grip ahead. At the hip, and with the sights up, where the barrel is under the
      * middle of the picture by about the height of the sights above it.
      */
-    private static final float HIP_X = 0.13f, HIP_Y = -0.14f, HIP_AHEAD = 0.27f;
-    private static final float AIMED_X = 0f, AIMED_Y = -0.06f, AIMED_AHEAD = 0.36f;
+    private static final float HIP_X = 0.13f, HIP_Y = -0.14f;
+    static final float HIP_AHEAD = 0.27f;
+    /**
+     * The same for a long gun in the mod's own hands, whose arms are the length arms are. The
+     * hand under its fore-end is its arm's length from a shoulder beside the eye, and no
+     * further, so the gun is held nearer: its butt stays by the shoulder it is fired from, and
+     * its grip is as far ahead as it is with the sights up, and never nearer than HIP_NEAREST
+     * nor further than HIP_AHEAD.
+     */
+    static final float HIP_LONG_X = 0.09f, HIP_LONG_Y = -0.12f, HIP_NEAREST = 0.19f;
+    private static final float AIMED_X = 0f, AIMED_Y = -0.06f;
+    static final float AIMED_AHEAD = 0.36f;
     /** At the hip a firearm is tipped over towards the middle. */
     private static final float HIP_CANT = (float) Math.toRadians(8);
     /**
@@ -487,8 +500,12 @@ public final class ViewModel {
     private static final float PUMP_DIPS = (float) Math.toRadians(3), PUMP_PULLS = 0.012f;
     /** How much of the way from grip to muzzle the fore-end travels. */
     private static final float PUMP_TRAVEL = 0.12f;
-    /** Where the left palm is held on the weapon last placed, in the view: only with a muzzle. */
-    static final float[] foreEnd = new float[3];
+    /**
+     * Where the left palm is held on the weapon last placed, in the view, and where it would be with the weapon held still and its
+     * fore-end forward, without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke: only with a muzzle.
+     */
+    static final float[] foreEnd = new float[3], foreSteady = new float[3];
+    private static final float[] still = new float[16], stillTop = new float[3];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
     static final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
@@ -587,16 +604,22 @@ public final class ViewModel {
         }
         float atX, atY, ahead;
         float coming = trueHands ? how.drawn : 0f;
-        float pitch = how.swayPitch + how.lowered * LOWERED_PITCH + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim) + coming * DRAWN_PITCH;
+        // What shakes the weapon, apart from where it is held: the hand under its fore-end is placed on it as it is without these.
+        float shakenPitch = how.swayPitch + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim);
+        float pitch = shakenPitch + how.lowered * LOWERED_PITCH + coming * DRAWN_PITCH;
         float yaw = how.swayYaw + how.lowered * LOWERED_YAW;
         float roll;
         float moveX = 0f, moveY = 0f, moveBack = 0f;
         if (how.firearm) {
             // With the sights up the rifle comes most of the way down while its bolt is worked, and back up after.
             float raised = ViewModelMath.smooth(how.aim) * (1f - (trueHands ? how.worked * WORKED_LOWERS : 0f)), off = ViewModelMath.arc(raised);
-            atX = HIP_X + (AIMED_X - HIP_X) * raised;
-            atY = HIP_Y + (aimedY - HIP_Y) * raised - RAISE_DIPS * off;
-            ahead = HIP_AHEAD + (aimedAhead - HIP_AHEAD) * raised + RAISE_REACHES * off;
+            boolean nearer = trueHands && hasMuzzle && !handgun;
+            float hipX = nearer ? HIP_LONG_X : HIP_X, hipY = nearer ? HIP_LONG_Y : HIP_Y;
+            float hipAhead = nearer ? hipAhead(aimedAhead) : HIP_AHEAD;
+            atX = hipX + (AIMED_X - hipX) * raised;
+            atY = hipY + (aimedY - hipY) * raised - RAISE_DIPS * off;
+            // Arms the length arms are do not reach a fore-end pushed further out on its way up.
+            ahead = hipAhead + (aimedAhead - hipAhead) * raised + (nearer ? 0f : RAISE_REACHES) * off;
             // With the sights up the line of the sights runs along the aim. Off that place the
             // barrel is turned to point at where the aim meets the world, so a weapon at the
             // hip points at the reticle and not past it.
@@ -615,6 +638,7 @@ public final class ViewModel {
             roll += (to[5] - roll) * brought;
             // Working the action drags the muzzle down and the whole gun back a little, and lets it go again.
             pitch -= pumped * PUMP_DIPS;
+            shakenPitch -= pumped * PUMP_DIPS;
             moveBack = pumped * PUMP_PULLS;
         } else {
             atX = SWUNG_X;
@@ -639,6 +663,11 @@ public final class ViewModel {
             gripX = grip[0];
             gripY = grip[1];
         }
+        if (hasMuzzle) {
+            System.arraycopy(out, 0, still, 0, 16);
+            ViewModelMath.turn(still, pitch - shakenPitch, yaw - how.swayYaw, roll, gripX, gripY, -ahead, 0f, -how.lowered * LOWERED_DOWN - coming * DRAWN_DOWN, 0f);
+            ViewModelMath.onto(fromAim, still);
+        }
         ViewModelMath.turn(out, pitch, yaw, roll, gripX, gripY, -ahead,
                 moveX + how.bobX * steady, moveY + how.bobY * steady + how.recoil * KICK_UP - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN - coming * DRAWN_DOWN,
                 moveBack + how.recoil * KICK_BACK);
@@ -655,17 +684,27 @@ public final class ViewModel {
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
             // The mod's own model says where its fore-end is and how far it slides.
-            float along = (own ? OwnWeapon.foreEnd : FORE_END) - (own ? OwnWeapon.pumpTravel : PUMP_TRAVEL) * pumped;
+            float rests = own ? OwnWeapon.foreEnd : FORE_END, along = rests - (own ? OwnWeapon.pumpTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
+            ViewModelMath.place(still, origin[0] + (end[0] - origin[0]) * rests, origin[1] + (end[1] - origin[1]) * rests,
+                    origin[2] + (end[2] - origin[2]) * rests, foreSteady);
+            ViewModelMath.turned(still, top, stillTop);
+            float stillTall = (float) Math.sqrt(stillTop[0] * stillTop[0] + stillTop[1] * stillTop[1] + stillTop[2] * stillTop[2]);
             for (int axis = 0; axis < 3; axis++) {
                 // The hand on the mod's own model is laid round the fore-end, by its middle.
                 if (!own) {
                     foreEnd[axis] -= over[axis] * FORE_END_BELOW;
+                    foreSteady[axis] -= stillTop[axis] / stillTall * FORE_END_BELOW;
                 }
             }
         }
         return true;
+    }
+
+    /** How far ahead of the eye the grip of a long gun in the mod's own hands is at the hip, whose grip is `aimedAhead` ahead with the sights up, in tiles. */
+    static float hipAhead(float aimedAhead) {
+        return Math.clamp(aimedAhead, HIP_NEAREST, HIP_AHEAD);
     }
 
     /** A direction of the weapon's own, in its character's axes. */

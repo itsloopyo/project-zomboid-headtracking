@@ -188,6 +188,19 @@ final class Cabins {
     }
 
     /**
+     * Whether something is wholly out of the picture a mirror takes of the road behind: nearer
+     * than the picture begins, beyond where it has faded into the sky, or to one side of it.
+     *
+     * @param ahead  how far its middle is from the mirror along the way the mirror looks, in tiles
+     * @param across how far to one side of that line
+     * @param reach  how far from its middle it reaches along the ground
+     * @param tan    half of what the picture takes in from side to side, as a tangent
+     */
+    static boolean outOfMirror(float ahead, float across, float reach, float tan, float near, float sight) {
+        return ahead < near - reach || ahead > sight + reach || Math.abs(across) - tan * ahead > reach * (float) Math.sqrt(1f + tan * tan);
+    }
+
+    /**
      * Whether a door of the cabin stands open: the driver's, the passenger's beside the
      * driver, or the viewer's own. The lamp in the roof is lit by them.
      */

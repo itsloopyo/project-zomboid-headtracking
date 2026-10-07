@@ -51,10 +51,13 @@ final class Ride {
     static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
+    /** How fast the viewer's vehicle is going on the map, as the game's physics has it. */
+    static volatile float goingX, goingY;
 
     private static String seatsOf;
     private static final Vector3f seatAt = new Vector3f();
     private static final Vector3f facing = new Vector3f();
+    private static final Vector3f going = new Vector3f();
     private static int seatSaid;
     private static int wearAsked;
 
@@ -90,6 +93,10 @@ final class Ride {
         // The game counts a turn to the left as positive: with the right key held it read -0.9 at full lock.
         steering = -vehicle.getCurrentSteering();
         lampsOn = vehicle.getHeadlightsOn();
+        // The game gives a vehicle's speed, like the way it faces, with y as up.
+        vehicle.getLinearVelocity(going);
+        goingX = going.x;
+        goingY = going.z;
 
         int seat = vehicle.getSeat(player);
         driving = seat == 0;

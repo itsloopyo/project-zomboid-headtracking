@@ -16,6 +16,7 @@ final class CabinTests {
         frontOfTheGlasshouseIsUnseenAndTheBackKept();
         passengersSitWhereTheScriptSeatsThemFromTheDriver();
         mirrorHangsFromTheVehicleWhicheverWayItFaces();
+        mirrorLeavesOutWhatItCannotShow();
         wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
     }
 
@@ -79,6 +80,18 @@ final class CabinTests {
         check(east[0] > 10f && north[1] > 20f, "the mirror is ahead of the wheel");
         check(near(east[0] - 10f, north[1] - 20f) && near(east[1] - 20f, -(north[0] - 10f)), "and turns with the vehicle");
         check(near(east[2], north[2]) && east[2] > 1.2f, "above the wheel, the same height either way");
+    }
+
+    private static void mirrorLeavesOutWhatItCannotShow() {
+        float tan = 0.3f, near = 2.6f, sight = 48f, reach = 6f;
+        check(!Cabins.outOfMirror(20f, 0f, reach, tan, near, sight), "a chunk straight behind is in the mirror");
+        check(Cabins.outOfMirror(-10f, 0f, reach, tan, near, sight), "one ahead of the vehicle is not");
+        check(!Cabins.outOfMirror(-2f, 0f, reach, tan, near, sight), "one the mirror hangs over reaches into it");
+        check(Cabins.outOfMirror(60f, 0f, reach, tan, near, sight) && !Cabins.outOfMirror(53f, 0f, reach, tan, near, sight),
+                "one beyond its sight is out, and one that reaches back into its sight is not");
+        check(Cabins.outOfMirror(20f, 13f, reach, tan, near, sight) && Cabins.outOfMirror(20f, -13f, reach, tan, near, sight),
+                "one to either side of what it takes in is out");
+        check(!Cabins.outOfMirror(20f, 12f, reach, tan, near, sight), "and one whose corner crosses the edge is not");
     }
 
     private static void check(boolean condition, String what) {

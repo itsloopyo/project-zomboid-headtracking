@@ -6,6 +6,10 @@ Each picture catalogue.py hangs somewhere is cut to its shape, lettered where it
 larger than it is worth at the size it hangs, and saved as src/main/resources/pictures/<name>.jpg. With --partial the
 pictures not made yet are left out, and the sprites that would show them keep the game's own painting.
 
+What a television shows (catalogue.SCREENS) is cut four wide for three high, and saved again in black and white as
+screen-grey-NN for a set with no colour. The bars a set shows with nothing coming in, screen-bars and
+screen-grey-bars, are drawn here.
+
 The lettering is set in fonts of this machine's Windows (Impact and Georgia). Only the letters' shapes as
 drawn go into a picture.
 """
@@ -24,6 +28,8 @@ LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 
 SMALL = 768
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
+# A television's picture, in pixels: more than a tube of 1993 could show.
+SCREEN = (640, 480)
 
 
 def font(name, size):
@@ -133,6 +139,34 @@ def gig(shape):
 LAYOUTS = {'tall': one_sheet, 'broad': hoarding, 'diploma': diploma, 'gig-tall': gig('tall'), 'gig-wide': gig('wide')}
 
 
+def bars(colours, steps):
+    """The bars a set shows with nothing coming in: upright bars of each colour, and under them steps from black to white."""
+    wide, high = SCREEN
+    image = Image.new('RGB', SCREEN)
+    draw = ImageDraw.Draw(image)
+    for i, colour in enumerate(colours):
+        draw.rectangle((round(wide * i / len(colours)), 0, round(wide * (i + 1) / len(colours)), high), fill=colour)
+    for i in range(steps):
+        tone = round(255 * i / (steps - 1))
+        draw.rectangle((round(wide * i / steps), round(high * 0.75), round(wide * (i + 1) / steps), high), fill=(tone, tone, tone))
+    # A tube is not sharp from one bar to the next.
+    return image.filter(ImageFilter.GaussianBlur(1.2))
+
+
+def screens(folder):
+    """Every picture a television shows by its name, the ones whose art is not made yet left out."""
+    full, most = 255, 191
+    shown = {'screen-bars': bars([(most, most, most), (most, most, 0), (0, most, most), (0, most, 0), (most, 0, most), (most, 0, 0), (0, 0, most)], 4)}
+    shown['screen-grey-bars'] = bars([(tone, tone, tone) for tone in (full, most, 128, 64, 0)], 4)
+    for name in catalogue.SCREENS:
+        art = made(folder, name)
+        if art is not None:
+            still = cut(art, SCREEN[0] / SCREEN[1]).resize(SCREEN, Image.LANCZOS)
+            shown[name] = still
+            shown[name.replace('screen-', 'screen-grey-')] = still.convert('L').convert('RGB')
+    return shown
+
+
 def made(folder, name):
     """The generated art of that name, or None where it is not made yet."""
     path = folder / f'{name}-{catalogue.SEEDS.get(name, 1993)}.png'
@@ -172,6 +206,12 @@ def main():
         if max(image.size) > longest:
             scale = longest / max(image.size)
             image = image.resize((round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
+        image.save(OUT / f'{name}.jpg', quality=QUALITY)
+        total += (OUT / f'{name}.jpg').stat().st_size
+        sizes[name] = image.size
+    shown = screens(folder)
+    missing += [name for name in catalogue.SCREENS if name not in shown]
+    for name, image in shown.items():
         image.save(OUT / f'{name}.jpg', quality=QUALITY)
         total += (OUT / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
