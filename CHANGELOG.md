@@ -120,6 +120,8 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Fixed a dark band under the eave of a roof on the side the game's own view does not show, in the first person view. The lowest row of such a slope was found to be part of the slope but was still laid flat, as a ledge with a step behind it and no eave. It now lies on its slope, with the eave and gutter the other sides have.
+- Fixed the slopes of a roof the mod makes itself coming out paler and bluer than the game's tiles beside them in the first person view, teal against slate on a dark roof. They take the mean colour of the roof's tiles, the dark between the shingles included, where they took the colour of a shingle's face.
 - Fixed the first person view's rain jumping sideways when the game's wind changed. Where a drop was had been worked out from the wind and the time the game had been running, so any change of wind moved every drop at once, and further the longer the session.
 - Made `Medium` a graphics mode of its own. It was `High` with fewer pixels, shorter sight and smaller shadow maps, and looked the same. The shading of corners and the light they take from what stands near, the lit air, the reflections and the depth in near surfaces are now what `High` adds, and so are the mod's own plants: `Medium` shows the game's own grass, trees, bushes and rocks beside the mod's buildings, textures and shadows.
 - Took the reflections off car paint in the `Low` and `Medium` graphics modes: the sky in the lacquer of every car, and the world mirrored in your own bonnet from the driver's seat. `Low` was meant to mirror nothing and still did both.

@@ -5598,7 +5598,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (tile.shaped) {
             addGable(x, y, z, tile.corners[0] - z, tile.corners[1] - z, tile.corners[3] - z, 0f, 0);
         } else {
-            RoofFit.cornersOf(own.axis == RoofFit.LEVEL ? RoofFit.LEVEL : tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
+            RoofFit.cornersOf(tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
             addGable(x, y, z, gable[0], gable[1], gable[3], 0f, 0);
         }
         float northWest = own.low - z, southEast = own.high - z;
@@ -5628,7 +5628,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             addFoldEaves(sheet, tile);
             return;
         }
-        if (own.axis == RoofFit.LEVEL) {
+        // A tile that reads level and that the fit found to be the foot of a slope lies on the slope.
+        if (own.axis == RoofFit.LEVEL && tile.fitAxis == RoofFit.LEVEL) {
             roofsFlat++;
             float level = (northWest + southEast) / 2f;
             // A flat roof that lies on its level has the floor there under it already, and lies
@@ -5703,7 +5704,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             sheet = solid.get(PLAIN);
             roofU = roofV = 0f;
         } else {
-            sheet = solid.get(roof.finish.getID(), WallSides.key(colour[0], colour[1], colour[2], WallSides.FLAT));
+            // The mean of the tile's sprite, the dark between its shingles with them: the usual
+            // colour is the shingle's own face, and a sheet of that beside the tiles is paler and bluer than they are.
+            sheet = solid.get(roof.finish.getID(), WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
             roofU = roof.u;
             roofV = roof.v;
         }

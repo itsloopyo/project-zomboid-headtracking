@@ -25,6 +25,18 @@ final class RoofTests {
         slopeIsNotCarriedOverAHip();
         valleyTileThatReadsLevelIsFolded();
         lowestRowThatReadsLevelIsTheSlopeGoingOnDown();
+        meanColourOfATileCountsTheDarkBetweenItsShingles();
+    }
+
+    private static void meanColourOfATileCountsTheDarkBetweenItsShingles() {
+        // Three pixels of a shingle's face, one of the dark beside it, and one the sprite does not paint.
+        byte[] picture = {60, 90, 120, (byte) 255, 60, 90, 120, (byte) 255, 60, 90, 120, (byte) 255, 0, 10, 20, (byte) 255, (byte) 255, (byte) 255, (byte) 255, 0};
+        java.nio.ByteBuffer pixels = java.nio.ByteBuffer.wrap(picture);
+        float[] colour = new float[WallSides.MEAN + 3];
+        check(WallSides.usualColour(pixels, 5, 0, 0, 5, 1, colour) && near(colour[0], 60f / 255f), "the usual colour of a tile is the face of its shingles");
+        WallSides.meanColour(pixels, 5, 0, 0, 5, 1, colour);
+        check(near(colour[WallSides.MEAN], 45f / 255f) && near(colour[WallSides.MEAN + 1], 70f / 255f) && near(colour[WallSides.MEAN + 2], 95f / 255f),
+                "and its mean is darker by the dark between them, with what it does not paint left out");
     }
 
     /** The east slope of a main roof three tiles deep over rows 0 to 6, and the south slope of a wing two tiles deep that ends at its east edge. */

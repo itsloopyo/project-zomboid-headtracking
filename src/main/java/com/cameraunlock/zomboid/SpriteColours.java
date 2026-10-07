@@ -32,7 +32,8 @@ final class SpriteColours {
     private SpriteColours() {}
 
     /**
-     * The sprite's usual red, green and blue and its usual brightness, each from 0 to 1. Null
+     * The sprite's usual red, green and blue and its usual brightness, each from 0 to 1, and
+     * after them, from WallSides.MEAN, the mean red, green and blue of all it paints. Null
      * until a frame has been drawn since it was first asked for, and for a sprite with nothing
      * painted on it.
      */
@@ -101,12 +102,16 @@ final class SpriteColours {
                 waiting.set(kept++, texture);
                 continue;
             }
-            float[] colour = new float[4];
+            float[] colour = new float[WallSides.MEAN + 3];
             int left = Math.clamp(Math.round(Math.min(texture.getXStart(), texture.getXEnd()) * width), 0, width);
             int right = Math.clamp(Math.round(Math.max(texture.getXStart(), texture.getXEnd()) * width), 0, width);
             int top = Math.clamp(Math.round(Math.min(texture.getYStart(), texture.getYEnd()) * height), 0, height);
             int bottom = Math.clamp(Math.round(Math.max(texture.getYStart(), texture.getYEnd()) * height), 0, height);
-            known.put(texture, WallSides.usualColour(page, width, left, top, right, bottom, colour) ? colour : UNPAINTED);
+            boolean painted = WallSides.usualColour(page, width, left, top, right, bottom, colour);
+            if (painted) {
+                WallSides.meanColour(page, width, left, top, right, bottom, colour);
+            }
+            known.put(texture, painted ? colour : UNPAINTED);
             Windows.read(texture, page, width, left, top, right, bottom);
             Drapes.read(texture, page, width, left, top, right, bottom);
             Doors.read(texture, page, width, left, top, right, bottom);

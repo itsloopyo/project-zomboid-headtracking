@@ -268,6 +268,34 @@ final class WallSides {
         return true;
     }
 
+    /**
+     * The mean colour of all a sprite paints, into out from its fifth place: red, green and
+     * blue from 0 to 1. For a sheet that stands in for the whole of a sprite seen from far
+     * enough that its lines are lost in it, a roof's tiles with the dark between them. After
+     * usualColour has said the rectangle has something painted in it.
+     */
+    static void meanColour(ByteBuffer pixels, int width, int left, int top, int right, int bottom, float[] out) {
+        long red = 0, green = 0, blue = 0;
+        int count = 0;
+        for (int y = top; y < bottom; y++) {
+            for (int x = left; x < right; x++) {
+                int at = (y * width + x) * 4;
+                if ((pixels.get(at + 3) & 0xff) >= PAINTED) {
+                    red += pixels.get(at) & 0xff;
+                    green += pixels.get(at + 1) & 0xff;
+                    blue += pixels.get(at + 2) & 0xff;
+                    count++;
+                }
+            }
+        }
+        out[MEAN] = red / (255f * count);
+        out[MEAN + 1] = green / (255f * count);
+        out[MEAN + 2] = blue / (255f * count);
+    }
+
+    /** Where in what SpriteColours keeps of a sprite its mean colour starts: after its usual colour and brightness. */
+    static final int MEAN = 4;
+
     private static int band(ByteBuffer pixels, int at) {
         float bright = RED * (pixels.get(at) & 0xff) + GREEN * (pixels.get(at + 1) & 0xff) + BLUE * (pixels.get(at + 2) & 0xff);
         return Math.min((int) (bright * BANDS / 256f), BANDS - 1);
