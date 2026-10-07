@@ -367,6 +367,9 @@ final class Roofs {
         roof.kept = KEPT / 2 + Math.floorMod(x * 31 + y * 17 + z, KEPT / 2);
         reading.clear();
         HashMap<Long, Boolean> seen = new HashMap<>();
+        if (!(scale > 0f)) {
+            throw new IllegalArgumentException("a roof at " + x + ", " + y + " on level " + z + " was to be read at tile scale " + scale);
+        }
         frame.scale = scale;
         take(cell, x, y, z, roof, seen);
         if (reading.isEmpty()) {

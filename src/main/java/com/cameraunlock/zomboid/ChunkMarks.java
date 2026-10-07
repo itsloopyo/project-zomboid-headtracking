@@ -53,7 +53,7 @@ public final class ChunkMarks {
     private static final java.util.Set<String> threads = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger> callers = new java.util.concurrent.ConcurrentHashMap<>();
     /**
-     * Whether the game is telling: both patches are in its code and it keeps a texture for each
+     * Whether the game is telling: the three patches are in its code and it keeps a texture for each
      * chunk, which is what it marks for. Set by WorldScene on the logic thread, and read there.
      */
     static boolean live;

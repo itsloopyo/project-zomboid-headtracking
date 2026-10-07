@@ -657,14 +657,16 @@ public final class Tests {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         SpriteGeometry.Frame frame = wholeFrame();
         frame.light(0.5f, 0.5f, 0.5f);
-        Flora.addLitter(mesh, 5, 6, new float[] {0f, 0.1f, 0.2f, 0.1f}, 0.01f, new float[] {1f, 0.25f, 0f, 0.5f}, frame);
+        mesh.layers.lie(SpriteGeometry.LAYERS_UP, 3f);
+        Flora.addLitter(mesh, 5, 6, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f}, frame);
         check(mesh.triangles() == 2, "litter over a square is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
             float cover = 2f - (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
             boolean east = near(f[at], 6f), south = near(f[at + 1], 7f);
             check(near(cover, east ? south ? 0f : 0.25f : south ? 0.5f : 1f), "each corner shows as much litter as it was given");
-            check(near(f[at + 2], (east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f) + 0.01f), "and lies just over the ground there");
+            check(near(f[at + 2], east ? south ? 0.2f : 0.1f : south ? 0.1f : 0f), "and lies on the ground there");
+            check(f[at + 12] == 3f && f[at + 14] == SpriteGeometry.LAYERS_UP, "as many layers over it as it was laid by, which the picture makes room for");
             check(near(f[at + 8], Flora.LITTER * 32f), "and is marked as litter");
         }
     }

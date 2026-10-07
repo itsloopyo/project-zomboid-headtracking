@@ -16,10 +16,31 @@ import java.util.concurrent.TimeUnit;
  * until the new ones are ready.
  */
 final class Crowns {
-    /** A crown's foot, where its sprite shows the foot, how fine and how close it is made, its bole, and what addCrown reads of its sprite's frame. */
-    private static final int X = 0, Y = 1, BASE = 2, FOOT_U = 3, FOOT_V = 4, DETAIL = 5, CLOSE = 6, BOLE_RADIUS = 7, BOLE_TALL = 8, SCALE = 9, LEFT = 10, TOP = 11,
-            WIDTH = 12, HEIGHT = 13, U_START = 14, V_START = 15, U_END = 16, V_END = 17, RED = 18, GREEN = 19, BLUE = 20, OPEN = 21, FLOATS = 22;
-    private static final int TEXTURE = 0, BARK = 1, SPRIG = 2, SEED = 3, INTS = 4;
+    /** A crown's foot, where its sprite shows the foot, how far off it is made for, its bole, and what addCrown reads of its sprite's frame. */
+    private static final int X = 0, Y = 1, BASE = 2, FOOT_U = 3, FOOT_V = 4, AWAY = 5, BOLE_RADIUS = 6, BOLE_TALL = 7, SCALE = 8, LEFT = 9, TOP = 10,
+            WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, RED = 17, GREEN = 18, BLUE = 19, OPEN = 20, FLOATS = 21;
+    private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, INTS = 5;
+    /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
+    static final float REACH = 40f, NEAR = 12f;
+    /** How coarse the crown of a plant at REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
+    private static final float FAR_DETAIL = 0.3f;
+    /** Within how far of the eye a crown is one stood under, with twigs and more leaves inside it, and from how far it comes to that by degrees; and how far off its limbs are made. */
+    private static final float CLOSE = 4f, CLOSING = 9f, LIMB_REACH = 16f;
+
+    /** How fine a crown that far off is made: 1 the finest. */
+    static float detail(float away) {
+        return 1f + (FAR_DETAIL - 1f) * Math.clamp((away - NEAR) / (REACH - NEAR), 0f, 1f);
+    }
+
+    /** How much a crown that far off is one stood under: 1 wholly. */
+    static float close(float away) {
+        return Math.clamp((CLOSING - away) / (CLOSING - CLOSE), 0f, 1f);
+    }
+
+    /** Whether a crown that far off grows limbs from its tree's bole. */
+    static boolean limbed(float away) {
+        return away < LIMB_REACH;
+    }
 
     private float[] floats = new float[FLOATS * 8];
     private int[] ints = new int[INTS * 8];
@@ -35,9 +56,13 @@ final class Crowns {
         return count == 0;
     }
 
-    /** Writes down a crown as Flora.addCrown would be asked for it, in the mesh of the texture. */
-    void add(int texture, SpriteGeometry.Frame frame, float[] leafPlaces, float x, float y, float base, float footU, float footV, float detail, float close,
-            float boleRadius, float boleTall, int bark, int sprig, int seed) {
+    /**
+     * Writes down a crown to be made in the mesh of the texture, as from that far off. Its
+     * bole is its tree's, with the bole's bark, and no height for a plant with none: such a
+     * crown, and any too far off for limbs, is made in its own bark.
+     */
+    void add(int texture, SpriteGeometry.Frame frame, float[] leafPlaces, float x, float y, float base, float footU, float footV, float away,
+            float boleRadius, float boleTall, int boleBark, int bark, int sprig, int seed) {
         if (count == places.length) {
             floats = Arrays.copyOf(floats, floats.length * 2);
             ints = Arrays.copyOf(ints, ints.length * 2);
@@ -49,8 +74,7 @@ final class Crowns {
         floats[at + BASE] = base;
         floats[at + FOOT_U] = footU;
         floats[at + FOOT_V] = footV;
-        floats[at + DETAIL] = detail;
-        floats[at + CLOSE] = close;
+        floats[at + AWAY] = away;
         floats[at + BOLE_RADIUS] = boleRadius;
         floats[at + BOLE_TALL] = boleTall;
         floats[at + SCALE] = frame.scale;
@@ -69,9 +93,30 @@ final class Crowns {
         at = count * INTS;
         ints[at + TEXTURE] = texture;
         ints[at + BARK] = bark;
+        ints[at + BOLE_BARK] = boleBark;
         ints[at + SPRIG] = sprig;
         ints[at + SEED] = seed;
         places[count++] = leafPlaces;
+    }
+
+    /**
+     * Writes the same crowns down in another, as from another distance: a chunk that has
+     * passed into another band and holds nothing else the band changes has only its crowns
+     * made again, from what its last build read.
+     */
+    void copyTo(Crowns into, float away) {
+        if (into.places.length < count) {
+            into.floats = new float[floats.length];
+            into.ints = new int[ints.length];
+            into.places = new float[places.length][];
+        }
+        System.arraycopy(floats, 0, into.floats, 0, count * FLOATS);
+        System.arraycopy(ints, 0, into.ints, 0, count * INTS);
+        System.arraycopy(places, 0, into.places, 0, count);
+        into.count = count;
+        for (int i = 0; i < count; i++) {
+            into.floats[i * FLOATS + AWAY] = away;
+        }
     }
 
     /** Whether the two would be made into the same triangles: the same crowns in the same order, to the bit. */
@@ -114,9 +159,11 @@ final class Crowns {
             frame.green = floats[at + GREEN];
             frame.blue = floats[at + BLUE];
             frame.open = floats[at + OPEN];
+            float away = floats[at + AWAY];
+            boolean limbed = floats[at + BOLE_TALL] > 0f && limbed(away);
             if (!Flora.addCrown(into.get(ints[of + TEXTURE]), into.get(plain), frame, places[i], floats[at + X], floats[at + Y], floats[at + BASE], floats[at + FOOT_U],
-                    floats[at + FOOT_V], floats[at + DETAIL], floats[at + CLOSE], floats[at + BOLE_RADIUS], floats[at + BOLE_TALL], ints[of + BARK], ints[of + SPRIG],
-                    ints[of + SEED])) {
+                    floats[at + FOOT_V], detail(away), close(away), limbed ? floats[at + BOLE_RADIUS] : 0f, limbed ? floats[at + BOLE_TALL] : 0f,
+                    ints[of + (limbed ? BOLE_BARK : BARK)], ints[of + SPRIG], ints[of + SEED])) {
                 throw new IllegalStateException("a crown that was measured as one is none");
             }
         }
@@ -201,6 +248,19 @@ final class Crowns {
 
     static void begin(Work work) {
         WORKER.execute(work);
+    }
+
+    /**
+     * Has the thread give back the room its own set keeps, when the builds are let go of: the
+     * set is the thread's, so the thread does it, after whatever it was handed before. Twice,
+     * since a trim keeps what was asked for since the one before.
+     */
+    static void letGo() {
+        WORKER.execute(() -> {
+            made.trim();
+            made.trim();
+            sinceTrimmed = 0;
+        });
     }
 
     /** The next piece of work that has come back, or null when none has. */

@@ -14,6 +14,7 @@ final class BufferTests {
         blocksGivenBackJoinTheirNeighbours();
         aBlockThatWasNotTakenIsRefused();
         blocksComingAndGoingNeverOverlap();
+        whatIsLaidCarriesItsLayersAndACardDoesNot();
         aSetListsWhatWasAskedForInTheOrderItWasAsked();
         aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor();
         aBuildIsFilledWithItsRunsOneAfterAnother();
@@ -298,6 +299,32 @@ final class BufferTests {
             mesh.add(mark, i, 0f, 0f, 0f, 1f, 1f, 1f);
         }
         return mesh;
+    }
+
+    private static void whatIsLaidCarriesItsLayersAndACardDoesNot() {
+        SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+        SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers), laid = new SpriteGeometry.MeshSet(layers);
+        SpriteGeometry.Mesh wall = solid.get(3), rug = laid.get(4);
+        int floats = SpriteGeometry.VERTEX_FLOATS;
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        check(wall.vertices[12] == 0f && wall.vertices[13] == 0f && wall.vertices[14] == 0f, "a face in its own plane says nothing of layers");
+        layers.lie(SpriteGeometry.LAYERS_X, -2f);
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        rug.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        check(wall.vertices[0] == wall.vertices[floats] && wall.vertices[floats + 12] == -2f && wall.vertices[floats + 14] == SpriteGeometry.LAYERS_X,
+                "one two layers back along x is given where its plane is, with the layers and their axis for the picture to move it by");
+        check(rug.vertices[12] == -2f && rug.vertices[14] == SpriteGeometry.LAYERS_X, "in every mesh of the sets that share the layers");
+        wall.faces = true;
+        wall.along = 0.25f;
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        wall.faces = false;
+        check(wall.vertices[2 * floats + 12] == 0.25f && wall.vertices[2 * floats + 14] == SpriteGeometry.FACES, "a card keeps how far along it the vertex is, and has no layers");
+        layers.lie(SpriteGeometry.LAYERS_UP, 0f);
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        check(!layers.lying() && wall.vertices[3 * floats + 14] == 0f, "no layers along any axis is a face in its own plane");
+        layers.lie(SpriteGeometry.LAYERS_UP, 1f);
+        layers.none();
+        check(!layers.lying(), "and the layers are put by when what lay on them is added");
     }
 
     private static void aSetListsWhatWasAskedForInTheOrderItWasAsked() {

@@ -667,12 +667,12 @@ final class Flora {
      * Fallen leaves over the whole of a square, as deep at each corner as cover says, in the
      * corner order of SpriteGeometry.lift: laid over the ground and mixed into it.
      */
-    static void addLitter(Mesh mesh, int x, int y, float[] lift, float raised, float[] cover, SpriteGeometry.Frame frame) {
+    static void addLitter(Mesh mesh, int x, int y, float[] lift, float[] cover, SpriteGeometry.Frame frame) {
         mark(mesh, frame.open, 0f, LITTER);
         mesh.face(-(lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -(lift[3] - lift[0] + lift[2] - lift[1]) / 2f, 1f);
         for (int corner : QUAD) {
             mesh.sway = 1f - cover[corner];
-            mesh.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), lift[corner] + raised, 0f, 0f,
+            mesh.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), lift[corner], 0f, 0f,
                     frame.cornerRed[corner], frame.cornerGreen[corner], frame.cornerBlue[corner]);
         }
         mesh.sway = 0f;

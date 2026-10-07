@@ -1041,7 +1041,8 @@ final class Pipeline {
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uFaced", state.facedX, state.facedY);
+        shadow.set("uFaced", state.facedX, state.facedY, state.facedUp);
+        shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
         shadow.set("uAcross", state.acrossX, state.acrossY);
         shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
         // The game magnifies its sprites pixel by pixel, which up close is a wall of squares.
@@ -1522,7 +1523,8 @@ final class Pipeline {
         world.set("uFogEnd", fogEnd);
         world.set("uWind", state.windX, state.windY, state.seconds);
         world.set("uGust", state.gustX, state.gustY, state.flutter);
-        world.set("uFaced", state.facedX, state.facedY);
+        world.set("uFaced", state.facedX, state.facedY, state.facedUp);
+        world.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
         world.set("uAcross", state.acrossX, state.acrossY);
         world.set("uWet", state.wet);
         world.set("uSeconds", state.seconds);

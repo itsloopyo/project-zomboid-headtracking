@@ -15,6 +15,7 @@ final class CrownTests {
         sprigIsChosenByTheSpeciesInTheName();
         crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem();
         crownsMadeFromTheSameAreKnownForTheSame();
+        crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown();
         crownsMadeOnTheirThreadAreTheSameCrowns();
         spriteMeasuredAsNoCrownMakesNone();
     }
@@ -131,37 +132,73 @@ final class CrownTests {
     /** One sprite's leaves, found once as the mod finds them once a texture: two crowns are the same only on the same places. */
     private static final float[] PLACES = Flora.leafPlaces(CrownTests::leaf, frame());
 
-    /** Two trees and a bush of one chunk, the second tree in another light and with limbs. */
-    private static Crowns chunkOfThree(float secondRed) {
+    /** Two trees and a bush of one chunk as from that far off, the second tree in another light and with a bole to grow limbs from. */
+    private static Crowns chunkOfThree(float secondRed, float away) {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
         Crowns crowns = new Crowns();
-        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, 1f, 0.6f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7);
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7);
         frame.light(secondRed, 0.5f, 0.4f);
-        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, 0.65f, 0f, 0.12f, 0.9f, Flora.BARK_OAK, Flora.LINDEN, 8);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8);
         frame.open = 0f;
-        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, 0.3f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9);
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9);
         return crowns;
     }
 
-    private static void crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem() {
-        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
-        chunkOfThree(0.6f).mesh(apart, PLAIN, new SpriteGeometry.Frame());
+    private static Crowns chunkOfThree(float secondRed) {
+        return chunkOfThree(secondRed, 6f);
+    }
+
+    /** The same three as a build made them before crowns were written down: each from its own numbers. */
+    private static void threeInTheBuild(SpriteGeometry.MeshSet inBuild, float away) {
         SpriteGeometry.Frame frame = frame();
         float[] places = PLACES;
-        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, 1f, 0.6f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7);
+        float detail = Crowns.detail(away), close = Crowns.close(away);
+        boolean limbed = Crowns.limbed(away);
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7);
         frame.light(0.6f, 0.5f, 0.4f);
-        Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, 0.65f, 0f, 0.12f, 0.9f, Flora.BARK_OAK, Flora.LINDEN, 8);
+        Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, detail, close, limbed ? 0.12f : 0f, limbed ? 0.9f : 0f,
+                limbed ? Flora.BARK_OAK + 1 : Flora.BARK_OAK, Flora.LINDEN, 8);
         frame.open = 0f;
-        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, 0.3f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9);
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9);
+    }
+
+    private static void same(SpriteGeometry.MeshSet apart, SpriteGeometry.MeshSet inBuild) {
         check(apart.used.size() == 3 && inBuild.used.size() == 3, "the leaves of two textures and the wood are three meshes");
         for (int i = 0; i < 3; i++) {
             SpriteGeometry.Mesh one = apart.used.get(i), other = inBuild.used.get(i);
-            check(one.texture == other.texture && one.floats == other.floats && one.floats > 0, "each mesh is of the same texture and as long");
+            check(one.texture == other.texture && one.floats == other.floats && (one.floats > 0 || one.texture == PLAIN), "each mesh is of the same texture and as long");
             for (int at = 0; at < one.floats; at++) {
                 check(Float.floatToRawIntBits(one.vertices[at]) == Float.floatToRawIntBits(other.vertices[at]), "and the same to the last bit of every float");
             }
         }
+    }
+
+    private static void crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem() {
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
+        // Near, with limbs and stood under; in between; and far off, coarse and in its own bark.
+        for (float away : new float[] {6f, 20f, 30f}) {
+            apart.clear();
+            inBuild.clear();
+            chunkOfThree(0.6f, away).mesh(apart, PLAIN, new SpriteGeometry.Frame());
+            threeInTheBuild(inBuild, away);
+            same(apart, inBuild);
+        }
+    }
+
+    private static void crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown() {
+        Crowns near = chunkOfThree(0.6f, 6f), moved = new Crowns();
+        near.copyTo(moved, 30f);
+        check(!moved.same(near) && moved.same(chunkOfThree(0.6f, 30f)), "written down again as from further off, they are what a build from there writes down");
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
+        moved.mesh(apart, PLAIN, new SpriteGeometry.Frame());
+        threeInTheBuild(inBuild, 30f);
+        same(apart, inBuild);
+        // Into one that held more, and into one that has held nothing.
+        Crowns one = new Crowns();
+        one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3);
+        one.copyTo(moved, 6f);
+        check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
     }
 
     private static void crownsMadeFromTheSameAreKnownForTheSame() {
@@ -194,7 +231,7 @@ final class CrownTests {
         there.scrap();
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
-        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7);
         Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false);
         Crowns.begin(failing);
         check(Crowns.awaited() == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");

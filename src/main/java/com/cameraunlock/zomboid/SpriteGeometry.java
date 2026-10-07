@@ -22,11 +22,42 @@ final class SpriteGeometry {
     /**
      * Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue, how open to the sky the
      * vertex's square is, the vector its face looks along, its length 1 plus how far the vertex
-     * moves with the wind, then what Mesh keeps as along and nearer, and 1 for a card that turns
-     * to the camera or 2 for one that stands clear of its plane. A strip of addStrip carries
-     * other things in the vector's place.
+     * moves with the wind, then three the picture places the vertex by as it draws. The last
+     * says what the two before it are: 0 nothing, FACES for a card that turns to the camera,
+     * CLEARS for one that stands clear of its plane, LAYERS_X, LAYERS_Y or LAYERS_UP for a
+     * face that lies some layers off its plane along that axis. The first of the three is how
+     * far along its card a vertex of FACES is, in tiles, how many layers of cards one of
+     * CLEARS stands clear by, and how many layers one of LAYERS lies off. The second is how
+     * many layers of cards the vertex stands towards the camera. How far a layer is, the
+     * picture works out from how far off the vertex is: see PipelineShaders.FACED. A strip of
+     * addStrip carries other things in the vector's place.
      */
     static final int VERTEX_FLOATS = 15;
+    static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f;
+
+    /**
+     * How many layers off its plane everything added next lies, in every mesh that shares
+     * this, and along which axis. Two sprites on one plane fight for depth, the worse the
+     * further off they are, so each is drawn a layer clear of the one under it and the picture
+     * makes a layer as thick as the distance needs: nothing of where the eye is goes into the
+     * vertices. A card has no room for it and is layered by nearer and clear.
+     */
+    static final class Layers {
+        private float way, count;
+
+        void lie(float way, float count) {
+            this.way = count == 0f ? 0f : way;
+            this.count = count;
+        }
+
+        void none() {
+            way = count = 0f;
+        }
+
+        boolean lying() {
+            return count != 0f;
+        }
+    }
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
     static final float CARD = 2f;
     /** Added to a vertex's openness to mark it as the surface of water. */
@@ -100,13 +131,16 @@ final class SpriteGeometry {
         /**
          * For a card that turns to face the camera, which the picture does as it draws: how
          * far along the card from its foot the vertices added next are, and that they are of
-         * such a card. Their place is then given as the foot's. And for anything, how far
-         * towards the camera the vertices added next stand off from where they are given.
+         * such a card. Their place is then given as the foot's. And for anything, how many
+         * layers of cards towards the camera the vertices added next stand off from where they
+         * are given.
          */
         float along, nearer;
         boolean faces;
-        /** For a card that does not turn: that along is how far the vertices added next stand clear of the card's own plane, on the side the camera is. */
+        /** For a card that does not turn: that along is how many layers of cards the vertices added next stand clear of the card's own plane, on the side the camera is. */
         boolean clears;
+        /** How many layers off its plane anything added next that is no card lies: the set's own, for a mesh of a set. */
+        Layers layers = new Layers();
 
         void face(float x, float y, float up) {
             float length = (float) Math.sqrt(x * x + y * y + up * up);
@@ -140,9 +174,9 @@ final class SpriteGeometry {
             vertices[floats++] = normalX * (1f + sway);
             vertices[floats++] = normalY * (1f + sway);
             vertices[floats++] = normalUp * (1f + sway);
-            vertices[floats++] = along;
+            vertices[floats++] = faces || clears ? along : layers.count;
             vertices[floats++] = nearer;
-            vertices[floats++] = faces ? 1f : clears ? 2f : 0f;
+            vertices[floats++] = faces ? FACES : clears ? CLEARS : layers.way;
         }
 
         /** Adds the vertex that starts at the given float once more, as it is. */
@@ -169,6 +203,17 @@ final class SpriteGeometry {
         /** The meshes asked for since the set was last emptied, in the order they were first asked for. */
         final ArrayList<Mesh> used = new ArrayList<>();
         private int round = 1;
+        /** What every mesh of the set lies by: see Layers. */
+        private final Layers layers;
+
+        MeshSet() {
+            this(new Layers());
+        }
+
+        /** A set whose meshes lie by the given layers, which another set may share. */
+        MeshSet(Layers layers) {
+            this.layers = layers;
+        }
 
         Mesh get(int texture) {
             return get(texture, 0);
@@ -179,6 +224,7 @@ final class SpriteGeometry {
             Mesh mesh = byTexture[slot];
             if (mesh == null) {
                 mesh = new Mesh();
+                mesh.layers = layers;
                 mesh.texture = texture;
                 mesh.tint = tint;
                 all.add(mesh);
@@ -342,9 +388,9 @@ final class SpriteGeometry {
     float[] cover;
     /** How far an upright card is moved from where it stands, in tiles: see WorldScene.addOver. */
     float nudgeX, nudgeY;
-    /** How far towards the camera that draws it the upright added next stands off from its place, in tiles. */
+    /** How many layers of cards towards the camera that draws it the upright added next stands off from its place. */
     float nearer;
-    /** How far the upright added next stands clear of its own plane on the side of the camera that draws it, in tiles: for one that does not turn. */
+    /** How many layers of cards the upright added next stands clear of its own plane on the side of the camera that draws it: for one that does not turn. */
     float clear;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;

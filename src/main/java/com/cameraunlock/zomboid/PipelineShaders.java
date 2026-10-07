@@ -158,23 +158,41 @@ final class PipelineShaders {
             """;
 
     /**
-     * Where a vertex of the frame's own arrays stands once its card is turned to the camera.
-     * Its second texture coordinate says how far along its card it is, how far towards the
-     * camera it stands off, and whether the card is one that turns: see SpriteGeometry.Mesh.
+     * Where a vertex of the frame's own arrays stands once its card is turned to the camera,
+     * and how far off its plane it lies. Its second texture coordinate says how far along its
+     * card it is or how many layers it lies off, how many layers of cards it stands towards the
+     * camera, and which of those it is: see SpriteGeometry.VERTEX_FLOATS.
+     *
+     * A layer is as thick as the depth buffer needs to tell two surfaces apart that far from
+     * the eye, which grows by the square of the distance (uLayer: the least, and how much more
+     * for each tile squared; then how far a layer of cards stands apart besides). It is worked
+     * out here, from where the vertex is given, so the same numbers come out in every pass
+     * that draws the vertex: the sun's pictures, the mirror, a scope and the view all take
+     * uFaced as the viewer's eye. What lies off its plane is moved in lies, which the caller
+     * adds once the eye's place has been taken off: added to a place on the map, a move this
+     * small is rounded to the map's millimetre.
      */
     static final String FACED = """
-            uniform vec2 uFaced;
+            uniform vec3 uFaced;
             uniform vec2 uAcross;
-            vec4 faced(vec4 at, out vec2 right) {
-                vec2 from = at.xy - uFaced;
+            uniform vec3 uLayer;
+            vec4 faced(vec4 at, out vec2 right, out vec3 lies) {
+                vec2 from = at.xy - uFaced.xy;
                 float off = length(from);
                 // On the camera's own square there is no way to it, and a card lies across the view.
                 right = off > 0.5 ? vec2(-from.y, from.x) / off : uAcross;
-                vec2 stands = at.xy - from / max(off, 0.5) * gl_MultiTexCoord1.y;
-                if (gl_MultiTexCoord1.z > 1.5) {
+                vec3 away = at.xyz - uFaced;
+                float layer = uLayer.x + uLayer.y * dot(away, away);
+                float card = uLayer.z + 4.0 * layer;
+                float kind = gl_MultiTexCoord1.z;
+                vec2 stands = at.xy - from / max(off, 0.5) * (gl_MultiTexCoord1.y * card);
+                lies = vec3(0.0);
+                if (kind > 2.5) {
+                    lies = (kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0)) * (gl_MultiTexCoord1.x * layer);
+                } else if (kind > 1.5) {
                     // A card that does not turn, standing clear of its own plane on the camera's side.
                     vec2 square = normalize(gl_Normal.xy);
-                    stands -= square * (dot(square, from) > 0.0 ? 1.0 : -1.0) * gl_MultiTexCoord1.x;
+                    stands -= square * (dot(square, from) > 0.0 ? 1.0 : -1.0) * (gl_MultiTexCoord1.x * card);
                 } else {
                     stands += right * gl_MultiTexCoord1.x;
                 }
@@ -216,9 +234,10 @@ final class PipelineShaders {
             void main() {
                 vec4 stands = gl_Vertex;
                 vec3 looks = gl_Normal;
+                vec3 lies = vec3(0.0);
                 if (uModel < 0.5) {
                     vec2 right;
-                    stands = faced(gl_Vertex, right);
+                    stands = faced(gl_Vertex, right, lies);
                     if (gl_MultiTexCoord1.z > 0.5 && gl_MultiTexCoord1.z < 1.5) {
                         looks = normalize(vec3(right.y, -right.x, 0.9)) * length(gl_Normal);
                     }
@@ -298,7 +317,7 @@ final class PipelineShaders {
                     at.z -= trodden * high * 0.65;
                 }
                 vCover = strip ? 1.0 - vBlade.y : 2.0 - length(looks);
-                vWorld = at.xyz;
+                vWorld = at.xyz + lies;
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
                 // by a matrix that takes the eye's own place off again, a vertex's depth came out
@@ -306,7 +325,7 @@ final class PipelineShaders {
                 // was drawn through the wall it hangs on in torn patches, and a clock's face
                 // through its hands. The eye's place is taken off first, which is exact, and the
                 // matrix only turns what is left. A model's vertex never is put on the map at all.
-                vec3 seen = uModel > 0.5 ? fromEye : at.xyz - uEye;
+                vec3 seen = uModel > 0.5 ? fromEye : at.xyz - uEye + lies;
                 // The same place counted from a corner of the map near the eye, for what is
                 // drawn finer than a millimetre: made from vWorld, a board's grain is steps.
                 // The corner moves sixty tiles at a time, which is a whole number of boards.
@@ -2547,7 +2566,9 @@ final class PipelineShaders {
                     return;
                 }
                 vec2 right;
-                vec4 stands = faced(gl_Vertex, right);
+                vec3 lies;
+                vec4 stands = faced(gl_Vertex, right, lies);
+                stands.xyz += lies;
                 vAt = stands.xyz;
                 // A strip of grass carries its height over its root, not a facing: see SpriteGeometry.addStrip.
                 if (mod(gl_Color.a, 32.0) > 23.5) {
