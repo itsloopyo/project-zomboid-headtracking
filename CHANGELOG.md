@@ -125,6 +125,7 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Slowed the shiver of the grass in the first person view, which looked hyperactive. Each blade shook from side to side two to three and a half times a second. It now does so once every second or two, about a third as fast. How far a blade moves, and the gusts, swells and ripples that cross a lawn, are as they were.
 - Fixed other players' torches on a server following your view and your head. On your screen every lit torch another player carried shone the way you were looking. Each now shines the way its own player faces, and yours still follows your head.
 - Fixed what was kept after a save was left. The first person picture's share of the graphics card's memory, well over a hundred megabytes of it, stayed there in the menu though the log said it had been given back, and a server that stopped or dropped you while you were looking round left the menu with no pointer. Both are put right as the save is left.
 - Fixed the first person view depending on a graphics driver letting a reserved word of the shader language by as a name, and on its answer to a sum the language leaves open. A driver that holds shaders to the letter would have refused the picture.

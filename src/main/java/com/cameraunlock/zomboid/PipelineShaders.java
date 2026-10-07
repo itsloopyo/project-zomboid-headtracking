@@ -134,8 +134,9 @@ final class PipelineShaders {
                 float gust = smoothstep(0.2, 0.85, gustAt(carried * 0.125, 8.0));
                 float swell = gustAt(carried * 0.5 + 3.7, 32.0);
                 float ripple = gustAt((at.xy - 0.25 * uGust.xy) * 2.0, 128.0) - 0.5;
-                // A whole number of shivers in the eight seconds the clock runs before it starts again.
-                float shiver = sin(uGust.z * 0.7853982 * (16.0 + floor(seed * 12.0)) + seed * 37.0);
+                // A whole number of shivers in the sixteen seconds the clock runs before it starts
+                // again: one every second or two. Faster than that and a lawn looks restless.
+                float shiver = sin(uGust.z * 0.3926991 * (8.0 + floor(seed * 12.0)) + seed * 37.0);
                 float limp = high * high / (high + 0.12);
                 float push = strength * (0.1 + 0.5 * gust + 0.22 * swell + 0.16 * ripple) * 0.75 * limp;
                 at.xy += way * push + beside * (shiver * 0.03 * strength * limp);
