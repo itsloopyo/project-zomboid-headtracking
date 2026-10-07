@@ -6,9 +6,8 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 
 ## Features
 
-- **First person view** - `F8` switches from the game's isometric view to a first person one, which is where head tracking applies
+- **First person view** - `F8` switches from the game's isometric view to a first person one, where head tracking moves the view. In the isometric view your character's head turns with yours
 - **Decoupled look and aim** - your head moves the view while your mouse keeps the aim
-- **Your character's head follows yours** - in the game's own view your character turns, nods and tilts their head as you do
 - **6DOF positional tracking** - lean and peek with head position
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
@@ -31,7 +30,7 @@ Once this mod is available in Lopari, download [Lopari](https://lopari.app), cho
 2. Extract it anywhere.
 3. Double-click `install.cmd`.
 4. Configure OpenTrack to output UDP to `127.0.0.1:4242` (see [Setting Up OpenTrack](#setting-up-opentrack)).
-5. Launch the game, load a single player save and press `F8`.
+5. Launch the game, load a save or join a server, and press `F8`.
 
 If the installer cannot find your game, tell it where the folder holding `ProjectZomboid64.exe` is, in either of two ways:
 
@@ -189,7 +188,7 @@ The tracking mode, the yaw mode and the aim mode are saved when you change them.
 
 Tracking moves the view while the first person view is on, the game is not paused and your character is alive.
 
-Your character's head turns with yours in both views, in single player. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
+Your character's head turns with yours in both views, alone or on a server, but not in split screen. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
 
 In first person a window also shows your character in its glass, with their head turned as yours is and their eyes level with yours. It shows in a shut, unbroken window on the floor you are on that you stand square in front of, faintly by day and plainly at night. A mirror hung on a wall shows you the same way.
 
@@ -197,13 +196,13 @@ In first person a window also shows your character in its glass, with their head
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
-The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through three graphics modes, `Low`, `Medium` and `High`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air, the reflections or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with what the mod made. `High` is the whole picture: corners are shaded and take the light of what stands near them, the air is lit, wet roads, polished floors, glass and car paint mirror, and near surfaces have depth. `Medium` has none of those four, shows the game's own grass, trees, bushes and rocks in place of the mod's whatever `OwnPlants` says, draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. The game starts in `Low` until you press `F9`. The row also takes `Automatic`, which only the file can set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`.
+The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through three graphics modes, `Low`, `Medium` and `High`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at a little over three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air, the reflections or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with what the mod made. `High` is the whole picture: corners are shaded and take the light of what stands near them, the air is lit, wet roads, polished floors, glass and car paint mirror, and near surfaces have depth. `Medium` has none of those four, shows the game's own grass, trees, bushes and rocks in place of the mod's whatever `OwnPlants` says, draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. The game starts in `Low` until you press `F9`. The row also takes `Automatic`, which only the file can set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`.
 
 `F10` goes through three picture styles, says on the screen which one it went to and saves it as `Style` in `CameraUnlock.ini`. The game's own Take screenshot is on `F10` by default and still takes one on the same press: give it another key in the game's options if you do not want both. A style is how the mod's picture is developed from the light in it, and nothing else: the light, the weather, the hour and what the world is built of are the same in all three, and none costs more to draw than another. `Vivid`, which the game starts in, has strong contrast and full colours, cool in the shade and warm in the sun, with dark corners, glare off the sun and a glow round bright lights. `Natural` shows the colours as they are lit, with no tint, less contrast, and less of the dark corners, the glare and the glow. `Bleak` is washed out and low in contrast under a faint drab cast, with no glare off the sun, nearer the colours of the game's own view. The style applies wherever the mod draws the picture: first person in every graphics mode, and the game's own view in `Medium` and `High`. The row is read again while the game runs.
 
 Each frame of the first person picture is drawn on its own, so the picture is as sharp while you turn or walk as it is standing still. `FrameBlending=true` in `CameraUnlock.ini` mixes each frame with the one before it instead: fine edges, leaves and the grain of soft shadows are steadier in a still view, and what moves across the picture is softened and can smear. It is `false` unless you change it, and it is read again while the game runs.
 
-The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, skins for zombies and for the living, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople` and `OwnArms`. Set a row to `false` and the first person view draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. The game's own view never shows any of the mod's, whatever the rows say.
+The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, skins for zombies and for the living, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople` and `OwnArms`. Set a row to `false` and the mod draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. In `Low` the game's own view is the game's own picture and shows none of the mod's. In `Medium` and `High` the mod draws that view too, and the rows switch what it shows there as they do in first person.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `F8` is the switch for that.
 
@@ -299,10 +298,10 @@ FieldOfView=65.0
 ; to the next, Low, Medium, High, and saves it here. Low is as near the game's
 ; own look as there is: the game's own view is the game's own picture, and first
 ; person is drawn with the game's own sprites, models and textures in place of
-; everything the mod made, at three fifths of the pixels each way, sight to 48
-; tiles, smaller shadow maps, and no shading of corners, lit air, reflections or
-; depth in surfaces. Medium and High draw both views with what the mod
-; made. High: the whole picture. Medium: the game's own grass, trees, bushes and
+; everything the mod made, at a little over three fifths of the pixels each way,
+; sight to 48 tiles, smaller shadow maps, and no shading of corners, lit air,
+; reflections or depth in surfaces. Medium and High draw both views with what the
+; mod made. High: the whole picture. Medium: the game's own grass, trees, bushes and
 ; rocks whatever OwnPlants says, no shading of corners, lit air, reflections or
 ; depth in surfaces either, four fifths of the pixels each way, sight to 64
 ; tiles and smaller shadow maps. Automatic, which only this file can
@@ -383,10 +382,11 @@ TrueFreeLookKey=default
 LightMultiplier=default
 
 [Content]
-; What the mod made itself and shows in the first person view in place of the game's
-; own. Set a row to false and the game's own is drawn there instead, as the game or
-; another mod has it. These rows are read again while the game runs, so a change
-; shows as soon as the file is saved. The game's own view is never changed.
+; What the mod made itself and shows in place of the game's own. Set a row to false
+; and the game's own is drawn there instead, as the game or another mod has it.
+; These rows are read again while the game runs, so a change shows as soon as the
+; file is saved. In Medium and High they apply to the game's own view too, which
+; the mod draws there.
 ; true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.
 ; false: the game's own weapon and scope models, and no picture through the scope.
 OwnWeapons=true
@@ -435,7 +435,9 @@ you pick, so it holds the next time you start the game:
    around it, so the sights only line up with your head behind them. The game's
    own reticle shows where your rounds will land while the sights are up.
 3. **True free look** - the same. The game draws its reticle whenever the aim is
-   held, so in this game the two free look modes look alike.
+   held, so in this game the two free look modes look alike. Pressing `Insert`
+   from one to the other changes nothing you can see; press it again for stock
+   sights.
 4. **Stock sights** - while the sights are up your head stops turning and
    leaning the view, so the sights sit in the center as they do without head
    tracking. Tilting your head still tilts the view. When you lower the weapon
@@ -500,8 +502,8 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 **No tracking response**
 
-- Head tracking only moves the view in first person. Press `F8` in a single player game. In the game's own view it turns your character's head and nothing else.
-- Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means the port could not be opened, and it ends with the reason the Java runtime gave. `Address already in use` is what it gives when another program holds the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs the listening line when it has it. The runtime gives the same reason for a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
+- Head tracking only moves the view in first person. Press `F8` once you are in a game. In the game's own view it turns your character's head and nothing else.
+- Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means the port could not be opened, and it gives the reason the Java runtime gave. `Address already in use` is what it gives when another program holds the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs the listening line when it has it. The runtime gives the same reason for a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
 - Look for `first tracking packet from` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started.
 - Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.
 
@@ -564,7 +566,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
 - [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the settings file reader and hotkey handling compiled into the mod's DLL, and the shared installer scripts
-- [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth
+- [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth and the shade of each brick
 - [glsl-fxaa](https://github.com/mattdesl/glsl-fxaa) (BSD-3-Clause) - the FXAA pass that smooths edges in the first person picture
 - [Stable Diffusion XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) - the model the surface textures and the pictures on walls were generated with, from text prompts alone
 

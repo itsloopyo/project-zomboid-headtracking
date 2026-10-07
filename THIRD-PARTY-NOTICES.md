@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds only this project's own classes, two of
+ProjectZomboidHeadTracking.jar holds only this project's own classes, three of
 which carry the pieces of shader code listed under Shader code below, and
 ProjectZomboidHeadTracking.dll this project's own code and cameraunlock-core's.
 The components below are what they ship beside, link against at run time, or
@@ -197,10 +197,10 @@ jar as shader source text.
 
 ### Hash without Sine
 
-- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`
+- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; and `facHash` in the world shader of `PipelineShaders.java`, its `hash12`
 - **License:** MIT
 - **Upstream:** https://www.shadertoy.com/view/4djSRW
-- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth.
+- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, and the difference in shade from one brick or board of a wall to the next.
 - **Bundled:** yes.
 
 Copyright (c) 2014 David Hoskins.

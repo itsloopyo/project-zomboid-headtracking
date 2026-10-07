@@ -39,10 +39,10 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "to the next, Low, Medium, High, and saves it here. Low is as near the game's\n"
                 "own look as there is: the game's own view is the game's own picture, and first\n"
                 "person is drawn with the game's own sprites, models and textures in place of\n"
-                "everything the mod made, at three fifths of the pixels each way, sight to 48\n"
-                "tiles, smaller shadow maps, and no shading of corners, lit air, reflections or\n"
-                "depth in surfaces. Medium and High draw both views with what the mod\n"
-                "made. High: the whole picture. Medium: the game's own grass, trees, bushes and\n"
+                "everything the mod made, at a little over three fifths of the pixels each way,\n"
+                "sight to 48 tiles, smaller shadow maps, and no shading of corners, lit air,\n"
+                "reflections or depth in surfaces. Medium and High draw both views with what the\n"
+                "mod made. High: the whole picture. Medium: the game's own grass, trees, bushes and\n"
                 "rocks whatever OwnPlants says, no shading of corners, lit air, reflections or\n"
                 "depth in surfaces either, four fifths of the pixels each way, sight to 64\n"
                 "tiles and smaller shadow maps. Automatic, which only this file can\n"
@@ -71,10 +71,11 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "shadows are steadier in a still view, and what moves across the picture is\n"
                 "softened and can smear. Read again while the game runs.");
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
-                "What the mod made itself and shows in the first person view in place of the game's\n"
-                "own. Set a row to false and the game's own is drawn there instead, as the game or\n"
-                "another mod has it. These rows are read again while the game runs, so a change\n"
-                "shows as soon as the file is saved. The game's own view is never changed.\n"
+                "What the mod made itself and shows in place of the game's own. Set a row to false\n"
+                "and the game's own is drawn there instead, as the game or another mod has it.\n"
+                "These rows are read again while the game runs, so a change shows as soon as the\n"
+                "file is saved. In Medium and High they apply to the game's own view too, which\n"
+                "the mod draws there.\n"
                 "true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.\n"
                 "false: the game's own weapon and scope models, and no picture through the scope.");
     table.Local("Content", "OwnFurniture", &Config::own_furniture, cameraunlock::config::BoolCodec(),

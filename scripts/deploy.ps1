@@ -34,5 +34,5 @@ Import-Module (Join-Path $projectRoot 'cameraunlock-core\powershell\GamePathDete
 $targets = if ($GamePath) { @($GamePath) } else { @(Find-AllGamePaths -GameId 'project-zomboid') }
 foreach ($target in $targets) {
     Copy-Item -LiteralPath (Join-Path $projectRoot "build\$nativeDll") -Destination (Join-Path $target $nativeDll) -Force
-    Write-Host "Deployed $nativeDll"
+    Write-Host "Deployed $nativeDll to $target"
 }

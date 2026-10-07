@@ -16,6 +16,7 @@ target/
 dist/
 release/
 *.class
+__pycache__/
 
 # IDE
 .vs/

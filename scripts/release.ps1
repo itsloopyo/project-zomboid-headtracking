@@ -4,9 +4,11 @@
 # Usage: pixi run release <major|minor|patch|nightly|X.Y.Z>
 #
 # Running this command is the authorization: the release runs end to end with
-# no prompt. The preconditions (valid semver, on main, clean tree, tag absent,
-# nothing under .lab tracked, the full test suite) each stop it with a
-# non-zero exit before a file is edited.
+# no prompt. A release that is not on main with a clean tree stops before
+# anything is written. THIRD-PARTY-NOTICES.md is then re-synced, and committed
+# if that changed it. The other preconditions (valid semver, tag absent, nothing
+# under .lab tracked, the full test suite) each stop the release with a non-zero
+# exit before any other file is edited.
 
 [CmdletBinding()]
 param(
@@ -29,6 +31,23 @@ if (-not $Version) {
     throw 'Usage: pixi run release <major|minor|patch|nightly|X.Y.Z>'
 }
 
+Import-Module (Join-Path $ProjectRoot 'cameraunlock-core/powershell/ReleaseWorkflow.psm1') -Force
+
+# --- 1. On main, with a clean tree ------------------------------------------
+# Before the re-sync below, which commits. A nightly makes its own check of
+# the tree, which -AllowDirty skips.
+if ($Version -ne 'nightly') {
+    Push-Location $ProjectRoot
+    try {
+        $branch = (git rev-parse --abbrev-ref HEAD).Trim()
+        if ($branch -ne 'main') { throw "Releases are cut from main, not '$branch'." }
+        if (-not (Test-CleanGitStatus)) { throw 'Working tree is not clean. Commit or stash changes before releasing.' }
+    } finally {
+        Pop-Location
+    }
+}
+
+# --- 2. Notices re-sync -----------------------------------------------------
 # THIRD-PARTY-NOTICES.md names the cameraunlock-core commit whose scripts go in
 # the release ZIP, and packaging refuses a stale one. Re-sync it here so the
 # release carries the correction instead of failing in CI after the tag is out.
@@ -48,11 +67,9 @@ if ($Version -eq 'nightly') {
     exit $LASTEXITCODE
 }
 
-Import-Module (Join-Path $ProjectRoot 'cameraunlock-core/powershell/ReleaseWorkflow.psm1') -Force
-
 Push-Location $ProjectRoot
 try {
-    # --- 1. Resolve and validate the target version ------------------------
+    # --- 3. Resolve and validate the target version ------------------------
     # pixi.toml is the version source. build.ps1 reads it into the jar's
     # manifest, and scripts/install.cmd carries a copy as MOD_VERSION.
     $pixiPath = Join-Path $ProjectRoot 'pixi.toml'
@@ -61,10 +78,7 @@ try {
     Assert-ReleaseNotBelowCanonicalSince -RepoRoot $ProjectRoot -Version $target
     $tag = "v$target"
 
-    # --- 2. Preconditions ---------------------------------------------------
-    $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-    if ($branch -ne 'main') { throw "Releases are cut from main, not '$branch'." }
-    if (-not (Test-CleanGitStatus)) { throw 'Working tree is not clean. Commit or stash changes before releasing.' }
+    # --- 4. Tag absent, nothing under .lab tracked -------------------------
     if (Test-GitTagExists -Tag $tag) { throw "Tag $tag already exists." }
 
     & git check-ignore -q .lab/x
@@ -73,7 +87,7 @@ try {
 
     Write-Host "Releasing $current -> $target" -ForegroundColor Cyan
 
-    # --- 3. Full test suite, before any file is edited ---------------------
+    # --- 5. Full test suite, before any other file is edited ---------------
     Write-Host 'Running the full test suite...' -ForegroundColor Cyan
     try {
         Invoke-ReleaseTestSuite -ProjectRoot $ProjectRoot
@@ -82,7 +96,7 @@ try {
         exit 1
     }
 
-    # --- 4. Changelog -------------------------------------------------------
+    # --- 6. Changelog -------------------------------------------------------
     # Before the version bump: this is the step that stops a release with no
     # user-facing commit, and stopping here leaves the tree clean.
     Write-Host 'Writing the CHANGELOG entry...' -ForegroundColor Cyan
@@ -99,7 +113,7 @@ try {
         exit 1
     }
 
-    # --- 5. Version bump ----------------------------------------------------
+    # --- 7. Version bump ----------------------------------------------------
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     $versionFiles = @(
         @{ Path = 'pixi.toml';           Pattern = '(?m)^version = "\d+\.\d+\.\d+"';       Replacement = "version = `"$target`"" },
@@ -113,12 +127,12 @@ try {
         [System.IO.File]::WriteAllText($vfPath, $regex.Replace($vfText, $vf.Replacement), $utf8NoBom)
     }
 
-    # --- 6. Build -----------------------------------------------------------
+    # --- 8. Build -----------------------------------------------------------
     Write-Host 'Building...' -ForegroundColor Cyan
     pixi run build
     if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 
-    # --- 7. Commit, tag, push ----------------------------------------------
+    # --- 9. Commit, tag, push ----------------------------------------------
     # The subject starts 'Release v' because build.yml skips a commit that
     # does: release.yml builds the tag.
     git add pixi.toml scripts/install.cmd CHANGELOG.md
