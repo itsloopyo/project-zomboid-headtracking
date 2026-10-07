@@ -46,23 +46,29 @@ final class Pictures {
      */
     static int load(String path, String heights, boolean repeats) throws IOException {
         Decoded picture = read(path);
-        if (heights != null) {
-            Decoded raised = read(heights);
-            if (raised.wide != picture.wide || raised.high != picture.high) {
-                throw new IOException(heights + " is " + raised.wide + " by " + raised.high + ", and " + path + " is " + picture.wide + " by " + picture.high);
+        try {
+            if (heights != null) {
+                Decoded raised = read(heights);
+                try {
+                    if (raised.wide != picture.wide || raised.high != picture.high) {
+                        throw new IOException(heights + " is " + raised.wide + " by " + raised.high + ", and " + path + " is " + picture.wide + " by " + picture.high);
+                    }
+                    for (int at = 0; at < picture.wide * picture.high * 4; at += 4) {
+                        picture.pixels.put(at + 3, raised.pixels.get(at));
+                    }
+                } finally {
+                    raised.memory.free();
+                }
             }
-            for (int at = 0; at < picture.wide * picture.high * 4; at += 4) {
-                picture.pixels.put(at + 3, raised.pixels.get(at));
-            }
-            raised.memory.free();
+            gain = picture.gain;
+            int texture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, texture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
+            finish(GL_TEXTURE_2D, repeats);
+            return texture;
+        } finally {
+            picture.memory.free();
         }
-        gain = picture.gain;
-        int texture = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-        picture.memory.free();
-        finish(GL_TEXTURE_2D, repeats);
-        return texture;
     }
 
     /**
@@ -70,22 +76,26 @@ final class Pictures {
      * of the first and all repeating: a shader picks one by its number. The gain is the first's.
      */
     static int loadLayers(String[] paths) throws IOException {
-        Decoded first = read(paths[0]);
+        int wide = 0, high = 0;
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
-        GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, first.wide, first.high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
         for (int layer = 0; layer < paths.length; layer++) {
-            Decoded picture = layer == 0 ? first : read(paths[layer]);
-            if (picture.wide != first.wide || picture.high != first.high) {
-                throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + first.wide + " by " + first.high);
-            }
-            GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, first.wide, first.high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-            if (layer > 0) {
+            Decoded picture = read(paths[layer]);
+            try {
+                if (layer == 0) {
+                    wide = picture.wide;
+                    high = picture.high;
+                    gain = picture.gain;
+                    GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, wide, high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+                }
+                if (picture.wide != wide || picture.high != high) {
+                    throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + wide + " by " + high);
+                }
+                GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, wide, high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
+            } finally {
                 picture.memory.free();
             }
         }
-        gain = first.gain;
-        first.memory.free();
         finish(GL_TEXTURE_2D_ARRAY, true);
         return texture;
     }

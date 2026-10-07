@@ -55,7 +55,7 @@ final class ChunkBuffers {
     /** A buffer less than one part in this many in use for SLACK_FOR_NANOS is made shorter. */
     private static final int SLACK = 3;
     private static final long SLACK_FOR_NANOS = 10_000_000_000L;
-    private static long slackSince;
+    private static long slackSince, loadedNanos;
     private static int buffer;
     /** How long the buffer is, in floats. */
     private static int capacity;
@@ -119,9 +119,12 @@ final class ChunkBuffers {
                 }
             }
         }
-        // A buffer made for a wide view is mostly empty once the view is a narrow one: High's is five times Low's.
+        // A buffer made for a wide view is mostly empty once the view is a narrow one. Time in which no
+        // frame was drawn says nothing of how full it is kept: the wait begins again after a gap.
         long now = System.nanoTime();
-        if (capacity <= GRAIN || ((long) capacity - space.free()) * SLACK >= capacity) {
+        boolean gap = now - loadedNanos > SLACK_FOR_NANOS / 10;
+        loadedNanos = now;
+        if (gap || !slack(capacity, (long) capacity - space.free())) {
             slackSince = now;
         } else if (now - slackSince > SLACK_FOR_NANOS) {
             remake(chunks, chunks.size());
@@ -132,6 +135,35 @@ final class ChunkBuffers {
         allMegabytes = (long) capacity * Float.BYTES / 1048576f;
         sentMegabytes = sentFloats * Float.BYTES / 1048576f;
         sent = sentBuilds;
+    }
+
+    /** How long a buffer is made for this many floats in use: half as much again, in whole grains. */
+    static long wanted(long used) {
+        return (used + used / 2 + GRAIN - 1) / GRAIN * GRAIN;
+    }
+
+    /** Whether a buffer this long with this much in use is mostly empty: one just made for what it holds never is. */
+    static boolean slack(long capacity, long used) {
+        return capacity > GRAIN && used * SLACK < capacity;
+    }
+
+    /**
+     * Whether a build of the chunk at (wx, wy) is kept with the eye where it is: on the loaded
+     * map or a step off it, and within what the graphics mode shows and a little more.
+     */
+    static boolean kept(int wx, int wy, int mapWx, int mapWy, int mapSide, float eyeX, float eyeY, float sight) {
+        if (wx < mapWx - 1 || wx > mapWx + mapSide || wy < mapWy - 1 || wy > mapWy + mapSide) {
+            return false;
+        }
+        int tiles = WorldScene.CHUNK_TILES;
+        float toX = wx * tiles + tiles / 2f - eyeX, toY = wy * tiles + tiles / 2f - eyeY;
+        float within = drawnWithin(sight) + WorldScene.KEPT_BEYOND;
+        return toX * toX + toY * toY <= within * within;
+    }
+
+    /** How far from the eye, in tiles, the middle of a chunk may be and the chunk still be built and drawn. */
+    static float drawnWithin(float sight) {
+        return sight + WorldScene.CHUNK_REACH;
     }
 
     private static void dropForgotten() {
@@ -149,12 +181,16 @@ final class ChunkBuffers {
 
     /**
      * Gives the buffer back to the graphics card once no build has a block in it: first person
-     * has been off a while and the logic thread has let every build go (WorldScene.letGo). Left
-     * alone the buffer stayed for the session at the longest it had ever been.
+     * has been off a while and the logic thread has let every build go (WorldScene.letGo).
      */
     static void letGo() {
         dropForgotten();
-        if (buffer == 0 || !holders.isEmpty()) {
+        if (buffer == 0) {
+            return;
+        }
+        if (!holders.isEmpty()) {
+            // Every build was let go, so none should hold a block: one that does was lost by whatever let it go.
+            Log.info("first person keeps the world's room on the graphics card: " + holders.size() + " builds still hold a part of it");
             return;
         }
         GL15.glDeleteBuffers(buffer);
@@ -220,6 +256,7 @@ final class ChunkBuffers {
      * this one on, that it does not yet hold, and half as much again, and carries every block
      * over, one after another with no gaps. Run when a build finds no gap long enough: the
      * buffer is too short, or what is free in it is in pieces, which this puts right as well.
+     * Run too when most of the buffer has long been empty, which makes it shorter.
      * The blocks are copied on the graphics card. Nothing else has them.
      */
     private static void remake(ArrayList<WorldScene.ChunkMeshes> chunks, int from) {
@@ -233,7 +270,7 @@ final class ChunkBuffers {
                 coming += chunks.get(i).floats;
             }
         }
-        long wanted = (kept + coming + (kept + coming) / 2 + GRAIN - 1) / GRAIN * GRAIN;
+        long wanted = wanted(kept + coming);
         if (wanted > Integer.MAX_VALUE / GRAIN * GRAIN) {
             throw new IllegalStateException("the world in sight is " + (kept + coming) + " floats, more than one buffer can hold");
         }

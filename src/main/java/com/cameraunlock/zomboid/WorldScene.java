@@ -62,7 +62,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     static final float REACH = 30f;
     static final int CHUNK_TILES = 8;
     /** Half the diagonal of a chunk, rounded up: how far a chunk reaches from its centre. */
-    private static final float CHUNK_REACH = 6f;
+    static final float CHUNK_REACH = 6f;
     /** How much wider than the picture's corners the drawn cone is, so nothing pops in at the edges. */
     private static final float CONE_MARGIN = (float) Math.toRadians(8);
     /** The cosine of the angle either side of straight behind that a driver's mirror takes in, with the same margin. */
@@ -881,7 +881,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
                 float toChunkX = chunkX + CHUNK_TILES / 2f - view.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - view.eyeY;
                 float distance = (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY);
-                if (distance > fogEnd + CHUNK_REACH) {
+                if (distance > ChunkBuffers.drawnWithin(fogEnd)) {
                     continue;
                 }
                 if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
@@ -1128,7 +1128,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /** How far beyond what is in sight a build is kept, in tiles: a walk or a drive back brings it into the picture again within seconds. */
-    private static final float KEPT_BEYOND = 16f;
+    static final float KEPT_BEYOND = 8f;
     /** Where the eye was when builds were last let go by distance. */
     private static float keptRoundX, keptRoundY;
 
@@ -1139,12 +1139,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * build kept is a block of the graphics card's memory kept.
      */
     private static boolean near(ChunkMeshes meshes) {
-        if (meshes.wx < mapWx - 1 || meshes.wx > mapWx + mapSide || meshes.wy < mapWy - 1 || meshes.wy > mapWy + mapSide) {
-            return false;
-        }
-        float toX = meshes.wx * CHUNK_TILES + CHUNK_TILES / 2f - keptRoundX, toY = meshes.wy * CHUNK_TILES + CHUNK_TILES / 2f - keptRoundY;
-        float kept = Quality.sight() + CHUNK_REACH + KEPT_BEYOND;
-        return toX * toX + toY * toY <= kept * kept;
+        return ChunkBuffers.kept(meshes.wx, meshes.wy, mapWx, mapWy, mapSide, keptRoundX, keptRoundY, Quality.sight());
     }
 
     /**
@@ -1277,6 +1272,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         while (!spare.isEmpty()) {
             spare.pop().scrap();
         }
+        solid.clear();
+        laid.clear();
+        solid.trim();
+        laid.trim();
         setDown();
     }
 

@@ -21,6 +21,44 @@ final class BufferTests {
         loansGoRoundAndTheIdleOnesAreCapped();
         aBuildKnowsTheBoxItsVerticesAreIn();
         aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt();
+        aBufferJustMadeIsNeverMostlyEmpty();
+        everyChunkThatCanBeDrawnIsKept();
+    }
+
+    private static void aBufferJustMadeIsNeverMostlyEmpty() {
+        check(ChunkBuffers.wanted(0) == 0, "nothing in use wants no buffer");
+        long grain = ChunkBuffers.wanted(1);
+        for (long used = 1; used < 40 * grain; used += grain / 7) {
+            long made = ChunkBuffers.wanted(used);
+            check(made >= used + used / 2 && made % grain == 0, "a buffer is made half as long again as what it holds, in whole grains");
+            check(!ChunkBuffers.slack(made, used), "and is not mostly empty the moment it is made, or it would be made again at once");
+            check(made <= grain || ChunkBuffers.slack(made, used / 3) || used < 3, "with a third of that in use it is, unless it is one grain");
+        }
+        check(!ChunkBuffers.slack(grain, 0), "a buffer of one grain is as short as one gets");
+    }
+
+    private static void everyChunkThatCanBeDrawnIsKept() {
+        int mapWx = 1300, mapWy = 1200, side = 19;
+        float eyeX = (mapWx + 9) * 8 + 3.5f, eyeY = (mapWy + 9) * 8 + 4.5f;
+        for (float sight : new float[] {48f, 64f, 80f}) {
+            int kept = 0, drawn = 0;
+            for (int wx = mapWx - 3; wx <= mapWx + side + 3; wx++) {
+                for (int wy = mapWy - 3; wy <= mapWy + side + 3; wy++) {
+                    double away = Math.hypot(wx * 8 + 4 - eyeX, wy * 8 + 4 - eyeY);
+                    boolean onMap = wx >= mapWx && wx < mapWx + side && wy >= mapWy && wy < mapWy + side;
+                    boolean keeps = ChunkBuffers.kept(wx, wy, mapWx, mapWy, side, eyeX, eyeY, sight);
+                    if (onMap && away <= ChunkBuffers.drawnWithin(sight)) {
+                        drawn++;
+                        check(keeps, "a chunk near enough to be drawn is kept");
+                    }
+                    check(!keeps || away <= ChunkBuffers.drawnWithin(sight) + 8.5, "and none more than a chunk beyond that");
+                    check(!keeps || wx >= mapWx - 1 && wx <= mapWx + side && wy >= mapWy - 1 && wy <= mapWy + side, "nor one further off the map than a step");
+                    kept += keeps ? 1 : 0;
+                }
+            }
+            check(sight > 50f || kept < side * side * 2 / 3, "the Low mode keeps well under the whole map: " + kept + " of " + side * side);
+            check(drawn > 0 && kept >= drawn, "and what is kept is at least what is drawn");
+        }
     }
 
     private static void aBuildKnowsTheBoxItsVerticesAreIn() {

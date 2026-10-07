@@ -473,6 +473,9 @@ final class Pipeline {
         try {
             if (chunks == null) {
                 failure = prepareNext();
+                if (failure != null) {
+                    Log.info("first person cannot be drawn on this machine: " + failure);
+                }
             } else {
                 picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
             }
@@ -2615,7 +2618,7 @@ final class Pipeline {
      * The programs and the textures that do not depend on the picture's size are made a piece
      * at a time: made all at once on the frame that first draws the picture, they held that
      * frame for three and a half seconds. FirstPerson has a piece made on each frame from the
-     * moment a save is being played, so by the first switch to first person they are there.
+     * moment first person, or a graphics mode in which the picture draws the game's own view, is asked for.
      */
     private static int preparing;
     private static long preparingNanos, preparingWorst;
@@ -2647,6 +2650,13 @@ final class Pipeline {
     }
 
     /**
+     * The surfaces a picture reads whatever the graphics mode shows of the mod's own: the bed of
+     * shallow water is the soil, and a vehicle's cabin is trimmed in the wood, carpet, vinyl and
+     * cloth. They are made with the core.
+     */
+    private static final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
+
+    /**
      * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
      * the scope's own picture, the mirror and the rain. Nothing of it is made until first
      * person is first asked for.
@@ -2671,6 +2681,11 @@ final class Pipeline {
             return makeNoise();
         }));
         pieces.add(new Piece(Scope::prepare));
+        for (int material = 0; material < MATERIALS.length; material++) {
+            if (ALWAYS_READ.contains(MATERIALS[material])) {
+                pieces.add(materialPiece(material));
+            }
+        }
         pieces.add(new Piece(() -> {
             makeSamplers();
             String problem = makeMirror();
@@ -2680,24 +2695,25 @@ final class Pipeline {
         return pieces;
     }
 
+    private static Piece materialPiece(int material) {
+        if (material == BARK) {
+            String[] barks = new String[BARKS.length];
+            for (int bark = 0; bark < BARKS.length; bark++) {
+                barks[bark] = "/materials/" + BARKS[bark] + ".jpg";
+            }
+            return Piece.ofPictures(() -> loadBarks(barks), barks);
+        }
+        String picture = "/materials/" + MATERIALS[material] + (material == FIRST_CUTOUT ? ".png" : ".jpg");
+        String heights = RAISED.contains(MATERIALS[material]) ? "/materials/" + MATERIALS[material] + ".high.jpg" : null;
+        return heights != null ? Piece.ofPictures(() -> loadPicture(picture, heights, materialTexture, materialGain, material), picture, heights)
+                : Piece.ofPictures(() -> loadPicture(picture, null, materialTexture, materialGain, material), picture);
+    }
+
     private static List<Piece> contentPieces() {
         List<Piece> pieces = new ArrayList<>();
-        for (int each = 0; each < MATERIALS.length; each++) {
-            int material = each;
-            if (material == BARK) {
-                String[] barks = new String[BARKS.length];
-                for (int bark = 0; bark < BARKS.length; bark++) {
-                    barks[bark] = "/materials/" + BARKS[bark] + ".jpg";
-                }
-                pieces.add(Piece.ofPictures(() -> loadBarks(barks), barks));
-                continue;
-            }
-            String picture = "/materials/" + MATERIALS[material] + (material == FIRST_CUTOUT ? ".png" : ".jpg");
-            if (RAISED.contains(MATERIALS[material])) {
-                String heights = "/materials/" + MATERIALS[material] + ".high.jpg";
-                pieces.add(Piece.ofPictures(() -> loadPicture(picture, heights, materialTexture, materialGain, material), picture, heights));
-            } else {
-                pieces.add(Piece.ofPictures(() -> loadPicture(picture, null, materialTexture, materialGain, material), picture));
+        for (int material = 0; material < MATERIALS.length; material++) {
+            if (!ALWAYS_READ.contains(MATERIALS[material])) {
+                pieces.add(materialPiece(material));
             }
         }
         for (int each = 0; each < NATURE.length; each++) {
@@ -2730,7 +2746,8 @@ final class Pipeline {
     }
 
     private static final String SPRIGS = "/materials/sprigs.png", SPRIG_FORM = "/materials/sprigs-form.png";
-    private static boolean coreBegun, contentBegun;
+    private static boolean coreBegun;
+    private static volatile boolean contentBegun;
     private static int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
     private static volatile boolean contentReady;
@@ -2751,6 +2768,11 @@ final class Pipeline {
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
     static boolean contentWaited() {
         return !Quality.plain() && !contentReady && failure == null;
+    }
+
+    /** Whether the making of the mod's own pictures has begun and not ended: it is seen through whatever the mode is now. */
+    static boolean contentHalfMade() {
+        return contentBegun && !contentReady && failure == null;
     }
 
     /**
@@ -2782,7 +2804,9 @@ final class Pipeline {
         if (!prepared) {
             return CORE.get(preparing).begun.getAsBoolean();
         }
-        if (!contentWaited()) {
+        // Once begun, the content is made to the end whatever the mode becomes: what was read ahead for it is
+        // only given back by the piece that takes it.
+        if (contentReady || failure != null || !contentBegun && Quality.plain()) {
             return false;
         }
         if (!contentBegun) {
@@ -2827,6 +2851,8 @@ final class Pipeline {
             Own.picturesMade(true);
             Log.info(String.format(Locale.ROOT, "the mod's own surfaces, plants and weapons are on the graphics card: %d pieces taking %.0f ms in all, the longest %.0f ms",
                     contentPreparing, preparingNanos / 1e6, preparingWorst / 1e6));
+            preparingNanos = 0;
+            preparingWorst = 0;
         }
         return problem;
     }
@@ -3015,13 +3041,16 @@ final class Pipeline {
      * own, which are most of what the view holds there. Asked for again, they are made again.
      */
     static final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
-        
+        @Override
         public void render() {
             ChunkBuffers.letGo();
             if (!contentReady) {
                 return;
             }
             for (int material = 0; material < MATERIALS.length; material++) {
+                if (ALWAYS_READ.contains(MATERIALS[material])) {
+                    continue;
+                }
                 GL11.glDeleteTextures(materialTexture[material]);
                 materialTexture[material] = 0;
                 materialGain[material] = 1f;

@@ -158,6 +158,7 @@ public final class Agent {
             instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
         }
         instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
+        instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -284,6 +285,17 @@ public final class Agent {
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
                         new CallSite.Method("com/cameraunlock/zomboid/Characters", "gamesOwnDrawIsCovered", "()Z"))));
+    }
+
+    /**
+     * Apart again: without it first person works as it does, and what it holds on the graphics
+     * card when a save is left for the menu stays held until another save is played.
+     */
+    private static List<Patch> leftSavePatches() {
+        String state = "zombie/gameStates/IngameState";
+        return List.of(new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(state, "exit", "()V"),
+                code -> CallSite.passThis(code, new CallSite.Method(FIRST_PERSON, "leftSave", "(Ljava/lang/Object;)V")))));
     }
 
     /**

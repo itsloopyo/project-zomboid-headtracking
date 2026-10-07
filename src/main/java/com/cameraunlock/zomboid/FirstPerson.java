@@ -240,11 +240,11 @@ public final class FirstPerson {
         }
         if (gettingReady) {
             gettingReady = false;
-            said = null;
             Log.info("first person no longer asked for");
             return;
         }
-        if (!on && (Pipeline.unprepared() || Pipeline.contentWaited() || !rehearsed)) {
+        // With the picture already drawing the game's own view there is nothing left to make and the world is built.
+        if (!on && (Pipeline.unprepared() || Pipeline.contentWaited() || !rehearsed && !overhead())) {
             gettingReady = true;
             readySince = System.nanoTime();
             Log.info("first person asked for: what it is drawn with is being made");
@@ -255,8 +255,6 @@ public final class FirstPerson {
 
     /** One frame of getting ready: the next piece of what the picture is drawn with, then the world built once unseen, then the switch. */
     private static void getReady(IsoPlayer player, long now) {
-        said = "First person: getting ready";
-        saidAt = now;
         boolean late = now - readySince > READY_WITHIN_NANOS;
         if (!late && (Pipeline.unprepared() || Pipeline.contentWaited())) {
             SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
@@ -267,8 +265,44 @@ public final class FirstPerson {
             return;
         }
         gettingReady = false;
-        said = null;
         switchView(player);
+    }
+
+    /**
+     * Gives back what the view holds that a view switched off has no use for: the world as it
+     * was built, the graphics card's copy of it and the mod's own pictures. The next switch to
+     * first person gets ready again, as the first of the session did.
+     */
+    private static void letGo() {
+        held = false;
+        rehearsed = false;
+        world.look(null, 0);
+        WorldScene.letGo();
+        SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
+    }
+
+    /**
+     * Called as the game leaves a save for its menu. No frame of the save comes after this, so
+     * nothing would come to give anything back, and the scenes would go on naming the map the
+     * game has let go of.
+     */
+    public static void leftSave(Object state) {
+        try {
+            on = false;
+            gettingReady = false;
+            Flight.cut(false);
+            if (pictureUp) {
+                pictureUp = false;
+                SpriteRenderer.instance.drawGeneric(Pipeline.RELEASE);
+            }
+            if (held) {
+                letGo();
+                Log.info("the save was left: first person has given back what it held");
+            }
+        } catch (RuntimeException | LinkageError thrown) {
+            // Thrown on, it would stop the game on its way out of the save.
+            Log.error("first person could not give back what it held as the save was left", thrown);
+        }
     }
 
     private static void switchView(IsoPlayer player) {
@@ -321,10 +355,11 @@ public final class FirstPerson {
         try {
             frame();
             // After the picture, which would cover it.
-            if (said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS) {
+            String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
+            if (shown != null) {
                 int index = IsoPlayer.getInstance().getIndex();
                 TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
-                        said, 1.0, 1.0, 1.0, 1.0);
+                        shown, 1.0, 1.0, 1.0, 1.0);
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
@@ -362,7 +397,9 @@ public final class FirstPerson {
             said = "Style: " + Style.current().label;
             saidAt = System.nanoTime();
         }
-        overhead = !Quality.plain() && failure == null && allowed(IsoPlayer.getInstance());
+        // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
+        boolean overheadAsked = !Quality.plain() && failure == null && allowed(IsoPlayer.getInstance());
+        overhead = overheadAsked && !Pipeline.unprepared() && !Pipeline.contentWaited();
         if (Terrain.level != overhead()) {
             Terrain.level(overhead());
             WorldScene.forgetAll();
@@ -432,7 +469,6 @@ public final class FirstPerson {
             }
             if (gettingReady && !allowed(player)) {
                 gettingReady = false;
-                said = null;
             } else if (gettingReady) {
                 getReady(player, now);
             }
@@ -446,13 +482,15 @@ public final class FirstPerson {
             }
             // Switched off and on again within the minute, the view is there at once. Left off, it gives back
             // what it holds: the world on the graphics card and the mod's own pictures, which are most of it.
-            if (Characters.wanted || gettingReady) {
+            boolean making = !gettingReady && (overheadAsked && !overhead || Pipeline.contentHalfMade());
+            if (making) {
+                SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
+            }
+            if (Characters.wanted || gettingReady || making) {
                 held = true;
                 offSince = now;
             } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
-                held = false;
-                WorldScene.letGo();
-                SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
+                letGo();
             }
             return;
         }
@@ -489,6 +527,7 @@ public final class FirstPerson {
         aimView.eyeUp += carried[2];
         held = true;
         offSince = now;
+        rehearsed = true;
         WorldScene scene = WorldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
@@ -636,8 +675,6 @@ public final class FirstPerson {
         rehearsals++;
         if (scene.waiting() == 0) {
             rehearsed = true;
-            WorldScene.forgetAll();
-            WorldScene.setDown();
             Log.info("first person world rehearsed over " + rehearsals + " frames");
         }
     }
