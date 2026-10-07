@@ -128,6 +128,8 @@ final class OwnRifle {
             uniform vec2 uSize;
             uniform float uHandsNear;
             uniform float uBehindHands;
+            // Set for the pass that keeps only where the rifle is, and none of its colour.
+            uniform float uDepthOnly;
             // Tiles to a metre at the size the rifle is drawn.
             uniform float uMetre;
             varying vec3 vSeen;
@@ -167,6 +169,10 @@ final class OwnRifle {
                     if (z < 1.0 && 2.0 * uHandsNear * uFar / (uFar + uHandsNear - (z * 2.0 - 1.0) * (uFar - uHandsNear)) < ahead) {
                         discard;
                     }
+                }
+                if (uDepthOnly > 0.5) {
+                    gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
+                    return;
                 }
                 vec4 tint = texture2D(uColour, vUv);
                 vec4 surface = texture2D(uSurface, vUv);
@@ -396,7 +402,12 @@ final class OwnRifle {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // The barrel is seen along its length.
+        int error = GL11.glGetError();
+        if (error != 0) {
+            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the rifle's model");
+        }
+        // The barrel is seen along its length. A driver without the means refuses the setting, and that
+        // refusal is dropped: whatever went wrong before it has been asked for above.
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 16);
         GL11.glGetError();
         return texture;
@@ -527,12 +538,14 @@ final class OwnRifle {
         HeldDepth.bind();
         program.set("uWriteNear", Scope.NEAREST);
         program.set("uBehindHands", 1f);
+        program.set("uDepthOnly", 0f);
         parts();
         // And where it is, for what the picture works out from depth afterwards.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, scene);
         GL11.glColorMask(false, false, false, false);
         program.set("uWriteNear", sceneNear);
         program.set("uBehindHands", 0f);
+        program.set("uDepthOnly", 1f);
         parts();
         GL11.glColorMask(true, true, true, true);
 

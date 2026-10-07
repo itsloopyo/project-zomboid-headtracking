@@ -953,9 +953,9 @@ public final class Characters {
         EYE.Begin();
         // A weapon the mod has a model of its own for is drawn by the picture, after the hands,
         // and the game's model of it and of what is fixed to it is left out.
-        ViewModel.Held hands = ViewModel.held;
+        ViewModel.Held hands = armHands;
         ModelInstanceRenderData held = weaponOf(data);
-        boolean own = hands != null && held != null && ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
+        boolean own = held != null && ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
         if (own) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
@@ -963,7 +963,7 @@ public final class Characters {
                     ownLight, square != null && square.isOutside(), hands.aim());
         }
         // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
-        boolean rifle = !own && hands != null && held != null && ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
+        boolean rifle = !own && held != null && ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
         if (rifle) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
@@ -1158,6 +1158,16 @@ public final class Characters {
                 // nothing the mirror does not take in.
                 float behind = toX * mirrorWayX + toY * mirrorWayY, aside = Math.abs(toX * mirrorWayY - toY * mirrorWayX);
                 if (toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
+                    continue;
+                }
+            } else if (!casting) {
+                // A model wholly behind the eye is in no picture, however wide the view and
+                // however the head is rolled. The view's third row is how far towards the viewer
+                // a point is from the eye, in tiles, and the place is where the draw stands the model.
+                boolean stands = data.character != null && !data.inVehicle;
+                float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
+                float up = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z);
+                if (view[2] * x + view[6] * y + view[10] * up + view[14] > MODEL_REACH) {
                     continue;
                 }
             }

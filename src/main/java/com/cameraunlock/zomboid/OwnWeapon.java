@@ -116,6 +116,8 @@ final class OwnWeapon {
             // Nearer the eye than this the part is not drawn, and -1 where uModel is a mirror.
             uniform float uCut;
             uniform float uHanded;
+            // Set for the pass that keeps only where the model is, and none of its colour.
+            uniform float uDepthOnly;
             varying vec3 vSeen;
             varying vec3 vNormal;
             varying vec3 vTangent;
@@ -144,6 +146,10 @@ final class OwnWeapon {
                 float ahead = -vSeen.z;
                 if (ahead < uCut) {
                     discard;
+                }
+                if (uDepthOnly > 0.5) {
+                    gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
+                    return;
                 }
                 // Where the cut goes through a part its inside shows, which is drawn as the cut end
                 // of what the part is made of, in shade, and not as a lit surface seen from behind.
@@ -371,7 +377,12 @@ final class OwnWeapon {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // The barrel is seen along its length.
+        int error = GL11.glGetError();
+        if (error != 0) {
+            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the shotgun's model");
+        }
+        // The barrel is seen along its length. A driver without the means refuses the setting, and that
+        // refusal is dropped: whatever went wrong before it has been asked for above.
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 16);
         GL11.glGetError();
         return texture;
@@ -421,13 +432,14 @@ final class OwnWeapon {
         return placed;
     }
 
-    /** The frame drew no weapon of the mod's own. */
-    static void none() {
-        placed = false;
-    }
-
-    /** The picture's colour and the hands' depth were given back, and the target is to take the next ones. */
+    /**
+     * The picture's colour and the hands' depth were given back, and the target is to take the
+     * next ones. The target goes with them: a texture given back while a target still holds it
+     * keeps its memory on the graphics card until that target lets go of it.
+     */
     static void forgetTarget() {
+        GL30.glDeleteFramebuffers(target);
+        target = 0;
         targetColor = 0;
         targetDepth = 0;
     }
@@ -497,11 +509,13 @@ final class OwnWeapon {
 
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         program.set("uWriteNear", near);
+        program.set("uDepthOnly", 0f);
         parts();
         // And where it is, for what the picture works out from depth afterwards.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, scene);
         GL11.glColorMask(false, false, false, false);
         program.set("uWriteNear", sceneNear);
+        program.set("uDepthOnly", 1f);
         parts();
         GL11.glColorMask(true, true, true, true);
 

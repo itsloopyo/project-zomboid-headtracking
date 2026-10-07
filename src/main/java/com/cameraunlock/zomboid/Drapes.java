@@ -51,7 +51,7 @@ final class Drapes {
     static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean far) {
         Shape shape = known.get(texture);
         if (shape != null) {
-            return shape == NONE ? null : shape;
+            return shape == NONE || shape.north != north || shape.far != far ? null : shape;
         }
         if (asked.putIfAbsent(texture, new Asked(north, far, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
             SpriteColours.readAgain(texture);

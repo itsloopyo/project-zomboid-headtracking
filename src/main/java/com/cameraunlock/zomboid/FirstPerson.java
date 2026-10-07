@@ -1,10 +1,13 @@
 package com.cameraunlock.zomboid;
 
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import zombie.GameTime;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
+import zombie.core.opengl.RenderThread;
 import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
@@ -95,12 +98,15 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_STANDING = 1.6f;
     private static final float EYE_HEIGHT_SNEAKING = 1.1f;
     private static final float EYE_HEIGHT_SITTING = 0.9f;
+    /** The eye goes from one of those heights to another over a few of these, where set at once the whole picture cut half a tile in a frame. */
+    private static final float EYE_HEIGHT_SECONDS = 0.1f;
+    private static float eyeHigh;
     private static final float[] eye = new float[3];
     static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
     /** The view the player has asked for. The camera may still be on its way there. */
-    private static boolean on;
+    private static volatile boolean on;
     /** The camera is at the eye, and the view is played in. */
     private static volatile boolean landed;
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
@@ -272,32 +278,52 @@ public final class FirstPerson {
     /**
      * Gives back what the view holds that a view switched off has no use for: the world as it
      * was built, the graphics card's copy of it and the mod's own pictures. The next switch to
-     * first person gets ready again, as the first of the session did.
+     * first person gets ready again, as the first of the session did. The caller hands
+     * Pipeline.LET_GO to the render thread, which gives back the graphics card's share.
      */
     private static void letGo() {
         held = false;
         rehearsed = false;
         world.look(null, 0);
         WorldScene.letGo();
-        SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
     }
 
     /**
      * Called as the game leaves a save for its menu. No frame of the save comes after this, so
      * nothing would come to give anything back, and the scenes would go on naming the map the
-     * game has let go of.
+     * game has let go of. Nor would anything come to let go of the mouse: a save can be left with
+     * the look still holding it, by a server that stops or drops the player.
      */
     public static void leftSave(Object state) {
         try {
             on = false;
             gettingReady = false;
+            outOfSave = true;
+            landed = false;
+            active = false;
+            lookCaptured = false;
+            wasCaptured = false;
+            fromTheEye = false;
+            Characters.wanted = false;
+            MouseGrab.wanted = false;
+            MouseGrab.kept = false;
+            // No frame is open here, and the menu's first frame clears whatever the sprite renderer
+            // was handed since the last one: these go by the render thread's own queue.
+            if (MouseGrab.applied || MouseGrab.keeping) {
+                RenderThread.queueInvokeOnRenderContext(MouseGrab.DRAWER::render);
+            }
+            HeadTracking.rest();
+            ViewModel.rest();
+            Crosshair.hide();
+            NameTags.lookAway();
             Flight.cut(false);
             if (pictureUp) {
                 pictureUp = false;
-                SpriteRenderer.instance.drawGeneric(Pipeline.RELEASE);
+                RenderThread.queueInvokeOnRenderContext(Pipeline.RELEASE::render);
             }
             if (held) {
                 letGo();
+                RenderThread.queueInvokeOnRenderContext(Pipeline.LET_GO::render);
                 Log.info("the save was left: first person has given back what it held");
             }
         } catch (RuntimeException | LinkageError thrown) {
@@ -357,18 +383,25 @@ public final class FirstPerson {
             frame();
             // After the picture, which would cover it.
             String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
-            if (shown != null) {
-                int index = IsoPlayer.getInstance().getIndex();
+            IsoPlayer player = IsoPlayer.getInstance();
+            if (shown != null && player != null) {
+                int index = player.getIndex();
                 TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
                         shown, 1.0, 1.0, 1.0, 1.0);
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
             // picture and panels pay for it. The view goes off for the session instead, the
-            // next frame lets go of the mouse, and the log has why.
+            // next frame lets go of the mouse, and the log has why. The frame is still run
+            // for its keys and for what it gives back, and what it throws from then on is
+            // written the first time it comes from each place.
+            StackTraceElement[] trace = thrown.getStackTrace();
+            if (thrownAt.add(thrown.getClass().getName() + (trace.length == 0 ? "" : " at " + trace[0]))) {
+                Log.error(failure == null ? "first person off: the frame could not be built"
+                        : "first person is off, and its frame has thrown from another place", thrown);
+            }
             if (failure == null) {
                 failure = "building the picture threw " + thrown;
-                Log.error("first person off: the frame could not be built", thrown);
             }
             on = false;
             overhead = false;
@@ -381,12 +414,23 @@ public final class FirstPerson {
 
     /** Why the picture can no longer be built this session, or null. */
     private static String failure;
+    private static final Set<String> thrownAt = new HashSet<>();
+    /**
+     * No frame of a save has run since the game started or the last save was left. The hotkeys
+     * are listened for all the while, in the menus too, and what was pressed there is not acted on.
+     */
+    private static boolean outOfSave = true;
 
     private static void frame() {
         if (GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
             toggle();
         }
-        HeadTracking.pollHotkeys();
+        if (outOfSave) {
+            outOfSave = false;
+            HeadTracking.dropHotkeys();
+        } else {
+            HeadTracking.pollHotkeys();
+        }
         DevKeys.poll();
         if (GameKeyboard.isKeyPressed(MODE_KEY)) {
             HeadTracking.cycleGraphicsMode();
@@ -465,6 +509,7 @@ public final class FirstPerson {
             HeadTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             ViewModel.rest();
             Crosshair.hide();
+            NameTags.lookAway();
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
@@ -493,6 +538,7 @@ public final class FirstPerson {
                 offSince = now;
             } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
                 letGo();
+                SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
             }
             return;
         }
@@ -502,7 +548,9 @@ public final class FirstPerson {
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
         eye[0] = player.getX();
         eye[1] = player.getY();
-        eye[2] = floorUp + eyeHeight(player);
+        // Eased from where the last frame at the eye had it. The first of them has none before it.
+        eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, eyeHeight(player), sinceLastFrame, EYE_HEIGHT_SECONDS) : eyeHeight(player);
+        eye[2] = floorUp + eyeHigh;
         Headlights.gather(eye[0], eye[1]);
         BaseVehicle vehicle = player.getVehicle();
         Ride.note(player, vehicle, floorUp, eye);

@@ -116,6 +116,8 @@ final class Scope {
             uniform vec2 uSize;
             uniform float uHandsNear;
             uniform float uBehindHands;
+            // Whether only the depth is wanted: the target drawn into keeps no colour.
+            uniform float uDepthOnly;
             // 0 for the scope's body, 1 for the glass of its eyepiece, 2 for the glass of its objective.
             uniform float uGlass;
             // The middle of the glass being drawn and the scope's axes, in the view's: the axis
@@ -334,13 +336,17 @@ final class Scope {
                         discard;
                     }
                 }
+                gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
+                if (uDepthOnly > 0.5) {
+                    gl_FragColor = vec4(0.0);
+                    return;
+                }
                 vec3 at = uEye + inWorld(vSeen);
                 vec3 view = normalize(uEye - at);
                 vec3 color = uGlass < 0.5 ? body(at, view)
                         : uGlass < 1.5 ? eyepiece(at, view)
                         : vec3(0.002, 0.004, 0.003) + thrownBack(at, view, 1.0, 0.3, 0.05);
                 gl_FragColor = vec4(color, 1.0);
-                gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
             }
             """;
 
@@ -674,12 +680,14 @@ final class Scope {
         HeldDepth.bind();
         program.set("uWriteNear", NEAREST);
         program.set("uBehindHands", 1f);
+        program.set("uDepthOnly", 0f);
         parts(shape, glass);
         // And where it is, for what the picture works out from depth afterwards.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, scene);
         GL11.glColorMask(false, false, false, false);
         program.set("uWriteNear", sceneNear);
         program.set("uBehindHands", 0f);
+        program.set("uDepthOnly", 1f);
         parts(shape, glass);
         GL11.glColorMask(true, true, true, true);
 

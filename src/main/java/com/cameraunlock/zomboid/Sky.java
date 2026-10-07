@@ -52,8 +52,17 @@ final class Sky {
             vec3 ridges(vec3 d, vec3 color) {
                 vec2 round = normalize(d.xy + vec2(1e-6));
                 float rise = d.z / max(length(d.xy), 1e-4);
+                // No ridge's edge is higher than 0.1185, and the last ridge's is nowhere lower
+                // than 0.0025: over the one the line of sight clears every ridge, and under
+                // the other it meets the last, whatever shape their crests have.
+                if (rise > 0.12) {
+                    return color;
+                }
                 vec3 air = atmosphere(vec3(d.xy, 0.0));
                 vec3 wooded = pow(mix(uHorizon, uZenith, 0.6) * vec3(0.2, 0.3, 0.22), vec3(2.2));
+                if (rise < 0.002) {
+                    return mix(wooded, air, 0.42);
+                }
                 for (int ridge = 0; ridge < 3; ridge++) {
                     float nth = float(ridge);
                     vec2 at = round * (2.2 + 1.7 * nth) + 13.0 * nth;
@@ -101,10 +110,20 @@ final class Sky {
                 float h = (p.z - BOTTOM) / (TOP - BOTTOM);
                 // Flat underneath and rounded on top, as a cloud that has risen to its base is.
                 float shape = smoothstep(0.0, 0.08, h) * smoothstep(1.0, 0.25, h);
+                // The noise of a cloud's body is at most 1 and its bank adds at most 0.17: where
+                // the most there could be is under nought there is no cloud, and the noise is
+                // not read. The tests stop a thousandth short, so rounding cannot change an answer.
+                float most = shape - (1.0 - uCover);
+                if (most <= -0.171) {
+                    return 0.0;
+                }
                 vec3 q = vec3(p.xy * 0.17 + uDrift, p.z * 0.21);
                 // A sky is not evenly sown with cloud. Over many miles there are banks of it
                 // and open blue between, and within a bank the clouds are of every size.
                 float bank = texture3D(uNoise, vec3(p.xy * 0.021 + uDrift * 0.4, 0.37)).g;
+                if (most - (0.5 - bank) * 0.34 <= -0.001) {
+                    return 0.0;
+                }
                 // The air a cloud forms in is turning over, which pulls its outline about.
                 vec3 pulled = q + (texture3D(uNoise, q * 0.9 + 0.31).rgr - 0.5) * 0.22;
                 float body = texture3D(uNoise, pulled).r * 0.68 + texture3D(uNoise, pulled * 2.3 + 0.17).g * 0.32;

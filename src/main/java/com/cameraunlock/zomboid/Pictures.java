@@ -87,22 +87,27 @@ final class Pictures {
         int wide = 0, high = 0;
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
-        for (int layer = 0; layer < paths.length; layer++) {
-            Decoded picture = read(paths[layer]);
-            try {
-                if (layer == 0) {
-                    wide = picture.wide;
-                    high = picture.high;
-                    gain = picture.gain;
-                    GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, wide, high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        try {
+            for (int layer = 0; layer < paths.length; layer++) {
+                Decoded picture = read(paths[layer]);
+                try {
+                    if (layer == 0) {
+                        wide = picture.wide;
+                        high = picture.high;
+                        gain = picture.gain;
+                        GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, wide, high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+                    }
+                    if (picture.wide != wide || picture.high != high) {
+                        throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + wide + " by " + high);
+                    }
+                    GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, wide, high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
+                } finally {
+                    picture.memory.free();
                 }
-                if (picture.wide != wide || picture.high != high) {
-                    throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + wide + " by " + high);
-                }
-                GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, wide, high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-            } finally {
-                picture.memory.free();
             }
+        } catch (IOException | RuntimeException failed) {
+            GL11.glDeleteTextures(texture);
+            throw failed;
         }
         finish(GL_TEXTURE_2D_ARRAY, texture, true, paths[0]);
         return texture;

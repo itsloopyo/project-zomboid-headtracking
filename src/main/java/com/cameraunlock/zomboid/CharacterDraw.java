@@ -58,6 +58,11 @@ final class CharacterDraw {
     private static final float FAINTEST = 0.01f;
     /** Within this many tiles of the eye a triangle is divided most finely, and beyond the second not at all. */
     private static final float FINE_WITHIN = 3f, WHOLE_BEYOND = 12f;
+    /**
+     * A person whose feet are this much further off than WHOLE_BEYOND has no edge within it, and is
+     * drawn by the undivided program: divided into itself a triangle is the same triangle.
+     */
+    private static final float PERSON_REACHES = 2.5f;
     /** How far off a head of hair its outermost fringe stands, in the model's own measure, and how many layers of fringe there are near the eye and further off. */
     private static final float FRINGE = 0.0045f, FRINGE_NEAR = 2.5f, FRINGE_FAR = 5f;
     private static final int FRINGE_LAYERS_NEAR = 4, FRINGE_LAYERS_FAR = 2;
@@ -562,6 +567,7 @@ final class CharacterDraw {
             uniform vec3 uLightColor[5];
             uniform mat4 uModelView;
             uniform float uBare;
+            uniform float uShadow;
             uniform float uWear;
             uniform float uShell;
             uniform vec2 uStands;
@@ -585,6 +591,14 @@ final class CharacterDraw {
             }
 
             void main() {
+                // A shadow map keeps no colour: all it asks is whether the texel is there.
+                if (uShadow > 0.5) {
+                    float there = TEXEL(uTexture, vUv).a;
+                    if (there < 0.01 || uAlpha * there <= 0.01) {
+                        discard;
+                    }
+                    return;
+                }
                 bool hair = uWear > 0.5 && uWear < 1.5;
                 // The game's skins are a few hundred dots across a whole person. Read through
                 // a curve over the four nearest dots each way, and not a straight blend of
@@ -640,7 +654,7 @@ final class CharacterDraw {
                     }
                     // Where the mesh stops the hair does not stop in a straight line: some
                     // strands end sooner than others.
-                    if (vAlong.w > 0.3 + 0.45 * strands(vLay, 300.0) + 0.25 * strands(vLay, 900.0)) {
+                    if (vAlong.w > 0.3 && vAlong.w > 0.3 + 0.45 * strands(vLay, 300.0) + 0.25 * strands(vLay, 900.0)) {
                         discard;
                     }
                 }
@@ -679,11 +693,15 @@ final class CharacterDraw {
                     float fine = fwidth(vLay.x);
                     vec3 shown = 1.0 - smoothstep(0.3, 0.7, fine * vec3(150.0, 520.0, 1300.0));
                     float aside = 0.0006;
-                    float here = combed(vLay, shown);
-                    float slope = (combed(vLay + vec2(aside, 0.0), shown) - combed(vLay - vec2(aside, 0.0), shown)) / (2.0 * aside);
-                    // Each lock lies a little steeper or flatter than the next, which is what
-                    // breaks the light along a head of hair into streaks and not one ring.
-                    float tilt = (strands(vLay, 240.0) - 0.42) * shown.x;
+                    float here = 0.0, slope = 0.0, tilt = 0.0;
+                    // Too far off for the pixels to carry any of it, all three come to nought.
+                    if (any(greaterThan(shown, vec3(0.0)))) {
+                        here = combed(vLay, shown);
+                        slope = (combed(vLay + vec2(aside, 0.0), shown) - combed(vLay - vec2(aside, 0.0), shown)) / (2.0 * aside);
+                        // Each lock lies a little steeper or flatter than the next, which is what
+                        // breaks the light along a head of hair into streaks and not one ring.
+                        tilt = (strands(vLay, 240.0) - 0.42) * shown.x;
+                    }
                     facing = normalize(facing - beside * (slope * 0.0011) + flow * (tilt * 0.5));
                     flow = normalize(flow - facing * dot(flow, facing));
                     paint *= 0.74 + 0.5 * here;
@@ -942,7 +960,7 @@ final class CharacterDraw {
     /** One program and where its settings live. */
     private static final class Skin {
         final int id;
-        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, texSize;
+        final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, texSize;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
 
         Skin(int id) {
@@ -958,6 +976,7 @@ final class CharacterDraw {
             ambient = GL20.glGetUniformLocation(id, "uAmbient");
             fine = GL20.glGetUniformLocation(id, "uFine");
             bare = GL20.glGetUniformLocation(id, "uBare");
+            shadow = GL20.glGetUniformLocation(id, "uShadow");
             texSize = GL20.glGetUniformLocation(id, "uTexSize");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
@@ -1072,7 +1091,7 @@ final class CharacterDraw {
         shadow = casting;
         away = (float) Math.sqrt(standing[12] * standing[12] + standing[13] * standing[13] + standing[14] * standing[14]);
         standsIn = -1f;
-        if (!off) {
+        if (!off && !bare && !casting) {
             lights(data);
         }
     }
@@ -1527,7 +1546,7 @@ final class CharacterDraw {
         GL11.glDepthMask(true);
         GL11.glDisable(GL_BLEND);
 
-        Skin skin = cutBones != null ? cut : divided != null && !shadow ? divided : whole;
+        Skin skin = cutBones != null ? cut : divided != null && !shadow && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
         GL20.glUseProgram(skin.id);
         boolean unlit = bare && !shadow;
         int wear = WEAVE;
@@ -1556,21 +1575,25 @@ final class CharacterDraw {
         GL20.glUniformMatrix4fv(skin.projection, false, projection);
         GL20.glUniform1f(skin.scale, person.finalScale);
         GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
+        GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
         if (unlit) {
             GL20.glDrawBuffers(BOTH);
         }
         GL20.glUniform1f(skin.alpha, person.alpha);
         GL20.glUniform1f(skin.hue, part.hue);
         GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
-        if (part.ignoreLighting) {
-            GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);
-        } else {
-            GL20.glUniform3f(skin.ambient, person.ambientR * AMBIENT_SHARE, person.ambientG * AMBIENT_SHARE, person.ambientB * AMBIENT_SHARE);
-        }
-        for (int light = 0; light < LIGHTS; light++) {
-            int at = light * 3;
-            GL20.glUniform3f(skin.lightWay[light], lightWay[at], lightWay[at + 1], lightWay[at + 2]);
-            GL20.glUniform3f(skin.lightColor[light], lightColor[at], lightColor[at + 1], lightColor[at + 2]);
+        // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
+        if (!bare && !shadow) {
+            if (part.ignoreLighting) {
+                GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);
+            } else {
+                GL20.glUniform3f(skin.ambient, person.ambientR * AMBIENT_SHARE, person.ambientG * AMBIENT_SHARE, person.ambientB * AMBIENT_SHARE);
+            }
+            for (int light = 0; light < LIGHTS; light++) {
+                int at = light * 3;
+                GL20.glUniform3f(skin.lightWay[light], lightWay[at], lightWay[at + 1], lightWay[at + 2]);
+                GL20.glUniform3f(skin.lightColor[light], lightColor[at], lightColor[at + 1], lightColor[at + 2]);
+            }
         }
         // The game remembers which texture it bound last and binds none twice running. The
         // picture binds textures of its own between one pass over the people and the next, so
@@ -1805,8 +1828,9 @@ final class CharacterDraw {
                 return new Copy(buffer, modification, 0, 0, 0, null, null, null);
             }
         }
-        float[] smooth = smoothNormals(places, normals, elements, count);
-        float[] along = along(places, uvs, elements, count);
+        int[] one = firstAt(places);
+        float[] smooth = smoothNormals(places, normals, elements, count, one);
+        float[] along = along(places, uvs, elements, count, one);
         Limb[] limbs = {new Limb(), new Limb()};
         int[] handBone = {-1, -1};
         if (skeleton != null) {
@@ -1875,8 +1899,12 @@ final class CharacterDraw {
      * where a triangle's side is no other triangle's, and nought for the rest.
      */
     static float[] along(float[] places, float[] uvs, int[] elements, int count) {
+        return along(places, uvs, elements, count, firstAt(places));
+    }
+
+    /** @param one firstAt of the places */
+    private static float[] along(float[] places, float[] uvs, int[] elements, int count, int[] one) {
         int vertices = places.length / 3;
-        int[] one = firstAt(places);
         float[] sum = new float[vertices * 3];
         HashMap<Long, Integer> sides = new HashMap<>();
         for (int corner = 0; corner + 2 < count; corner += 3) {
@@ -1969,8 +1997,12 @@ final class CharacterDraw {
      * that place added up by their area. A vertex no triangle uses keeps its own normal.
      */
     static float[] smoothNormals(float[] places, float[] normals, int[] elements, int count) {
+        return smoothNormals(places, normals, elements, count, firstAt(places));
+    }
+
+    /** @param one firstAt of the places */
+    private static float[] smoothNormals(float[] places, float[] normals, int[] elements, int count, int[] one) {
         int vertices = places.length / 3;
-        int[] one = firstAt(places);
         float[] sum = new float[vertices * 3];
         for (int corner = 0; corner + 2 < count; corner += 3) {
             int a = elements[corner] * 3, b = elements[corner + 1] * 3, c = elements[corner + 2] * 3;

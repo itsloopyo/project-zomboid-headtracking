@@ -36,7 +36,8 @@ final class WorldQuery {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null) {
-            return false;
+            // Out of the air into a square: the wall that made the square is on its north or west edge.
+            return to != null && (toY > fromY && to.has(IsoFlagType.collideN) || toX > fromX && to.has(IsoFlagType.collideW) || to.isSolid());
         }
         if (to == null) {
             // Above the ground the map has no square where there is only air. A wall on this

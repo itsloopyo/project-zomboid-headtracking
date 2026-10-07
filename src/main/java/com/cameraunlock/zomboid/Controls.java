@@ -221,9 +221,10 @@ public final class Controls {
         }
         if (held.from != stock) {
             KeySubstitutions.Keys keys = KeySubstitutions.substitute(name, stock.keyValue(), stock.altKey());
-            held.from = stock;
+            // The answer first: a second asker that sees the new binding noted must find its answer there.
             held.to = keys == null ? stock
                     : new Core.KeyBinding(stock.name(), keys.key(), keys.alt(), stock.shift(), stock.ctrl(), stock.alt());
+            held.from = stock;
         }
         return held.to;
     }

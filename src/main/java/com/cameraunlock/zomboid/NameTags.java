@@ -167,6 +167,9 @@ public final class NameTags {
     /** The view is on nobody: first person is off, or the game is not joined to a server. */
     static void lookAway() {
         lookedAt = null;
+        if (looked != null) {
+            looked.tile = null;
+        }
     }
 
     /** Says once why names are where the game's own view has them on this build of the game, if they are. */

@@ -42,6 +42,9 @@ std::int32_t Guarded(const char* what, const std::function<std::int32_t()>& body
     } catch (const std::exception& failure) {
         g_log.append(what).append(" failed: ").append(failure.what()).push_back('\n');
         return -1;
+    } catch (...) {
+        g_log.append(what).append(" failed: something that is not a std::exception was thrown\n");
+        return -1;
     }
 }
 

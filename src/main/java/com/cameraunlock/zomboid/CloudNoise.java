@@ -22,9 +22,10 @@ final class CloudNoise {
                 for (int x = 0; x < size; x++) {
                     float u = (x + 0.5f) / size, v = (y + 0.5f) / size, w = (z + 0.5f) / size;
                     float smooth = 0.5f * value(u, v, w, 4) + 0.3f * value(u, v, w, 8) + 0.2f * value(u, v, w, 16);
-                    float billows = 0.6f * cells(u, v, w, 4) + 0.4f * cells(u, v, w, 8);
+                    float fine = cells(u, v, w, 8);
+                    float billows = 0.6f * cells(u, v, w, 4) + 0.4f * fine;
                     float shape = Math.clamp(smooth * 0.62f + billows * 0.5f, 0f, 1f);
-                    float wear = 0.55f * cells(u, v, w, 8) + 0.45f * cells(u, v, w, 16);
+                    float wear = 0.55f * fine + 0.45f * cells(u, v, w, 16);
                     out.put((byte) Math.round(shape * 255f));
                     out.put((byte) Math.round((1f - wear) * 255f));
                     out.put((byte) 0);

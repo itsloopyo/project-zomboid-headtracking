@@ -862,9 +862,10 @@ final class Pipeline {
      * them.
      *
      * @param lit     whether the program lights and colours what it draws, or only casts it into the map heldBy last took the bounds of
+     * @param shaded  whether a piece's light is told to the program: its depth alone is drawn without it, since the light is only ever colour
      * @param within  the eye of a picture that pieces wholly behind it or beyond far are left out of, or null to draw them all
      */
-    private static void drawModels(Program program, boolean lit, ViewCamera.Pose within, float far) {
+    private static void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far) {
         boolean any = false;
         int bound = 0;
         int placeAt = 0, footAt = 0, turnAt = 0, litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0;
@@ -918,10 +919,12 @@ final class Pipeline {
                 }
                 if (lit) {
                     int light = at + Models.Instances.LIGHT, surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE;
-                    GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
-                    GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
-                    GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
-                    GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
+                    if (shaded) {
+                        GL20.glUniform3f(litAt, f[light], f[light + 1], f[light + 2]);
+                        GL20.glUniform3f(alongAt, f[light + 3], f[light + 4], f[light + 5]);
+                        GL20.glUniform3f(downAt, f[light + 6], f[light + 7], f[light + 8]);
+                        GL20.glUniform3f(acrossAt, f[light + 9], f[light + 10], f[light + 11]);
+                    }
                     if (toldOf == null || differ(f, surfaces, toldOf, told + Models.Instances.SURFACES, 3)) {
                         GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
                     }
@@ -1023,7 +1026,7 @@ final class Pipeline {
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
             ChunkBuffers.Listing held = heldBy(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
             drawRanges(held, 0, held.solidRanges());
-            drawModels(shadow, false, null, 0f);
+            drawModels(shadow, false, false, null, 0f);
         }
         if (figures) {
             // The game's own draw of each character, with the light's matrix where its camera
@@ -1080,7 +1083,7 @@ final class Pipeline {
             GL13.glActiveTexture(GL_TEXTURE0);
             ChunkBuffers.Listing held = heldBy(beamMatrix, state, beamListed, BEAM_MAP);
             drawRanges(held, 0, held.solidRanges());
-            drawModels(shadow, false, null, 0f);
+            drawModels(shadow, false, false, null, 0f);
             if (figures) {
                 Characters.castCharacters(beamMatrix);
                 resumeCasting();
@@ -1107,7 +1110,7 @@ final class Pipeline {
         shadow.set("uSunWay", 0f, 0f, 1f);
         ChunkBuffers.Listing held = heldBy(roofMatrix, state, roofListed, ROOF_MAP);
         drawRanges(held, 0, held.solidRanges());
-        drawModels(shadow, false, null, 0f);
+        drawModels(shadow, false, false, null, 0f);
     }
 
     /**
@@ -1327,7 +1330,7 @@ final class Pipeline {
             world.set("uDepthOnly", 1f);
             GL11.glColorMask(false, false, false, false);
             drawRanges(all, 0, all.solidRanges(), world);
-            drawModels(world, true, inMirror ? null : camera, far);
+            drawModels(world, true, false, inMirror ? null : camera, far);
             GL11.glColorMask(true, true, true, true);
             world.set("uDepthOnly", 0f);
             GL11.glDepthFunc(GL_EQUAL);
@@ -1340,7 +1343,7 @@ final class Pipeline {
         }
         drawRanges(all, 0, all.solidRanges(), world);
         // The mirror's eye is not the eye the chunks were chosen for, so nothing is left out of it.
-        drawModels(world, true, inMirror ? null : camera, far);
+        drawModels(world, true, true, inMirror ? null : camera, far);
         if (own) {
             stage(STAGE_SOLID);
         }
@@ -2921,8 +2924,8 @@ final class Pipeline {
         preparingWorst = Math.max(preparingWorst, took);
         if (lastOfCore && problem == null) {
             prepared = true;
-            Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, cloud noise %d cubed, in %d pieces taking %.0f ms in all, the longest %.0f ms",
-                    17, NOISE_SIZE, preparing, preparingNanos / 1e6, preparingWorst / 1e6));
+            Log.info(String.format(Locale.ROOT, "first person picture ready: cloud noise %d cubed, in %d pieces taking %.0f ms in all, the longest %.0f ms",
+                    NOISE_SIZE, preparing, preparingNanos / 1e6, preparingWorst / 1e6));
             preparingNanos = 0;
             preparingWorst = 0;
         }
@@ -3044,24 +3047,21 @@ final class Pipeline {
     }
 
     private static String makeMirror() {
-        String beam = null;
         mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
         mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         mirrorTarget = target(mirrorColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
-        if (beam == null) {
-            beam = complete("mirror");
-        }
+        String problem = complete("mirror");
         // Who and what stands behind is drawn against the depth of the world the mirror shows.
         mirrorFigureColor = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         mirrorFigureTarget = target(mirrorFigureColor);
         mirrorFigureNormal = texture(GL_RGBA8, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, mirrorFigureNormal, 0);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, mirrorDepth, 0);
-        if (beam == null) {
-            beam = complete("mirror's people");
+        if (problem == null) {
+            problem = complete("mirror's people");
         }
-        return beam;
+        return problem;
     }
 
     private static void makeRainDrops() {
@@ -3111,7 +3111,7 @@ final class Pipeline {
         @Override
         public void render() {
             Characters.setDown();
-            if (!prepared || failure != null || width == 0) {
+            if (!prepared || width == 0) {
                 return;
             }
             giveBackSized();

@@ -588,11 +588,12 @@ final class Flora {
         float across = BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
         float span = Math.max((thickFrom + thickTo) * (float) Math.PI * 4f, 0.2f);
         for (int side = 0; side < sides; side++) {
+            double here = side * 2.0 * Math.PI / sides, next = (side + 1) * 2.0 * Math.PI / sides;
+            float cosHere = (float) Math.cos(here), sinHere = (float) Math.sin(here), cosNext = (float) Math.cos(next), sinNext = (float) Math.sin(next);
             for (int corner : QUAD) {
                 int on = corner == 1 || corner == 2 ? 1 : 0;
                 boolean far = corner >= 2;
-                double angle = (side + on) * 2.0 * Math.PI / sides;
-                float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle);
+                float cos = on == 1 ? cosNext : cosHere, sin = on == 1 ? sinNext : sinHere;
                 float outX = ax * cos + bx * sin, outY = ay * cos + by * sin, outUp = bz * sin;
                 float thick = far ? thickTo : thickFrom;
                 mesh.face(outX, outY, outUp);

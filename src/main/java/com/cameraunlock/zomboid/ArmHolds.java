@@ -329,7 +329,7 @@ final class ArmHolds {
         if (doing.doing() != ArmActs.LOADING) {
             return NOTHING;
         }
-        if (doing.round() >= 0.6f) {
+        if (doing.round() >= ArmActs.ROUND_IN) {
             return NOTHING;
         }
         return action == ArmActs.PUMP || action == ArmActs.DOUBLE || action == ArmActs.DOUBLE_SAWN ? SHELL : CARTRIDGE;
@@ -441,16 +441,14 @@ final class ArmHolds {
         float[] off = new float[3];
         ViewModelMath.place(fromAim, AWAY[0] * axes.scale, AWAY[1] * axes.scale, AWAY[2] * axes.scale, off);
         // Off the weapon the hand is closed on what it fetches or takes away, or about to be.
-        int action0 = doing.action();
-        boolean magazineFed = action0 == ArmActs.HANDGUN || action0 == ArmActs.BOLT;
+        int action = doing.action();
+        boolean magazine = action == ArmActs.HANDGUN || action == ArmActs.BOLT;
         Hold away = new Hold(model).set(off, axes.way(0.2f, 0.9f, 0.4f), axes.way(0.8f, 0f, 0.6f), true,
-                model.pose(doing.doing() == ArmActs.RACKING ? "open" : magazineFed ? "magazine" : "pinch"));
+                model.pose(doing.doing() == ArmActs.RACKING ? "open" : magazine ? "magazine" : "pinch"));
         // Where the hand is when this is over: back under the fore-end, or off the weapon.
         Hold rest = hold != null ? hold : away;
         // How far through what the game is doing, by how long it is taken to take: 1 when it should be over.
         float done = doing.done() / Math.max(doing.pace(), ArmActs.SHORTEST);
-        int action = doing.action();
-        boolean magazine = action == ArmActs.HANDGUN || action == ArmActs.BOLT;
         Hold now = new Hold(model);
         if (seating) {
             // The game has the magazine in: the hand, which has been holding it under the well, pushes it home and lets go.

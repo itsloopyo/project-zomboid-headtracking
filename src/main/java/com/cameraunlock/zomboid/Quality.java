@@ -10,8 +10,8 @@ import java.util.Locale;
  * down while the picture is being drawn slower than {@link #SLOWEST} frames a second.
  *
  * The row is read again while the game runs. The thread that watches the file sets it, the
- * logic thread reads how far to build and steps Automatic down, and the render thread reads
- * the rest as it draws a frame.
+ * logic thread sets it on F9, reads how far to build and steps Automatic down, and the render
+ * thread reads the rest as it draws a frame. set and frame take turns.
  */
 final class Quality {
     /** The row's words, as the mod's DLL hands them over (native/src/config.h holds the same numbers). */
@@ -31,7 +31,7 @@ final class Quality {
 
     private Quality() {}
 
-    static void set(int asked) {
+    static synchronized void set(int asked) {
         if (asked == row) {
             return;
         }
@@ -75,7 +75,7 @@ final class Quality {
      * picture down a level. It is never taken up again in a session: what made the frames slow
      * may be the level left behind, and trying it again would be the stutter back.
      */
-    static void frame(long now) {
+    static synchronized void frame(long now) {
         if (row != AUTOMATIC || level == LOW) {
             return;
         }

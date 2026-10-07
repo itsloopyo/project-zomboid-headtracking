@@ -66,7 +66,8 @@ final class OffHeap {
             throw new IllegalStateException(thrown);
         }
         if (memory.address() == 0L) {
-            throw new OutOfMemoryError("no " + bytes + " bytes outside the Java heap");
+            // An Error would pass the catches in Pipeline.draw and FirstPerson and end the game: running short here turns the view off as any other fault of the mod's does.
+            throw new IllegalStateException("no " + bytes + " bytes outside the Java heap");
         }
         return new Block(memory, bytes);
     }

@@ -41,7 +41,8 @@ public final class Agent {
 
     /** The patches the first person view is made of. */
     private static PatchTransformer firstPerson;
-    private static volatile boolean firstPersonPatched;
+    private static volatile boolean firstPersonAsked;
+    private static volatile String firstPersonGap;
 
     private Agent() {}
 
@@ -52,12 +53,12 @@ public final class Agent {
      * still worked the game's own way.
      */
     static String firstPersonGap() {
-        if (firstPersonPatched) {
-            return null;
+        // Asked several times a frame, and the answer once had does not change: see PatchTransformer.gap.
+        if (!firstPersonAsked) {
+            firstPersonGap = firstPerson.gap();
+            firstPersonAsked = true;
         }
-        String gap = firstPerson.gap();
-        firstPersonPatched = gap == null;
-        return gap;
+        return firstPersonGap;
     }
 
     /** The patches that tell FineSkins what the game's texture combiner composes and takes back. */
@@ -110,6 +111,11 @@ public final class Agent {
 
     /** Called by the JVM for -javaagent, which is how the development run starts. */
     public static void premain(String arguments, Instrumentation instrumentation) throws IOException {
+        if (loaded) {
+            // The development run starts an installed copy with -javaagent, and Boot then loads the agent again.
+            Log.info("the agent was started a second time: the first start stands");
+            return;
+        }
         loaded = true;
         Path gameDirectory = Path.of("").toAbsolutePath();
         Log.open(gameDirectory);
@@ -173,9 +179,11 @@ public final class Agent {
                 after(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowAttrib", "(JII)V"),
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
-                after(new CallSite.Method(TORCH, "set", "(Lzombie/characters/IsoPlayer;Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
-                        new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
-                        new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction", VECTOR2_FILTER)),
+                new Patch(TORCH, "set after getLookVector", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(TORCH, "set", "(L" + PLAYER + ";Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
+                        new CallSite.Method(PLAYER, "getLookVector", VECTOR2_FILTER),
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction",
+                                "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;")), 1)),
                 // The one method every exception the game catches or lets a thread end on is logged by.
                 new Patch(EXCEPTION_LOGGER, "logException before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(EXCEPTION_LOGGER, "logException",

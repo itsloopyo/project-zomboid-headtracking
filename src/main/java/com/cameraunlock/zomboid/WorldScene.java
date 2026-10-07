@@ -494,7 +494,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int overLayer;
     private int remakes;
     private static final int REMAKES_A_FRAME = 12;
-    private final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
     private static final int MESH_CHANGES = 12;
     private boolean wallNorth, wallWest;
     /** Whether anything of a wall's kind, a fence or a low wall too, stands on the north and the west edge of the square being added. */
@@ -549,7 +549,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** How far from a bush's middle its outer cards stand, in tiles. */
     private static final float BUSH_SPREAD = 0.16f;
     /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
-    private final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
     private static final float[] NO_BOLE = new float[0];
     /** A bole is no thinner or thicker than this, in tiles, whatever its sprite says. */
     private static final float BOLE_THINNEST = 0.05f, BOLE_THICKEST = 0.4f;
@@ -576,7 +576,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final IsoObject[] groundObject = new IsoObject[LIGHT_SPAN * LIGHT_SPAN];
     private final Texture[] groundTexture = new Texture[LIGHT_SPAN * LIGHT_SPAN];
     private final int[] groundRank = new int[LIGHT_SPAN * LIGHT_SPAN];
-    private final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
     private final int[] spreading = new int[8];
     private final float[] cover = new float[4];
     /** The place in its chunk of the square being added. */
@@ -818,6 +818,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             feet.clear();
             posts.clear();
             shapes.clear();
+            meshes.clear();
+            boles.clear();
+            ranks.clear();
+            leafPlaces.clear();
+            doorSpans.clear();
+            wires.clear();
             Furniture.forget();
             Roofs.forget();
             WallFinish.forget();
@@ -825,7 +831,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         mainsOn = IsoWorld.instance.isHydroPowerOn();
         glass.found = false;
-        if (!fromOutside && !seated && drawnAspect > 0f) {
+        if (!fromOutside && !seated && drawnAspect > 0f && Quality.shadedAndLit()) {
             OwnReflection.find(cell, player, view, tanHalfFieldOfView * drawnAspect, glass);
         }
         IsoChunkMap map = cell.getChunkMap(playerIndex);
@@ -988,8 +994,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // and again. One found changed is made again as it falls due without being read through, and right by
                 // the eye that is every frame: the nine chunks round it were all made again on every frame for the
                 // first seconds, which with builds slowed fourfold was seven frames a second for five seconds. While
-                // a chunk is new, a quarter of a second between two builds of it is soon enough.
-                if (due && still && frames < current.summedFrom && start - current.bornNanos < SETTLES_IN_NANOS
+                // a chunk is new, a quarter of a second between two builds of it is soon enough, and
+                // the build it has stands for as long as the eye is in its band, whether or not the eye moves.
+                if (due && inBand(current.band, nearest) && layersStandFor(current, distance) && frames < current.summedFrom
+                        && start - current.bornNanos < SETTLES_IN_NANOS
                         && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
                     due = false;
                 }
@@ -1776,7 +1784,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /**
      * For development: each sheet of the game's sprites whose own picture the builds have put on
      * triangles, with how many objects and how many vertices. A sprite the picture has built
-     * of its own geometry, or drawn as a model, is not in it.
+     * of its own geometry, or drawn as a model, is not in it. The test rig's probe reads it.
      */
     static final java.util.concurrent.ConcurrentHashMap<String, int[]> stretched = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -1923,7 +1931,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (known == null) {
             String name = sprite.getName();
             int cut = name.lastIndexOf('_');
-            int row = Integer.parseInt(name.substring(cut + 1)) / 16;
+            // The game's sheets all end in a number. A map's own tile need not, and is then of its sheet's first row.
+            int row = 0;
+            try {
+                row = Integer.parseInt(name.substring(cut + 1)) / 16;
+            } catch (NumberFormatException unnumbered) {
+            }
             known = new int[] {1 + (name.substring(0, cut).hashCode() & 0xffff) * 64 + (row >= 1 && row <= 3 ? 32 + row : row)};
             ranks.put(sprite, known);
         }
@@ -2509,9 +2522,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         geometry.floored = !hangsInAir;
         wallNorth = wallWest = edgeNorth = edgeWest = false;
         boolean openAbove = false;
-        PZArrayList<IsoObject> here = square.getObjects();
-        for (int i = 0; i < here.size(); i++) {
-            IsoSprite sprite = here.get(i).getSprite();
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null) {
                 PropertyContainer flags = sprite.getProperties();
                 IsoObjectType type = sprite.getType();
@@ -2527,7 +2540,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // A room the game has not shown the player yet is black in the game's own view. Here
         // the house still stands, and what is in the room is left out until the game has it seen.
         boolean unexplored = unexplored(square);
-        PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -3138,7 +3150,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
-    private final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
     /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
     private static final float CROWN_REACH = 40f, CROWN_NEAR = 12f;
     /** How coarse the crown of a plant at CROWN_REACH is, which one nearer comes to by degrees: see Flora.addCrown. */
@@ -3423,12 +3435,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean near = bandAway < TRUNK_NEAR;
         int seed = Flora.mix(x, y, 81);
         float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f);
-        flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, Flora.barkOf(sprite.getName(), seed), seed, frame);
+        boleBark = Flora.barkOf(sprite.getName(), seed);
+        flora.addTrunk(solid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], near, boleBark, seed, frame);
         boleX = x;
         boleY = y;
         boleThick = bole[0];
         boleTall = bole[1];
-        boleBark = Flora.barkOf(sprite.getName(), seed);
         if (near && Flora.ivied(x, y)) {
             flora.addIvy(laid.get(PLAIN), x + 0.5f, y + 0.5f, base, bole[0], bole[1], bole[1] * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, frame);
         }
@@ -3774,6 +3786,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         frame.light(unseenLight.r, unseenLight.g, unseenLight.b);
         frame.open = 1f;
         frame.kind = 0f;
+        // A gable under one of these is a plain wall with nothing over it: see laid.
+        overLayer = 0;
+        gableSheet = false;
         float[] lift = geometry.lift;
         for (int i = 0; backs != null && i < backs.size(); i++) {
             RoofFit.Tile tile = backs.get(i).tile;
@@ -3951,7 +3966,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             frame.vStart = facing.texture.getYStart();
             frame.vEnd = facing.texture.getYEnd();
             frame.material = materialOf(facing.sprite);
-            SpriteGeometry.Mesh mesh = laid(solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()));
+            SpriteGeometry.Mesh mesh = laid(solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), x, y, z);
             if (second >= GABLE_LEAST) {
                 set(folded, 0, 0f, 0f, 0f);
                 set(folded, 1, alongA, alongB, 0f);
@@ -4403,7 +4418,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (paper == null && overLayer == 0 && paperedWall && Papers.unread(texture)) {
             building.signed = false;
         }
-        SpriteGeometry.Mesh near = laid(mesh, texture, laidWall);
+        SpriteGeometry.Mesh near = laid(mesh, texture, laidWall, x, y, z);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, paperTint);
@@ -4467,7 +4482,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         // The far skin is papered as the near one only where it shows the same sprite.
         paper = faced == null && tint == 0 ? paper : null;
-        addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName())) : tint != 0 ? solid.get(texture.getID(), tint) : near, opening, at, x, y, z, a, b, da, db,
+        addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z) : tint != 0 ? solid.get(texture.getID(), tint) : near, opening, at, x, y, z, a, b, da, db,
                 fromStart, fromEnd, fromTop, startIsLow);
         paper = null;
         // Out of doors, on a whole wall in one colour.
@@ -4544,9 +4559,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * The mesh a wall's skin goes in: the sprite's own, or for a wall of brick, lapped boards
      * or stone the one the picture lays as that over the sprite. See Masonry. What is drawn
      * over a wall, ivy or a stain, stays as painted. suits is whether the sprite is of a
-     * sheet of outside walls.
+     * sheet of outside walls, and x, y, z the square the wall is on.
      */
-    private SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits) {
+    private SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, int x, int y, int z) {
         if (overLayer != 0 || !Own.textures()) {
             return mesh;
         }
@@ -4573,8 +4588,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // building is looked for under the square and then under the two the wall may face.
         Texture finish = null;
         for (int side = 0; side < 3 && finish == null; side++) {
-            int underX = here.getX() - (side == 2 ? 1 : 0), underY = here.getY() - (side == 1 ? 1 : 0);
-            for (int level = 0; level <= here.getZ() && finish == null; level++) {
+            int underX = x - (side == 2 ? 1 : 0), underY = y - (side == 1 ? 1 : 0);
+            for (int level = 0; level <= z && finish == null; level++) {
                 IsoGridSquare under = cell.getGridSquare(underX, underY, level);
                 IsoBuilding standing = under == null ? null : under.getBuilding();
                 if (standing != null) {
@@ -4623,7 +4638,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** Whether the sprite being added is the frame round a doorway. */
     private boolean casing;
     /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
-    private final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
     private static final int SPAN_FLOATS = 4;
 
     /**
@@ -5757,14 +5772,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * the tile, so that it meets the tiles beside it.
      */
     private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
-        RoofFit.Tile own = Roofs.measure(frame, texture, x, y, z);
-        // Half a tile at a ridge is not where the map has it: the ridge is made, see RoofFit.peaks.
-        if (own.half != 0) {
-            return;
-        }
         Roofs.Laid laid = Roofs.at(cell, x, y, z, frames, frame.scale);
         // A square with two roof sprites has one of them fitted. The other lies as it reads.
-        RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : own;
+        // The fitted one holds what its sprite read as, which the fit leaves as it was.
+        RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : Roofs.measure(frame, texture, x, y, z);
+        // Half a tile at a ridge is not where the map has it: the ridge is made, see RoofFit.peaks.
+        if (tile.half != 0) {
+            return;
+        }
         roof = laid == null ? null : laid.roof;
         if (tile.shaped) {
             addGable(x, y, z, tile.corners[0] - z, tile.corners[1] - z, tile.corners[3] - z, 0f, 0);
@@ -5772,7 +5787,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             RoofFit.cornersOf(tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
             addGable(x, y, z, gable[0], gable[1], gable[3], 0f, 0);
         }
-        float northWest = own.low - z, southEast = own.high - z;
+        float northWest = tile.low - z, southEast = tile.high - z;
         if (Math.abs(northWest - southEast) > steepest) {
             steepest = Math.abs(northWest - southEast);
             steepestSaid = String.format(Locale.ROOT, "%s at (%d, %d, %d) nw %.2f se %.2f frame %.0fx%.0f at (%.0f, %.0f) origin (%.0f, %.0f) scale %.0f",
@@ -5800,7 +5815,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
         // A tile that reads level and that the fit found to be the foot of a slope lies on the slope.
-        if (own.axis == RoofFit.LEVEL && tile.fitAxis == RoofFit.LEVEL) {
+        if (tile.axis == RoofFit.LEVEL && tile.fitAxis == RoofFit.LEVEL) {
             roofsFlat++;
             float level = (northWest + southEast) / 2f;
             // A flat roof that lies on its level has the floor there under it already, and lies
@@ -5811,7 +5826,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
             return;
         }
-        boolean readAlongX = own.axis == RoofFit.ALONG_X, alongX = tile.fitAxis == RoofFit.ALONG_X;
+        boolean readAlongX = tile.axis == RoofFit.ALONG_X, alongX = tile.fitAxis == RoofFit.ALONG_X;
         float low = tile.fitLow - z, high = tile.fitHigh - z;
         float[] lift = geometry.lift;
         for (int corner = 0; corner < 4; corner++) {
@@ -5824,7 +5839,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int added = readAlongX ? geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
                 : geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
         System.arraycopy(heldLift, 0, lift, 0, 4);
-        boolean placed = tile.fitted || own.sure;
+        boolean placed = tile.fitted || tile.sure;
         if (alongX) {
             roofsWestEast++;
         } else if (placed) {

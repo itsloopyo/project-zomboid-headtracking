@@ -9,6 +9,9 @@ public final class GL20 {
     public static void glAttachShader(int program, int shader) { throw new UnsupportedOperationException("reference stub"); }
     public static void glShaderSource(int shader, CharSequence source) { throw new UnsupportedOperationException("reference stub"); }
     public static void glCompileShader(int shader) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDetachShader(int program, int shader) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDeleteShader(int shader) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glDeleteProgram(int program) { throw new UnsupportedOperationException("reference stub"); }
     public static void glLinkProgram(int program) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGetShaderi(int shader, int pname) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGetProgrami(int program, int pname) { throw new UnsupportedOperationException("reference stub"); }

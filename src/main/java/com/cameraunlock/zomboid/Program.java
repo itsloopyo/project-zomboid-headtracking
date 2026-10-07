@@ -20,14 +20,21 @@ final class Program {
         int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
         int fragment = compile(name + " fragment", GL_FRAGMENT_SHADER, fragmentSource, problem);
         if (vertex == 0 || fragment == 0) {
+            GL20.glDeleteShader(vertex);
+            GL20.glDeleteShader(fragment);
             return null;
         }
         int id = GL20.glCreateProgram();
         GL20.glAttachShader(id, vertex);
         GL20.glAttachShader(id, fragment);
         GL20.glLinkProgram(id);
+        GL20.glDetachShader(id, vertex);
+        GL20.glDetachShader(id, fragment);
+        GL20.glDeleteShader(vertex);
+        GL20.glDeleteShader(fragment);
         if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
             problem.append("the ").append(name).append(" shader did not link: ").append(GL20.glGetProgramInfoLog(id)).append(' ');
+            GL20.glDeleteProgram(id);
             return null;
         }
         return new Program(id);
@@ -39,6 +46,7 @@ final class Program {
         GL20.glCompileShader(shader);
         if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
             problem.append("the ").append(name).append(" shader did not compile: ").append(GL20.glGetShaderInfoLog(shader)).append(' ');
+            GL20.glDeleteShader(shader);
             return 0;
         }
         return shader;

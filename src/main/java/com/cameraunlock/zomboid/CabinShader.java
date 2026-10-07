@@ -15,13 +15,6 @@ final class CabinShader {
      * 22 the mirror's foot on the screen.
      */
     static final String SOLIDS = """
-            // A place in the cabin by its sides: how far along, how far out from the middle
-            // line of the vehicle, and how high. Both sides of a cabin are built alike.
-            vec3 sided(vec3 p) {
-                float c = (p.y - uWheel.y) * (uDash.x < 0.0 ? -1.0 : 1.0);
-                return vec3(p.x, abs(c - abs(uDash.x)), p.z);
-            }
-
             // How far out the glass of the doors is at the sills, and at the roof.
             vec2 widths() {
                 float wide = abs(uDash.x) + uScreen.w;

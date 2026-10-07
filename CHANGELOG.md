@@ -125,6 +125,20 @@
 - Stood a braced post in the line of a wall or a fence in that line. It stood in the middle of its square and turned to face you as you passed.
 
 ### Fixed
+- Fixed other players' torches on a server following your view and your head. On your screen every lit torch another player carried shone the way you were looking. Each now shines the way its own player faces, and yours still follows your head.
+- Fixed what was kept after a save was left. The first person picture's share of the graphics card's memory, well over a hundred megabytes of it, stayed there in the menu though the log said it had been given back, and a server that stopped or dropped you while you were looking round left the menu with no pointer. Both are put right as the save is left.
+- Fixed the first person view depending on a graphics driver letting a reserved word of the shader language by as a name, and on its answer to a sum the language leaves open. A driver that holds shaders to the letter would have refused the picture.
+- Fixed the Low and Medium graphics modes reading two pictures that only High draws, which cost sixteen texture reads a pixel and could put blank patches on the screen on a driver that does not clear new textures.
+- Fixed the view cutting half a tile in one frame on crouching, standing and sitting. It now moves down and up over a tenth of a second.
+- Fixed the tracking mode, the yaw mode or the aim mode changing, and being saved, as a save started, when its key had been pressed in the menus or on a loading screen.
+- Fixed the reticle sitting on a room behind the wall when you aim from an upstairs window or a roof at the north or west face of another upper floor.
+- Fixed a roof coming out differently depending on which side you came to it from, the wall under a north or west roof end taking the wrong finish or none, a kerb beside a house dropping on one side of a line only, and a curtain hung with another edge's shape.
+- Fixed the places round you being made again on every frame on arriving somewhere new with a tracker running. The fix for that only held with the head still.
+- Fixed a torch staying turned by your last head turn after you left first person, and a shotgun or rifle drawn for one frame in the place of the weapon you swapped from.
+- Made crowds cheaper to draw in first person: people and vehicles behind you are no longer drawn, people further off than fourteen tiles skip a stage that did nothing for them, and a person's shadow takes one texture read a pixel where it took six. A held shotgun, rifle or scope is shaded once a frame, not twice.
+- Made the first person view give back memory it kept: the finer skins of a crowd when the crowd has gone, the picture's targets when the view has failed, and the old picture's colour and depth after the window changes size with one of the mod's weapons in hand.
+- Running out of memory outside the Java heap now turns first person off with a line in the log. It closed the game.
+- An error in another mod's click handler when you press Interact in first person no longer cuts the game's update short, and a ground tile from a map mod whose name does not end in a number no longer stops the first person view.
 - Fixed the steering wheel in a vehicle turning further than the hands on it, so that the rim slid round under them. The hands now hold the rim from straight to full lock, and the wheel turns 62 degrees to full lock where it turned 103.
 - Fixed F9 leaving the picture stuck for the rest of the session when it was pressed through to Low while the pictures were still being made again for the mode before. The mode's name still came up, but the mode no longer changed, F8 no longer went to first person and F10 no longer changed the style.
 - Fixed a shot fired in first person that hit nobody never reaching the other players on a server. The game sends such a shot with the square it was aimed at, which it took from what its own view had under the pointer, and under the first person view that was nothing, so the server threw the shot away. The square is now the one the aim is on.

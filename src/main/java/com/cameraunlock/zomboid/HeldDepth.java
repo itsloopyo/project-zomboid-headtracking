@@ -25,8 +25,15 @@ final class HeldDepth {
 
     private static int target, color, depth, wide, high;
 
-    /** The picture's colour was given back, and the target is to take the next one. */
+    /**
+     * The picture's colour was given back. The target goes with it: a texture deleted while it
+     * is attached to a framebuffer keeps its memory until the framebuffer lets go of it.
+     */
     static void forgetTarget() {
+        GL30.glDeleteFramebuffers(target);
+        GL11.glDeleteTextures(depth);
+        target = 0;
+        depth = 0;
         color = 0;
     }
 
@@ -40,9 +47,7 @@ final class HeldDepth {
             if (target == 0) {
                 target = GL30.glGenFramebuffers();
             }
-            if (depth != 0) {
-                GL11.glDeleteTextures(depth);
-            }
+            GL11.glDeleteTextures(depth);
             depth = GL11.glGenTextures();
             GL11.glBindTexture(GL_TEXTURE_2D, depth);
             GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, sceneWide, sceneHigh, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);

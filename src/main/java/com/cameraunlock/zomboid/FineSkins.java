@@ -408,13 +408,18 @@ public final class FineSkins {
         recipes.put(result, new Recipe(commands));
         // Should the game compose anew into a texture it never handed back, what was made
         // after the old composition is no longer this texture's.
-        release(fine.remove(result));
+        destroy(fine.remove(result));
     }
 
-    private static void release(Fine made) {
+    /**
+     * Destroyed, not handed back to the combiner, which keeps what it is handed for the next
+     * skin of that size and counts none of it against MOST_BYTES: when a crowd has gone there
+     * is no next skin.
+     */
+    private static void destroy(Fine made) {
         if (made != null) {
             fineBytes -= made.bytes;
-            TextureCombiner.instance.releaseTexture(made.texture);
+            made.texture.destroy();
         }
     }
 
@@ -424,7 +429,7 @@ public final class FineSkins {
         }
         handedBackAt.put(texture, ++handedBack);
         recipes.remove(texture);
-        release(fine.remove(texture));
+        destroy(fine.remove(texture));
     }
 
     private static synchronized Texture finer(Texture bound) throws Exception {
@@ -488,7 +493,9 @@ public final class FineSkins {
                 return bound;
             }
             longestAgo.remove();
-            release(least);
+            // Handed back to the combiner, which gives it to the next skin composed at that size: one is about to be.
+            fineBytes -= least.bytes;
+            TextureCombiner.instance.releaseTexture(least.texture);
         }
         Texture made = composedWithStateKept(recipe);
         composedFrame = Pipeline.frame();

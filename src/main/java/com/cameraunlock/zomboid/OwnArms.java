@@ -88,6 +88,10 @@ final class OwnArms {
             }
             """;
 
+    /**
+     * chance and chance3 are hash12 and hash13 of David Hoskins's Hash without Sine, used under
+     * its MIT licence: the notice is in THIRD-PARTY-NOTICES.md.
+     */
     private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
@@ -160,6 +164,9 @@ final class OwnArms {
             // Blood lies in a few broad splashes with ragged edges, drawn out along the arm where it
             // has run, and dirt in smears: each covers as much of a place as there is of it.
             vec2 stained() {
+                if (uBlood == vec3(0.0) && uDirt == vec3(0.0)) {
+                    return vec2(0.0);
+                }
                 // The arm at rest runs this way: along it a splash is three times as long as across.
                 vec3 run = vec3(-0.5, -0.71, -0.47);
                 vec3 drawn = vRest - run * (dot(vRest, run) * 0.66);
@@ -187,8 +194,12 @@ final class OwnArms {
                     float fine = max(length(dFdx(at)), length(dFdy(at)));
                     // Steel, brass and a shell's hull have no weave.
                     float shown = uWear > 5.5 ? 0.0 : 1.0 - smoothstep(0.35, 0.8, fine);
-                    float here = threads(at);
-                    float across = (threads(at + vec2(0.05, 0.0)) - here) / 0.05, down = (threads(at + vec2(0.0, 0.05)) - here) / 0.05;
+                    float here = 0.0, across = 0.0, down = 0.0;
+                    if (shown > 0.0) {
+                        here = threads(at);
+                        across = (threads(at + vec2(0.05, 0.0)) - here) / 0.05;
+                        down = (threads(at + vec2(0.0, 0.05)) - here) / 0.05;
+                    }
                     vec3 facing = normalize(n - (along * across + other * down) * (0.12 * shown));
                     vec3 paint = uCloth * (0.86 + 0.2 * shown * here);
                     paint = mix(mix(paint, paint * grime * 2.2, stain.y), gore * 0.8, stain.x * 0.9);
@@ -499,7 +510,12 @@ final class OwnArms {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // A forearm is seen along its length.
+        int error = GL11.glGetError();
+        if (error != 0) {
+            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the arms' model");
+        }
+        // A forearm is seen along its length. A driver without the means refuses the setting, and that
+        // refusal is dropped: whatever went wrong before it has been asked for above.
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8);
         GL11.glGetError();
         GL11.glBindTexture(GL_TEXTURE_2D, 0);

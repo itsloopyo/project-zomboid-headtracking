@@ -140,13 +140,13 @@ final class CentreUse {
             return Outcome.NOTHING;
         }
         if (found instanceof IsoWorldInventoryObject item) {
-            call(WORLD_MENU, GRAB, null, item, PLAYER_NUMBER);
-            return Outcome.USED;
+            return call(WORLD_MENU, GRAB, null, item, PLAYER_NUMBER) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (found instanceof IsoDoor || found instanceof IsoWindow || found instanceof IsoCurtain
                 || found instanceof IsoLightSwitch || found instanceof IsoThumpable thumpable && thumpable.isDoor()) {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
-            return Boolean.TRUE.equals(call(CLICK_HANDLER, PRESS, found, PLAYER_NUMBER, player)) ? Outcome.USED : Outcome.NOTHING;
+            Object[] answered = call(CLICK_HANDLER, PRESS, found, PLAYER_NUMBER, player);
+            return answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]) ? Outcome.USED : Outcome.NOTHING;
         }
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
         IsoGridSquare from = player.getCurrentSquare();
@@ -157,16 +157,25 @@ final class CentreUse {
             // Unfolded first: the click handler then puts the container in the loot panel.
             Panels.showInventory(true);
         }
-        call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0));
+        if (call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null) {
+            // The panels are up already where it was in reach, and the pointer is wanted for them.
+            return inReach ? Outcome.CONTAINER : Outcome.NOTHING;
+        }
         return inReach ? Outcome.CONTAINER : Outcome.USED;
     }
 
-    private static Object call(String table, String function, Object... arguments) {
+    /**
+     * What the game's Lua answered, the call's own success first, or null where it raised an
+     * error. That Lua is the game's and any mod's that wraps it, and this runs inside the
+     * game's update of the player: the error is logged and the key is left to the game.
+     */
+    private static Object[] call(String table, String function, Object... arguments) {
         Object[] result = LuaManager.caller.pcall(UIManager.getDefaultThread(), ((KahluaTable) LuaManager.env.rawget(table)).rawget(function), arguments);
         if (result.length == 0 || !Boolean.TRUE.equals(result[0])) {
-            throw new IllegalStateException(table + "." + function + " failed: " + Arrays.toString(result));
+            Log.info("the game's " + table + "." + function + " failed, and Interact is left to the game: " + Arrays.toString(result));
+            return null;
         }
-        return result.length > 1 ? result[1] : null;
+        return result;
     }
 
     /**

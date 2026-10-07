@@ -28,7 +28,6 @@ final class CarriedLight {
 
     /** The eye is the character's own, and the way is a unit vector: the way the game's beam is turned on the ground, and as far up or down as the view. */
     static void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp) {
-        items.clear();
         player.getActiveLightItems(items);
         float[] found = new float[8];
         for (int i = 0; i < items.size(); i++) {
@@ -38,6 +37,8 @@ final class CarriedLight {
                 found[CONE] = item.isTorchCone() ? 1f : 0f;
             }
         }
+        // The items are the game's: none is kept past the asking.
+        items.clear();
         found[HELD] = eyeX;
         found[HELD + 1] = eyeY;
         found[HELD + 2] = eyeUp - BELOW_EYE;

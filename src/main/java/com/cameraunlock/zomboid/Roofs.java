@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import zombie.core.textures.Texture;
@@ -146,6 +147,9 @@ final class Roofs {
         HashMap<Long, Boolean> seen = new HashMap<>();
         frame.scale = scale;
         take(cell, x, y, z, roof, seen);
+        if (reading.isEmpty()) {
+            return;
+        }
         for (int next = 0; next < reading.size() && reading.size() < MOST; next++) {
             RoofFit.Tile tile = reading.get(next).tile;
             for (int side = 0; side < 4; side++) {
@@ -156,6 +160,10 @@ final class Roofs {
                 }
             }
         }
+        // In the order of their places and not of the reading, which starts at whichever tile asked:
+        // where two tiles are as good as each other the fit takes the first, and a roof is to come
+        // out the same whoever asks.
+        reading.sort(Comparator.comparingLong(one -> RoofFit.key(one.tile.x, one.tile.y, one.tile.z)));
         tiles.clear();
         shown.clear();
         WallSides.Votes votes = new WallSides.Votes();

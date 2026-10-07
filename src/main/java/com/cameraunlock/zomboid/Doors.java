@@ -157,7 +157,7 @@ final class Doors {
             shape.kind = PANELLED;
         } else if (!glazed && (drawn >= 5 || drawn >= 2 && widest <= 1)) {
             shape.kind = PLANKED;
-            shape.board = drawn >= 2 ? (float) (last - first) / ((drawn - 1) * across) : 0f;
+            shape.board = (float) (last - first) / ((drawn - 1) * across);
         }
         // The handle is what is least the leaf's colour at a hand's height, near one end of it.
         int from = Math.round((1f - HANDLE_HEAD) * high), to = Math.round((1f - HANDLE_FOOT) * high), within = Math.round((c1 - c0) * HANDLE_WITHIN);

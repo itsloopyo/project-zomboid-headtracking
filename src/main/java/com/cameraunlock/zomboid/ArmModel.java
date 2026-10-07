@@ -18,6 +18,8 @@ final class ArmModel {
     /** A vertex in the file: place, normal, tangent and its handedness, texture place, the female arm's place less the male's, four bones, their four weights, how far along the arm. */
     static final int VERTEX_BYTES = (3 + 3 + 4 + 2 + 3) * Float.BYTES + 4 + 4 + Float.BYTES;
     static final int NORMAL_AT = 12, TANGENT_AT = 24, UV_AT = 40, FEMALE_AT = 48, BONES_AT = 60, WEIGHTS_AT = 64, ALONG_AT = 68;
+    /** A bone in the file after its name: its parent and how it rests. */
+    private static final int BONE_BYTES = Integer.BYTES + 16 * Float.BYTES;
 
     final String[] bones;
     final int[] parents;
@@ -48,6 +50,7 @@ final class ArmModel {
             in.transferTo(whole);
         }
         ByteBuffer file = ByteBuffer.wrap(whole.toByteArray()).order(ByteOrder.LITTLE_ENDIAN);
+        need(file, 7 * Integer.BYTES);
         if (file.getInt() != MAGIC || file.getInt() != VERSION) {
             throw new IOException("the arms file is not version " + VERSION + " of what tools/models/arms.py writes");
         }
@@ -59,6 +62,7 @@ final class ArmModel {
         if (partCount != PARTS.length) {
             throw new IOException("the arms file has " + partCount + " parts and not " + PARTS.length);
         }
+        need(file, boneCount * (1L + BONE_BYTES));
         bones = new String[boneCount];
         parents = new int[boneCount];
         rests = new float[boneCount * 16];
@@ -66,6 +70,7 @@ final class ArmModel {
         locals = new float[boneCount * 16];
         for (int bone = 0; bone < boneCount; bone++) {
             bones[bone] = name(file);
+            need(file, BONE_BYTES);
             parents[bone] = file.getInt();
             if (parents[bone] >= bone) {
                 throw new IOException("the arms file has the bone " + bones[bone] + " before its parent");
@@ -80,6 +85,7 @@ final class ArmModel {
                 ArmPose.multiply(unrests, parents[bone] * 16, rests, bone * 16, locals, bone * 16);
             }
         }
+        need(file, (long) vertexCount * VERTEX_BYTES);
         vertices = ByteBuffer.allocateDirect(vertexCount * VERTEX_BYTES).order(ByteOrder.nativeOrder());
         for (int vertex = 0; vertex < vertexCount; vertex++) {
             for (int i = 0; i < 15; i++) {
@@ -91,6 +97,7 @@ final class ArmModel {
             vertices.putFloat(file.getFloat());
         }
         vertices.flip();
+        need(file, (long) indexCount * Integer.BYTES);
         indices = ByteBuffer.allocateDirect(indexCount * Integer.BYTES).order(ByteOrder.nativeOrder());
         for (int index = 0; index < indexCount; index++) {
             indices.putInt(file.getInt());
@@ -101,14 +108,18 @@ final class ArmModel {
             if (!said.equals(PARTS[part])) {
                 throw new IOException("part " + part + " of the arms file is called " + said + " and not " + PARTS[part]);
             }
+            need(file, 2 * Integer.BYTES);
             partFirst[part] = file.getInt();
             this.partCount[part] = file.getInt();
         }
+        int poseBytes = (boneCount * 4 + 3) * Float.BYTES;
+        need(file, poseCount * (1L + poseBytes));
         poses = new String[poseCount];
         turns = new float[poseCount][boneCount * 4];
         holds = new float[poseCount][3];
         for (int pose = 0; pose < poseCount; pose++) {
             poses[pose] = name(file);
+            need(file, poseBytes);
             for (int i = 0; i < boneCount * 4; i++) {
                 turns[pose][i] = file.getFloat();
             }
@@ -116,6 +127,7 @@ final class ArmModel {
                 holds[pose][axis] = file.getFloat();
             }
         }
+        need(file, 9 * Float.BYTES);
         for (float[] line : new float[][] {along, across, out}) {
             for (int axis = 0; axis < 3; axis++) {
                 line[axis] = file.getFloat();
@@ -133,10 +145,19 @@ final class ArmModel {
         foreLength = ArmPose.apart(elbow, hand);
     }
 
-    private static String name(ByteBuffer file) {
+    private static String name(ByteBuffer file) throws IOException {
+        need(file, 1);
         byte[] said = new byte[file.get() & 0xFF];
+        need(file, said.length);
         file.get(said);
         return new String(said, StandardCharsets.US_ASCII);
+    }
+
+    /** The file is the jar's own, and one that ends before what its counts say it holds is a damaged one. */
+    private static void need(ByteBuffer file, long bytes) throws IOException {
+        if (bytes < 0 || file.remaining() < bytes) {
+            throw new IOException("the arms file is cut short");
+        }
     }
 
     /** The number of a bone, which the file has to have. */

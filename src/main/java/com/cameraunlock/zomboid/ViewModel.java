@@ -203,6 +203,14 @@ public final class ViewModel {
         if (item != inHand) {
             inHand = item;
             drawn = 1f;
+            // What was being done to the weapon before is not being done to this one.
+            sinceShot = NOT_PUMPING;
+            cycled = NOT_PUMPING;
+            seated = ArmActs.NOT_SEATING;
+            out = ArmActs.NOT_SEATING;
+            fetching = ArmActs.NOT_SEATING;
+            clipBefore = false;
+            roundsBefore = Integer.MAX_VALUE;
         }
         drawn = ViewModelMath.ease(drawn, 0f, seconds, DRAW_SECONDS);
         if (!placed) {
@@ -515,6 +523,8 @@ public final class ViewModel {
      * @return false while the game has no pose for the weapon
      */
     static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] fromAim, float[] out) {
+        // Read once: the logic thread may write it again while the weapon is placed.
+        float pumped = ViewModel.pumped;
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;

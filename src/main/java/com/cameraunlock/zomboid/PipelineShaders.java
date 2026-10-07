@@ -317,6 +317,9 @@ final class PipelineShaders {
     /**
      * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF and
      * WORLD_FRAGMENT_MAIN on after it: as one constant the shader is longer than a class file can hold.
+     *
+     * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
+     * notice is in THIRD-PARTY-NOTICES.md.
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uTexture;
@@ -809,7 +812,8 @@ final class PipelineShaders {
                 float round = floor(uSeconds * (1.1 + 0.6 * grain(cell + 3.0)) + grain(cell + 7.0));
                 vec2 hit = 0.25 + 0.5 * vec2(grain(cell + round), grain(cell + round + 19.0));
                 float away = length(within - hit);
-                float ring = sin((away - turn * 0.42) * 46.0) * exp(-pow((away - turn * 0.42) * 11.0, 2.0)) * (1.0 - turn);
+                float out2 = (away - turn * 0.42) * 11.0;
+                float ring = sin((away - turn * 0.42) * 46.0) * exp(-out2 * out2) * (1.0 - turn);
                 float splash = smoothstep(0.07, 0.0, away) * smoothstep(0.22, 0.0, turn);
                 return vec2(ring, splash);
             }
@@ -1646,8 +1650,8 @@ final class PipelineShaders {
                 // two-pixel steps. Seen square on and close, the steps show as a saw edge. Taken
                 // as the mean of two samples one texel apart across, each step is averaged with
                 // the next and the edge comes out straight.
-                vec2 half = vec2(0.5 * uTexel.x, 0.0);
-                float cover = uTexel.x > 0.0 && !small && !crown && !core ? 0.5 * (texture2D(uTexture, vUv - half).a + texture2D(uTexture, vUv + half).a) : texel.a;
+                vec2 halfTexel = vec2(0.5 * uTexel.x, 0.0);
+                float cover = uTexel.x > 0.0 && !small && !crown && !core ? 0.5 * (texture2D(uTexture, vUv - halfTexel).a + texture2D(uTexture, vUv + halfTexel).a) : texel.a;
                 // A wire or an aerial painted one texel wide never covers more than half of two
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
@@ -1747,7 +1751,9 @@ final class PipelineShaders {
                 // How far a model's wood is painted over, and whether what its frame holds is a picture.
                 float painted = 0.0;
                 bool pictured = false;
-                if (model) {
+                // A model is solid all over: what follows gives it its colour and leaves no pixel
+                // of it out, so the pass that keeps only depth goes round it.
+                if (model && uDepthOnly < 0.5) {
                     bool dyed = vMaterial > 33.5;
                     surface = vMaterial - (dyed ? 34.0 : 16.0);
                     vec3 own = vec3(0.66, 0.5, 0.32);
@@ -1826,7 +1832,7 @@ final class PipelineShaders {
                         }
                     }
                     texel = vec4(own, 1.0);
-                } else if (cover < (upright ? min(uCut, 0.1) : uCut)) {
+                } else if (!model && cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
                 // Seen from overhead with the viewer indoors, the walls of that floor are cut
@@ -2477,10 +2483,13 @@ final class PipelineShaders {
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
                 float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
-                color = mix(color, atmosphere(-view), 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
+                vec3 air = atmosphere(-view);
+                color = mix(color, air, 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
-                color = mix(color, ridges(-view, atmosphere(-view)), smoothstep(uFogStart, uFogEnd, range));
+                if (range > uFogStart) {
+                    color = mix(color, ridges(-view, air), smoothstep(uFogStart, uFogEnd, range));
+                }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
                 float shown = 1.0;
@@ -3187,8 +3196,8 @@ final class PipelineShaders {
             // drawn at, and is brought down to it where it is traced.
             const float CABIN = 0.6667;
 
-            float block(vec3 v, vec3 half, float round) {
-                vec3 d = abs(v) - half;
+            float block(vec3 v, vec3 halves, float round) {
+                vec3 d = abs(v) - halves;
                 return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0) - round;
             }
 
@@ -3566,7 +3575,8 @@ final class PipelineShaders {
                     if (q < 0.02 || q > 1.0 || far2 < 0.05) {
                         continue;
                     }
-                    found.y = max(found.y, exp(-pow((far2 - reach) / 0.012, 2.0)));
+                    float past = (far2 - reach) / 0.012;
+                    found.y = max(found.y, exp(-past * past));
                     if (far2 < reach) {
                         found.x = 1.0;
                         float since = phase < 0.5 ? (q < at ? phase - q * 0.5 : phase + q * 0.5) : (q > at ? phase - (1.0 - q * 0.5) : phase - q * 0.5);
@@ -4796,7 +4806,12 @@ final class PipelineShaders {
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 float ahead = placeAt(uv).z;
-                vec4 around = mix(ofItsOwnDepth(uOcclusion, uv, ahead), vec4(0.0, 0.0, 0.0, 1.0), uWithout.x);
+                // A pass that is switched off has drawn nothing into its picture, and what a
+                // picture nothing was drawn into holds is the driver's to choose: it is not read.
+                vec4 around = vec4(0.0, 0.0, 0.0, 1.0);
+                if (uWithout.x < 0.5) {
+                    around = ofItsOwnDepth(uOcclusion, uv, ahead);
+                }
                 vec4 here = texture2D(uScene, uv);
                 vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
                 // The light lent by what stands near, taken on by the surface in its own colour.
@@ -4806,7 +4821,9 @@ final class PipelineShaders {
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }
-                c += ofItsOwnDepth(uVolume, uv, ahead).rgb * (1.0 - uWithout.y);
+                if (uWithout.y < 0.5) {
+                    c += ofItsOwnDepth(uVolume, uv, ahead).rgb;
+                }
                 if (uLens.y > 0.0) {
                     c += flare(uv) * uLens.y;
                 }

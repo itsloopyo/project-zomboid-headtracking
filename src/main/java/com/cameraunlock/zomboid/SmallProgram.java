@@ -63,15 +63,23 @@ final class SmallProgram {
             int shader = GL20.glCreateShader(kinds[stage]);
             GL20.glShaderSource(shader, sources[stage]);
             GL20.glCompileShader(shader);
-            if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
+            boolean compiled = GL20.glGetShaderi(shader, GL_COMPILE_STATUS) != 0;
+            if (compiled) {
+                GL20.glAttachShader(program, shader);
+            } else {
                 Log.info("the " + name + " is not drawn: stage " + (stage + 1) + " of its shader did not compile: " + GL20.glGetShaderInfoLog(shader));
+            }
+            // An attached shader lives until its program does, so the one delete covers both ends.
+            GL20.glDeleteShader(shader);
+            if (!compiled) {
+                GL20.glDeleteProgram(program);
                 return 0;
             }
-            GL20.glAttachShader(program, shader);
         }
         GL20.glLinkProgram(program);
         if (GL20.glGetProgrami(program, GL_LINK_STATUS) == 0) {
             Log.info("the " + name + " is not drawn: its shader did not link: " + GL20.glGetProgramInfoLog(program));
+            GL20.glDeleteProgram(program);
             return 0;
         }
         return program;

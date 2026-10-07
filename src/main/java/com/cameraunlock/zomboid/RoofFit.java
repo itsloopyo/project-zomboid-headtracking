@@ -998,16 +998,16 @@ final class RoofFit {
             int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
             Tile beside = at.get(key(tile.x + dx, tile.y + dy, tile.z));
             // In the same row of a slope: beside it across the way the slope runs.
-            if (beside == null || !beside.fitted || !beside.slopes() || (beside.axis == ALONG_X) != (dx == 0)) {
+            if (beside == null || !beside.fitted || !beside.slopes() || (beside.fitAxis == ALONG_X) != (dx == 0)) {
                 continue;
             }
-            if (from != null && from.axis != beside.axis) {
+            if (from != null && from.fitAxis != beside.fitAxis) {
                 return;
             }
             from = beside;
         }
         if (from != null) {
-            tile.fitAxis = from.axis;
+            tile.fitAxis = from.fitAxis;
             tile.fitLow = from.fitLow;
             tile.fitHigh = from.fitHigh;
             tile.fitted = true;

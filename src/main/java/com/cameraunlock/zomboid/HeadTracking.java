@@ -121,6 +121,11 @@ final class HeadTracking {
         headTurn[1] = (float) Math.toRadians(filter.pitch());
         headTurn[2] = (float) Math.toRadians(filter.roll());
         headTurned = true;
+        // No lean is applied from here: the next one starts at the hip, with no wall from before rationing it.
+        clamp.reset();
+        handover.stop();
+        stockFade.reset();
+        HeadFollowLight.release();
     }
 
     /**
@@ -197,6 +202,11 @@ final class HeadTracking {
      */
     static float[] carried() {
         return handover.rig;
+    }
+
+    /** What was pressed since the hotkeys were last asked after is forgotten: it was pressed in the game's menus, or as a save loaded. */
+    static void dropHotkeys() {
+        config.pressed();
     }
 
     static void pollHotkeys() {

@@ -97,13 +97,14 @@ final class Kerbs {
                 }
             }
         }
-        for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
-            for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
+        // The squares round the chunk as well: one of them holds the points on the chunk's edge as its own do.
+        for (int i = -1; i <= Terrain.CHUNK_TILES; i++) {
+            for (int j = -1; j <= Terrain.CHUNK_TILES; j++) {
                 if (!hard[(i + MARGIN) * SPAN + j + MARGIN]) {
                     continue;
                 }
-                for (int p = i * FINE; p <= (i + 1) * FINE; p++) {
-                    for (int q = j * FINE; q <= (j + 1) * FINE; q++) {
+                for (int p = Math.max(i * FINE, 0); p <= Math.min((i + 1) * FINE, POINTS - 1); p++) {
+                    for (int q = Math.max(j * FINE, 0); q <= Math.min((j + 1) * FINE, POINTS - 1); q++) {
                         field[p * POINTS + q] = Math.min(field[p * POINTS + q], 0f);
                     }
                 }

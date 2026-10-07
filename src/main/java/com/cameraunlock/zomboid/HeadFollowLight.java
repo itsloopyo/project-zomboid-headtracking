@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Locale;
+import zombie.characters.IsoPlayer;
 import zombie.iso.Vector2;
 
 /**
@@ -53,8 +54,12 @@ public final class HeadFollowLight {
         return turn;
     }
 
-    /** Called where the game reads the look direction a carried torch shines along. */
-    public static Vector2 direction(Vector2 look) {
+    /** Called where the game reads the look direction a torch shines along, with the player who carries it. */
+    public static Vector2 direction(Vector2 look, IsoPlayer carrier) {
+        // On a server the game fills in every player's torch here. Only the viewer's is turned.
+        if (carrier != IsoPlayer.getInstance()) {
+            return look;
+        }
         // The game's look is the body's, and in first person the body faces the way it walks.
         FirstPerson.sightVector(look);
         float by = turn;
