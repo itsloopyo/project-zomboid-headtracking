@@ -551,7 +551,7 @@ public final class CoreTests {
      */
     private static void gameRunsUnmoddedBesideALibraryOfAnotherBuild() throws IOException, InterruptedException {
         Path jar = Path.of("build", "ProjectZomboidHeadTracking.jar").toAbsolutePath();
-        Path older = Path.of("build-native", "Release", "CameraUnlockCoreOtherAbi.dll").toAbsolutePath();
+        Path older = Path.of("build-core", "Release", "CameraUnlockCoreOtherAbi.dll").toAbsolutePath();
         String testClasses = Path.of("build", "test-classes").toAbsolutePath().toString();
         for (boolean withLibrary : new boolean[] {true, false}) {
             Path folder = Files.createDirectories(scratch.resolve(withLibrary ? "Older Library" : "No Library"));

@@ -49,10 +49,10 @@ Write-Host "Built build/dev/ProjectZomboidHeadTracking.jar $version (development
 # cameraunlock-core itself is C++: the tracker's receiver, the pose pipeline, the config owner,
 # the hotkey poller and the log, built from the submodule as CameraUnlockCore.dll, which the jar
 # loads from beside itself. The mod has no C++ of its own.
-Invoke-Tool cmake @('-S', 'cameraunlock-core/cpp', '-B', 'build-native', '-A', 'x64', '-DCAMERAUNLOCK_BUILD_C=ON', '-DCAMERAUNLOCK_BUILD_TESTS=OFF')
-Invoke-Tool cmake @('--build', 'build-native', '--config', 'Release', '--target', 'cameraunlock_c')
-# For CoreTests alone, and left in build-native: a library that says it is from the release before.
-Invoke-Tool cmake @('--build', 'build-native', '--config', 'Release', '--target', 'cameraunlock_c_other_abi')
-Copy-Item -Force build-native/Release/CameraUnlockCore.dll build/
-Copy-Item -Force build-native/Release/CameraUnlockCore.dll build/dev/
+Invoke-Tool cmake @('-S', 'cameraunlock-core/cpp', '-B', 'build-core', '-A', 'x64', '-DCAMERAUNLOCK_BUILD_C=ON', '-DCAMERAUNLOCK_BUILD_TESTS=OFF')
+Invoke-Tool cmake @('--build', 'build-core', '--config', 'Release', '--target', 'cameraunlock_c')
+# For CoreTests alone, and left in build-core: a library that says it is from the release before.
+Invoke-Tool cmake @('--build', 'build-core', '--config', 'Release', '--target', 'cameraunlock_c_other_abi')
+Copy-Item -Force build-core/Release/CameraUnlockCore.dll build/
+Copy-Item -Force build-core/Release/CameraUnlockCore.dll build/dev/
 Write-Host 'Built build/CameraUnlockCore.dll'

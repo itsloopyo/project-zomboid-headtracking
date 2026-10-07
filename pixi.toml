@@ -29,7 +29,7 @@ build = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1"
 test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1", depends-on = ["build"] }
 # No PowerShell variable in the command: pixi's task shell expands $name itself, before
 # PowerShell reads the line.
-clean = "powershell -NoProfile -Command \"Get-Item build, build-native, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
+clean = "powershell -NoProfile -Command \"Get-Item build, build-core, build-native, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
 
 # Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
 # first launch, from the rows Config.java describes to cameraunlock-core, after a change to a row,
