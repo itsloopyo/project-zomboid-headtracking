@@ -194,6 +194,35 @@ final class ChunkBuffers {
         return walk;
     }
 
+    /** The height, in tiles, of the tallest thing whose shadow is kept whole at a low sun: a house of two floors with its roof. */
+    private static final float CASTS_FROM = 7f;
+
+    /**
+     * How far outside the screen a chunk may be and still cast a shadow into it, in tiles, with
+     * the light this high (the sine of its height above the horizon): the length of the
+     * shadow of something CASTS_FROM tall, no less than 24 and no more than 48.
+     */
+    static float shadowReach(float lightUp) {
+        float up = Math.clamp(lightUp, 0.05f, 1f);
+        return Math.clamp(CASTS_FROM * (float) Math.sqrt(1f - up * up) / up, 24f, 48f);
+    }
+
+    /**
+     * Whether any of a chunk can be on the screen in the game's own view, or within beyond
+     * tiles of it. (toX, toY) is from the middle of the screen, on the player's floor, to the
+     * chunk's middle. The view looks along the unit vector (alongX, alongY) on the ground and
+     * shows halfAcross tiles to each side and halfAlong ahead and behind. A floor above the
+     * player's is drawn levelShift tiles further along, so a chunk with floors from lowLevel
+     * to highLevel, counted from the player's, is on the screen wherever one of them is.
+     */
+    static boolean onScreen(float toX, float toY, int lowLevel, int highLevel, float alongX, float alongY, float halfAcross, float halfAlong,
+            float levelShift, float beyond) {
+        float reach = beyond + WorldScene.CHUNK_REACH;
+        float across = toY * alongX - toX * alongY, along = toX * alongX + toY * alongY;
+        return Math.abs(across) <= halfAcross + reach && along + highLevel * levelShift >= -halfAlong - reach
+                && along + lowLevel * levelShift <= halfAlong + reach;
+    }
+
     /** Whether the chunk at (wx, wy) has a square in the box of squares from (minX, minY) up to but not (maxX, maxY), or right beside it. */
     static boolean chunkTouches(int wx, int wy, int minX, int minY, int maxX, int maxY) {
         int tiles = WorldScene.CHUNK_TILES;

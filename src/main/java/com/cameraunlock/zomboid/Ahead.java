@@ -41,6 +41,14 @@ final class Ahead {
         WORKERS.execute(task);
     }
 
+    /** Lets go of work begun under name whose result nobody will take: it is not started if no thread has started on it. */
+    static void forget(String name) {
+        FutureTask<?> task = BEGUN.remove(name);
+        if (task != null) {
+            task.cancel(false);
+        }
+    }
+
     /** Whether the work begun under name is done and not yet taken. */
     static boolean done(String name) {
         FutureTask<?> task = BEGUN.get(name);

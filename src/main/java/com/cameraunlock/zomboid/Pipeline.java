@@ -546,6 +546,7 @@ final class Pipeline {
                 beginStages();
             }
             SpriteColours.read();
+            FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks);
             all.of(chunks, null, true);
@@ -2844,6 +2845,13 @@ final class Pipeline {
             // piece a frame, and the picture goes on being drawn from whichever a surface has.
             picturesSmall = !picturesSmall;
             Pictures.small = picturesSmall;
+            // The pictures on walls are read at the size of the moment a build first shows them: given back, they are read again.
+            Decor.letGo();
+            forgetTexels();
+            if (Quality.plain() && contentReady) {
+                // The mode now shows none of the mod's own: its pictures are given back, not made again smaller.
+                giveBackContent();
+            }
             resized = new ArrayList<>();
             for (Piece piece : CORE) {
                 if (piece.ofPictures) {
@@ -2879,7 +2887,7 @@ final class Pipeline {
     private static String prepareNext() {
         long start = System.nanoTime();
         String problem;
-        boolean lastOfCore = false, lastOfContent = false;
+        boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
         if (makes == CORE) {
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();
@@ -2888,16 +2896,17 @@ final class Pipeline {
             lastOfContent = contentPreparing == CONTENT.size();
         } else {
             problem = resized.get(resizedNext++).make.get();
-            if (resizedNext == resized.size()) {
-                resized = null;
-                Log.info("the mod's pictures are made again at " + (picturesSmall ? "half size" : "full size"));
-            }
+            lastOfResized = resizedNext == resized.size();
         }
         if (problem == null) {
             int error = GL11.glGetError();
             if (error != 0) {
                 problem = "OpenGL error 0x" + Integer.toHexString(error) + " making the textures";
             }
+        }
+        if (problem != null) {
+            // No piece is made after this one, so nothing would take what was read ahead for the rest.
+            Pictures.letGoOfReadAhead();
         }
         long took = System.nanoTime() - start;
         preparingNanos += took;
@@ -2914,6 +2923,13 @@ final class Pipeline {
             Own.picturesMade(true);
             Log.info(String.format(Locale.ROOT, "the mod's own surfaces, plants and weapons are on the graphics card: %d pieces taking %.0f ms in all, the longest %.0f ms",
                     contentPreparing, preparingNanos / 1e6, preparingWorst / 1e6));
+            preparingNanos = 0;
+            preparingWorst = 0;
+        }
+        if (lastOfResized && problem == null) {
+            resized = null;
+            Log.info(String.format(Locale.ROOT, "the mod's pictures are made again at %s, taking %.0f ms in all, the longest %.0f ms",
+                    picturesSmall ? "half size" : "full size", preparingNanos / 1e6, preparingWorst / 1e6));
             preparingNanos = 0;
             preparingWorst = 0;
         }
@@ -3108,34 +3124,52 @@ final class Pipeline {
         public void render() {
             ChunkBuffers.letGo();
             Decor.letGo();
+            forgetTexels();
             FineSkins.letGo();
-            if (!contentReady || resized != null) {
-                return;
+            if (resized != null) {
+                // Some of the core's surfaces are at one size and some at the other: all are made again when next asked for.
+                Pictures.letGoOfReadAhead();
+                resized = null;
+                picturesSmall = !Quality.smallerPictures();
             }
-            for (int material = 0; material < MATERIALS.length; material++) {
-                if (ALWAYS_READ.contains(MATERIALS[material])) {
-                    continue;
-                }
-                GL11.glDeleteTextures(materialTexture[material]);
-                materialTexture[material] = 0;
-                materialGain[material] = 1f;
+            if (contentBegun) {
+                giveBackContent();
+                Log.info("the mod's own surfaces and plants are given back to the graphics card");
             }
-            for (int nature = 0; nature < NATURE.length; nature++) {
-                GL11.glDeleteTextures(natureTexture[nature]);
-                natureTexture[nature] = 0;
-                natureGain[nature] = 1f;
-            }
-            GL11.glDeleteTextures(sprigs);
-            GL11.glDeleteTextures(sprigForm);
-            sprigs = 0;
-            sprigForm = 0;
-            contentPreparing = 0;
-            contentBegun = false;
-            contentReady = false;
-            Own.picturesMade(false);
-            Log.info("the mod's own surfaces and plants are given back to the graphics card");
         }
     };
+
+    /** Gives back the pictures of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
+    private static void giveBackContent() {
+        Pictures.letGoOfReadAhead();
+        for (int material = 0; material < MATERIALS.length; material++) {
+            if (ALWAYS_READ.contains(MATERIALS[material])) {
+                continue;
+            }
+            GL11.glDeleteTextures(materialTexture[material]);
+            materialTexture[material] = 0;
+            materialGain[material] = 1f;
+        }
+        for (int nature = 0; nature < NATURE.length; nature++) {
+            GL11.glDeleteTextures(natureTexture[nature]);
+            natureTexture[nature] = 0;
+            natureGain[nature] = 1f;
+        }
+        GL11.glDeleteTextures(sprigs);
+        GL11.glDeleteTextures(sprigForm);
+        sprigs = 0;
+        sprigForm = 0;
+        contentPreparing = 0;
+        contentBegun = false;
+        contentReady = false;
+        Own.picturesMade(false);
+    }
+
+    /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */
+    private static void forgetTexels() {
+        Arrays.fill(texelOf, 0);
+        texelsKnown = 0;
+    }
 
     /**
      * Gives the sized textures and targets back to the graphics card. The driver hands the same

@@ -51,8 +51,6 @@ public final class FirstPerson {
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
     private static boolean overhead;
-    /** How far beyond what the game's own view shows of the ground the picture is built, in tiles: for what stands tall just out of it and what casts its shadow into it. */
-    private static final float OVERHEAD_BEYOND = 24f;
     private static int overheadSaid;
     private static final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
     /** What the overhead camera last took in above and below the place it looks at, in tiles. */
@@ -484,7 +482,8 @@ public final class FirstPerson {
             }
             // Switched off and on again within the minute, the view is there at once. Left off, it gives back
             // what it holds: the world on the graphics card and the mod's own pictures, which are most of it.
-            boolean making = !gettingReady && (overheadAsked && !overhead || Pipeline.contentHalfMade());
+            // While the picture is drawing the game's own view it makes its own pieces, one a frame.
+            boolean making = !gettingReady && !Characters.wanted && (overheadAsked && !overhead || Pipeline.contentHalfMade());
             if (making) {
                 SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
             }
@@ -709,12 +708,13 @@ public final class FirstPerson {
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
         WorldScene scene = WorldScene.next();
         // The game's own view shows the ground out to twice the picture's half height along the way it looks, which is
-        // 30 degrees down, and to its half width across. The loaded map is several times that each way.
+        // 30 degrees down, and to its half width across, and each floor up a little further along.
         int screen = player.getIndex();
         float halfWide = overheadHalfHigh * IsoCamera.getScreenWidth(screen) / IsoCamera.getScreenHeight(screen);
-        float reach = (float) Math.hypot(overheadHalfHigh / Math.sin(-OVERHEAD_PITCH), halfWide);
-        scene.seenOnlyWithin(overheadView.eyeX + overheadView.forwardX * OVERHEAD_AWAY, overheadView.eyeY + overheadView.forwardY * OVERHEAD_AWAY,
-                reach + OVERHEAD_BEYOND);
+        float flat = (float) Math.hypot(overheadView.forwardX, overheadView.forwardY);
+        scene.seenOnly(overheadView.eyeX + overheadView.forwardX * OVERHEAD_AWAY, overheadView.eyeY + overheadView.forwardY * OVERHEAD_AWAY,
+                overheadView.forwardX / flat, overheadView.forwardY / flat, halfWide, (float) (overheadHalfHigh / Math.sin(-OVERHEAD_PITCH)),
+                (float) (ViewCamera.LEVEL_HEIGHT / Math.tan(-OVERHEAD_PITCH)));
         scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
         paceScene = scene;

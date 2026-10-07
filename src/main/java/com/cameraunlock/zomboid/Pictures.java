@@ -4,6 +4,8 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.HashSet;
 import javax.imageio.ImageIO;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -70,7 +72,7 @@ final class Pictures {
             int texture = GL11.glGenTextures();
             GL11.glBindTexture(GL_TEXTURE_2D, texture);
             GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-            finish(GL_TEXTURE_2D, repeats);
+            finish(GL_TEXTURE_2D, texture, repeats, path);
             return texture;
         } finally {
             picture.memory.free();
@@ -102,7 +104,7 @@ final class Pictures {
                 picture.memory.free();
             }
         }
-        finish(GL_TEXTURE_2D_ARRAY, true);
+        finish(GL_TEXTURE_2D_ARRAY, texture, true, paths[0]);
         return texture;
     }
 
@@ -112,9 +114,30 @@ final class Pictures {
      */
     private record Decoded(ByteBuffer pixels, OffHeap.Block memory, int wide, int high, float gain) {}
 
+    /** The pictures read ahead and not yet asked for, by path, and a count that goes up each time they are all let go. Both under the map's lock. */
+    private static final HashMap<String, Decoded> readAhead = new HashMap<>();
+    private static final HashSet<String> begunAhead = new HashSet<>();
+    private static int letGoes;
+
     /** Begins reading the jar's picture at path on another thread. */
     static void readAhead(String path) {
-        Ahead.begin(path, () -> decode(path));
+        int begunAt;
+        synchronized (readAhead) {
+            begunAt = letGoes;
+            begunAhead.add(path);
+        }
+        Ahead.begin(path, () -> {
+            Decoded read = decode(path);
+            synchronized (readAhead) {
+                // Let go of while it was being read: nobody will ask for this one.
+                if (letGoes != begunAt) {
+                    read.memory.free();
+                } else {
+                    readAhead.put(path, read);
+                }
+            }
+            return null;
+        });
     }
 
     /** Whether the picture at path has been read ahead and is waiting to be asked for. */
@@ -122,8 +145,33 @@ final class Pictures {
         return Ahead.done(path);
     }
 
+    /**
+     * Gives back every picture read ahead and not asked for, and has those still being read
+     * given back as they are done: the pieces that would have asked for them will not be made.
+     */
+    static void letGoOfReadAhead() {
+        synchronized (readAhead) {
+            letGoes++;
+            for (Decoded each : readAhead.values()) {
+                each.memory.free();
+            }
+            readAhead.clear();
+            for (String path : begunAhead) {
+                Ahead.forget(path);
+            }
+            begunAhead.clear();
+        }
+    }
+
     private static Decoded read(String path) throws IOException {
-        return Ahead.take(path, () -> decode(path));
+        // Waits for the reading begun ahead, or does it here if no thread has started on it.
+        Ahead.take(path, () -> null);
+        Decoded ahead;
+        synchronized (readAhead) {
+            ahead = readAhead.remove(path);
+            begunAhead.remove(path);
+        }
+        return ahead != null ? ahead : decode(path);
     }
 
     private static Decoded decode(String path) throws IOException {
@@ -186,8 +234,15 @@ final class Pictures {
     }
 
     /** Gives the texture bound to target its smaller copies and says how it is read. */
-    private static void finish(int target, boolean repeats) {
+    private static void finish(int target, int texture, boolean repeats, String path) throws IOException {
         GL30.glGenerateMipmap(target);
+        // Asked here, before the setting below whose refusal is thrown away: a graphics card with no room for the
+        // picture says so now, and whoever asked keeps the picture they had.
+        int error = GL11.glGetError();
+        if (error != 0) {
+            GL11.glDeleteTextures(texture);
+            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of " + path);
+        }
         GL11.glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(target, GL_TEXTURE_WRAP_S, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);

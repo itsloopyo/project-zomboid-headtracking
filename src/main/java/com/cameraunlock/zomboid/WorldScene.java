@@ -347,14 +347,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
     private static final float OVERHEAD_RANGE = 12f;
 
-    /** Where on the map the middle of the picture is and how far from it, in tiles, anything in the next build can be seen or cast a shadow into it. Float.MAX_VALUE for no such limit. */
-    private float seenRoundX, seenRoundY, seenWithin = Float.MAX_VALUE;
+    /**
+     * For a build of the game's own view: where on the map the middle of the screen is, at the
+     * player's floor, which way along the ground the view looks, how far from the middle the
+     * screen reaches across that and along it, and how far a floor above is drawn up the
+     * screen from the one below, all in tiles. Good for the one build that follows.
+     */
+    private boolean seenOnly;
+    private float seenRoundX, seenRoundY, seenAlongX, seenAlongY, seenHalfAcross, seenHalfAlong, seenLevelShift;
 
-    /** Says that the next build is of the game's own view, which takes in only what is within this many tiles of a place on the map. */
-    void seenOnlyWithin(float x, float y, float tiles) {
+    void seenOnly(float x, float y, float alongX, float alongY, float halfAcross, float halfAlong, float levelShift) {
+        seenOnly = true;
         seenRoundX = x;
         seenRoundY = y;
-        seenWithin = tiles;
+        seenAlongX = alongX;
+        seenAlongY = alongY;
+        seenHalfAcross = halfAcross;
+        seenHalfAlong = halfAlong;
+        seenLevelShift = levelShift;
     }
 
     /**
@@ -714,9 +724,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         long start = System.nanoTime();
         Stall.beat();
         boolean fromOutside = from != null;
-        if (!opened) {
-            seenWithin = Float.MAX_VALUE;
-        }
+        boolean screenOnly = seenOnly;
+        seenOnly = false;
         camera.set(view);
         facedX = fromOutside ? from.eyeX : view.eyeX;
         facedY = fromOutside ? from.eyeY : view.eyeY;
@@ -915,7 +924,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     continue;
                 }
                 // Drawn as the game's own view, the picture shows a patch of the map round the middle of the screen and no more.
-                if (seenWithin < Float.MAX_VALUE && Math.hypot(chunkX + CHUNK_TILES / 2f - seenRoundX, chunkY + CHUNK_TILES / 2f - seenRoundY) > ChunkBuffers.drawnWithin(seenWithin)) {
+                if (screenOnly && !ChunkBuffers.onScreen(chunkX + CHUNK_TILES / 2f - seenRoundX, chunkY + CHUNK_TILES / 2f - seenRoundY,
+                        chunk.getMinLevel() - level, chunk.getMaxLevel() - level, seenAlongX, seenAlongY, seenHalfAcross, seenHalfAlong, seenLevelShift,
+                        ChunkBuffers.shadowReach(sky.lightUp))) {
                     continue;
                 }
                 if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
@@ -941,8 +952,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     chunksWaiting++;
                     continue;
                 }
-                // One that has waited twice its time waits no longer: the chunks are walked in the same
-                // order every frame, and the last of them would wait as long as the first kept falling due.
+                // One that has waited twice its time waits no longer: the chunks are walked nearest first,
+                // and the last of them would wait as long as those before it kept falling due.
                 // While chunks wait for their first build, the time goes to them: one built already
                 // and not right by the eye is shown as it is, or those at the end of the walk would
                 // wait for as long as the ones before them kept falling due.
@@ -988,7 +999,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 if (summed) {
                     seenOutside.copyTo(seenBefore);
                     int seen = squaresSeen;
+                    long summing = System.nanoTime();
                     read = signature(chunk, chunkX, chunkY, lowest);
+                    slowed(summing);
                     boolean sameEye = still && due && current.signed;
                     // A chunk that has only just come onto the map far off is made again for what loads late
                     // after a quarter of a second, then a half, then one: at a car's speed a dozen builds each
@@ -999,8 +1012,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     if (due) {
                         builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
                     }
-                    // One that is unchanged and only old is made again when a frame has the time for it.
-                    if (sameEye && current.signature == read && (young || late)) {
+                    if (sameEye && current.signature == read && young) {
                         // The squares it read count towards this frame's light as a build's would.
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
@@ -1080,7 +1092,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     latestGrown[slot] = null;
                     grown = null;
                 }
-                if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown) && !(late && builtLate++ > 0)) {
+                // What grows is made with its chunk. Made again only because the eye has moved, it waits for a frame with the time.
+                if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown && !late)) {
                     if (!missing && !due) {
                         tallied = talliedIn[slot] != tally;
                         talliedIn[slot] = tally;
