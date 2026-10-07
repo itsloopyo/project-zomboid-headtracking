@@ -66,6 +66,7 @@ public final class Tests {
         ArmTests.run();
         OwnArmTests.run();
         BufferTests.run();
+        PictureTests.run();
         LinkTests.run();
         shotStopsOnACharacter();
         insertAfterAddsTheHookOnce();

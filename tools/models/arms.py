@@ -16,8 +16,9 @@ The right arm is cut out of the base mesh from the shoulder down, with the bones
 default rig that move it and their weights, smoothed once, and posed here for each way a
 hand holds something. The left arm is the right one mirrored, which the mod does.
 
-It writes, under src/main/resources/models, arms.colour.gz and arms.surface.gz, which
-`pictures` describes, and arms.mesh.gz. All of that is little-endian:
+It writes, under src/textures/models for tools/textures/compress.py to pack for the jar,
+arms.colour.gz and arms.surface.gz, which `pictures` describes, and under
+src/main/resources/models arms.mesh.gz. All of that is little-endian:
 
     int   magic 0x41524D53, version
     int   bones, vertices, indices, poses, parts
@@ -58,6 +59,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "..", "src", "main", "resources", "models")
+PICTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
 
 SIDE = "R"
 # For each bone, the matrix that carries a corner of the woman's arm from her bone to the man's.
@@ -943,7 +945,7 @@ def main():
         for thing in (sleeve, glove):
             bpy.data.objects.remove(thing)
         if "--mesh" not in arguments:
-            pictures(bake(arm, skeleton, data), OUT, arguments[arguments.index("--renders") + 1] if "--renders" in arguments else None)
+            pictures(bake(arm, skeleton, data), PICTURES, arguments[arguments.index("--renders") + 1] if "--renders" in arguments else None)
     if "--renders" in arguments:
         renders(arm, skeleton, arguments[arguments.index("--renders") + 1], arguments[arguments.index("--only") + 1].split(",") if "--only" in arguments else None)
 

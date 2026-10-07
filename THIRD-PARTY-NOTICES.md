@@ -88,13 +88,13 @@ Copyright (c) 2026 itsloopyo
 
 ## Generated material textures
 
-- **Files:** every `materials/*.jpg` and `materials/*.png` inside the mod's jar but `paint.jpg` and the `*.high.jpg`: asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond, ivy and sprigs
+- **Files:** every `materials/*.bc` inside the mod's jar but `paint.bc` and `sprigs-form.bc`, each packed by `tools/textures/compress.py` from the picture of its name in `src/textures/materials` (the eight barks into the one `bark.bc`): asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond, ivy and sprigs
 - **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model.
 - **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The textures are grain for surfaces in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
-- **Usage:** The first person view lays them over open ground, roofs, walls and wooden floors to give each the grain of what it is made of, and draws tree trunks, each in the bark of its species, the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them. `sprigs.png` holds eight pictures of leaves, each cut out of the white ground it was generated on by `tools/materials/pack.py`: the crowns of trees and bushes are built of them. `sprigs-form.png` is worked out from `sprigs.png` by the same script, and holds which way each leaf is turned and how much light it lets through. The prompts are in `tools/materials/generate.py`.
+- **Usage:** The first person view lays them over open ground, roofs, walls and wooden floors to give each the grain of what it is made of, and draws tree trunks, each in the bark of its species, the fallen leaves under trees, boulders, ferns and the ivy on tree trunks with them. `sprigs.png`, which `sprigs.bc` is packed from, holds eight pictures of leaves, each cut out of the white ground it was generated on by `tools/materials/pack.py`: the crowns of trees and bushes are built of them. `sprigs-form.png` is worked out from `sprigs.png` by the same script, and holds which way each leaf is turned and how much light it lets through. The prompts are in `tools/materials/generate.py`.
 - **Bundled:** the textures, yes. The model is not.
-- **Not among them:** `materials/paint.jpg` is filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it. Nor are the six `materials/*.high.jpg`, which say how far each point of a surface stands out of it: `tools/materials/heights.py` in this repository works each out from the texture of the same name, by arithmetic on its light and dark.
+- **Not among them:** `paint.bc` is packed from `paint.jpg`, filtered noise made by `tools/materials/paint.py` in this repository. No model was used for it. Nor are the six `*.high.jpg` beside the sources, which the packing puts in the fourth channel of the texture of the same name and which say how far each point of a surface stands out of it: `tools/materials/heights.py` in this repository works each out from the texture of the same name, by arithmetic on its light and dark.
 
 ## Generated wall pictures
 
@@ -120,7 +120,7 @@ Copyright (c) 2026 itsloopyo
 
 ## Shotgun model
 
-- **Files:** `models/shotgun.mesh.gz`, `models/shotgun.colour.gz` and `models/shotgun.surface.gz` inside the mod's jar
+- **Files:** `models/shotgun.mesh.gz`, `models/shotgun.colour.bc` and `models/shotgun.surface.bc` inside the mod's jar
 - **License:** MIT, this project's own, for the model and for what `tools/models/shotgun.py` paints on it. The walnut of its stock and fore-end and the grain of its rubber pad are baked from two pictures made with Stable Diffusion XL base 1.0 from text prompts alone, under the same terms as the generated material textures above. The prompts are in `tools/models/shotgun_textures.py`. No image from Project Zomboid or anywhere else was given to the model.
 - **Usage:** The first person view draws it in the viewer's hands in place of the game's model of `Base.Shotgun`.
 - **Bundled:** yes. The image model is not.
@@ -139,7 +139,7 @@ the grip and the fore-end of this one.
 
 ## Rifle model
 
-- **Files:** `models/rifle.mesh.gz`, `models/rifle.colour.gz` and `models/rifle.surface.gz` inside the mod's jar
+- **Files:** `models/rifle.mesh.gz`, `models/rifle.colour.bc` and `models/rifle.surface.bc` inside the mod's jar
 - **License:** MIT, this project's own, for the model and for what `tools/models/rifle.py` paints on it. The walnut of its stock and the grain of its rubber pad are baked from the two pictures the shotgun's are, made with Stable Diffusion XL base 1.0 from text prompts alone, under the same terms as the generated material textures above. No image from Project Zomboid or anywhere else was given to the model.
 - **Usage:** The first person view draws it in the viewer's hands in place of the game's model of `Base.HuntingRifle`.
 - **Bundled:** yes. The image model is not.
@@ -157,7 +157,7 @@ model's receiver is made to stand under.
 
 ## Arm model
 
-- **Files:** `models/arms.mesh.gz`, `models/arms.colour.gz` and `models/arms.surface.gz` inside the mod's jar
+- **Files:** `models/arms.mesh.gz`, `models/arms.colour.bc` and `models/arms.surface.bc` inside the mod's jar
 - **Version:** made by `tools/models/arms.py` in this repository, a Blender script, from the MakeHuman base mesh as the MPFB 2 add-on for Blender, version 2.0.17, carries it in its `data` folder: `3dobjs/base.obj`, the mesh; `rigs/standard/rig.default.json` and `weights.default.json`, its bones and how the mesh hangs on them; three of its macro targets, `caucasian-male-young`, `caucasian-female-young` and `universal-male-young-maxmuscle-averageweight`, which shape the mesh into a man's arm and a woman's; and `textures/mpfb_fingernails.jpg`, which says where on the mesh the nails are.
 - **License:** those files are assets of MPFB, which its makers give away under Creative Commons CC0 1.0 Universal: MPFB's `LICENSE.md` puts "the base mesh and proxies", "targets and modifiers", "textures", "rigs, poses and expressions" and "JSON data with mesh information" under CC0, and its source code under the GPL. None of MPFB's source code is used, run or bundled: `tools/models/arms.py` reads the data files itself. What that script makes of them is MIT, this project's own.
 - **Upstream:** https://github.com/makehumancommunity/mpfb2 and https://static.makehumancommunity.org/mpfb.html
@@ -187,6 +187,15 @@ right one mirrored.
 Every model is built from nothing by `tools/models/furniture.py` in this
 repository, a Blender script. No mesh, texture or measurement is read from
 Project Zomboid or from anywhere else.
+
+---
+
+## BC7 texture compression
+
+- **Files:** every `*.bc` inside the mod's jar, and `Bc7.java`
+- **Encoder:** the pictures are packed into BC7 blocks by Microsoft's `texconv`, of DirectXTex release `may2026` (MIT, Copyright (c) Microsoft Corporation), https://github.com/microsoft/DirectXTex. `tools/textures/compress.py` fetches it when someone remakes a picture. It is a tool: no part of it is in the jar or in this repository, and its licence asks nothing of what it writes.
+- **Format:** BC7 is the block format of OpenGL's ARB_texture_compression_bptc, https://registry.khronos.org/OpenGL/extensions/ARB/ARB_texture_compression_bptc.txt. That specification is where the layout of a block and the tables in `Bc7.java` (which texel is in which set, and which texel's index is stored a bit short) come from. The code that unpacks a block, for a graphics card that cannot, is this project's own, MIT.
+- **Bundled:** the packed pictures, yes. The encoder is not.
 
 ---
 

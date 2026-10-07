@@ -1,127 +1,106 @@
 package com.cameraunlock.zomboid;
 
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.zip.GZIPInputStream;
-import javax.imageio.ImageIO;
+import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
-import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GLCapabilities;
 
 /**
- * The mod's own pictures of materials and plants, kept in its jar as PNG and JPEG files of
- * whatever size each was made at, and given to the graphics card with smaller copies of
- * themselves for when they are seen far off or at a slant.
+ * The mod's own pictures of materials, plants and models, kept in its jar as the graphics
+ * card holds them: in BC7 blocks, a quarter of the memory of four bytes a texel, each with
+ * the smaller copies of itself for when it is seen far off or at a slant. tools/textures
+ * makes the files, and says how one is laid out.
  */
 final class Pictures {
-    static final int GL_TEXTURE_2D_ARRAY = 0x8C1A;
-    private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
+    static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_2D_ARRAY = 0x8C1A;
+    private static final int GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_SRGB8_ALPHA8 = 0x8C43, GL_UNSIGNED_BYTE = 0x1401;
+    private static final int GL_COMPRESSED_RGBA_BPTC_UNORM = 0x8E8C, GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM = 0x8E8D;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_REPEAT = 0x2901, GL_CLAMP_TO_EDGE = 0x812F;
     private static final int GL_TEXTURE_MAX_ANISOTROPY = 0x84FE;
     /** Ground seen from standing height is seen at a slant: this many samples along the slant keep it sharp into the distance. */
     private static final int ANISOTROPY = 8;
+    /** A file's head: "CUBC", then its format, width, height, layers, levels and whether its colour is a screen's, then its gain. */
+    private static final int HEAD = 32, MAGIC = 0x43425543, FORMAT = 4, WIDE = 8, HIGH = 12, LAYERS = 16, LEVELS = 20, SCREEN = 24, GAIN = 28;
+    private static final int PLAIN = 0, BC7 = 7;
+    /** Dev only: the graphics card is taken to read no BC7. */
+    private static final boolean NO_BC7 = Boolean.getBoolean("cameraunlock.zomboid.noBc7");
     /**
      * What the picture last loaded is multiplied by to be 1 on average over what of it is solid:
      * laid over a surface so, it changes the surface's texture and not how light it is.
      */
     static float gain;
     /**
-     * Whether pictures are read at half their width and height: a quarter of the memory, for a
-     * graphics mode that draws fewer dots than the window has and shows no depth in surfaces.
-     * Set before reading begins and not while any is being read.
+     * Whether pictures are read without their largest level, at half their width and height: a
+     * quarter of the memory, for a graphics mode that draws fewer dots than the window has and
+     * shows no depth in surfaces. Set before reading begins and not while any is being read.
      */
     static volatile boolean small;
+    /** Whether the graphics card has been asked what it reads, and whether BC7 has to be unpacked for it. */
+    private static boolean cardAsked;
+    private static volatile boolean unpacks;
 
     private Pictures() {}
 
     /**
-     * The texture made of the jar's picture at path, which repeats or not. Thrown when the jar
-     * has no such picture or it cannot be read.
+     * Asks the graphics card, once, whether it reads BC7 blocks: OpenGL 4.2 does, and an older
+     * one with ARB_texture_compression_bptc. For a card that does not, every picture is
+     * unpacked as it is read and takes the four bytes a texel it took before the pictures
+     * were compressed. Render thread, before anything is read.
      */
+    static void askCard() {
+        if (cardAsked) {
+            return;
+        }
+        GLCapabilities card = GL.getCapabilities();
+        cardAsked = true;
+        if (NO_BC7) {
+            unpacks = true;
+            Log.info("cameraunlock.zomboid.noBc7 is set: the mod's own pictures are unpacked as they are read, as for a graphics card that reads no BC7");
+        } else if (!card.OpenGL42 && !card.GL_ARB_texture_compression_bptc) {
+            unpacks = true;
+            Log.info("this graphics card reads no BC7 texture compression (it has neither OpenGL 4.2 nor ARB_texture_compression_bptc): "
+                    + "the mod's own pictures are unpacked as they are read, and take four times the video memory they would");
+        }
+    }
+
+    /** The texture of the jar's picture at path, which repeats or not. Thrown when the jar has no such picture or it cannot be read. */
     static int load(String path, boolean repeats) throws IOException {
-        return load(path, null, repeats);
-    }
-
-    /**
-     * The same, of a picture all of which is solid, with the jar's picture at heights beside
-     * it: how far each point of the surface stands out of it, white the top and black the
-     * deepest, kept as the fourth number of each texel where a cut-out keeps how solid it is.
-     * The gain is the first picture's. heights may be null, for a surface that has none.
-     */
-    static int load(String path, String heights, boolean repeats) throws IOException {
-        Decoded picture = read(path);
+        OffHeap.Block file = read(path);
         try {
-            if (heights != null) {
-                Decoded raised = read(heights);
-                try {
-                    if (raised.wide != picture.wide || raised.high != picture.high) {
-                        throw new IOException(heights + " is " + raised.wide + " by " + raised.high + ", and " + path + " is " + picture.wide + " by " + picture.high);
-                    }
-                    for (int at = 0; at < picture.wide * picture.high * 4; at += 4) {
-                        picture.pixels.put(at + 3, raised.pixels.get(at));
-                    }
-                } finally {
-                    raised.memory.free();
-                }
+            if (file.bytes.getInt(LAYERS) != 1) {
+                throw new IOException(path + " is " + file.bytes.getInt(LAYERS) + " pictures one behind another, where one is read");
             }
-            gain = picture.gain;
-            int texture = GL11.glGenTextures();
-            GL11.glBindTexture(GL_TEXTURE_2D, texture);
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-            finish(GL_TEXTURE_2D, texture, repeats, path);
-            return texture;
+            gain = file.bytes.getFloat(GAIN);
+            return texture(file, GL_TEXTURE_2D, repeats, ANISOTROPY, path);
         } finally {
-            picture.memory.free();
+            file.free();
         }
     }
 
     /**
-     * One texture of the jar's pictures at paths laid one behind another, all of them the size
-     * of the first and all repeating: a shader picks one by its number. The gain is the first's.
+     * One texture of the jar's pictures at path, laid one behind another and all repeating: a
+     * shader picks one by its number. The gain is the first's.
      */
-    static int loadLayers(String[] paths) throws IOException {
-        int wide = 0, high = 0;
-        int texture = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
+    static int loadLayers(String path) throws IOException {
+        OffHeap.Block file = read(path);
         try {
-            for (int layer = 0; layer < paths.length; layer++) {
-                Decoded picture = read(paths[layer]);
-                try {
-                    if (layer == 0) {
-                        wide = picture.wide;
-                        high = picture.high;
-                        gain = picture.gain;
-                        GL12.glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, wide, high, paths.length, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
-                    }
-                    if (picture.wide != wide || picture.high != high) {
-                        throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + wide + " by " + high);
-                    }
-                    GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, wide, high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
-                } finally {
-                    picture.memory.free();
-                }
-            }
-        } catch (IOException | RuntimeException failed) {
-            GL11.glDeleteTextures(texture);
-            throw failed;
+            gain = file.bytes.getFloat(GAIN);
+            return texture(file, GL_TEXTURE_2D_ARRAY, true, ANISOTROPY, path);
+        } finally {
+            file.free();
         }
-        finish(GL_TEXTURE_2D_ARRAY, texture, true, paths[0]);
-        return texture;
     }
-
-    /**
-     * A picture as four bytes a pixel, with what it is multiplied by to be 1 on average over what of it is solid. The
-     * pixels are sixteen megabytes for a picture 2048 square, and are given back as soon as the graphics card has them.
-     */
-    private record Decoded(ByteBuffer pixels, OffHeap.Block memory, int wide, int high, float gain) {}
 
     /** The pictures read ahead and not yet asked for, by path, and a count that goes up each time they are all let go. Both under the map's lock. */
-    private static final HashMap<String, Decoded> readAhead = new HashMap<>();
+    private static final HashMap<String, OffHeap.Block> readAhead = new HashMap<>();
     private static final HashSet<String> begunAhead = new HashSet<>();
     private static int letGoes;
 
@@ -133,11 +112,11 @@ final class Pictures {
             begunAhead.add(path);
         }
         Ahead.begin(path, () -> {
-            Decoded read = decode(path);
+            OffHeap.Block read = packed(path, small);
             synchronized (readAhead) {
                 // Let go of while it was being read: nobody will ask for this one.
                 if (letGoes != begunAt) {
-                    read.memory.free();
+                    read.free();
                 } else {
                     readAhead.put(path, read);
                 }
@@ -158,8 +137,8 @@ final class Pictures {
     static void letGoOfReadAhead() {
         synchronized (readAhead) {
             letGoes++;
-            for (Decoded each : readAhead.values()) {
-                each.memory.free();
+            for (OffHeap.Block each : readAhead.values()) {
+                each.free();
             }
             readAhead.clear();
             for (String path : begunAhead) {
@@ -169,87 +148,151 @@ final class Pictures {
         }
     }
 
-    private static Decoded read(String path) throws IOException {
+    private static OffHeap.Block read(String path) throws IOException {
         // Waits for the reading begun ahead, or does it here if no thread has started on it.
         Ahead.take(path, () -> null);
-        Decoded ahead;
+        OffHeap.Block ahead;
         synchronized (readAhead) {
             ahead = readAhead.remove(path);
             begunAhead.remove(path);
         }
-        return ahead != null ? ahead : decode(path);
+        return ahead != null ? ahead : packed(path, small);
     }
 
-    private static Decoded decode(String path) throws IOException {
-        BufferedImage image;
+    private static int levelBytes(int format, int wide, int high, int layers, int level) {
+        int across = Math.max(1, wide >> level), down = Math.max(1, high >> level);
+        return (format == BC7 ? (across + 3) / 4 * ((down + 3) / 4) * 16 : across * down * 4) * layers;
+    }
+
+    /**
+     * The jar's picture at path as its file holds it, a head and then the levels, in memory
+     * outside the heap that whoever takes it frees: read straight into that memory, with no
+     * array of the file on the heap. Without its largest level where half says so and it has a
+     * smaller, and unpacked to four bytes a texel for a graphics card that reads no BC7. The
+     * head says what the memory holds, not what the file did. Any thread, once askCard has run.
+     */
+    static OffHeap.Block packed(String path, boolean half) throws IOException {
         try (InputStream in = Pictures.class.getResourceAsStream(path)) {
             if (in == null) {
                 throw new IOException("the jar has no " + path);
             }
-            image = ImageIO.read(in);
-        }
-        if (image == null) {
-            throw new IOException(path + " is not a picture this Java can read");
-        }
-        int wide = image.getWidth(), high = image.getHeight();
-        int[] row = new int[wide];
-        OffHeap.Block memory = OffHeap.take(wide * high * 4);
-        ByteBuffer pixels = memory.bytes;
-        long light = 0, solid = 0;
-        for (int y = 0; y < high; y++) {
-            image.getRGB(0, y, wide, 1, row, 0, wide);
-            for (int argb : row) {
-                pixels.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) (argb >>> 24));
-                if (argb >>> 24 > 127) {
-                    light += 299 * (argb >> 16 & 0xff) + 587 * (argb >> 8 & 0xff) + 114 * (argb & 0xff);
-                    solid++;
+            ByteBuffer head = ByteBuffer.wrap(in.readNBytes(HEAD)).order(ByteOrder.LITTLE_ENDIAN);
+            if (head.capacity() != HEAD || head.getInt(0) != MAGIC) {
+                throw new IOException(path + " is not one of the mod's packed pictures");
+            }
+            int format = head.getInt(FORMAT), wide = head.getInt(WIDE), high = head.getInt(HIGH), layers = head.getInt(LAYERS), levels = head.getInt(LEVELS);
+            if (format != PLAIN && format != BC7 || wide < 1 || high < 1 || wide > 4096 || high > 4096 || layers < 1 || layers > 16
+                    || levels != 32 - Integer.numberOfLeadingZeros(Math.max(wide, high))) {
+                throw new IOException(path + " has a head that makes no sense: format " + format + ", " + wide + " by " + high + ", " + layers + " layers, " + levels + " levels");
+            }
+            int left = half && levels > 1 ? 1 : 0;
+            int passed = left > 0 ? levelBytes(format, wide, high, layers, 0) : 0, bytes = 0;
+            for (int level = left; level < levels; level++) {
+                bytes += levelBytes(format, wide, high, layers, level);
+            }
+            OffHeap.Block memory = OffHeap.take(HEAD + bytes);
+            try {
+                byte[] some = new byte[1 << 16];
+                // Counted from the end of the largest level where that is left out: what is read before it goes nowhere.
+                int at = -passed;
+                for (int read = in.read(some); read >= 0; read = in.read(some)) {
+                    if (at + read > bytes) {
+                        throw new IOException(path + " holds more than the " + (passed + bytes) + " bytes its head says");
+                    }
+                    int kept = Math.min(read, at + read);
+                    if (kept > 0) {
+                        memory.bytes.put(HEAD + at + read - kept, some, read - kept, kept);
+                    }
+                    at += read;
+                }
+                if (at != bytes) {
+                    throw new IOException(path + " holds " + (passed + at) + " bytes after its head, which says " + (passed + bytes));
+                }
+                memory.bytes.order(ByteOrder.LITTLE_ENDIAN).put(0, head, 0, HEAD);
+                memory.bytes.putInt(WIDE, Math.max(1, wide >> left)).putInt(HIGH, Math.max(1, high >> left)).putInt(LEVELS, levels - left);
+                if (format == BC7 && unpacks) {
+                    return unpacked(memory);
+                }
+                OffHeap.Block whole = memory;
+                memory = null;
+                return whole;
+            } finally {
+                if (memory != null) {
+                    memory.free();
                 }
             }
         }
-        if (light == 0) {
-            memory.free();
-            throw new IOException(path + " is black or cut away all over");
+    }
+
+    /** A picture held in BC7 blocks as one of four bytes a texel, level for level. */
+    static OffHeap.Block unpacked(OffHeap.Block blocks) {
+        ByteBuffer from = blocks.bytes;
+        int wide = from.getInt(WIDE), high = from.getInt(HIGH), layers = from.getInt(LAYERS), levels = from.getInt(LEVELS);
+        int bytes = 0;
+        for (int level = 0; level < levels; level++) {
+            bytes += levelBytes(PLAIN, wide, high, layers, level);
         }
-        pixels.flip();
-        Decoded whole = new Decoded(pixels, memory, wide, high, 255f * 1000f * solid / light);
-        if (!small || wide % 2 != 0 || high % 2 != 0) {
-            return whole;
+        OffHeap.Block plain = OffHeap.take(HEAD + bytes);
+        ByteBuffer to = plain.bytes.order(ByteOrder.LITTLE_ENDIAN);
+        to.put(0, from, 0, HEAD).putInt(FORMAT, PLAIN);
+        int read = HEAD, written = HEAD;
+        for (int level = 0; level < levels; level++) {
+            int across = Math.max(1, wide >> level), down = Math.max(1, high >> level);
+            for (int layer = 0; layer < layers; layer++) {
+                Bc7.unpack(from, read, across, down, to, written);
+                read += levelBytes(BC7, wide, high, 1, level);
+                written += levelBytes(PLAIN, wide, high, 1, level);
+            }
         }
-        OffHeap.Block half = halved(pixels, wide, high);
-        memory.free();
-        return new Decoded(half.bytes, half, wide / 2, high / 2, whole.gain);
+        return plain;
     }
 
     /**
-     * A model's picture, kept in the jar as its four bytes a dot gzipped, side dots square,
-     * unpacked into memory outside the heap that whoever takes it frees. Straight into that
-     * memory: unpacked into an array first, sixteen megabytes of heap went with each.
+     * The texture of a picture as packed left it, every level of it: of the target given,
+     * which repeats or not and is read along a slant with so many samples. Thrown when the
+     * graphics card refuses it, which Pipeline is told of. The caller frees the file.
      */
-    static OffHeap.Block unpacked(String path, int side) throws IOException {
-        int bytes = side * side * 4;
-        OffHeap.Block memory = OffHeap.take(bytes);
-        try (InputStream packed = Pictures.class.getResourceAsStream(path)) {
-            if (packed == null) {
-                throw new IOException("the jar has no " + path);
-            }
-            InputStream plain = new GZIPInputStream(packed, 1 << 16);
-            byte[] some = new byte[1 << 16];
-            int at = 0;
-            for (int read = plain.read(some); read >= 0; read = plain.read(some)) {
-                if (at + read > bytes) {
-                    throw new IOException(path + " holds more than the " + bytes + " bytes of a picture " + side + " square");
+    static int texture(OffHeap.Block file, int target, boolean repeats, int anisotropy, String path) throws IOException {
+        ByteBuffer bytes = file.bytes;
+        int format = bytes.getInt(FORMAT), wide = bytes.getInt(WIDE), high = bytes.getInt(HIGH), layers = bytes.getInt(LAYERS), levels = bytes.getInt(LEVELS);
+        boolean screen = bytes.getInt(SCREEN) != 0;
+        int kept = format == BC7 ? screen ? GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM : GL_COMPRESSED_RGBA_BPTC_UNORM : screen ? GL_SRGB8_ALPHA8 : GL_RGBA8;
+        int texture = GL11.glGenTextures();
+        GL11.glBindTexture(target, texture);
+        int at = HEAD;
+        for (int level = 0; level < levels; level++) {
+            int across = Math.max(1, wide >> level), down = Math.max(1, high >> level);
+            int size = levelBytes(format, wide, high, layers, level);
+            ByteBuffer texels = bytes.slice(at, size);
+            if (target == GL_TEXTURE_2D_ARRAY) {
+                if (format == BC7) {
+                    GL13.glCompressedTexImage3D(target, level, kept, across, down, layers, 0, texels);
+                } else {
+                    GL12.glTexImage3D(target, level, kept, across, down, layers, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
                 }
-                memory.bytes.put(at, some, 0, read);
-                at += read;
+            } else if (format == BC7) {
+                GL13.glCompressedTexImage2D(target, level, kept, across, down, 0, texels);
+            } else {
+                GL11.glTexImage2D(target, level, kept, across, down, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
             }
-            if (at != bytes) {
-                throw new IOException(path + " holds " + at + " bytes, not a picture " + side + " square");
-            }
-            return memory;
-        } catch (IOException | RuntimeException failed) {
-            memory.free();
-            throw failed;
+            at += size;
         }
+        // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
+        // a graphics card with no room for the picture says so now.
+        int error = GL11.glGetError();
+        Pipeline.noted(error);
+        if (error != 0) {
+            GL11.glDeleteTextures(texture);
+            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of " + path);
+        }
+        GL11.glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        GL11.glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        GL11.glTexParameteri(target, GL_TEXTURE_WRAP_S, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(target, GL_TEXTURE_WRAP_T, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY, anisotropy);
+        // A driver without the means refuses the setting, which leaves the texture as it was: that is all it costs.
+        GL11.glGetError();
+        return texture;
     }
 
     /** A picture of four bytes a dot at half its width and height, each dot the mean of the four it stands for. */
@@ -271,31 +314,9 @@ final class Pictures {
         return half;
     }
 
-    /** Gives the texture bound to target its smaller copies and says how it is read. */
-    private static void finish(int target, int texture, boolean repeats, String path) throws IOException {
-        GL30.glGenerateMipmap(target);
-        // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
-        // a graphics card with no room for the picture says so now.
-        int error = GL11.glGetError();
-        Pipeline.noted(error);
-        if (error != 0) {
-            GL11.glDeleteTextures(texture);
-            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of " + path);
-        }
-        GL11.glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        GL11.glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(target, GL_TEXTURE_WRAP_S, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(target, GL_TEXTURE_WRAP_T, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-        sharpenAtSlant(target);
-    }
-
     /** Has the texture bound now read along the slant it is seen at, where the driver can. */
     static void sharpenAtSlant() {
-        sharpenAtSlant(GL_TEXTURE_2D);
-    }
-
-    private static void sharpenAtSlant(int target) {
-        GL11.glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY, ANISOTROPY);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, ANISOTROPY);
         // A driver without the means refuses the setting, which leaves the texture as it was: that is all it costs.
         GL11.glGetError();
     }

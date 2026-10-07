@@ -9,3 +9,5 @@
 *.dll binary
 # The config owner creates this file byte for byte, CRLF included.
 config/CameraUnlock.ini -text
+*.bc binary
+*.bin binary

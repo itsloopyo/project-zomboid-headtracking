@@ -1,4 +1,5 @@
-"""Puts generated pictures (tools/materials/generate.py) into the mod's jar resources.
+"""Puts generated pictures (tools/materials/generate.py) into src/textures/materials, which
+tools/textures/compress.py packs for the mod's jar.
 
     python tools/materials/pack.py sprigs DIR linden=sprig-broadleaf-7 maple=... (one for each of SPRIGS)
     python tools/materials/pack.py surface DIR bark=bark-1993 grass=grass-7 ...
@@ -16,7 +17,7 @@ import numpy
 from PIL import Image
 from scipy import ndimage
 
-OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'materials'
+OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'textures' / 'materials'
 SPRIGS = ['linden', 'maple', 'birch', 'pine', 'hemlock', 'holly', 'shrub', 'fern']
 TILE = 1024
 # What every sprig's leaves are on average once packed. The world shader divides by it, so a sprig gives a crown its leaves' light and dark and not its own green.

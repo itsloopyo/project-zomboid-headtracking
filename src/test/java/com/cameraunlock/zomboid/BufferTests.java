@@ -25,7 +25,6 @@ final class BufferTests {
         everyChunkThatCanBeDrawnIsKept();
         aPictureHalvedIsTheMeanOfItsDotsInFours();
         memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen();
-        aModelsPictureIsUnpackedToItsSizeOrRefused();
         chunksAreWalkedNearestFirstAndEachOnce();
         onlyChunksUnderOrBesideABoxTouchIt();
         noChunkOnTheScreenIsLeftOut();
@@ -179,30 +178,6 @@ final class BufferTests {
             check(!freed(made[2]), "work that was taken is the taker's to free, and forgetting its name afterwards frees nothing");
         } catch (InterruptedException | java.io.IOException e) {
             throw new IllegalStateException(e);
-        }
-    }
-
-    private static void aModelsPictureIsUnpackedToItsSizeOrRefused() {
-        try {
-            OffHeap.Block picture = Pictures.unpacked("/models/arms.surface.gz", 2048);
-            check(picture.bytes.capacity() == 2048 * 2048 * 4, "a model's picture unpacks to four bytes a dot");
-            picture.free();
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException(e);
-        }
-        for (int side : new int[] {1024, 4096}) {
-            try {
-                Pictures.unpacked("/models/arms.surface.gz", side).free();
-                check(false, "a picture that is not " + side + " square is refused");
-            } catch (java.io.IOException refused) {
-                check(refused.getMessage().contains("square"), "and the refusal says what size was expected: " + refused.getMessage());
-            }
-        }
-        try {
-            Pictures.unpacked("/models/no-such.gz", 2048).free();
-            check(false, "a picture the jar lacks is refused");
-        } catch (java.io.IOException refused) {
-            check(refused.getMessage().contains("the jar has no"), "and the refusal names it: " + refused.getMessage());
         }
     }
 

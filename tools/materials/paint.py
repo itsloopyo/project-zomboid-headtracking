@@ -31,7 +31,7 @@ def main():
     stipple = (stipple - stipple.mean()) / stipple.std()
     grey = numpy.clip(0.5 + CONTRAST * stipple, 0.0, 1.0)
     rgb = numpy.repeat((grey * 255.0 + 0.5).astype(numpy.uint8)[:, :, None], 3, axis=2)
-    out = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'materials' / 'paint.jpg'
+    out = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'textures' / 'materials' / 'paint.jpg'
     Image.fromarray(rgb, 'RGB').save(out, quality=94, subsampling=0)
     print('wrote', out, out.stat().st_size, 'bytes')
 

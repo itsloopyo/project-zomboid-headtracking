@@ -43,10 +43,12 @@ final class Flora {
     /** How much of a tile one repeat of the bark's or the ivy's picture covers, give or take what makes it fit round the bole. */
     private static final float BARK_SPAN = 0.45f, IVY_SPAN = 0.55f;
     /**
-     * The barks, in the order the jar's pictures of them are laid in one texture: see
-     * Pipeline.BARKS. The first is also the grain of a tree left as the game's sprite.
+     * The barks, in the order the pictures of them are laid one behind another in the jar's
+     * one texture of them, which tools/textures packs and a test holds to BARKS. The first is
+     * also the grain of a tree left as the game's sprite.
      */
     static final int BARK_OAK = 0, BARK_LINDEN = 1, BARK_MAPLE = 2, BARK_BIRCH = 3, BARK_PINE = 4, BARK_HEMLOCK = 5, BARK_HOLLY = 6, BARK_DOGWOOD = 7;
+    static final String[] BARKS = {"oak", "linden", "maple", "birch", "pine", "hemlock", "holly", "dogwood"};
     /**
      * A bole's texture coordinates carry more than where on the bark's picture a vertex is,
      * in whole steps above it that are the same all over one bole. Across: BARK_ACROSS for

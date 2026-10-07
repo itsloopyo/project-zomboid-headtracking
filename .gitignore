@@ -31,3 +31,6 @@ __pycache__/
 
 # Installer state
 .headtracking-state.json
+
+# The block-compression encoder tools/textures/compress.py fetches
+tools/textures/.encoder/

@@ -1,6 +1,6 @@
 """How far each point of a material's picture stands out of its surface, read off the picture.
 
-    python heights.py [name ...]        writes src/main/resources/materials/<name>.high.jpg
+    python heights.py [name ...]        writes src/textures/materials/<name>.high.jpg
 
 A photograph of gravel, of weathered boards or of a shingled roof is dark where the surface is
 sunk: between the stones, in a crack, under the edge of a shingle. That holds only for dark that
@@ -9,7 +9,8 @@ breadth of the picture is taken out first and only what is left counts. The pict
 all of it is done round its edges: the height repeats where the picture does.
 
 White is the top of the surface and black its deepest point. The world shader reads it as the
-fourth number of the material's texel (Pictures.load puts it there) and gives the surface depth.
+fourth number of the material's texel (tools/textures/compress.py puts it there when it packs
+the two for the jar) and gives the surface depth.
 """
 
 import pathlib
@@ -18,7 +19,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-MATERIALS = pathlib.Path(__file__).resolve().parents[2] / "src" / "main" / "resources" / "materials"
+MATERIALS = pathlib.Path(__file__).resolve().parents[2] / "src" / "textures" / "materials"
 
 # For each picture: how many texels wide a dark thing may be and still be a hollow (broad), how
 # many texels the result is smoothed over so the picture's grain is not read as pits (fine), and

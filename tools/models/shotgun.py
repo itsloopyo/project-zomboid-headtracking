@@ -6,9 +6,10 @@ Run headless with Blender 4.4, from the repository root:
 
 PICTURES is the folder tools/models/shotgun_textures.py wrote. The model is made here from
 nothing: a twelve bore field gun with a ventilated rib, a walnut stock and fore-end and a
-blued receiver, of no maker's pattern. It writes, under src/main/resources/models:
+blued receiver, of no maker's pattern. It writes shotgun.mesh.gz, the triangles, under
+src/main/resources/models, and under src/textures/models, for tools/textures/compress.py to
+pack for the jar:
 
-    shotgun.mesh.gz      the triangles
     shotgun.colour.gz    2048 x 2048 RGBA: the colour of the surface, and in alpha how much
                          of the light all round reaches it past the rest of the gun
     shotgun.surface.gz   2048 x 2048 RGBA: the x and y of the surface's normal in the
@@ -55,6 +56,7 @@ from mathutils import Matrix, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUTPUT = os.path.join(HERE, "..", "..", "src", "main", "resources", "models")
+PICTURES = os.path.join(HERE, "..", "..", "src", "textures", "models")
 TEXTURE = 2048
 
 # Laid out with the bore along y through x = 0, z = 0 and the trigger at y = 0. GRIP is
@@ -1018,7 +1020,7 @@ def pack(gun, colour, surface):
     if colour is not None:
         files += [("shotgun.colour.gz", colour.tobytes()), ("shotgun.surface.gz", surface.tobytes())]
     for name, data in files:
-        path = os.path.join(OUTPUT, name)
+        path = os.path.join(OUTPUT if name.endswith(".mesh.gz") else PICTURES, name)
         with gzip.open(path, "wb", compresslevel=9) as packed:
             packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))

@@ -31,18 +31,15 @@ final class OwnWeapon {
     /** The one item of the game's that the model stands for. */
     private static final String ITEM = "Base.Shotgun";
 
-    private static final String MESH = "/models/shotgun.mesh.gz", COLOUR = "/models/shotgun.colour.gz", SURFACE = "/models/shotgun.surface.gz";
+    private static final String MESH = "/models/shotgun.mesh.gz", COLOUR = "/models/shotgun.colour.bc", SURFACE = "/models/shotgun.surface.bc";
     private static final int MAGIC = 'C' | 'U' << 8 | 'W' << 16 | 'M' << 24;
     private static final int VERSION = 4;
     private static final int HEAD_BYTES = 4 + 4 + 12 * Float.BYTES + 6 * Integer.BYTES;
     /** A vertex in the file: its place, its normal, the tangent along the texture, which way the texture's other axis runs, its place in the texture. */
     private static final int VERTEX_BYTES = 3 * Float.BYTES + 3 * Short.BYTES + 3 * Short.BYTES + Short.BYTES + 2 * Short.BYTES;
-    private static final int TEXTURE_SIZE = 2048;
     private static final int PARTS = 5, FIXED = 0, SHELL = 3, STOCK = 4;
 
-    private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_SRGB8_ALPHA8 = 0x8C43, GL_UNSIGNED_BYTE = 0x1401;
-    private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
-    private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_CLAMP_TO_EDGE = 0x812F, GL_TEXTURE_MAX_ANISOTROPY = 0x84FE;
+    private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
     private static final int GL_FLOAT = 0x1406, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403, GL_UNSIGNED_INT = 0x1405, GL_TRIANGLES = 0x0004;
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_ATTACHMENT = 0x8D00, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
@@ -306,8 +303,8 @@ final class OwnWeapon {
             foreEnd = heldY / muzzle[1];
             pumpTravel = travel / muzzle[1];
             upload(mesh, vertices, indices);
-            colour = texture(COLOUR, GL_SRGB8_ALPHA8);
-            surface = texture(SURFACE, GL_RGBA8);
+            colour = texture(COLOUR);
+            surface = texture(SURFACE);
         } catch (IOException e) {
             return e.getMessage();
         }
@@ -344,7 +341,7 @@ final class OwnWeapon {
     static void readAhead() {
         Ahead.begin(MESH, () -> unpacked(MESH));
         for (String path : new String[] {COLOUR, SURFACE}) {
-            Ahead.begin(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
+            Ahead.begin(path, () -> Pictures.packed(path, false));
         }
     }
 
@@ -398,31 +395,14 @@ final class OwnWeapon {
         GL20.glVertexAttribPointer(at, size, type, normalized, VERTEX_BYTES, offset);
     }
 
-    private static int texture(String path, int kept) throws IOException {
-        OffHeap.Block pixels = Ahead.take(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
-        int texture = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, texture);
+    private static int texture(String path) throws IOException {
+        OffHeap.Block file = Ahead.take(path, () -> Pictures.packed(path, false));
         try {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, kept, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.bytes);
+            // The barrel is seen along its length, so it is read with 16 samples along the slant.
+            return Pictures.texture(file, GL_TEXTURE_2D, false, 16, path);
         } finally {
-            pixels.free();
+            file.free();
         }
-        GL30.glGenerateMipmap(GL_TEXTURE_2D);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        int error = GL11.glGetError();
-        Pipeline.noted(error);
-        if (error != 0) {
-            GL11.glDeleteTextures(texture);
-            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the shotgun's model");
-        }
-        // The barrel is seen along its length. A driver without the means refuses the setting, and that
-        // refusal is dropped: whatever went wrong before it has been asked for above.
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 16);
-        GL11.glGetError();
-        return texture;
     }
 
     /**

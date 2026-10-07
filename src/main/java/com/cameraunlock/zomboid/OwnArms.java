@@ -9,7 +9,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
-import org.lwjgl.opengl.GL30;
 
 /**
  * The mod's own arms on what the viewer holds, drawn in place of the game's, which are made
@@ -25,11 +24,8 @@ import org.lwjgl.opengl.GL30;
 final class OwnArms {
     private OwnArms() {}
 
-    private static final String MESH = "/models/arms.mesh.gz", COLOUR = "/models/arms.colour.gz", SURFACE = "/models/arms.surface.gz";
-    private static final int TEXTURE_SIZE = 2048;
-    private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_TEXTURE0 = 0x84C0;
-    private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
-    private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_CLAMP_TO_EDGE = 0x812F, GL_TEXTURE_MAX_ANISOTROPY = 0x84FE;
+    private static final String MESH = "/models/arms.mesh.gz", COLOUR = "/models/arms.colour.bc", SURFACE = "/models/arms.surface.bc";
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
     /** The units the mod's own weapons keep their pictures on, each bound afresh by whoever draws. */
     private static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
@@ -501,18 +497,18 @@ final class OwnArms {
         GL11.glDrawElements(GL_TRIANGLES, model.partCount[which], GL_UNSIGNED_INT, (long) model.partFirst[which] * Integer.BYTES);
     }
 
-    /** Begins unpacking the arms' pictures on other threads, for {@link #prepare} to find them unpacked. */
+    /** Begins reading the arms' pictures on other threads, for {@link #prepare} to find them read. */
     static void readAhead() {
         // The row as the file has it: Own.arms() is false until the content this is a piece of is made.
         ahead = (Own.rows() & Own.ARMS) != 0;
         for (String path : ahead ? new String[] {COLOUR, SURFACE} : new String[0]) {
-            Ahead.begin(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
+            Ahead.begin(path, () -> Pictures.packed(path, false));
         }
     }
 
     private static boolean ahead;
 
-    /** Whether everything {@link #readAhead} began is unpacked. */
+    /** Whether everything {@link #readAhead} began is read. */
     static boolean isRead() {
         return !ahead || Ahead.done(COLOUR) && Ahead.done(SURFACE);
     }
@@ -530,30 +526,15 @@ final class OwnArms {
     }
 
     private static int texture(String path) throws IOException {
-        OffHeap.Block pixels = Ahead.take(path, () -> Pictures.unpacked(path, TEXTURE_SIZE));
-        int made = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, made);
+        OffHeap.Block file = Ahead.take(path, () -> Pictures.packed(path, false));
         try {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TEXTURE_SIZE, TEXTURE_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.bytes);
+            // A forearm is seen along its length, so it is read with 8 samples along the slant.
+            int made = Pictures.texture(file, GL_TEXTURE_2D, false, 8, path);
+            GL11.glBindTexture(GL_TEXTURE_2D, 0);
+            return made;
         } finally {
-            pixels.free();
+            file.free();
         }
-        GL30.glGenerateMipmap(GL_TEXTURE_2D);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        int error = GL11.glGetError();
-        if (error != 0) {
-            GL11.glDeleteTextures(made);
-            throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the arms' model");
-        }
-        // A forearm is seen along its length. A driver without the means refuses the setting, and that
-        // refusal is dropped: whatever went wrong before it has been asked for above.
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8);
-        GL11.glGetError();
-        GL11.glBindTexture(GL_TEXTURE_2D, 0);
-        return made;
     }
 
     /**

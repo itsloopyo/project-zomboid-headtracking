@@ -203,21 +203,12 @@ final class Pipeline {
     private static final int WOOD = 6, CARPET = 9;
     /** Bark is several pictures in one texture, one behind another in the order Flora counts them. */
     private static final int BARK = 7;
-    private static final String[] BARKS = {"bark-oak", "bark-linden", "bark-maple", "bark-birch", "bark-pine", "bark-hemlock", "bark-holly", "bark-dogwood"};
-    /** The one material that is a cut-out, read from a .png: the last of its four bytes a pixel is how solid it is. */
-    private static final int FIRST_CUTOUT = 10;
     private static final int FIRST_MATERIAL_UNIT = 3;
-    /**
-     * The materials whose surface has depth: each has a second picture, of how far every point
-     * of it stands out, made from the first by tools/materials/heights.py. See Pictures.load.
-     */
-    private static final Set<String> RAISED = Set.of("asphalt", "gravel", "soil", "shingles", "wood", "planks");
     private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
     private static final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
     private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
-    private static final int FIRST_NATURE_CUTOUT = 2;
     private static final int FIRST_NATURE_UNIT = 24;
     private static final int[] natureTexture = new int[NATURE.length];
     private static final float[] natureGain = ones(NATURE.length);
@@ -562,6 +553,7 @@ final class Pipeline {
             // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
             if (!coreBegun) {
                 coreBegun = true;
+                Pictures.askCard();
                 picturesSmall = small();
                 Pictures.small = picturesSmall;
             }
@@ -2741,8 +2733,8 @@ final class Pipeline {
     private static final List<Piece> CORE = corePieces();
     /**
      * The pictures of the mod's own surfaces and plants and its weapon models, which only a
-     * graphics mode that shows the mod's own draws from: 400 MB and more on the graphics
-     * card, and as much again in this process, that the Low mode never reads.
+     * graphics mode that shows the mod's own draws from: about 135 MB on the graphics card at
+     * full size, that the Low mode never reads.
      */
     private static final List<Piece> CONTENT = contentPieces();
 
@@ -2774,17 +2766,9 @@ final class Pipeline {
     }
 
     private static Piece materialPiece(int material) {
-        if (material == BARK) {
-            String[] barks = new String[BARKS.length];
-            for (int bark = 0; bark < BARKS.length; bark++) {
-                barks[bark] = "/materials/" + BARKS[bark] + ".jpg";
-            }
-            return Piece.ofPictures(() -> loadBarks(barks), barks);
-        }
-        String picture = "/materials/" + MATERIALS[material] + (material == FIRST_CUTOUT ? ".png" : ".jpg");
-        String heights = RAISED.contains(MATERIALS[material]) ? "/materials/" + MATERIALS[material] + ".high.jpg" : null;
-        return heights != null ? Piece.ofPictures(() -> loadPicture(picture, heights, materialTexture, materialGain, material), picture, heights)
-                : Piece.ofPictures(() -> loadPicture(picture, null, materialTexture, materialGain, material), picture);
+        String picture = "/materials/" + MATERIALS[material] + ".bc";
+        return material == BARK ? Piece.ofPictures(() -> loadBarks(picture), picture)
+                : Piece.ofPictures(() -> loadPicture(picture, materialTexture, materialGain, material), picture);
     }
 
     private static List<Piece> contentPieces() {
@@ -2796,8 +2780,8 @@ final class Pipeline {
         }
         for (int each = 0; each < NATURE.length; each++) {
             int nature = each;
-            String picture = "/materials/" + NATURE[nature] + (nature >= FIRST_NATURE_CUTOUT ? ".png" : ".jpg");
-            pieces.add(Piece.ofPictures(() -> loadPicture(picture, null, natureTexture, natureGain, nature), picture));
+            String picture = "/materials/" + NATURE[nature] + ".bc";
+            pieces.add(Piece.ofPictures(() -> loadPicture(picture, natureTexture, natureGain, nature), picture));
         }
         pieces.add(Piece.ofPictures(() -> {
             try {
@@ -2818,7 +2802,7 @@ final class Pipeline {
         return pieces;
     }
 
-    private static final String SPRIGS = "/materials/sprigs.png", SPRIG_FORM = "/materials/sprigs-form.png";
+    private static final String SPRIGS = "/materials/sprigs.bc", SPRIG_FORM = "/materials/sprigs-form.bc";
     private static boolean coreBegun;
     private static volatile boolean contentBegun;
     /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
@@ -2913,6 +2897,7 @@ final class Pipeline {
         }
         if (!coreBegun) {
             coreBegun = true;
+            Pictures.askCard();
             picturesSmall = small();
             Pictures.small = picturesSmall;
             // From the next to be made: after LET_GO that is the first of the surfaces, and the pieces before it are made.
@@ -3534,11 +3519,11 @@ final class Pipeline {
      * Reads a material's picture out of the jar and gives it to the graphics card, noting its
      * texture and its gain at index. Null, or what went wrong.
      */
-    private static String loadPicture(String picture, String heights, int[] textures, float[] gains, int index) {
+    private static String loadPicture(String picture, int[] textures, float[] gains, int index) {
         try {
             // Made again at another size, the picture takes the place of the one before it, which is given back.
             int old = textures[index];
-            textures[index] = Pictures.load(picture, heights, true);
+            textures[index] = Pictures.load(picture, true);
             GL11.glDeleteTextures(old);
         } catch (IOException e) {
             return e.getMessage();
@@ -3547,10 +3532,10 @@ final class Pipeline {
         return null;
     }
 
-    private static String loadBarks(String[] paths) {
+    private static String loadBarks(String path) {
         try {
             int old = materialTexture[BARK];
-            materialTexture[BARK] = Pictures.loadLayers(paths);
+            materialTexture[BARK] = Pictures.loadLayers(path);
             GL11.glDeleteTextures(old);
         } catch (IOException e) {
             return e.getMessage();

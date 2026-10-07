@@ -8,9 +8,9 @@ PICTURES is the folder tools/models/shotgun_textures.py wrote: the rifle's stock
 walnut. The model is made here from nothing: a sporting rifle with a round receiver, a
 tapered barrel, open sights, a one piece walnut stock with a dark fore-end tip, and a bolt
 whose handle lies down the right side, of no maker's pattern. It writes, under
-src/main/resources/models, rifle.mesh.gz, rifle.colour.gz and rifle.surface.gz, laid out
-exactly as shotgun.py lays out the shotgun's, which see. Of the five parts that layout
-names, the rifle has three: what is fixed, the bolt, and a fired case for the mod to throw
+src/main/resources/models, rifle.mesh.gz, and under src/textures/models rifle.colour.gz
+and rifle.surface.gz, laid out exactly as shotgun.py lays out the shotgun's, which see. Of the
+five parts that layout names, the rifle has three: what is fixed, the bolt, and a fired case for the mod to throw
 out of the port. The bolt is turned up about the bore before it is drawn back, which the
 mod does: here it is closed.
 
@@ -430,7 +430,7 @@ def pack(gun, colour, surface):
     if colour is not None:
         files += [("rifle.colour.gz", colour.tobytes()), ("rifle.surface.gz", surface.tobytes())]
     for name, data in files:
-        path = os.path.join(G.OUTPUT, name)
+        path = os.path.join(G.OUTPUT if name.endswith(".mesh.gz") else G.PICTURES, name)
         with gzip.open(path, "wb", compresslevel=9) as packed:
             packed.write(data)
         print("wrote %s, %d bytes" % (os.path.normpath(path), os.path.getsize(path)))
