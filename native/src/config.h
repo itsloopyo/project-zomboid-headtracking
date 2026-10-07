@@ -42,6 +42,7 @@ struct Config : cameraunlock::HeadTrackingConfig {
     bool own_buildings = true;
     bool own_zombies = true;
     bool own_people = true;
+    bool own_arms = true;
 
     Config() {
         // Map tiles. It has to exceed the distance from the eye to the corners of the first

@@ -43,9 +43,28 @@ public final class ViewModel {
      * @param bobY      and upwards
      * @param recoil    1 on the frame of a shot, falling to nought
      * @param dip       1 just after landing or crouching, falling to nought
+     * @param skin      which of the game's skins the holder's body wears, 0 the palest
+     * @param female    whether the holder is a woman
+     * @param action    how the weapon's action is worked and how it is loaded: one of ArmActs' kinds
+     * @param cycled    how long ago the shot was that the action is being worked after, in seconds, or less than nought
+     * @param doing     what the holder is doing to the weapon besides holding it: one of ArmActs' doings
+     * @param done      how long the holder has been doing that, in seconds
+     * @param rounds    how many rounds the weapon holds now
+     * @param round     how far through loading one round the hand is, 0 to 1
+     * @param handled   0 held ready, 1 brought up before the eye and tipped over to be loaded
+     * @param pace      how long the game is taken to be over what the holder is doing, in seconds
+     * @param seated    how long ago the game finished loading a magazine, in seconds, or less than nought
+     * @param drawn     1 as a weapon is taken in hand, falling to nought as it comes up into the picture
+     * @param worked    1 while the right hand works a bolt or a lever, nought otherwise, eased between
+     * @param clip      whether the weapon has a magazine in it
+     * @param out       how long ago the magazine left the weapon while it is being loaded or unloaded, in seconds, or less than nought if none has
+     * @param fetching  how long a magazine has been on its way to the weapon, in seconds, or less than nought
+     * @param fetchTakes how long the game is taken to be over that, in seconds
      */
     record Held(String item, boolean firearm, boolean bothHands, float swing, float aim, float nearness, float lowered,
-            float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float dip) {}
+            float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float dip, int skin, boolean female,
+            int action, float cycled, int doing, float done, int rounds, float round, float handled, float pace, float seated, float drawn, float worked,
+            boolean clip, float out, float fetching, float fetchTakes) {}
 
     /** What is held, or null with no weapon in hand. */
     static volatile Held held;
@@ -91,6 +110,7 @@ public final class ViewModel {
     private static float lastYaw, lastPitch, lastX, lastY;
     private static final float[] bob = new float[2];
     private static boolean gapSaid;
+    private static int wearAsked;
 
     /**
      * A pump action is worked after every shot: the hand on the fore-end draws it back and
@@ -100,7 +120,34 @@ public final class ViewModel {
     private static final float PUMP_AFTER = 0.16f, PUMP_BACK = 0.14f, PUMP_FORWARD = 0.16f;
     private static final float NOT_PUMPING = -1f;
     private static boolean racked;
-    private static float sinceShot = NOT_PUMPING;
+    private static float sinceShot = NOT_PUMPING, cycled = NOT_PUMPING, done;
+    private static int doing, roundsBefore;
+    private static float round, handled, seated = ArmActs.NOT_SEATING, sinceRound, roundTakes = ArmActs.ROUND_TAKES;
+    private static int actionBefore, roundsIn;
+    private static boolean clipBefore;
+    private static float out = ArmActs.NOT_SEATING, fetching = ArmActs.NOT_SEATING;
+    /** For each kind of action, how long the game last took to bring a magazine to the weapon. */
+    private static final float[] fetchTakes = new float[9];
+    static {
+        java.util.Arrays.fill(fetchTakes, ArmActs.FETCH_TAKES);
+    }
+    /** For each kind of action and each thing done to a weapon, how long the game last took over it. */
+    private static final float[][] took = new float[9][];
+    static {
+        for (int kind = 0; kind < took.length; kind++) {
+            took[kind] = ArmActs.TAKES.clone();
+        }
+    }
+    private static final float HANDLE_SECONDS = 0.09f;
+    /** A weapon is up, to within a twentieth, in three of these. */
+    private static final float DRAW_SECONDS = 0.07f;
+    private static float drawn, worked;
+    private static final float WORK_SECONDS = 0.07f;
+    private static InventoryItem inHand;
+
+    private static boolean isSet(IsoPlayer player, String variable) {
+        return "true".equalsIgnoreCase(player.GetVariable(variable));
+    }
     /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
     static volatile float pumped;
 
@@ -118,6 +165,7 @@ public final class ViewModel {
             MuzzleFlash.fire();
             if (racked) {
                 sinceShot = 0f;
+                cycled = 0f;
             }
         }
     }
@@ -138,6 +186,10 @@ public final class ViewModel {
             return;
         }
         Scope.fitted(weapon);
+        // What is worn changes seldom, and asking makes a list for every garment.
+        if ((wearAsked++ & 31) == 0) {
+            Cabins.noteWear(player);
+        }
         if (!gapSaid) {
             gapSaid = true;
             String gap = Agent.shotGap();
@@ -147,6 +199,12 @@ public final class ViewModel {
         }
         float x = player.getX(), y = player.getY();
         boolean sneaking = player.isSneaking(), falling = player.isFalling();
+        // A weapon just taken in hand comes up from under the picture.
+        if (item != inHand) {
+            inHand = item;
+            drawn = 1f;
+        }
+        drawn = ViewModelMath.ease(drawn, 0f, seconds, DRAW_SECONDS);
         if (!placed) {
             placed = true;
             lastYaw = yaw;
@@ -207,14 +265,99 @@ public final class ViewModel {
             }
         }
         pumped = sinceShot == NOT_PUMPING ? 0f : pumpAt(sinceShot);
+        int action = firearm ? ArmActs.kind(String.valueOf(weapon.getWeaponReloadType())) : ArmActs.NO_ACTION;
+        if (cycled >= 0f) {
+            cycled += seconds;
+            if (cycled > ArmActs.CYCLE_LASTS) {
+                cycled = NOT_PUMPING;
+            }
+        }
+        boolean magazineFed = action == ArmActs.HANDGUN || action == ArmActs.BOLT;
+        boolean clip = weapon.isContainsClip();
+        // What the game's own animation of the holder is doing to the weapon, as it tells its animations.
+        int now = isSet(player, "isRacking") ? ArmActs.RACKING : isSet(player, "isLoading") ? ArmActs.LOADING : isSet(player, "isUnloading") ? ArmActs.UNLOADING : ArmActs.HOLDING;
+        if (now != doing) {
+            // How long the game took over what has just ended is how long it is taken to take next time.
+            if (doing != ArmActs.HOLDING && done > ArmActs.SHORTEST && done < ArmActs.LONGEST) {
+                took[actionBefore][doing] = done;
+            }
+            // Loading over with a magazine in the weapon: it is pushed home. How long the game took to bring it is how long it is taken to take next time.
+            seated = doing == ArmActs.LOADING && magazineFed && clip ? 0f : ArmActs.NOT_SEATING;
+            if (seated == 0f && fetching > ArmActs.SHORTEST && fetching < ArmActs.LONGEST) {
+                fetchTakes[actionBefore] = fetching;
+            }
+            doing = now;
+            done = 0f;
+            // Racked by hand, the action is worked as it is after a shot.
+            if (now == ArmActs.RACKING && cycled < 0f) {
+                cycled = 0f;
+                if (racked) {
+                    sinceShot = 0f;
+                }
+            }
+        } else {
+            done += seconds;
+        }
+        actionBefore = action;
+        if (magazineFed && (doing == ArmActs.LOADING || doing == ArmActs.UNLOADING)) {
+            out = clipBefore && !clip ? 0f : out < 0f ? out : out + seconds;
+            if (!clip && doing == ArmActs.LOADING) {
+                fetching = fetching < 0f ? 0f : fetching + seconds;
+            }
+        } else {
+            out = ArmActs.NOT_SEATING;
+            fetching = ArmActs.NOT_SEATING;
+        }
+        clipBefore = clip;
+        if (seated >= 0f) {
+            seated += seconds;
+            if (seated > ArmActs.SEATED_FOR) {
+                seated = ArmActs.NOT_SEATING;
+            }
+        }
+        // A bolt or a lever is worked with the rifle off the eye: its hand passes where the eye was.
+        boolean working = cycled >= 0f && (action == ArmActs.BOLT || action == ArmActs.BOLT_SINGLE || action == ArmActs.LEVER);
+        worked = ViewModelMath.ease(worked, working ? 1f : 0f, seconds, WORK_SECONDS);
+        // Loaded, or a pistol racked, the weapon is brought up where both hands can be seen at it.
+        boolean brought = doing == ArmActs.LOADING || doing == ArmActs.UNLOADING || doing == ArmActs.RACKING && action == ArmActs.HANDGUN || seated >= 0f && seated < ArmActs.SEATED_UP_FOR;
+        handled = ViewModelMath.ease(handled, brought ? 1f : 0f, seconds, HANDLE_SECONDS);
+        int rounds = weapon.getCurrentAmmoCount();
+        // Rounds go in at the game's own pace, which the first two to go in show.
+        sinceRound += seconds;
+        if (doing != ArmActs.LOADING) {
+            sinceRound = 0f;
+            roundsIn = 0;
+        } else if (rounds > roundsBefore) {
+            if (roundsIn++ > 0 && sinceRound > ArmActs.SHORTEST && sinceRound < ArmActs.LONGEST) {
+                roundTakes = sinceRound;
+            }
+            sinceRound = 0f;
+        }
+        round = ArmActs.round(round, doing == ArmActs.LOADING, rounds > roundsBefore, seconds, roundTakes);
+        roundsBefore = rounds;
         held = new Held(item.getFullType(), firearm, item == player.getSecondaryHandItem(),
-                swingFor == NOT_SWINGING ? 0f : swingFor / SWING_SECONDS, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip);
+                swingFor == NOT_SWINGING ? 0f : swingFor / SWING_SECONDS, aim, nearness, lowered, swayYaw, swayPitch, bob[0], bob[1], recoil, dip,
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action]);
     }
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
     static void rest() {
         Scope.fitted(null);
+        wearAsked = 0;
         sinceShot = NOT_PUMPING;
+        cycled = NOT_PUMPING;
+        doing = ArmActs.HOLDING;
+        done = 0f;
+        round = 0f;
+        handled = 0f;
+        seated = ArmActs.NOT_SEATING;
+        out = ArmActs.NOT_SEATING;
+        fetching = ArmActs.NOT_SEATING;
+        clipBefore = false;
+        inHand = null;
+        drawn = 0f;
+        worked = 0f;
+        roundsBefore = Integer.MAX_VALUE;
         pumped = 0f;
         held = null;
         placed = false;
@@ -235,9 +378,9 @@ public final class ViewModel {
     /** For the trace. */
     static String describe() {
         Held now = held;
-        return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f swing %.2f, %s",
+        return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f swing %.2f, action %d cycled %.2f doing %d for %.2f of %.2f rounds %d round %.2f seated %.2f handled %.2f worked %.2f drawn %.2f clip %b out %.2f fetching %.2f of %.2f, %s",
                 now.item, now.firearm ? " (firearm)" : "", now.bothHands ? " in both hands" : "", now.aim, now.recoil, bobPhase, now.bobX, now.bobY,
-                now.lowered, now.swing, Characters.describeArms());
+                now.lowered, now.swing, now.action, now.cycled, now.doing, now.done, now.pace, now.rounds, now.round, now.seated, now.handled, now.worked, now.drawn, now.clip, now.out, now.fetching, now.fetchTakes, Characters.describeArms());
     }
 
     /** How far apart the hip crosshair's ticks stand: 0 standing still, more moving and just after a shot. */
@@ -293,6 +436,13 @@ public final class ViewModel {
         // The rifle's rear sight is on its barrel, further off than a lean reaches.
         return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Settings.current.positionLimitZ() : FORWARD_STOP;
     }
+    /**
+     * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right
+     * and up and the grip ahead, in tiles from the eye, then how far the muzzle is raised and
+     * swung to the right and the top tipped to the left, in radians.
+     */
+    static final float[] HANDLED_PISTOL = {0.06f, -0.06f, 0.34f, (float) Math.toRadians(24), (float) Math.toRadians(-14), (float) Math.toRadians(-34)};
+    static final float[] HANDLED_LONG = {0.10f, -0.04f, 0.30f, (float) Math.toRadians(24), (float) Math.toRadians(-16), (float) Math.toRadians(-42)};
     /** Between the hip and the sights the weapon goes by way of a dip and a reach forward, at the most this far off the straight line. */
     private static final float RAISE_DIPS = 0.025f, RAISE_REACHES = 0.03f;
     /**
@@ -300,11 +450,17 @@ public final class ViewModel {
      * forward and up, and a little across towards the middle.
      */
     private static final float SWUNG_X = 0.2f, SWUNG_Y = -0.22f, SWUNG_AHEAD = 0.38f;
+    /** In the mod's own hand what is swung stands steeper: a wrist holds a handle nearly square to its forearm. */
+    private static final float SWUNG_PITCH_IN_HAND = (float) Math.toRadians(60);
     private static final float SWUNG_PITCH = (float) Math.toRadians(35), SWUNG_YAW = (float) Math.toRadians(-12), SWUNG_ROLL = (float) Math.toRadians(-10);
     /** Lowered to run: the muzzle down and across the body. */
     private static final float LOWERED_PITCH = (float) Math.toRadians(-35), LOWERED_YAW = (float) Math.toRadians(-25), LOWERED_DOWN = 0.07f;
     private static final float KICK_PITCH = (float) Math.toRadians(5), KICK_PITCH_AIMED = (float) Math.toRadians(2.5), KICK_BACK = 0.045f, KICK_UP = 0.008f;
     private static final float DIP_DOWN = 0.04f;
+    /** How much of the way from the sights back to the hip a rifle comes while its bolt is worked. */
+    private static final float WORKED_LOWERS = 0.7f;
+    /** Where a weapon just taken in hand comes up from: this far under where it is held, in tiles, its muzzle this far down, in radians. */
+    private static final float DRAWN_DOWN = 0.3f, DRAWN_PITCH = (float) Math.toRadians(-38);
     /** With the sights up the step moves the weapon this much of what it does at the hip. */
     private static final float BOB_AIMED = 0.3f;
     /** Along a firearm's mesh the barrel is y and its top is z; what is swung is taken to be made the same way. */
@@ -325,12 +481,22 @@ public final class ViewModel {
     private static final float PUMP_TRAVEL = 0.12f;
     /** Where the left palm is held on the weapon last placed, in the view: only with a muzzle. */
     static final float[] foreEnd = new float[3];
-    /** The way the top of the weapon last placed faces in the view, of length one, and where its grip is: only with a muzzle. */
-    static final float[] over = new float[3], gripSeen = new float[3];
+    /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
+    static final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
     static final float[] muzzle = new float[3];
     static boolean hasMuzzle;
+    /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
+    static boolean handgun;
     private static String noMuzzleSaidOf;
+    /** A firearm whose muzzle is nearer its grip than this, in the game's units, is a handgun. */
+    private static final float HANDGUN_WITHIN = 0.25f;
+    /**
+     * How large a handgun is drawn in the mod's own hands against how the game makes it. The
+     * game's pistol has its muzzle 0.147 of its units from its grip and its pump gun 0.446,
+     * which on guns the size guns are is about 0.16 m and 0.9 m.
+     */
+    static final float HANDGUN_FITS = 0.6f;
 
     /**
      * The matrix that draws the viewer's model with the weapon held before the eye. The weapon
@@ -342,12 +508,13 @@ public final class ViewModel {
      * @param finalScale the scale the game draws the character's parts at
      * @param instance   the weapon's model
      * @param scale      the model's units to tiles
+     * @param trueHands  whether the hands on the weapon are the mod's own, which are the size hands are
      * @param fromAim    the matrix from the aim's axes to those of the view the frame is drawn
      *                   from: the weapon is held before the aim's eye, not the picture's
      * @param out        the matrix, from the model's axes to the view's
      * @return false while the game has no pose for the weapon
      */
-    static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, float[] fromAim, float[] out) {
+    static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] fromAim, float[] out) {
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;
@@ -358,6 +525,7 @@ public final class ViewModel {
             noMuzzleSaidOf = how.item;
             Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": it is held by its grip and its shots have no flash");
         }
+        handgun = hasMuzzle && Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) < HANDGUN_WITHIN;
         if (hasMuzzle) {
             Vector3f offset = barrel.getOffset(), rotate = barrel.getRotate();
             // The attachment is turned about x, then y, then z, and its own z is the barrel:
@@ -374,11 +542,22 @@ public final class ViewModel {
             turned(weapon, MESH_ALONG, forward);
         }
         turned(weapon, MESH_TOP, top);
+        // The bore is over the hand that holds it. The long guns' meshes have it on the side of their z and the
+        // handguns' on the other, where their sights are fixed too: held by z a pistol is upside down.
+        if (hasMuzzle && barrel.getOffset().z < 0f) {
+            for (int axis = 0; axis < 3; axis++) {
+                top[axis] = -top[axis];
+            }
+        }
 
         // The mod's own model has its sights where it was made with them: the eye is brought to
         // their line, which is that far over the bore at the size the model is drawn.
         boolean own = hasMuzzle && OwnWeapon.standsFor(how.item);
-        float aimedY = AIMED_Y, aimedAhead = AIMED_AHEAD;
+        // The game's handguns are made for its own broad hands, nearly twice the size a handgun
+        // is beside its long guns. In hands the size hands are they are drawn the size they would be.
+        float fits = trueHands && handgun ? HANDGUN_FITS : 1f;
+        scale *= fits;
+        float aimedY = AIMED_Y * fits, aimedAhead = AIMED_AHEAD;
         if (own) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
@@ -397,12 +576,14 @@ public final class ViewModel {
             aimedAhead = sighted[1];
         }
         float atX, atY, ahead;
-        float pitch = how.swayPitch + how.lowered * LOWERED_PITCH + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim);
+        float coming = trueHands ? how.drawn : 0f;
+        float pitch = how.swayPitch + how.lowered * LOWERED_PITCH + how.recoil * (KICK_PITCH + (KICK_PITCH_AIMED - KICK_PITCH) * how.aim) + coming * DRAWN_PITCH;
         float yaw = how.swayYaw + how.lowered * LOWERED_YAW;
         float roll;
         float moveX = 0f, moveY = 0f, moveBack = 0f;
         if (how.firearm) {
-            float raised = ViewModelMath.smooth(how.aim), off = ViewModelMath.arc(raised);
+            // With the sights up the rifle comes most of the way down while its bolt is worked, and back up after.
+            float raised = ViewModelMath.smooth(how.aim) * (1f - (trueHands ? how.worked * WORKED_LOWERS : 0f)), off = ViewModelMath.arc(raised);
             atX = HIP_X + (AIMED_X - HIP_X) * raised;
             atY = HIP_Y + (aimedY - HIP_Y) * raised - RAISE_DIPS * off;
             ahead = HIP_AHEAD + (aimedAhead - HIP_AHEAD) * raised + RAISE_REACHES * off;
@@ -412,6 +593,16 @@ public final class ViewModel {
             yaw -= (float) Math.atan((atX - AIMED_X) * how.nearness);
             pitch -= (float) Math.atan((atY - aimedY) * how.nearness);
             roll = HIP_CANT * (1f - raised);
+            // Brought up to be loaded: before the eye, its muzzle up and across and its top tipped
+            // over to the right, which turns the well and the port towards the hand that fills them.
+            float brought = trueHands ? ViewModelMath.smooth(how.handled) : 0f;
+            float[] to = handgun ? HANDLED_PISTOL : HANDLED_LONG;
+            atX += (to[0] - atX) * brought;
+            atY += (to[1] - atY) * brought;
+            ahead += (to[2] - ahead) * brought;
+            pitch += to[3] * brought;
+            yaw += to[4] * brought;
+            roll += (to[5] - roll) * brought;
             // Working the action drags the muzzle down and the whole gun back a little, and lets it go again.
             pitch -= pumped * PUMP_DIPS;
             moveBack = pumped * PUMP_PULLS;
@@ -420,7 +611,7 @@ public final class ViewModel {
             atY = SWUNG_Y;
             ahead = SWUNG_AHEAD;
             ViewModelMath.swing(how.swing, swung);
-            pitch += SWUNG_PITCH + swung[0];
+            pitch += (trueHands ? SWUNG_PITCH_IN_HAND : SWUNG_PITCH) + swung[0];
             yaw += SWUNG_YAW + swung[1];
             roll = SWUNG_ROLL + swung[2];
             moveX = swung[3];
@@ -439,25 +630,30 @@ public final class ViewModel {
             gripY = grip[1];
         }
         ViewModelMath.turn(out, pitch, yaw, roll, gripX, gripY, -ahead,
-                moveX + how.bobX * steady, moveY + how.bobY * steady + how.recoil * KICK_UP - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN,
+                moveX + how.bobX * steady, moveY + how.bobY * steady + how.recoil * KICK_UP - how.lowered * LOWERED_DOWN - how.dip * DIP_DOWN - coming * DRAWN_DOWN,
                 moveBack + how.recoil * KICK_BACK);
         ViewModelMath.onto(fromAim, out);
+        ViewModelMath.turned(out, top, over);
+        ViewModelMath.turned(out, forward, pointing);
+        float tall = (float) Math.sqrt(over[0] * over[0] + over[1] * over[1] + over[2] * over[2]);
+        float far = (float) Math.sqrt(pointing[0] * pointing[0] + pointing[1] * pointing[1] + pointing[2] * pointing[2]);
+        for (int axis = 0; axis < 3; axis++) {
+            over[axis] /= tall;
+            pointing[axis] /= far;
+        }
+        ViewModelMath.place(out, origin[0], origin[1], origin[2], gripSeen);
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
             // The mod's own model says where its fore-end is and how far it slides.
             float along = (own ? OwnWeapon.foreEnd : FORE_END) - (own ? OwnWeapon.pumpTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
-            ViewModelMath.turned(out, top, over);
-            float length = (float) Math.sqrt(over[0] * over[0] + over[1] * over[1] + over[2] * over[2]);
             for (int axis = 0; axis < 3; axis++) {
-                over[axis] /= length;
                 // The hand on the mod's own model is laid round the fore-end, by its middle.
                 if (!own) {
                     foreEnd[axis] -= over[axis] * FORE_END_BELOW;
                 }
             }
-            ViewModelMath.place(out, origin[0], origin[1], origin[2], gripSeen);
         }
         return true;
     }

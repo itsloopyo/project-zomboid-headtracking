@@ -2760,6 +2760,11 @@ final class Pipeline {
                 OwnRifle.readAhead();
             }
         }, () -> OwnRifle.made() || OwnRifle.isRead(), () -> OwnRifle.made() ? null : OwnRifle.prepare()));
+        pieces.add(new Piece(() -> {
+            if (!OwnArms.made()) {
+                OwnArms.readAhead();
+            }
+        }, () -> OwnArms.made() || OwnArms.isRead(), () -> OwnArms.made() ? null : OwnArms.prepare()));
         return pieces;
     }
 

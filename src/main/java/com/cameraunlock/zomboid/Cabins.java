@@ -220,6 +220,20 @@ final class Cabins {
      */
     record Wear(Garment sleeve, boolean toTheWrist, Garment glove) {}
 
+    /**
+     * The places of an arm the game keeps blood and dirt for, the right arm's and then the
+     * left's, each from the hand up. `stains` has two numbers for each, 0 to 1: how bloody
+     * what shows there is, and how dirty.
+     */
+    static final int STAINS = 12;
+
+    /** Apart, so that the game's names for them are asked for only once the game is there to give them. */
+    private static final class Places {
+        static final BloodBodyPartType[] OF_ARMS = {BloodBodyPartType.Hand_R, BloodBodyPartType.ForeArm_R, BloodBodyPartType.UpperArm_R,
+            BloodBodyPartType.Hand_L, BloodBodyPartType.ForeArm_L, BloodBodyPartType.UpperArm_L};
+    }
+    static volatile float[] stains = new float[STAINS];
+
     private static final Wear BARE = new Wear(null, false, null);
     /** Set on the logic thread, read by the picture. */
     static volatile Wear worn = BARE;
@@ -231,6 +245,13 @@ final class Cabins {
     static void noteWear(IsoPlayer player) {
         WornItems items = player.getWornItems();
         Garment upper = null, fore = null, glove = null;
+        // The blood and the dirt on what shows of each arm: on the skin, or on whatever is worn over it there.
+        float[] soil = new float[STAINS];
+        zombie.core.skinnedmodel.visual.HumanVisual body = player.getHumanVisual();
+        for (int place = 0; place < Places.OF_ARMS.length; place++) {
+            soil[place * 2] = body.getBlood(Places.OF_ARMS[place]);
+            soil[place * 2 + 1] = body.getDirt(Places.OF_ARMS[place]);
+        }
         for (int i = 0; i < items.size(); i++) {
             if (!(items.getItemByIndex(i) instanceof Clothing clothing)) {
                 continue;
@@ -243,12 +264,19 @@ final class Cabins {
                 continue;
             }
             ItemVisual visual = clothing.getVisual();
+            for (int place = 0; visual != null && place < Places.OF_ARMS.length; place++) {
+                if (covers.contains(Places.OF_ARMS[place])) {
+                    soil[place * 2] = visual.getBlood(Places.OF_ARMS[place]);
+                    soil[place * 2 + 1] = visual.getDirt(Places.OF_ARMS[place]);
+                }
+            }
             ImmutableColor dye = visual == null ? null : visual.getTint(visual.getClothingItem());
             Garment garment = dye == null ? new Garment(clothing.getTex(), 1f, 1f, 1f) : new Garment(clothing.getTex(), dye.r, dye.g, dye.b);
             glove = hand ? garment : glove;
             fore = lower ? garment : fore;
             upper = higher ? garment : upper;
         }
+        stains = soil;
         Wear now = new Wear(fore != null ? fore : upper, fore != null, glove);
         if (!now.equals(worn)) {
             worn = now;

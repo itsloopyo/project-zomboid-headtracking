@@ -13,8 +13,8 @@ package com.cameraunlock.zomboid;
  */
 final class Own {
     /** The bits of the rows that are on, as the mod's DLL hands them over (native/src/bridge.h holds the same numbers). */
-    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128;
-    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE;
+    static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256;
+    static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS;
 
     private static volatile int on = ALL;
     /** The rows the world was last built with, known to the logic thread alone. */
@@ -76,6 +76,10 @@ final class Own {
         return (on() & ZOMBIES) != 0;
     }
 
+    static boolean arms() {
+        return (on() & ARMS) != 0;
+    }
+
     static boolean people() {
         return (on() & PEOPLE) != 0;
     }
@@ -98,6 +102,6 @@ final class Own {
     static String described(int bits) {
         return "weapons " + ((bits & WEAPONS) != 0) + ", furniture " + ((bits & FURNITURE) != 0) + ", pictures " + ((bits & PICTURES) != 0)
                 + ", plants " + ((bits & PLANTS) != 0) + ", textures " + ((bits & TEXTURES) != 0) + ", buildings " + ((bits & BUILDINGS) != 0)
-                + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0);
+                + ", zombies " + ((bits & ZOMBIES) != 0) + ", people " + ((bits & PEOPLE) != 0) + ", arms " + ((bits & ARMS) != 0);
     }
 }

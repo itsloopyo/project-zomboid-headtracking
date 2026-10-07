@@ -1,0 +1,5 @@
+package zombie.scripting.objects;
+
+public enum WeaponReloadType {
+    NONE, BOLT_ACTION, BOLT_ACTION_NO_MAG, DOUBLE_BARREL_SHOTGUN, DOUBLE_BARREL_SHOTGUN_SAWN, HANDGUN, LEVER_ACTION, REVOLVER, SHOTGUN
+}

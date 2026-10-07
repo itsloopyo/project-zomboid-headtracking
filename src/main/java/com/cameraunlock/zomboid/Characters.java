@@ -366,9 +366,26 @@ public final class Characters {
         if (hands != null && CharacterDraw.cuts()) {
             ModelInstanceRenderData weapon = weaponOf(data);
             ViewCamera.between(aim, camera, fromAim);
+            boolean own = Own.arms() && OwnArms.model() != null;
             if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
-                    CHARACTER_SCALE, fromAim, heldView)) {
+                    CHARACTER_SCALE, own, fromAim, heldView)) {
                 holding = data;
+                armHands = hands;
+                ownArms = own && reachOwn(data, hands);
+                if (ownArms) {
+                    return;
+                }
+                if (own) {
+                    // The weapon was placed for the mod's hands, which are another size and hold it another way.
+                    if (!armsRefused) {
+                        armsRefused = true;
+                        Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
+                    }
+                    if (!ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, fromAim, heldView)) {
+                        holding = null;
+                        return;
+                    }
+                }
                 arms[0] = reach(data, 0);
                 // A bat or an axe is swung from the right hand here: the game's left
                 // hand is placed for its own swing, and is nowhere near the handle in ours.
@@ -657,6 +674,98 @@ public final class Characters {
         return true;
     }
 
+    /** For the trace: how far beside the weapon's middle the middle of the game's hand was, in tiles. */
+    private static float handAside;
+    /** Whether the arms on the weapon held up are the mod's own, and for each, right then left, where its bones are. */
+    private static boolean ownArms, armsRefused;
+    /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
+    private static ViewModel.Held armHands;
+    private static final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
+    /**
+     * The model's metres to tiles as the game draws a person of scale one: its pump gun's grip
+     * is 0.4461 of its units from its muzzle, which on the gun the mod made to the same
+     * measure is 0.9015 m, and a unit is CHARACTER_SCALE tiles.
+     */
+    private static final float ARM_SCALE = 0.4461f / 0.9015f * CHARACTER_SCALE;
+
+    /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
+    private static boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
+        heldBoth = hands.bothHands() && (ViewModel.hasMuzzle || !hands.firearm());
+        // The weapon is held where the game's own hand has it: by the middle of that hand, which the weapon's maker put its grip in.
+        float[] grip = ViewModel.gripSeen;
+        for (int part = 0; part < parts(data).size(); part++) {
+            if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
+                ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
+                // The middle of the game's hand is beside the weapon, not in it, and the mod's hand closes on the
+                // weapon's own middle: a firearm's is the plane its barrel and its top lie in, and a handle's is its length.
+                float[] off = {palm[0] - ViewModel.gripSeen[0], palm[1] - ViewModel.gripSeen[1], palm[2] - ViewModel.gripSeen[2]};
+                float[] ahead = ViewModel.pointing, side = new float[3];
+                ArmPose.cross(ahead, ViewModel.over, side);
+                if (hands.firearm() && ArmPose.unit(side[0], side[1], side[2], side)) {
+                    float aside = ArmPose.dot(off, side);
+                    for (int axis = 0; axis < 3; axis++) {
+                        palm[axis] -= side[axis] * aside;
+                    }
+                    handAside = aside;
+                } else if (!hands.firearm()) {
+                    float along = ArmPose.dot(off, ahead);
+                    for (int axis = 0; axis < 3; axis++) {
+                        palm[axis] = ViewModel.gripSeen[axis] + ahead[axis] * along;
+                    }
+                    handAside = ArmPose.apart(off, new float[] {ahead[0] * along, ahead[1] * along, ahead[2] * along});
+                }
+                grip = palm;
+                break;
+            }
+        }
+        ArmHolds.Parts parts = ViewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
+        float[] origin = grip;
+        if (ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
+            parts = new ArmHolds.Parts(parts.bore(), parts.knob(), parts.lift(), OwnRifle.boltTravel(), parts.port(), parts.well(), parts.slide(), parts.slideTravel());
+            origin = ViewModel.gripSeen;
+        } else if (ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
+            origin = ViewModel.gripSeen;
+        }
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), ViewModel.handgun, grip, origin, ViewModel.pointing, ViewModel.over, ViewModel.foreEnd, parts);
+        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes());
+        long now = System.nanoTime();
+        armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
+        armsAsOf = now;
+        int placed = ArmHolds.place(OwnArms.model(), ARM_SCALE * data.finalScale, weapon, doing, fromAim, armSkins, armSaid, armCarries, armSettled);
+        // The left hand comes to a weapon held in one hand to load it or rack it.
+        heldBoth = placed == 2;
+        return placed > 0;
+    }
+
+    private static final ArmHolds.Carried armCarries = new ArmHolds.Carried();
+    private static final ArmHolds.Settled armSettled = new ArmHolds.Settled();
+    private static long armsAsOf;
+    private static Cabins.Wear wearSeen;
+    private static OwnArms.Worn wornSeen = OwnArms.BARE;
+
+    /** What the mod's own arms wear, from what the game says the viewer has on: worked out again only when that changes. */
+    private static OwnArms.Worn wornOnArms() {
+        Cabins.Wear wear = Cabins.worn;
+        if (wear != wearSeen) {
+            wearSeen = wear;
+            Cabins.Garment sleeve = wear.sleeve(), glove = wear.glove();
+            float[] sleeveColour = new float[3], gloveColour = new float[3];
+            if (sleeve != null) {
+                Cabins.colour(sleeve, sleeveColour);
+            }
+            if (glove != null) {
+                Cabins.colour(glove, gloveColour);
+            }
+            wornSeen = new OwnArms.Worn(sleeve != null, wear.toTheWrist() ? OwnArms.CUFF_AT : OwnArms.SHORT_TO, madeOf(sleeve), sleeveColour,
+                    glove != null, madeOf(glove), gloveColour);
+        }
+        return wornSeen;
+    }
+
+    private static int madeOf(Cabins.Garment garment) {
+        return garment == null || garment.picture() == null ? CharacterDraw.WEAVE : Math.max(CharacterDraw.wearOf("", garment.picture().getName(), false), CharacterDraw.WEAVE);
+    }
+
     /** 1 or -1: which way round a hand's palm faces from its length and its thumb, as the right hand on the grip shows it. */
     private static float palmSide = 1f;
     private static final float[] along = new float[3], thumb = new float[3], facing = new float[3], held = new float[3];
@@ -760,6 +869,15 @@ public final class Characters {
     /** For the trace: how the wrists of the hands on the weapon are bent. */
     static String describeArms() {
         StringBuilder said = new StringBuilder();
+        if (ownArms) {
+            for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
+                float[] of = armSaid[side];
+                said.append(String.format(Locale.ROOT, "%s own arm: wrist bent %.0f, forearm turned %.0f, upper arm drawn %.2f, wrist (%.2f, %.2f, %.2f) elbow (%.2f, %.2f, %.2f)",
+                        side == 0 ? "right" : "; left", Math.toDegrees(of[ArmPose.BENT]), Math.toDegrees(of[ArmPose.TWISTED]), of[ArmPose.STRETCHED],
+                        of[ArmPose.WRIST], of[ArmPose.WRIST + 1], of[ArmPose.WRIST + 2], of[ArmPose.ELBOW], of[ArmPose.ELBOW + 1], of[ArmPose.ELBOW + 2]));
+            }
+            return said.append(String.format(Locale.ROOT, "; the game's hand was %.3f beside the weapon's middle", handAside)).toString();
+        }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             said.append(side == 0 ? "right" : "; left");
             if (arms[side]) {
@@ -872,6 +990,22 @@ public final class Characters {
             unshifted(model.modelInstance);
             GL11.glDepthMask(true);
             drawPart(model, data);
+        }
+        if (ownArms) {
+            IsoGridSquare square = data.character.getCurrentSquare();
+            boolean outside = square != null && square.isOutside();
+            OwnArms.Worn worn = wornOnArms();
+            float[] stains = Cabins.stains;
+            OwnArms.draw(projection, armSkins[0], false, armHands.female(), armHands.skin(), outside, worn, stains);
+            if (heldBoth) {
+                OwnArms.draw(projection, armSkins[1], true, armHands.female(), armHands.skin(), outside, worn, stains);
+                OwnArms.carried(projection, armCarries.what, armCarries.at, outside);
+            }
+            EYE.End();
+            data.ambientR = red;
+            data.ambientG = green;
+            data.ambientB = blue;
+            return;
         }
         CharacterDraw.begin(data, handViews[0], projection, false);
         for (int part = 0; part < parts(data).size(); part++) {

@@ -155,6 +155,28 @@ model's receiver is made to stand under.
 
 ---
 
+## Arm model
+
+- **Files:** `models/arms.mesh.gz`, `models/arms.colour.gz` and `models/arms.surface.gz` inside the mod's jar
+- **Version:** made by `tools/models/arms.py` in this repository, a Blender script, from the MakeHuman base mesh as the MPFB 2 add-on for Blender, version 2.0.17, carries it in its `data` folder: `3dobjs/base.obj`, the mesh; `rigs/standard/rig.default.json` and `weights.default.json`, its bones and how the mesh hangs on them; three of its macro targets, `caucasian-male-young`, `caucasian-female-young` and `universal-male-young-maxmuscle-averageweight`, which shape the mesh into a man's arm and a woman's; and `textures/mpfb_fingernails.jpg`, which says where on the mesh the nails are.
+- **License:** those files are assets of MPFB, which its makers give away under Creative Commons CC0 1.0 Universal: MPFB's `LICENSE.md` puts "the base mesh and proxies", "targets and modifiers", "textures", "rigs, poses and expressions" and "JSON data with mesh information" under CC0, and its source code under the GPL. None of MPFB's source code is used, run or bundled: `tools/models/arms.py` reads the data files itself. What that script makes of them is MIT, this project's own.
+- **Upstream:** https://github.com/makehumancommunity/mpfb2 and https://static.makehumancommunity.org/mpfb.html
+- **Usage:** The first person view draws these arms on a held weapon in place of the game's own arms.
+- **Bundled:** what the script makes, yes. MPFB and its data files are not.
+
+`tools/models/arms.py` cuts the right arm out of the base mesh from the shoulder
+down with the bones that move it, smooths it once, and bends its fingers into
+each way a hand holds something: round a grip, on a trigger, under a fore-end,
+round a handle, on a bolt's knob, over a slide, round a magazine. Those poses
+are numbers in the script, made for this mod. The sleeve and the glove are the
+arm's own surface stood off the skin. The skin's colour, its grain, the creases
+of its knuckles and its nails are worked out by the script and baked onto the
+arm: no picture of skin from MPFB, from Project Zomboid or from anywhere else is
+in them. No mesh or texture of Project Zomboid's is read. The left arm is the
+right one mirrored.
+
+---
+
 ## Furniture models
 
 - **Files:** `models/furniture.bin.gz` inside the mod's jar

@@ -259,8 +259,15 @@ final class OwnRifle {
      */
     private static final float LIFT = (float) Math.toRadians(55);
     private static final float UP = 0.13f, BACK = 0.17f, HELD_BACK = 0.05f, FORWARD = 0.17f, DOWN = 0.13f;
+    /** How long working the bolt takes from the handle's first turn to its last. */
+    static final float WORKED_FOR = UP + BACK + HELD_BACK + FORWARD + DOWN;
+
+    /** How far the bolt is drawn back, in the model's metres. */
+    static float boltTravel() {
+        return travel;
+    }
     private static final float NOT_WORKING = -1f;
-    private static float working = NOT_WORKING, pumpedBefore;
+    private static boolean caseThrown;
     private static long workedAsOf;
 
     /** Whether the model is on the graphics card. */
@@ -465,24 +472,23 @@ final class OwnRifle {
         long now = System.nanoTime();
         float seconds = Math.min((now - workedAsOf) / 1e9f, 0.05f);
         workedAsOf = now;
-        // The game racks the rifle a moment after the shot, which is when the hand goes to the bolt.
-        float pumped = ViewModel.pumped;
-        if (pumped > 0f && pumpedBefore <= 0f) {
-            working = 0f;
-        }
-        pumpedBefore = pumped;
-        float before = bolt[1];
-        if (working == NOT_WORKING) {
+        // The bolt is worked a moment after the shot, by the clock the hand that works it goes by:
+        // a clock of its own here ran slow whenever frames were long, and the hand left an open bolt.
+        ViewModel.Held held = ViewModel.held;
+        float working = held == null || held.cycled() < 0f ? NOT_WORKING : held.cycled() - ArmActs.BOLT_AFTER;
+        if (working < 0f || working > WORKED_FOR) {
             bolt[0] = 0f;
             bolt[1] = 0f;
         } else {
-            working += seconds;
             worked(working, bolt);
-            if (working > UP + BACK + HELD_BACK + FORWARD + DOWN) {
-                working = NOT_WORKING;
-            }
         }
-        throwCases(camera, seconds, bolt[1] >= THROWN_AT && before < THROWN_AT);
+        if (working < 0f) {
+            caseThrown = false;
+        }
+        // Once each time it is worked, as the bolt comes right back, however few frames show it there.
+        boolean throwing = !caseThrown && working >= 0f && (bolt[1] >= THROWN_AT || working > UP + BACK);
+        caseThrown |= throwing;
+        throwCases(camera, seconds, throwing);
 
         float metre = (float) Math.sqrt(model[4] * model[4] + model[5] * model[5] + model[6] * model[6]);
         ViewCamera.projection(tanHalfFieldOfView, aspect, Scope.NEAREST, far, projection);

@@ -98,6 +98,10 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
     table.Local("Content", "OwnPeople", &Config::own_people, cameraunlock::config::BoolCodec(),
                 "true: the mod's own skins for your character and the other living, in the game's\n"
                 "five skin tones, each with a lifelike face. false: the game's own painted skins.");
+    table.Local("Content", "OwnArms", &Config::own_arms, cameraunlock::config::BoolCodec(),
+                "true: arms and hands of the mod's own on a held weapon, with fingers that close on\n"
+                "it and go to its bolt, slide, magazine and loading port as it is worked and loaded,\n"
+                "in the skin, sleeves and gloves your character has. false: the game's own arms.");
     return table;
 }
 

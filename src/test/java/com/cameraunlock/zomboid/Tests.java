@@ -65,6 +65,7 @@ public final class Tests {
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
         ArmTests.run();
+        OwnArmTests.run();
         BufferTests.run();
         LinkTests.run();
         shotStopsOnACharacter();
