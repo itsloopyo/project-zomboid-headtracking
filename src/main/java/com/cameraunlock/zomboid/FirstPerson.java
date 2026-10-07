@@ -442,7 +442,7 @@ public final class FirstPerson {
             NameTags.lookAway();
         }
         // The game draws its own reticle while the aim is held, and nothing while it is not.
-        if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && !player.isAiming()) {
+        if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && (!player.isAiming() || Controls.turnedOnly())) {
             Crosshair.show(ndc[0], ndc[1], ViewModel.spread());
         } else {
             Crosshair.hide();
@@ -778,12 +778,12 @@ public final class FirstPerson {
 
     /** Called where the game's reticle and aim cursor read the screen column to draw at. */
     public static int reticleX(int stock) {
-        return landed ? Scope.hidesReticle() ? RETICLE_HIDDEN : reticleX : stock;
+        return landed ? Scope.hidesReticle() || Controls.turnedOnly() ? RETICLE_HIDDEN : reticleX : stock;
     }
 
     /** Called where the game's reticle and aim cursor read the screen row to draw at, counted from the top. */
     public static int reticleY(int stock) {
-        return landed ? Scope.hidesReticle() ? RETICLE_HIDDEN : reticleY : stock;
+        return landed ? Scope.hidesReticle() || Controls.turnedOnly() ? RETICLE_HIDDEN : reticleY : stock;
     }
 
     private static float eyeHeight(IsoPlayer player) {

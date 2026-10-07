@@ -73,7 +73,8 @@ public final class Controls {
         if (FirstPerson.TRACE && (filteredAim != wasFiltered || attackDown != wasAttack)) {
             Log.info("controls " + describe());
         }
-        return filteredAim || turnedToTheView(player);
+        turnedOnly = !filteredAim && turnedToTheView(player);
+        return filteredAim || turnedOnly;
     }
 
     /**
@@ -83,6 +84,17 @@ public final class Controls {
      */
     private static boolean turnedToTheView(IsoPlayer player) {
         return player != null && player.getVehicle() == null && FirstPerson.movingAside() && Online.bodyFacesTheView();
+    }
+
+    private static boolean turnedOnly;
+
+    /**
+     * Whether the game has the character aiming for no reason but to face it the way the view
+     * does: the player is neither aiming nor attacking. What the player is shown then is what
+     * they are shown at the hip, the mod's own mark and not the game's aiming cursor.
+     */
+    static boolean turnedOnly() {
+        return turnedOnly;
     }
 
     /**
