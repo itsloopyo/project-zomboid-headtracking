@@ -101,6 +101,29 @@ final class CallSite {
     }
 
     /**
+     * Inserts {@code code} before the first instruction of {@code within}, which has to be a
+     * method of an object and not a static one: what is inserted loads the object. A static
+     * method by that name would take the patch and then fail the JVM's check of the class.
+     */
+    static byte[] insertAtStartOfInstanceMethod(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
+        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
+                    && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
+                throw new IllegalStateException(within + " is static or has no body");
+            }
+        }
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                inserted.accept(code);
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
+    /**
      * Makes {@code within}, a static method that takes one object and returns one, return what
      * the static method {@code answer} makes of its argument whenever the argument is not null.
      */

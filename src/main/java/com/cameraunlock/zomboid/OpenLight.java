@@ -44,6 +44,20 @@ final class OpenLight {
         other.counted = counted;
     }
 
+    /** Counts in another tally every square counted in this one. */
+    void addTo(OpenLight other) {
+        if (counted == 0) {
+            return;
+        }
+        for (int band = 0; band < BANDS; band++) {
+            other.count[band] += count[band];
+            other.red[band] += red[band];
+            other.green[band] += green[band];
+            other.blue[band] += blue[band];
+        }
+        other.counted += counted;
+    }
+
     boolean isEmpty() {
         return counted == 0;
     }

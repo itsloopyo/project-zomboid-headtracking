@@ -68,6 +68,10 @@ final class Terrain {
         /** The frame it was worked out in, and when. */
         int stamp;
         long stampNanos;
+        /** Which chunks the map had loaded when it was worked out: see loaded. */
+        int loaded;
+        /** A number no other heights have had: the same as the grid's before it when nothing of it came out otherwise. */
+        int version;
         final float[] heights = new float[CORNERS * CORNERS];
         /** The height of water at each corner, which where a quay meets it is not the land's. */
         final float[] water = new float[CORNERS * CORNERS];
@@ -116,6 +120,25 @@ final class Terrain {
     private static final long RETRIED_NANOS = 300_000_000L;
     private static int frame;
     private static long frameNanos;
+    private static int loaded;
+    private static int versions;
+    /** Dev only: an unsettled grid is worked out again on the clock though the map is as it was, to say so if it then comes out otherwise. */
+    private static final boolean AUDITED = ChunkMarks.COUNTED;
+
+    /**
+     * Logic thread, once a frame the picture is built: a number that is another whenever the
+     * map has another set of chunks loaded. A grid is unsettled only for want of ground that
+     * is not loaded, so with the game telling of its changes it is worked out again when
+     * that number has changed and not otherwise.
+     */
+    static void loaded(int epoch) {
+        loaded = epoch;
+    }
+
+    /** The version of a chunk's heights. After corners. */
+    static int version(int wx, int wy) {
+        return grids.get(slot(wx, wy)).version;
+    }
 
     /** Logic thread, once a frame the picture is built. */
     static void frame(int number) {
@@ -168,7 +191,9 @@ final class Terrain {
     static float[] corners(IsoCell cell, int wx, int wy) {
         int slot = slot(wx, wy);
         Grid grid = grids.get(slot);
-        if (grid != null && grid.wx == wx && grid.wy == wy && (grid.settled || frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS)) {
+        boolean known = grid != null && grid.wx == wx && grid.wy == wy;
+        boolean mapAsItWas = known && ChunkMarks.live && grid.loaded == loaded;
+        if (known && (grid.settled || mapAsItWas && !AUDITED || frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS)) {
             return grid.heights;
         }
         Grid fresh = new Grid();
@@ -176,6 +201,7 @@ final class Terrain {
         fresh.wy = wy;
         fresh.stamp = frame;
         fresh.stampNanos = frameNanos;
+        fresh.loaded = loaded;
         // In this order: gather looks for the water round each building, and the corners want the water round the chunk.
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
         streets(wx * CHUNK_TILES - LEVELLED, wy * CHUNK_TILES - LEVELLED);
@@ -186,7 +212,12 @@ final class Terrain {
                 fresh.water[i * CORNERS + j] = base(x, y) - WATER_BELOW;
             }
         }
-        kerbs(cell, fresh, grid != null && grid.wx == wx && grid.wy == wy ? grid : null);
+        kerbs(cell, fresh, known ? grid : null);
+        boolean same = known && fresh.kerbSum == grid.kerbSum && java.util.Arrays.equals(fresh.heights, grid.heights) && java.util.Arrays.equals(fresh.water, grid.water);
+        fresh.version = same ? grid.version : ++versions;
+        if (mapAsItWas && !same) {
+            Log.info("chunk marks: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with the map as it was");
+        }
         grids.set(slot, fresh);
         return fresh.heights;
     }

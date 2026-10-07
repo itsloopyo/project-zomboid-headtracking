@@ -33,4 +33,6 @@ public final class IsoGridSquare {
     public int getX() { throw new UnsupportedOperationException("reference stub"); }
     public int getY() { throw new UnsupportedOperationException("reference stub"); }
     public int getZ() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoChunk getChunk() { throw new UnsupportedOperationException("reference stub"); }
+    public void cacheLightInfo() { throw new UnsupportedOperationException("reference stub"); }
 }

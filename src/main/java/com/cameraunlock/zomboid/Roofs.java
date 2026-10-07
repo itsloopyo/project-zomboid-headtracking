@@ -54,6 +54,32 @@ final class Roofs {
          * due in one frame ever after.
          */
         private int kept;
+        /**
+         * For tend: everything kept of the roof, the box of chunks it lies on, everything
+         * it came out as in one number, and what ChunkMarks had counted for the box and
+         * which chunks the map had loaded when it was read.
+         */
+        private final ArrayList<Laid> tiles = new ArrayList<>(), backs = new ArrayList<>();
+        private final ArrayList<Capped> caps = new ArrayList<>();
+        private final ArrayList<Part> parts = new ArrayList<>();
+        private int minWx, minWy, maxWx, maxWy;
+        private int structures, loaded;
+        /** Whether tend has it in its list. */
+        private boolean listed;
+    }
+
+    /**
+     * What of a roof one chunk's build goes by, summed into one number: every tile of the
+     * roof on the chunk or within a tile of it, and the caps whose middles lie on it.
+     */
+    private static final class Part {
+        final int wx, wy;
+        long print;
+
+        Part(int wx, int wy) {
+            this.wx = wx;
+            this.wy = wy;
+        }
     }
 
     /** One tile of a roof as the fit left it. */
@@ -97,6 +123,12 @@ final class Roofs {
     /** How many levels over a place are looked through for what roofs it. */
     private static final int LOOKED_ABOVE = 3;
     private static int cleared;
+    /** Every roof read while the game tells of its changes, each until it is read again or its ground is unloaded: see tend. */
+    private static final ArrayList<Roof> roofs = new ArrayList<>();
+    private static final ArrayList<Roof> replaced = new ArrayList<>();
+    private static final ArrayList<Part> before = new ArrayList<>();
+    private static int tended, loadedNow;
+    private static final int TENDED_A_FRAME = 4;
     private static final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
     private static final ArrayList<Laid> reading = new ArrayList<>();
     private static final ArrayList<RoofFit.Tile> tiles = new ArrayList<>();
@@ -111,6 +143,162 @@ final class Roofs {
         madeByChunk.clear();
         capped.clear();
         cappedByChunk.clear();
+        roofs.clear();
+    }
+
+    /**
+     * Logic thread, once a frame while the game tells which chunks it changes (ChunkMarks).
+     * A roof is otherwise read again every so many frames by whichever chunk next asks for a
+     * tile of it, and a chunk nothing has been said of asks for nothing. So a few roofs a
+     * frame are looked at here in turn: one whose chunks the game has marked for an object
+     * since it was read is read again, and so is one read while some of the ground round it
+     * was not loaded, once the map has loaded more. A roof that comes out otherwise has the
+     * chunks it lies on told (see read). One not due is kept as fresh as if it had been
+     * read, and one whose ground the map has unloaded is let go.
+     */
+    static void tend(IsoCell cell, int now, float scale, int loaded) {
+        loadedNow = loaded;
+        for (int n = 0; n < TENDED_A_FRAME && !roofs.isEmpty(); n++) {
+            if (tended >= roofs.size()) {
+                tended = 0;
+            }
+            Roof roof = roofs.get(tended);
+            if (cell.getGridSquare(roof.x, roof.y, 0) == null) {
+                drop(roof);
+                continue;
+            }
+            boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy) != roof.structures
+                    : roof.loaded != loaded && now - roof.stamp >= RETRIED;
+            if (!due) {
+                roof.stamp = now;
+                tended++;
+                continue;
+            }
+            read(cell, roof.x, roof.y, roof.z, now, scale);
+            if (roof.listed) {
+                // No tile is left where it was read from, so nothing took its place.
+                drop(roof);
+                for (Part part : roof.parts) {
+                    ChunkMarks.tell(part.wx, part.wy);
+                }
+            }
+        }
+    }
+
+    /** Lets go of everything kept of a roof. */
+    private static void drop(Roof roof) {
+        roofs.remove(roof);
+        roof.listed = false;
+        for (Laid one : roof.tiles) {
+            laid.remove(RoofFit.key(one.tile.x, one.tile.y, one.tile.z), one);
+        }
+        for (Laid back : roof.backs) {
+            made.remove(keyOf(back.tile), back);
+            long chunk = RoofFit.key(Math.floorDiv(back.tile.x, WorldScene.CHUNK_TILES), Math.floorDiv(back.tile.y, WorldScene.CHUNK_TILES), 0);
+            ArrayList<Laid> held = madeByChunk.get(chunk);
+            if (held != null) {
+                held.remove(back);
+            }
+        }
+        for (Capped cap : roof.caps) {
+            capped.remove(keyOf(cap.cap), cap);
+            ArrayList<Capped> held = cappedByChunk.get(chunkOf(cap.cap));
+            if (held != null) {
+                held.remove(cap);
+            }
+        }
+    }
+
+    private static long mix(long sum, long value) {
+        return (sum ^ value) * 0x100000001B3L;
+    }
+
+    private static long mix(long sum, RoofFit.Tile tile) {
+        sum = mix(mix(mix(mix(sum, tile.x), tile.y), tile.z), tile.axis | tile.fitAxis << 4 | tile.crease << 8 | tile.own << 12 | tile.half << 16 | tile.peakAxis << 20
+                | (tile.sure ? 1 << 24 : 0) | (tile.fitted ? 1 << 25 : 0) | (tile.fitting ? 1 << 26 : 0) | (tile.shaped ? 1 << 27 : 0) | (tile.carried ? 1 << 28 : 0));
+        sum = mix(mix(mix(mix(sum, Float.floatToRawIntBits(tile.low)), Float.floatToRawIntBits(tile.high)), Float.floatToRawIntBits(tile.fitLow)), Float.floatToRawIntBits(tile.fitHigh));
+        sum = mix(mix(sum, Float.floatToRawIntBits(tile.halfEdge)), Float.floatToRawIntBits(tile.peak));
+        for (float corner : tile.corners) {
+            sum = mix(sum, Float.floatToRawIntBits(corner));
+        }
+        return sum;
+    }
+
+    /**
+     * Sets a roof just read beside what was kept of the same tiles before, for tend: notes
+     * what of it each chunk's build goes by, lets go of every roof it has taken a tile from,
+     * and tells each chunk for which that has come out otherwise than those roofs had it.
+     * A roof read for the first time tells the chunks it lies on too: one that holds only
+     * its far slope or its ridge may have been built before any tile of it was asked for.
+     */
+    private static void settle(Roof roof) {
+        long finish = mix(mix(mix(0x9E3779B97F4A7C15L, roof.finish == null ? 0 : roof.finish.getID()), Float.floatToRawIntBits(roof.u)), Float.floatToRawIntBits(roof.v));
+        for (Laid one : roof.tiles) {
+            note(roof, one.tile.x, one.tile.y, mix(mix(finish, one.tile), one.texture.getID()));
+        }
+        for (Laid back : roof.backs) {
+            note(roof, back.tile.x, back.tile.y, mix(finish, back.tile));
+        }
+        for (Capped cap : roof.caps) {
+            RoofFit.Cap line = cap.cap;
+            long print = mix(mix(mix(mix(finish, Float.floatToRawIntBits(line.x0)), Float.floatToRawIntBits(line.y0)), Float.floatToRawIntBits(line.high0)), Float.floatToRawIntBits(line.x1));
+            print = mix(mix(mix(print, Float.floatToRawIntBits(line.y1)), Float.floatToRawIntBits(line.high1)), Float.floatToRawIntBits(line.fall));
+            int middleX = (int) Math.floor((line.x0 + line.x1) / 2f), middleY = (int) Math.floor((line.y0 + line.y1) / 2f);
+            part(roof.parts, Math.floorDiv(middleX, WorldScene.CHUNK_TILES), Math.floorDiv(middleY, WorldScene.CHUNK_TILES)).print += print;
+        }
+        roof.minWx = roof.minWy = Integer.MAX_VALUE;
+        roof.maxWx = roof.maxWy = Integer.MIN_VALUE;
+        for (Part part : roof.parts) {
+            roof.minWx = Math.min(roof.minWx, part.wx);
+            roof.minWy = Math.min(roof.minWy, part.wy);
+            roof.maxWx = Math.max(roof.maxWx, part.wx);
+            roof.maxWy = Math.max(roof.maxWy, part.wy);
+        }
+        roof.structures = ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy);
+        roof.loaded = loadedNow;
+        before.clear();
+        for (Roof old : replaced) {
+            drop(old);
+            for (Part part : old.parts) {
+                part(before, part.wx, part.wy).print += part.print;
+            }
+        }
+        for (Part part : roof.parts) {
+            if (part(before, part.wx, part.wy).print != part.print) {
+                ChunkMarks.tell(part.wx, part.wy);
+            }
+        }
+        for (Part was : before) {
+            if (was.print != 0L && part(roof.parts, was.wx, was.wy).print == 0L) {
+                ChunkMarks.tell(was.wx, was.wy);
+            }
+        }
+        roofs.add(roof);
+        roof.listed = true;
+    }
+
+    /** Counts a tile at (x, y) into what each chunk within a tile of it goes by: a build asks what roofs the squares beside its own. */
+    private static void note(Roof roof, int x, int y, long print) {
+        int fromWx = Math.floorDiv(x - 1, WorldScene.CHUNK_TILES), toWx = Math.floorDiv(x + 1, WorldScene.CHUNK_TILES);
+        int fromWy = Math.floorDiv(y - 1, WorldScene.CHUNK_TILES), toWy = Math.floorDiv(y + 1, WorldScene.CHUNK_TILES);
+        for (int wx = fromWx; wx <= toWx; wx++) {
+            for (int wy = fromWy; wy <= toWy; wy++) {
+                part(roof.parts, wx, wy).print += print;
+            }
+        }
+    }
+
+    /** The part for a chunk among parts, put there with nothing counted into it if it has none. */
+    private static Part part(ArrayList<Part> parts, int wx, int wy) {
+        for (int i = 0; i < parts.size(); i++) {
+            Part part = parts.get(i);
+            if (part.wx == wx && part.wy == wy) {
+                return part;
+            }
+        }
+        Part part = new Part(wx, wy);
+        parts.add(part);
+        return part;
     }
 
     /** The tile of roof on the square as its whole roof was fitted, or null for a square with no roof tile. */
@@ -216,9 +404,14 @@ final class Roofs {
         if (!votes.isEmpty()) {
             paintedPlace(shown.get(votes.commonest()), roof);
         }
+        replaced.clear();
         for (Laid one : reading) {
-            laid.put(RoofFit.key(one.tile.x, one.tile.y, one.tile.z), one);
+            Laid was = laid.put(RoofFit.key(one.tile.x, one.tile.y, one.tile.z), one);
+            if (was != null && was.roof.listed && !replaced.contains(was.roof)) {
+                replaced.add(was.roof);
+            }
         }
+        roof.tiles.addAll(reading);
         // A roof read before all of it was loaded is short of rows, and what would be carried
         // over its ridge then is not the roof's far side.
         if (roof.whole) {
@@ -242,6 +435,9 @@ final class Roofs {
                 keep(new Capped(cap, roof));
             }
         }
+        if (ChunkMarks.live) {
+            settle(roof);
+        }
     }
 
     /** The key of the chunk a cap's middle lies in. */
@@ -250,12 +446,18 @@ final class Roofs {
         return RoofFit.key(Math.floorDiv(middleX, WorldScene.CHUNK_TILES), Math.floorDiv(middleY, WorldScene.CHUNK_TILES), 0);
     }
 
-    private static void keep(Capped cap) {
-        float middleX = (cap.cap.x0 + cap.cap.x1) / 2f, middleY = (cap.cap.y0 + cap.cap.y1) / 2f;
+    /** What a cap is kept under. */
+    private static long keyOf(RoofFit.Cap cap) {
+        float middleX = (cap.x0 + cap.x1) / 2f, middleY = (cap.y0 + cap.y1) / 2f;
         // Twice the middle, rounded, and the way the cap runs name one: a level tile with slopes
         // up to it on all four sides has two caps that cross at its middle.
-        int runs = cap.cap.x0 == cap.cap.x1 ? 1 : cap.cap.y0 == cap.cap.y1 ? 2 : 3;
-        long key = RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), runs);
+        int runs = cap.x0 == cap.x1 ? 1 : cap.y0 == cap.y1 ? 2 : 3;
+        return RoofFit.key(Math.round(2f * middleX), Math.round(2f * middleY), runs);
+    }
+
+    private static void keep(Capped cap) {
+        cap.roof.caps.add(cap);
+        long key = keyOf(cap.cap);
         long chunk = chunkOf(cap.cap);
         Capped was = capped.put(key, cap);
         if (was != null) {
@@ -299,6 +501,7 @@ final class Roofs {
     }
 
     private static void keep(Laid back) {
+        back.roof.backs.add(back);
         long key = keyOf(back.tile);
         long chunk = RoofFit.key(Math.floorDiv(back.tile.x, WorldScene.CHUNK_TILES), Math.floorDiv(back.tile.y, WorldScene.CHUNK_TILES), 0);
         ArrayList<Laid> held = madeByChunk.computeIfAbsent(chunk, unused -> new ArrayList<>());

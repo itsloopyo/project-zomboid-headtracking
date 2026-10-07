@@ -28,6 +28,7 @@ import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
+import zombie.iso.LightingJNI;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
@@ -36,6 +37,7 @@ import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.areas.IsoRoom;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
+import zombie.iso.fboRenderChunk.FBORenderLevels;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
@@ -179,6 +181,27 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
          * canopy, nothing hung or raised. Such a build is the same for as long as its sum is.
          */
         private boolean plain;
+        /** What ChunkMarks had counted round the chunk when the build was made or last found unchanged, and what every build went by then: see epoch. */
+        private int marks, told;
+        private long epoch;
+        /** The version of the chunk's heights the build was made on: see Terrain.version. */
+        private int land;
+        /** Which of the chunk and the eight round it were loaded when it was last read, a bit each, and which chunks the map had loaded then: see loadedNow. */
+        private int ring, loaded;
+        /**
+         * Whether the chunk holds what changes with nothing said of it: a sprite of several
+         * frames, a body the game is about to make its picture of. Such a chunk is read
+         * through as it falls due, as every chunk is without the game's marks.
+         */
+        private boolean restless;
+        /** The light of its seen squares out of doors, as its last reading left them: see OpenLight. Null until it has been read. */
+        private OpenLight seen;
+        /** Dev only: every float of the build as one number. */
+        private long auditFloats;
+        /** Dev only: what the sum was made of, part by part. See audit. */
+        private long auditTerrain, auditTrees;
+        private long[] auditLights, auditThings;
+        private int auditFrom, auditTo;
         /** The frames in flight that show this build, and one more while it is the chunk's latest. */
         private int users;
         /**
@@ -301,6 +324,19 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * backstop, since nothing such a build reads is left out of its sum. See ChunkMeshes.plain.
      */
     private static final long KEPT_PLAIN_NANOS = 20_000_000_000L;
+    /**
+     * With the game telling which chunks it changes (ChunkMarks), how long a build is kept
+     * unchanged: a backstop for whatever a build goes by that neither the game marks nor
+     * the chunk's sum holds nor the mod tells of itself.
+     */
+    private static final long KEPT_TOLD_NANOS = Long.getLong("cameraunlock.zomboid.keptToldMillis", 60_000L) * 1_000_000L;
+    /**
+     * With the game telling, how often a chunk nothing has been said of is read through all
+     * the same, by how far off it is: the game changes some things without a mark, plants
+     * that grow, a sign on a crate that says what is in it, and they show this much late.
+     */
+    private static final long SWEPT_NEAR_NANOS = 500_000_000L, SWEPT_NANOS = 1_000_000_000L, SWEPT_OFTEN_NANOS = 3_000_000_000L, SWEPT_FAR_NANOS = 6_000_000_000L;
+    private static final int SWEPT_A_FRAME = 2;
     /**
      * How many builds a frame are made again only for their age. A head that turns back to
      * a street it looked away from finds every far chunk of it aged on the same frame.
@@ -492,11 +528,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static final float OPEN_LIGHT_STEP = 1f / 512f;
     private static long openLightTakenAt;
     private static boolean openLightTaken;
-    /** The tally a chunk's squares were last counted in, by the chunk's place in the table, and the number of the one being kept. */
-    private static final int[] talliedIn = new int[TABLE_SIDE * TABLE_SIDE];
-    private static int tally = 1;
-    /** Whether the squares of the chunk being read are counted in the tally. */
-    private boolean tallied;
     private final float[] openLight = new float[3];
     private static float unseenRed = -1f, unseenGreen, unseenBlue;
     /** The light a square out of doors has with no lamp on it: see OpenLight.floor. */
@@ -680,6 +711,114 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private final IsoGridSquare[] lightSquare = new IsoGridSquare[LIGHT_SPAN * LIGHT_SPAN];
     /** The chunk being read and the eight round it, by column then row, null where the map has none loaded. */
     private final IsoChunk[] around = new IsoChunk[9];
+    /**
+     * Dev only: every sum that finds a chunk changed is set against what ChunkMarks counted,
+     * and one the game marked nothing for is logged with what of it changed. See audit.
+     */
+    private static final boolean AUDIT_MARKS = ChunkMarks.COUNTED;
+    private long auditTerrain, auditTrees;
+    private long[] auditLights = new long[0], auditThings = new long[0];
+    private static long tollMarkedChanges, tollMissedChanges, tollMarkedSame, tollMarkedByReading, tollPulledAfterGame;
+    private static int auditLogged;
+    private static final long[] tollWhy = new long[10];
+    /** What every build goes by that is not of its chunk, as one number: see build. */
+    private long epoch;
+    /** Which chunks of the map are loaded, as one number. */
+    private static int loadedNow;
+    /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
+    private static final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
+    /** Set by the last reading of a chunk: see ChunkMeshes.restless. */
+    private boolean restless;
+    /** Which of the chunk last looked round and the eight round it are loaded, a bit each: see surround. */
+    private int ring;
+    /** The light of the seen squares out of doors of the chunk being read. */
+    private final OpenLight reading = new OpenLight();
+    private boolean tallying;
+    private int chunksQuiet;
+    private static long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollRestless;
+    /** Dev only: the game's marks are left unused when set, for a comparison within one run. */
+    private static volatile boolean withoutMarks;
+
+    /** Dev only, for the rig: "marks" turns the game's marks off, anything else on. */
+    static void without(String what) {
+        withoutMarks = what.equals("marks");
+    }
+
+    /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
+    private static String polledBecause;
+    private static boolean pollingSaid;
+
+    /** Whether the game tells which chunks it changes: its code took both patches, and it keeps a texture of each chunk, which is what it marks for. */
+    private static boolean told() {
+        if (!pollingSaid) {
+            pollingSaid = true;
+            polledBecause = Agent.chunkMarksGap();
+            Log.info(polledBecause == null ? "the game says which chunks it changes: chunks in view are read again only when it does"
+                    : "the game does not say which chunks it changes (" + polledBecause + "): every chunk in view is read through over and over, as before");
+            String windows = Agent.windowMarksGap();
+            if (windows != null) {
+                Log.info("a window smashed or opened is not told of (" + windows + "): it shows when its chunk is next read through");
+            }
+        }
+        return polledBecause == null && zombie.core.PerformanceSettings.fboRenderChunk && !withoutMarks;
+    }
+
+    private static long sweptEvery(float distance, int slot) {
+        long every = distance < CHUNK_TILES * 1.5f ? SWEPT_NEAR_NANOS : distance < BUILT_EVERY_FRAME ? SWEPT_NANOS : distance < BUILT_OFTEN ? SWEPT_OFTEN_NANOS : SWEPT_FAR_NANOS;
+        // Spread by the chunk's place, or all that were built together are read together ever after.
+        return every + every * (slot & 7) / 8;
+    }
+
+    /** Which chunks the map has loaded, as one number. */
+    private static int loadedOf(IsoChunkMap map, int side) {
+        int sum = 17;
+        for (int x = 0; x < side; x++) {
+            for (int y = 0; y < side; y++) {
+                IsoChunk chunk = map.getChunk(x, y);
+                sum = sum * 31 + (chunk != null && chunk.loaded ? chunk.wx * 4099 + chunk.wy : 7);
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Asks the lighting engine, once for each of its passes, whether a chunk's lights have
+     * changed, and has the game take them where they have. The game holds a copy of each
+     * square's light that is only as new as the last asking of that square, and it marks the
+     * chunk where the copy changes (ChunkMarks), so without this a chunk that is not read
+     * would never be marked for its light. The engine's flag for a level of a chunk is put
+     * down by the asking, and the game asks itself for the levels its own view has on screen,
+     * though it then takes only the squares that view shows: for those the game's note of its
+     * own asking is gone by, and every square is taken.
+     */
+    private void pullLights(IsoChunk chunk, int slot, int lowest) {
+        int pass = LightingJNI.getUpdateCounter(playerIndex);
+        boolean taken = chunk.lightingUpdateCounter != litByGame[slot];
+        if (pass == litAt[slot] && !taken) {
+            return;
+        }
+        litAt[slot] = pass;
+        litByGame[slot] = chunk.lightingUpdateCounter;
+        FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
+        for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
+            tollPulls++;
+            if (!taken && (levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
+                continue;
+            }
+            tollPulled++;
+            if (taken) {
+                tollPulledAfterGame++;
+            }
+            for (int x = 0; x < CHUNK_TILES; x++) {
+                for (int y = 0; y < CHUNK_TILES; y++) {
+                    IsoGridSquare square = chunk.getGridSquare(x, y, z);
+                    if (square != null) {
+                        square.cacheLightInfo();
+                    }
+                }
+            }
+        }
+    }
     /** Dev only: every build is made a second time with nothing taken from what is kept, and the two are compared float for float. */
     private static final boolean CHECK_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.checkBuilds");
     /** Set round the second build of a check: nothing kept is taken. */
@@ -696,6 +835,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 tollFrames, tollSums, tollSumNanos / 1e6, tollBuilt[NEW] + tollBuilt[MOVED] + tollBuilt[CHANGED] + tollBuilt[AGED] + tollBuilt[UNSIGNED] + tollBuilt[LEFT_UNREAD],
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
+        told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
+        tollQuiet = tollPulls = tollPulled = 0;
+        if (AUDIT_MARKS) {
+            told += String.format(Locale.ROOT, ", sums changed with a mark %d without %d by a late light %d, marked and the same %d, restless %d, lights taken after the game %d, aged builds the same %d otherwise %d, marks by flag%s",
+                    tollMarkedChanges, tollMissedChanges, tollMarkedByReading, tollMarkedSame, tollRestless, tollPulledAfterGame, tollAgedSame, tollAgedDiffered, ChunkMarks.counted())
+                    + " | sums read because (marked, told, epoch, heights, map, restless, new, swept, unsigned, moved) " + Arrays.toString(tollWhy);
+            Arrays.fill(tollWhy, 0);
+            tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedDiffered = tollMarkedByReading = tollPulledAfterGame = 0;
+        }
         Arrays.fill(tollBuilt, 0);
         tollFrames = tollSums = tollSumNanos = tollBuildNanos = tollGrown = tollGrownNanos = tollChecked = tollDiffered = 0;
         return told;
@@ -805,10 +953,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     String describe() {
-        return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) grown %d kept %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
+        return String.format(Locale.ROOT, "chunks %d waiting %d built %d (new %d moved %d changed %d aged %d unsigned %d unread %d) grown %d kept %d quiet %d squares %d seen %d sprites %d triangles %d build %.2f ms draw %.2f ms"
                         + " exposure %.2f tan half fov %.4f aspect %.4f fog end %.1f roofs n-s %d w-e %d flat %d unclear %d boxes %d furniture %d spread %d lifted %d models %d | %s",
                 chunksDrawn, chunksWaiting, chunksBuilt, builtBecause[NEW], builtBecause[MOVED], builtBecause[CHANGED], builtBecause[AGED],
-                builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
+                builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown, chunksKept, chunksQuiet, squaresLoaded, squaresSeen, sprites, triangles, buildMillis, lastDrawMillis, exposure,
                 tanHalfFieldOfView, drawnAspect, fogEnd, roofsNorthSouth, roofsWestEast, roofsFlat, roofsUnclear, boxes, furnished, spreadFaces, lifted, Characters.drawnLast(), sky.describe()) + " | " + Pipeline.describeShadows() + " | " + ChunkBuffers.describe()
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
@@ -866,6 +1014,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         chunksBuilt = 0;
         chunksGrown = 0;
         chunksKept = 0;
+        chunksQuiet = 0;
         chunksWaiting = 0;
         Arrays.fill(builtBecause, 0);
         int agedBuilt = 0;
@@ -943,6 +1092,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             Terrain.level(Terrain.level);
         }
         mainsOn = IsoWorld.instance.isHydroPowerOn();
+        long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
+        goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
         glass.found = false;
         if (!fromOutside && !seated && drawnAspect > 0f && Quality.shadedAndLit()) {
             OwnReflection.find(cell, player, view, tanHalfFieldOfView * drawnAspect, glass);
@@ -952,6 +1103,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         // From an upper floor the ground is in the picture; from the ground, only the level under it.
         int lowest = level > 0 ? 0 : level - 1;
         lowestLevel = lowest;
+        epoch = sum(sum(goesBy, lowest), playerIndex);
+        boolean telling = told();
+        ChunkMarks.live = telling;
+        loadedNow = loadedOf(map, IsoChunkMap.chunkGridWidth);
+        Terrain.loaded(loadedNow);
+        if (telling) {
+            Roofs.tend(cell, frames, frame.scale, loadedNow);
+            WallFinish.tend(cell, frames, loadedNow);
+        }
         // Seen from overhead, whoever is indoors is under a roof and the floors above. The
         // game leaves those out and so does the picture, and the walls of the floor are cut
         // low: see Pipeline.cutAbove.
@@ -1030,6 +1190,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int eyeGridX = Math.floorDiv((int) Math.floor(view.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
         int eyeGridY = Math.floorDiv((int) Math.floor(view.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
         int builtLate = 0;
+        int swept = 0;
         for (int step = 0; step < walk.length; step += 2) {
             {
                 int gridX = eyeGridX + walk[step], gridY = eyeGridY + walk[step + 1];
@@ -1102,7 +1263,47 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 boolean stands = !missing && inBand(current.band, nearest) && layersStandFor(current, distance);
                 boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED * (held ? 2 : 1)
                         : held ? since >= UNCHANGED_READ_EVERY_NANOS : !stands || since >= CHANGING_BUILT_EVERY_NANOS);
-                boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
+                // With the game telling of its changes, a chunk nothing has been said of is not read:
+                // not marked by the game, nor told of by the mod, nor waiting on the map to load
+                // round it, with its heights and what every build goes by as they were. It is still
+                // read every so often (sweptEvery), and for its first seconds as it always was,
+                // while what loads late comes in.
+                int land = 0;
+                if (telling && !missing) {
+                    pullLights(chunk, slot, lowest);
+                    Terrain.corners(cell, chunk.wx, chunk.wy);
+                    land = Terrain.version(chunk.wx, chunk.wy);
+                }
+                // Read before the chunk is: a mark made from another thread while it is read is then one more than the build remembers.
+                int marks = ChunkMarks.around(chunk.wx, chunk.wy);
+                int toldSoFar = ChunkMarks.told(chunk.wx, chunk.wy);
+                // The map has loaded or let go of a chunk since: whether one beside this chunk, the same asking says.
+                boolean ringAsItWas = missing || current.loaded == loadedNow;
+                if (telling && !ringAsItWas) {
+                    surround(map, chunk, gridX, gridY, side);
+                    ringAsItWas = ring == current.ring;
+                    if (ringAsItWas) {
+                        current.loaded = loadedNow;
+                    }
+                }
+                // A chunk that has only just come onto the map is built again for what loads late a quarter of a second after it was
+                // last, and later at twice its age: between those it is left alone as any other is.
+                boolean settled = !missing && (start - current.bornNanos >= SETTLES_IN_NANOS
+                        || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
+                boolean quiet = telling && !missing && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
+                        && current.epoch == epoch && land == current.land && ringAsItWas && settled;
+                // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
+                if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
+                    quiet = false;
+                }
+                if (quiet) {
+                    chunksQuiet++;
+                }
+                // Dev only: what has a chunk read that would have been left alone, for the audit's line.
+                int why = !AUDIT_MARKS || !telling || missing ? 0 : (marks != current.marks ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
+                        | (land != current.land ? 8 : 0) | (!ringAsItWas ? 16 : 0) | (current.restless ? 32 : 0)
+                        | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
+                boolean due = !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                 || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
                 // On arriving somewhere the map round the eye is still loading, and each chunk is found changed again
@@ -1128,8 +1329,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
                 boolean summed = (missing || due) && frames >= summedFrom && start >= summedFromNanos;
                 if (missing || due) {
-                    tallied = talliedIn[slot] != tally;
-                    talliedIn[slot] = tally;
                     surround(map, chunk, gridX, gridY, side);
                 }
                 if (summed) {
@@ -1139,31 +1338,54 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     tollSums++;
                     tollSumNanos += System.nanoTime() - summing;
                     boolean sameEye = still && due && current.signed;
+                    if (AUDIT_MARKS) {
+                        for (int bit = 0; bit < tollWhy.length; bit++) {
+                            tollWhy[bit] += why >> bit & 1;
+                        }
+                    }
+                    if (AUDIT_MARKS && sameEye) {
+                        if (current.signature != read) {
+                            audit(chunk, current, distance, start, why);
+                            if (distance < 40f && auditLogged++ < 4000) {
+                                Log.info(String.format(Locale.ROOT, "chunk marks: changed at %d, %d, %.0f tiles off, read because %d, last read %.0f ms ago", chunk.wx, chunk.wy, distance, why,
+                                        since / 1e6));
+                            }
+                        } else if (marks != current.marks) {
+                            tollMarkedSame++;
+                        }
+                    }
+                    // The same triangles: the same sum, and nothing a build is told that its sum does not hold is otherwise.
+                    boolean same = !missing && current.signature == read && current.told == toldSoFar && current.epoch == epoch;
                     // A chunk that has only just come onto the map far off is made again for what loads late
                     // after a quarter of a second, then a half, then one: at a car's speed a dozen builds each
                     // of every chunk coming over the horizon were half of all the building there was.
                     long settling = distance < BUILT_EVERY_FRAME || missing ? KEPT_WHILE_SETTLING_NANOS
                             : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2);
-                    long kept = current == null || !current.plain ? KEPT_UNCHANGED_NANOS : KEPT_PLAIN_NANOS;
+                    long kept = telling ? KEPT_TOLD_NANOS : current == null || !current.plain ? KEPT_UNCHANGED_NANOS : KEPT_PLAIN_NANOS;
                     boolean young = !missing && start - current.builtNanos < (start - current.bornNanos < SETTLES_IN_NANOS ? settling : kept);
                     // One aged with others waits for a frame with fewer: its build is as good as it was a frame
                     // ago. Not one that is new, which is built again for what loads late, and not one that has
                     // waited its time over again: the nearer ones age as fast as they are built, and would always be first.
-                    if (!young && due && sameEye && current.signature == read && start - current.bornNanos >= SETTLES_IN_NANOS
+                    if (!young && due && sameEye && same && start - current.bornNanos >= SETTLES_IN_NANOS
                             && start - current.builtNanos < 2 * kept && agedBuilt++ >= AGED_A_FRAME) {
                         young = true;
                     }
                     if (due) {
-                        builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : current.signature != read ? CHANGED : young ? KEPT_ON : AGED]++;
+                        builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED]++;
                     }
-                    if (sameEye && current.signature == read && young) {
-                        // The squares it read count towards this frame's light as a build's would.
+                    if (sameEye && same && young) {
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
+                        current.marks = marks;
+                        current.land = Terrain.version(chunk.wx, chunk.wy);
+                        current.ring = ring;
+                        current.loaded = loadedNow;
+                        current.restless = restless;
                         chunksKept++;
                         due = false;
                     } else {
-                        if (sameEye && current.signature != read) {
+                        // With the game telling, a chunk found changed is read again when it is next marked, and one that is restless is read as it was without.
+                        if (sameEye && current.signature != read && (!telling || restless)) {
                             // Something on the chunk changes from frame to frame: a light that
                             // flickers, a sprite that moves. Summing it each time it is due
                             // would be work for nothing, so it is left for a while.
@@ -1197,6 +1419,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.summedFrom = summedFrom;
                     fresh.summedFromNanos = summedFromNanos;
                     fresh.plain = true;
+                    fresh.marks = marks;
+                    fresh.epoch = epoch;
+                    fresh.ring = ring;
+                    fresh.loaded = loadedNow;
+                    fresh.restless = summed && restless;
+                    if (AUDIT_MARKS) {
+                        auditKeep(fresh, summed);
+                    }
                     fresh.users = 1;
                     fresh.band = band(nearest);
                     fresh.grows = false;
@@ -1211,6 +1441,28 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.plain &= !canopied;
+                    // Read after the build: only a build tells, on this thread, and what this one was told is in it.
+                    fresh.told = ChunkMarks.told(chunk.wx, chunk.wy);
+                    fresh.land = Terrain.version(chunk.wx, chunk.wy);
+                    if (fresh.seen == null) {
+                        fresh.seen = new OpenLight();
+                    }
+                    reading.copyTo(fresh.seen);
+                    if (AUDIT_MARKS) {
+                        fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                        boolean aged = current != null && summed && current.signed && current.signature == read && current.band == fresh.band
+                                && current.eyeX == fresh.eyeX && current.eyeY == fresh.eyeY && current.eyeUp == fresh.eyeUp && fresh.signed
+                                && current.epoch == epoch && current.told == toldSoFar && fresh.told == toldSoFar;
+                        if (aged && current.auditFloats != fresh.auditFloats) {
+                            tollAgedDiffered++;
+                            if (auditLogged++ < 4000) {
+                                Log.info(String.format(Locale.ROOT, "chunk marks: a build of %d, %d with the same sum and the same eye came out otherwise, %.1f s old, last built %.2f s ago, told %d then %d now, plain %b",
+                                        chunk.wx, chunk.wy, (start - current.bornNanos) / 1e9, (start - current.builtNanos) / 1e9, current.told, fresh.told, current.plain));
+                            }
+                        } else if (aged) {
+                            tollAgedSame++;
+                        }
+                    }
                     fresh.grown = false;
                     fresh.builtAway = distance;
                     if (CHECK_BUILDS) {
@@ -1244,8 +1496,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // What grows is made with its chunk. Made again only because the eye has moved, it waits for a frame with the time.
                 if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown && !late)) {
                     if (!missing && !due) {
-                        tallied = talliedIn[slot] != tally;
-                        talliedIn[slot] = tally;
                         surround(map, chunk, gridX, gridY, side);
                     }
                     ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
@@ -1296,6 +1546,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
             }
         }
+        if (!openLightTaken || start - openLightTakenAt >= OPEN_LIGHT_TAKEN_EVERY_NANOS) {
+            seenOutside.clear();
+            for (int i = 0; i < shown.size(); i++) {
+                ChunkMeshes each = shown.get(i);
+                if (!each.grown && each.seen != null) {
+                    each.seen.addTo(seenOutside);
+                }
+            }
+        }
         if (!seenOutside.isEmpty() && (!openLightTaken || start - openLightTakenAt >= OPEN_LIGHT_TAKEN_EVERY_NANOS)) {
             seenOutside.commonest(openLight);
             if (!openLightTaken || stepped(openLight, unseenRed, unseenGreen, unseenBlue)) {
@@ -1310,7 +1569,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 floorBlue = openLight[2];
             }
             seenOutside.clear();
-            tally++;
             openLightTaken = true;
             openLightTakenAt = start;
         }
@@ -1320,6 +1578,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         waitedLast = chunksWaiting;
         buildMillis = (System.nanoTime() - start) / 1e6f;
         tollFrames++;
+        tollQuiet += chunksQuiet;
         for (int i = 0; i < tollBuilt.length; i++) {
             tollBuilt[i] += builtBecause[i];
         }
@@ -1340,6 +1599,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             around[i] = beside != null && beside.loaded ? beside : null;
         }
         around[4] = chunk;
+        ring = 0;
+        for (int i = 0; i < 9; i++) {
+            ring |= around[i] == null ? 0 : 1 << i;
+        }
     }
 
     /**
@@ -1356,7 +1619,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** Dev only: builds the chunk again with nothing taken from what is kept, and says so when the two builds differ in any float. */
     private void check(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh) {
         long first = floatsOf(solid) * 31 + floatsOf(laid);
-        boolean signed = fresh.signed, tallying = tallied;
+        boolean signed = fresh.signed;
         int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
         solid.clear();
         laid.clear();
@@ -1364,13 +1627,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         placed = checkPlaced;
         afresh = true;
         geometry.afresh = true;
-        tallied = false;
         addSquares(chunk, chunkX, chunkY, lowest);
         noKerb();
         addBacks(chunk, chunkX, chunkY);
         afresh = false;
         geometry.afresh = false;
-        tallied = tallying;
         placed = fresh.placed;
         squaresSeen = seen;
         squaresLoaded = loaded;
@@ -1451,6 +1712,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;
         if (!kept && !growing) {
             canopied = false;
+        }
+        // What grows on a chunk is another build of the same chunk, and a check is a second build: neither is the reading the chunk's light is taken from.
+        tallying = !kept && !growing && !afresh;
+        if (tallying) {
+            reading.clear();
         }
         for (int z = Math.max(lowest, chunk.getMinLevel()); z <= (growing ? 0 : chunk.getMaxLevel()); z++) {
             if (kept && z >= keptFrom && z <= keptTo) {
@@ -1661,14 +1927,23 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      */
     private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
         int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
-        long sum = sum(sum(sum(0x9E3779B97F4A7C15L, Float.floatToRawIntBits(frame.scale)), from), to);
+        long sum = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(frame.scale)), from), to);
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
         float[] water = Terrain.water(chunk.wx, chunk.wy);
+        long land = SUM_FROM;
         for (int i = 0; i < ground.length; i++) {
-            sum = sum(sum(sum, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
+            land = sum(sum(land, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
         }
-        sum = sum(sum, Terrain.kerbSum(chunk.wx, chunk.wy));
+        land = sum(land, Terrain.kerbSum(chunk.wx, chunk.wy));
+        sum = sum(sum, land);
         int span = lightRed.length;
+        if (AUDIT_MARKS) {
+            auditTerrain = land;
+            if (auditLights.length < (to - from + 1) * span) {
+                auditLights = new long[(to - from + 1) * span];
+                auditThings = new long[auditLights.length];
+            }
+        }
         if (keptRed.length < (to - from + 1) * span) {
             keptRed = new float[(to - from + 1) * span];
             keptGreen = new float[keptRed.length];
@@ -1681,6 +1956,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         keptTo = to;
         keptFrame = frames;
         canopied = false;
+        restless = false;
+        tallying = true;
+        reading.clear();
         for (int z = from; z <= to; z++) {
             readLights(chunkX, chunkY, z);
             System.arraycopy(lightRed, 0, keptRed, (z - from) * span, span);
@@ -1689,54 +1967,186 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             System.arraycopy(lightOpen, 0, keptOpen, (z - from) * span, span);
             if (z == 0) {
                 readWoods(chunkX, chunkY);
+                long trees = SUM_FROM;
                 for (int i = 0; i < treed.length; i++) {
-                    sum = sum(sum, treed[i] ? 1 : 0);
+                    trees = sum(trees, treed[i] ? 1 : 0);
                 }
+                sum = sum(sum, trees);
+                auditTrees = trees;
             }
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     int at = i * LIGHT_SPAN + j;
-                    sum = sum(sum, lightOpen[at]);
                     if (lightOpen[at] < 0) {
+                        sum = sum(sum, -1);
+                        if (AUDIT_MARKS) {
+                            auditLights[(z - from) * span + at] = auditThings[(z - from) * span + at] = -1;
+                        }
                         continue;
                     }
-                    sum = sum(sum(sum(sum, Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])), Float.floatToRawIntBits(lightBlue[at]));
+                    long lit = sum(sum(sum(sum(SUM_FROM, lightOpen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
+                            Float.floatToRawIntBits(lightBlue[at]));
+                    long thing = SUM_FROM;
                     if (z == 0) {
-                        sum = sum(sum(sum(sum, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
+                        thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                     }
                     IsoGridSquare square = lightSquare[at];
-                    sum = sum(sum(sum, square.getRoomID()), unexplored(square) ? 1 : 0);
+                    thing = sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0);
                     PZArrayList<IsoObject> objects = square.getObjects();
-                    sum = sum(sum, objects.size());
+                    thing = sum(thing, objects.size());
                     for (int k = 0; k < objects.size(); k++) {
                         IsoObject object = objects.get(k);
                         IsoDirections dir = object.getDir();
-                        sum = sum(sum(sum(sum(sum, shown(object.getSprite(), dir)), Float.floatToRawIntBits(object.offsetX)), Float.floatToRawIntBits(object.offsetY)),
+                        thing = sum(sum(sum(sum(thing, shown(object.getSprite(), dir)), Float.floatToRawIntBits(object.offsetX)), Float.floatToRawIntBits(object.offsetY)),
                                 shown(object.getOverlaySprite(), dir));
+                        restless |= moves(object.getSprite()) || moves(object.getOverlaySprite());
                         ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
                         if (attached != null) {
                             for (int over = 0; over < attached.size(); over++) {
-                                sum = sum(sum, shown(attached.get(over).parentSprite, dir));
+                                thing = sum(thing, shown(attached.get(over).parentSprite, dir));
+                                restless |= moves(attached.get(over).parentSprite);
                             }
                         }
                         if (object instanceof IsoDoor door) {
-                            sum = sum(sum, door.IsOpen() ? 2 : 1);
+                            thing = sum(thing, door.IsOpen() ? 2 : 1);
                         } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
-                            sum = sum(sum, thumpable.IsOpen() ? 4 : 3);
+                            thing = sum(thing, thumpable.IsOpen() ? 4 : 3);
                         }
                     }
                     ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
                     for (int k = 0; k < bodies.size(); k++) {
                         IsoMovingObject body = bodies.get(k);
-                        sum = sum(sum(sum(sum, Float.floatToRawIntBits(body.getX())), Float.floatToRawIntBits(body.getY())), Float.floatToRawIntBits(body.getZ()));
+                        thing = sum(sum(sum(thing, Float.floatToRawIntBits(body.getX())), Float.floatToRawIntBits(body.getY())), Float.floatToRawIntBits(body.getZ()));
                         if (body instanceof IsoDeadBody dead) {
-                            sum = sum(sum, pictured(dead));
+                            long picture = pictured(dead);
+                            thing = sum(thing, picture);
+                            // The game makes a body's picture when its own view has the body on screen, and marks nothing when it has.
+                            restless |= picture == 0 && square.getChunk().getRenderLevels(playerIndex).isOnScreen(z);
                         }
+                    }
+                    sum = sum(sum(sum, lit), thing);
+                    if (AUDIT_MARKS) {
+                        auditLights[(z - from) * span + at] = lit;
+                        auditThings[(z - from) * span + at] = thing;
                     }
                 }
             }
         }
+        if (restless) {
+            tollRestless++;
+        }
         return sum;
+    }
+
+    private static final java.util.HashSet<String> movers = new java.util.HashSet<>();
+
+    /** Whether a sprite has more than one frame, and so may show another the next time it is asked. */
+    private static boolean moves(IsoSprite sprite) {
+        boolean moves = sprite != null && sprite.getFrameCount() > 1;
+        if (AUDIT_MARKS && moves && movers.size() < 60 && movers.add(String.valueOf(sprite.getName()))) {
+            Log.info("chunk marks: a sprite of " + sprite.getFrameCount() + " frames, " + sprite.getName());
+        }
+        return moves;
+    }
+
+    private static final long SUM_FROM = 0x9E3779B97F4A7C15L;
+
+    /** Dev only: keeps with a build what its sum was made of. */
+    private void auditKeep(ChunkMeshes fresh, boolean summed) {
+        if (!summed) {
+            fresh.auditLights = null;
+            return;
+        }
+        int length = (keptTo - keptFrom + 1) * lightRed.length;
+        if (fresh.auditLights == null || fresh.auditLights.length < length) {
+            fresh.auditLights = new long[length];
+            fresh.auditThings = new long[length];
+        }
+        System.arraycopy(auditLights, 0, fresh.auditLights, 0, length);
+        System.arraycopy(auditThings, 0, fresh.auditThings, 0, length);
+        fresh.auditTerrain = auditTerrain;
+        fresh.auditTrees = auditTrees;
+        fresh.auditFrom = keptFrom;
+        fresh.auditTo = keptTo;
+    }
+
+    /**
+     * Dev only: a chunk's sum has come out other than its build's. Says whether the game had
+     * marked the chunk or one beside it since, and for one it had not, what of the sum changed.
+     */
+    private void audit(IsoChunk chunk, ChunkMeshes current, float distance, long start, int why) {
+        int now = ChunkMarks.around(chunk.wx, chunk.wy);
+        if ((why & 31) != 0) {
+            tollMarkedChanges++;
+            return;
+        }
+        // Marked by the reading itself: a light this reading was the first to ask for, which pullLights should have asked for before.
+        boolean byReading = now != current.marks;
+        if (byReading) {
+            tollMarkedByReading++;
+        } else {
+            tollMissedChanges++;
+        }
+        if (auditLogged++ > 4000) {
+            return;
+        }
+        StringBuilder what = new StringBuilder();
+        what.append(String.format(Locale.ROOT, "chunk marks: %s at %d, %d, %.0f tiles off, %.1f s old, built %.2f s ago, plain %b, read because %d, on the game's screen %b:",
+                byReading ? "LATE LIGHT" : "MISSED", chunk.wx, chunk.wy, distance,
+                (start - current.bornNanos) / 1e9, (start - current.builtNanos) / 1e9, current.plain, why, chunk.getRenderLevels(playerIndex).isOnScreen(0)));
+        if (current.auditLights == null || current.auditFrom != keptFrom || current.auditTo != keptTo) {
+            what.append(" levels ").append(current.auditFrom).append("..").append(current.auditTo).append(" now ").append(keptFrom).append("..").append(keptTo);
+            Log.info(what.toString());
+            return;
+        }
+        if (current.auditTerrain != auditTerrain) {
+            what.append(" terrain");
+        }
+        if (current.auditTrees != auditTrees) {
+            what.append(" trees");
+        }
+        int span = lightRed.length, litOwn = 0, litRing = 0, thingOwn = 0, thingRing = 0, named = 0;
+        for (int z = keptFrom; z <= keptTo; z++) {
+            for (int at = 0; at < span; at++) {
+                int i = at / LIGHT_SPAN, j = at % LIGHT_SPAN;
+                boolean own = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
+                int index = (z - keptFrom) * span + at;
+                if (current.auditLights[index] != auditLights[index]) {
+                    if (own) {
+                        litOwn++;
+                    } else {
+                        litRing++;
+                    }
+                }
+                if (current.auditThings[index] != auditThings[index]) {
+                    if (own) {
+                        thingOwn++;
+                    } else {
+                        thingRing++;
+                    }
+                    if (named++ < 3) {
+                        IsoGridSquare square = squareAt(chunk.wx * CHUNK_TILES, chunk.wy * CHUNK_TILES, chunk.wx * CHUNK_TILES + i - 1, chunk.wy * CHUNK_TILES + j - 1, z);
+                        what.append(" [").append(chunk.wx * CHUNK_TILES + i - 1).append(',').append(chunk.wy * CHUNK_TILES + j - 1).append(',').append(z);
+                        if (square == null) {
+                            what.append(" gone");
+                        } else {
+                            what.append(current.auditThings[index] == -1 ? " new" : "").append(" room ").append(square.getRoomID()).append(unexplored(square) ? " unexplored" : "");
+                            PZArrayList<IsoObject> objects = square.getObjects();
+                            for (int k = 0; k < objects.size(); k++) {
+                                IsoSprite sprite = objects.get(k).getSprite();
+                                Texture texture = sprite == null ? null : sprite.getTextureForCurrentFrame(objects.get(k).getDir());
+                                what.append(' ').append(objects.get(k).getClass().getSimpleName()).append(':').append(sprite == null ? null : sprite.getName())
+                                        .append('/').append(texture == null ? null : texture.getName());
+                            }
+                            what.append(" bodies ").append(square.getStaticMovingObjects().size());
+                        }
+                        what.append(']');
+                    }
+                }
+            }
+        }
+        what.append(String.format(Locale.ROOT, " lights own %d ring %d, things own %d ring %d", litOwn, litRing, thingOwn, thingRing));
+        Log.info(what.toString());
     }
 
     /** The picture the game has of a body and where it draws it, as one number: 0 while it has none. */
@@ -1889,8 +2299,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     light = unseenLight;
                 } else if (inChunk) {
                     squaresSeen++;
-                    if (outside && tallied) {
-                        seenOutside.add(light.r, light.g, light.b);
+                    if (outside && tallying) {
+                        reading.add(light.r, light.g, light.b);
                     }
                 }
                 lightRed[at] = light.r;

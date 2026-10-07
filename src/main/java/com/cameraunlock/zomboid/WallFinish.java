@@ -57,6 +57,88 @@ final class WallFinish {
         final HashMap<Long, Texture> rooms = new HashMap<>();
         /** What the outside of each room's walls shows, on a north edge and on a west edge. One of the two may be null, never both. */
         final HashMap<Long, Facing[]> outsides = new HashMap<>();
+        /** For tend: what ChunkMarks had counted for the building's chunks and which chunks the map had loaded when the level was read. */
+        int structures, loaded;
+
+        /** Everything the level came out as, in one number. */
+        long print() {
+            long print = mix(mix(mix(mix(0x9E3779B97F4A7C15L, whole ? 1 : 0), of(outside)), of(south)), of(east));
+            // Summed, each room by itself: a map hands its rooms over in no order that can be relied on.
+            long each = 0;
+            for (var room : rooms.entrySet()) {
+                each += mix(mix(1, room.getKey()), of(room.getValue()));
+            }
+            for (var room : outsides.entrySet()) {
+                each += mix(mix(mix(2, room.getKey()), of(room.getValue()[NORTH])), of(room.getValue()[WEST]));
+            }
+            return mix(print, each);
+        }
+
+        private static long mix(long sum, long value) {
+            return (sum ^ value) * 0x100000001B3L;
+        }
+
+        private static long of(Texture texture) {
+            return texture == null ? 0 : texture.getID() + 1L;
+        }
+
+        private static long of(Facing facing) {
+            return facing == null ? 0 : mix(of(facing.texture), System.identityHashCode(facing.sprite));
+        }
+    }
+
+    /** A level of a building that has been read, for tend. */
+    private record Read(java.lang.ref.WeakReference<IsoBuilding> building, int z) {}
+
+    /** Every level read while the game tells of its changes: see tend. */
+    private static final ArrayList<Read> tendedLevels = new ArrayList<>();
+    private static int tended, loadedNow;
+    private static final int TENDED_A_FRAME = 4;
+
+    /**
+     * Logic thread, once a frame while the game tells which chunks it changes (ChunkMarks).
+     * A level's finishes are otherwise read again every so many frames by whichever wall next
+     * asks, and a chunk nothing has been said of asks for nothing. So a few levels a frame
+     * are looked at here in turn: one whose building's chunks the game has marked for an
+     * object since it was read is read again, and so is one read while part of the building
+     * was not loaded, once the map has loaded more. Where it comes out otherwise the chunks
+     * the building stands on are told. One not due is kept as fresh as if it had been read.
+     */
+    static void tend(IsoCell cell, int frame, int loaded) {
+        loadedNow = loaded;
+        for (int n = 0; n < TENDED_A_FRAME && !tendedLevels.isEmpty(); n++) {
+            if (tended >= tendedLevels.size()) {
+                tended = 0;
+            }
+            Read one = tendedLevels.get(tended);
+            IsoBuilding building = one.building.get();
+            Level[] levels = building == null ? null : known.get(building);
+            Level level = levels == null ? null : levels[one.z & (LEVELS - 1)];
+            if (level == null) {
+                tendedLevels.remove(tended);
+                continue;
+            }
+            tended++;
+            BuildingDef def = building.getDef();
+            boolean due = level.whole ? structuresOn(def) != level.structures : level.loaded != loaded && frame - level.stamp >= RETRIED;
+            if (!due) {
+                level.stamp = frame;
+                continue;
+            }
+            Level fresh = read(cell, building, one.z);
+            fresh.stamp = frame;
+            levels[one.z & (LEVELS - 1)] = fresh;
+            if (fresh.print() != level.print()) {
+                ChunkMarks.tell(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
+                        Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
+            }
+        }
+    }
+
+    /** The marks on the chunks a building's walls stand on: its own squares and the row of squares outside each face. */
+    private static int structuresOn(BuildingDef def) {
+        return ChunkMarks.structuresIn(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
+                Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
     }
 
     /** A plain wall of a building's outside: its sprite, for what it is made of, and the picture of it. */
@@ -97,6 +179,7 @@ final class WallFinish {
     /** For a map loaded anew: its buildings are not the ones before's. */
     static void forget() {
         known.clear();
+        tendedLevels.clear();
     }
 
     /**
@@ -141,6 +224,9 @@ final class WallFinish {
         int slot = z & (LEVELS - 1);
         Level level = levels[slot];
         if (level == null || frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
+            if (level == null && ChunkMarks.live) {
+                tendedLevels.add(new Read(new java.lang.ref.WeakReference<>(building), z));
+            }
             level = read(cell, building, z);
             level.stamp = frame;
             levels[slot] = level;
@@ -151,6 +237,8 @@ final class WallFinish {
     private static Level read(IsoCell cell, IsoBuilding building, int z) {
         Level level = new Level();
         BuildingDef def = building.getDef();
+        level.structures = structuresOn(def);
+        level.loaded = loadedNow;
         if (def.getW() > WIDEST || def.getH() > WIDEST) {
             return level;
         }

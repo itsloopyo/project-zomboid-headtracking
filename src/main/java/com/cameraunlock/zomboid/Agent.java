@@ -94,6 +94,22 @@ public final class Agent {
         return nameTags.gap();
     }
 
+    /** The patches that tell ChunkMarks what the game marks as changed. */
+    private static PatchTransformer chunkMarks;
+
+    /** Why the game does not say which chunks it has changed on this build of it, or null once it does. */
+    static String chunkMarksGap() {
+        return chunkMarks.gap();
+    }
+
+    /** The patches that tell ChunkMarks of what the game changes without marking it. */
+    private static PatchTransformer windowMarks;
+
+    /** Why a window smashed or opened is not told of at once on this build of the game, or null once it is. */
+    static String windowMarksGap() {
+        return windowMarks.gap();
+    }
+
     private static volatile boolean loaded;
 
     /** Called where the game has just logged an exception of any kind. */
@@ -163,6 +179,10 @@ public final class Agent {
         }
         instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
+        chunkMarks = new PatchTransformer(chunkMarkPatches());
+        instrumentation.addTransformer(chunkMarks);
+        windowMarks = new PatchTransformer(windowMarkPatches());
+        instrumentation.addTransformer(windowMarks);
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -302,6 +322,61 @@ public final class Agent {
         return List.of(new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(state, "exit", "()V"),
                 code -> CallSite.passThis(code, new CallSite.Method(FIRST_PERSON, "leftSave", "(Ljava/lang/Object;)V")))));
+    }
+
+    /**
+     * Apart again: without them the picture is the same and is worked out the long way, each
+     * chunk in view read through over and over to see whether it has changed. With them the
+     * game says which chunks it has changed: what changes a chunk's look goes through the
+     * two methods of IsoChunk, and a square's light found changed through the one of
+     * FBORenderLevels, all for the game's own chunk textures. See ChunkMarks.
+     */
+    private static List<Patch> chunkMarkPatches() {
+        String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
+        MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";J)V");
+        ClassDesc marks = ClassDesc.ofInternalName("com/cameraunlock/zomboid/ChunkMarks");
+        return List.of(
+                new Patch(chunk, "invalidateRenderChunkLevel telling which chunk it marks", classBytes -> {
+                    refuseChunkMarksIfAsked();
+                    return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(chunk, "invalidateRenderChunkLevel", "(IJ)V"),
+                            code -> code.aload(0).lload(2).invokestatic(marks, "marked", marked));
+                }),
+                new Patch(chunk, "invalidateRenderChunkLevels telling which chunk it marks", classBytes -> {
+                    refuseChunkMarksIfAsked();
+                    return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(chunk, "invalidateRenderChunkLevels", "(J)V"),
+                            code -> code.aload(0).lload(1).invokestatic(marks, "marked", marked));
+                }),
+                new Patch(levels, "invalidateLevel telling which chunk's light it marks", classBytes -> {
+                    refuseChunkMarksIfAsked();
+                    return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(levels, "invalidateLevel", "(IJ)V"),
+                            code -> code.aload(0).lload(2).invokestatic(marks, "lit", lit));
+                }));
+    }
+
+    /**
+     * Apart again, and each from the other: a window is given its smashed, open or shut sprite
+     * in these methods, none of which marks the chunk, since the game draws windows afresh on
+     * every frame. Without one of them that change shows when the chunk is next read through,
+     * which with the game telling is up to half a second on for a window right by the eye.
+     */
+    private static List<Patch> windowMarkPatches() {
+        String window = "zombie/iso/objects/IsoWindow";
+        CallSite.Method changed = new CallSite.Method("com/cameraunlock/zomboid/ChunkMarks", "changed", "(Lzombie/iso/IsoObject;)V");
+        java.util.ArrayList<Patch> patches = new java.util.ArrayList<>();
+        for (String[] method : new String[][] {{"smashWindow", "(ZZ)V"}, {"setSmashed", "(Z)V"}, {"setGlassRemoved", "(Z)V"},
+                {"ToggleWindow", "(Lzombie/characters/IsoGameCharacter;)V"}, {"Thump", "(Lzombie/iso/IsoMovingObject;I)V"},
+                {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {
+            patches.add(new Patch(window, method[0] + " telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                    new CallSite.Method(window, method[0], method[1]), code -> CallSite.passThis(code, changed))));
+        }
+        return patches;
+    }
+
+    /** Dev only: has the patches fail as they would on a build of the game they do not fit. */
+    private static void refuseChunkMarksIfAsked() {
+        if (Boolean.getBoolean("cameraunlock.zomboid.withoutChunkMarks")) {
+            throw new IllegalStateException("refused, as cameraunlock.zomboid.withoutChunkMarks asks");
+        }
     }
 
     /**

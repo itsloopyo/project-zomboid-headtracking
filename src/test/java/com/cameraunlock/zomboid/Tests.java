@@ -129,6 +129,7 @@ public final class Tests {
         QualityTests.run();
         StyleTests.run();
         GameFixTests.run();
+        MarkTests.run();
         OnlineTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         theBuildThatShipsHasNoDevelopmentKeys();
