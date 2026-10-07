@@ -220,7 +220,7 @@ final class Scope {
                     // a longer one at every fourth.
                     float click = vGrip.x / 0.00275;
                     float nth = floor(click + 0.5);
-                    float line = 1.0 - smoothstep(0.05, 0.05 + fwidth(click), abs(click - nth));
+                    float line = 1.0 - smoothstep(0.05, 0.05 + fwidth(click) + 1e-6, abs(click - nth));
                     float longer = mod(nth, 4.0) < 0.5 ? 0.0155 : 0.0178;
                     line *= smoothstep(longer, longer + 0.0002, vGrip.y) * (1.0 - smoothstep(0.0205, 0.0207, vGrip.y));
                     tone = mix(tone, 0.62, line);
@@ -231,7 +231,7 @@ final class Scope {
                 vec3 sunLight = pow(uLightColor, vec3(2.2)) * (1.5 * sunReaches(at));
                 vec3 halfway;
                 float shine = glint(n, view, rough, halfway);
-                vec3 thrown = mirror + (1.0 - mirror) * pow(1.0 - max(dot(halfway, view), 0.0), 5.0);
+                vec3 thrown = mirror + (1.0 - mirror) * pow(1.0 - clamp(dot(halfway, view), 0.0, 1.0), 5.0);
                 vec3 color = (dull * max(dot(n, uLight), 0.0) + thrown * shine) * sunLight;
 
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
@@ -257,7 +257,7 @@ final class Scope {
                 vec3 off = vSeen - uLens;
                 vec3 out3 = (off - uAxis * dot(off, uAxis)) / (EYE_LENS * uMetre);
                 vec3 n = normalize(inWorld(uAxis * facing + out3 * curve));
-                float nv = max(dot(n, view), 0.0);
+                float nv = clamp(dot(n, view), 0.0, 1.0);
                 float thrown = base + (1.0 - base) * pow(1.0 - nv, 5.0);
                 vec3 coat = mix(vec3(0.74, 0.30, 0.95), vec3(0.30, 0.95, 0.52), smoothstep(0.05, 0.55, 1.0 - nv));
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);

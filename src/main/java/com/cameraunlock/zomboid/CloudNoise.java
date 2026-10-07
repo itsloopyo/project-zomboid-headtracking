@@ -4,11 +4,11 @@ import java.nio.ByteBuffer;
 
 /**
  * The noise the clouds are cut from: a cube that repeats in all three
- * directions, three bytes a cell.
+ * directions, two bytes a cell.
  *
  * The first byte is the shape of the clouds: smooth noise over a few scales,
  * pushed towards billows by cellular noise. The second is finer cellular noise
- * that wears the edges of the shapes away. The third is not used. No file is
+ * that wears the edges of the shapes away. No file is
  * read and nothing is random between runs, so the sky is the same every time
  * for the same game clock.
  */
@@ -16,7 +16,7 @@ final class CloudNoise {
     private CloudNoise() {}
 
     static ByteBuffer build(int size) {
-        ByteBuffer out = ByteBuffer.allocateDirect(size * size * size * 3);
+        ByteBuffer out = ByteBuffer.allocateDirect(size * size * size * 2);
         for (int z = 0; z < size; z++) {
             for (int y = 0; y < size; y++) {
                 for (int x = 0; x < size; x++) {
@@ -28,7 +28,6 @@ final class CloudNoise {
                     float wear = 0.55f * fine + 0.45f * cells(u, v, w, 16);
                     out.put((byte) Math.round(shape * 255f));
                     out.put((byte) Math.round((1f - wear) * 255f));
-                    out.put((byte) 0);
                 }
             }
         }

@@ -53,9 +53,9 @@ final class Pipeline {
     private static final int GL_TRIANGLE_STRIP = 0x0005;
     private static final int GL_FLOAT = 0x1406;
     private static final int GL_UNSIGNED_BYTE = 0x1401;
-    private static final int GL_RGB = 0x1907;
+    private static final int GL_RG = 0x8227;
     private static final int GL_RGBA = 0x1908;
-    private static final int GL_RGB8 = 0x8051;
+    private static final int GL_RG8 = 0x822B;
     private static final int GL_RGBA8 = 0x8058;
     private static final int GL_RGBA16F = 0x881A;
     private static final int GL_DEPTH_COMPONENT = 0x1902;
@@ -2246,6 +2246,7 @@ final class Pipeline {
             figureLight.set("uNear", near);
             figureLight.set("uFar", far);
             figureLight.set("uEye", pose.eyeX, pose.eyeY, pose.eyeUp);
+            figureLight.set("uRangeFrom", 0f);
             setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
             setBeams(figureLight);
@@ -2986,7 +2987,7 @@ final class Pipeline {
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         GL11.glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-        GL12.glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB8, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE, 0, GL_RGB, GL_UNSIGNED_BYTE, cells);
+        GL12.glTexImage3D(GL_TEXTURE_3D, 0, GL_RG8, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE, 0, GL_RG, GL_UNSIGNED_BYTE, cells);
         return null;
     }
 

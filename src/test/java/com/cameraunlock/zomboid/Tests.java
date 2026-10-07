@@ -168,6 +168,7 @@ public final class Tests {
         swingMovesWithoutAJump();
         raiseLeavesTheStraightLineOnlyBetweenItsEnds();
         meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
+        ShaderTests.run();
         // A run that fails ends before this, and its log is left to be read.
         Files.delete(logs.resolve(Log.FILE_NAME));
         Files.delete(logs);

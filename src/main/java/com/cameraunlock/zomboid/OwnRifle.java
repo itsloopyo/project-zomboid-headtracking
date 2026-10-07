@@ -212,7 +212,7 @@ final class OwnRifle {
                 float spread = nh * nh * (a2 - 1.0) + 1.0;
                 float glint = a2 / (PI * spread * spread);
                 float seenBoth = 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) + nv * sqrt(nl * nl * (1.0 - a2) + a2) + 0.0001);
-                vec3 thrown = mirror + (1.0 - mirror) * pow(1.0 - max(dot(halfway, view), 0.0), 5.0);
+                vec3 thrown = mirror + (1.0 - mirror) * pow(1.0 - clamp(dot(halfway, view), 0.0, 1.0), 5.0);
                 vec3 color = (dull + thrown * min(glint * seenBoth * PI, 60.0)) * sunLight * nl;
 
                 // The light from all round: scattered by the way the surface faces, mirrored

@@ -7,13 +7,30 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     packages:
       win-64:
+      - conda: https://conda.anaconda.org/conda-forge/win-64/glslang-16.6.0-h8fa7867_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/openjdk-25.0.2-h56f2b75_26.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/spirv-tools-2026.3-h49e36cd_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/symlink-exe-runtime-1.0-hfd05255_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/ucrt-10.0.26100.0-h57928b3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/vc-14.5-ha367084_41.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.51.36247-habf1de7_41.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.51.36247-habf1de7_41.conda
 packages:
+- conda: https://conda.anaconda.org/conda-forge/win-64/glslang-16.6.0-h8fa7867_0.conda
+  sha256: 048f538b07594cc717a14517191a81cb1d3825fdde9c573d132c158b26d15806
+  md5: ed55c0145873694800fb43519de0faea
+  depends:
+  - spirv-tools >=2026,<2027.0a0
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  license: BSD-3-Clause
+  license_family: BSD
+  run_exports:
+    weak:
+    - glslang >=16,<17.0a0
+  size: 5149438
+  timestamp: 1789335179711
 - conda: https://conda.anaconda.org/conda-forge/win-64/openjdk-25.0.2-h56f2b75_26.conda
   sha256: a13178e1b567fdd349e58742d15e77956c646335930fffcd6e9b231f5bee688f
   md5: d08933b9c28df03fea8001170388cdf4
@@ -27,6 +44,22 @@ packages:
   run_exports: {}
   size: 199761699
   timestamp: 1787925045727
+- conda: https://conda.anaconda.org/conda-forge/win-64/spirv-tools-2026.3-h49e36cd_1.conda
+  sha256: 8498e2399104c14a11431139c881fc2fe83b86bcc32b7be29c1cd540bb26195c
+  md5: 4da2046d54389d47d93c54a2597b9c11
+  depends:
+  - ucrt >=10.0.20348.0
+  - vc >=14.3,<15
+  - vc14_runtime >=14.44.35208
+  constrains:
+  - spirv-headers >=1.4.357.0,<1.4.357.1.0a0
+  license: Apache-2.0
+  license_family: APACHE
+  run_exports:
+    weak:
+    - spirv-tools >=2026,<2027.0a0
+  size: 5621616
+  timestamp: 1787525506245
 - conda: https://conda.anaconda.org/conda-forge/win-64/symlink-exe-runtime-1.0-hfd05255_2.conda
   sha256: 25a7eaad98aabe1f4f137ecac53cb45de881cc88d399738f95278f0449f97c28
   md5: 2f96340000d8b3957ecb0978cfed0486

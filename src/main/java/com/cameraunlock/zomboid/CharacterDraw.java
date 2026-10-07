@@ -732,7 +732,7 @@ final class CharacterDraw {
                         // On the front of the head, what is nearly white and much brighter
                         // than the skin round it is the white of an eye or a tooth, and what
                         // is nearly black and much darker is the dark of an eye: both are wet.
-                        float face = smoothstep(0.835, 0.85, vRest.y) * (1.0 - smoothstep(0.925, 0.94, vRest.y)) * smoothstep(0.0, -0.008, vRest.z);
+                        float face = smoothstep(0.835, 0.85, vRest.y) * (1.0 - smoothstep(0.925, 0.94, vRest.y)) * (1.0 - smoothstep(-0.008, 0.0, vRest.z));
                         float tone = grey(color);
                         float white = smoothstep(0.1, 0.2, stands) * smoothstep(0.78, 0.88, tone) * (1.0 - smoothstep(0.1, 0.2, strong));
                         float dark = smoothstep(0.22, 0.36, -stands) * (1.0 - smoothstep(0.1, 0.2, tone));
@@ -746,7 +746,7 @@ final class CharacterDraw {
                         ball = brighter * (wet * (white > dark ? 0.05 : -0.05) * scale);
                         // Fingers, ears and the end of the nose are thin enough for light to come through.
                         float head = smoothstep(0.85, 0.87, vRest.y) * (1.0 - smoothstep(0.92, 0.94, vRest.y));
-                        low = flesh * max(smoothstep(0.415, 0.46, abs(vRest.x)), head * max(smoothstep(0.047, 0.058, abs(vRest.x)), 0.5 * smoothstep(-0.036, -0.046, vRest.z)));
+                        low = flesh * max(smoothstep(0.415, 0.46, abs(vRest.x)), head * max(smoothstep(0.047, 0.058, abs(vRest.x)), 0.5 * (1.0 - smoothstep(-0.046, -0.036, vRest.z))));
                     }
                     float fine = max(length(dFdx(vRest)), length(dFdy(vRest)));
                     float pitch = wear > 5.5 ? 1.0 : wear > 4.5 ? 430.0 : wear < 2.5 ? 520.0 : wear < 3.5 ? 430.0 : 330.0;

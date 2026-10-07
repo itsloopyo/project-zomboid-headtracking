@@ -143,6 +143,18 @@ final class PipelineShaders {
                 at.z -= min(push * push / (2.0 * max(high, 0.02)), 0.6 * high);
                 return at;
             }
+
+            // Where the wind has moved a vertex to. The normal's length says how much of the
+            // wind the vertex takes: nothing at a plant's root, all of it at its top.
+            vec4 blown(vec4 at, vec3 normal) {
+                float take = length(normal) - 1.0;
+                if (take <= 0.001) {
+                    return at;
+                }
+                float beat = dot(at.xy, vec2(0.37, 0.29)) + uWind.z;
+                float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
+                return vec4(at.xy + uWind.xy * (take * lean), at.zw);
+            }
             """;
 
     /**
@@ -200,18 +212,6 @@ final class PipelineShaders {
             // surface's own bit to just under 1 and lose it.
             bool has(float bits, float surface) {
                 return mod(floor((bits + 0.5) / exp2(surface)), 2.0) > 0.5;
-            }
-
-            // Where the wind has moved a vertex to. The normal's length says how much of the
-            // wind the vertex takes: nothing at a plant's root, all of it at its top.
-            vec4 blown(vec4 at, vec3 normal) {
-                float take = length(normal) - 1.0;
-                if (take <= 0.001) {
-                    return at;
-                }
-                float beat = dot(at.xy, vec2(0.37, 0.29)) + uWind.z;
-                float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
-                return vec4(at.xy + uWind.xy * (take * lean), at.zw);
             }
             void main() {
                 vec4 stands = gl_Vertex;
@@ -416,7 +416,7 @@ final class PipelineShaders {
             // seen square on, 0.04 for anything that is not metal.
             float glossed(vec3 n, vec3 v, vec3 l, float rough, float f0) {
                 vec3 h = normalize(v + l);
-                float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001), nh = max(dot(n, h), 0.0), vh = max(dot(v, h), 0.0);
+                float nl = max(dot(n, l), 0.0), nv = max(dot(n, v), 0.001), nh = max(dot(n, h), 0.0), vh = clamp(dot(v, h), 0.0, 1.0);
                 float a = rough * rough, a2 = a * a;
                 float d = nh * nh * (a2 - 1.0) + 1.0;
                 float facets = a2 / (3.14159265 * d * d);
@@ -581,7 +581,7 @@ final class PipelineShaders {
                 float round = atan(line.y, line.x) * 2.5 + dot(at.xy, vec2(0.23, 0.17));
                 float roofs = 0.26 * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
                 vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * vec3(0.2, 0.23, 0.17);
-                return mix(sky, land, smoothstep(roofs + 0.02, roofs - 0.02, line.z));
+                return mix(sky, land, 1.0 - smoothstep(roofs - 0.02, roofs + 0.02, line.z));
             }
 
             // Sawn boards stood side by side, in the colour given: where along the wall the
@@ -638,7 +638,7 @@ final class PipelineShaders {
                 made *= 1.0 - 0.5 * knotted * near * (1.0 - smoothstep(0.006, 0.02, away));
                 float edge = min(part, 1.0 - part);
                 float seen = (1.0 - smoothstep(0.3, 0.8, wide)) * (1.0 - arcWhole);
-                float joint = 1.0 - smoothstep(0.018, 0.018 + wide, edge);
+                float joint = 1.0 - smoothstep(0.018, 0.018 + wide + 1e-6, edge);
                 float eased = 1.0 - smoothstep(0.0, 0.09, edge);
                 lean = (part < 0.5 ? -1.0 : 1.0) * eased * seen;
                 made *= mix(0.95, (1.0 - 0.8 * joint) * (1.0 - 0.1 * eased), seen);
@@ -646,7 +646,7 @@ final class PipelineShaders {
                 float rail = (fract(up / 1.15 + 0.3) - 0.5) * 1.15;
                 float nail = length(vec2((abs(part - 0.5) - 0.3) * BOARD_WIDE, rail));
                 float soft = fwidth(up);
-                float head = (1.0 - smoothstep(0.005, 0.005 + soft, nail)) * (1.0 - smoothstep(0.004, 0.012, soft)) * (1.0 - arcWhole);
+                float head = (1.0 - smoothstep(0.005, 0.005 + soft + 1e-6, nail)) * (1.0 - smoothstep(0.004, 0.012, soft)) * (1.0 - arcWhole);
                 // Under each nail the rain has drawn a little rust down the board.
                 float streak = (1.0 - smoothstep(0.003, 0.006 + soft, abs(abs(part - 0.5) - 0.3) * BOARD_WIDE)) * smoothstep(0.0, 0.01, -rail)
                         * (1.0 - smoothstep(0.0, 0.11, -rail)) * (1.0 - smoothstep(0.004, 0.012, soft)) * (1.0 - arcWhole);
@@ -746,7 +746,7 @@ final class PipelineShaders {
                 float foot = 1.0 - smoothstep(0.0, 0.06 + soft, part);
                 float butt = run / 7.5 + r2;
                 float end = abs(fract(butt) - 0.5) * 7.5;
-                float joint = (1.0 - smoothstep(0.0015, 0.0015 + softRun, 3.75 - end)) * (1.0 - smoothstep(0.004, 0.012, softRun)) * seen;
+                float joint = (1.0 - smoothstep(0.0015, 0.0015 + softRun + 1e-6, 3.75 - end)) * (1.0 - smoothstep(0.004, 0.012, softRun)) * seen;
                 float near = 1.0 - smoothstep(0.003, 0.014, max(softRun, fwidth(up)));
                 float stroke = patches(vec2(run * 6.0 + tier * 3.3, part * 9.0 + tier)) * 0.6 + patches(vec2(run * 31.0, part * 23.0 + tier * 7.0)) * 0.4;
                 made *= 1.0 + near * 0.07 * (stroke - 0.5);
@@ -815,7 +815,7 @@ final class PipelineShaders {
                 float away = length(within - hit);
                 float out2 = (away - turn * 0.42) * 11.0;
                 float ring = sin((away - turn * 0.42) * 46.0) * exp(-out2 * out2) * (1.0 - turn);
-                float splash = smoothstep(0.07, 0.0, away) * smoothstep(0.22, 0.0, turn);
+                float splash = (1.0 - smoothstep(0.0, 0.07, away)) * (1.0 - smoothstep(0.0, 0.22, turn));
                 return vec2(ring, splash);
             }
 
@@ -1428,7 +1428,7 @@ final class PipelineShaders {
                         if (edge > 1.0) {
                             discard;
                         }
-                        float chevron = smoothstep(0.1, 0.0, abs(leaf.x + 0.02 + abs(leaf.y) * 0.55)) * 0.3;
+                        float chevron = (1.0 - smoothstep(0.0, 0.1, abs(leaf.x + 0.02 + abs(leaf.y) * 0.55))) * 0.3;
                         float vein = 0.94 + 0.06 * smoothstep(0.0, 0.04, abs(leaf.y));
                         texel.rgb = mix(green * vec3(0.56, 0.8, 0.54), vec3(0.6, 0.72, 0.5) * (lit / 0.38), chevron) * vein * (1.1 - 0.3 * edge * edge);
                         up = 0.6;
@@ -1716,7 +1716,7 @@ final class PipelineShaders {
                 if (film) {
                     vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
                     float outside = window ? step(dot(face, sight), 0.0) : 0.5;
-                    thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - abs(dot(face, sight)), 5.0)));
+                    thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
                     veil = thrown + (1.0 - thrown) * (1.0 - through);
@@ -1805,17 +1805,17 @@ final class PipelineShaders {
                         // the sprite is there.
                         vec3 tap[9];
                         float tone[9];
-                        float sum = 0.0, painted = 0.0;
+                        float sum = 0.0, counted = 0.0;
                         for (int i = 0; i < 9; i++) {
                             int row = i / 3;
                             vec4 near = texture2D(uTexture, vUv + vec2(float(i - 3 * row) - 1.0, float(row) - 1.0) * 6.0 * uTexel);
                             tap[i] = near.rgb;
                             tone[i] = near.a > 0.5 ? dot(near.rgb, vec3(0.299, 0.587, 0.114)) : -1.0;
                             sum += max(tone[i], 0.0);
-                            painted += step(0.0, tone[i]);
+                            counted += step(0.0, tone[i]);
                         }
-                        if (painted > 0.5) {
-                            float mean = sum / painted - 0.002;
+                        if (counted > 0.5) {
+                            float mean = sum / counted - 0.002;
                             vec4 pale = vec4(0.0);
                             for (int i = 0; i < 9; i++) {
                                 pale += vec4(tap[i], 1.0) * step(mean, tone[i]);
@@ -2013,7 +2013,7 @@ final class PipelineShaders {
                         vec2 toJoint = min(fract(slab), 1.0 - fract(slab)) * 0.5;
                         vec2 soft = fwidth(p);
                         float seen = paved * (1.0 - smoothstep(0.06, 0.2, max(soft.x, soft.y)));
-                        float joint = max(1.0 - smoothstep(0.008, 0.008 + soft.x, toJoint.x), 1.0 - smoothstep(0.008, 0.008 + soft.y, toJoint.y));
+                        float joint = max(1.0 - smoothstep(0.008, 0.008 + soft.x + 1e-6, toJoint.x), 1.0 - smoothstep(0.008, 0.008 + soft.y + 1e-6, toJoint.y));
                         float tone = grain(floor(slab));
                         texel.rgb *= (1.0 + (tone - 0.5) * 0.08 * seen) * (1.0 - 0.3 * joint * seen);
                     }
@@ -2056,7 +2056,7 @@ final class PipelineShaders {
                     float along = abs(n.x) > abs(n.y) ? vWorld.y : vWorld.x;
                     float poured = patches(vWorld.xy * 2.3 + vec2(0.0, vWorld.z * 11.0)) * 0.6 + patches(vWorld.xy * 19.0 + vec2(3.0, vWorld.z * 37.0 + 3.0)) * 0.4;
                     float toJoint = abs(fract(along / 1.5) - 0.5) * 1.5;
-                    float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along), 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
+                    float joint = (1.0 - smoothstep(0.012, 0.012 + fwidth(along) + 1e-6, 0.75 - toJoint)) * (1.0 - smoothstep(0.06, 0.2, fwidth(along)));
                     texel.rgb = vec3(0.8, 0.79, 0.75) * (0.9 + 0.2 * poured) * (1.0 - 0.35 * joint);
                 }
                 if (uOwnTextures > 0.5 && (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5)) {
@@ -2452,7 +2452,7 @@ final class PipelineShaders {
                     vec3 surface = normalize(vec3(n.xy + wave * ripple + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);
-                    float glance = 0.03 + 0.97 * pow(1.0 - max(dot(view, surface), 0.0), 5.0);
+                    float glance = 0.03 + 0.97 * pow(1.0 - clamp(dot(view, surface), 0.0, 1.0), 5.0);
                     color = mix(color, ridges(mirrored, atmosphere(mirrored)) * (0.35 + 0.65 * open), glance * shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
                     // Headlights on a wet road are a long streak of glare towards the eye.
@@ -2524,18 +2524,6 @@ final class PipelineShaders {
             uniform mat4 uMatrix;
             varying vec2 vUv;
             uniform vec3 uWind;
-
-            // Where the wind has moved a vertex to. The normal's length says how much of the
-            // wind the vertex takes: nothing at a plant's root, all of it at its top.
-            vec4 blown(vec4 at, vec3 normal) {
-                float take = length(normal) - 1.0;
-                if (take <= 0.001) {
-                    return at;
-                }
-                float beat = dot(at.xy, vec2(0.37, 0.29)) + uWind.z;
-                float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
-                return vec4(at.xy + uWind.xy * (take * lean), at.zw);
-            }
             varying float vLeaves;
             varying vec3 vAt;
             """ + GRASS_WIND + MODEL_STANDS + FACED + """
@@ -2743,7 +2731,7 @@ final class PipelineShaders {
                 // never fell there.
                 vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
                 float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
-                float body = (1.0 - vIn.x * vIn.x) * smoothstep(0.0, 0.25, vIn.y) * smoothstep(1.0, 0.5, vIn.y);
+                float body = (1.0 - vIn.x * vIn.x) * smoothstep(0.0, 0.25, vIn.y) * (1.0 - smoothstep(0.5, 1.0, vIn.y));
                 // A drop falling through a beam is a bright streak: it is most of what rain
                 // looks like from behind the wheel at night.
                 vec3 dir;
@@ -2856,12 +2844,14 @@ final class PipelineShaders {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
+                // Before any pixel leaves: a slope across the screen is taken from the pixel's
+                // neighbours, which must all have got this far.
+                vec3 p = placeAt(uv);
+                vec3 n = normalize(cross(dFdx(p), dFdy(p)));
                 if (texture2D(uDepth, uv).r >= 0.9999995) {
                     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                     return;
                 }
-                vec3 p = placeAt(uv);
-                vec3 n = normalize(cross(dFdx(p), dFdy(p)));
                 // Turned to face the eye, which is not the same as turned to point back along
                 // the way the eye looks: a ceiling or a side wall looked along has next to no
                 // part along that way, and which sign it had went by the last digit. It
@@ -3182,7 +3172,7 @@ final class PipelineShaders {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
             }
 
-            float noise2(vec2 p) {
+            float noiseAt(vec2 p) {
                 vec2 cell = floor(p);
                 vec2 f = fract(p);
                 f = f * f * (3.0 - 2.0 * f);
@@ -3595,8 +3585,8 @@ final class PipelineShaders {
             // a glancing angle, and the dust and dried rain on it, which stay put on the glass
             // as the car moves. on is the place on the pane, in tiles.
             vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
-                float dust = smoothstep(0.35, 0.85, noise2(on * 5.0) * 0.55 + noise2(on * 15.0 + 3.0) * 0.3 + noise2(on * 61.0) * 0.15);
-                float runs = smoothstep(0.62, 0.95, noise2(vec2(on.x * 46.0, on.y * 2.2)));
+                float dust = smoothstep(0.35, 0.85, noiseAt(on * 5.0) * 0.55 + noiseAt(on * 15.0 + 3.0) * 0.3 + noiseAt(on * 61.0) * 0.15);
+                float runs = smoothstep(0.62, 0.95, noiseAt(vec2(on.x * 46.0, on.y * 2.2)));
                 float dirt = clamp(dust * 0.75 + runs * 0.45, 0.0, 1.0);
                 // The wipers keep their two arcs of the front screen clean and push what they
                 // clear to the arcs' edges, where it dries as a line.
@@ -3642,11 +3632,11 @@ final class PipelineShaders {
                     // trickles, and the glass mists over from its foot where the warm air
                     // inside meets it.
                     float still = 1.0 - (swept > 0.5 ? wiper.x : 0.0);
-                    float trickle = smoothstep(0.8, 0.97, noise2(vec2(on.x * 70.0, on.y * 2.5 + uTime * 0.35))) * smoothstep(0.35, 0.6, noise2(vec2(on.x * 9.0 + 4.0, on.y * 1.5 - uTime * 0.2)));
+                    float trickle = smoothstep(0.8, 0.97, noiseAt(vec2(on.x * 70.0, on.y * 2.5 + uTime * 0.35))) * smoothstep(0.35, 0.6, noiseAt(vec2(on.x * 9.0 + 4.0, on.y * 1.5 - uTime * 0.2)));
                     float running = trickle * uRaining * still * (1.0 - 0.7 * swept);
                     glass.rgb = mix(glass.rgb, held, running * 0.6 / (running * 0.6 + glass.a));
                     glass.a = min(glass.a + running * 0.28, 0.9);
-                    float mist = uRaining * still * (1.0 - smoothstep(-0.32, 0.02 + 0.12 * noise2(on * 3.0), on.y)) * (0.5 + 0.5 * noise2(on * 11.0));
+                    float mist = uRaining * still * (1.0 - smoothstep(-0.32, 0.02 + 0.12 * noiseAt(on * 3.0), on.y)) * (0.5 + 0.5 * noiseAt(on * 11.0));
                     glass.rgb = mix(glass.rgb, atmosphere(vec3(0.0, 0.0, 1.0)) * 0.9 + 0.01, mist * 0.3 / (mist * 0.3 + glass.a));
                     glass.a = min(glass.a + mist * 0.3, 0.92);
                     glass = mix(glass, vec4(0.004, 0.004, 0.005, 1.0), blade);
@@ -3703,9 +3693,9 @@ final class PipelineShaders {
             // Of the two neighbours along each line the nearer in depth is used: the other may
             // be past the figure's edge, on the wall behind it.
             vec3 normalAt(vec2 uv, vec3 at, float pixels) {
-                vec2 step = pixels / uSize;
-                vec3 east = placeAt(uv + vec2(step.x, 0.0)) - at, west = at - placeAt(uv - vec2(step.x, 0.0));
-                vec3 north = placeAt(uv + vec2(0.0, step.y)) - at, south = at - placeAt(uv - vec2(0.0, step.y));
+                vec2 apart = pixels / uSize;
+                vec3 east = placeAt(uv + vec2(apart.x, 0.0)) - at, west = at - placeAt(uv - vec2(apart.x, 0.0));
+                vec3 north = placeAt(uv + vec2(0.0, apart.y)) - at, south = at - placeAt(uv - vec2(0.0, apart.y));
                 vec3 across = dot(east, east) < dot(west, west) ? east : west;
                 vec3 up = dot(north, north) < dot(south, south) ? north : south;
                 vec3 square = cross(across, up);
@@ -3738,9 +3728,9 @@ final class PipelineShaders {
 
             // Which way the body faces at uv, as normalAt tells it, from its own triangles.
             vec3 partNormalAt(vec2 uv, vec3 at, float pixels) {
-                vec2 step = pixels / uSize;
-                vec3 east = partAt(uv + vec2(step.x, 0.0)) - at, west = at - partAt(uv - vec2(step.x, 0.0));
-                vec3 north = partAt(uv + vec2(0.0, step.y)) - at, south = at - partAt(uv - vec2(0.0, step.y));
+                vec2 apart = pixels / uSize;
+                vec3 east = partAt(uv + vec2(apart.x, 0.0)) - at, west = at - partAt(uv - vec2(apart.x, 0.0));
+                vec3 north = partAt(uv + vec2(0.0, apart.y)) - at, south = at - partAt(uv - vec2(0.0, apart.y));
                 vec3 across = dot(east, east) < dot(west, west) ? east : west;
                 vec3 up = dot(north, north) < dot(south, south) ? north : south;
                 vec3 square = cross(across, up);
@@ -4095,7 +4085,7 @@ final class PipelineShaders {
                     }
                 }
                 float bonnet = kind > 3.5 && !wheel && !dial ? 1.0 : 0.0;
-                if (figure.a < 0.5 && !wheel && !bonnetSeen) {
+                if (figure.a < 0.5 && !wheel && !dial && !bonnetSeen) {
                     // From a seat the vehicle is all round the eye, so where the game drew
                     // none of it above the sills there is an opening with a pane in it.
                     vec3 out3 = normalize(ray);
@@ -4138,9 +4128,10 @@ final class PipelineShaders {
                 if (bonnetSeen) {
                     // The depth the game drew here is the glass's. The bonnet's own is read,
                     // and evened towards level: it is a broad panel that faces up.
-                    vec3 lies = partAt(uv);
-                    vec3 square = cross(dFdx(lies), dFdy(lies));
-                    square = length(square) > 1e-12 ? normalize(square) : vec3(0.0, 0.0, 1.0);
+                    // Taken from the pixels beside it by reading them: the slope across the
+                    // screen that dFdx gives is not defined in a branch its neighbours may not take.
+                    vec3 square = partNormalAt(uv, partAt(uv), 1.0);
+                    square = dot(square, square) > 0.5 ? square : vec3(0.0, 0.0, 1.0);
                     n = normalize(square * (dot(square, view) < 0.0 ? -0.5 : 0.5) + vec3(0.0, 0.0, 0.5));
                 }
                 // A person the picture drew itself comes with the way each point of them
@@ -4616,17 +4607,19 @@ final class PipelineShaders {
             // throw the eye's line, and walked through the picture's own depth: where it goes
             // behind something the picture shows, that thing is what the mirror shows there.
             // A ray that leaves the picture, or passes behind something too far to be sure of,
-            // finds nothing and the sky stays.
-            vec3 walked(vec2 uv, vec4 scene) {
+            // finds nothing and the sky stays. p is where the pixel is and square stands square to
+            // the surface there: main works both out for every pixel, since a slope across the
+            // screen taken only where a pixel is a mirror has no neighbour to be taken from at the
+            // mirror's rim.
+            vec3 walked(vec2 uv, vec4 scene, vec3 p, vec3 square) {
                 float mirror = 1.0 - scene.a;
                 if (mirror < 0.02) {
                     return scene.rgb;
                 }
-                vec3 p = placeAt(uv);
                 vec3 line = normalize(p);
                 // Which way the mirror faces is read off the picture's depth: a floor faces up,
                 // a window pane faces out of its wall.
-                vec3 facing = normalize(cross(dFdx(p), dFdy(p)));
+                vec3 facing = normalize(square);
                 if (dot(facing, line) > 0.0) {
                     facing = -facing;
                 }
@@ -4637,7 +4630,7 @@ final class PipelineShaders {
                     facing = uUp;
                 }
                 vec3 thrown = reflect(line, facing);
-                float glance = 0.04 + 0.96 * pow(1.0 - max(dot(-line, facing), 0.0), 5.0);
+                float glance = 0.04 + 0.96 * pow(1.0 - clamp(dot(-line, facing), 0.0, 1.0), 5.0);
                 float reach = 0.12 + 0.02 * p.z;
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float along = reach * start;
@@ -4705,9 +4698,9 @@ final class PipelineShaders {
             // Far water is a pixel or two a tile, and a ray walked from it lands behind
             // something in one pixel and misses in the next: the far shore is a band of
             // dashes. Out there the water shows the sky the world's shader gave it.
-            vec3 mirrored(vec2 uv, vec4 scene) {
-                float near = 1.0 - smoothstep(45.0, 80.0, placeAt(uv).z);
-                return near > 0.0 ? mix(scene.rgb, walked(uv, scene), near) : scene.rgb;
+            vec3 mirrored(vec2 uv, vec4 scene, vec3 p, vec3 square) {
+                float near = 1.0 - smoothstep(45.0, 80.0, p.z);
+                return near > 0.0 ? mix(scene.rgb, walked(uv, scene, p, square), near) : scene.rgb;
             }
 
             float hash(vec2 p) {
@@ -4756,7 +4749,7 @@ final class PipelineShaders {
                     float along = 0.6 + float(i) * 0.55;
                     vec2 off = (uv - (uSunAt + axis * along)) * vec2(uAspect, 1.0);
                     float size = 0.035 + 0.03 * float(i);
-                    float disc = smoothstep(size, size * 0.6, length(off));
+                    float disc = 1.0 - smoothstep(size * 0.6, size, length(off));
                     sum += disc * vec3(0.9 - 0.2 * float(i), 0.7, 0.5 + 0.15 * float(i));
                 }
                 return sum * uRayColor * (seen / 5.0) * 0.09;
@@ -4806,7 +4799,9 @@ final class PipelineShaders {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                float ahead = placeAt(uv).z;
+                vec3 p = placeAt(uv);
+                vec3 square = cross(dFdx(p), dFdy(p));
+                float ahead = p.z;
                 // A pass that is switched off has drawn nothing into its picture, and what a
                 // picture nothing was drawn into holds is the driver's to choose: it is not read.
                 vec4 around = vec4(0.0, 0.0, 0.0, 1.0);
@@ -4814,7 +4809,7 @@ final class PipelineShaders {
                     around = ofItsOwnDepth(uOcclusion, uv, ahead);
                 }
                 vec4 here = texture2D(uScene, uv);
-                vec3 c = mirrored(uv, here) * mix(1.0, around.a, 0.62);
+                vec3 c = mirrored(uv, here, p, square) * mix(1.0, around.a, 0.62);
                 // The light lent by what stands near, taken on by the surface in its own colour.
                 vec3 lent = around.rgb / max(1.0 - around.rgb, vec3(0.02));
                 float own = max(here.r, max(here.g, here.b));
@@ -4844,10 +4839,10 @@ final class PipelineShaders {
                     // What the Interact key would act on has a line round it, where what stands
                     // in its box meets what does not, and is a little lighter all over. The
                     // line is as wide on a large picture as on a small one.
-                    vec2 step = vec2(uSize.y / 400.0) / uSize;
+                    vec2 apart = vec2(uSize.y / 400.0) / uSize;
                     float on = marked(uv);
-                    float edge = max(max(abs(marked(uv + vec2(step.x, 0.0)) - on), abs(marked(uv - vec2(step.x, 0.0)) - on)),
-                            max(abs(marked(uv + vec2(0.0, step.y)) - on), abs(marked(uv - vec2(0.0, step.y)) - on)));
+                    float edge = max(max(abs(marked(uv + vec2(apart.x, 0.0)) - on), abs(marked(uv - vec2(apart.x, 0.0)) - on)),
+                            max(abs(marked(uv + vec2(0.0, apart.y)) - on), abs(marked(uv - vec2(0.0, apart.y)) - on)));
                     c = mix(c + vec3(0.05, 0.045, 0.03) * on, vec3(1.0, 0.93, 0.62), 0.9 * edge);
                 }
                 gl_FragColor = vec4(c, 1.0);

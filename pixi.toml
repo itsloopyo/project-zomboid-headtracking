@@ -12,6 +12,9 @@ platforms = ["win-64"]
 # java.lang.classfile API that became final in Java 24, so the build needs the
 # same major version and no bytecode library.
 openjdk = ">=25,<26"
+# glslangValidator, the Khronos reference compiler the tests put every shader through. Only a
+# graphics driver compiles them otherwise, and a lenient one lets by what another refuses.
+glslang = "16.6.*"
 
 [tasks]
 update-submodule = "git submodule update --remote cameraunlock-core && powershell -NoProfile -ExecutionPolicy Bypass -File cameraunlock-core/scripts/update-submodule.ps1"

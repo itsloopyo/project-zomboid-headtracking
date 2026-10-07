@@ -204,7 +204,8 @@ final class CabinShader {
                 return arms(p, nearest, part);
             }
 
-            // One figure of a lit display in a cell from 0 to 1 each way, made of seven bars.
+            // One figure of a lit display in a cell from 0 to 1 each way, made of seven bars. The half
+            // is for a power of two worked out a hair too large, which would lose a bar's bit.
             float numeral(vec2 p, float n) {
                 float lit = n < 0.5 ? 119.0 : n < 1.5 ? 36.0 : n < 2.5 ? 93.0 : n < 3.5 ? 109.0 : n < 4.5 ? 46.0 : n < 5.5 ? 107.0 : n < 6.5 ? 123.0 : n < 7.5 ? 37.0 : n < 8.5 ? 127.0 : 111.0;
                 float seen = 0.0;
@@ -214,7 +215,7 @@ final class CabinShader {
                     vec2 b = i == 0 || i == 3 || i == 6 ? a + vec2(0.4, 0.0) : a - vec2(0.0, 0.3);
                     vec2 bar = b - a;
                     float off = length(p - a - bar * clamp(dot(p - a, bar) / dot(bar, bar), 0.0, 1.0));
-                    seen = max(seen, step(off, 0.055) * mod(floor(lit / exp2(float(i))), 2.0));
+                    seen = max(seen, step(off, 0.055) * mod(floor((lit + 0.5) / exp2(float(i))), 2.0));
                 }
                 return seen;
             }
@@ -429,7 +430,7 @@ final class CabinShader {
                 float t = (uHouse.y - o.z) / d.z;
                 vec3 at = o + d * max(t, 0.0);
                 // Under the roof, which begins at the rail over the screen and ends at the rails over the doors.
-                float lit = 1.0 - smoothstep(0.05, -0.05, at.x - uHouse.x) * smoothstep(0.05, -0.05, abs(at.y - mid) - wide.y);
+                float lit = 1.0 - (1.0 - smoothstep(-0.05, 0.05, at.x - uHouse.x)) * (1.0 - smoothstep(-0.05, 0.05, abs(at.y - mid) - wide.y));
                 if (abs(d.y) > 0.001) {
                     // Through a door below its sill there is no way.
                     float reach = ((d.y > 0.0 ? mid + wide.x : mid - wide.x) - o.y) / d.y;
