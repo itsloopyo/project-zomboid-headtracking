@@ -52,8 +52,11 @@ final class Decor {
 
     private static volatile Index index;
     /** The pixels of each picture read and not yet given to the graphics card, and the texture of each that has been. Both under the class's lock. */
-    private static ByteBuffer[] waiting;
+    private static Read[] waiting;
     private static int[] textures;
+
+    /** A picture read out of the jar, at the size it was read at: half the file's in a graphics mode that shows smaller pictures. */
+    private record Read(OffHeap.Block memory, int wide, int high) {}
 
     /** Where a model's pane is on it, in its own metres: the least and greatest x, then the least and greatest z. */
     private static final IdentityHashMap<Models.Model, float[]> panes = new IdentityHashMap<>();
@@ -69,7 +72,7 @@ final class Decor {
                 throw new UncheckedIOException("the jar's index of pictures could not be read", e);
             }
             synchronized (Decor.class) {
-                waiting = new ByteBuffer[read.names.size()];
+                waiting = new Read[read.names.size()];
                 textures = new int[read.names.size()];
             }
             index = read;
@@ -149,7 +152,7 @@ final class Decor {
         return -1 - picture;
     }
 
-    private static ByteBuffer pixels(String path, float[] size) throws IOException {
+    private static Read pixels(String path, float[] size) throws IOException {
         BufferedImage image;
         try (InputStream in = Decor.class.getResourceAsStream(path)) {
             if (in == null) {
@@ -165,7 +168,8 @@ final class Decor {
             throw new IOException(path + " is " + wide + " by " + high + ", and the index says " + (int) size[0] + " by " + (int) size[1]);
         }
         int[] row = new int[wide];
-        ByteBuffer pixels = ByteBuffer.allocateDirect(wide * high * 4);
+        OffHeap.Block memory = OffHeap.take(wide * high * 4);
+        ByteBuffer pixels = memory.bytes;
         for (int y = 0; y < high; y++) {
             image.getRGB(0, y, wide, 1, row, 0, wide);
             for (int argb : row) {
@@ -173,7 +177,34 @@ final class Decor {
             }
         }
         pixels.flip();
-        return pixels;
+        if (!Quality.smallerPictures() || wide < 2 || high < 2) {
+            return new Read(memory, wide, high);
+        }
+        // An odd last column or row is left out of the half size picture: it is a dot of a frame's edge.
+        OffHeap.Block half = Pictures.halved(pixels, wide, high);
+        memory.free();
+        return new Read(half, wide / 2, high / 2);
+    }
+
+    /**
+     * Render thread, once first person has been off a while and every build has been let go:
+     * gives every picture back to the graphics card. A build made after this reads its picture
+     * again.
+     */
+    static void letGo() {
+        synchronized (Decor.class) {
+            if (textures == null) {
+                return;
+            }
+            for (int picture = 0; picture < textures.length; picture++) {
+                GL11.glDeleteTextures(textures[picture]);
+                textures[picture] = 0;
+                if (waiting[picture] != null) {
+                    waiting[picture].memory.free();
+                    waiting[picture] = null;
+                }
+            }
+        }
     }
 
     /** The texture of the picture a piece carries as held left it, made the first time it is drawn. On the render thread. */
@@ -181,10 +212,20 @@ final class Decor {
         int picture = -1 - held;
         synchronized (Decor.class) {
             if (textures[picture] == 0) {
-                float[] size = index.sizes.get(picture);
+                Read read = waiting[picture];
+                if (read == null) {
+                    // The picture was given back between a build's asking for it and this, its first drawing: it is read again here.
+                    String path = FOLDER + index.names.get(picture) + ".jpg";
+                    try {
+                        read = pixels(path, index.sizes.get(picture));
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(path + " could not be read", e);
+                    }
+                }
                 int texture = GL11.glGenTextures();
                 GL11.glBindTexture(GL_TEXTURE_2D, texture);
-                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (int) size[0], (int) size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, waiting[picture]);
+                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, read.wide, read.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.memory.bytes);
+                read.memory.free();
                 GL30.glGenerateMipmap(GL_TEXTURE_2D);
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

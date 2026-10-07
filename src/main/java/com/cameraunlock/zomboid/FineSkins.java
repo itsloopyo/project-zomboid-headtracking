@@ -123,10 +123,16 @@ public final class FineSkins {
 
     /** One of the mod's own pictures: read on a thread of its own, then made a texture of the game's on the render thread. */
     private static final class Read {
+        /** The picture as read, until the render thread has made the texture of it. Handed over, and let go, under this Read's lock. */
+        OffHeap.Block memory;
         volatile ByteBuffer pixels;
         volatile IOException failure;
         int wide, high;
         Texture texture;
+        /** What the texture takes on the graphics card, and when a skin was last composed from it or a character last wore it as it is. */
+        long bytes, used;
+        /** Set when the picture is no longer wanted before its reader has done: the reader then frees what it read. */
+        boolean dropped;
     }
 
     /** One step of a composition, as the combiner was given it. */
@@ -188,12 +194,25 @@ public final class FineSkins {
         }
     }
 
-    /** A 2048 by 2048 skin is 16 MB on the graphics card: no more of them are kept than come to this. */
+    /**
+     * A 2048 by 2048 skin is 16 MB on the graphics card: no more is kept than comes to this, of
+     * the skins composed and of the mod's own pictures they are composed from together.
+     */
     private static final long MOST_BYTES = 512L << 20;
+    /**
+     * One of the mod's own pictures is given back this long after a skin was last composed from
+     * it or a character last wore it as it is. A crowd's skins are composed from a few dozen of
+     * them in the seconds it comes into view, and each is 16 MB that nothing reads again until
+     * another body of its kind turns up, when it is read out of the jar again.
+     */
+    private static final long OWN_KEPT_NANOS = 5_000_000_000L, OWN_LOOKED_EVERY_NANOS = 1_000_000_000L;
+    private static long ownBytes, ownLookedAt;
+    /** Whether the mod's own pictures now kept were read at half size: see Quality.smallerPictures. */
+    private static boolean ownSmall;
     /** A finer skin drawn this recently is not given up to make room for another. */
     private static final long KEPT_NANOS = 2_000_000_000L;
     /** One composition a frame: a crowd coming into view gets its skins over a second, not in one long frame. */
-    private static final long BETWEEN_NANOS = 4_000_000L;
+    private static int composedFrame = -1;
 
     private static final int GL_ALL_ATTRIB_BITS = 0x000FFFFF, GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
     private static final int GL_ATTRIB_STACK_DEPTH = 0x0BB0, GL_CLIENT_ATTRIB_STACK_DEPTH = 0x0BB1;
@@ -305,6 +324,47 @@ public final class FineSkins {
         packed.clear();
     }
 
+    /**
+     * Gives back every finer skin and every one of the mod's own pictures, and has each skin
+     * looked at afresh the next time it is worn. Render thread, under the class's lock.
+     */
+    private static void letGoOfAll() {
+        for (Fine each : fine.values()) {
+            TextureCombiner.instance.releaseTexture(each.texture);
+        }
+        fine.clear();
+        fineBytes = 0;
+        for (Recipe each : recipes.values()) {
+            each.plain = false;
+        }
+        for (Read read : own.values()) {
+            if (read == null) {
+                continue;
+            }
+            synchronized (read) {
+                read.dropped = true;
+                if (read.memory != null) {
+                    read.memory.free();
+                    read.memory = null;
+                    read.pixels = null;
+                }
+            }
+            if (read.texture != null) {
+                read.texture.destroy();
+            }
+        }
+        own.clear();
+        ownBytes = 0;
+        ownSmall = Quality.smallerPictures();
+    }
+
+    /** Render thread, once first person has been off a while: the skins are a view's, and a view switched off wears none. */
+    static synchronized void letGo() {
+        if (started && !off) {
+            letGoOfAll();
+        }
+    }
+
     private static synchronized void note(Texture result, ArrayList<TextureCombinerCommand> commands) {
         if (composing || !on()) {
             return;
@@ -337,16 +397,22 @@ public final class FineSkins {
         }
         waiting = false;
         gone = false;
-        if ((Own.on() & (Own.ZOMBIES | Own.PEOPLE)) != ownWorn) {
-            // The player has switched some of the mod's own skins on or off: what was composed with the rows as they were is composed again.
+        if ((Own.on() & (Own.ZOMBIES | Own.PEOPLE)) != ownWorn || ownSmall != Quality.smallerPictures()) {
+            // The player has switched some of the mod's own skins on or off, or gone to a graphics mode that reads them at
+            // another size: what was composed with things as they were is composed again.
             ownWorn = Own.on() & (Own.ZOMBIES | Own.PEOPLE);
-            for (Fine each : fine.values()) {
-                TextureCombiner.instance.releaseTexture(each.texture);
-            }
-            fine.clear();
-            fineBytes = 0;
-            for (Recipe each : recipes.values()) {
-                each.plain = false;
+            letGoOfAll();
+        }
+        long looked = System.nanoTime();
+        if (looked - ownLookedAt > OWN_LOOKED_EVERY_NANOS) {
+            ownLookedAt = looked;
+            for (Iterator<Read> each = own.values().iterator(); each.hasNext();) {
+                Read read = each.next();
+                if (read != null && read.texture != null && looked - read.used > OWN_KEPT_NANOS) {
+                    read.texture.destroy();
+                    ownBytes -= read.bytes;
+                    each.remove();
+                }
             }
         }
         if (!(bound instanceof SmartTexture smart)) {
@@ -371,7 +437,7 @@ public final class FineSkins {
         // of: that is read out of the names of every texture the recipe uses, and with a crowd
         // on the screen and no room for more skins it was read for every part of every one of
         // them on every frame, which held a frame for a fifteenth of a second.
-        if (now - composedAt < BETWEEN_NANOS || fineBytes >= MOST_BYTES && now - fine.values().iterator().next().used < KEPT_NANOS) {
+        if (composedFrame == Pipeline.frame() || fineBytes + ownBytes >= MOST_BYTES && (fine.isEmpty() || now - fine.values().iterator().next().used < KEPT_NANOS)) {
             return bound;
         }
         boolean any = anyPacked(recipe);
@@ -390,7 +456,10 @@ public final class FineSkins {
             recipe.plain = true;
             return bound;
         }
-        while (fineBytes >= MOST_BYTES) {
+        while (fineBytes + ownBytes >= MOST_BYTES) {
+            if (fine.isEmpty()) {
+                return bound;
+            }
             Iterator<Fine> longestAgo = fine.values().iterator();
             Fine least = longestAgo.next();
             if (now - least.used < KEPT_NANOS) {
@@ -401,6 +470,7 @@ public final class FineSkins {
         }
         Texture made = composedWithStateKept(recipe);
         composedAt = System.nanoTime();
+        composedFrame = Pipeline.frame();
         Fine kept = new Fine(made, composedAt);
         fine.put(result, kept);
         fineBytes += kept.bytes;
@@ -449,6 +519,7 @@ public final class FineSkins {
             if (mine.texture == null) {
                 waiting = true;
             }
+            mine.used = System.nanoTime();
             return mine.texture;
         }
         Texture pack;
@@ -509,11 +580,19 @@ public final class FineSkins {
         ByteBuffer pixels = read.pixels;
         if (pixels != null) {
             // The game makes the texture here and now on the render thread, and leaves it bound.
+            // It copies the picture into memory of its own, so the picture as read is given back.
             int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;
             read.texture = new Texture(new TextureID(read.wide, read.high, pixels), "CameraUnlock" + path);
             GL11.glBindTexture(GL_TEXTURE_2D, bound);
             Texture.lastTextureID = remembered;
             read.pixels = null;
+            synchronized (read) {
+                read.memory.free();
+                read.memory = null;
+            }
+            read.bytes = 4L * read.wide * read.high;
+            read.used = System.nanoTime();
+            ownBytes += read.bytes;
             if (ownSaid++ < 3) {
                 Log.info("the mod's own skin " + path + " is worn, " + read.texture.getWidth() + "x" + read.texture.getHeight());
             }
@@ -541,7 +620,8 @@ public final class FineSkins {
                 throw new IOException(cutPath + " is not the size of " + path);
             }
             int[] row = new int[wide], cutRow = new int[wide];
-            ByteBuffer pixels = ByteBuffer.allocateDirect(wide * high * 4);
+            OffHeap.Block memory = OffHeap.take(wide * high * 4);
+            ByteBuffer pixels = memory.bytes;
             for (int y = 0; y < high; y++) {
                 image.getRGB(0, y, wide, 1, row, 0, wide);
                 cut.getRGB(0, y, wide, 1, cutRow, 0, wide);
@@ -551,9 +631,23 @@ public final class FineSkins {
                 }
             }
             pixels.flip();
-            into.wide = wide;
-            into.high = high;
-            into.pixels = pixels;
+            if (Quality.smallerPictures() && wide % 2 == 0 && high % 2 == 0) {
+                OffHeap.Block half = Pictures.halved(pixels, wide, high);
+                memory.free();
+                memory = half;
+                wide /= 2;
+                high /= 2;
+            }
+            synchronized (into) {
+                if (into.dropped) {
+                    memory.free();
+                    return;
+                }
+                into.wide = wide;
+                into.high = high;
+                into.memory = memory;
+                into.pixels = memory.bytes;
+            }
         } catch (IOException failure) {
             into.failure = failure;
         }

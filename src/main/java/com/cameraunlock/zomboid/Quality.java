@@ -135,6 +135,15 @@ final class Quality {
         return level == HIGH;
     }
 
+    /**
+     * Whether the mod's pictures of surfaces, on walls and of skin are made at half their width
+     * and height, which is a quarter of what they take on the graphics card and in the PC's memory.
+     * Only High draws a dot of picture to a dot of the window and near enough to tell them apart.
+     */
+    static boolean smallerPictures() {
+        return level != HIGH;
+    }
+
     /** Whether near surfaces are given the depth of what they show. */
     static boolean relief() {
         return level == HIGH;

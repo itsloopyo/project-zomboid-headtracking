@@ -27,6 +27,12 @@ final class Pictures {
      * laid over a surface so, it changes the surface's texture and not how light it is.
      */
     static float gain;
+    /**
+     * Whether pictures are read at half their width and height: a quarter of the memory, for a
+     * graphics mode that draws fewer dots than the window has and shows no depth in surfaces.
+     * Set before reading begins and not while any is being read.
+     */
+    static volatile boolean small;
 
     private Pictures() {}
 
@@ -151,7 +157,32 @@ final class Pictures {
             throw new IOException(path + " is black or cut away all over");
         }
         pixels.flip();
-        return new Decoded(pixels, memory, wide, high, 255f * 1000f * solid / light);
+        Decoded whole = new Decoded(pixels, memory, wide, high, 255f * 1000f * solid / light);
+        if (!small || wide % 2 != 0 || high % 2 != 0) {
+            return whole;
+        }
+        OffHeap.Block half = halved(pixels, wide, high);
+        memory.free();
+        return new Decoded(half.bytes, half, wide / 2, high / 2, whole.gain);
+    }
+
+    /** A picture of four bytes a dot at half its width and height, each dot the mean of the four it stands for. */
+    static OffHeap.Block halved(ByteBuffer whole, int wide, int high) {
+        int halfWide = wide / 2, halfHigh = high / 2;
+        OffHeap.Block half = OffHeap.take(halfWide * halfHigh * 4);
+        ByteBuffer to = half.bytes;
+        for (int y = 0; y < halfHigh; y++) {
+            int upper = y * 2 * wide * 4, lower = upper + wide * 4;
+            for (int x = 0; x < halfWide; x++) {
+                int left = x * 8;
+                for (int part = 0; part < 4; part++) {
+                    int sum = (whole.get(upper + left + part) & 0xff) + (whole.get(upper + left + 4 + part) & 0xff)
+                            + (whole.get(lower + left + part) & 0xff) + (whole.get(lower + left + 4 + part) & 0xff);
+                    to.put((y * halfWide + x) * 4 + part, (byte) (sum + 2 >> 2));
+                }
+            }
+        }
+        return half;
     }
 
     /** Gives the texture bound to target its smaller copies and says how it is read. */

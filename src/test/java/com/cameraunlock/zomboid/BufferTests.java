@@ -23,6 +23,28 @@ final class BufferTests {
         aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt();
         aBufferJustMadeIsNeverMostlyEmpty();
         everyChunkThatCanBeDrawnIsKept();
+        aPictureHalvedIsTheMeanOfItsDotsInFours();
+    }
+
+    private static void aPictureHalvedIsTheMeanOfItsDotsInFours() {
+        int wide = 5, high = 4;
+        OffHeap.Block whole = OffHeap.take(wide * high * 4);
+        for (int y = 0; y < high; y++) {
+            for (int x = 0; x < wide; x++) {
+                for (int part = 0; part < 4; part++) {
+                    whole.bytes.put((y * wide + x) * 4 + part, (byte) (x * 40 + y * 10 + part * 3 + (x == 1 && y == 0 ? 130 : 0)));
+                }
+            }
+        }
+        OffHeap.Block half = Pictures.halved(whole.bytes, wide, high);
+        check(half.bytes.capacity() == 2 * 2 * 4, "half as wide and half as high, an odd last column left out");
+        for (int part = 0; part < 4; part++) {
+            int sum = part * 3 + (40 + part * 3 + 130) + (10 + part * 3) + (50 + part * 3);
+            check((half.bytes.get(part) & 0xff) == (sum + 2) / 4, "each part of a dot is the mean of the four it stands for, bytes above 127 counted as they are");
+            check((half.bytes.get((1 * 2 + 1) * 4 + part) & 0xff) == 125 + part * 3, "and the last dot is the mean of the last four whole columns and rows");
+        }
+        whole.free();
+        half.free();
     }
 
     private static void aBufferJustMadeIsNeverMostlyEmpty() {

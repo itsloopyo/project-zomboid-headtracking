@@ -417,6 +417,11 @@ final class Pipeline {
         return gains;
     }
 
+    /** The number of the frame being drawn, for whatever is done once a frame. Render thread. */
+    static int frame() {
+        return frameNumber;
+    }
+
     private static FloatBuffer buffer(int floats) {
         return ByteBuffer.allocateDirect(floats * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     }
@@ -510,7 +515,12 @@ final class Pipeline {
             int drawTarget) {
         while (failure == null && !prepared) {
             // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
-            coreBegun = true;
+            if (!coreBegun) {
+                coreBegun = true;
+                picturesSmall = Quality.smallerPictures();
+                Pictures.small = picturesSmall;
+            }
+            makes = CORE;
             failure = prepareNext();
         }
         if (failure == null && pieceWaits()) {
@@ -2628,9 +2638,13 @@ final class Pipeline {
      * One piece: its making, null from that or what went wrong, and before it what its making
      * reads out of the jar or works out, begun on other threads and done or not.
      */
-    private record Piece(Runnable begin, BooleanSupplier begun, Supplier<String> make) {
+    private record Piece(Runnable begin, BooleanSupplier begun, Supplier<String> make, boolean ofPictures) {
         Piece(Supplier<String> make) {
-            this(() -> { }, () -> true, make);
+            this(() -> { }, () -> true, make, false);
+        }
+
+        Piece(Runnable begin, BooleanSupplier begun, Supplier<String> make) {
+            this(begin, begun, make, false);
         }
 
         static Piece ofPictures(Supplier<String> make, String... paths) {
@@ -2645,7 +2659,7 @@ final class Pipeline {
                     }
                 }
                 return true;
-            }, make);
+            }, make, true);
         }
     }
 
@@ -2723,8 +2737,11 @@ final class Pipeline {
         }
         pieces.add(Piece.ofPictures(() -> {
             try {
+                int oldSprigs = sprigs, oldForm = sprigForm;
                 sprigs = Pictures.load(SPRIGS, false);
                 sprigForm = Pictures.load(SPRIG_FORM, false);
+                GL11.glDeleteTextures(oldSprigs);
+                GL11.glDeleteTextures(oldForm);
                 return null;
             } catch (IOException e) {
                 return "the sprigs could not be read: " + e.getMessage();
@@ -2748,6 +2765,12 @@ final class Pipeline {
     private static final String SPRIGS = "/materials/sprigs.png", SPRIG_FORM = "/materials/sprigs-form.png";
     private static boolean coreBegun;
     private static volatile boolean contentBegun;
+    /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
+    private static List<Piece> makes;
+    /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
+    private static boolean picturesSmall;
+    private static volatile List<Piece> resized;
+    private static int resizedNext;
     private static int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
     private static volatile boolean contentReady;
@@ -2772,7 +2795,7 @@ final class Pipeline {
 
     /** Whether the making of the mod's own pictures has begun and not ended: it is seen through whatever the mode is now. */
     static boolean contentHalfMade() {
-        return contentBegun && !contentReady && failure == null;
+        return (contentBegun && !contentReady || resized != null) && failure == null;
     }
 
     /**
@@ -2795,26 +2818,60 @@ final class Pipeline {
      * first time a mode that shows the mod's own is on.
      */
     private static boolean pieceWaits() {
+        if (failure != null) {
+            return false;
+        }
         if (!coreBegun) {
             coreBegun = true;
+            picturesSmall = Quality.smallerPictures();
+            Pictures.small = picturesSmall;
             for (Piece piece : CORE) {
                 piece.begin.run();
             }
         }
         if (!prepared) {
+            makes = CORE;
             return CORE.get(preparing).begun.getAsBoolean();
         }
         // Once begun, the content is made to the end whatever the mode becomes: what was read ahead for it is
         // only given back by the piece that takes it.
-        if (contentReady || failure != null || !contentBegun && Quality.plain()) {
-            return false;
+        if (contentBegun && !contentReady) {
+            makes = CONTENT;
+            return CONTENT.get(contentPreparing).begun.getAsBoolean();
         }
-        if (!contentBegun) {
-            contentBegun = true;
+        if (resized == null && picturesSmall != Quality.smallerPictures()) {
+            // The mode now shows the pictures at the other size: each is made again in its place, a
+            // piece a frame, and the picture goes on being drawn from whichever a surface has.
+            picturesSmall = !picturesSmall;
+            Pictures.small = picturesSmall;
+            resized = new ArrayList<>();
+            for (Piece piece : CORE) {
+                if (piece.ofPictures) {
+                    resized.add(piece);
+                }
+            }
             for (Piece piece : CONTENT) {
+                if (piece.ofPictures && contentReady) {
+                    resized.add(piece);
+                }
+            }
+            for (Piece piece : resized) {
                 piece.begin.run();
             }
+            resizedNext = 0;
         }
+        if (resized != null) {
+            makes = resized;
+            return resized.get(resizedNext).begun.getAsBoolean();
+        }
+        if (contentReady || Quality.plain()) {
+            return false;
+        }
+        contentBegun = true;
+        for (Piece piece : CONTENT) {
+            piece.begin.run();
+        }
+        makes = CONTENT;
         return CONTENT.get(contentPreparing).begun.getAsBoolean();
     }
 
@@ -2823,12 +2880,18 @@ final class Pipeline {
         long start = System.nanoTime();
         String problem;
         boolean lastOfCore = false, lastOfContent = false;
-        if (!prepared) {
+        if (makes == CORE) {
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();
-        } else {
+        } else if (makes == CONTENT) {
             problem = CONTENT.get(contentPreparing++).make.get();
             lastOfContent = contentPreparing == CONTENT.size();
+        } else {
+            problem = resized.get(resizedNext++).make.get();
+            if (resizedNext == resized.size()) {
+                resized = null;
+                Log.info("the mod's pictures are made again at " + (picturesSmall ? "half size" : "full size"));
+            }
         }
         if (problem == null) {
             int error = GL11.glGetError();
@@ -3044,7 +3107,9 @@ final class Pipeline {
         @Override
         public void render() {
             ChunkBuffers.letGo();
-            if (!contentReady) {
+            Decor.letGo();
+            FineSkins.letGo();
+            if (!contentReady || resized != null) {
                 return;
             }
             for (int material = 0; material < MATERIALS.length; material++) {
@@ -3220,7 +3285,10 @@ final class Pipeline {
      */
     private static String loadPicture(String picture, String heights, int[] textures, float[] gains, int index) {
         try {
+            // Made again at another size, the picture takes the place of the one before it, which is given back.
+            int old = textures[index];
             textures[index] = Pictures.load(picture, heights, true);
+            GL11.glDeleteTextures(old);
         } catch (IOException e) {
             return e.getMessage();
         }
@@ -3230,7 +3298,9 @@ final class Pipeline {
 
     private static String loadBarks(String[] paths) {
         try {
+            int old = materialTexture[BARK];
             materialTexture[BARK] = Pictures.loadLayers(paths);
+            GL11.glDeleteTextures(old);
         } catch (IOException e) {
             return e.getMessage();
         }

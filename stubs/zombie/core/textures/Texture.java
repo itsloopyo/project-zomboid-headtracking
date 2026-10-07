@@ -20,4 +20,5 @@ public class Texture {
     public static Texture getSharedTexture(String name, int flags) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isReady() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isFailure() { throw new UnsupportedOperationException("reference stub"); }
+    public void destroy() { throw new UnsupportedOperationException("reference stub"); }
 }
