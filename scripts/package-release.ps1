@@ -52,6 +52,14 @@ if (-not (Test-Path $dllPath)) {
     throw "$modName.dll not found at: $dllPath. Run 'pixi run build' first."
 }
 
+# The launcher reads this file from the root of the ZIP to learn how to install
+# the mod, and an absent one reads to it as a package of an older kind.
+# Copy-SharedBundle checks its delivery mode and validate-manifest the built ZIP.
+$manifestPath = Join-Path $projectDir 'launcher-manifest.json'
+if (-not (Test-Path $manifestPath)) {
+    throw "launcher-manifest.json not found at: $manifestPath. Without it the installer ZIP is not a package the launcher can read."
+}
+
 $releaseDir = Join-Path $projectDir 'release'
 $staging    = Join-Path $releaseDir 'staging-installer'
 if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
@@ -85,15 +93,14 @@ if (Test-Path $readme) {
 
 # The staged manifest takes the version being packaged, so it cannot disagree
 # with the jar beside it.
-$manifestPath = Join-Path $projectDir 'launcher-manifest.json'
-$hasManifest  = Test-Path $manifestPath
-if ($hasManifest) {
-    $manifestText = (Get-Content $manifestPath -Raw) -replace '("version":\s*")\d+\.\d+\.\d+(")', "`${1}$version`$2"
-    [System.IO.File]::WriteAllText((Join-Path $staging 'launcher-manifest.json'), $manifestText, (New-Object System.Text.UTF8Encoding $false))
-    Write-Host "  launcher-manifest.json (version $version)" -ForegroundColor Green
-} else {
-    Write-Warning 'launcher-manifest.json does not exist yet, so this installer ZIP is not a package the launcher can read.'
+$manifestVersion = [regex]'("version":\s*")\d+\.\d+\.\d+(")'
+$manifestSource  = [System.IO.File]::ReadAllText($manifestPath)
+if ($manifestVersion.Matches($manifestSource).Count -ne 1) {
+    throw 'launcher-manifest.json must hold exactly one "version": "x.y.z", at mod_info.version.'
 }
+$manifestText = $manifestVersion.Replace($manifestSource, "`${1}$version`$2")
+[System.IO.File]::WriteAllText((Join-Path $staging 'launcher-manifest.json'), $manifestText, (New-Object System.Text.UTF8Encoding $false))
+Write-Host "  launcher-manifest.json (version $version)" -ForegroundColor Green
 
 # cmd.exe misparses a batch file with LF line endings, and it does so quietly.
 foreach ($cmd in Get-ChildItem -Path $staging -Recurse -File -Filter '*.cmd') {
@@ -125,11 +132,9 @@ Remove-Item -Recurse -Force $staging
 $devKb = [math]::Round((Get-Item $devZip).Length / 1KB, 1)
 Write-Host ("  $devZip ({0:N1} KB, development keys in)" -f $devKb) -ForegroundColor Green
 
-if ($hasManifest) {
-    & node (Join-Path $projectDir 'cameraunlock-core/scripts/validate-manifest.mjs') $installerZip
-    if ($LASTEXITCODE -ne 0) { throw "validate-manifest rejected $installerZip" }
-    Write-Host '  manifest validated' -ForegroundColor Green
-}
+& node (Join-Path $projectDir 'cameraunlock-core/scripts/validate-manifest.mjs') $installerZip
+if ($LASTEXITCODE -ne 0) { throw "validate-manifest rejected $installerZip" }
+Write-Host '  manifest validated' -ForegroundColor Green
 
 Write-Host ''
 Write-Host '=== Package Complete ===' -ForegroundColor Magenta

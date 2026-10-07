@@ -71,7 +71,8 @@ Push-Location $ProjectRoot
 try {
     # --- 3. Resolve and validate the target version ------------------------
     # pixi.toml is the version source. build.ps1 reads it into the jar's
-    # manifest, and scripts/install.cmd carries a copy as MOD_VERSION.
+    # manifest, and scripts/install.cmd (MOD_VERSION) and launcher-manifest.json
+    # (mod_info.version) each carry a copy.
     $pixiPath = Join-Path $ProjectRoot 'pixi.toml'
     $current  = Get-ProjectVersion -Source pixi -Path $pixiPath
     $target   = Resolve-ReleaseVersion -Argument $Version -CurrentVersion $current
@@ -103,6 +104,7 @@ try {
     try {
         New-ChangelogFromCommits -ChangelogPath (Join-Path $ProjectRoot 'CHANGELOG.md') -Version $target -ArtifactPaths @(
             'src/',
+            'native/',
             'scripts/',
             'pixi.toml',
             'cameraunlock-core'
@@ -117,7 +119,8 @@ try {
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
     $versionFiles = @(
         @{ Path = 'pixi.toml';           Pattern = '(?m)^version = "\d+\.\d+\.\d+"';       Replacement = "version = `"$target`"" },
-        @{ Path = 'scripts/install.cmd'; Pattern = '(?m)^set "MOD_VERSION=\d+\.\d+\.\d+"'; Replacement = "set `"MOD_VERSION=$target`"" }
+        @{ Path = 'scripts/install.cmd'; Pattern = '(?m)^set "MOD_VERSION=\d+\.\d+\.\d+"'; Replacement = "set `"MOD_VERSION=$target`"" },
+        @{ Path = 'launcher-manifest.json'; Pattern = '"version": "\d+\.\d+\.\d+"';        Replacement = "`"version`": `"$target`"" }
     )
     foreach ($vf in $versionFiles) {
         $vfPath = Join-Path $ProjectRoot $vf.Path
@@ -135,7 +138,7 @@ try {
     # --- 9. Commit, tag, push ----------------------------------------------
     # The subject starts 'Release v' because build.yml skips a commit that
     # does: release.yml builds the tag.
-    git add pixi.toml scripts/install.cmd CHANGELOG.md
+    git add pixi.toml scripts/install.cmd launcher-manifest.json CHANGELOG.md
     if ($LASTEXITCODE -ne 0) { throw 'git add failed.' }
     git commit -m "Release $tag"
     if ($LASTEXITCODE -ne 0) { throw 'git commit failed.' }

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "mod_info": {
+    "name": "ProjectZomboidHeadTracking",
+    "version": "0.0.0",
+    "game_id": "project-zomboid"
+  },
+  "strategy": "JavaAgent",
+  "delivery_mode": "install_cmd",
+  "install_cmd_reason": "The game's launcher starts the mod only through ProjectZomboid64.site.json, which install.cmd generates from the player's own ProjectZomboid64.json on every install: that file with the mod's boot class as mainClass, the jar added to classpath and two arguments put first in vmArgs. It stops before copying anything when a site config that does not name the mod's jar is already there, and uninstall.cmd removes the site config only while it still names the jar. The deploy engine has no step that writes a file derived from one in the game folder: files[] and loader.seed write bytes fixed in the package, runtime_requirements has only system-file-copy, and patches[] rewrites a PE file in place.",
+
+  "files": [
+    { "source": "plugins/ProjectZomboidHeadTracking.jar", "target": "ProjectZomboidHeadTracking.jar" },
+    { "source": "plugins/ProjectZomboidHeadTracking.dll", "target": "ProjectZomboidHeadTracking.dll" }
+  ],
+
+  "runtime_requirements": [],
+  "dependencies": []
+}
