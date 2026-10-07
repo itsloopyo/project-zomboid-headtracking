@@ -629,6 +629,12 @@ public final class FineSkins {
         String cutPath = Jar.cut(path);
         // What has been taken and not yet handed to the Read or given back: given back if the reading ends early.
         OffHeap.Block[] taken = new OffHeap.Block[1];
+        synchronized (into) {
+            // Let go of while it waited its turn: there is nothing to read it for.
+            if (into.dropped) {
+                return;
+            }
+        }
         try (InputStream in = FineSkins.class.getResourceAsStream(path); InputStream cutIn = FineSkins.class.getResourceAsStream(cutPath)) {
             if (cutIn == null) {
                 throw new IOException("the jar has no " + cutPath);

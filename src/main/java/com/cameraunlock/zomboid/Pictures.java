@@ -236,8 +236,8 @@ final class Pictures {
     /** Gives the texture bound to target its smaller copies and says how it is read. */
     private static void finish(int target, int texture, boolean repeats, String path) throws IOException {
         GL30.glGenerateMipmap(target);
-        // Asked here, before the setting below whose refusal is thrown away: a graphics card with no room for the
-        // picture says so now, and whoever asked keeps the picture they had.
+        // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
+        // a graphics card with no room for the picture says so now.
         int error = GL11.glGetError();
         if (error != 0) {
             GL11.glDeleteTextures(texture);

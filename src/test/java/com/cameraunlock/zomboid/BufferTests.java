@@ -26,6 +26,41 @@ final class BufferTests {
         aPictureHalvedIsTheMeanOfItsDotsInFours();
         chunksAreWalkedNearestFirstAndEachOnce();
         onlyChunksUnderOrBesideABoxTouchIt();
+        noChunkOnTheScreenIsLeftOut();
+        aLowLightReachesFurtherForItsShadows();
+    }
+
+    /** The game's own view: looking north-west along the ground, a floor up drawn 4.24 tiles further along. */
+    private static void noChunkOnTheScreenIsLeftOut() {
+        float alongX = -0.70710678f, alongY = -0.70710678f, shift = 4.2426f;
+        java.util.Random random = new java.util.Random(7);
+        int kept = 0, seen = 0;
+        for (int trial = 0; trial < 200_000; trial++) {
+            float halfAcross = 5f + random.nextFloat() * 70f, halfAlong = 5f + random.nextFloat() * 40f, beyond = 24f + random.nextFloat() * 24f;
+            float toX = (random.nextFloat() - 0.5f) * 400f, toY = (random.nextFloat() - 0.5f) * 400f;
+            int low = random.nextInt(5) - 2, high = low + random.nextInt(8);
+            boolean on = false;
+            for (int level = low; level <= high && !on; level++) {
+                for (int corner = 0; corner < 4 && !on; corner++) {
+                    float x = toX + (corner % 2 == 0 ? -4f : 4f), y = toY + (corner < 2 ? -4f : 4f);
+                    float across = y * alongX - x * alongY, along = x * alongX + y * alongY + level * shift;
+                    on = Math.abs(across) <= halfAcross + beyond && Math.abs(along) <= halfAlong + beyond;
+                }
+            }
+            boolean keeps = ChunkBuffers.onScreen(toX, toY, low, high, alongX, alongY, halfAcross, halfAlong, shift, beyond);
+            check(keeps || !on, "a chunk with a corner on the screen, or within what casts onto it, at any of its floors is built");
+            kept += keeps ? 1 : 0;
+            seen += on ? 1 : 0;
+        }
+        check(seen > 1000 && kept < seen * 3 / 2, "and not many that have none are: " + kept + " kept for " + seen + " seen");
+    }
+
+    private static void aLowLightReachesFurtherForItsShadows() {
+        check(ChunkBuffers.shadowReach(1f, 7f) == 24f && ChunkBuffers.shadowReach(0.5f, 7f) == 24f, "under a high sun what is just off the screen is enough");
+        float low = ChunkBuffers.shadowReach(0.2f, 7f);
+        check(low > 30f && low < 40f, "a house under a low sun casts some 34 tiles: " + low);
+        check(ChunkBuffers.shadowReach(0.3f, 10f) > ChunkBuffers.shadowReach(0.3f, 7f), "a taller building casts further");
+        check(ChunkBuffers.shadowReach(0.01f, 7f) == 48f && ChunkBuffers.shadowReach(-0.2f, 20f) == 48f, "and no light reaches further than the shadow maps hold");
     }
 
     private static void onlyChunksUnderOrBesideABoxTouchIt() {

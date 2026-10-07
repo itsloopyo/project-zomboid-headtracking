@@ -54,6 +54,8 @@ final class Decor {
     /** The pixels of each picture read and not yet given to the graphics card, and the texture of each that has been. Both under the class's lock. */
     private static Read[] waiting;
     private static int[] textures;
+    /** Whether each picture's texture was made at half size. */
+    private static boolean[] madeSmall;
 
     /** A picture read out of the jar, at the size it was read at: half the file's in a graphics mode that shows smaller pictures. */
     private record Read(OffHeap.Block memory, int wide, int high) {}
@@ -73,6 +75,7 @@ final class Decor {
             }
             synchronized (Decor.class) {
                 waiting = new Read[read.names.size()];
+                madeSmall = new boolean[read.names.size()];
                 textures = new int[read.names.size()];
             }
             index = read;
@@ -140,7 +143,9 @@ final class Decor {
      */
     static int held(int picture) {
         synchronized (Decor.class) {
-            if (textures[picture] == 0 && waiting[picture] == null) {
+            // One made at the other size for another graphics mode is read again here, for the render thread to put in its place.
+            boolean otherSize = textures[picture] != 0 && madeSmall[picture] != Quality.smallerPictures();
+            if ((textures[picture] == 0 || otherSize) && waiting[picture] == null) {
                 String path = FOLDER + index.names.get(picture) + ".jpg";
                 try {
                     waiting[picture] = pixels(path, index.sizes.get(picture));
@@ -211,8 +216,12 @@ final class Decor {
     static int texture(int held) {
         int picture = -1 - held;
         synchronized (Decor.class) {
-            if (textures[picture] == 0) {
+            if (textures[picture] == 0 || waiting[picture] != null) {
                 Read read = waiting[picture];
+                if (textures[picture] != 0) {
+                    GL11.glDeleteTextures(textures[picture]);
+                    Pipeline.forgetTexels();
+                }
                 if (read == null) {
                     // The picture was given back between a build's asking for it and this, its first drawing: it is read again here.
                     String path = FOLDER + index.names.get(picture) + ".jpg";
@@ -233,6 +242,7 @@ final class Decor {
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                 Pictures.sharpenAtSlant();
                 textures[picture] = texture;
+                madeSmall[picture] = read.wide < (int) index.sizes.get(picture)[0];
                 waiting[picture] = null;
             }
             return textures[picture];

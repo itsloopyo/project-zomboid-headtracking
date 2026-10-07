@@ -926,7 +926,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // Drawn as the game's own view, the picture shows a patch of the map round the middle of the screen and no more.
                 if (screenOnly && !ChunkBuffers.onScreen(chunkX + CHUNK_TILES / 2f - seenRoundX, chunkY + CHUNK_TILES / 2f - seenRoundY,
                         chunk.getMinLevel() - level, chunk.getMaxLevel() - level, seenAlongX, seenAlongY, seenHalfAcross, seenHalfAlong, seenLevelShift,
-                        ChunkBuffers.shadowReach(sky.lightUp))) {
+                        ChunkBuffers.shadowReach(sky.lightUp, Math.max(TALL_AS_A_HOUSE, (chunk.getMaxLevel() + 1) * ViewCamera.LEVEL_HEIGHT)))) {
                     continue;
                 }
                 if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
@@ -1168,6 +1168,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         waitedLast = chunksWaiting;
         buildMillis = (System.nanoTime() - start) / 1e6f;
     }
+
+    /** The height, in tiles, of a house of two floors with its roof, or of a tree: what stands on any chunk may be this tall, whatever its floors. */
+    private static final float TALL_AS_A_HOUSE = 7f;
 
     /** Dev only: a build takes this many times as long as it did, to see on a fast PC what a slow one does with the frame's time for building. */
     private static final int SLOW_BUILDS = Integer.getInteger("cameraunlock.zomboid.slowBuilds", 1);

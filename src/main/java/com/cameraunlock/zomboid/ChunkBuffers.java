@@ -194,17 +194,16 @@ final class ChunkBuffers {
         return walk;
     }
 
-    /** The height, in tiles, of the tallest thing whose shadow is kept whole at a low sun: a house of two floors with its roof. */
-    private static final float CASTS_FROM = 7f;
-
     /**
      * How far outside the screen a chunk may be and still cast a shadow into it, in tiles, with
      * the light this high (the sine of its height above the horizon): the length of the
-     * shadow of something CASTS_FROM tall, no less than 24 and no more than 48.
+     * shadow of what stands this many tiles tall on it, no less than 24, for what leans into
+     * the picture from a floor or two up, and no more than 48, beyond which the shadow maps
+     * hold little.
      */
-    static float shadowReach(float lightUp) {
+    static float shadowReach(float lightUp, float tall) {
         float up = Math.clamp(lightUp, 0.05f, 1f);
-        return Math.clamp(CASTS_FROM * (float) Math.sqrt(1f - up * up) / up, 24f, 48f);
+        return Math.clamp(tall * (float) Math.sqrt(1f - up * up) / up, 24f, 48f);
     }
 
     /**

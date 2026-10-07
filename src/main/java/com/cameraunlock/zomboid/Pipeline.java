@@ -2771,6 +2771,8 @@ final class Pipeline {
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
     private static boolean picturesSmall;
     private static volatile List<Piece> resized;
+    /** Whether a making of the core's surfaces at another size was given up part way, so that they are of both sizes. */
+    private static boolean coreMixed;
     private static int resizedNext;
     private static int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
@@ -2840,18 +2842,16 @@ final class Pipeline {
             makes = CONTENT;
             return CONTENT.get(contentPreparing).begun.getAsBoolean();
         }
-        if (resized == null && picturesSmall != Quality.smallerPictures()) {
+        if (contentReady && Quality.plain()) {
+            // The mode now shows none of the mod's own: its pictures are given back.
+            giveBackContent();
+        }
+        if (resized == null && (coreMixed || picturesSmall != Quality.smallerPictures())) {
             // The mode now shows the pictures at the other size: each is made again in its place, a
             // piece a frame, and the picture goes on being drawn from whichever a surface has.
-            picturesSmall = !picturesSmall;
+            coreMixed = false;
+            picturesSmall = Quality.smallerPictures();
             Pictures.small = picturesSmall;
-            // The pictures on walls are read at the size of the moment a build first shows them: given back, they are read again.
-            Decor.letGo();
-            forgetTexels();
-            if (Quality.plain() && contentReady) {
-                // The mode now shows none of the mod's own: its pictures are given back, not made again smaller.
-                giveBackContent();
-            }
             resized = new ArrayList<>();
             for (Piece piece : CORE) {
                 if (piece.ofPictures) {
@@ -3130,7 +3130,7 @@ final class Pipeline {
                 // Some of the core's surfaces are at one size and some at the other: all are made again when next asked for.
                 Pictures.letGoOfReadAhead();
                 resized = null;
-                picturesSmall = !Quality.smallerPictures();
+                coreMixed = true;
             }
             if (contentBegun) {
                 giveBackContent();
@@ -3166,7 +3166,7 @@ final class Pipeline {
     }
 
     /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */
-    private static void forgetTexels() {
+    static void forgetTexels() {
         Arrays.fill(texelOf, 0);
         texelsKnown = 0;
     }
