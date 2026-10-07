@@ -360,6 +360,7 @@ final class PipelineShaders {
             uniform float uLid;
             uniform vec3 uHole;
             uniform float uHoleUp;
+            uniform float uHoleTrees;
             uniform vec4 uHoleFrom;
             varying vec3 vPlace;
             varying vec4 vBlade;
@@ -1829,8 +1830,13 @@ final class PipelineShaders {
                 // down to a low course, or the room is hidden behind its own near walls.
                 // Whatever stands between the overhead eye and the viewer is opened in a round
                 // window about them, or a building across the street hides them altogether.
+                // A tree is opened in a wider one: a wood is tree after tree, and through a
+                // window the size of a doorway there is only the next crown. The mod's trees
+                // are their crowns, boles and ivy, and the game's are cards of its plant sheets.
+                bool tree = crown || core || vMaterial > 56.5 && vMaterial < 58.5
+                        || vMaterial > 4.5 && vMaterial < 6.5 && vKind > 1.5 && vKind < 3.5;
                 if (uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
-                        && distance(gl_FragCoord.xy, uHole.xy) < uHole.z * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
+                        && distance(gl_FragCoord.xy, uHole.xy) < (tree ? uHoleTrees : uHole.z) * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
                     discard;
                 }
                 // Only in the building the viewer is in, and only what is of the walls or hangs on

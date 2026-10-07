@@ -276,6 +276,8 @@ final class Pipeline {
     private static final float[] holeAt = new float[2];
     /** The window opened about the viewer: its radius as a share of the picture's height, how far before them it starts, and how far under their eye its middle is, in tiles. */
     private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
+    /** The same window's radius through trees. */
+    private static final float HOLE_OF_HEIGHT_TREES = 0.26f;
     /** How far behind the viewer, away from the camera, the cut begins, in tiles of x and y together along the map's diagonal. */
     private static final float CUT_BEHIND = 1.5f;
     /**
@@ -1451,6 +1453,7 @@ final class Pipeline {
             float along = camera.forwardX * focusX + camera.forwardY * focusY + camera.forwardUp * focusUp;
             // The ground they stand on is not in the way.
             world.set("uHoleUp", focusUp - HOLE_FLOOR_BELOW_EYE);
+            world.set("uHoleTrees", HOLE_OF_HEIGHT_TREES * height);
             world.set("uHoleFrom", camera.forwardX, camera.forwardY, camera.forwardUp, along - HOLE_BEFORE);
         } else {
             world.set("uHole", 0f, 0f, 0f);
