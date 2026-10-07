@@ -1585,7 +1585,7 @@ public final class Tests {
     private static Settings lightTurning(float multiplier) {
         Settings s = Settings.BUILT_IN;
         return new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
-                s.positionEnabled(), s.trueFreeLook(), s.freeLookMarker(), s.stockSights(), s.collisionEnabled(),
+                s.positionEnabled(), s.trueFreeLook(), s.stockSights(), s.collisionEnabled(),
                 s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), s.positionLimitY(), s.positionLimitYDown(),
                 s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), multiplier,
                 s.fieldOfView());
@@ -1644,7 +1644,7 @@ public final class Tests {
     private static void filterTellsTheLimitUpFromTheLimitDown() {
         Settings s = Settings.BUILT_IN;
         Settings.current = new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
-                s.positionEnabled(), s.trueFreeLook(), s.freeLookMarker(), s.stockSights(), s.collisionEnabled(),
+                s.positionEnabled(), s.trueFreeLook(), s.stockSights(), s.collisionEnabled(),
                 s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), 0.30f, 0.05f,
                 s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), s.lightMultiplier(),
                 s.fieldOfView());

@@ -10,7 +10,7 @@ import java.util.Locale;
  * down while the picture is being drawn slower than {@link #SLOWEST} frames a second.
  *
  * The row is read again while the game runs. The thread that watches the file sets it, the
- * logic thread sets it on F9, reads how far to build and steps Automatic down, and the render
+ * logic thread sets it on its hotkey, reads how far to build and steps Automatic down, and the render
  * thread reads the rest as it draws a frame. set and frame take turns.
  */
 final class Quality {
@@ -41,7 +41,7 @@ final class Quality {
         Log.info("graphics mode: " + NAMES[asked]);
     }
 
-    /** The mode F9 goes to from the one the session is in: Low, Medium, High and round again. Automatic is only ever set in the file. */
+    /** The mode the hotkey goes to from the one the session is in: Low, Medium, High and round again. Automatic is only ever set in the file. */
     static int next() {
         return row == LOW ? MEDIUM : row == MEDIUM ? HIGH : LOW;
     }

@@ -81,6 +81,10 @@ final class HeadTracking {
     static boolean freeLook() {
         return aimMode.isFreeLook();
     }
+
+    static String aimModeLabel() {
+        return aimMode.label;
+    }
     private static float stockShare = 1f;
     private static long lastFrameNanos;
     private static boolean applied;
@@ -145,7 +149,7 @@ final class HeadTracking {
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
         worldYaw = settings.worldSpaceYaw();
-        aimMode = AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights());
+        aimMode = AimMode.decode(settings.trueFreeLook(), settings.stockSights());
         FieldOfView.set(settings.fieldOfView());
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + mode.label + ", yaw about "
@@ -191,10 +195,6 @@ final class HeadTracking {
         }
     }
 
-    static boolean applied() {
-        return applied;
-    }
-
     /**
      * How far the weapon and the shot are moved with the eye this frame, in world axes: the
      * part of the lean across the aim, while the sights are up in a mode that keeps the eye
@@ -209,7 +209,12 @@ final class HeadTracking {
         config.pressed();
     }
 
-    static void pollHotkeys() {
+    /**
+     * Acts on the head tracking keys pressed since the hotkeys were last asked after.
+     *
+     * @return every action pressed, as NativeConfig's bits: the first person view's own are its to act on
+     */
+    static int pollHotkeys() {
         int pressed = config.pressed();
         if ((pressed & NativeConfig.TOGGLE) != 0) {
             toggleEnabled();
@@ -223,6 +228,7 @@ final class HeadTracking {
         if ((pressed & NativeConfig.AIM_MODE) != 0) {
             cycleAimMode();
         }
+        return pressed;
     }
 
     /** The new value is already applied. A save that fails leaves the session on it, and the log says why. */
@@ -256,14 +262,14 @@ final class HeadTracking {
         save(() -> config.saveWorldSpaceYaw(saved));
     }
 
-    /** F9: the graphics mode after the one the session is in, kept for the next start. */
+    /** The graphics mode after the one the session is in, kept for the next start. */
     static void cycleGraphicsMode() {
         int next = Quality.next();
         Quality.set(next);
         save(() -> config.saveQuality(next));
     }
 
-    /** F10: the picture style after the one the session is in, kept for the next start. */
+    /** The picture style after the one the session is in, kept for the next start. */
     static void cycleStyle() {
         Style next = Style.current().next();
         Style.set(next.ordinal());

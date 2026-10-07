@@ -16,8 +16,9 @@ struct PzhtSettings {
     std::int32_t world_space_yaw;
     std::int32_t rotation_enabled;
     std::int32_t position_enabled;
+    // TrueFreeLook. FreeLookMarker is not here: nothing in the mod reads it, because the game's own
+    // reticle is the marker.
     std::int32_t true_free_look;
-    std::int32_t free_look_marker;
     std::int32_t stock_sights;
     std::int32_t collision_enabled;
     float local_smoothing;
@@ -66,6 +67,9 @@ inline constexpr std::int32_t kPzhtToggle = 1;
 inline constexpr std::int32_t kPzhtCycleTrackingMode = 2;
 inline constexpr std::int32_t kPzhtYawMode = 4;
 inline constexpr std::int32_t kPzhtAimMode = 8;
+inline constexpr std::int32_t kPzhtFirstPerson = 16;
+inline constexpr std::int32_t kPzhtCycleQuality = 32;
+inline constexpr std::int32_t kPzhtCycleStyle = 64;
 
 PZHT_EXPORT std::int32_t PzhtSettingsBytes();
 
@@ -84,10 +88,10 @@ PZHT_EXPORT std::int32_t PzhtConfigSaveTrackingMode(std::int32_t rotation, std::
 PZHT_EXPORT std::int32_t PzhtConfigSaveWorldSpaceYaw(std::int32_t world);
 PZHT_EXPORT std::int32_t PzhtConfigSaveQuality(std::int32_t quality);
 PZHT_EXPORT std::int32_t PzhtConfigSaveStyle(std::int32_t style);
-PZHT_EXPORT std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
-                                               std::int32_t stock_sights);
+// Free look is saved as TrueFreeLook and FreeLookMarker both true.
+PZHT_EXPORT std::int32_t PzhtConfigSaveAimMode(std::int32_t free_look, std::int32_t stock_sights);
 
-// Puts the four key lists of the loaded file on core's poller and starts it. Answers 0.
+// Puts the seven key lists of the loaded file on core's poller and starts it. Answers 0.
 PZHT_EXPORT std::int32_t PzhtHotkeysStart();
 // The actions whose keys were pressed since the last call, as the bits above.
 PZHT_EXPORT std::int32_t PzhtHotkeysTake();

@@ -21,6 +21,17 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
         .Select(Concept::TrueFreeLook).Writable()
         .Select(Concept::FreeLookMarker).Writable()
         .Select(Concept::StockSights).Writable()
+        .Select(Concept::TrueFreeLook)
+        .Comment("false: while you aim down the sights, leaning keeps your eye on the sights.\n"
+                 "true: the weapon stays put and your head moves freely around it (free look), and\n"
+                 "the game's reticle shows where your shot will land.")
+        .Select(Concept::FreeLookMarker)
+        .Comment("The aim marker of free look. In Project Zomboid the game's own reticle is that\n"
+                 "marker and is drawn whenever you aim, so this row changes nothing: the mod\n"
+                 "writes it with TrueFreeLook.")
+        .Select(Concept::TrueFreeLookKey)
+        .Comment("Cycles the aim mode: sights locked, free look with a marker, stock sights\n"
+                 "(TrueFreeLook, FreeLookMarker, StockSights).")
         .Select(Concept::CollisionMargin)
         .Comment("How far the view is held off a wall when you lean into it, in map tiles.");
     table.Local("General", "FieldOfView", &Config::field_of_view,
@@ -35,17 +46,17 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                                                          {"Low", Quality::Low},
                                                          {"Medium", Quality::Medium},
                                                          {"High", Quality::High}},
-                "The graphics mode: how much of the mod's own picture is drawn. F9 goes from one\n"
-                "to the next, Low, Medium, High, and saves it here. Low is as near the game's\n"
-                "own look as there is: the game's own view is the game's own picture, and first\n"
-                "person is drawn with the game's own sprites, models and textures in place of\n"
-                "everything the mod made, at a little over three fifths of the pixels each way,\n"
-                "sight to 48 tiles, smaller shadow maps, and no shading of corners, lit air,\n"
-                "reflections or depth in surfaces. Medium and High draw both views with what the\n"
-                "mod made. High: the whole picture. Medium: the game's own grass, trees, bushes and\n"
-                "rocks whatever OwnPlants says, no shading of corners, lit air, reflections or\n"
-                "depth in surfaces either, four fifths of the pixels each way, sight to 64\n"
-                "tiles and smaller shadow maps. Automatic, which only this file can\n"
+                "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey\n"
+                "goes from one to the next, Low, Medium, High, and saves it here. Low is as near\n"
+                "the game's own look as there is: the game's own view is the game's own picture,\n"
+                "and first person is drawn with the game's own sprites, models and textures in\n"
+                "place of everything the mod made, at a little over three fifths of the pixels\n"
+                "each way, sight to 48 tiles, smaller shadow maps, and no shading of corners, lit\n"
+                "air, reflections or depth in surfaces. Medium and High draw both views with what\n"
+                "the mod made. High: the whole picture. Medium: the game's own grass, trees,\n"
+                "bushes and rocks whatever OwnPlants says, no shading of corners, lit air,\n"
+                "reflections or depth in surfaces either, four fifths of the pixels each way,\n"
+                "sight to 64 tiles and smaller shadow maps. Automatic, which only this file can\n"
                 "set: begins at High and draws less, as Medium and then Low do but still with\n"
                 "everything the mod made, each time the picture is drawn fewer than 45 times a\n"
                 "second for three seconds, until the game is closed. Read again while the game\n"
@@ -55,14 +66,14 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 cameraunlock::config::EnumCodec<Style>{{"Vivid", Style::Vivid},
                                                        {"Natural", Style::Natural},
                                                        {"Bleak", Style::Bleak}},
-                "How the mod's picture is developed, in every graphics mode. F10 goes from one to\n"
-                "the next and saves it here. Vivid: strong contrast and full colours, cool in the\n"
-                "shade and warm in the sun, with dark corners, glare off the sun and a glow round\n"
-                "bright lights. Natural: the colours as they are lit, with no tint, less contrast,\n"
-                "and less of the dark corners, the glare and the glow. Bleak: washed out colours\n"
-                "and low contrast under a faint drab cast, with no glare off the sun, nearer the\n"
-                "colours of the game's own view. The light, the weather and the hour are the same\n"
-                "in all three. Read again while the game runs.")
+                "How the mod's picture is developed, in every graphics mode. CycleStyleKey goes\n"
+                "from one to the next and saves it here. Vivid: strong contrast and full colours,\n"
+                "cool in the shade and warm in the sun, with dark corners, glare off the sun and a\n"
+                "glow round bright lights. Natural: the colours as they are lit, with no tint,\n"
+                "less contrast, and less of the dark corners, the glare and the glow. Bleak:\n"
+                "washed out colours and low contrast under a faint drab cast, with no glare off\n"
+                "the sun, nearer the colours of the game's own view. The light, the weather and\n"
+                "the hour are the same in all three. Read again while the game runs.")
         .Writable();
     table.Local("General", "FrameBlending", &Config::frame_blending, cameraunlock::config::BoolCodec(),
                 "Whether each frame of the first person picture is mixed with the one before it.\n"
@@ -70,6 +81,12 @@ cameraunlock::config::ConfigTable<Config> MakeConfigTable() {
                 "or walk as it is standing still. true: fine edges, leaves and the grain of soft\n"
                 "shadows are steadier in a still view, and what moves across the picture is\n"
                 "softened and can smear. Read again while the game runs.");
+    table.Local("Hotkeys", "FirstPersonKey", &Config::first_person_key_name, cameraunlock::config::HotkeyCodec(),
+                "Goes into the first person view and back to the game's own.");
+    table.Local("Hotkeys", "CycleQualityKey", &Config::cycle_quality_key_name, cameraunlock::config::HotkeyCodec(),
+                "Goes to the next graphics mode: Low, Medium, High (Quality).");
+    table.Local("Hotkeys", "CycleStyleKey", &Config::cycle_style_key_name, cameraunlock::config::HotkeyCodec(),
+                "Goes to the next picture style: Vivid, Natural, Bleak (Style).");
     table.Local("Content", "OwnWeapons", &Config::own_weapons, cameraunlock::config::BoolCodec(),
                 "What the mod made itself and shows in place of the game's own. Set a row to false\n"
                 "and the game's own is drawn there instead, as the game or another mod has it.\n"

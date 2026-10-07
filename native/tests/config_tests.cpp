@@ -5,6 +5,8 @@
 
 #include "config.h"
 
+#include <cameraunlock/input/key_bindings.h>
+
 #include <windows.h>
 
 #include <algorithm>
@@ -159,7 +161,39 @@ void TestTheModesSave() {
     Check(reloaded.config.rotation_enabled && !reloaded.config.position_enabled && !reloaded.config.world_space_yaw &&
               reloaded.config.true_free_look && reloaded.config.free_look_marker && !reloaded.config.stock_sights,
           "the next start runs on the saved modes");
+    const std::string rendered = Rendered();
+    Check(Holds(rendered, "; Cycles the aim mode: sights locked, free look with a marker, stock sights"),
+          "the file names the three aim modes this game has");
     Check(ReadBytes(s.defaults) == defaultsBefore, "a save leaves Defaults.ini as it was");
+}
+
+void TestTheFirstPersonKeysAreRowsOfTheFile() {
+    const Scratch s(L"first-person-keys");
+    const auto created = cfg::ConfigOwner<Config>(s.Options()).Load();
+    Check(created.config.first_person_key_name == "Delete", "a first start binds Delete to the first person view");
+    Check(created.config.cycle_quality_key_name == "F9", "F9 to the graphics mode");
+    Check(created.config.cycle_style_key_name == "F8", "and F8 to the picture style");
+    for (const std::string* keys : {&created.config.toggle_key_name, &created.config.cycle_tracking_mode_key_name,
+                                    &created.config.yaw_mode_key_name, &created.config.true_free_look_key_name,
+                                    &created.config.first_person_key_name, &created.config.cycle_quality_key_name,
+                                    &created.config.cycle_style_key_name}) {
+        Check(cameraunlock::input::ParseKeyBindings(*keys).ok(), *keys + " is a key list core's poller takes");
+    }
+
+    std::string bytes = ReadBytes(s.ConfigPath());
+    const auto set = [&](const std::string& row, const std::string& value) {
+        const std::size_t at = bytes.find("\r\n" + row + "=") + 2;
+        bytes.replace(at, bytes.find("\r\n", at) - at, row + "=" + value);
+    };
+    set("FirstPersonKey", "ctrl+alt+n, Home");
+    set("CycleQualityKey", "");
+    set("CycleStyleKey", "sideways");
+    WriteBytes(s.ConfigPath(), bytes);
+    const auto edited = cfg::ConfigOwner<Config>(s.Options()).Load();
+    Check(edited.config.first_person_key_name == "Ctrl+Alt+N, Home", "a list the player wrote is read, in core's spelling");
+    Check(edited.config.cycle_quality_key_name.empty(), "an empty row takes the action's keys away");
+    Check(edited.config.cycle_style_key_name == "F8" && !edited.diagnostics.empty(),
+          "and a row that is not a key list is reported and read as the built-in key");
 }
 
 void TestFieldOfViewIsReadAgainWhileTheGameRuns() {
@@ -311,6 +345,7 @@ int main(int argc, char** argv) {
         TestFirstStartCreatesTheCommittedFile();
         TestCommittedConfigIsRendered();
         TestTheModesSave();
+        TestTheFirstPersonKeysAreRowsOfTheFile();
         TestFieldOfViewIsReadAgainWhileTheGameRuns();
         TestContentRowsAreOnAndReadAgainWhileTheGameRuns();
         TestQualityIsLowAndReadAgainWhileTheGameRuns();

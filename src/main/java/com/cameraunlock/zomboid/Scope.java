@@ -402,7 +402,7 @@ final class Scope {
     /**
      * Whether the game's own reticle is left out. Behind a scope that the aim mode keeps the
      * eye behind, sights locked and stock sights, the scope's reticle is on the point the
-     * rounds go to and the game's would only lie over it. In the free look modes the scope's
+     * rounds go to and the game's would only lie over it. In free look the scope's
      * is true only from behind the scope, and the game's stays as the mark of where the
      * rounds go.
      */

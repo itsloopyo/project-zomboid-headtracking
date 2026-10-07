@@ -38,7 +38,7 @@ final class ConfigTests {
 
         firstStartCreatesTheCommittedFileAndRunsOnTheBuiltInValues(config, file, defaults);
         changedModesAreSavedAndReadAtTheNextStart(config, file);
-        eachFreeLookModeIsReadBackAsItself(config, file);
+        freeLookIsSavedWithItsMarkerAndReadWithoutIt(config, file);
         fieldOfViewIsReadAgainWhenTheFileChanges(config, file);
         contentRowsAreReadAgainWhenTheFileChanges(config, file);
         qualityIsReadAgainWhenTheFileChanges(config, file);
@@ -95,22 +95,29 @@ final class ConfigTests {
         check(loaded.status() == NativeConfig.CANONICAL, "the saved file is read at the next start");
         check(settings.rotationEnabled() && !settings.positionEnabled() && !settings.worldSpaceYaw(),
                 "which runs on the saved tracking and yaw modes");
-        check(AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights()) == AimMode.STOCK_SIGHTS,
+        check(AimMode.decode(settings.trueFreeLook(), settings.stockSights()) == AimMode.STOCK_SIGHTS,
                 "and the saved aim mode");
         check(settings.udpPort() == Settings.BUILT_IN.udpPort(), "a row no save touched keeps its value");
     }
 
-    private static void eachFreeLookModeIsReadBackAsItself(NativeConfig config, Path file) throws IOException {
-        check(config.saveAimMode(AimMode.TRUE_FREE_LOOK), "true free look saves");
+    private static void freeLookIsSavedWithItsMarkerAndReadWithoutIt(NativeConfig config, Path file) throws IOException {
+        check(config.saveAimMode(AimMode.FREE_LOOK), "free look saves");
+        String text = Files.readString(file, StandardCharsets.US_ASCII);
+        for (String line : new String[] {"TrueFreeLook=true", "FreeLookMarker=true", "StockSights=false"}) {
+            check(text.contains("\r\n" + line + "\r\n"), "as " + line);
+        }
         Settings settings = config.load(file).settings();
-        check(settings.trueFreeLook() && !settings.freeLookMarker(), "and the two rows are read back each as itself");
-        check(AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights()) == AimMode.TRUE_FREE_LOOK,
-                "so the next start is in true free look");
-        check(config.saveAimMode(AimMode.FREE_LOOK_MARKER), "free look with a marker saves");
+        check(AimMode.decode(settings.trueFreeLook(), settings.stockSights()) == AimMode.FREE_LOOK, "and the next start is in it");
+
+        edit(file, text.replace("FreeLookMarker=true", "FreeLookMarker=false"));
         settings = config.load(file).settings();
-        check(AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights()) == AimMode.FREE_LOOK_MARKER,
-                "and the next start is in it");
-        check(config.saveAimMode(AimMode.STOCK_SIGHTS), "stock sights saves again");
+        check(AimMode.decode(settings.trueFreeLook(), settings.stockSights()) == AimMode.FREE_LOOK,
+                "a file that holds free look with no marker is read as free look");
+        check(config.saveAimMode(AimMode.STOCK_SIGHTS), "stock sights saves from it");
+        text = Files.readString(file, StandardCharsets.US_ASCII);
+        for (String line : new String[] {"TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"}) {
+            check(text.contains("\r\n" + line + "\r\n"), "as " + line);
+        }
         check(config.load(file).settings().stockSights(), "and is read at the next start");
     }
 
@@ -173,7 +180,7 @@ final class ConfigTests {
         NativeConfig.Live live = config.reloadLive();
         check(live != null && live.style() == Style.BLEAK.ordinal(), "an edited style is read while the game runs");
         check(live.quality() == Quality.LOW && live.own() == Own.ALL, "with the graphics mode and the mod's own as they were");
-        check(config.saveStyle(Style.NATURAL), "the style F10 went to saves");
+        check(config.saveStyle(Style.NATURAL), "the style the hotkey went to saves");
         check(Files.readString(file, StandardCharsets.US_ASCII).contains("\r\nStyle=Natural\r\n"), "and the file holds it");
         check(config.load(file).style() == Style.NATURAL.ordinal(), "so the next start is in it");
         edit(file, text);

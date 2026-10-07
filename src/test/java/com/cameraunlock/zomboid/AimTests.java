@@ -6,8 +6,8 @@ final class AimTests {
     static void run() {
         fadeTakesItsTimeEachWayAndArrivesAtRest();
         fadeReversedPartWayCarriesOnFromWhereItIs();
-        aimModeIsDecodedFromItsThreeSettings();
-        aimModeCyclesInOrderAndDecodesFromItsThreeValues();
+        aimModeIsDecodedFromItsSettings();
+        aimModeCyclesThroughThreeInOrder();
         stockSightsTakesThePoseOutOnlyWithTheSightsUp();
         stockSightsReversedPartWayDoesNotStep();
         hipLeanIsAllTheViews();
@@ -73,31 +73,25 @@ final class AimTests {
         check(backwards.update(true, 900) == 1f, "a clock stepping back leaves the transition where it started");
     }
 
-    private static void aimModeIsDecodedFromItsThreeSettings() {
-        check(AimMode.decode(false, false, false) == AimMode.SIGHTS_LOCKED, "all three false is sights locked");
-        check(AimMode.decode(true, true, false) == AimMode.FREE_LOOK_MARKER, "free look and marker is free look with a marker");
-        check(AimMode.decode(true, false, false) == AimMode.TRUE_FREE_LOOK, "free look alone is true free look");
-        check(AimMode.decode(false, true, false) == AimMode.SIGHTS_LOCKED, "the marker alone is sights locked");
-        for (boolean free : new boolean[] {false, true}) {
-            for (boolean marker : new boolean[] {false, true}) {
-                check(AimMode.decode(free, marker, true) == AimMode.STOCK_SIGHTS, "stock sights wins whatever the other two hold");
-            }
-        }
-        check(!AimMode.STOCK_SIGHTS.isFreeLook() && !AimMode.SIGHTS_LOCKED.isFreeLook()
-                && AimMode.FREE_LOOK_MARKER.isFreeLook() && AimMode.TRUE_FREE_LOOK.isFreeLook(), "only the two free look modes are free look");
+    private static void aimModeIsDecodedFromItsSettings() {
+        check(AimMode.decode(false, false) == AimMode.SIGHTS_LOCKED, "neither is sights locked");
+        check(AimMode.decode(true, false) == AimMode.FREE_LOOK, "free look is free look");
+        check(AimMode.decode(false, true) == AimMode.STOCK_SIGHTS && AimMode.decode(true, true) == AimMode.STOCK_SIGHTS,
+                "stock sights wins whatever free look holds");
+        check(!AimMode.STOCK_SIGHTS.isFreeLook() && !AimMode.SIGHTS_LOCKED.isFreeLook() && AimMode.FREE_LOOK.isFreeLook(),
+                "only free look is free look");
     }
 
-    private static void aimModeCyclesInOrderAndDecodesFromItsThreeValues() {
+    private static void aimModeCyclesThroughThreeInOrder() {
         AimMode mode = AimMode.SIGHTS_LOCKED;
-        AimMode[] order = {AimMode.FREE_LOOK_MARKER, AimMode.TRUE_FREE_LOOK, AimMode.STOCK_SIGHTS, AimMode.SIGHTS_LOCKED};
-        String[] labels = {"Aim mode: free look with marker", "Aim mode: true free look", "Aim mode: stock sights", "Aim mode: sights locked"};
+        AimMode[] order = {AimMode.FREE_LOOK, AimMode.STOCK_SIGHTS, AimMode.SIGHTS_LOCKED};
+        String[] labels = {"Aim mode: free look with marker", "Aim mode: stock sights", "Aim mode: sights locked"};
         for (int step = 0; step < order.length; step++) {
             mode = mode.next();
             check(mode == order[step], "the cycle's step " + step + " is " + order[step]);
             check(mode.label.equals(labels[step]), "and is called " + labels[step]);
-            check(AimMode.decode(mode.trueFreeLook(), mode.freeLookMarker(), mode.stockSights()) == mode, "its three values decode to itself");
         }
-        check(!AimMode.STOCK_SIGHTS.trueFreeLook() && !AimMode.STOCK_SIGHTS.freeLookMarker(), "stock sights is saved with the other two false");
+        check(AimMode.values().length == 3, "and there is no fourth");
     }
 
     /** The share of yaw, pitch and the lean that reaches the view, as HeadTracking works it out. */
@@ -106,7 +100,7 @@ final class AimTests {
     }
 
     private static void stockSightsTakesThePoseOutOnlyWithTheSightsUp() {
-        for (AimMode mode : new AimMode[] {AimMode.SIGHTS_LOCKED, AimMode.FREE_LOOK_MARKER, AimMode.TRUE_FREE_LOOK}) {
+        for (AimMode mode : new AimMode[] {AimMode.SIGHTS_LOCKED, AimMode.FREE_LOOK}) {
             AdsFade fade = new AdsFade();
             check(stockShare(fade, mode, false, 0) == 1f && stockShare(fade, mode, true, 10) == 1f && stockShare(fade, mode, true, 1000) == 1f,
                     mode + " leaves the pose whole, sights up or down");
@@ -132,7 +126,7 @@ final class AimTests {
         check(stockShare(keyed, AimMode.SIGHTS_LOCKED, true, 151 + 250) == 1f, "and the head eases back into the view");
         // And into it.
         AdsFade into = new AdsFade();
-        stockShare(into, AimMode.TRUE_FREE_LOOK, true, 0);
+        stockShare(into, AimMode.FREE_LOOK, true, 0);
         check(stockShare(into, AimMode.STOCK_SIGHTS, true, 1) > 0.99f, "stepping into stock sights mid-aim eases the pose out from where it is");
     }
 
@@ -171,16 +165,14 @@ final class AimTests {
     }
 
     private static void freeLookKeepsTheLeanOnTheView() {
-        LeanHandover marker = settled(LEAN, true, AimMode.FREE_LOOK_MARKER, true), free = settled(LEAN, true, AimMode.TRUE_FREE_LOOK, true);
-        check(same(free.camera, LEAN[0], LEAN[1], LEAN[2]) && same(free.rig, 0f, 0f, 0f), "in true free look the view keeps the whole lean through the aim");
-        check(same(marker.camera, free.camera[0], free.camera[1], free.camera[2]) && same(marker.rig, 0f, 0f, 0f),
-                "and free look with a marker has the same shares");
+        LeanHandover free = settled(LEAN, true, AimMode.FREE_LOOK, true);
+        check(same(free.camera, LEAN[0], LEAN[1], LEAN[2]) && same(free.rig, 0f, 0f, 0f), "in free look the view keeps the whole lean through the aim");
     }
 
     private static void stockSightsHandsTheLeanOverAsSightsLockedDoes() {
         LeanHandover locked = settled(LEAN, true, AimMode.SIGHTS_LOCKED, true);
         // The settings file can hold free look beside stock sights: it is the decoded mode that is asked.
-        LeanHandover stock = settled(LEAN, true, AimMode.decode(true, true, true), true);
+        LeanHandover stock = settled(LEAN, true, AimMode.decode(true, true), true);
         check(same(stock.camera, locked.camera[0], locked.camera[1], locked.camera[2]) && same(stock.rig, locked.rig[0], locked.rig[1], locked.rig[2]),
                 "a lean on its way out in stock sights is carried as in sights locked");
     }
@@ -267,7 +259,7 @@ final class AimTests {
             check(near(sightLine[0], ndc[0]) && near(sightLine[1], ndc[1]), "with the head turned " + yaw + " degrees the weapon's line is on the reticle");
             check(Math.abs(ndc[0]) > 0.2f, "which is off the middle of the picture, where the aim is");
         }
-        // True free look: the eye leans and the weapon stays where it was in the world.
+        // Free look: the eye leans and the weapon stays where it was in the world.
         ViewCamera.Pose leaned = new ViewCamera.Pose();
         leaned.set(aim);
         leaned.eyeX += aim.rightX * 0.25f;

@@ -21,6 +21,7 @@ final class NativeConfig {
 
     /** The bits of pressed(). */
     static final int TOGGLE = 1, CYCLE_TRACKING_MODE = 2, YAW_MODE = 4, AIM_MODE = 8;
+    static final int FIRST_PERSON = 16, CYCLE_QUALITY = 32, CYCLE_STYLE = 64;
 
     /** Core's ConfigLoadStatus and ConfigSaveStatus, by number. */
     static final int CANONICAL = 0, CREATED = 2;
@@ -29,7 +30,7 @@ final class NativeConfig {
             {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
-    private static final int SETTINGS_BYTES = 100;
+    private static final int SETTINGS_BYTES = 96;
     private static final ValueLayout.OfInt INT = ValueLayout.JAVA_INT;
     private static final ValueLayout.OfFloat FLOAT = ValueLayout.JAVA_FLOAT;
 
@@ -45,7 +46,7 @@ final class NativeConfig {
         reloadLive = bind(linker, lookup, "PzhtConfigReloadLive", FunctionDescriptor.of(INT, pointer));
         saveTrackingMode = bind(linker, lookup, "PzhtConfigSaveTrackingMode", FunctionDescriptor.of(INT, INT, INT));
         saveWorldSpaceYaw = bind(linker, lookup, "PzhtConfigSaveWorldSpaceYaw", FunctionDescriptor.of(INT, INT));
-        saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT, INT));
+        saveAimMode = bind(linker, lookup, "PzhtConfigSaveAimMode", FunctionDescriptor.of(INT, INT, INT));
         saveQuality = bind(linker, lookup, "PzhtConfigSaveQuality", FunctionDescriptor.of(INT, INT));
         saveStyle = bind(linker, lookup, "PzhtConfigSaveStyle", FunctionDescriptor.of(INT, INT));
         hotkeysStart = bind(linker, lookup, "PzhtHotkeysStart", FunctionDescriptor.of(INT));
@@ -83,10 +84,10 @@ final class NativeConfig {
             return new Loaded(status, new Settings(
                     out.get(INT, 0), out.get(INT, 4), out.get(INT, 8) != 0, out.get(INT, 12) != 0,
                     out.get(INT, 16) != 0, out.get(INT, 20) != 0, out.get(INT, 24) != 0, out.get(INT, 28) != 0,
-                    out.get(INT, 32) != 0, out.get(INT, 36) != 0, out.get(FLOAT, 40), out.get(FLOAT, 44),
+                    out.get(INT, 32) != 0, out.get(FLOAT, 36), out.get(FLOAT, 40), out.get(FLOAT, 44),
                     out.get(FLOAT, 48), out.get(FLOAT, 52), out.get(FLOAT, 56), out.get(FLOAT, 60),
-                    out.get(FLOAT, 64), out.get(FLOAT, 68), out.get(FLOAT, 72), out.get(FLOAT, 76), out.get(FLOAT, 80)),
-                    out.get(INT, 84), out.get(INT, 88), out.get(INT, 92), out.get(INT, 96) != 0);
+                    out.get(FLOAT, 64), out.get(FLOAT, 68), out.get(FLOAT, 72), out.get(FLOAT, 76)),
+                    out.get(INT, 80), out.get(INT, 84), out.get(INT, 88), out.get(INT, 92) != 0);
         }
     }
 
@@ -126,8 +127,7 @@ final class NativeConfig {
     }
 
     boolean saveAimMode(AimMode mode) {
-        return saved("aim mode", call(saveAimMode, mode.trueFreeLook() ? 1 : 0, mode.freeLookMarker() ? 1 : 0,
-                mode.stockSights() ? 1 : 0));
+        return saved("aim mode", call(saveAimMode, mode == AimMode.FREE_LOOK ? 1 : 0, mode == AimMode.STOCK_SIGHTS ? 1 : 0));
     }
 
     private boolean saved(String what, int status) {
@@ -139,7 +139,7 @@ final class NativeConfig {
         return status == SAVED;
     }
 
-    /** Puts the file's four key lists on core's poller, which runs on a thread of its own. */
+    /** Puts the file's seven key lists on core's poller, which runs on a thread of its own. */
     void startHotkeys() {
         int status = call(hotkeysStart);
         writeLog();

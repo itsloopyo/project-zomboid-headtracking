@@ -7,7 +7,7 @@ package com.cameraunlock.zomboid;
  * the shade and the sunlit take, how dark the corners, and how much the lens adds of its own.
  *
  * The row is read again while the game runs. The thread that watches the file sets it, the
- * logic thread goes to the next on F10, and the render thread reads it as it draws a frame.
+ * logic thread goes to the next on its hotkey, and the render thread reads it as it draws a frame.
  */
 enum Style {
     /** Strong contrast and full colours, cool in the shade and warm in the sun. */
@@ -58,7 +58,7 @@ enum Style {
         return row;
     }
 
-    /** The style F10 goes to from the one the session is in. */
+    /** The style the hotkey goes to from the one the session is in. */
     Style next() {
         return values()[(ordinal() + 1) % values().length];
     }

@@ -41,13 +41,7 @@ import zombie.vehicles.BaseVehicle;
  * which the render thread asks as well.
  */
 public final class FirstPerson {
-    /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it or F9. */
-    private static final int TOGGLE_KEY = 66;
-    /** F9. Goes to the next graphics mode: see Quality. In every mode but Low the picture draws the game's own view as well. */
-    private static final int MODE_KEY = 67;
-    /** F10. Goes to the next picture style: see Style. The game's default bindings have Take screenshot on it, and the press is left to the game as well. */
-    private static final int STYLE_KEY = 68;
-    /** How long the name of a graphics mode or picture style just gone to stays on the screen. */
+    /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
     private static long saidAt;
     private static String said;
@@ -422,22 +416,28 @@ public final class FirstPerson {
     private static boolean outOfSave = true;
 
     private static void frame() {
-        if (GameKeyboard.isKeyPressed(TOGGLE_KEY)) {
-            toggle();
-        }
-        if (outOfSave) {
+        int pressed = 0;
+        // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
+        if (outOfSave || Core.getInstance().isDoingTextEntry()) {
             outOfSave = false;
             HeadTracking.dropHotkeys();
         } else {
-            HeadTracking.pollHotkeys();
+            pressed = HeadTracking.pollHotkeys();
+        }
+        if ((pressed & NativeConfig.FIRST_PERSON) != 0) {
+            toggle();
+        }
+        if ((pressed & NativeConfig.AIM_MODE) != 0) {
+            said = HeadTracking.aimModeLabel();
+            saidAt = System.nanoTime();
         }
         DevKeys.poll();
-        if (GameKeyboard.isKeyPressed(MODE_KEY)) {
+        if ((pressed & NativeConfig.CYCLE_QUALITY) != 0) {
             HeadTracking.cycleGraphicsMode();
             said = "Graphics: " + Quality.name();
             saidAt = System.nanoTime();
         }
-        if (GameKeyboard.isKeyPressed(STYLE_KEY)) {
+        if ((pressed & NativeConfig.CYCLE_STYLE) != 0) {
             HeadTracking.cycleStyle();
             said = "Style: " + Style.current().label;
             saidAt = System.nanoTime();

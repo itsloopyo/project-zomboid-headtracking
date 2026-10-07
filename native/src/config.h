@@ -43,6 +43,10 @@ struct Config : cameraunlock::HeadTrackingConfig {
     bool own_zombies = true;
     bool own_people = true;
     bool own_arms = true;
+    // The key lists of the first person view's own three actions, as core's four are held.
+    std::string first_person_key_name = "Delete";
+    std::string cycle_quality_key_name = "F9";
+    std::string cycle_style_key_name = "F8";
 
     Config() {
         // Map tiles. It has to exceed the distance from the eye to the corners of the first
@@ -54,6 +58,7 @@ struct Config : cameraunlock::HeadTrackingConfig {
 // The rows of CameraUnlock.ini. The tracking mode pair, WorldSpaceYaw and the three aim mode
 // rows are Writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
 // FrameBlending and the rows of [Content] are the mod's own, and the ones read again while the game runs.
+// FirstPersonKey, CycleQualityKey and CycleStyleKey are the mod's own too, and read at the start.
 cameraunlock::config::ConfigTable<Config> MakeConfigTable();
 
 // The owner's options for the file at `path`. The mod passes DefaultsFile::PerUser() and a test

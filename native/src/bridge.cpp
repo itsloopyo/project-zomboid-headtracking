@@ -93,7 +93,6 @@ std::int32_t PzhtConfigLoad(const wchar_t* path, PzhtSettings* out) {
         out->rotation_enabled = c.rotation_enabled;
         out->position_enabled = c.position_enabled;
         out->true_free_look = c.true_free_look;
-        out->free_look_marker = c.free_look_marker;
         out->stock_sights = c.stock_sights;
         out->collision_enabled = c.collision_enabled;
         out->local_smoothing = c.local_smoothing;
@@ -150,11 +149,10 @@ std::int32_t PzhtConfigSaveStyle(std::int32_t style) {
     return Save("saving the picture's style", [=](pzht::Config& c) { c.style = static_cast<pzht::Style>(style); });
 }
 
-std::int32_t PzhtConfigSaveAimMode(std::int32_t true_free_look, std::int32_t free_look_marker,
-                                   std::int32_t stock_sights) {
+std::int32_t PzhtConfigSaveAimMode(std::int32_t free_look, std::int32_t stock_sights) {
     return Save("saving the aim mode", [=](pzht::Config& c) {
-        c.true_free_look = true_free_look != 0;
-        c.free_look_marker = free_look_marker != 0;
+        c.true_free_look = free_look != 0;
+        c.free_look_marker = free_look != 0;
         c.stock_sights = stock_sights != 0;
     });
 }
@@ -168,6 +166,9 @@ std::int32_t PzhtHotkeysStart() {
         Register("CycleTrackingModeKey", g_loaded.cycle_tracking_mode_key_name, kPzhtCycleTrackingMode);
         Register("YawModeKey", g_loaded.yaw_mode_key_name, kPzhtYawMode);
         Register("TrueFreeLookKey", g_loaded.true_free_look_key_name, kPzhtAimMode);
+        Register("FirstPersonKey", g_loaded.first_person_key_name, kPzhtFirstPerson);
+        Register("CycleQualityKey", g_loaded.cycle_quality_key_name, kPzhtCycleQuality);
+        Register("CycleStyleKey", g_loaded.cycle_style_key_name, kPzhtCycleStyle);
         if (!g_poller->Start()) throw std::runtime_error("the hotkey poller did not start");
         return 0;
     });
