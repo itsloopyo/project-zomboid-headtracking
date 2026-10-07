@@ -1280,7 +1280,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         laid.clear();
         solid.trim();
         laid.trim();
-        VertexLoans.trim();
+        VertexLoans.trim(System.nanoTime());
     }
 
     /**

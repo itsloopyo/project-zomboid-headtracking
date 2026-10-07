@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -27,7 +26,12 @@ final class SpriteColours {
     private static final ConcurrentHashMap<Texture, float[]> known = new ConcurrentHashMap<>();
     private static final ConcurrentLinkedQueue<Texture> asked = new ConcurrentLinkedQueue<>();
     private static final ArrayList<Texture> waiting = new ArrayList<>();
+    /** The copy of the sheet being read, and the memory it is in, kept while sprites go on being asked for and for a few seconds after. */
     private static ByteBuffer page;
+    private static OffHeap.Block pageBlock;
+    private static long pageUsedNanos;
+    /** A walk past new houses asks for a sprite every few frames: the page is let go only once nothing has been read for this long. */
+    private static final long PAGE_KEPT_NANOS = 5_000_000_000L;
 
     private SpriteColours() {}
 
@@ -70,9 +74,14 @@ final class SpriteColours {
             waiting.add(texture);
         }
         if (waiting.isEmpty()) {
-            page = null;
+            if (pageBlock != null && System.nanoTime() - pageUsedNanos > PAGE_KEPT_NANOS) {
+                pageBlock.free();
+                pageBlock = null;
+                page = null;
+            }
             return;
         }
+        pageUsedNanos = System.nanoTime();
         int sheet = waiting.get(0).getID();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         // With a buffer bound to pack into, OpenGL would write the sheet into that buffer and
@@ -88,7 +97,11 @@ final class SpriteColours {
         int height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
         if (width > 0 && height > 0) {
             if (page == null || page.capacity() < width * height * 4) {
-                page = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder());
+                if (pageBlock != null) {
+                    pageBlock.free();
+                }
+                pageBlock = OffHeap.take(width * height * 4);
+                page = pageBlock.bytes;
             }
             GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
         }

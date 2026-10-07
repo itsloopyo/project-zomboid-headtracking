@@ -205,8 +205,9 @@ final class BufferTests {
 
         // A burst of nine at once, then a steady two at a time: once the burst's are seen to
         // lie idle, all are let go but the two the steady pace keeps taking.
-        VertexLoans.trim();
-        VertexLoans.trim();
+        long clock = System.nanoTime(), wait = VertexLoans.IDLE_FOR_NANOS;
+        VertexLoans.trim(clock += wait);
+        VertexLoans.trim(clock += wait);
         check(VertexLoans.idleBytes() == 0, "what lies idle from one trim to the next is let go");
         int each = 1 << 16;
         long bytes = each * 4L;
@@ -217,18 +218,32 @@ final class BufferTests {
         for (FloatBuffer loan : burst) {
             VertexLoans.give(loan);
         }
-        VertexLoans.trim();
+        VertexLoans.trim(clock += wait);
         check(VertexLoans.idleBytes() == 9 * bytes, "what came back since the last trim is kept for now");
+        // A view standing still builds in bursts with seconds between them, and asks to trim far oftener than buffers are let go.
+        for (int burstNumber = 0; burstNumber < 5; burstNumber++) {
+            ArrayList<FloatBuffer> again9 = new ArrayList<>();
+            for (int i = 0; i < 9; i++) {
+                again9.add(VertexLoans.take(each));
+            }
+            for (FloatBuffer loan : again9) {
+                check(same(burst, loan), "a burst takes the buffers the burst before it gave back");
+                VertexLoans.give(loan);
+            }
+            VertexLoans.trim(clock += wait / 10);
+            VertexLoans.trim(clock += wait / 10);
+            check(VertexLoans.idleBytes() == 9 * bytes, "and between two bursts nothing is let go");
+        }
         for (int frame = 0; frame < 5; frame++) {
             FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each - 100);
-            check(burst.contains(one) && burst.contains(other), "a steady pace takes what the burst left");
+            check(same(burst, one) && same(burst, other), "a steady pace takes what the burst left");
             VertexLoans.give(one);
             VertexLoans.give(other);
         }
-        VertexLoans.trim();
+        VertexLoans.trim(clock += wait);
         check(VertexLoans.idleBytes() == 2 * bytes, "the seven no frame took are let go, the two in use kept");
         FloatBuffer one = VertexLoans.take(each), other = VertexLoans.take(each);
-        check(burst.contains(one) && burst.contains(other), "and they still go round");
+        check(same(burst, one) && same(burst, other), "and they still go round");
         VertexLoans.give(one);
         VertexLoans.give(other);
         boolean refused = false;
@@ -238,6 +253,16 @@ final class BufferTests {
             refused = true;
         }
         check(refused, "a buffer that was never lent is refused");
+    }
+
+    /** Whether the very buffer is in the list: two buffers are equal when their floats are, and a buffer let go has none to read. */
+    private static boolean same(ArrayList<FloatBuffer> list, FloatBuffer buffer) {
+        for (FloatBuffer each : list) {
+            if (each == buffer) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void check(boolean condition, String what) {
