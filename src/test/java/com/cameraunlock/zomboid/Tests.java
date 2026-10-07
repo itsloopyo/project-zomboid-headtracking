@@ -1048,6 +1048,7 @@ public final class Tests {
         QualityTests.run();
         StyleTests.run();
         GameFixTests.run();
+        OnlineTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         theBuildThatShipsHasNoDevelopmentKeys();
         System.out.println("all tests passed");

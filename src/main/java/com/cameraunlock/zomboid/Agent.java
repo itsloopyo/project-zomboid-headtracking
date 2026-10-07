@@ -1,6 +1,9 @@
 package com.cameraunlock.zomboid;
 
 import java.io.IOException;
+import java.lang.classfile.CodeBuilder;
+import java.lang.constant.ClassDesc;
+import java.lang.constant.MethodTypeDesc;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -8,6 +11,7 @@ import java.security.ProtectionDomain;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 public final class Agent {
@@ -80,6 +84,14 @@ public final class Agent {
         return modelHead.gap();
     }
 
+    /** The patches that put the names over other players where those players are in the first person picture. */
+    private static PatchTransformer nameTags;
+
+    /** Why names are not moved into the first person picture on this build of the game, or null once the patches are in. */
+    static String nameTagsGap() {
+        return nameTags.gap();
+    }
+
     private static volatile boolean loaded;
 
     static boolean loaded() {
@@ -138,6 +150,9 @@ public final class Agent {
 
         modelHead = new PatchTransformer(modelHeadPatches());
         instrumentation.addTransformer(modelHead);
+
+        nameTags = new PatchTransformer(nameTagPatches());
+        instrumentation.addTransformer(nameTags);
 
         if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
             instrumentation.addTransformer(new PatchTransformer(gameFixPatches()));
@@ -346,6 +361,37 @@ public final class Agent {
                 new Patch(player, "updateAnimation_StandardAnimation after updateModelTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
                 posing, new CallSite.Method(player, "updateModelTransforms", "()V"),
                 code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "posed", "(L" + player + ";)V")), 1)));
+    }
+
+    /**
+     * Apart again: without these, on a server, names and speech are written where the game's
+     * own view has their owners. The game works out one place on the screen for all it
+     * writes over a person, and that place is what is changed.
+     */
+    private static List<Patch> nameTagPatches() {
+        String character = "zombie/characters/IsoGameCharacter", tags = "com/cameraunlock/zomboid/NameTags";
+        String vector = "Lzombie/iso/Vector2;", picker = "zombie/iso/IsoObjectPicker";
+        CallSite.Method writing = new CallSite.Method(character, "renderlast", "()V");
+        Consumer<CodeBuilder> place = code -> {
+            code.aload(0);
+            code.getstatic(ClassDesc.ofInternalName(character), "tempVector2_2", ClassDesc.ofDescriptor(vector));
+            code.invokestatic(ClassDesc.ofInternalName(tags), "place", MethodTypeDesc.ofDescriptor("(L" + character + ";" + vector + ")V"));
+        };
+        return List.of(
+                new Patch(character, "renderlast after getNameCoords", classBytes -> CallSite.insertAfterEach(classBytes, writing,
+                        new CallSite.Method(character, "getNameCoords", "(FFFFFF" + vector + ")V"), place, 1)),
+                // In a vehicle the place comes from the vehicle, and the game's own working out is passed over.
+                new Patch(character, "renderlast after getNameCoordForPlayer", classBytes -> CallSite.insertAfterEach(classBytes, writing,
+                        new CallSite.Method("zombie/vehicles/BaseVehicle", "getNameCoordForPlayer", "(L" + character + ";F" + vector + ")Z"), place, 1)),
+                new Patch(character, "renderlast writing the name", classBytes -> CallSite.replaceEach(classBytes, writing,
+                        new CallSite.Method("zombie/ui/TextDrawObject", "AddBatchedDraw", "(DDZ)V"),
+                        new CallSite.Method(tags, "writeName", "(Lzombie/ui/TextDrawObject;DDZ)V"), 1)),
+                new Patch(character, "renderlast writing the speech", classBytes -> CallSite.replaceEach(classBytes, writing,
+                        new CallSite.Method("zombie/chat/ChatElement", "renderBatched", "(IIIZ)V"),
+                        new CallSite.Method(tags, "writeSpeech", "(Lzombie/chat/ChatElement;IIIZ)V"), 1)),
+                new Patch(character, "renderlast asking what is under the pointer", classBytes -> CallSite.replaceEach(classBytes, writing,
+                        new CallSite.Method(picker, "ContextPick", "(II)L" + picker + "$ClickObject;"),
+                        new CallSite.Method(tags, "underPointer", "(L" + picker + ";II)L" + picker + "$ClickObject;"), 1)));
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call. */

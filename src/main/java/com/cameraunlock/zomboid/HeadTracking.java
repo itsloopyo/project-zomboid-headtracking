@@ -361,7 +361,7 @@ final class HeadTracking {
         // has moves the weapon and the shot as well, so only the share of the view parts the
         // eye from the shot.
         handover.setForwardStop(ViewModel.forwardStop());
-        handover.update(lean, clean.forwardX, clean.forwardY, clean.forwardUp, sightsUp, aimMode.isFreeLook(), onFoot, nowMillis);
+        handover.update(lean, clean.forwardX, clean.forwardY, clean.forwardUp, sightsUp, aimMode.isFreeLook(), onFoot && Online.leanCarriesTheShot(), nowMillis);
         out.eyeX += handover.camera[0] + handover.rig[0];
         out.eyeY += handover.camera[1] + handover.rig[1];
         out.eyeUp += handover.camera[2] + handover.rig[2];

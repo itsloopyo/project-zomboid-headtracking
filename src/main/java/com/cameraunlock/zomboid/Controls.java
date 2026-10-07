@@ -73,7 +73,16 @@ public final class Controls {
         if (FirstPerson.TRACE && (filteredAim != wasFiltered || attackDown != wasAttack)) {
             Log.info("controls " + describe());
         }
-        return filteredAim;
+        return filteredAim || turnedToTheView(player);
+    }
+
+    /**
+     * Where players fight, a character walked sideways or backwards is held in the game's
+     * aiming stance, which faces it the way the view does: see Online.bodyFacesTheView. The
+     * sights stay down. They follow the player's own aim input alone.
+     */
+    private static boolean turnedToTheView(IsoPlayer player) {
+        return player != null && player.getVehicle() == null && FirstPerson.movingAside() && Online.bodyFacesTheView();
     }
 
     /**
@@ -187,13 +196,15 @@ public final class Controls {
     }
 
     /**
-     * Called with the binding the game holds under a name. The escape menu
-     * pauses a single player game, and its key page is read and saved through
-     * the same lookup, so a paused game is always given the player's own.
+     * Called with the binding the game holds under a name. The escape menu's
+     * key page is read and saved through the same lookup, so while that menu
+     * is up the game is always given the player's own. Alone the game is
+     * paused under the menu. On a server nothing pauses, and the menu itself
+     * is asked for.
      */
     public static Core.KeyBinding binding(Core.KeyBinding stock, String name) {
         Substituted held = substituted.get(name);
-        if (held == null || !FirstPerson.active() || GameTime.isGamePaused()) {
+        if (held == null || !FirstPerson.active() || GameTime.isGamePaused() || Panels.menuOpen()) {
             return stock;
         }
         if (held.from != stock) {

@@ -100,7 +100,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F10` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view is for single player: it stays off in multiplayer and split screen.
+`F8` switches between the game's own view and the first person view, and the camera flies from one to the other in about a second. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F10` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press `F8`. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view stays off in split screen. On a multiplayer server it works: see [On a server](#on-a-server).
 
 ### In first person
 
@@ -154,6 +154,20 @@ The inventory, crafting, the health panel, the map and the game's menus all need
 - A click on the world goes to what the game's own view has under the pointer, which is drawn beneath the first person picture and is not what the picture shows there. `E` acts on what the middle of the view is on, and is the surer way to use a door or a window. Whatever `E` would act on is drawn with a pale line round it: a door, a window, a curtain, a light switch, a piece of furniture that holds things, a body, or something lying on the ground.
 - `Tab` and every other key are as the game has them.
 - If you have bound something to the middle mouse button, it does both.
+
+### On a server
+
+The first person view and head tracking work when you join a multiplayer server. Only you need the mod. The server does not, and neither do the other players, who see your character as they see anyone's.
+
+- The names and the speech the game writes over other players are over their heads in the first person view. Your own name and what you say are not written across the view: what you say is in the chat panel. On a server that shows a name only under the pointer, a name shows while the middle of the view is on its player.
+- `Esc` opens the game's menu without pausing, as it does for everyone on a server. The key page in it shows and saves your own keys, not the ones first person answers with.
+- Your character's head turns with yours on your own screen only. The mod sends nothing to the server, so other players do not see it turn.
+- Dying and coming back as a new character leaves you in first person.
+
+Where you and another player can hurt each other, two things are held to what the game gives a player without the mod, so that nobody loses a fight to it. That is a server with PvP on, where either the server has no safety system or your own safety is off. With your safety on, or on a server with PvP off, neither applies and the mod plays as it does alone.
+
+- Leaning does not move a shot. With the sights up in sights locked, the lean across the aim eases out and the round leaves from your character, where the other players see your weapon. Alone, your arms and weapon move with your head and the round leaves from where your eye is.
+- Walking sideways or backwards puts your character in the game's own aiming stance, at the pace the game gives that stance, with the sights down. The game shows a player what is in front of their character, and other players read which way a character faces to tell what its player can see. In first person you see where the view faces, so there your character faces it too. Walking forward, and forward with a sideways key, is as it is alone.
 
 ### Head tracking
 
@@ -426,6 +440,9 @@ Leaning carries on through the aim. As the sights come up, your arms and weapon
 move with your head, so the sights stay in front of your eye, and your rounds
 leave from where your eye is and land where the sights point. Leaning in stops
 just short of the rear sight.
+
+On a server where players can hurt each other the lean across the aim eases out
+while the sights are up and does not move the shot: see [On a server](#on-a-server).
 
 The mode is logged each time it changes, as `Aim mode: sights locked` and so on.
 

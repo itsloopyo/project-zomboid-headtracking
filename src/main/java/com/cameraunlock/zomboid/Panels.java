@@ -91,6 +91,15 @@ final class Panels {
         return false;
     }
 
+    /**
+     * Whether the game's menu is up over the game: the one the Escape key brings, with the
+     * options and the key page in it. Alone the game is paused under it. On a server it is not.
+     */
+    static boolean menuOpen() {
+        return LuaManager.env.rawget("MainScreen") instanceof KahluaTable screen && screen.rawget("instance") instanceof KahluaTable menu
+                && menu.rawget("javaObject") instanceof UIElementInterface shown && shown.isVisible();
+    }
+
     /** Shows or hides the inventory and loot panels, through the calls the game's own inventory key makes. */
     static void showInventory(boolean visible) {
         for (String function : INVENTORY_PANELS) {

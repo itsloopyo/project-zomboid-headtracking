@@ -54,6 +54,28 @@ final class CallSite {
     }
 
     /**
+     * Has each of the {@code expected} calls to {@code call} inside {@code within}, which is
+     * made on an object, go to the static method {@code hook} instead. The hook takes that
+     * object and then what the call took, and returns what the call returned.
+     */
+    static byte[] replaceEach(byte[] classBytes, Method within, Method call, Method hook, int expected) {
+        int[] matches = {0};
+        CodeTransform replace = (code, element) -> {
+            if (element instanceof InvokeInstruction invoke && isCallTo(invoke, call)) {
+                matches[0]++;
+                invokeStatic(code, hook);
+            } else {
+                code.with(element);
+            }
+        };
+        byte[] transformed = transform(classBytes, within, replace);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of the call to " + call + " in " + within + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
+    /**
      * Passes what {@code within} returns through the static method {@code filter},
      * which takes the value about to be returned and returns its replacement.
      */

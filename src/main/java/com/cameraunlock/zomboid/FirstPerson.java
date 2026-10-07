@@ -8,10 +8,10 @@ import zombie.core.SpriteRenderer;
 import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
-import zombie.network.GameClient;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
@@ -83,6 +83,13 @@ public final class FirstPerson {
     private static final float CURSOR_DISTANCE = 3f;
     /** The direction the forward key moves the character in the game's own view: up the screen. */
     private static final float STOCK_FORWARD_YAW = (float) Math.toRadians(-135);
+    /** The movement keys ask for a way that is not ahead of the view: sideways or back. */
+    private static boolean movingAside;
+
+    /** Whether the character is being walked sideways or backwards from the way the view faces. */
+    static boolean movingAside() {
+        return movingAside && lookCaptured();
+    }
 
     private static final float EYE_HEIGHT_STANDING = 1.6f;
     private static final float EYE_HEIGHT_SNEAKING = 1.1f;
@@ -242,9 +249,6 @@ public final class FirstPerson {
         if (player == null) {
             return "no player";
         }
-        if (GameClient.client) {
-            return "multiplayer";
-        }
         if (IsoPlayer.numPlayers != 1) {
             return "split screen";
         }
@@ -366,6 +370,7 @@ public final class FirstPerson {
         MouseGrab.wanted = lookCaptured;
         MouseGrab.kept = active && pointer.on();
         ModelHead.sayGap();
+        NameTags.sayGap();
         fromTheEye = landed;
         if (!flown) {
             FieldOfView.rest();
@@ -431,6 +436,11 @@ public final class FirstPerson {
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
         placeReticle(scene, floorUp);
+        if (Online.joined()) {
+            NameTags.look(cleanView, IsoWorld.instance.currentCell, player);
+        } else {
+            NameTags.lookAway();
+        }
         // The game draws its own reticle while the aim is held, and nothing while it is not.
         if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && !player.isAiming()) {
             Crosshair.show(ndc[0], ndc[1], ViewModel.spread());
@@ -639,6 +649,7 @@ public final class FirstPerson {
      * aim is at infinity and only its direction is left to project.
      */
     private static void placeReticle(WorldScene scene, float floorUp) {
+        pictureTanHalf = scene.tanHalfFieldOfView();
         shotDistance = world.shotDistance(aimView, floorUp, WorldScene.REACH,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         // The game looks for a shot's target along a line through this point. With nothing
@@ -648,8 +659,20 @@ public final class FirstPerson {
         float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
         float aimedX = aimView.eyeX + aimView.forwardX * aimed, aimedY = aimView.eyeY + aimView.forwardY * aimed;
         float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
-        float level = IsoPlayer.getInstance().getZ();
-        Controls.aimAt(aimedX, aimedY, (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT);
+        IsoPlayer player = IsoPlayer.getInstance();
+        float level = player.getZ();
+        float aimedLevel = (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
+        Controls.aimAt(aimedX, aimedY, aimedLevel);
+        // The game takes the square an attack is made at from what its own view has under the
+        // pointer, and under this picture that is nothing. A shot that hits nobody is told
+        // to the server by that square, and one with no square is thrown away there: nobody
+        // else would see or hear it. So the square is the one the aim is on, or failing one
+        // there the shooter's own, which is what the game gives a player with a controller.
+        if (lookCaptured) {
+            IsoGridSquare under = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(aimedX), (int) Math.floor(aimedY),
+                    (int) Math.floor(aimedLevel + 0.25f));
+            player.setAttackTargetSquare(under != null ? under : player.getCurrentSquare());
+        }
 
         float aspect = WorldScene.drawnAspect();
         if (aspect == 0f) {
@@ -673,6 +696,18 @@ public final class FirstPerson {
         int index = IsoPlayer.getInstance().getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
+    }
+
+    /** Half the height of the picture's field of view, as a tangent, as it was last drawn. */
+    private static float pictureTanHalf;
+
+    /**
+     * Where a place in the world falls in the picture as it was last drawn, the head's turn
+     * and lean included. False if it is behind the eye or no picture has been drawn.
+     */
+    static boolean inPicture(float x, float y, float up, float[] ndc) {
+        float aspect = WorldScene.drawnAspect();
+        return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(trackedView, pictureTanHalf, aspect, x, y, up, ndc);
     }
 
     private static void hideReticle() {
@@ -858,11 +893,13 @@ public final class FirstPerson {
         }
         if (move.x == 0f && move.y == 0f) {
             stride.reset();
+            movingAside = false;
             if (!player.isAiming()) {
                 player.setForwardDirection(forward.set((float) Math.cos(yaw), (float) Math.sin(yaw)));
             }
             return move;
         }
+        movingAside = Online.aside(move.x, move.y);
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);

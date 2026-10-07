@@ -8,7 +8,6 @@ import zombie.core.skinnedmodel.HelperFunctions;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.SkinningBone;
 import zombie.core.skinnedmodel.model.SkinningData;
-import zombie.network.GameClient;
 
 /**
  * The character's own head, turned as the player's is. In the game's own view
@@ -84,7 +83,7 @@ public final class ModelHead {
             return;
         }
         float[] head = HeadTracking.headTurn();
-        if (head != null && !player.isDead() && !GameClient.client && IsoPlayer.numPlayers == 1) {
+        if (head != null && !player.isDead() && IsoPlayer.numPlayers == 1) {
             float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
             float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
             float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
