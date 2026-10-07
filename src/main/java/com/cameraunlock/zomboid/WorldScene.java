@@ -685,8 +685,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     /** What the frame cost: said when a frame was long enough to feel. */
     String timing() {
-        return String.format(Locale.ROOT, "%d chunks built in %.1f ms and %d left for the next frames, the picture drawn in %.1f ms",
-                chunksBuilt, buildMillis, chunksWaiting, Pipeline.lastMillis());
+        return String.format(Locale.ROOT, "%d chunks built in %.1f ms and %d left for the next frames, the picture drawn in %.1f ms"
+                + " (new %d moved %d changed %d aged %d unsigned %d unread %d, grown %d)",
+                chunksBuilt, buildMillis, chunksWaiting, Pipeline.lastMillis(), builtBecause[NEW], builtBecause[MOVED], builtBecause[CHANGED],
+                builtBecause[AGED], builtBecause[UNSIGNED], builtBecause[LEFT_UNREAD], chunksGrown);
     }
 
     String describe() {
@@ -980,6 +982,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 boolean due = !missing && !rehearsing && waited && frames - current.checkedFrame >= every
                         && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                 || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
+                // On arriving somewhere the map round the eye is still loading, and each chunk is found changed again
+                // and again. One found changed is made again as it falls due without being read through, and right by
+                // the eye that is every frame: the nine chunks round it were all made again on every frame for the
+                // first seconds, which with builds slowed fourfold was seven frames a second for five seconds. While
+                // a chunk is new, a quarter of a second between two builds of it is soon enough.
+                if (due && still && frames < current.summedFrom && start - current.bornNanos < SETTLES_IN_NANOS
+                        && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
+                    due = false;
+                }
                 // The eye's place is in every build: which way a card faces, how far apart
                 // two sprites on one plane stand, how much detail a square is given. While it
                 // moves a chunk that is due is made again. While it is still, what the build
