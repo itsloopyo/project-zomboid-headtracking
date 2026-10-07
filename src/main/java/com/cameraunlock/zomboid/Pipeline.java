@@ -3132,10 +3132,8 @@ final class Pipeline {
             forgetTexels();
             FineSkins.letGo();
             if (resized != null) {
-                // Some of the core's surfaces are at one size and some at the other: all are made again when next asked for.
                 Pictures.letGoOfReadAhead();
-                resized = null;
-                coreMixed = true;
+                giveUpResize();
             }
             if (contentBegun) {
                 giveBackContent();
@@ -3144,9 +3142,22 @@ final class Pipeline {
         }
     };
 
+    /**
+     * Ends a making at another size part way, after what was read ahead for it is let go. Some of the core's
+     * surfaces are then at one size and some at the other: all are made again by the next piece asked for.
+     */
+    private static void giveUpResize() {
+        if (resized != null) {
+            resized = null;
+            coreMixed = true;
+        }
+    }
+
     /** Gives back the pictures of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
     private static void giveBackContent() {
         Pictures.letGoOfReadAhead();
+        // What was read ahead for a making at another size went with the rest, and its next piece would wait for it for good.
+        giveUpResize();
         for (int material = 0; material < MATERIALS.length; material++) {
             if (ALWAYS_READ.contains(MATERIALS[material])) {
                 continue;
