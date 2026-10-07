@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Locale;
+import java.util.Stack;
 import java.util.concurrent.atomic.AtomicLong;
 import org.lwjgl.opengl.GL11;
 import zombie.GameTime;
@@ -26,12 +27,14 @@ import zombie.iso.IsoChunk;
 import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.areas.IsoRoom;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
@@ -4857,9 +4860,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         IsoGridSquare beyond = cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
         boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
         boolean beyondIsRoom = beyond != null && beyond.getRoomID() != -1L;
-        IsoGridSquare room = ownIsRoom ? here : beyond;
-        ColorInfo lamp = room.lighting[playerIndex].lightInfo();
-        boolean lit = room.isSeen(playerIndex) && Math.max(lamp.r, Math.max(lamp.g, lamp.b)) > LAMPLIT;
+        boolean lit = lamplit(cell, ownIsRoom ? here : beyond, playerIndex);
 
         windowX = x;
         windowY = y;
@@ -5098,13 +5099,48 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         return ((seed ^ seed >>> 15) >>> 8) / (float) (1 << 24);
     }
 
-    /** How bright the game's light in a room has to be for the room's windows to count as lit from inside. */
+    /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
     private static final float LAMPLIT = 0.55f;
+
+    /**
+     * Whether a lamp burns in the room a square is in and lights the square: the room's own
+     * light, which the game's lighting sets from the switch and the power, or a lamp stood in
+     * the room. How bright the square is does not say so alone. The game keeps every square at
+     * full daylight for an hour after the picture's sky is the night's, and it lights whole
+     * squares in the beam of a torch or of a car's headlights.
+     */
+    static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex) {
+        IsoRoom room = square.getRoom();
+        if (room == null || !square.isSeen(playerIndex)) {
+            return false;
+        }
+        ColorInfo light = square.lighting[playerIndex].lightInfo();
+        if (Math.max(light.r, Math.max(light.g, light.b)) <= LAMPLIT) {
+            return false;
+        }
+        for (int i = 0; i < room.roomLights.size(); i++) {
+            if (room.roomLights.get(i).active) {
+                return true;
+            }
+        }
+        Stack<IsoLightSource> lamps = cell.getLamppostPositions();
+        for (int i = 0; i < lamps.size(); i++) {
+            IsoLightSource lamp = lamps.get(i);
+            if (!lamp.active || lamp.z != square.getZ() || Math.abs(lamp.x - square.getX()) > lamp.radius || Math.abs(lamp.y - square.getY()) > lamp.radius) {
+                continue;
+            }
+            IsoGridSquare stands = cell.getGridSquare(lamp.x, lamp.y, lamp.z);
+            if (stands != null && stands.getRoomID() == square.getRoomID()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * Turns the window on the north or west edge of the square being added to face into its
      * room, which is how the picture tells the street side of a pane from the room side, and
-     * marks it as lit from inside when the room's light is a lamp's. A window between two
+     * marks it as lit from inside when a lamp burns in the room. A window between two
      * rooms, or between two places out of doors, faces into its own square.
      */
     private void faceIntoRoom(int x, int y, int z, boolean north) {
@@ -5112,9 +5148,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
         // A face on a north edge looks north, out of its square, and one on a west edge east, into it.
         geometry.turned = north == ownIsRoom;
-        IsoGridSquare room = ownIsRoom ? here : beyond;
-        ColorInfo light = room.lighting[playerIndex].lightInfo();
-        if (room.isSeen(playerIndex) && Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT) {
+        if (lamplit(cell, ownIsRoom ? here : beyond, playerIndex)) {
             frame.material = LIT_GLASS;
         }
     }

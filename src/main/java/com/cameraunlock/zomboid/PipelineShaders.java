@@ -1710,7 +1710,7 @@ final class PipelineShaders {
                     thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - abs(dot(face, sight)), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
-                    veil = max(thrown + (1.0 - thrown) * (1.0 - through), 0.34 * glow);
+                    veil = thrown + (1.0 - thrown) * (1.0 - through);
                     if (sheet) {
                         // No pane is clean. Dust lies on it evenly, rain has dried on the street side
                         // in runs down it, and what a cloth never reaches gathers in the corners and
@@ -2458,10 +2458,10 @@ final class PipelineShaders {
                     // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
                     color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (surroundings(reflect(-view, pane), vPlace) * thrown
                             + pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
-                    // A window with a lamp burning behind it is a warm bright shape in the
-                    // night: the lamp's light is in the glass itself, in the dust on it and
-                    // the curtain behind.
-                    color += vec3(1.0, 0.72, 0.4) * (1.5 * glow);
+                    // A lamp burning behind a window lights the dust on the glass, warm and
+                    // faint. The room is what shows lit, through the pane: laid over all of
+                    // it, the lamp's light was a bright sheet that hid a room far dimmer.
+                    color += vec3(1.0, 0.72, 0.4) * (0.6 * glow * soiled / veil);
                 }
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
