@@ -216,12 +216,62 @@ public final class FirstPerson {
         pitch = Math.clamp(newPitch, -PITCH_LIMIT, PITCH_LIMIT);
     }
 
+    /**
+     * First person has been asked for and what it is drawn with is being made. Nothing of the
+     * picture is made before the first time it is asked for: a player who never asks carries
+     * none of it, and it is some hundreds of megabytes on the graphics card and in this process.
+     * Made a piece a frame it takes a second or so, where made on the frame of the switch it
+     * held that frame for seconds.
+     */
+    private static boolean gettingReady;
+    private static long readySince;
+    /** Whether the view holds anything on the graphics card that letting go would give back, and when it was last in use. */
+    private static boolean held;
+    private static long offSince;
+    private static final long LET_GO_AFTER_NANOS = 60_000_000_000L;
+    /** A PC on which the making and the rehearsal take longer than this goes on to first person without the rest of them. */
+    private static final long READY_WITHIN_NANOS = 4_000_000_000L;
+
     static void toggle() {
         IsoPlayer player = IsoPlayer.getInstance();
         if (!on && !allowed(player)) {
             Log.info("first person stays off: " + whyNot(player));
             return;
         }
+        if (gettingReady) {
+            gettingReady = false;
+            said = null;
+            Log.info("first person no longer asked for");
+            return;
+        }
+        if (!on && (Pipeline.unprepared() || Pipeline.contentWaited() || !rehearsed)) {
+            gettingReady = true;
+            readySince = System.nanoTime();
+            Log.info("first person asked for: what it is drawn with is being made");
+            return;
+        }
+        switchView(player);
+    }
+
+    /** One frame of getting ready: the next piece of what the picture is drawn with, then the world built once unseen, then the switch. */
+    private static void getReady(IsoPlayer player, long now) {
+        said = "First person: getting ready";
+        saidAt = now;
+        boolean late = now - readySince > READY_WITHIN_NANOS;
+        if (!late && (Pipeline.unprepared() || Pipeline.contentWaited())) {
+            SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
+            return;
+        }
+        if (!late && !rehearsed && !Characters.wanted && !GameTime.isGamePaused() && !player.isDead()) {
+            rehearse(player);
+            return;
+        }
+        gettingReady = false;
+        said = null;
+        switchView(player);
+    }
+
+    private static void switchView(IsoPlayer player) {
         on = !on;
         if (on && player.getVehicle() != null) {
             setLook(Ride.heading(player.getVehicle()), 0f);
@@ -380,10 +430,11 @@ public final class FirstPerson {
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
-            if (Pipeline.unprepared() && allowed(player)) {
-                SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
-            } else if (!rehearsed && !Characters.wanted && allowed(player) && !GameTime.isGamePaused() && !player.isDead()) {
-                rehearse(player);
+            if (gettingReady && !allowed(player)) {
+                gettingReady = false;
+                said = null;
+            } else if (gettingReady) {
+                getReady(player, now);
             }
             if (Characters.wanted) {
                 drawOverhead(player);
@@ -392,6 +443,16 @@ public final class FirstPerson {
                 WorldScene.setDown();
                 world.look(null, 0);
                 SpriteRenderer.instance.drawGeneric(Pipeline.RELEASE);
+            }
+            // Switched off and on again within the minute, the view is there at once. Left off, it gives back
+            // what it holds: the world on the graphics card and the mod's own pictures, which are most of it.
+            if (Characters.wanted || gettingReady) {
+                held = true;
+                offSince = now;
+            } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
+                held = false;
+                WorldScene.letGo();
+                SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
             }
             return;
         }
@@ -426,6 +487,8 @@ public final class FirstPerson {
         aimView.eyeX += carried[0];
         aimView.eyeY += carried[1];
         aimView.eyeUp += carried[2];
+        held = true;
+        offSince = now;
         WorldScene scene = WorldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);

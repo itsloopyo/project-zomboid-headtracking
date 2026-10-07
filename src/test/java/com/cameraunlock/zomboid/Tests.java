@@ -62,6 +62,8 @@ public final class Tests {
         ConfigTests.run();
         // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
         Quality.set(Quality.HIGH);
+        // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
+        Own.picturesMade(true);
         ArmTests.run();
         BufferTests.run();
         LinkTests.run();

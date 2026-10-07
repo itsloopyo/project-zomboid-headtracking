@@ -22,9 +22,26 @@ final class Own {
 
     private Own() {}
 
+    /**
+     * Whether the pictures the mod's own surfaces, plants and weapons are drawn from are on the
+     * graphics card. They are made only once a mode shows them (Pipeline.CONTENT), and until
+     * they are, nothing of the mod's own is shown: what was built without it is built again
+     * when they arrive. Set by the render thread.
+     */
+    private static volatile boolean picturesMade;
+
     /** The rows that are on. In the Low graphics mode none is, and in Medium the plants are the game's, whatever the file says. */
     static int on() {
-        return Quality.plain() ? 0 : Quality.gamesPlants() ? on & ~PLANTS : on;
+        return Quality.plain() || !picturesMade ? 0 : Quality.gamesPlants() ? on & ~PLANTS : on;
+    }
+
+    /** The rows as the file has them, whatever the graphics mode shows of them. */
+    static int rows() {
+        return on;
+    }
+
+    static void picturesMade(boolean made) {
+        picturesMade = made;
     }
 
     static void set(int bits) {

@@ -135,7 +135,7 @@ final class HeadTracking {
         Quality.set(loaded.quality());
         Style.set(loaded.style());
         FrameBlending.set(loaded.frameBlending());
-        Log.info("the mod's own in first person: " + Own.described(Own.on()));
+        Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         enabled = settings.enableOnStartup();
         mode = Mode.of(settings.rotationEnabled(), settings.positionEnabled());
         worldYaw = settings.worldSpaceYaw();
@@ -165,7 +165,7 @@ final class HeadTracking {
                 Style.set(live.style());
                 FrameBlending.set(live.frameBlending());
             }
-            if (live != null && live.own() != Own.on()) {
+            if (live != null && live.own() != Own.rows()) {
                 Own.set(live.own());
                 Log.info(NativeConfig.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
             }

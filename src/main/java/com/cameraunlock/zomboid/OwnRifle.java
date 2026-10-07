@@ -263,6 +263,11 @@ final class OwnRifle {
     private static float working = NOT_WORKING, pumpedBefore;
     private static long workedAsOf;
 
+    /** Whether the model is on the graphics card. */
+    static boolean made() {
+        return program != null;
+    }
+
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
         return program != null && Own.weapons() && ITEM.equals(item);

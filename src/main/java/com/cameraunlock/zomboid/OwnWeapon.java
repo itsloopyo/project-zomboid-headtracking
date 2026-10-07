@@ -244,6 +244,11 @@ final class OwnWeapon {
     /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
     private static final float NOT_DRAWN_WITHIN = 0.13f;
 
+    /** Whether the model is on the graphics card. */
+    static boolean made() {
+        return program != null;
+    }
+
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
         return program != null && Own.weapons() && ITEM.equals(item);

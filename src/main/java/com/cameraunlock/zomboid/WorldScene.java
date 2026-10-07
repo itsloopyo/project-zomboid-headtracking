@@ -868,6 +868,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         mapWy = Math.floorDiv(map.getWorldYMinTiles(), CHUNK_TILES);
         mapSide = IsoChunkMap.chunkGridWidth;
         if (frames % FORGET_EVERY_FRAMES == 0) {
+            keptRoundX = view.eyeX;
+            keptRoundY = view.eyeY;
             forgetFar();
         }
         for (int gridX = 0; gridX < IsoChunkMap.chunkGridWidth; gridX++) {
@@ -1125,9 +1127,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
     }
 
-    /** Whether a build is of a chunk the loaded map holds, or of one a step outside it, which the next step back brings in again. */
+    /** How far beyond what is in sight a build is kept, in tiles: a walk or a drive back brings it into the picture again within seconds. */
+    private static final float KEPT_BEYOND = 16f;
+    /** Where the eye was when builds were last let go by distance. */
+    private static float keptRoundX, keptRoundY;
+
+    /**
+     * Whether a build is worth keeping: of a chunk the loaded map holds, or of one a step
+     * outside it, which the next step back brings in again, and no further from the eye than
+     * the graphics mode shows and a little more. The map is far wider than Low sees, and a
+     * build kept is a block of the graphics card's memory kept.
+     */
     private static boolean near(ChunkMeshes meshes) {
-        return meshes.wx >= mapWx - 1 && meshes.wx <= mapWx + mapSide && meshes.wy >= mapWy - 1 && meshes.wy <= mapWy + mapSide;
+        if (meshes.wx < mapWx - 1 || meshes.wx > mapWx + mapSide || meshes.wy < mapWy - 1 || meshes.wy > mapWy + mapSide) {
+            return false;
+        }
+        float toX = meshes.wx * CHUNK_TILES + CHUNK_TILES / 2f - keptRoundX, toY = meshes.wy * CHUNK_TILES + CHUNK_TILES / 2f - keptRoundY;
+        float kept = Quality.sight() + CHUNK_REACH + KEPT_BEYOND;
+        return toX * toX + toY * toY <= kept * kept;
     }
 
     /**
@@ -1242,6 +1259,25 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             growGrass(x, y, localX, localY);
         }
         strew(x, y, localX, localY, toX * toX + toY * toY);
+    }
+
+    /**
+     * Logic thread, once first person has been off for a while: lets go of every build, the
+     * ones the last frames showed among them, so that the graphics card's copy of the world can
+     * be given back (ChunkBuffers.letGo). The next switch to first person builds it again.
+     */
+    static void letGo() {
+        for (WorldScene scene : scenes) {
+            for (int i = 0; i < scene.shown.size(); i++) {
+                release(scene.shown.get(i));
+            }
+            scene.shown.clear();
+        }
+        forgetAll();
+        while (!spare.isEmpty()) {
+            spare.pop().scrap();
+        }
+        setDown();
     }
 
     /** Lets go of every build: for when what all of them were built on has changed. */

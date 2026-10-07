@@ -54,11 +54,13 @@ final class Pictures {
             for (int at = 0; at < picture.wide * picture.high * 4; at += 4) {
                 picture.pixels.put(at + 3, raised.pixels.get(at));
             }
+            raised.memory.free();
         }
         gain = picture.gain;
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, picture.wide, picture.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
+        picture.memory.free();
         finish(GL_TEXTURE_2D, repeats);
         return texture;
     }
@@ -78,14 +80,21 @@ final class Pictures {
                 throw new IOException(paths[layer] + " is " + picture.wide + " by " + picture.high + ", and " + paths[0] + " is " + first.wide + " by " + first.high);
             }
             GL12.glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, layer, first.wide, first.high, 1, GL_RGBA, GL_UNSIGNED_BYTE, picture.pixels);
+            if (layer > 0) {
+                picture.memory.free();
+            }
         }
         gain = first.gain;
+        first.memory.free();
         finish(GL_TEXTURE_2D_ARRAY, true);
         return texture;
     }
 
-    /** A picture as four bytes a pixel, with what it is multiplied by to be 1 on average over what of it is solid. */
-    private record Decoded(ByteBuffer pixels, int wide, int high, float gain) {}
+    /**
+     * A picture as four bytes a pixel, with what it is multiplied by to be 1 on average over what of it is solid. The
+     * pixels are sixteen megabytes for a picture 2048 square, and are given back as soon as the graphics card has them.
+     */
+    private record Decoded(ByteBuffer pixels, OffHeap.Block memory, int wide, int high, float gain) {}
 
     /** Begins reading the jar's picture at path on another thread. */
     static void readAhead(String path) {
@@ -114,7 +123,8 @@ final class Pictures {
         }
         int wide = image.getWidth(), high = image.getHeight();
         int[] row = new int[wide];
-        ByteBuffer pixels = ByteBuffer.allocateDirect(wide * high * 4);
+        OffHeap.Block memory = OffHeap.take(wide * high * 4);
+        ByteBuffer pixels = memory.bytes;
         long light = 0, solid = 0;
         for (int y = 0; y < high; y++) {
             image.getRGB(0, y, wide, 1, row, 0, wide);
@@ -127,10 +137,11 @@ final class Pictures {
             }
         }
         if (light == 0) {
+            memory.free();
             throw new IOException(path + " is black or cut away all over");
         }
         pixels.flip();
-        return new Decoded(pixels, wide, high, 255f * 1000f * solid / light);
+        return new Decoded(pixels, memory, wide, high, 255f * 1000f * solid / light);
     }
 
     /** Gives the texture bound to target its smaller copies and says how it is read. */

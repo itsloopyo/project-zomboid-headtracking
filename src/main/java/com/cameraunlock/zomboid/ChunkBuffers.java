@@ -52,6 +52,10 @@ final class ChunkBuffers {
     private static final Object forgottenLock = new Object();
     private static ArrayList<WorldScene.ChunkMeshes> forgotten = new ArrayList<>(), freed = new ArrayList<>();
     private static final BufferSpace space = new BufferSpace();
+    /** A buffer less than one part in this many in use for SLACK_FOR_NANOS is made shorter. */
+    private static final int SLACK = 3;
+    private static final long SLACK_FOR_NANOS = 10_000_000_000L;
+    private static long slackSince;
     private static int buffer;
     /** How long the buffer is, in floats. */
     private static int capacity;
@@ -94,16 +98,7 @@ final class ChunkBuffers {
         if (buffer == 0) {
             buffer = GL15.glGenBuffers();
         }
-        ArrayList<WorldScene.ChunkMeshes> gone;
-        synchronized (forgottenLock) {
-            gone = forgotten;
-            forgotten = freed;
-            freed = gone;
-        }
-        for (int i = 0; i < gone.size(); i++) {
-            drop(gone.get(i));
-        }
-        gone.clear();
+        dropForgotten();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         sentBuilds = 0;
         sentFloats = 0;
@@ -124,11 +119,51 @@ final class ChunkBuffers {
                 }
             }
         }
+        // A buffer made for a wide view is mostly empty once the view is a narrow one: High's is five times Low's.
+        long now = System.nanoTime();
+        if (capacity <= GRAIN || ((long) capacity - space.free()) * SLACK >= capacity) {
+            slackSince = now;
+        } else if (now - slackSince > SLACK_FOR_NANOS) {
+            remake(chunks, chunks.size());
+            slackSince = now;
+        }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         usedMegabytes = ((long) capacity - space.free()) * Float.BYTES / 1048576f;
         allMegabytes = (long) capacity * Float.BYTES / 1048576f;
         sentMegabytes = sentFloats * Float.BYTES / 1048576f;
         sent = sentBuilds;
+    }
+
+    private static void dropForgotten() {
+        ArrayList<WorldScene.ChunkMeshes> gone;
+        synchronized (forgottenLock) {
+            gone = forgotten;
+            forgotten = freed;
+            freed = gone;
+        }
+        for (int i = 0; i < gone.size(); i++) {
+            drop(gone.get(i));
+        }
+        gone.clear();
+    }
+
+    /**
+     * Gives the buffer back to the graphics card once no build has a block in it: first person
+     * has been off a while and the logic thread has let every build go (WorldScene.letGo). Left
+     * alone the buffer stayed for the session at the longest it had ever been.
+     */
+    static void letGo() {
+        dropForgotten();
+        if (buffer == 0 || !holders.isEmpty()) {
+            return;
+        }
+        GL15.glDeleteBuffers(buffer);
+        buffer = 0;
+        capacity = 0;
+        space.reset(0);
+        usedMegabytes = 0f;
+        allMegabytes = 0f;
+        Log.info("first person has given the world's room on the graphics card back");
     }
 
     private static void drop(WorldScene.ChunkMeshes build) {
@@ -202,10 +237,8 @@ final class ChunkBuffers {
         if (wanted > Integer.MAX_VALUE / GRAIN * GRAIN) {
             throw new IllegalStateException("the world in sight is " + (kept + coming) + " floats, more than one buffer can hold");
         }
-        boolean longer = wanted > capacity;
-        if (longer) {
-            capacity = (int) wanted;
-        }
+        String how = wanted > capacity ? "made longer" : wanted < capacity ? "made shorter" : "put in order";
+        capacity = (int) wanted;
         int old = buffer;
         buffer = GL15.glGenBuffers();
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -230,7 +263,7 @@ final class ChunkBuffers {
             throw new IllegalStateException("the blocks carried over were not put at the start of the new buffer");
         }
         Log.info(String.format(Locale.ROOT, "first person keeps the world in %d MB on the graphics card (%s), of which %d chunks take %d and this frame brings %d more",
-                (long) capacity * Float.BYTES >> 20, longer ? "made longer" : "put in order", holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
+                (long) capacity * Float.BYTES >> 20, how, holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
     }
 
     /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, and the second texture coordinate array at what a vertex carries for a card. Leaves no buffer bound. */

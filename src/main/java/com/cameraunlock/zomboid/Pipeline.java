@@ -157,7 +157,7 @@ final class Pipeline {
 
     /** Why the picture cannot be drawn on this machine, or null. Set once, on the render thread. */
     private static volatile String failure;
-    private static boolean prepared;
+    private static volatile boolean prepared;
     private static Program rain;
     private static Program snow;
     private static Program steady, copy;
@@ -208,13 +208,13 @@ final class Pipeline {
     private static final Set<String> RAISED = Set.of("asphalt", "gravel", "soil", "shingles", "wood", "planks");
     private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
-    private static final float[] materialGain = new float[MATERIALS.length];
+    private static final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
     private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
     private static final int FIRST_NATURE_CUTOUT = 2;
     private static final int FIRST_NATURE_UNIT = 24;
     private static final int[] natureTexture = new int[NATURE.length];
-    private static final float[] natureGain = new float[NATURE.length];
+    private static final float[] natureGain = ones(NATURE.length);
     /** The sprigs a crown is made of, all in one picture: see Flora.addCrown. */
     private static final int SPRIG_UNIT = 28;
     private static int sprigs, sprigForm;
@@ -410,6 +410,13 @@ final class Pipeline {
                 + " roof " + heldChunks[ROOF_MAP];
     }
 
+    /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
+    private static float[] ones(int count) {
+        float[] gains = new float[count];
+        Arrays.fill(gains, 1f);
+        return gains;
+    }
+
     private static FloatBuffer buffer(int floats) {
         return ByteBuffer.allocateDirect(floats * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     }
@@ -499,6 +506,11 @@ final class Pipeline {
             float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
             int drawTarget) {
         while (failure == null && !prepared) {
+            // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
+            coreBegun = true;
+            failure = prepareNext();
+        }
+        if (failure == null && pieceWaits()) {
             failure = prepareNext();
         }
         if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize()) {
@@ -1475,7 +1487,9 @@ final class Pipeline {
     private static void bindMaterials() {
         for (int material = 0; material < MATERIALS.length; material++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
-            GL11.glBindTexture(material == BARK ? Pictures.GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D, materialTexture[material]);
+            // Until the mod's own pictures are made a unit holds plain white, which leaves whatever reads it as it was.
+            GL11.glBindTexture(material == BARK ? Pictures.GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D,
+                    material == BARK || materialTexture[material] != 0 ? materialTexture[material] : whiteTexture);
         }
         world.set("uAsphalt", FIRST_MATERIAL_UNIT);
         world.set("uGravel", FIRST_MATERIAL_UNIT + 1);
@@ -1496,7 +1510,7 @@ final class Pipeline {
         world.set("uClothGain", materialGain[12]);
         for (int nature = 0; nature < NATURE.length; nature++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_NATURE_UNIT + nature);
-            GL11.glBindTexture(GL_TEXTURE_2D, natureTexture[nature]);
+            GL11.glBindTexture(GL_TEXTURE_2D, natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture);
         }
         world.set("uLitter", FIRST_NATURE_UNIT);
         world.set("uRock", FIRST_NATURE_UNIT + 1);
@@ -1504,10 +1518,10 @@ final class Pipeline {
         world.set("uIvy", FIRST_NATURE_UNIT + 3);
         world.set("uNatureGain", natureGain[0], natureGain[1]);
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, sprigs);
+        GL11.glBindTexture(GL_TEXTURE_2D, sprigs != 0 ? sprigs : whiteTexture);
         world.set("uSprigs", SPRIG_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_FORM_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, sprigForm);
+        GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
         world.set("uSprigForm", SPRIG_FORM_UNIT);
         world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() ? 0f : 1f);
         world.set("uMirrors", Quality.shadedAndLit() ? 1f : 0f);
@@ -2632,9 +2646,20 @@ final class Pipeline {
         }
     }
 
-    private static final List<Piece> PIECES = pieces();
+    /**
+     * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
+     * the scope's own picture, the mirror and the rain. Nothing of it is made until first
+     * person is first asked for.
+     */
+    private static final List<Piece> CORE = corePieces();
+    /**
+     * The pictures of the mod's own surfaces and plants and its weapon models, which only a
+     * graphics mode that shows the mod's own draws from: 400 MB and more on the graphics
+     * card, and as much again in this process, that the Low mode never reads.
+     */
+    private static final List<Piece> CONTENT = contentPieces();
 
-    private static List<Piece> pieces() {
+    private static List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
         pieces.add(new Piece(Pipeline::linkPrograms));
         pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
@@ -2645,6 +2670,18 @@ final class Pipeline {
             makeWhite();
             return makeNoise();
         }));
+        pieces.add(new Piece(Scope::prepare));
+        pieces.add(new Piece(() -> {
+            makeSamplers();
+            String problem = makeMirror();
+            makeRainDrops();
+            return problem;
+        }));
+        return pieces;
+    }
+
+    private static List<Piece> contentPieces() {
+        List<Piece> pieces = new ArrayList<>();
         for (int each = 0; each < MATERIALS.length; each++) {
             int material = each;
             if (material == BARK) {
@@ -2677,20 +2714,26 @@ final class Pipeline {
                 return "the sprigs could not be read: " + e.getMessage();
             }
         }, SPRIGS, SPRIG_FORM));
-        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
-        pieces.add(new Piece(Scope::prepare));
-        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
+        // The pictures are given back when first person has been off a while and made again when it is asked for.
+        // The two models are small beside them and are made once.
         pieces.add(new Piece(() -> {
-            makeSamplers();
-            String problem = makeMirror();
-            makeRainDrops();
-            return problem;
-        }));
+            if (!OwnWeapon.made()) {
+                OwnWeapon.readAhead();
+            }
+        }, () -> OwnWeapon.made() || OwnWeapon.isRead(), () -> OwnWeapon.made() ? null : OwnWeapon.prepare()));
+        pieces.add(new Piece(() -> {
+            if (!OwnRifle.made()) {
+                OwnRifle.readAhead();
+            }
+        }, () -> OwnRifle.made() || OwnRifle.isRead(), () -> OwnRifle.made() ? null : OwnRifle.prepare()));
         return pieces;
     }
 
     private static final String SPRIGS = "/materials/sprigs.png", SPRIG_FORM = "/materials/sprigs-form.png";
-    private static boolean readingAhead;
+    private static boolean coreBegun, contentBegun;
+    private static int contentPreparing;
+    /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
+    private static volatile boolean contentReady;
 
     /** Whether there is anything left to make before the first picture can be drawn. */
     static boolean unprepared() {
@@ -2698,29 +2741,71 @@ final class Pipeline {
     }
 
     /**
-     * Queued on frames that draw no picture while {@link #unprepared}: makes the next piece, or
-     * nothing on a frame where what that piece reads out of the jar is still being read.
+     * Whether the pictures of the mod's own are on the graphics card. Until they are, a mode
+     * that shows the mod's own is drawn as the one that shows none is: see Own.
+     */
+    static boolean contentReady() {
+        return contentReady;
+    }
+
+    /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
+    static boolean contentWaited() {
+        return !Quality.plain() && !contentReady && failure == null;
+    }
+
+    /**
+     * Queued on frames that draw no picture while first person is being got ready: makes the
+     * next piece, or nothing on a frame where what that piece reads out of the jar is still
+     * being read.
      */
     static final TextureDraw.GenericDrawer PREPARE = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
-            if (!readingAhead) {
-                readingAhead = true;
-                for (Piece piece : PIECES) {
-                    piece.begin.run();
-                }
-            }
-            if (!prepared && failure == null && PIECES.get(preparing).begun.getAsBoolean()) {
+            if (failure == null && pieceWaits()) {
                 draw(null, null, null, 0f, 0f, 0f, 0f, 0f, 0f, null);
             }
         }
     };
 
-    /** Makes the next piece. Null, or what the driver refused or the jar lacked. */
+    /**
+     * Whether a piece can be made now. Begins, on other threads, the reading of what the
+     * pieces still to be made are made from: the core's the first time, and the content's the
+     * first time a mode that shows the mod's own is on.
+     */
+    private static boolean pieceWaits() {
+        if (!coreBegun) {
+            coreBegun = true;
+            for (Piece piece : CORE) {
+                piece.begin.run();
+            }
+        }
+        if (!prepared) {
+            return CORE.get(preparing).begun.getAsBoolean();
+        }
+        if (!contentWaited()) {
+            return false;
+        }
+        if (!contentBegun) {
+            contentBegun = true;
+            for (Piece piece : CONTENT) {
+                piece.begin.run();
+            }
+        }
+        return CONTENT.get(contentPreparing).begun.getAsBoolean();
+    }
+
+    /** Makes the next piece of the core, or of the content once the core is made. Null, or what the driver refused or the jar lacked. */
     private static String prepareNext() {
         long start = System.nanoTime();
-        String problem = PIECES.get(preparing++).make.get();
-        prepared = preparing == PIECES.size();
+        String problem;
+        boolean lastOfCore = false, lastOfContent = false;
+        if (!prepared) {
+            problem = CORE.get(preparing++).make.get();
+            lastOfCore = preparing == CORE.size();
+        } else {
+            problem = CONTENT.get(contentPreparing++).make.get();
+            lastOfContent = contentPreparing == CONTENT.size();
+        }
         if (problem == null) {
             int error = GL11.glGetError();
             if (error != 0) {
@@ -2730,9 +2815,18 @@ final class Pipeline {
         long took = System.nanoTime() - start;
         preparingNanos += took;
         preparingWorst = Math.max(preparingWorst, took);
-        if (prepared && problem == null) {
+        if (lastOfCore && problem == null) {
+            prepared = true;
             Log.info(String.format(Locale.ROOT, "first person picture ready: %d shaders, cloud noise %d cubed, in %d pieces taking %.0f ms in all, the longest %.0f ms",
                     17, NOISE_SIZE, preparing, preparingNanos / 1e6, preparingWorst / 1e6));
+            preparingNanos = 0;
+            preparingWorst = 0;
+        }
+        if (lastOfContent && problem == null) {
+            contentReady = true;
+            Own.picturesMade(true);
+            Log.info(String.format(Locale.ROOT, "the mod's own surfaces, plants and weapons are on the graphics card: %d pieces taking %.0f ms in all, the longest %.0f ms",
+                    contentPreparing, preparingNanos / 1e6, preparingWorst / 1e6));
         }
         return problem;
     }
@@ -2912,6 +3006,40 @@ final class Pipeline {
             height = 0;
             giveBackShadowMaps();
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
+        }
+    };
+
+    /**
+     * Queued once first person has been off for a while and the logic thread has let every
+     * build go: gives back the graphics card's copy of the world and the pictures of the mod's
+     * own, which are most of what the view holds there. Asked for again, they are made again.
+     */
+    static final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
+        
+        public void render() {
+            ChunkBuffers.letGo();
+            if (!contentReady) {
+                return;
+            }
+            for (int material = 0; material < MATERIALS.length; material++) {
+                GL11.glDeleteTextures(materialTexture[material]);
+                materialTexture[material] = 0;
+                materialGain[material] = 1f;
+            }
+            for (int nature = 0; nature < NATURE.length; nature++) {
+                GL11.glDeleteTextures(natureTexture[nature]);
+                natureTexture[nature] = 0;
+                natureGain[nature] = 1f;
+            }
+            GL11.glDeleteTextures(sprigs);
+            GL11.glDeleteTextures(sprigForm);
+            sprigs = 0;
+            sprigForm = 0;
+            contentPreparing = 0;
+            contentBegun = false;
+            contentReady = false;
+            Own.picturesMade(false);
+            Log.info("the mod's own surfaces and plants are given back to the graphics card");
         }
     };
 
