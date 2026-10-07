@@ -13,6 +13,10 @@ final class CrownTests {
         crownFurtherOffIsFewerSprigs();
         spriteWithNextToNothingPaintedHasNoCrown();
         sprigIsChosenByTheSpeciesInTheName();
+        crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem();
+        crownsMadeFromTheSameAreKnownForTheSame();
+        crownsMadeOnTheirThreadAreTheSameCrowns();
+        spriteMeasuredAsNoCrownMakesNone();
     }
 
     /** A round crown painted in the upper half of the sprite, over a bare stick of trunk that is no part of it. */
@@ -121,6 +125,92 @@ final class CrownTests {
         check(Flora.sprigOf("e_riverbirch_1_2", false) == Flora.BIRCH, "a birch bears birch sprigs");
         check(Flora.sprigOf("e_americanlinden_1_2", false) == Flora.LINDEN, "a linden bears linden sprigs");
         check(Flora.sprigOf("f_bushes_1_4", true) == Flora.SHRUB, "a bush bears a shrub's, whatever it is called");
+    }
+
+    private static final int LEAVES = 41, PLAIN = 0;
+    /** One sprite's leaves, found once as the mod finds them once a texture: two crowns are the same only on the same places. */
+    private static final float[] PLACES = Flora.leafPlaces(CrownTests::leaf, frame());
+
+    /** Two trees and a bush of one chunk, the second tree in another light and with limbs. */
+    private static Crowns chunkOfThree(float secondRed) {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = PLACES;
+        Crowns crowns = new Crowns();
+        crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, 1f, 0.6f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7);
+        frame.light(secondRed, 0.5f, 0.4f);
+        crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, 0.65f, 0f, 0.12f, 0.9f, Flora.BARK_OAK, Flora.LINDEN, 8);
+        frame.open = 0f;
+        crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, 0.3f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9);
+        return crowns;
+    }
+
+    private static void crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem() {
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
+        chunkOfThree(0.6f).mesh(apart, PLAIN, new SpriteGeometry.Frame());
+        SpriteGeometry.Frame frame = frame();
+        float[] places = PLACES;
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, 1f, 0.6f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7);
+        frame.light(0.6f, 0.5f, 0.4f);
+        Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, 0.65f, 0f, 0.12f, 0.9f, Flora.BARK_OAK, Flora.LINDEN, 8);
+        frame.open = 0f;
+        Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, 0.3f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9);
+        check(apart.used.size() == 3 && inBuild.used.size() == 3, "the leaves of two textures and the wood are three meshes");
+        for (int i = 0; i < 3; i++) {
+            SpriteGeometry.Mesh one = apart.used.get(i), other = inBuild.used.get(i);
+            check(one.texture == other.texture && one.floats == other.floats && one.floats > 0, "each mesh is of the same texture and as long");
+            for (int at = 0; at < one.floats; at++) {
+                check(Float.floatToRawIntBits(one.vertices[at]) == Float.floatToRawIntBits(other.vertices[at]), "and the same to the last bit of every float");
+            }
+        }
+    }
+
+    private static void crownsMadeFromTheSameAreKnownForTheSame() {
+        Crowns crowns = chunkOfThree(0.6f);
+        check(crowns.same(chunkOfThree(0.6f)), "what a second build of an unchanged chunk writes down is the same crowns");
+        check(!crowns.same(chunkOfThree(0.61f)), "a tree in another light is another crown");
+        Crowns fewer = new Crowns();
+        check(!crowns.same(fewer) && !fewer.same(crowns) && fewer.isEmpty() && !crowns.isEmpty(), "and a chunk with its trees felled has other crowns");
+        crowns.clear();
+        check(crowns.isEmpty() && crowns.same(fewer), "written down again from nothing, it holds nothing");
+    }
+
+    private static void crownsMadeOnTheirThreadAreTheSameCrowns() {
+        SpriteGeometry.MeshSet here = new SpriteGeometry.MeshSet(), empty = new SpriteGeometry.MeshSet();
+        chunkOfThree(0.6f).mesh(here, PLAIN, new SpriteGeometry.Frame());
+        WorldScene.ChunkMeshes made = new WorldScene.ChunkMeshes(), there = new WorldScene.ChunkMeshes(), spared = new WorldScene.ChunkMeshes();
+        made.fill(here, empty);
+        Crowns.Work wanted = new Crowns.Work(chunkOfThree(0.6f), there, 5, PLAIN, false), unwanted = new Crowns.Work(chunkOfThree(0.6f), spared, 6, PLAIN, false);
+        unwanted.unwanted = true;
+        Crowns.begin(wanted);
+        Crowns.begin(unwanted);
+        check(Crowns.awaited() == wanted && Crowns.awaited() == unwanted && Crowns.finished() == null, "every piece of work comes back, in the order it went, and no more");
+        check(spared.vertices == null && spared.floats == 0, "crowns nobody wants any more are not made");
+        check(there.floats == made.floats && there.runs == made.runs && there.floats > 0, "the build made on the other thread is as long");
+        for (int at = 0; at < made.floats; at++) {
+            check(Float.floatToRawIntBits(there.vertices.get(at)) == Float.floatToRawIntBits(made.vertices.get(at)), "and the same to the last bit");
+        }
+        check(there.minX == made.minX && there.maxUp == made.maxUp, "with the same box round it");
+        made.scrap();
+        there.scrap();
+        // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
+        Crowns none = new Crowns();
+        none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7);
+        Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false);
+        Crowns.begin(failing);
+        check(Crowns.awaited() == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");
+    }
+
+    private static void spriteMeasuredAsNoCrownMakesNone() {
+        SpriteGeometry.Frame frame = frame();
+        float[] reachLeft = new float[Flora.CROWN_BANDS], reachRight = new float[Flora.CROWN_BANDS], sizes = new float[Flora.SIZES];
+        check(!Flora.measure(frame, Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame), FOOT_U, FOOT_V, reachLeft, reachRight, sizes), "one dot of paint measures as no crown");
+        // A stroke one pixel wide up the middle: places enough, and no width.
+        float[] stick = Flora.leafPlaces((u, v) -> u == (int) FOOT_U, frame);
+        check(Flora.measure(frame, stick, FOOT_U, FOOT_V, reachLeft, reachRight, sizes)
+                == Flora.addCrown(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), frame, stick, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7),
+                "what measures as a crown is made, and what does not is not");
+        check(Flora.measure(frame, Flora.leafPlaces(CrownTests::leaf, frame), FOOT_U, FOOT_V, reachLeft, reachRight, sizes) && sizes[Flora.WIDEST] > 1f && sizes[Flora.TALL] > 1f,
+                "a painted crown measures as one, tiles wide and tall");
     }
 
     private static void check(boolean condition, String what) {

@@ -186,7 +186,6 @@ final class Flora {
     private static final float CROWN_INSET = 0.25f;
     private static final float SPRIG_SMALLEST = 0.3f, SPRIG_LARGEST = 0.8f, SHRUB_SMALLEST = 0.2f, SHRUB_LARGEST = 0.42f;
     private static final float CROWN_FILL = 15f;
-    private static final int CROWN_BANDS = 12;
     private static final int CROWN_LEAST = 12;
     /**
      * A crown is not one round mass but several boughs, each a mass of its own with hollows
@@ -253,24 +252,16 @@ final class Flora {
         return java.util.Arrays.copyOf(found, count);
     }
 
+    /** What measure leaves of a crown's size: how wide it is, its lowest and highest leaves over the foot, how tall, and the height under which the sprite paints only trunk. */
+    static final int WIDEST = 0, LOWEST = 1, HIGHEST = 2, TALL = 3, UNDER = 4, SIZES = 5;
+    static final int CROWN_BANDS = 12;
+
     /**
-     * A crown of leaves in place of the sprite that paints one: sprigs growing outward all
-     * round the plant's middle, each a card with a branch tip in leaf cut out of it, standing
-     * where the sprite turned about the plant's upright shows leaves and taking its colour from
-     * the sprite there. So the crown has the game's shape, size and season, and from any side
-     * is leaves in front of leaves against the sky.
-     *
-     * places is leafPlaces of the frame; (x, y, base) the plant's foot, which the sprite shows
-     * at the frame pixel (footU, footV). detail is 1 for a plant near the eye and less for one
-     * further off, which is made of fewer and larger sprigs that cover as much. close is 0
-     * for a plant looked at from outside and 1 for one stood under: by as much, it has more
-     * sprigs inside it and twigs to bear them, made in wood in the bark that is bark's
-     * number. A tree whose bole is boleRadius thick at its top, boleTall over its foot, has
-     * a leader and limbs in wood as well: 0 for a plant with no bole, or too far off for them.
-     * False, and nothing made, when the sprite shows too little to make a crown of.
+     * Measures the crown addCrown would make of the frame: its sizes, and how far out it
+     * reaches at each of CROWN_BANDS heights, half of how wide the sprite paints it there.
+     * False when the sprite shows too little to make a crown of.
      */
-    static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
-            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed) {
+    static boolean measure(SpriteGeometry.Frame frame, float[] places, float footU, float footV, float[] reachLeft, float[] reachRight, float[] sizes) {
         int count = places.length / 2;
         if (count < CROWN_LEAST) {
             return false;
@@ -278,8 +269,6 @@ final class Flora {
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
         float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
         float widest = 0f, lowest = 0f, highest = 0f, tall = 0f, under = -Float.MAX_VALUE;
-        // How far out the crown reaches at each height: half of how wide the sprite paints it there.
-        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS];
         for (int pass = 0; pass < 2; pass++) {
             widest = 0f;
             lowest = Float.MAX_VALUE;
@@ -325,6 +314,40 @@ final class Flora {
             }
             under = lowest + tall * from / CROWN_BANDS;
         }
+        sizes[WIDEST] = widest;
+        sizes[LOWEST] = lowest;
+        sizes[HIGHEST] = highest;
+        sizes[TALL] = tall;
+        sizes[UNDER] = under;
+        return true;
+    }
+
+    /**
+     * A crown of leaves in place of the sprite that paints one: sprigs growing outward all
+     * round the plant's middle, each a card with a branch tip in leaf cut out of it, standing
+     * where the sprite turned about the plant's upright shows leaves and taking its colour from
+     * the sprite there. So the crown has the game's shape, size and season, and from any side
+     * is leaves in front of leaves against the sky.
+     *
+     * places is leafPlaces of the frame; (x, y, base) the plant's foot, which the sprite shows
+     * at the frame pixel (footU, footV). detail is 1 for a plant near the eye and less for one
+     * further off, which is made of fewer and larger sprigs that cover as much. close is 0
+     * for a plant looked at from outside and 1 for one stood under: by as much, it has more
+     * sprigs inside it and twigs to bear them, made in wood in the bark that is bark's
+     * number. A tree whose bole is boleRadius thick at its top, boleTall over its foot, has
+     * a leader and limbs in wood as well: 0 for a plant with no bole, or too far off for them.
+     * False, and nothing made, when the sprite shows too little to make a crown of.
+     */
+    static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
+            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed) {
+        int count = places.length / 2;
+        float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
+        if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
+            return false;
+        }
+        float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
+        float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
+        float widest = sizes[WIDEST], lowest = sizes[LOWEST], highest = sizes[HIGHEST], tall = sizes[TALL], under = sizes[UNDER];
         boolean shrub = sprig == SHRUB;
         float size = (shrub ? Math.clamp(widest * 0.8f, SHRUB_SMALLEST, SHRUB_LARGEST) : Math.clamp(widest * 0.36f, SPRIG_SMALLEST, SPRIG_LARGEST))
                 / (float) Math.sqrt(detail);

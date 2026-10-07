@@ -162,6 +162,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
          * where the eye is but how far apart its layers stand, which goes by builtAway.
          */
         private int band;
+        /** For a build of a chunk's crowns and nothing else, what they were made from: see latestCrowned. Null for any other build. */
+        Crowns crowns;
         /** Whether any square of the chunk is open natural ground, where a lawn, ferns, flowers or fallen leaves may be. */
         private boolean grows;
         /** How far from the eye the chunk's middle was when the build was made, in tiles. */
@@ -315,6 +317,27 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * a tenth of the work of a chunk, so it is what is made again as the eye moves.
      */
     private static final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
+    /**
+     * The crowns of each chunk's trees and bushes, as a build of their own beside the chunk's.
+     * A build of the chunk writes down what its crowns are made from (crownsRead) and makes
+     * none: the crowns it has stand while they were made from the same, and are otherwise
+     * made on a thread of their own and stand until the new ones come back. A chunk with no
+     * crowns standing has them made there and then, so that no tree is ever seen bare, and
+     * so has one built because the map changed: see crown.
+     */
+    private static final ChunkMeshes[] latestCrowned = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
+    /** The crowns of each chunk that are out being made. */
+    private static final Crowns.Work[] crownsWaited = new Crowns.Work[TABLE_SIDE * TABLE_SIDE];
+    /** How many pieces of work are out, wanted or not: each comes back. */
+    private static int crownsOut;
+    /** What the build being made has written down of its crowns, and what a check's second build has. */
+    private static Crowns crownsRead = new Crowns();
+    private static final Crowns crownsChecked = new Crowns();
+    private static final ArrayDeque<Crowns> spareCrowns = new ArrayDeque<>();
+    private static final SpriteGeometry.Frame crownFrame = new SpriteGeometry.Frame();
+    private final float[] crownLeft = new float[Flora.CROWN_BANDS], crownRight = new float[Flora.CROWN_BANDS], crownSizes = new float[Flora.SIZES];
+    /** Dev only: set round a check's third build, which makes its crowns in the chunk's own sets as every build once did. */
+    private boolean crownsInline;
     private static final ArrayDeque<ChunkMeshes> spare = new ArrayDeque<>();
     /** Builds no chunk is using, kept to be filled again: as many as a turn of the head brings into view at once. */
     private static final int MOST_SPARE = 96;
@@ -738,10 +761,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollRestless;
     /** Dev only: the game's marks are left unused when set, for a comparison within one run. */
     private static volatile boolean withoutMarks;
+    /**
+     * Dev only, for the same: a chunk's crowns are made again with every build of it, and
+     * they are made on the logic thread.
+     */
+    private static volatile boolean withoutKeptCrowns, withoutCrownThread;
 
-    /** Dev only, for the rig: "marks" turns the game's marks off, anything else on. */
+    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", or several with commas), and everything else is on. */
     static void without(String what) {
-        withoutMarks = what.equals("marks");
+        java.util.List<String> off = Arrays.asList(what.split(","));
+        withoutMarks = off.contains("marks");
+        withoutKeptCrowns = off.contains("kept");
+        withoutCrownThread = off.contains("thread");
     }
 
     /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
@@ -827,6 +858,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private float buildMillis;
     /** Dev only, for the rig: what building has come to since tolls was last asked. */
     private static final int[] tollBuilt = new int[7];
+    private static final long[] tollBuiltNanos = new long[7];
+    private static long tollMovedBand, tollMovedLayers, tollMovedUnsigned;
+    private static long tollCrownsWaitNanos, tollCrownsLongestNanos;
+    private static long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private static long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
 
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
@@ -844,6 +879,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             Arrays.fill(tollWhy, 0);
             tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedDiffered = tollMarkedByReading = tollPulledAfterGame = 0;
         }
+        told += " | ms by cause " + Arrays.toString(Arrays.stream(tollBuiltNanos).map(each -> each / 1_000_000L).toArray()) + " moved for the band " + tollMovedBand + " layers " + tollMovedLayers
+                + " unsigned " + tollMovedUnsigned;
+        told += String.format(Locale.ROOT, " | crowns kept %d, made here %d in %.1f ms, on their thread %d, unwanted %d, back after %.1f ms each and at most %.1f", tollCrownsKept, tollCrownsHere,
+                tollCrownsHereNanos / 1e6, tollCrownsThere, tollCrownsUnwanted, tollCrownsWaitNanos / 1e6 / Math.max(1, tollCrownsThere), tollCrownsLongestNanos / 1e6);
+        tollCrownsKept = tollCrownsHere = tollCrownsHereNanos = tollCrownsThere = tollCrownsUnwanted = tollCrownsWaitNanos = tollCrownsLongestNanos = 0;
+        Arrays.fill(tollBuiltNanos, 0);
+        tollMovedBand = tollMovedLayers = tollMovedUnsigned = 0;
         Arrays.fill(tollBuilt, 0);
         tollFrames = tollSums = tollSumNanos = tollBuildNanos = tollGrown = tollGrownNanos = tollChecked = tollDiffered = 0;
         return told;
@@ -1191,6 +1233,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         int eyeGridY = Math.floorDiv((int) Math.floor(view.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
         int builtLate = 0;
         int swept = 0;
+        for (Crowns.Work back = Crowns.finished(); back != null; back = Crowns.finished()) {
+            land(back);
+        }
         for (int step = 0; step < walk.length; step += 2) {
             {
                 int gridX = eyeGridX + walk[step], gridY = eyeGridY + walk[step + 1];
@@ -1322,6 +1367,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // build's band, is kept until it is as old as a build is kept: a new build
                 // would be the same triangles.
                 long read = 0;
+                int cause = NEW;
                 int summedFrom = missing ? frames : current.summedFrom;
                 long summedFromNanos = missing ? start : current.summedFromNanos;
                 // Every build is summed, whether or not the eye moves, but for one of a chunk
@@ -1371,7 +1417,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         young = true;
                     }
                     if (due) {
-                        builtBecause[!still ? MOVED : !current.signed ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED]++;
+                        cause = !still ? MOVED : !current.signed ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED;
+                        builtBecause[cause]++;
                     }
                     if (sameEye && same && young) {
                         current.checkedFrame = frames;
@@ -1395,9 +1442,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     }
                 }
                 if (missing) {
+                    cause = NEW;
                     builtBecause[NEW]++;
                 } else if (due && !summed) {
-                    builtBecause[still ? LEFT_UNREAD : MOVED]++;
+                    cause = still ? LEFT_UNREAD : MOVED;
+                    builtBecause[cause]++;
                 }
                 if (missing || due) {
                     ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
@@ -1429,6 +1478,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     }
                     fresh.users = 1;
                     fresh.band = band(nearest);
+                    crownsRead.clear();
                     fresh.grows = false;
                     bandAway = BAND_AWAY[fresh.band];
                     chunkStandOff = STAND_OFF + STAND_OFF_PER_TILE_SQUARED * (distance * distance + view.eyeUp * view.eyeUp);
@@ -1470,15 +1520,32 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     }
                     fresh.fill(solid, laid);
                     slowed(began);
-                    tollBuildNanos += System.nanoTime() - began;
+                    long took = System.nanoTime() - began;
+                    tollBuildNanos += took;
+                    tollBuiltNanos[cause] += took;
+                    if (cause == MOVED) {
+                        if (!inBand(current.band, nearest)) {
+                            tollMovedBand++;
+                        } else if (!layersStandFor(current, distance)) {
+                            tollMovedLayers++;
+                        } else {
+                            tollMovedUnsigned++;
+                        }
+                    }
                     if (current != null) {
                         release(current);
                     }
                     latest[slot] = fresh;
                     current = fresh;
+                    crown(slot, chunk.wx, chunk.wy, cause == MOVED || cause == AGED);
                 }
                 current.users++;
                 shown.add(current);
+                ChunkMeshes crowned = latestCrowned[slot];
+                if (crowned != null && crowned.wx == chunk.wx && crowned.wy == chunk.wy) {
+                    crowned.users++;
+                    shown.add(crowned);
+                }
                 // What grows on the chunk's ground is made again with the chunk, and by itself
                 // as the eye moves while any of it is near enough to be made by how far off it is.
                 ChunkMeshes grown = latestGrown[slot];
@@ -1550,7 +1617,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             seenOutside.clear();
             for (int i = 0; i < shown.size(); i++) {
                 ChunkMeshes each = shown.get(i);
-                if (!each.grown && each.seen != null) {
+                if (!each.grown && each.crowns == null && each.seen != null) {
                     each.seen.addTo(seenOutside);
                 }
             }
@@ -1581,6 +1648,111 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         tollQuiet += chunksQuiet;
         for (int i = 0; i < tollBuilt.length; i++) {
             tollBuilt[i] += builtBecause[i];
+        }
+    }
+
+    /**
+     * After a build of a chunk: sees that the chunk has the crowns the build wrote down. See
+     * latestCrowned. They may be made on their own thread only for a build made because the
+     * eye had moved or the build was old: what has changed on the map, a light switched on by
+     * a tree, a tree felled, shows whole in the frame it is read in, as it always did.
+     */
+    private void crown(int slot, int wx, int wy, boolean mayWait) {
+        ChunkMeshes standing = latestCrowned[slot];
+        Crowns.Work waited = crownsWaited[slot];
+        if (crownsRead.isEmpty() || standing != null && (standing.wx != wx || standing.wy != wy) || waited != null && (waited.into.wx != wx || waited.into.wy != wy)) {
+            forgetCrowns(slot);
+            standing = null;
+            waited = null;
+        }
+        if (crownsRead.isEmpty()) {
+            return;
+        }
+        if (waited != null ? waited.from.same(crownsRead) : standing != null && !withoutKeptCrowns && standing.crowns.same(crownsRead)) {
+            tollCrownsKept++;
+            return;
+        }
+        if (waited != null) {
+            waited.unwanted = true;
+            crownsWaited[slot] = null;
+        }
+        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+        fresh.placed.clear();
+        fresh.wx = wx;
+        fresh.wy = wy;
+        fresh.builtFrame = frames;
+        fresh.grown = false;
+        fresh.users = 1;
+        Crowns from = crownsRead;
+        crownsRead = spareCrowns.isEmpty() ? new Crowns() : spareCrowns.pop();
+        if (standing == null || !mayWait || withoutCrownThread) {
+            long began = System.nanoTime();
+            solid.clear();
+            laid.clear();
+            from.mesh(solid, PLAIN, crownFrame);
+            fresh.crowns = from;
+            fresh.fill(solid, laid);
+            if (standing != null) {
+                release(standing);
+            }
+            latestCrowned[slot] = fresh;
+            tollCrownsHere++;
+            tollCrownsHereNanos += System.nanoTime() - began;
+        } else {
+            Crowns.Work work = new Crowns.Work(from, fresh, slot, PLAIN, CHECK_BUILDS);
+            Crowns.begin(work);
+            crownsWaited[slot] = work;
+            crownsOut++;
+            tollCrownsThere++;
+        }
+    }
+
+    /** Takes in the crowns a piece of work was to make: they stand for their chunk from now, unless the chunk has since been let go of or built otherwise. */
+    private static void land(Crowns.Work back) {
+        crownsOut--;
+        long out = System.nanoTime() - back.begun;
+        tollCrownsWaitNanos += out;
+        tollCrownsLongestNanos = Math.max(tollCrownsLongestNanos, out);
+        back.into.crowns = back.from;
+        if (back.unwanted || back.failed != null) {
+            tollCrownsUnwanted += back.unwanted ? 1 : 0;
+            if (crownsWaited[back.slot] == back) {
+                crownsWaited[back.slot] = null;
+            }
+            release(back.into);
+            // Thrown only now that the work is counted back in and its build given back: whoever lets go of every build waits for all that is out.
+            if (back.failed != null) {
+                throw new IllegalStateException("the crowns of the chunk at " + back.into.wx + ", " + back.into.wy + " could not be made", back.failed);
+            }
+            return;
+        }
+        if (CHECK_BUILDS) {
+            solid.clear();
+            back.from.mesh(solid, PLAIN, crownFrame);
+            tollChecked++;
+            if (floatsOf(solid) != back.sum) {
+                tollDiffered++;
+                Log.info("build check: the crowns of the chunk at " + back.into.wx + ", " + back.into.wy + " came out otherwise on their own thread");
+            }
+            solid.clear();
+        }
+        crownsWaited[back.slot] = null;
+        ChunkMeshes standing = latestCrowned[back.slot];
+        if (standing != null) {
+            release(standing);
+        }
+        latestCrowned[back.slot] = back.into;
+    }
+
+    /** Lets go of the crowns a chunk has standing and of those out being made for it. */
+    private static void forgetCrowns(int slot) {
+        if (latestCrowned[slot] != null) {
+            release(latestCrowned[slot]);
+            latestCrowned[slot] = null;
+        }
+        if (crownsWaited[slot] != null) {
+            crownsWaited[slot].unwanted = true;
+            crownsWaited[slot] = null;
         }
     }
 
@@ -1619,6 +1791,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** Dev only: builds the chunk again with nothing taken from what is kept, and says so when the two builds differ in any float. */
     private void check(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh) {
         long first = floatsOf(solid) * 31 + floatsOf(laid);
+        long loose = looseOf(solid) + looseOf(laid);
         boolean signed = fresh.signed;
         int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
         solid.clear();
@@ -1627,9 +1800,25 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         placed = checkPlaced;
         afresh = true;
         geometry.afresh = true;
+        // First with the crowns made in the chunk's own sets, as they were before they were a build of their own:
+        // every vertex of that build is one of this build's or of its crowns', whatever the order.
+        crownsInline = true;
         addSquares(chunk, chunkX, chunkY, lowest);
         noKerb();
         addBacks(chunk, chunkX, chunkY);
+        crownsInline = false;
+        long whole = looseOf(solid) + looseOf(laid);
+        solid.clear();
+        laid.clear();
+        crownsRead.mesh(solid, PLAIN, crownFrame);
+        long apart = loose + looseOf(solid);
+        solid.clear();
+        checkPlaced.clear();
+        crownsChecked.clear();
+        addSquares(chunk, chunkX, chunkY, lowest);
+        noKerb();
+        addBacks(chunk, chunkX, chunkY);
+        long second = floatsOf(solid) * 31 + floatsOf(laid);
         afresh = false;
         geometry.afresh = false;
         placed = fresh.placed;
@@ -1638,14 +1827,31 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         sprites = counted;
         tollChecked++;
         // A build that asked for a sprite's colours is not signed, and its second build may have been answered.
-        if (signed && fresh.signed && first != floatsOf(solid) * 31 + floatsOf(laid)) {
+        if (signed && fresh.signed && (first != second || !crownsRead.same(crownsChecked) || whole != apart)) {
             tollDiffered++;
-            Log.info("build check: the chunk at " + chunk.wx + ", " + chunk.wy + " came out as two different builds");
+            Log.info("build check: the chunk at " + chunk.wx + ", " + chunk.wy + " came out as two different builds" + (first != second ? "" : whole != apart
+                    ? ", with its crowns made apart from it and in it" : " in its crowns"));
         }
         fresh.signed = signed && fresh.signed;
     }
 
-    private static long floatsOf(SpriteGeometry.MeshSet set) {
+    /** Dev only: every vertex of a set as one number, whatever order its meshes and their vertices are in. */
+    private static long looseOf(SpriteGeometry.MeshSet set) {
+        long all = 0;
+        for (int i = 0; i < set.used.size(); i++) {
+            SpriteGeometry.Mesh mesh = set.used.get(i);
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                long vertex = sum(sum(SUM_FROM, mesh.texture), mesh.tint);
+                for (int of = 0; of < SpriteGeometry.VERTEX_FLOATS; of++) {
+                    vertex = sum(vertex, Float.floatToRawIntBits(mesh.vertices[at + of]));
+                }
+                all += vertex;
+            }
+        }
+        return all;
+    }
+
+    static long floatsOf(SpriteGeometry.MeshSet set) {
         long sum = set.used.size();
         for (int i = 0; i < set.used.size(); i++) {
             SpriteGeometry.Mesh mesh = set.used.get(i);
@@ -1677,6 +1883,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return;
         }
         ChunkBuffers.forget(meshes);
+        if (meshes.crowns != null) {
+            spareCrowns.push(meshes.crowns);
+            meshes.crowns = null;
+        }
         if (spare.size() < MOST_SPARE) {
             spare.push(meshes);
         } else {
@@ -1844,6 +2054,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             scene.shown.clear();
         }
         forgetAll();
+        // What is out being made comes back first, wanted by nobody now: a build left with the other thread would keep its vertices until the view next came on.
+        while (crownsOut > 0) {
+            land(Crowns.awaited());
+        }
+        spareCrowns.clear();
         while (!spare.isEmpty()) {
             spare.pop().scrap();
         }
@@ -1857,7 +2072,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** Lets go of the builds of every chunk that has a square in the box of squares from (minX, minY) up to but not (maxX, maxY), or right beside it. */
     private static void forgetOver(int minX, int minY, int maxX, int maxY) {
         for (int slot = 0; slot < latest.length; slot++) {
-            ChunkMeshes held = latest[slot] != null ? latest[slot] : latestGrown[slot];
+            ChunkMeshes held = latest[slot] != null ? latest[slot] : latestGrown[slot] != null ? latestGrown[slot]
+                    : latestCrowned[slot] != null ? latestCrowned[slot] : crownsWaited[slot] != null ? crownsWaited[slot].into : null;
             if (held == null || !ChunkBuffers.chunkTouches(held.wx, held.wy, minX, minY, maxX, maxY)) {
                 continue;
             }
@@ -1869,6 +2085,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 release(latestGrown[slot]);
                 latestGrown[slot] = null;
             }
+            forgetCrowns(slot);
         }
     }
 
@@ -1883,6 +2100,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 release(latestGrown[slot]);
                 latestGrown[slot] = null;
             }
+            forgetCrowns(slot);
         }
     }
 
@@ -1905,6 +2123,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (grown != null && !near(grown)) {
                 latestGrown[slot] = null;
                 release(grown);
+            }
+            if (latestCrowned[slot] != null && !near(latestCrowned[slot]) || crownsWaited[slot] != null && !near(crownsWaited[slot].into)) {
+                forgetCrowns(slot);
             }
         }
         solid.clear();
@@ -3825,12 +4046,21 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         boolean limbed = !bush && boleX == x && boleY == y && away < LIMB_REACH;
         int seed = Flora.mix(x, y, 83);
-        return Flora.addCrown(solid.get(texture.getID()), solid.get(PLAIN), frame, places, x + 0.5f, y + 0.5f,
-                z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f) + geometry.raised * ViewCamera.LEVEL_HEIGHT,
-                SpriteGeometry.frameU(frame, 0.5f, 0.5f), SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f),
-                1f + (CROWN_FAR_DETAIL - 1f) * Math.clamp((away - CROWN_NEAR) / (CROWN_REACH - CROWN_NEAR), 0f, 1f),
-                Math.clamp((CROWN_CLOSING - away) / (CROWN_CLOSING - CROWN_CLOSE), 0f, 1f), limbed ? boleThick : 0f, boleTall,
-                limbed ? boleBark : Flora.barkOf(name, seed), Flora.sprigOf(name, bush), seed);
+        float base = z * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(0.5f, 0.5f) + geometry.raised * ViewCamera.LEVEL_HEIGHT;
+        float footU = SpriteGeometry.frameU(frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(frame, 0.5f, 0.5f, 0f);
+        float detail = 1f + (CROWN_FAR_DETAIL - 1f) * Math.clamp((away - CROWN_NEAR) / (CROWN_REACH - CROWN_NEAR), 0f, 1f);
+        float close = Math.clamp((CROWN_CLOSING - away) / (CROWN_CLOSING - CROWN_CLOSE), 0f, 1f);
+        // The bole stood last may be another tree's, in another chunk: a crown without limbs is made from none of it.
+        float thick = limbed ? boleThick : 0f, tall = limbed ? boleTall : 0f;
+        int bark = limbed ? boleBark : Flora.barkOf(name, seed), sprig = Flora.sprigOf(name, bush);
+        if (crownsInline) {
+            return Flora.addCrown(solid.get(texture.getID()), solid.get(PLAIN), frame, places, x + 0.5f, y + 0.5f, base, footU, footV, detail, close, thick, tall, bark, sprig, seed);
+        }
+        if (!Flora.measure(frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+            return false;
+        }
+        (afresh ? crownsChecked : crownsRead).add(texture.getID(), frame, places, x + 0.5f, y + 0.5f, base, footU, footV, detail, close, thick, tall, bark, sprig, seed);
+        return true;
     }
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
