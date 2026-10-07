@@ -1512,8 +1512,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     noKerb();
                     addBacks(chunk, chunkX, chunkY);
                     fresh.plain &= !canopied;
-                    // Read after the build: only a build tells, on this thread, and what this one was told is in it.
-                    fresh.told = ChunkMarks.told(chunk.wx, chunk.wy);
+                    // As it was before the build. A build may itself tell its own chunk, part way through: the roof first
+                    // read from one of its squares lays slopes over squares the build has already passed, which asked
+                    // while there was none. Remembered as told, that build stood without them until its chunk was next
+                    // marked; remembered as not, the chunk is built once more.
+                    fresh.told = toldSoFar;
                     fresh.land = Terrain.version(chunk.wx, chunk.wy);
                     if (fresh.seen == null) {
                         fresh.seen = new OpenLight();
@@ -1526,7 +1529,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     if (AUDIT_MARKS) {
                         fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
                         boolean aged = current != null && summed && current.signed && current.signature == read && current.band == fresh.band && fresh.signed
-                                && current.epoch == epoch && current.told == toldSoFar && fresh.told == toldSoFar;
+                                && current.epoch == epoch && current.told == toldSoFar && ChunkMarks.told(chunk.wx, chunk.wy) == toldSoFar;
                         if (aged && current.auditFloats != fresh.auditFloats) {
                             tollAgedDiffered++;
                             if (auditLogged++ < 4000) {
