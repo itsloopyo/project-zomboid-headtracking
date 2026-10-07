@@ -30,7 +30,16 @@ public final class Tests {
 
     public static void target() {}
 
+    /** Where the log of the run is written. */
+    private static Path logs;
+
     public static void main(String[] args) throws Throwable {
+        logs = Files.createTempDirectory("zomboid-headtracking-test");
+        Log.open(logs);
+        // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
+        Quality.set(Quality.HIGH);
+        // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
+        Own.picturesMade(true);
         cameraLooksAlongItsYaw();
         cameraPutsPlusYOnTheRightWhenFacingPlusX();
         cameraPutsHigherPointsHigher();
@@ -53,17 +62,15 @@ public final class Tests {
         packetIsParsedAndValidated();
         receiverTakesOnlyChangedPosesAndReadsLocality();
         filterKeepsThePositionInsideItsLimits();
+        filterTellsTheLimitUpFromTheLimitDown();
         filterSmoothsARemoteConnectionAndTurnsTheShortWay();
         filterEasesBackWhenSamplesStop();
         leanClampTightensAtOnceAndReleasesSlowly();
+        leanClampForgetsAWallOnAFrameWithNoLean();
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         AimTests.run();
         ConfigTests.run();
-        // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
-        Quality.set(Quality.HIGH);
-        // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
-        Own.picturesMade(true);
         ArmTests.run();
         OwnArmTests.run();
         BufferTests.run();
@@ -112,6 +119,29 @@ public final class Tests {
         pictureLiesOverItsFrameAsTheSpritePaintsIt();
         frameIsChosenByThePicturesShape();
         jarHoldsEveryModelStoodOnTheFloor();
+        wallTintSurvivesItsPacking();
+        meshesAreKeptByTextureAndTint();
+        BuildingTests.run();
+        RoofTests.run();
+        ShapeTests.run();
+        CrownTests.run();
+        GrassTests.run();
+        WindTests.run();
+        WindowTests.run();
+        ReflectionTests.run();
+        DecorTests.run();
+        OwnTests.run();
+        ScopeTests.run();
+        RifleTests.run();
+        KerbTests.run();
+        TerrainTests.run();
+        FacadeTests.run();
+        QualityTests.run();
+        StyleTests.run();
+        GameFixTests.run();
+        OnlineTests.run();
+        usualColourIsWhatMostOfTheSpriteIsPaintedIn();
+        theBuildThatShipsHasNoDevelopmentKeys();
         heldWeaponPointsAheadWithItsBarrelOnTheLineAsked();
         heldWeaponKeepsItsShapeAndTheGamesMirror();
         weaponWithoutAMuzzleIsHeldByItsGrip();
@@ -121,6 +151,15 @@ public final class Tests {
         recoilIsOverInAHundredAndFiftyMilliseconds();
         stepBobsTheWeaponDownAndAcross();
         flashIsBrightestAtTheShotAndGoneAfterItsTime();
+        plantsStandWhereTheyStoodAndAreNeverTooMany();
+        fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
+        tuftCarriesHowWellItsGrassDoes();
+        boleIsClosedAboveItsFoot();
+        barkIsAsLargeRoundABoleAsUpIt();
+        ivyKeepsToTheBoleAndSaysHowFarUpItIs();
+        boulderIsClosed();
+        fernGrowsFromItsRoot();
+        litterShowsAsMuchAsItsCornersSay();
         elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints();
         pumpGoesBackAndComesForwardAgain();
         armTooShortToReachBringsItsShoulderWithIt();
@@ -129,6 +168,9 @@ public final class Tests {
         swingMovesWithoutAJump();
         raiseLeavesTheStraightLineOnlyBetweenItsEnds();
         meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
+        // A run that fails ends before this, and its log is left to be read.
+        Files.delete(logs.resolve(Log.FILE_NAME));
+        Files.delete(logs);
         System.out.println("all tests passed");
     }
 
@@ -391,16 +433,6 @@ public final class Tests {
         float[] light = {9f, 9f, 9f, 9f, 9f, 9f, 9f};
         MuzzleFlash.light(light);
         check(light[0] == 0f && light[3] == 0f && light[4] > 0f, "with no weapon drawn there is no light, only its colour");
-        plantsStandWhereTheyStoodAndAreNeverTooMany();
-        fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
-        tuftCarriesHowWellItsGrassDoes();
-        boleIsClosedAboveItsFoot();
-        barkIsAsLargeRoundABoleAsUpIt();
-        ivyKeepsToTheBoleAndSaysHowFarUpItIs();
-        boulderIsClosed();
-        fernGrowsFromItsRoot();
-        litterShowsAsMuchAsItsCornersSay();
-        System.out.println("all tests passed");
     }
 
     private static void plantsStandWhereTheyStoodAndAreNeverTooMany() {
@@ -1030,30 +1062,6 @@ public final class Tests {
             }
             check(least >= 0.29f, name + " is nowhere left with less light than the darkest joint keeps, and has " + least);
         }
-        wallTintSurvivesItsPacking();
-        meshesAreKeptByTextureAndTint();
-        BuildingTests.run();
-        RoofTests.run();
-        ShapeTests.run();
-        CrownTests.run();
-        GrassTests.run();
-        WindTests.run();
-        WindowTests.run();
-        ReflectionTests.run();
-        DecorTests.run();
-        OwnTests.run();
-        ScopeTests.run();
-        RifleTests.run();
-        KerbTests.run();
-        TerrainTests.run();
-        FacadeTests.run();
-        QualityTests.run();
-        StyleTests.run();
-        GameFixTests.run();
-        OnlineTests.run();
-        usualColourIsWhatMostOfTheSpriteIsPaintedIn();
-        theBuildThatShipsHasNoDevelopmentKeys();
-        System.out.println("all tests passed");
     }
 
     private static void wallTintSurvivesItsPacking() {
@@ -1539,8 +1547,7 @@ public final class Tests {
         FieldOfView.set(before);
     }
 
-    private static void lightLeadsTheHeadsYawAndIgnoresTheRest() throws Exception {
-        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
+    private static void lightLeadsTheHeadsYawAndIgnoresTheRest() {
         ViewCamera.Pose level = cleanPose(0f, 0f, 1.6f, radians(200), 0f);
         ViewCamera.Pose down = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.Pose up = cleanPose(0f, 0f, 1.6f, radians(200), radians(89));
@@ -1603,7 +1610,6 @@ public final class Tests {
     }
 
     private static void receiverTakesOnlyChangedPosesAndReadsLocality() throws Exception {
-        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
         InetAddress loopback = InetAddress.getByName("127.0.0.1");
         InetAddress lan = InetAddress.getByName("192.168.1.20");
@@ -1633,6 +1639,25 @@ public final class Tests {
         filter.update(sample(-1, -1, 1, 0, 0, 0, 2L), false, 1f / 60f);
         check(near(filter.x(), -0.30f) && near(filter.y(), -0.20f) && near(filter.z(), 0.10f),
                 "the backward lean, positive z, gets the small one");
+    }
+
+    private static void filterTellsTheLimitUpFromTheLimitDown() {
+        Settings s = Settings.BUILT_IN;
+        Settings.current = new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
+                s.positionEnabled(), s.trueFreeLook(), s.freeLookMarker(), s.stockSights(), s.collisionEnabled(),
+                s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), 0.30f, 0.05f,
+                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), s.lightMultiplier(),
+                s.fieldOfView());
+        try {
+            PoseFilter filter = new PoseFilter();
+            filter.update(sample(0, 1, 0, 0, 0, 0, 1L), false, 1f / 60f);
+            check(near(filter.y(), 0.30f), "a head raised gets the limit up");
+            filter.reset();
+            filter.update(sample(0, -1, 0, 0, 0, 0, 2L), false, 1f / 60f);
+            check(near(filter.y(), -0.05f), "and one lowered the limit down");
+        } finally {
+            Settings.current = Settings.BUILT_IN;
+        }
     }
 
     private static void filterSmoothsARemoteConnectionAndTurnsTheShortWay() {
@@ -1690,6 +1715,19 @@ public final class Tests {
             released = clamp.apply(offset, 1f / 60f, query);
         }
         check(near(released, 0.3f) && !clamp.inContact(), "and gets all the way back");
+    }
+
+    private static void leanClampForgetsAWallOnAFrameWithNoLean() {
+        LeanClamp clamp = new LeanClamp();
+        float[] room = {0.1f};
+        LeanClamp.Room query = (x, y, up, reach) -> Math.min(room[0], reach);
+        float[] offset = {0.3f, 0f, 0f};
+        check(near(clamp.apply(offset, 1f / 60f, query), 0.1f) && clamp.inContact(), "a wall stops the lean");
+        room[0] = 1f;
+        check(clamp.apply(new float[3], 1f / 60f, query) == 0f && !clamp.inContact(), "a frame with no lean touches nothing");
+        offset = new float[] {0.3f, 0f, 0f};
+        check(near(clamp.apply(offset, 1f / 60f, query), 0.3f) && near(offset[0], 0.3f) && !clamp.inContact(),
+                "and the lean after it, in open ground, is whole at once");
     }
 
     private static void gridTraceFindsTheFirstBlockedEdge() {
@@ -1767,7 +1805,6 @@ public final class Tests {
     }
 
     private static void receiverRefusesAPoseNoTrackerSends() throws Exception {
-        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         ByteBuffer wire = ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
                 .order(ByteOrder.LITTLE_ENDIAN);
         double limit = OpenTrackReceiver.MAX_MAGNITUDE;
@@ -2220,7 +2257,6 @@ public final class Tests {
     }
 
     private static void transformerHasNoGapOnceEveryPatchIsIn() throws Throwable {
-        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         Agent.PatchTransformer transformer = new Agent.PatchTransformer(List.of(hookAfterTarget(RUN.owner())));
         if (transformer.transform(null, "com/cameraunlock/zomboid/Other", null, null, subjectCallingTarget(1)) != null) {
             throw new AssertionError("a class no patch names is left alone");
@@ -2235,8 +2271,8 @@ public final class Tests {
     }
 
     private static void exceptionTheGameCaughtFromTheModIsWrittenOnce() throws Exception {
-        Path directory = Files.createTempDirectory("zomboid-headtracking-test");
-        Log.open(directory);
+        // What the tests before this wrote is no part of what is read back.
+        Log.open(logs);
         RuntimeException theGames = new RuntimeException("the game's own");
         theGames.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
         Log.caughtByTheGame(theGames);
@@ -2247,7 +2283,7 @@ public final class Tests {
                     new StackTraceElement("zombie.gameStates.IngameState", "renderFrameInternal", "IngameState.java", 1)});
             Log.caughtByTheGame(new IllegalStateException("wrapped by the game", fromTheMod));
         }
-        String written = Files.readString(directory.resolve(Log.FILE_NAME));
+        String written = Files.readString(logs.resolve(Log.FILE_NAME));
         check(!written.contains("the game's own"), "an exception none of which came through the mod is left to the game's log");
         check(written.split("the game caught this from the mod", -1).length == 2, "a fault that comes every frame is written once, got: " + written);
         check(written.contains("thrown in a hook") && written.contains("FirstPerson.afterWorldRender"), "it is written with its cause and where in the mod it was thrown");
@@ -2273,7 +2309,6 @@ public final class Tests {
     }
 
     private static void transformerLeavesAClassItCannotPatchAloneAndNamesTheGap() throws Throwable {
-        Log.open(Files.createTempDirectory("zomboid-headtracking-test"));
         // Two patches on a class that is really loaded, so the gap is not "no class". The first
         // fits and the second does not: nothing that went in before makes up for the one missing.
         String loaded = "com/cameraunlock/zomboid/Tests";

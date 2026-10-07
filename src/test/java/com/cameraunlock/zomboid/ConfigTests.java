@@ -13,6 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 /**
  * CameraUnlock.ini through the test build of the mod's DLL, which is the shipped one reading a
@@ -27,7 +29,6 @@ final class ConfigTests {
 
     static void run() throws Throwable {
         Path scratch = Files.createTempDirectory("zomboid-headtracking-config");
-        Log.open(scratch);
         Path file = scratch.resolve("game").resolve(NativeConfig.FILE_NAME);
         Files.createDirectories(file.getParent());
         Files.createDirectories(scratch.resolve("user"));
@@ -37,12 +38,19 @@ final class ConfigTests {
 
         firstStartCreatesTheCommittedFileAndRunsOnTheBuiltInValues(config, file, defaults);
         changedModesAreSavedAndReadAtTheNextStart(config, file);
+        eachFreeLookModeIsReadBackAsItself(config, file);
         fieldOfViewIsReadAgainWhenTheFileChanges(config, file);
         contentRowsAreReadAgainWhenTheFileChanges(config, file);
         qualityIsReadAgainWhenTheFileChanges(config, file);
         styleIsSavedAndReadAgainWhenTheFileChanges(config, file);
         frameBlendingIsReadAgainWhenTheFileChanges(config, file);
         zoomCompensationIsCores();
+        // A run that fails ends before this, and what it wrote is left to be read.
+        try (Stream<Path> written = Files.walk(scratch)) {
+            for (Path each : written.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(each);
+            }
+        }
     }
 
     private static void check(boolean condition, String what) {
@@ -92,6 +100,20 @@ final class ConfigTests {
         check(settings.udpPort() == Settings.BUILT_IN.udpPort(), "a row no save touched keeps its value");
     }
 
+    private static void eachFreeLookModeIsReadBackAsItself(NativeConfig config, Path file) throws IOException {
+        check(config.saveAimMode(AimMode.TRUE_FREE_LOOK), "true free look saves");
+        Settings settings = config.load(file).settings();
+        check(settings.trueFreeLook() && !settings.freeLookMarker(), "and the two rows are read back each as itself");
+        check(AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights()) == AimMode.TRUE_FREE_LOOK,
+                "so the next start is in true free look");
+        check(config.saveAimMode(AimMode.FREE_LOOK_MARKER), "free look with a marker saves");
+        settings = config.load(file).settings();
+        check(AimMode.decode(settings.trueFreeLook(), settings.freeLookMarker(), settings.stockSights()) == AimMode.FREE_LOOK_MARKER,
+                "and the next start is in it");
+        check(config.saveAimMode(AimMode.STOCK_SIGHTS), "stock sights saves again");
+        check(config.load(file).settings().stockSights(), "and is read at the next start");
+    }
+
     private static void fieldOfViewIsReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
         check(config.reloadLive() == null, "a file nobody has edited is not read again");
         String text = Files.readString(file, StandardCharsets.US_ASCII);
@@ -107,7 +129,8 @@ final class ConfigTests {
 
     private static void contentRowsAreReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
         String text = Files.readString(file, StandardCharsets.US_ASCII);
-        for (String row : new String[] {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople"}) {
+        for (String row : new String[] {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
+                "OwnArms"}) {
             check(text.contains("\r\n" + row + "=true\r\n"), "the file holds " + row + ", on");
         }
         edit(file, text.replace("OwnWeapons=true", "OwnWeapons=false").replace("OwnPlants=true", "OwnPlants=false"));
@@ -120,6 +143,13 @@ final class ConfigTests {
         edit(file, text);
         live = config.reloadLive();
         check(live != null && live.own() == Own.ALL, "switched back on, they are on again");
+        edit(file, text.replace("OwnArms=true", "OwnArms=false"));
+        live = config.reloadLive();
+        check(live != null && live.own() == (Own.ALL & ~Own.ARMS),
+                "the arms row switched off is that row and no other: " + (live == null ? "not read" : Own.described(live.own())));
+        edit(file, text);
+        live = config.reloadLive();
+        check(live != null && live.own() == Own.ALL, "and switched back on, all of it is on");
     }
 
     private static void qualityIsReadAgainWhenTheFileChanges(NativeConfig config, Path file) throws IOException {
@@ -165,10 +195,16 @@ final class ConfigTests {
         check(live != null && !live.frameBlending(), "and set back, it is off again");
     }
 
+    private static long firstEdit;
+    private static int edits;
+
     private static void edit(Path file, String text) throws IOException {
         Files.writeString(file, text, StandardCharsets.US_ASCII);
-        // The watch goes by the file's write time, and two writes can land on one tick of it.
-        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 2000));
+        if (edits == 0) {
+            firstEdit = Files.getLastModifiedTime(file).toMillis();
+        }
+        // The watch goes by the file's write time, and two writes can land on one tick of it. Each edit is two seconds after the one before.
+        Files.setLastModifiedTime(file, FileTime.fromMillis(firstEdit + 2000L * ++edits));
     }
 
     /** Core has no Java, so ZoomCompensation is a port of its zoom_compensation.h. This holds the two together. */

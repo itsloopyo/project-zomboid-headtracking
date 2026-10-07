@@ -10,7 +10,6 @@ final class QualityTests {
         automaticStepsDownWhileThePictureIsSlow();
         automaticStaysWhereThePictureKeepsUp();
         Quality.set(Quality.HIGH);
-        System.out.println("all tests passed");
     }
 
     private static void check(boolean condition, String what) {

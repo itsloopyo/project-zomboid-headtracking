@@ -584,7 +584,7 @@ final class BuildingTests {
         geometry.sealTop = 4f;
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         geometry.addFace(mesh, frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
-        boolean top = false;
+        boolean top = false, foot = false;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
             if (near(f[at + 2], ViewCamera.LEVEL_HEIGHT) && near(f[at], 0f)) {
@@ -594,8 +594,10 @@ final class BuildingTests {
             }
             if (near(f[at + 2], 0f) && near(f[at], 0f)) {
                 check(Math.abs(f[at + 4] * 256f - (192f - 3f + 1.5f)) < 0.01f, "and the foot is moved by the usual inset alone");
+                foot = true;
             }
         }
         check(top, "the wall reaches its level's top in a straight edge");
+        check(foot, "and stands on the floor");
     }
 }

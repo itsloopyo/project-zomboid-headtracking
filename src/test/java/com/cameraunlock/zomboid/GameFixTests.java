@@ -22,7 +22,6 @@ final class GameFixTests {
         } catch (Throwable thrown) {
             throw new AssertionError("a rewritten class could not be made or called", thrown);
         }
-        System.out.println("all tests passed");
     }
 
     private static void check(boolean condition, String what) {

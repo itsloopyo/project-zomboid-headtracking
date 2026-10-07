@@ -22,11 +22,13 @@ final class OwnTests {
 
     private static void everythingIsOnUntilARowSaysOtherwise() {
         Own.set(Own.ALL);
-        check(Own.weapons() && Own.furniture() && Own.pictures() && Own.plants() && Own.textures() && Own.buildings() && Own.zombies(),
-                "with every row on, all of it is shown");
+        check(Own.weapons() && Own.furniture() && Own.pictures() && Own.plants() && Own.textures() && Own.buildings() && Own.zombies()
+                && Own.arms(), "with every row on, all of it is shown");
         Own.set(Own.ALL & ~Own.WEAPONS);
         check(!Own.weapons() && Own.furniture() && Own.pictures() && Own.plants() && Own.textures() && Own.buildings() && Own.zombies(),
                 "the weapons row off takes the mod's weapons away and nothing else");
+        Own.set(Own.ALL & ~Own.ARMS);
+        check(!Own.arms() && Own.weapons() && Own.people(), "the arms row off takes the mod's arms away, and leaves its weapons and the skins of the living");
         Own.set(Own.PICTURES);
         check(Own.pictures() && !Own.weapons() && !Own.furniture() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.zombies(),
                 "one row on shows that and nothing else");

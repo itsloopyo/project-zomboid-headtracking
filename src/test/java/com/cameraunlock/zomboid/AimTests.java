@@ -117,10 +117,6 @@ final class AimTests {
         float part = stockShare(fade, AimMode.STOCK_SIGHTS, true, 175);
         check(near(part, 0.5f), "part way up the pose is scaled by the fade");
         check(stockShare(fade, AimMode.STOCK_SIGHTS, true, 250) == 0f, "with the sights up yaw, pitch and the lean are nought");
-        // What is scaled is yaw, pitch and the three lean axes. Roll is not multiplied by the
-        // share anywhere, so a tilt of 12 degrees is 12 degrees at every stage.
-        float yaw = 20f * part, roll = 12f;
-        check(near(yaw, 10f) && roll == 12f, "roll is the tracker's own throughout");
     }
 
     private static void stockSightsReversedPartWayDoesNotStep() {

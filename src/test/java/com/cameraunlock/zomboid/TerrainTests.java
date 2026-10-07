@@ -9,14 +9,18 @@ final class TerrainTests {
     private TerrainTests() {}
 
     static void run() {
-        streetAlongAHillsideIsLevelFromSideToSide();
-        swellsAreSeenFromAStreetAndNoSteeperThanOneInTwenty();
+        byte[] around = Terrain.around.clone();
+        float[] pads = Terrain.padsAround.clone();
         boolean was = Terrain.level;
-        Terrain.level = true;
         try {
+            streetAlongAHillsideIsLevelFromSideToSide();
+            swellsAreSeenFromAStreetAndNoSteeperThanOneInTwenty();
+            Terrain.level = true;
             streetPastABuildingIsAsHighOnOneSideAsTheOther();
         } finally {
             Terrain.level = was;
+            System.arraycopy(around, 0, Terrain.around, 0, around.length);
+            System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
         }
     }
 

@@ -7,7 +7,7 @@ final class CabinTests {
     private CabinTests() {}
 
     static void run() {
-        steeringWheelTurnsTwiceTheGamesSteering();
+        steeringWheelTurnsASixthOfATurnToFullLock();
         driverIsSeatedOnTheWheelsSide();
         bodyIsToldIntoSeatsDashDoorAndBonnet();
         mirroredBodyIsToldTheSame();
@@ -19,13 +19,13 @@ final class CabinTests {
         wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
     }
 
-    /** A ring of 36 triangles standing across the vehicle, as a body has for its wheel. Returns its first vertex. */
-    private static int ring(Body body, float along, float across, float up, float radius) {
+    /** A ring of 36 triangles standing across the vehicle, as a body has for its wheel, that far out from its middle across and up. Returns its first vertex. */
+    private static int ring(Body body, float along, float across, float up, float wide, float tall) {
         int first = body.at.size() / 3;
         for (int k = 0; k < 18; k++) {
             double turn = Math.PI * 2 * k / 18;
-            body.vertex(along, across + radius * 0.8f * (float) Math.cos(turn), up + radius * 0.8f * (float) Math.sin(turn), BACK);
-            body.vertex(along, across + radius * (float) Math.cos(turn), up + radius * (float) Math.sin(turn), BACK);
+            body.vertex(along, across + wide * 0.8f * (float) Math.cos(turn), up + tall * 0.8f * (float) Math.sin(turn), BACK);
+            body.vertex(along, across + wide * (float) Math.cos(turn), up + tall * (float) Math.sin(turn), BACK);
         }
         for (int k = 0; k < 18; k++) {
             int a = first + k * 2, b = first + (k + 1) % 18 * 2;
@@ -37,11 +37,13 @@ final class CabinTests {
 
     private static void wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack() {
         for (float side : new float[] {1f, -1f}) {
-            Body body = saloon(side, true);
-            int wheel = body.at.size() / 3 - 36;
+            Body body = new Body(side);
+            body.quad(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, UP, CabinParts.OTHER, false, false);
             // A spare on the back door, on the middle line and rounder than the wheel is, and a drum beside the driver's seat.
-            ring(body, -1.9f, 0f, 0.1f, 0.2f);
-            ring(body, 0.1f, -0.1f, -0.3f, 0.2f);
+            // Both come before the wheel in the body, and the wheel is a little wider than it is tall.
+            int spare = ring(body, -1.9f, 0f, 0.1f, 0.2f, 0.2f);
+            ring(body, 0.1f, -0.1f, -0.3f, 0.2f, 0.19f);
+            int wheel = ring(body, 0.5f, -0.32f, 0f, 0.13f, 0.12f);
             float[] at = new float[body.at.size()];
             for (int i = 0; i < at.length; i++) {
                 at[i] = body.at.get(i);
@@ -52,8 +54,8 @@ final class CabinTests {
             }
             int[] found = CabinParts.wheelOf(at, elements, new float[] {0.16f, 0.32f}, 0f);
             check(found != null && found.length == 36 && found[0] == wheel, "the wheel is the ring before the driver, on the driver's side");
-            // With no seat known it is the first of the roundest.
-            check(CabinParts.wheelOf(at, elements, null, 0f) != null, "and a body whose seats are not known still has a wheel");
+            found = CabinParts.wheelOf(at, elements, null, 0f);
+            check(found != null && found.length == 36 && found[0] == spare, "with no seat known it is the roundest ring, which is the spare");
         }
         check(CabinParts.wheelOf(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, new int[] {0, 1, 2, 0, 2, 3}, new float[] {0.16f, 0.32f}, 0f) == null,
                 "a body with no ring has no wheel");
@@ -89,11 +91,11 @@ final class CabinTests {
         return Math.abs(a - b) < 1e-4f;
     }
 
-    private static void steeringWheelTurnsTwiceTheGamesSteering() {
+    private static void steeringWheelTurnsASixthOfATurnToFullLock() {
         check(Cabins.wheelTurn(0f) == 0f, "wheels straight, wheel straight");
-        check(near(Cabins.wheelTurn(0.1f), 0.2f), "the wheel turns twice as far as the game counts the steering");
-        check(near(Cabins.wheelTurn(-0.25f), -0.5f), "and the same the other way");
-        check(Math.abs(Cabins.wheelTurn(0.9f)) < Math.PI * 0.6, "full lock is a little over a quarter turn");
+        check(near(Cabins.wheelTurn(0.1f), 0.12f), "the wheel turns a fifth further than the game counts the steering");
+        check(near(Cabins.wheelTurn(-0.25f), -0.3f), "and the same the other way");
+        check(Math.abs(Math.toDegrees(Cabins.wheelTurn(0.9f)) - 62) < 0.5, "full lock is a sixth of a turn, 62 degrees");
     }
 
     /** The script's seats: across, up and along from the model's middle. Front left, front right, rear left, rear right. */
