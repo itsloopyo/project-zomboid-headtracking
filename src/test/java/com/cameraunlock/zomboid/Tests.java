@@ -97,6 +97,7 @@ public final class Tests {
         transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
         transformerNamesAClassTheGameDoesNotHave();
         floorFaceShowsTheSpritesDiamond();
+        faceMadeTheShortWayIsTheFaceMadeTheLongWay();
         wallFaceIsClippedToTheTrimmedSprite();
         faceOutsideTheTrimmedSpriteAddsNothing();
         uprightSpriteStandsOnItsAnchor();
@@ -1881,6 +1882,45 @@ public final class Tests {
         check(hasVertex(mesh, 11f, 20f, 0f, 1f, 0.875f), "the +x corner is the right of the diamond");
         check(hasVertex(mesh, 11f, 21f, 0f, 0.5f, 1f), "the far corner is the bottom of the diamond");
         check(hasVertex(mesh, 10f, 21f, 0f, 0f, 0.875f), "the +y corner is the left of the diamond");
+    }
+
+    /**
+     * A face is clipped once where the sprite covers it whole and each of its corners is
+     * worked out once: every float of it is what clipping it twice and working each corner
+     * out for every triangle gives.
+     */
+    private static void faceMadeTheShortWayIsTheFaceMadeTheLongWay() {
+        int cut = 0, whole = 0;
+        for (int trim = 0; trim < 6; trim++) {
+            SpriteGeometry.Frame frame = wholeFrame();
+            // Whole, then trimmed from each side and from two: faces the sprite covers, cuts square and cuts across a corner.
+            frame.left = trim == 1 || trim == 5 ? 40f : 0f;
+            frame.width = (trim == 2 ? 90f : 128f) - frame.left;
+            frame.top = trim == 3 || trim == 5 ? 150f : 0f;
+            frame.height = (trim == 4 ? 215f : 256f) - frame.top;
+            frame.uStart = frame.left / 128f;
+            frame.uEnd = (frame.left + frame.width) / 128f;
+            frame.vStart = frame.top / 256f;
+            frame.vEnd = (frame.top + frame.height) / 256f;
+            frame.light(0.7f, 0.6f, 0.5f);
+            float[][] faces = {{0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f}, {0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f}, {0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f},
+                    {0.2f, 0.1f, 0.3f, 0.6f, 0f, 0f, 0f, 0.7f, 0f}, {0f, 0f, 0f, 1f, 0f, 0.4f, 0f, 1f, 0f}};
+            for (float[] f : faces) {
+                SpriteGeometry.Mesh shortWay = new SpriteGeometry.Mesh(), longWay = new SpriteGeometry.Mesh();
+                SpriteGeometry quick = new SpriteGeometry(), plain = new SpriteGeometry();
+                plain.afresh = true;
+                int made = quick.addFace(shortWay, frame, 3, 4, 1, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8]);
+                check(made == plain.addFace(longWay, frame, 3, 4, 1, f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8])
+                        && shortWay.floats == longWay.floats, "a face is as many triangles made either way");
+                for (int at = 0; at < shortWay.floats; at++) {
+                    check(Float.floatToRawIntBits(shortWay.vertices[at]) == Float.floatToRawIntBits(longWay.vertices[at]),
+                            "float " + at + " of a face is the same made either way, trim " + trim);
+                }
+                cut += made > 2 ? 1 : 0;
+                whole += made == 2 ? 1 : 0;
+            }
+        }
+        check(cut >= 4 && whole >= 4, "the faces tried are some whole and some cut to more corners, not " + whole + " and " + cut);
     }
 
     private static void wallFaceIsClippedToTheTrimmedSprite() {

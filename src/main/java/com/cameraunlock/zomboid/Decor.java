@@ -142,16 +142,24 @@ final class Decor {
      * render thread has only to hand it to the graphics card.
      */
     static int held(int picture) {
+        boolean wanted;
         synchronized (Decor.class) {
             // One made at the other size for another graphics mode is read again here, for the render thread to put in its place.
             boolean otherSize = textures[picture] != 0 && madeSmall[picture] != Quality.smallerPictures();
-            if ((textures[picture] == 0 || otherSize) && waiting[picture] == null) {
-                String path = FOLDER + index.names.get(picture) + ".jpg";
-                try {
-                    waiting[picture] = pixels(path, index.sizes.get(picture));
-                } catch (IOException e) {
-                    throw new UncheckedIOException(path + " could not be read", e);
-                }
+            wanted = (textures[picture] == 0 || otherSize) && waiting[picture] == null;
+        }
+        if (wanted) {
+            // Read with the lock let go: the render thread takes it for every picture it draws, and
+            // would stand still for as long as a picture takes to read. Only this thread reads one.
+            String path = FOLDER + index.names.get(picture) + ".jpg";
+            Read read;
+            try {
+                read = pixels(path, index.sizes.get(picture));
+            } catch (IOException e) {
+                throw new UncheckedIOException(path + " could not be read", e);
+            }
+            synchronized (Decor.class) {
+                waiting[picture] = read;
             }
         }
         return -1 - picture;

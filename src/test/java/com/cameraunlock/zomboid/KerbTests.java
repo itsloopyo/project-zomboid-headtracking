@@ -199,6 +199,13 @@ final class KerbTests {
         geometry.kerbStreet = false;
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         geometry.addFace(mesh, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        // Each corner of a piece worked out once is each corner worked out for every triangle of the piece.
+        SpriteGeometry.Mesh longWay = new SpriteGeometry.Mesh();
+        geometry.afresh = true;
+        geometry.addFace(longWay, frame, 3, 3, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        geometry.afresh = false;
+        check(mesh.floats > 6 * SpriteGeometry.VERTEX_FLOATS && java.util.Arrays.equals(java.util.Arrays.copyOf(mesh.vertices, mesh.floats), java.util.Arrays.copyOf(longWay.vertices, longWay.floats)),
+                "the pieces of a floor a kerb crosses are the same floats made the short way and the long");
         float land = areaAt(mesh, 1f, 1f - Terrain.KERB), street = areaAt(mesh, 1f - Terrain.KERB, 1f);
         check(Math.abs(land + street - 1f) < 1e-4f, "the pieces of a floor a kerb crosses make up the whole square, not " + (land + street));
         check(street > 0.15f && street < 0.22f, "the street takes the point of the corner's square and no more, not " + street);

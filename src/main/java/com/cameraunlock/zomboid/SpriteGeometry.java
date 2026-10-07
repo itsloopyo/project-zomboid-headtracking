@@ -144,6 +144,15 @@ final class SpriteGeometry {
             vertices[floats++] = nearer;
             vertices[floats++] = faces ? 1f : clears ? 2f : 0f;
         }
+
+        /** Adds the vertex that starts at the given float once more, as it is. */
+        void again(int from) {
+            if (floats + VERTEX_FLOATS > vertices.length) {
+                vertices = Arrays.copyOf(vertices, vertices.length * 2);
+            }
+            System.arraycopy(vertices, from, vertices, floats, VERTEX_FLOATS);
+            floats += VERTEX_FLOATS;
+        }
     }
 
     /**
@@ -451,7 +460,8 @@ final class SpriteGeometry {
         if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
             return 0;
         }
-        int count = clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale);
+        // A face wholly on the sprite came through uncut, and with slack would come through the same.
+        int count = wasCut || afresh ? clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale) : covered;
         float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         if (up1 == 0f && up2 == 0f) {
@@ -469,13 +479,38 @@ final class SpriteGeometry {
             split(mesh, frame, tileX, tileY, 0, count, 0, 0, Kerbs.FINE);
             return mesh.triangles() - before;
         }
-        for (int i = 1; i < count - 1; i++) {
-            emit(mesh, frame, tileX, tileY, tileZ, from, 0);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
-        }
+        fan(mesh, frame, tileX, tileY, tileZ, from, count);
         return count - 2;
     }
+
+    /**
+     * Adds the triangles of a face of count corners, each from its first corner to two that
+     * follow each other. A corner is worked out once and written again for each triangle it is in.
+     */
+    private void fan(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int count) {
+        if (afresh) {
+            for (int i = 1; i < count - 1; i++) {
+                emit(mesh, frame, tileX, tileY, tileZ, polygon, 0);
+                emit(mesh, frame, tileX, tileY, tileZ, polygon, i);
+                emit(mesh, frame, tileX, tileY, tileZ, polygon, i + 1);
+            }
+            return;
+        }
+        int first = mesh.floats;
+        emit(mesh, frame, tileX, tileY, tileZ, polygon, 0);
+        emit(mesh, frame, tileX, tileY, tileZ, polygon, 1);
+        emit(mesh, frame, tileX, tileY, tileZ, polygon, 2);
+        for (int i = 3; i < count; i++) {
+            mesh.again(first);
+            mesh.again(mesh.floats - 2 * VERTEX_FLOATS);
+            emit(mesh, frame, tileX, tileY, tileZ, polygon, i);
+        }
+    }
+
+    /** Dev only, set round the second build of a check (WorldScene.check): every face is made the long way. */
+    boolean afresh;
+    /** Whether the last clipToFrame cut anything off the face. */
+    private boolean wasCut;
 
     /** A face this near the floor, in levels, lies on the ground and steps down a kerb with it. A table's top does not. */
     private static final float LAID_BELOW = 0.05f;
@@ -551,11 +586,7 @@ final class SpriteGeometry {
             return;
         }
         kerbSide = side;
-        for (int i = 1; i < count - 1; i++) {
-            emit(mesh, frame, tileX, tileY, 0, piece, 0);
-            emit(mesh, frame, tileX, tileY, 0, piece, i);
-            emit(mesh, frame, tileX, tileY, 0, piece, i + 1);
-        }
+        fan(mesh, frame, tileX, tileY, 0, piece, count);
         kerbSide = BOTH;
     }
 
@@ -618,11 +649,7 @@ final class SpriteGeometry {
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         mesh.face(turn * (db1 * up2 - up1 * db2), turn * (up1 * da2 - da1 * up2), turn * (da1 * db2 - db1 * da2));
         float[] from = result;
-        for (int i = 1; i < count - 1; i++) {
-            emit(mesh, frame, tileX, tileY, tileZ, from, 0);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i);
-            emit(mesh, frame, tileX, tileY, tileZ, from, i + 1);
-        }
+        fan(mesh, frame, tileX, tileY, tileZ, from, count);
         return count - 2;
     }
 
@@ -710,6 +737,7 @@ final class SpriteGeometry {
         float[] from = clipped;
         float[] to = spare;
         int count = 4;
+        wasCut = false;
         for (int edge = 0; edge < 4 && count > 0; edge++) {
             int axis = edge < 2 ? CORNER_U : CORNER_V;
             boolean keepAbove = (edge & 1) == 0;
@@ -1279,7 +1307,7 @@ final class SpriteGeometry {
     }
 
     /** Sutherland-Hodgman against one side of the trimmed rectangle. */
-    private static int clip(float[] from, int count, float[] to, int axis, float limit, boolean keepAbove) {
+    private int clip(float[] from, int count, float[] to, int axis, float limit, boolean keepAbove) {
         int out = 0;
         for (int i = 0; i < count; i++) {
             int current = i * CORNER_FLOATS;
@@ -1291,6 +1319,8 @@ final class SpriteGeometry {
             if (currentIn) {
                 System.arraycopy(from, current, to, out * CORNER_FLOATS, CORNER_FLOATS);
                 out++;
+            } else {
+                wasCut = true;
             }
             if (currentIn != nextIn) {
                 float t = (limit - currentValue) / (nextValue - currentValue);

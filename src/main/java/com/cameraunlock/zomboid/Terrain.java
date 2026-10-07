@@ -65,8 +65,9 @@ final class Terrain {
     private static final class Grid {
         int wx, wy;
         boolean settled;
-        /** The frame it was worked out in. */
+        /** The frame it was worked out in, and when. */
         int stamp;
+        long stampNanos;
         final float[] heights = new float[CORNERS * CORNERS];
         /** The height of water at each corner, which where a quay meets it is not the land's. */
         final float[] water = new float[CORNERS * CORNERS];
@@ -111,11 +112,15 @@ final class Terrain {
      * up to three times, and most of the chunks in sight are that near the map's edge.
      */
     private static final int RETRIED = 30;
+    /** The time the frames above stand for at a hundred frames a second: a faster PC waits it out as well, or a grid at the map's edge, which never settles, is worked out more often the faster the picture is drawn. */
+    private static final long RETRIED_NANOS = 300_000_000L;
     private static int frame;
+    private static long frameNanos;
 
     /** Logic thread, once a frame the picture is built. */
     static void frame(int number) {
         frame = number;
+        frameNanos = System.nanoTime();
     }
 
     private Terrain() {}
@@ -163,13 +168,14 @@ final class Terrain {
     static float[] corners(IsoCell cell, int wx, int wy) {
         int slot = slot(wx, wy);
         Grid grid = grids.get(slot);
-        if (grid != null && grid.wx == wx && grid.wy == wy && (grid.settled || frame - grid.stamp < RETRIED)) {
+        if (grid != null && grid.wx == wx && grid.wy == wy && (grid.settled || frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS)) {
             return grid.heights;
         }
         Grid fresh = new Grid();
         fresh.wx = wx;
         fresh.wy = wy;
         fresh.stamp = frame;
+        fresh.stampNanos = frameNanos;
         // In this order: gather looks for the water round each building, and the corners want the water round the chunk.
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
         streets(wx * CHUNK_TILES - LEVELLED, wy * CHUNK_TILES - LEVELLED);

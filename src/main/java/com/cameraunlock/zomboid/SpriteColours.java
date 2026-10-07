@@ -32,6 +32,9 @@ final class SpriteColours {
     private static long pageUsedNanos;
     /** A walk past new houses asks for a sprite every few frames: the page is let go only once nothing has been read for this long. */
     private static final long PAGE_KEPT_NANOS = 5_000_000_000L;
+    /** How many frames running a sheet with no size on the graphics card is waited for before its sprites are kept as painting nothing. */
+    private static final int WAITED_FOR_A_SHEET = 240;
+    private static int sizeless;
 
     private SpriteColours() {}
 
@@ -110,9 +113,23 @@ final class SpriteColours {
                 page = pageBlock.bytes;
             }
             GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
+            if (FirstPerson.TRACE) {
+                Log.info(String.format(java.util.Locale.ROOT, "sprite colours: a sheet of %d by %d copied back in %.2f ms", width, height, (System.nanoTime() - pageUsedNanos) / 1e6));
+            }
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, packBuffer);
+        if (width > 0 && height > 0) {
+            sizeless = 0;
+        } else if (++sizeless <= WAITED_FOR_A_SHEET) {
+            // The sheet is not on the graphics card yet. Its sprites wait behind the others: read now, each would be kept as painting nothing.
+            for (int i = waiting.size() - 1; i >= 0; i--) {
+                if (waiting.get(i).getID() == sheet) {
+                    waiting.add(waiting.remove(i));
+                }
+            }
+            return;
+        }
 
         int kept = 0;
         for (int i = 0; i < waiting.size(); i++) {

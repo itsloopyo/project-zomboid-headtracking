@@ -46,6 +46,14 @@ final class Roofs {
         float u, v;
         private int stamp;
         private boolean whole = true;
+        /** A tile of it on the map, which a reading of it can start from, and the frame it was last read again from there for a chunk that holds only what was made of it. */
+        private int x, y, z, revived;
+        /**
+         * How many frames it is kept before it is read again: from half of KEPT up to all of
+         * it, by where it is, so that the roofs of a street read in one frame do not all fall
+         * due in one frame ever after.
+         */
+        private int kept;
     }
 
     /** One tile of a roof as the fit left it. */
@@ -108,25 +116,47 @@ final class Roofs {
     /** The tile of roof on the square as its whole roof was fitted, or null for a square with no roof tile. */
     static Laid at(IsoCell cell, int x, int y, int z, int now, float scale) {
         if (now - cleared >= KEPT) {
-            laid.clear();
             cleared = now;
             forgetStale(now);
         }
         long key = RoofFit.key(x, y, z);
         Laid known = laid.get(key);
-        if (known == null || !known.roof.whole && now - known.roof.stamp >= RETRIED) {
+        if (known == null || due(known.roof, now)) {
+            // A tile that has gone from the map is not read back in.
+            laid.remove(key);
             read(cell, x, y, z, now, scale);
             known = laid.get(key);
         }
         return known;
     }
 
+    private static boolean due(Roof roof, int now) {
+        return now - roof.stamp >= (roof.whole ? roof.kept : RETRIED);
+    }
+
     /**
-     * Drops the made tiles and the caps of roofs not read again in MADE_KEPT frames. Each is
+     * Reads a roof again from its own tile when it is due and nothing has asked for a tile of
+     * it: a chunk that holds only its far slope or its ridge asks for no tile, and with the
+     * chunk its tiles are on left unbuilt, out of the view, the slope would be dropped as
+     * that of a roof long gone. True when it was read, and what is held of it replaced.
+     */
+    private static boolean revived(IsoCell cell, Roof roof, int now, float scale) {
+        // No oftener than a roof short of tiles is tried again: a reading that comes back short leaves what is held as it was, and still due.
+        if (!due(roof, now) || now - roof.revived < RETRIED) {
+            return false;
+        }
+        roof.revived = now;
+        read(cell, roof.x, roof.y, roof.z, now, scale);
+        return true;
+    }
+
+    /**
+     * Drops the tiles, the made tiles and the caps of roofs not read again in MADE_KEPT frames. Each is
      * already taken for gone by whoever asks for it, but only a chunk being built asks, so
      * without this a roof the player has left behind is held for the rest of the game.
      */
     private static void forgetStale(int now) {
+        laid.values().removeIf(one -> now - one.roof.stamp > MADE_KEPT);
         made.values().removeIf(back -> now - back.roof.stamp > MADE_KEPT);
         capped.values().removeIf(cap -> now - cap.roof.stamp > MADE_KEPT);
         // A chunk left with none is dropped with them, or a long drive leaves a list for every chunk passed.
@@ -143,6 +173,10 @@ final class Roofs {
     private static void read(IsoCell cell, int x, int y, int z, int now, float scale) {
         Roof roof = new Roof();
         roof.stamp = now;
+        roof.x = x;
+        roof.y = y;
+        roof.z = z;
+        roof.kept = KEPT / 2 + Math.floorMod(x * 31 + y * 17 + z, KEPT / 2);
         reading.clear();
         HashMap<Long, Boolean> seen = new HashMap<>();
         frame.scale = scale;
@@ -235,10 +269,15 @@ final class Roofs {
     }
 
     /** The caps of ridges and hips whose middles lie in a chunk, or null for a chunk with none. */
-    static ArrayList<Capped> cappedIn(int chunkX, int chunkY, int now) {
+    static ArrayList<Capped> cappedIn(IsoCell cell, int chunkX, int chunkY, int now, float scale) {
         ArrayList<Capped> held = cappedByChunk.get(RoofFit.key(chunkX, chunkY, 0));
         if (held == null) {
             return null;
+        }
+        for (int i = 0; i < held.size(); i++) {
+            if (revived(cell, held.get(i).roof, now, scale)) {
+                i = -1;
+            }
         }
         for (int i = held.size() - 1; i >= 0; i--) {
             Capped cap = held.get(i);
@@ -277,10 +316,15 @@ final class Roofs {
     }
 
     /** The tiles of the slopes the map leaves out that lie in a chunk, or null for a chunk with none. */
-    static ArrayList<Laid> madeIn(int chunkX, int chunkY, int now) {
+    static ArrayList<Laid> madeIn(IsoCell cell, int chunkX, int chunkY, int now, float scale) {
         ArrayList<Laid> held = madeByChunk.get(RoofFit.key(chunkX, chunkY, 0));
         if (held == null) {
             return null;
+        }
+        for (int i = 0; i < held.size(); i++) {
+            if (revived(cell, held.get(i).roof, now, scale)) {
+                i = -1;
+            }
         }
         for (int i = held.size() - 1; i >= 0; i--) {
             Laid back = held.get(i);
