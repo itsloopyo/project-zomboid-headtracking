@@ -424,20 +424,20 @@ public final class FirstPerson {
         } else {
             pressed = HeadTracking.pollHotkeys();
         }
-        if ((pressed & NativeConfig.FIRST_PERSON) != 0) {
+        if ((pressed & Config.FIRST_PERSON) != 0) {
             toggle();
         }
-        if ((pressed & NativeConfig.AIM_MODE) != 0) {
+        if ((pressed & Config.AIM_MODE) != 0) {
             said = HeadTracking.aimModeLabel();
             saidAt = System.nanoTime();
         }
         DevKeys.poll();
-        if ((pressed & NativeConfig.CYCLE_QUALITY) != 0) {
+        if ((pressed & Config.CYCLE_QUALITY) != 0) {
             HeadTracking.cycleGraphicsMode();
             said = "Graphics: " + Quality.name();
             saidAt = System.nanoTime();
         }
-        if ((pressed & NativeConfig.CYCLE_STYLE) != 0) {
+        if ((pressed & Config.CYCLE_STYLE) != 0) {
             HeadTracking.cycleStyle();
             said = "Style: " + Style.current().label;
             saidAt = System.nanoTime();

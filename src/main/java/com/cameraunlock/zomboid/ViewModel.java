@@ -442,7 +442,7 @@ public final class ViewModel {
             return Scope.forwardStop();
         }
         // The rifle's rear sight is on its barrel, further off than a lean reaches.
-        return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Settings.current.positionLimitZ() : FORWARD_STOP;
+        return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Float.POSITIVE_INFINITY : FORWARD_STOP;
     }
     /**
      * Where a handgun and a long gun are held to be loaded: the line of the barrel to the right

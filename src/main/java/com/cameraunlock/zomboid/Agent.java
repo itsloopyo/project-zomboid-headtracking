@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import com.cameraunlock.core.agent.Boot;
 import java.io.IOException;
 import java.lang.classfile.CodeBuilder;
 import java.lang.constant.ClassDesc;
@@ -95,22 +96,19 @@ public final class Agent {
 
     private static volatile boolean loaded;
 
-    static boolean loaded() {
-        return loaded;
-    }
-
     /** Called where the game has just logged an exception of any kind. */
     public static void caughtByTheGame(Throwable thrown) {
         Log.caughtByTheGame(thrown);
     }
 
-    /** Called by the JVM when Boot loads the agent into it, which is how an installed copy starts. */
+    /** Called by the JVM when cameraunlock-core's Boot loads the agent into it, which is how an installed copy starts. */
     public static void agentmain(String arguments, Instrumentation instrumentation) throws IOException {
         premain(arguments, instrumentation);
     }
 
     /** Called by the JVM for -javaagent, which is how the development run starts. */
     public static void premain(String arguments, Instrumentation instrumentation) throws IOException {
+        Boot.agentStarted();
         if (loaded) {
             // The development run starts an installed copy with -javaagent, and Boot then loads the agent again.
             Log.info("the agent was started a second time: the first start stands");
@@ -124,7 +122,7 @@ public final class Agent {
         try {
             start(gameDirectory, instrumentation);
         } catch (IOException | RuntimeException | Error failure) {
-            // Boot asks only whether the agent was loaded and starts the game either way, and
+            // Boot asks only whether the agent started and runs the game either way, and
             // nothing else puts the reason in this log: it would end here without one.
             Log.error("the mod could not start", failure);
             throw failure;

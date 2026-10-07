@@ -34,7 +34,8 @@ public final class Tests {
     private static Path logs;
 
     public static void main(String[] args) throws Throwable {
-        logs = Files.createTempDirectory("zomboid-headtracking-test");
+        // Under build, which each build clears: cameraunlock-core keeps the log open until the process ends.
+        logs = Files.createDirectories(Path.of("build", "test-run").toAbsolutePath());
         Log.open(logs);
         // A start is in the Low graphics mode, which shows nothing the mod made. The tests of what it made are of High.
         Quality.set(Quality.HIGH);
@@ -58,26 +59,15 @@ public final class Tests {
         reticleFollowsTheFieldOfView();
         nearPlaneKeepsItsCornersInsideTheLeanSkin();
         fieldOfViewSetIsTheOneDrawnWith();
-        lightLeadsTheHeadsYawAndIgnoresTheRest();
-        packetIsParsedAndValidated();
-        receiverTakesOnlyChangedPosesAndReadsLocality();
-        filterKeepsThePositionInsideItsLimits();
-        filterTellsTheLimitUpFromTheLimitDown();
-        filterSmoothsARemoteConnectionAndTurnsTheShortWay();
-        filterEasesBackWhenSamplesStop();
-        leanClampTightensAtOnceAndReleasesSlowly();
-        leanClampForgetsAWallOnAFrameWithNoLean();
+        lightTakesTheHeadingOfItsAngles();
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         AimTests.run();
-        ConfigTests.run();
         ArmTests.run();
         OwnArmTests.run();
         BufferTests.run();
         LinkTests.run();
         shotStopsOnACharacter();
-        receiverRefusesAPoseNoTrackerSends();
-        windowIsCentredInItsWorkArea();
         insertAfterAddsTheHookOnce();
         insertAfterRejectsAMissingCall();
         insertAfterRejectsTwoCalls();
@@ -87,7 +77,6 @@ public final class Tests {
         attackHoldsTheAimForAShortTail();
         keysHeldThroughTheLandingKeepTheirWalk();
         theGroundLosesItsLightWithTheSun();
-        zoomScalesWhatMovesAcrossThePicture();
         fieldOfViewEasesToTheAimedZoomAndBack();
         firstPersonKeysReplaceTheStockOnes();
         pointerComesOutForTheInventoryKeyAPanelAndAHeldButton();
@@ -170,9 +159,6 @@ public final class Tests {
         raiseLeavesTheStraightLineOnlyBetweenItsEnds();
         meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
         ShaderTests.run();
-        // A run that fails ends before this, and its log is left to be read.
-        Files.delete(logs.resolve(Log.FILE_NAME));
-        Files.delete(logs);
         System.out.println("all tests passed");
     }
 
@@ -1537,7 +1523,7 @@ public final class Tests {
                 check(near(corner, WorldScene.NEAR_CORNER_DISTANCE), "the near plane's corners are the asked distance from the eye");
             }
         }
-        check(WorldScene.NEAR_CORNER_DISTANCE < Settings.BUILT_IN.collisionMargin(), "the near plane's corners are nearer than a lean is held off a wall");
+        check(WorldScene.NEAR_CORNER_DISTANCE < Float.parseFloat(Config.COLLISION_MARGIN), "the near plane's corners are nearer than a lean is held off a wall");
     }
 
     private static void fieldOfViewSetIsTheOneDrawnWith() {
@@ -1549,187 +1535,33 @@ public final class Tests {
         FieldOfView.set(before);
     }
 
-    private static void lightLeadsTheHeadsYawAndIgnoresTheRest() {
+    /** The angles are the light's own, as cameraunlock-core hands them over: the head's by LightMultiplier. */
+    private static void lightTakesTheHeadingOfItsAngles() {
         ViewCamera.Pose level = cleanPose(0f, 0f, 1.6f, radians(200), 0f);
         ViewCamera.Pose down = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.Pose up = cleanPose(0f, 0f, 1.6f, radians(200), radians(89));
-        float lead = Settings.BUILT_IN.lightMultiplier();
-        check(near(HeadFollowLight.headingTurn(level, radians(20), 0f, 0f, true), radians(20) * lead),
-                "the beam turns the default multiple of the head's yaw");
-        check(near(HeadFollowLight.headingTurn(level, radians(-20), 0f, 0f, false), radians(-20) * lead),
+        check(near(HeadFollowLight.headingTurn(level, radians(30), 0f, 0f, true), radians(30)), "the beam turns by the light's yaw");
+        check(near(HeadFollowLight.headingTurn(level, radians(-30), 0f, 0f, false), radians(-30)),
                 "to the left too, and the same about the view's own up while the view is level");
-        check(near(HeadFollowLight.headingTurn(down, radians(20), 0f, 0f, true), radians(30)), "looking down changes nothing about straight up");
-        check(near(HeadFollowLight.headingTurn(up, radians(60), 0f, 0f, true), radians(90)), "nor does looking almost straight up");
-        check(near(HeadFollowLight.headingTurn(down, radians(20), radians(15), radians(20), true), radians(30)),
+        check(near(HeadFollowLight.headingTurn(down, radians(30), 0f, 0f, true), radians(30)), "looking down changes nothing about straight up");
+        check(near(HeadFollowLight.headingTurn(up, radians(90), 0f, 0f, true), radians(90)), "nor does looking almost straight up");
+        check(near(HeadFollowLight.headingTurn(down, radians(30), radians(22.5f), radians(30), true), radians(30)),
                 "pitch and roll turn no heading when the yaw is about straight up");
         // Yaw about a tipped up vector swings the view centre further over the ground: tan(turn) = tan(yaw) / cos(pitch).
-        check(near(HeadFollowLight.headingTurn(down, radians(20), 0f, 0f, false),
+        check(near(HeadFollowLight.headingTurn(down, radians(30), 0f, 0f, false),
                 (float) Math.atan(Math.tan(Math.toRadians(30)) / 0.5)), "about the view's own up it is the heading the view centre would take");
 
-        Settings.current = lightTurning(1f);
         ViewCamera.Pose view = cleanPose(0f, 0f, 1.6f, radians(200), radians(-60));
         ViewCamera.turn(view, radians(25), radians(10), radians(15), false);
         float viewTurn = (float) Math.atan2(view.forwardY, view.forwardX) + radians(360) - radians(200);
         check(near(HeadFollowLight.headingTurn(down, radians(25), radians(10), radians(15), false), viewTurn),
-                "at 1 the beam has the heading of the view");
-        Settings.current = Settings.BUILT_IN;
+                "given the view's own angles the beam has the heading of the view");
 
-        HeadFollowLight.follow(level, radians(60), 0f, 0f, true);
+        HeadFollowLight.follow(level, radians(90), 0f, 0f, true);
         check(near(HeadFollowLight.turn(), radians(90)), "a followed head turns the beam");
         HeadFollowLight.release();
         check(HeadFollowLight.turn() == 0f, "and a released beam is the game's");
-
-        Settings.current = lightTurning(0f);
-        check(near(HeadFollowLight.headingTurn(level, radians(20), radians(10), radians(5), true), 0f), "a multiplier of 0 leaves the beam on the aim");
-        Settings.current = Settings.BUILT_IN;
-    }
-
-    private static Settings lightTurning(float multiplier) {
-        Settings s = Settings.BUILT_IN;
-        return new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
-                s.positionEnabled(), s.trueFreeLook(), s.stockSights(), s.collisionEnabled(),
-                s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), s.positionLimitY(), s.positionLimitYDown(),
-                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), multiplier,
-                s.fieldOfView());
-    }
-
-    private static byte[] packet(double x, double y, double z, double yaw, double pitch, double roll) {
-        ByteBuffer buffer = ByteBuffer.allocate(48).order(ByteOrder.LITTLE_ENDIAN);
-        for (double value : new double[] {x, y, z, yaw, pitch, roll}) {
-            buffer.putDouble(value);
-        }
-        return buffer.array();
-    }
-
-    private static void packetIsParsedAndValidated() {
-        OpenTrackReceiver.Sample sample = OpenTrackReceiver.parse(packet(10, -20, 30, 1, 2, 3), 48, 5L);
-        check(near(sample.x(), 0.1f) && near(sample.y(), -0.2f) && near(sample.z(), 0.3f), "centimetres become metres");
-        check(sample.yaw() == 1f && sample.pitch() == 2f && sample.roll() == 3f, "angles stay in degrees");
-        check(OpenTrackReceiver.parse(packet(0, 0, 0, 0, 0, 0), 47, 5L) == null, "a short datagram is dropped");
-        check(OpenTrackReceiver.parse(packet(0, 0, 0, Double.NaN, 0, 0), 48, 5L) == null, "a NaN is dropped");
-        check(OpenTrackReceiver.parse(packet(0, Double.POSITIVE_INFINITY, 0, 0, 0, 0), 48, 5L) == null, "an infinity is dropped");
-        check(OpenTrackReceiver.parse(packet(1e300, 0, 0, 0, 0, 0), 48, 5L) == null, "a value too large for a float is dropped");
-    }
-
-    private static void receiverTakesOnlyChangedPosesAndReadsLocality() throws Exception {
-        OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
-        InetAddress loopback = InetAddress.getByName("127.0.0.1");
-        InetAddress lan = InetAddress.getByName("192.168.1.20");
-        check(receiver.latest() == null && !receiver.isFresh(), "nothing before the first packet");
-        receiver.accept(packet(0, 0, 0, 5, 0, 0), 48, loopback, System.nanoTime());
-        OpenTrackReceiver.Sample first = receiver.latest();
-        check(first != null && !receiver.isRemote() && receiver.isFresh(), "a loopback packet is a local connection");
-        receiver.accept(packet(0, 0, 0, 5, 0, 0), 48, loopback, System.nanoTime());
-        check(receiver.latest() == first, "a repeat of the same pose is not a new sample");
-        receiver.accept(packet(0, 0, 0, Double.NaN, 0, 0), 48, lan, System.nanoTime());
-        check(!receiver.isRemote(), "a datagram that is dropped does not change the connection's locality");
-        receiver.accept(packet(0, 0, 0, 6, 0, 0), 48, lan, System.nanoTime());
-        check(receiver.latest() != first && receiver.isRemote(), "a packet from another address is a remote connection");
-    }
-
-    private static OpenTrackReceiver.Sample sample(double x, double y, double z, double yaw, double pitch, double roll, long nanos) {
-        return OpenTrackReceiver.parse(packet(x * 100, y * 100, z * 100, yaw, pitch, roll), 48, nanos);
-    }
-
-    private static void filterKeepsThePositionInsideItsLimits() {
-        PoseFilter filter = new PoseFilter();
-        filter.update(sample(1, 1, -1, 10, 20, 30, 1L), false, 1f / 60f);
-        check(near(filter.x(), 0.30f) && near(filter.y(), 0.20f) && near(filter.z(), -0.40f),
-                "the forward lean, negative z, gets the large allowance");
-        check(filter.yaw() == 10f && filter.pitch() == 20f && filter.roll() == 30f, "the first pose is taken as it is");
-        filter.reset();
-        filter.update(sample(-1, -1, 1, 0, 0, 0, 2L), false, 1f / 60f);
-        check(near(filter.x(), -0.30f) && near(filter.y(), -0.20f) && near(filter.z(), 0.10f),
-                "the backward lean, positive z, gets the small one");
-    }
-
-    private static void filterTellsTheLimitUpFromTheLimitDown() {
-        Settings s = Settings.BUILT_IN;
-        Settings.current = new Settings(s.udpPort(), s.dataFreshnessMs(), s.enableOnStartup(), s.worldSpaceYaw(), s.rotationEnabled(),
-                s.positionEnabled(), s.trueFreeLook(), s.stockSights(), s.collisionEnabled(),
-                s.localSmoothing(), s.remoteSmoothing(), s.positionLimitX(), 0.30f, 0.05f,
-                s.positionLimitZ(), s.positionLimitZBack(), s.collisionMargin(), s.collisionReleaseSmoothing(), s.lightMultiplier(),
-                s.fieldOfView());
-        try {
-            PoseFilter filter = new PoseFilter();
-            filter.update(sample(0, 1, 0, 0, 0, 0, 1L), false, 1f / 60f);
-            check(near(filter.y(), 0.30f), "a head raised gets the limit up");
-            filter.reset();
-            filter.update(sample(0, -1, 0, 0, 0, 0, 2L), false, 1f / 60f);
-            check(near(filter.y(), -0.05f), "and one lowered the limit down");
-        } finally {
-            Settings.current = Settings.BUILT_IN;
-        }
-    }
-
-    private static void filterSmoothsARemoteConnectionAndTurnsTheShortWay() {
-        check(PoseFilter.effectiveSmoothing(0.1f, 0.7f, false) == 0.1f && PoseFilter.effectiveSmoothing(0.1f, 0.7f, true) == 0.7f,
-                "the connection selects the smoothing value");
-        check(near(1f / 50f, (float) (-1.0 / 60 / Math.log(1 - PoseFilter.smoothingFactor(0f, 1f / 60f)))),
-                "no smoothing is a 20 ms time constant");
-
-        float[] yawAfter = new float[2];
-        for (int remote = 0; remote < 2; remote++) {
-            PoseFilter filter = new PoseFilter();
-            filter.update(sample(0, 0, 0, 0, 0, 0, 1L), remote == 1, 1f / 60f);
-            for (int frame = 0; frame < 3; frame++) {
-                filter.update(sample(0, 0, 0, 30, 0, 0, 2L), remote == 1, 1f / 60f);
-            }
-            yawAfter[remote] = filter.yaw();
-        }
-        check(yawAfter[0] > yawAfter[1] && yawAfter[1] > 0f, "a remote connection is smoothed more than a local one");
-
-        PoseFilter filter = new PoseFilter();
-        filter.update(sample(0, 0, 0, 179, 0, 0, 1L), false, 1f / 60f);
-        filter.update(sample(0, 0, 0, -179, 0, 0, 2L), false, 1f / 60f);
-        check(Math.abs(filter.yaw()) > 178f, "yaw crosses the 180 degree seam the short way");
-    }
-
-    private static void filterEasesBackWhenSamplesStop() {
-        PoseFilter filter = new PoseFilter();
-        filter.update(sample(0, 0, 0, 0, 0, 0, 1L), false, 0.02f);
-        OpenTrackReceiver.Sample last = sample(0, 0, 0, 10, 0, 0, 2L);
-        for (int frame = 0; frame < 200; frame++) {
-            filter.update(last, false, 0.02f);
-        }
-        check(near(filter.yaw(), 10f), "a feed that stops leaves the view at the last pose it sent, not past it");
-    }
-
-    private static void leanClampTightensAtOnceAndReleasesSlowly() {
-        LeanClamp clamp = new LeanClamp();
-        float[] room = {1f};
-        LeanClamp.Room query = (x, y, up, reach) -> Math.min(room[0], reach);
-
-        float[] offset = {0.3f, 0f, 0f};
-        check(near(clamp.apply(offset, 1f / 60f, query), 0.3f) && !clamp.inContact(), "open ground gives the whole lean");
-
-        room[0] = 0.1f;
-        offset = new float[] {0.3f, 0f, 0f};
-        check(near(clamp.apply(offset, 1f / 60f, query), 0.1f) && near(offset[0], 0.1f) && clamp.inContact(),
-                "a wall stops the lean in the same frame");
-
-        room[0] = 1f;
-        offset = new float[] {0.3f, 0f, 0f};
-        float released = clamp.apply(offset, 1f / 60f, query);
-        check(released > 0.1f && released < 0.15f, "the lean opens back up gradually when the wall clears");
-        for (int frame = 0; frame < 600; frame++) {
-            offset = new float[] {0.3f, 0f, 0f};
-            released = clamp.apply(offset, 1f / 60f, query);
-        }
-        check(near(released, 0.3f) && !clamp.inContact(), "and gets all the way back");
-    }
-
-    private static void leanClampForgetsAWallOnAFrameWithNoLean() {
-        LeanClamp clamp = new LeanClamp();
-        float[] room = {0.1f};
-        LeanClamp.Room query = (x, y, up, reach) -> Math.min(room[0], reach);
-        float[] offset = {0.3f, 0f, 0f};
-        check(near(clamp.apply(offset, 1f / 60f, query), 0.1f) && clamp.inContact(), "a wall stops the lean");
-        room[0] = 1f;
-        check(clamp.apply(new float[3], 1f / 60f, query) == 0f && !clamp.inContact(), "a frame with no lean touches nothing");
-        offset = new float[] {0.3f, 0f, 0f};
-        check(near(clamp.apply(offset, 1f / 60f, query), 0.3f) && near(offset[0], 0.3f) && !clamp.inContact(),
-                "and the lean after it, in open ground, is whole at once");
+        check(HeadFollowLight.headingTurn(level, 0f, 0f, 0f, true) == 0f, "angles of nought, which a multiplier of 0 gives, leave the beam on the aim");
     }
 
     private static void gridTraceFindsTheFirstBlockedEdge() {
@@ -1804,43 +1636,6 @@ public final class Tests {
     private static void cameraTurnsRightWithPositiveYaw() {
         float[] view = cleanView(0f, 0f, 1.6f, (float) Math.toRadians(20), 0f);
         check(project(view, 10f, 0f, 1.6f)[0] < 0f, "turning right moves what was ahead to the left");
-    }
-
-    private static void receiverRefusesAPoseNoTrackerSends() throws Exception {
-        ByteBuffer wire = ByteBuffer.allocate(OpenTrackReceiver.PACKET_BYTES)
-                .order(ByteOrder.LITTLE_ENDIAN);
-        double limit = OpenTrackReceiver.MAX_MAGNITUDE;
-        for (int channel = 0; channel < OpenTrackReceiver.PACKET_BYTES / Double.BYTES; channel++) {
-            for (double sign : new double[] {1, -1}) {
-                wire.putDouble(channel * Double.BYTES, sign * limit);
-                check(OpenTrackReceiver.parse(wire.array(), OpenTrackReceiver.PACKET_BYTES, 1L) != null,
-                        "value " + channel + " is taken at the limit");
-                // Finite as floats, and two of them a float's range apart overflow the step between them.
-                for (double tooFar : new double[] {limit * 1.01, 3e38}) {
-                    wire.putDouble(channel * Double.BYTES, sign * tooFar);
-                    check(OpenTrackReceiver.parse(wire.array(), OpenTrackReceiver.PACKET_BYTES, 1L) == null,
-                            "value " + channel + " is dropped at " + sign * tooFar);
-                }
-            }
-            wire.putDouble(channel * Double.BYTES, 0);
-        }
-
-        OpenTrackReceiver receiver = new OpenTrackReceiver(4242, 500);
-        int pitch = 4 * Double.BYTES;
-        wire.putDouble(pitch, 5);
-        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, InetAddress.getByName("127.0.0.1"), System.nanoTime());
-        OpenTrackReceiver.Sample kept = receiver.latest();
-        check(kept != null && kept.pitch() == 5f, "a pose a tracker sends is taken");
-        wire.putDouble(pitch, -3e38);
-        receiver.accept(wire.array(), OpenTrackReceiver.PACKET_BYTES, InetAddress.getByName("192.168.1.20"), System.nanoTime());
-        check(receiver.latest() == kept && !receiver.isRemote(), "a pose out of range changes neither the pose nor the connection's locality");
-    }
-
-    private static void windowIsCentredInItsWorkArea() {
-        check(WindowPlacement.centredOrigin(0, 5120, 1936) == 1592, "a window is centred across a work area at the origin");
-        check(WindowPlacement.centredOrigin(0, 1392, 1119) == 136, "a window is centred down a work area a taskbar shortens");
-        check(WindowPlacement.centredOrigin(-1920, 1920, 1296) == -1608, "a monitor left of the primary has a negative origin");
-        check(WindowPlacement.centredOrigin(40, 1040, 759) == 180, "a work area below a top taskbar starts below it");
     }
 
     /** A 128x256 frame at tile scale 2 held whole in a texture, as the game's doubled tiles are. */
@@ -2107,53 +1902,6 @@ public final class Tests {
         check(aim.held(true, false, start + frame), "but the game's own aim input still does");
     }
 
-    private static void zoomScalesWhatMovesAcrossThePicture() {
-        float base = (float) Math.tan(Math.toRadians(65) / 2), aimed = base * FieldOfView.AIMED_ZOOM;
-        check(ZoomCompensation.factor(base, base) == 1f, "unzoomed, the factor is exactly 1");
-        float factor = ZoomCompensation.factor(aimed, base);
-        check(near(factor, FieldOfView.AIMED_ZOOM), "zoomed, it is the ratio of the tangents");
-        check(ZoomCompensation.scaleAngle(radians(10), 1f) == radians(10), "an angle is untouched unzoomed");
-        for (float degrees : new float[] {-170f, -100f, 100f, 170f}) {
-            check(near(ZoomCompensation.scaleAngle(radians(degrees), 1f), radians(degrees)),
-                    "a head turned " + degrees + " degrees is left there unzoomed, not put a half turn away");
-            float zoomed = ZoomCompensation.scaleAngle(radians(degrees), factor);
-            check(Math.signum(zoomed) == Math.signum(degrees) && Math.abs(zoomed) > radians(90),
-                    "and stays past the right angle on its own side when zoomed");
-        }
-
-        // A head yaw puts a point that was dead ahead off to one side. Where it lands on
-        // screen has to be the same zoomed and unzoomed.
-        ViewCamera.Pose clean = cleanPose(3f, 4f, 1.6f, radians(30), 0f);
-        float aheadX = clean.eyeX + clean.forwardX * 8f, aheadY = clean.eyeY + clean.forwardY * 8f;
-        float[] hip = new float[2], sights = new float[2];
-        for (float degrees : new float[] {-40f, -10f, 5f, 25f}) {
-            ViewCamera.Pose turned = new ViewCamera.Pose();
-            turned.set(clean);
-            ViewCamera.turn(turned, radians(degrees), 0f, 0f, true);
-            ViewCamera.project(turned, base, ASPECT, aheadX, aheadY, clean.eyeUp, hip);
-            turned.set(clean);
-            ViewCamera.turn(turned, ZoomCompensation.scaleAngle(radians(degrees), factor), 0f, 0f, true);
-            ViewCamera.project(turned, aimed, ASPECT, aheadX, aheadY, clean.eyeUp, sights);
-            check(near(hip[0], sights[0]), "a head yaw of " + degrees + " degrees moves the picture as far zoomed as unzoomed");
-        }
-
-        // Looking along +x: a lean of 0.2 along the view, 0.3 across it and 0.1 up.
-        float[] lean = {0.2f, 0.3f, 0.1f};
-        ZoomCompensation.scaleLean(lean, 1f, 0f, 0f, 0.5f);
-        check(near(lean[0], 0.2f), "the lean along the view is left whole");
-        check(near(lean[1], 0.15f) && near(lean[2], 0.05f), "the lean across the view is scaled");
-        float[] slanted = {0.3f, 0.3f, 0f};
-        float diagonal = (float) Math.sqrt(0.5);
-        ZoomCompensation.scaleLean(slanted, diagonal, diagonal, 0f, 0.5f);
-        check(near(slanted[0], 0.3f) && near(slanted[1], 0.3f), "a lean straight along a slanted view is left whole");
-        float[] across = {0.3f, -0.3f, 0f};
-        ZoomCompensation.scaleLean(across, diagonal, diagonal, 0f, 0.5f);
-        check(near(across[0], 0.15f) && near(across[1], -0.15f), "and one straight across it is scaled whole");
-        float[] same = {0.2f, 0.3f, 0.1f};
-        ZoomCompensation.scaleLean(same, 0.6f, 0f, 0.8f, 1f);
-        check(near(same[0], 0.2f) && near(same[1], 0.3f) && near(same[2], 0.1f), "unzoomed, a lean is untouched");
-    }
-
     private static void fieldOfViewEasesToTheAimedZoomAndBack() {
         FieldOfView.rest();
         float set = FieldOfView.setTanHalfVertical();
@@ -2313,7 +2061,7 @@ public final class Tests {
 
     private static void exceptionTheGameCaughtFromTheModIsWrittenOnce() throws Exception {
         // What the tests before this wrote is no part of what is read back.
-        Log.open(logs);
+        int before = Files.readString(logs.resolve(Log.FILE_NAME)).length();
         RuntimeException theGames = new RuntimeException("the game's own");
         theGames.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
         Log.caughtByTheGame(theGames);
@@ -2324,7 +2072,7 @@ public final class Tests {
                     new StackTraceElement("zombie.gameStates.IngameState", "renderFrameInternal", "IngameState.java", 1)});
             Log.caughtByTheGame(new IllegalStateException("wrapped by the game", fromTheMod));
         }
-        String written = Files.readString(logs.resolve(Log.FILE_NAME));
+        String written = Files.readString(logs.resolve(Log.FILE_NAME)).substring(before);
         check(!written.contains("the game's own"), "an exception none of which came through the mod is left to the game's log");
         check(written.split("the game caught this from the mod", -1).length == 2, "a fault that comes every frame is written once, got: " + written);
         check(written.contains("thrown in a hook") && written.contains("FirstPerson.afterWorldRender"), "it is written with its cause and where in the mod it was thrown");

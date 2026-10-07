@@ -6,6 +6,4 @@ public final class Display {
     }
 
     public static long getWindow() { throw stub(); }
-    public static boolean isFullscreen() { throw stub(); }
-    public static boolean isBorderlessWindow() { throw stub(); }
 }

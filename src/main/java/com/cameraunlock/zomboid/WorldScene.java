@@ -6508,7 +6508,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView)),
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3],
                     Math.toDegrees(2 * Math.atan(tanHalfSet)),
-                    ZoomCompensation.factor(tanHalfFieldOfView, tanHalfSet), near));
+                    HeadTracking.zoomFactor(), near));
         }
         Characters.aim.set(aim);
         // What the picture does without for an eye thousands of tiles off, it has again once

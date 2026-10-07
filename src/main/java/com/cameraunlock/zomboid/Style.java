@@ -17,7 +17,7 @@ enum Style {
     /** Washed out and flat under a faint drab cast, nearer the colours of the game's own view. */
     BLEAK("Bleak", 0.08f, 0.72f, 0.24f, 0.05f, 0f, new float[] {0.97f, 1f, 0.96f}, new float[] {1.03f, 1f, 0.94f});
 
-    /** The row's word. The numbers are the order here (native/src/config.h holds the same). */
+    /** The row's word. Its number is its place here: Config describes the row with words(). */
     final String label;
     /** How far the picture is bent towards an S, dark made darker and bright brighter: 0 leaves it as the film gave it. */
     final float curve;
@@ -56,6 +56,15 @@ enum Style {
 
     static Style current() {
         return row;
+    }
+
+    /** The words CameraUnlock.ini holds for the row, in the order of the styles, with commas between. */
+    static String words() {
+        StringBuilder words = new StringBuilder();
+        for (Style each : values()) {
+            words.append(words.isEmpty() ? "" : ",").append(each.label);
+        }
+        return words.toString();
     }
 
     /** The style the hotkey goes to from the one the session is in. */

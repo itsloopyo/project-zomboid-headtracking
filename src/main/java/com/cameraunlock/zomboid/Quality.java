@@ -14,7 +14,7 @@ import java.util.Locale;
  * thread reads the rest as it draws a frame. set and frame take turns.
  */
 final class Quality {
-    /** The row's words, as the mod's DLL hands them over (native/src/config.h holds the same numbers). */
+    /** The row's words by number: the number is the word's place in words(), which Config describes the row with. */
     static final int AUTOMATIC = 0, LOW = 1, MEDIUM = 2, HIGH = 3;
     private static final String[] NAMES = {"Automatic", "Low", "Medium", "High"};
 
@@ -48,6 +48,11 @@ final class Quality {
 
     static String name() {
         return NAMES[row];
+    }
+
+    /** The words CameraUnlock.ini holds for the row, in the order of their numbers, with commas between. */
+    static String words() {
+        return String.join(",", NAMES);
     }
 
     /**

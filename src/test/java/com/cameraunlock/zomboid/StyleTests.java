@@ -27,8 +27,7 @@ final class StyleTests {
         check(Style.VIVID.next() == Style.NATURAL, "the hotkey goes from Vivid to Natural");
         check(Style.NATURAL.next() == Style.BLEAK, "from Natural to Bleak");
         check(Style.BLEAK.next() == Style.VIVID, "and from Bleak round to Vivid");
-        check(Style.VIVID.ordinal() == 0 && Style.NATURAL.ordinal() == 1 && Style.BLEAK.ordinal() == 2,
-                "the order is the numbers native/src/config.h gives the row's words");
+        check(Style.words().equals("Vivid,Natural,Bleak"), "the row's words in CameraUnlock.ini are the styles in their order");
     }
 
     private static void vividIsThePictureAsItWas() {

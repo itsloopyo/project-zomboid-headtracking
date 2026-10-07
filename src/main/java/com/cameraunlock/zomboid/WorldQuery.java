@@ -32,6 +32,11 @@ final class WorldQuery {
         this.level = level;
     }
 
+    /** Whether there is a map to ask. There is none while no save is being looked at. */
+    boolean mapped() {
+        return cell != null;
+    }
+
     private boolean blocked(int fromX, int fromY, int toX, int toY, boolean glassBlocks) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
@@ -50,16 +55,15 @@ final class WorldQuery {
 
     /**
      * How far the eye can move from (x, y) along a unit vector before it is
-     * within the collision margin of a wall, capped at reach. Three rays, the middle
+     * within the margin of a wall, capped at reach. Three rays, the middle
      * one through the eye and one each side of it, so a wall's end beside the
      * path counts as well as a wall across it.
      */
-    float roomForTheEye(float x, float y, float directionX, float directionY, float reach) {
+    float roomForTheEye(float x, float y, float directionX, float directionY, float reach, float margin) {
         float ground = (float) Math.sqrt(directionX * directionX + directionY * directionY);
         if (ground < 1e-4f) {
             return reach;
         }
-        float margin = Settings.current.collisionMargin();
         float sideX = -directionY / ground * margin;
         float sideY = directionX / ground * margin;
         float room = reach;

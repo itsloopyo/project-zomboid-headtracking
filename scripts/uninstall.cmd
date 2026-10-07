@@ -19,7 +19,7 @@
 :: --- CONFIG BLOCK ---
 set "GAME_ID=project-zomboid"
 set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
-set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking.dll"
+set "MOD_DLLS=ProjectZomboidHeadTracking.jar CameraUnlockCore.dll"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "STATE_FILE=.headtracking-state.json"
 :: BepInEx | MelonLoader | MonoCecil | ASILoader | REFramework | UE4SS | xNVSE
@@ -27,7 +27,7 @@ set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=JavaAgent"
 :: DLL names shipped by older versions of this mod, removed too so an upgrade
 :: does not leave a second copy for the loader to bind.
-set "LEGACY_DLLS="
+set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll"
 :: BepInEx: subfolder under BepInEx\plugins\ the DLLs were deployed into.
 set "PLUGIN_SUBFOLDER="
 :: Files install.cmd seeded write-if-absent. MUST list the same names as
@@ -38,7 +38,7 @@ set "MOD_SEED_FILES="
 set "PRESERVE_FILES=CameraUnlock.ini"
 :: Config and log files the mod writes at runtime, removed from wherever the
 :: DLLs were deployed.
-set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log"
+set "MOD_LEFTOVERS=ProjectZomboidHeadTracking.log ProjectZomboidHeadTracking.prev.log"
 :: Files to remove from the game root. Only needed by a mod deployed BELOW the
 :: root (see ASI_SUBDIR) that still resolves its config and log from the exe's
 :: own directory.

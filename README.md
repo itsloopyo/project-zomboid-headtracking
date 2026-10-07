@@ -51,12 +51,12 @@ Run `install.cmd` again after a game update. The installer builds its launch set
 
 Mod managers do not deploy this mod: it needs a launch settings file built from the one in your own game folder, which an archive cannot carry. To place the files by hand:
 
-1. Copy `plugins\ProjectZomboidHeadTracking.jar` and `plugins\ProjectZomboidHeadTracking.dll` from the installer ZIP into the game folder, next to `ProjectZomboid64.exe`.
+1. Copy `plugins\ProjectZomboidHeadTracking.jar` and `plugins\CameraUnlockCore.dll` from the installer ZIP into the game folder, next to `ProjectZomboid64.exe`.
 2. In the same folder, copy `ProjectZomboid64.json` to a new file named `ProjectZomboid64.site.json`. The game's launcher reads the site file in place of the stock one when it is there.
 3. Open `ProjectZomboid64.site.json` and make three changes:
-   - Note the value of `mainClass`, then change it to `"com/cameraunlock/zomboid/Boot"`.
+   - Note the value of `mainClass`, then change it to `"com/cameraunlock/core/agent/Boot"`.
    - Add `"ProjectZomboidHeadTracking.jar"` as the last entry of the `classpath` list.
-   - Add `"-Dcameraunlock.mainClass=zombie/gameStates/MainScreenState"` and `"-XX:+EnableDynamicAgentLoading"` as the first two entries of the `vmArgs` list. The part after `=` is the `mainClass` value you noted.
+   - Add `"-Dcameraunlock.mainClass=zombie/gameStates/MainScreenState"`, `"-XX:+EnableDynamicAgentLoading"` and `"--enable-native-access=ALL-UNNAMED"` as the first three entries of the `vmArgs` list. The part after the `=` of the first is the `mainClass` value you noted.
 
 There is no mod loader to install. The mod is a Java agent that the game's own Java runtime loads. It does not use or need any other first person mod; those are alternatives to this one.
 
@@ -506,20 +506,22 @@ game draws them.
 
 ## Troubleshooting
 
-Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `ProjectZomboid64.exe`, starting it again on each launch.
+Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `ProjectZomboid64.exe`, starting it again on each launch and keeping the launch before as `ProjectZomboidHeadTracking.prev.log`.
 
 **Mod not loading**
 
 - If there is no log after a launch, the Java agent was not loaded. Check that `ProjectZomboidHeadTracking.jar` and `ProjectZomboid64.site.json` are both next to the exe, and run `install.cmd` again if either is missing.
 - If `install.cmd` stops because a `ProjectZomboid64.site.json` that does not load this mod is already there, that file belongs to you or to another mod and the installer will not overwrite it. Make the three changes to it by hand (see [Manual Installation](#manual-installation)).
 - If `Delete` does nothing, the log says why on a `first person stays off:` line.
+- If the log is one `could not start, and the game runs without it` entry, `ProjectZomboidHeadTracking.jar` and `CameraUnlockCore.dll` next to the exe are not from the same release, or the DLL is missing. The entry says which. Run `install.cmd` from one release again.
 - If the log has a `the mod stays out of the game:` line, a game update changed something the mod uses and the game is running without the mod. The `not in this build of the game as the mod uses it:` lines above it name what changed. The mod needs an update for that build of the game.
 
 **No tracking response**
 
 - Head tracking only moves the view in first person. Press `Delete` once you are in a game. In the game's own view it turns your character's head and nothing else.
-- Look for `head tracking listening on UDP port 4242` in the log. A `head tracking cannot open UDP port 4242` line means the port could not be opened, and it gives the reason the Java runtime gave. `Address already in use` is what it gives when another program holds the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs the listening line when it has it. The runtime gives the same reason for a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
-- Look for `first tracking packet from` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started.
+- Look for `Listening for OpenTrack datagrams on UDP port 4242` in the log. A `Failed to bind UDP port 4242` line in its place means the port could not be opened, and it carries the error number Windows gave. Error 10048 is another program holding the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs `Bound UDP port 4242` when it has it. Error 10013 is a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
+- Look for `First UDP packet received` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started. The mod listens on IPv4, so a tracker set to send to `::1` or another IPv6 address reaches nothing: send to `127.0.0.1`.
+- The mod follows one tracker at a time. If two programs send to the port, it stays with the first it heard until that one has been silent for two seconds, and the log has a `a SECOND tracker source is sending to this port` line naming both. Stop the one you do not mean.
 - Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.
 
 **Jittery or unstable tracking**
@@ -550,11 +552,11 @@ Download the new release and run `install.cmd` again. Your config is preserved.
 
 ## Uninstalling
 
-Run `uninstall.cmd`. This removes the mod's jar and DLL, the `ProjectZomboid64.site.json` the installer wrote, and the log, and leaves `CameraUnlock.ini` and the game's own files as they were. The mod uses no mod loader, so `uninstall.cmd /force`, which removes a loader the installer did not put there, has nothing further to remove.
+Run `uninstall.cmd`. This removes the mod's jar and DLL, the `ProjectZomboid64.site.json` the installer wrote, and the logs, and leaves `CameraUnlock.ini` and the game's own files as they were. The mod uses no mod loader, so `uninstall.cmd /force`, which removes a loader the installer did not put there, has nothing further to remove.
 
 ## Building from Source
 
-Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake and Visual Studio with the C++ workload. Pixi provides the JDK, CMake and Visual Studio build the DLL that reads the settings file, and the build needs no game install.
+Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake and Visual Studio with the C++ workload. Pixi provides the JDK, CMake and Visual Studio build `CameraUnlockCore.dll` from the cameraunlock-core submodule, and the build needs no game install.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git
@@ -580,7 +582,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [The Indie Stone](https://theindiestone.com) - developer and publisher of Project Zomboid. Thanks to The Indie Stone for creating [Project Zomboid](https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
-- [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the settings file reader and hotkey handling compiled into the mod's DLL, and the shared installer scripts
+- [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the tracker receiver, the pose pipeline, the settings file and the hotkeys, as the `CameraUnlockCore.dll` the mod loads, and the shared installer scripts
 - [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth and the shade of each brick
 - [glsl-fxaa](https://github.com/mattdesl/glsl-fxaa) (BSD-3-Clause) - the FXAA pass that smooths edges in the first person picture
 - [Stable Diffusion XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) - the model the surface textures and the pictures on walls were generated with, from text prompts alone

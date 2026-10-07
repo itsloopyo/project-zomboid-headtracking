@@ -7,7 +7,7 @@ channels = ["conda-forge"]
 platforms = ["win-64"]
 
 [dependencies]
-# CMake and Visual Studio, which build the DLL in native/, come from the system.
+# CMake and Visual Studio, which build CameraUnlockCore.dll from the submodule, come from the system.
 # The game runs on a bundled Java 25 runtime, and the agent uses the
 # java.lang.classfile API that became final in Java 24, so the build needs the
 # same major version and no bytecode library.
@@ -32,9 +32,10 @@ test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test
 clean = "powershell -NoProfile -Command \"Get-Item build, build-native, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
 
 # Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
-# first launch, from the config table after a change to a row, a comment or a default, then
-# rewrites the per_game of a launcher-manifest.json config descriptor where there is one.
-render-config = { cmd = "build-native/Release/config_tests.exe --render-config config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
+# first launch, from the rows Config.java describes to cameraunlock-core, after a change to a row,
+# a comment or a default, then rewrites the per_game of a launcher-manifest.json config descriptor
+# where there is one.
+render-config = { cmd = "java --enable-native-access=ALL-UNNAMED -cp \"build/classes;build/test-classes\" com.cameraunlock.zomboid.RenderConfig config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
 
 # The installer ZIP and a development ZIP (the same, with the development jar
 # in it) in release/. package-release.ps1 says why there is no Nexus ZIP.
@@ -44,7 +45,7 @@ package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/p
 validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
 validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
 
-# Deploys the built jar, its DLL and the site JVM config to every installed copy
+# Deploys the built jar, cameraunlock-core's DLL and the site JVM config to every installed copy
 # of the game. A path after the task name deploys to that one folder instead.
 install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
 # /y keeps it prompt-free: pixi gives a task no console to read from.

@@ -18,7 +18,7 @@ package com.cameraunlock.zomboid;
  * it was built with to the render thread.
  */
 final class FieldOfView {
-    /** The row's default in the config table (native/src/config.h holds the same number). */
+    /** The row's default in the config table (Config). */
     static final float DEFAULT_DEGREES = 65f;
 
     /** The tangent of half the angle with a firearm aimed, over the tangent the player set: 50 degrees at the default 65. */
@@ -40,7 +40,7 @@ final class FieldOfView {
     /**
      * Takes effect on the next frame built.
      *
-     * @param newDegrees as cameraunlock-core's config owner read it, which holds it to the row's range
+     * @param newDegrees as cameraunlock-core read it, which holds it to the row's range
      */
     static void set(float newDegrees) {
         degrees = newDegrees;

@@ -1,8 +1,8 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds only this project's own classes, three of
-which carry the pieces of shader code listed under Shader code below, and
-ProjectZomboidHeadTracking.dll this project's own code and cameraunlock-core's.
+ProjectZomboidHeadTracking.jar holds this project's own classes, three of which
+carry the pieces of shader code listed under Shader code below, and two classes
+of cameraunlock-core's. CameraUnlockCore.dll is cameraunlock-core's code alone.
 The components below are what they ship beside, link against at run time, or
 interoperate with. Each remains the property of its authors and is used under
 its own licence.
@@ -36,11 +36,11 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## cameraunlock-core
 
-- **Version:** commit 4a253c33fe06814547c680a3b633029b3319d2c5
+- **Version:** commit 29c708766bed394e9928ec9a58012283cdf9eb4c
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
-- **Usage:** Its C++ settings file reader and writer and its hotkey poller are compiled into `ProjectZomboidHeadTracking.dll`, which the jar loads. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides. None of its code is compiled into the jar.
-- **Bundled:** yes. Compiled into the DLL, and the script bodies go in the release ZIP's `shared` folder.
+- **Usage:** `CameraUnlockCore.dll` is built from it: the OpenTrack receiver, the pose pipeline, the settings file reader and writer, the hotkey poller and the log, which the jar loads from beside itself. Its two Java classes, the binding to that DLL and the class the game's launcher starts the mod through, are compiled into the jar. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides.
+- **Bundled:** yes. The DLL, the two classes in the jar, and the script bodies in the release ZIP's `shared` folder.
 
 Copyright (c) 2026 itsloopyo
 
@@ -51,7 +51,7 @@ Copyright (c) 2026 itsloopyo
 - **Version:** n/a
 - **License:** ISC
 - **Upstream:** https://github.com/opentrack/opentrack
-- **Usage:** The mod's own receiver reads the OpenTrack UDP pose datagram; it is protocol interoperability only.
+- **Usage:** cameraunlock-core's receiver reads the OpenTrack UDP pose datagram; it is protocol interoperability only.
 - **Bundled:** no. No OpenTrack code is included or linked.
 
 ---

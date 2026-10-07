@@ -16,8 +16,9 @@ import zombie.iso.Vector2;
  * aim and facing still read the look direction as it was.
  *
  * The beam lies on the ground, so it has a heading and nothing else. The
- * heading it is given is the one the view would have with the head's pose
- * multiplied, which at a multiplier of 1 is the middle of the picture.
+ * heading it is given is the one the view would have with the head's angles
+ * as cameraunlock-core multiplies them for a light (LightMultiplier), which at
+ * a multiplier of 1 is the middle of the picture.
  */
 public final class HeadFollowLight {
     private static final ViewCamera.Pose scaled = new ViewCamera.Pose();
@@ -27,22 +28,21 @@ public final class HeadFollowLight {
     private HeadFollowLight() {}
 
     /**
-     * How far the heading of a view turns when the head's pose, multiplied, is
-     * composed onto it the way the camera composes it. Radians, positive to the
+     * How far the heading of a view turns when the light's angles are composed
+     * onto it the way the camera composes the head's. Radians, positive to the
      * right. A view pushed past straight up or down faces the other way, and so
      * does its heading.
      */
-    static float headingTurn(ViewCamera.Pose clean, float headYaw, float headPitch, float headRoll, boolean worldYaw) {
+    static float headingTurn(ViewCamera.Pose clean, float lightYaw, float lightPitch, float lightRoll, boolean worldYaw) {
         scaled.set(clean);
-        float multiplier = Settings.current.lightMultiplier();
-        ViewCamera.turn(scaled, headYaw * multiplier, headPitch * multiplier, headRoll * multiplier, worldYaw);
+        ViewCamera.turn(scaled, lightYaw, lightPitch, lightRoll, worldYaw);
         return (float) Math.atan2(clean.forwardX * scaled.forwardY - clean.forwardY * scaled.forwardX,
                 clean.forwardX * scaled.forwardX + clean.forwardY * scaled.forwardY);
     }
 
-    /** The beam follows this frame's head pose, in radians, over the clean view. */
-    static void follow(ViewCamera.Pose clean, float headYaw, float headPitch, float headRoll, boolean worldYaw) {
-        turn = headingTurn(clean, headYaw, headPitch, headRoll, worldYaw);
+    /** The beam follows this frame's angles for a light, in radians, over the clean view. */
+    static void follow(ViewCamera.Pose clean, float lightYaw, float lightPitch, float lightRoll, boolean worldYaw) {
+        turn = headingTurn(clean, lightYaw, lightPitch, lightRoll, worldYaw);
     }
 
     /** The beam goes back to where the game points it. */
@@ -72,6 +72,6 @@ public final class HeadFollowLight {
     }
 
     static String describe() {
-        return String.format(Locale.ROOT, "light turned %.2f at %.2fx", Math.toDegrees(turn), Settings.current.lightMultiplier());
+        return String.format(Locale.ROOT, "light turned %.2f at %.2fx", Math.toDegrees(turn), HeadTracking.lightMultiplier());
     }
 }

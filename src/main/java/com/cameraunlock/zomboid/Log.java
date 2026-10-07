@@ -1,9 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import com.cameraunlock.core.CameraUnlock;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
@@ -11,26 +11,45 @@ import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * The mod's log, ProjectZomboidHeadTracking.log in the game's folder. It is cameraunlock-core's
+ * file log, so the lines of the mod's Java and the lines of core's receiver, config owner and
+ * hotkeys are in one file in the order they happened. Core keeps the run before as
+ * ProjectZomboidHeadTracking.prev.log.
+ */
 final class Log {
     static final String FILE_NAME = "ProjectZomboidHeadTracking.log";
 
     private static final String MOD_PACKAGE = Log.class.getPackageName() + ".";
     private static final Set<String> CAUGHT = ConcurrentHashMap.newKeySet();
 
-    private static PrintWriter out;
+    private static CameraUnlock core;
 
     private Log() {}
 
+    /**
+     * Loads cameraunlock-core and opens its log. This is the first thing the mod does, so a DLL
+     * that is missing or is from another build of the mod is found here, where core's log cannot
+     * be written: the reason is then written to the file from here, and it is all the file holds.
+     */
     static synchronized void open(Path directory) throws IOException {
-        if (out == null) {
-            // A log that ends without this line is a game that was killed or crashed.
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> info("game process ending"), "CameraUnlock-Log"));
+        Path file = directory.resolve(FILE_NAME);
+        try {
+            core = Core.library();
+            core.logOpen(file);
+        } catch (RuntimeException failure) {
+            StringWriter trace = new StringWriter();
+            failure.printStackTrace(new PrintWriter(trace, true));
+            Files.writeString(file, LocalTime.now().truncatedTo(ChronoUnit.MILLIS) + " ERROR Project Zomboid Head Tracking could not start,"
+                    + " and the game runs without it: " + failure.getMessage() + System.lineSeparator() + trace);
+            throw failure;
         }
-        out = new PrintWriter(Files.newBufferedWriter(directory.resolve(FILE_NAME), StandardCharsets.UTF_8), true);
+        // A log that ends without this line is a game that was killed or crashed.
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> info("game process ending"), "CameraUnlock-Log"));
     }
 
-    static synchronized void info(String message) {
-        out.println(LocalTime.now().truncatedTo(ChronoUnit.MILLIS) + " " + message);
+    static void info(String message) {
+        core.logWrite(message);
     }
 
     /**

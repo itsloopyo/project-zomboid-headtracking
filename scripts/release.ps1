@@ -104,7 +104,6 @@ try {
     try {
         New-ChangelogFromCommits -ChangelogPath (Join-Path $ProjectRoot 'CHANGELOG.md') -Version $target -ArtifactPaths @(
             'src/',
-            'native/',
             'scripts/',
             'pixi.toml',
             'cameraunlock-core'

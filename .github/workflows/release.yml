@@ -19,7 +19,7 @@ jobs:
       # the jar's manifest.
       version-source: pixi
       version-path: 'pixi.toml'
-      artifact-paths: 'src/ native/ scripts/ pixi.toml launcher-manifest.json cameraunlock-core'
+      artifact-paths: 'src/ scripts/ pixi.toml launcher-manifest.json cameraunlock-core'
       # No .NET or MSBuild: the JDK comes from the pixi environment.
     permissions:
       contents: write

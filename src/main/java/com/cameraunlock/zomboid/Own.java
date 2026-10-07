@@ -12,7 +12,7 @@ package com.cameraunlock.zomboid;
  * What was built with the rows as they were is let go by the logic thread: see taken.
  */
 final class Own {
-    /** The bits of the rows that are on, as the mod's DLL hands them over (native/src/bridge.h holds the same numbers). */
+    /** The bits of the rows that are on, in the order Config describes the rows of [Content]. */
     static final int WEAPONS = 1, FURNITURE = 2, PICTURES = 4, PLANTS = 8, TEXTURES = 16, BUILDINGS = 32, ZOMBIES = 64, PEOPLE = 128, ARMS = 256;
     static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS;
 
