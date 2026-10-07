@@ -6,9 +6,9 @@ package com.cameraunlock.zomboid;
  * In the game's own view a key moves the character along the screen, and in first person
  * along the view. The view lands facing the way the character faced when the key for first
  * person was pressed, and the keys are the view's from that moment: left to the game until
- * the camera landed, a key pressed while it flew in was a direction on the screen, turned
- * the character to it, and the view landed looking that way and not the way the character
- * had faced. A key already held at that moment would turn the walk the other way about, by
+ * the camera landed, a key pressed while it flew in would be a direction on the screen and
+ * turn the character to it, and the view would land looking that way and not the way the
+ * character had faced. A key already held at that moment would turn the walk the other way about, by
  * the angle between the screen's forward and the character's. The keys held then go on
  * meaning the walk they were making, turned with the view from there on, for as long as they
  * stay held. Other keys pressed while the camera flies in, or within a short time of its

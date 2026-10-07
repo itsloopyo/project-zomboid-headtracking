@@ -21,7 +21,10 @@ import java.util.Arrays;
 final class SpriteGeometry {
     /**
      * Floats per vertex in a Mesh: x, y, up, u, v, red, green, blue, how open to the sky the
-     * vertex's square is, then the unit vector its face looks along.
+     * vertex's square is, the vector its face looks along, its length 1 plus how far the vertex
+     * moves with the wind, then what Mesh keeps as along and nearer, and 1 for a card that turns
+     * to the camera or 2 for one that stands clear of its plane. A strip of addStrip carries
+     * other things in the vector's place.
      */
     static final int VERTEX_FLOATS = 15;
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */
@@ -145,7 +148,7 @@ final class SpriteGeometry {
 
     /**
      * Meshes by texture name: open addressing with a power of two length, at most half full.
-     * A lookup runs for every sprite of every frame, and a map keyed by Integer would box each one.
+     * A lookup runs for every sprite of every chunk built, and a map keyed by Integer would box each one.
      *
      * A set is filled with one chunk's triangles, read, and emptied for the next chunk's. It
      * keeps its meshes between fillings, each with the room its texture last needed, so that

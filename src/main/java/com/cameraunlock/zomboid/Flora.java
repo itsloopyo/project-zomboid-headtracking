@@ -14,7 +14,7 @@ import java.util.HashMap;
 final class Flora {
     /**
      * What a vertex is made of, as SpriteGeometry.Frame.material carries it: numbers above
-     * those of the mod's furniture, which end at 47. The world shader has the same numbers.
+     * those of the mod's furniture, which end at 51. The world shader has the same numbers.
      */
     static final float LITTER = 56f, TRUNK = 57f, IVY = 58f, ROCK = 59f, FROND = 60f, LEAF = 61f, FLOWER = 62f, BUSH = 63f;
 
@@ -189,8 +189,8 @@ final class Flora {
     /**
      * A crown is not one round mass but several boughs, each a mass of its own with hollows
      * between: how far in from the crown's reach the deepest hollow lies, as a share of the
-     * reach, how much darker it is there than on a bough's top (most of the way up a swell the
-     * crown is as dark as it was before it had boughs), and how much more the light
+     * reach, how much darker it is there than on a bough's top (0.7 of the way up a swell
+     * the boughs change nothing), and how much more the light
      * is made of the swell than its true slope gives.
      */
     private static final float BOUGH_HOLLOW = 0.34f, BOUGH_SHADE = 0.3f, BOUGH_RELIEF = 1.4f;

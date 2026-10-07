@@ -13,8 +13,9 @@ import java.util.HashMap;
  * south and east, which stand on the squares just outside it, carry its siding. The skin of a
  * wall on the side its sprite was painted for shows the sprite. The other skin keeps the
  * sprite's outline, its windows and doors, and is painted over in the colour of the surface
- * that side has: out of doors the finish of the whole building, which is the sprite most of
- * its south and east walls show, and indoors the sprite most of that room's own walls show.
+ * that side has: out of doors the finish of the room behind it, which is the sprite most of
+ * that room's south and east walls show, and indoors the sprite most of that room's own walls
+ * show. See WallFinish.
  */
 final class WallSides {
     /** How a skin is painted over: plain paint, or boards lapped one over the next. */
@@ -141,7 +142,7 @@ final class WallSides {
 
     /**
      * As key, for a wall the picture lays: the colour of its bricks, boards or stones, the
-     * colour of its joints, and BRICK, LAPPED or STONE. The first colour is kept twice as
+     * colour of its joints, and BRICK, LAPPED, STONE or BLOCK. The first colour is kept twice as
      * finely as a painted skin's. A wall is many sprites, with a window in one and a door in
      * the next, each read on its own, and two that came a sixteenth apart would show as a step
      * down the wall where they meet.

@@ -5,8 +5,8 @@ package com.cameraunlock.zomboid;
  *
  * The game holds its daylight at full until the season's dusk and only then lets it fall, over
  * the two and a half hours to midnight. The picture's sun has set by dusk and its sky is the
- * night's a little after, so for over an hour the ground was lit as at noon under a black sky
- * full of stars. Here the open ground's light follows the sun: it begins to go as the sun gets
+ * night's a little after, so for over an hour the ground would be lit as at noon under a black
+ * sky full of stars. Here the open ground's light follows the sun: it begins to go as the sun gets
  * low and is the night's by the time the sky is. It is never more than the game gives, so once
  * the game's own light has fallen the picture is the game's again.
  *

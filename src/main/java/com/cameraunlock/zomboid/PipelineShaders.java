@@ -314,7 +314,10 @@ final class PipelineShaders {
             }
             """;
 
-    /** In two parts joined when the class loads: as one constant the shader is longer than a class file can hold. */
+    /**
+     * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF and
+     * WORLD_FRAGMENT_MAIN on after it: as one constant the shader is longer than a class file can hold.
+     */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
@@ -979,7 +982,7 @@ final class PipelineShaders {
                 // The game's sprites have no smaller copies of themselves for when they are far
                 // off, and a pixel of the picture then lands on one texel of several, a
                 // different one each frame as the eye moves: leaves and fences sparkle. So a
-                // pixel that covers more than a texel takes four samples spread over what it
+                // pixel that covers more than a texel takes nine samples spread over what it
                 // covers, each weighed by how solid it is, and is as solid as their mean.
                 vec2 stepX = dFdx(vUv), stepY = dFdy(vUv);
                 bool small = uTexel.x > 0.0 && max(dot(stepX, stepX), dot(stepY, stepY)) > 1.3 * uTexel.x * uTexel.x;
@@ -1001,8 +1004,8 @@ final class PipelineShaders {
                 // The skin of a wall that faces away from the side its sprite was painted for
                 // keeps the sprite's outline, its windows and doors, and nothing else of it:
                 // the sprite's light and dark are the other side's wallpaper or boards. It is
-                // the colour of the surface its own side has. uTint.a is 1 for paint, 2 for
-                // boards lapped one over the next, and 0 for everything else.
+                // the colour of the surface its own side has. uTint.a is 1 for paint and 2 for
+                // boards lapped one over the next. From 4 up the wall is laid further down.
                 if (uTint.a > 0.5 && uTint.a < 3.5) {
                     texel.rgb = arcTone(uTint.rgb, vWorld);
                     if (uTint.a > 1.5) {
@@ -1870,9 +1873,10 @@ final class PipelineShaders {
                         discard;
                     }
                 }
-                // Every pixel that is left out has been left out by here. Asked only where the
-                // solid world is, the program stops: what follows is the light, which is most
-                // of its work. See Pipeline.drawWorld.
+                // Every pixel of the solid world that is left out has been left out by here: the
+                // one cut after this is of what is laid over the ground, which is never drawn
+                // for its depth alone. Asked only where the solid world is, the program stops:
+                // what follows is the light, which is most of its work. See Pipeline.drawWorld.
                 if (uDepthOnly > 0.5) {
                     gl_FragColor = vec4(0.0);
                     return;
@@ -2030,8 +2034,9 @@ final class PipelineShaders {
                 if (roofing && min(texel.r, min(texel.g, texel.b)) > 0.99) {
                     texel.rgb = vec3(0.3, 0.3, 0.32);
                 }
-                // So are the mod's own kerbs, of concrete, and the walls of its quays, of dark
-                // wet timber.
+                // So is what the mod builds plain, a ceiling, a soffit and the sides of an opening
+                // through a wall, which is pale, and the walls of its quays and its gutters,
+                // which are dark.
                 if (vMaterial > 8.5 && vMaterial < 10.5) {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
@@ -2118,8 +2123,6 @@ final class PipelineShaders {
                     texel.rgb *= mix(1.0, fine, much);
                 }
 
-                // A card stands in for something with depth and leaves, a bush or a tree, which
-                // the sun gets into from any side: it is lit whichever way the card faces.
                 bool water = vKind > 3.5 && !grass;
                 float foam = 0.0;
                 if (water) {
@@ -2186,6 +2189,8 @@ final class PipelineShaders {
                     // The sun on a leaf's back reaches the underside of a crown as well as its sunny side.
                     leafBehind = (0.5 + 0.5 * round) * max(-turned, 0.0) * leafThrough;
                 } else if (card) {
+                    // A card stands in for something with depth and leaves, a bush or a tree, which
+                    // the sun gets into from any side: it is lit whichever way the card faces.
                     facing = 0.5 + 0.4 * facing;
                 }
                 float sun = 0.0;
@@ -2817,7 +2822,7 @@ final class PipelineShaders {
             uniform sampler2D uScene;
             uniform vec3 uSunEye;
 
-            // Where the pixel at uv is, seen from the eye: x to the right, y up, z ahead, in tiles.
+            // Where what the picture shows at a place in it is, seen from the eye: x to the right, y up, z ahead, in tiles.
             vec3 placeAt(vec2 at) {
                 // This pass is half the picture's size, so the middle of each of its pixels is
                 // the corner of four of the picture's, and which of the four a read there
@@ -2930,7 +2935,7 @@ final class PipelineShaders {
             }
             """;
 
-    /** Averages the occlusion over the four by four pixels its sampling pattern repeats in, which takes the grain out. */
+    /** Averages a half-size pass, the occlusion, the lit air or the clouds, over four by four of its pixels, which takes the grain of its sampling out. */
     static final String SOFTEN = """
             #version 120
             uniform sampler2D uSource;
@@ -3052,8 +3057,9 @@ final class PipelineShaders {
      * against the world's depth, and this pass then puts them into the picture that holds
      * light: under the sun where the shadow maps say it reaches them, behind the haze.
      *
-     * The source is held in two halves and joined when the class loads: a class file holds no
-     * one string of more than 65535 bytes, and the whole of it is longer.
+     * The source is held in pieces, here, in CabinShader and in CharacterDraw, and joined when
+     * Pipeline loads: a class file holds no one string of more than 65535 bytes, and the whole
+     * of it is longer.
      */
     static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uFigure;
@@ -3177,9 +3183,6 @@ final class PipelineShaders {
                 return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
             }
 
-            // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
-            // a glancing angle, and the dust and dried rain on it, which stay put on the glass
-            // as the car moves. on is the place on the pane, in tiles.
             // The driver's place is laid out at one and a half times the size a vehicle is
             // drawn at, and is brought down to it where it is traced.
             const float CABIN = 0.6667;
@@ -3194,13 +3197,6 @@ final class PipelineShaders {
                 return length(v - a - along * clamp(dot(v - a, along) / dot(along, along), 0.0, 1.0)) - width;
             }
 
-            // The driver's end of a cabin, which the game's model has as a six-sided ring on
-            // a flat board: a wheel with a padded rim, a hub and three spokes, the stalks
-            // behind it, the shroud of its column, a hooded binnacle for the instruments and
-            // the mirror on the screen. p is measured from the eye along the vehicle, across
-            // it and up; uWheel is the wheel's middle and radius and uWheelAxis the way its
-            // column runs. Returns how far p is from the nearest of them, and in part which:
-            // 1 rim, 2 hub, 3 spoke, 4 stalk, 5 shroud, 6 binnacle, 7 mirror.
             // A spoke from the hub out to the rim at a turn, flat and dished like the rim.
             float spokeAt(vec3 w, vec2 way, float radius, float dish) {
                 float along = clamp(dot(w.xy, way), 0.0, radius);
@@ -3237,6 +3233,13 @@ final class PipelineShaders {
             // is more than 0.04 off, and at less, what is further off in proportion.
             float gRoughly = 0.0;
 
+            // The driver's end of a cabin, which the game's model has as a six-sided ring on
+            // a flat board: a wheel with a padded rim, a hub and its spokes, the stalks
+            // behind it, the shroud of its column, a hooded binnacle for the instruments and
+            // the mirror on the screen. p is measured from the eye along the vehicle, across
+            // it and up; uWheel is the wheel's middle and radius and uWheelAxis the way its
+            // column runs. Returns how far p is from the nearest of them, and in part which:
+            // 1 rim, 2 hub, 3 spoke, 4 stalk, 5 shroud, 6 binnacle, 7 mirror.
             float cabinAt(vec3 p, out float part) {
                 vec3 q = p - uWheel.xyz;
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
@@ -3447,10 +3450,6 @@ final class PipelineShaders {
                 return length(p - way * along);
             }
 
-            // The face of an instrument, at p from its middle with its rim at 1. Left of the
-            // column is the speedometer, right of it the rev counter with the fuel gauge in
-            // its foot. uGauges is the road speed, the engine's speed and the fuel, each as a
-            // part of the gauge's full scale. Glow is how much of the colour is lit from behind.
             // A strip speedometer: a wide slot with its scale along the bottom and a needle
             // that slides, a square fuel gauge at its left end, and warning lamps beneath.
             // p runs -1 to 1 across the slot and up it.
@@ -3484,6 +3483,11 @@ final class PipelineShaders {
                 return face;
             }
 
+            // The face of a round instrument, at p from its middle with its rim at 1. right
+            // is its kind: 0 the speedometer, 1 the rev counter with the fuel gauge in its
+            // foot, 2 a small fuel gauge, 3 a small gauge with its needle at the middle.
+            // uGauges is the road speed, the engine's speed and the fuel, each as a part of
+            // the gauge's full scale. Glow is how much of the colour is lit from behind.
             vec3 dialFace(vec2 p, float right, out float glow) {
                 float out2 = length(p);
                 glow = 0.0;
@@ -3576,6 +3580,9 @@ final class PipelineShaders {
 
             vec4 flared(vec4 glass, vec3 look, float dirt);
 
+            // A pane seen from the seat, over the world behind it: the sky it mirrors, more at
+            // a glancing angle, and the dust and dried rain on it, which stay put on the glass
+            // as the car moves. on is the place on the pane, in tiles.
             vec4 pane(vec2 on, vec3 n, vec3 view, float swept) {
                 float dust = smoothstep(0.35, 0.85, noise2(on * 5.0) * 0.55 + noise2(on * 15.0 + 3.0) * 0.3 + noise2(on * 61.0) * 0.15);
                 float runs = smoothstep(0.62, 0.95, noise2(vec2(on.x * 46.0, on.y * 2.2)));
@@ -3876,7 +3883,7 @@ final class PipelineShaders {
                 vec4 figure = texture2D(uFigure, uv);
                 vec2 ndc = uv * 2.0 - 1.0;
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
-                // Behind the wheel, two round instruments in the dash, seen through its rim.
+                // The instruments in the dash behind the wheel, seen through its rim.
                 bool wheel = false;
                 bool dial = false;
                 vec2 dialAt = vec2(0.0);
@@ -4373,7 +4380,6 @@ final class PipelineShaders {
                         vec2 off = vec2(cos(turn), sin(turn)) * wide / uSize;
                         panes += glass(uv + off * 5.0) + glass(uv + off.yx * vec2(-11.0, 11.0)) + glass(uv + off * 17.0);
                     }
-                    // Told by its triangles, a pane's edge is already the line it should be.
                     // Told by its triangles, a pane's edge is the straight line it should be.
                     // What the triangles cannot tell is whether a pillar or a seat stands in
                     // front of a pane further off: there the colours round about are not glass's.
@@ -4413,8 +4419,6 @@ final class PipelineShaders {
                 vec3 sunLight = pow(uLightColor, vec3(2.2));
                 float facing = clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0);
                 vec3 fromSky = mix(vec3(0.42, 0.40, 0.36), vec3(0.72, 0.80, 0.95), 0.5 + 0.5 * n.z);
-                // The cabin is lit through its windows from every side, though its own roof
-                // keeps the sun off it.
                 // A cabin is lit through its windows by the sky there is: a great deal by day, next
                 // to nothing on a dark night. The game's own light for the seat is what it gives a
                 // closed room, and taken whole it left dark trim black at noon, so it counts for
@@ -4667,7 +4671,7 @@ final class PipelineShaders {
                     }
                 }
                 // A ray that met nothing went on into the sky. The sky it went into is in the
-                // picture at the last place the ray was seen, clouds and all, and that is what
+                // picture, clouds and all, and that is what
                 // the water shows: without this, water mirrors clouds far off and not near by,
                 // with a line across it where the one gives way to the other.
                 // Where in the picture the sky the ray went into is: the place its direction

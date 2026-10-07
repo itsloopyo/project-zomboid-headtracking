@@ -17,8 +17,8 @@ import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * The first-person view: whether it is on, where it looks, and the three
- * places it meets the game.
+ * The first-person view: whether it is on, where it looks, and the places
+ * it meets the game.
  *
  * Switching between the two views flies the camera from the one to the other:
  * see Flight. The view is played in once the camera has landed at the eye, and
@@ -34,7 +34,8 @@ import zombie.vehicles.BaseVehicle;
  * tracking turns and moves the picture alone, and the game's reticle is drawn
  * where the aim meets the world in that picture.
  *
- * Everything here runs on the game's logic thread.
+ * Everything here runs on the game's logic thread, but for coversTheGamesView,
+ * which the render thread asks as well.
  */
 public final class FirstPerson {
     /** F8 in the key codes the game's keyboard uses. Nothing in the game's default bindings uses it or F9. */
@@ -647,7 +648,7 @@ public final class FirstPerson {
         cursorY = Math.round(IsoUtils.YToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
     }
 
-    /** Whether the world round the player has been built once, unseen, this session. */
+    /** Whether the world round the player has been built, seen or unseen, since the view last gave back what it held. */
     private static boolean rehearsed;
     private static int rehearsals;
 

@@ -1036,7 +1036,7 @@ public final class Characters {
 
     /**
      * Draws the models within reach of the eye as the light sees them, into a shadow map. The
-     * viewer is among them: a first-person view has no body yet, but it has a shadow.
+     * viewer is among them, for their shadow.
      */
     static void cast(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
@@ -1161,9 +1161,9 @@ public final class Characters {
                     continue;
                 }
             }
-            // Drawn in full light. The game dims a model by the light where it stands and the
-            // picture then lit it again, which left people dull and dark at noon; the game's
-            // light is kept as a figure and the picture does the lighting once.
+            // Drawn in full light. The game dims a model by the light where it stands, and the
+            // picture lights it too: the game's light is kept as a figure and the picture does
+            // the lighting once.
             float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
             ambientSum += (red + green + blue) / 3f;
             data.ambientR = 1f;
@@ -1210,7 +1210,8 @@ public final class Characters {
 
     /**
      * A person standing in the world. The viewer's own body is the game's to draw, part by
-     * part; of anyone else the picture draws the parts it can itself and leaves the game the
+     * part, unless a weapon is held up: the picture then draws it without the arms on the
+     * weapon. Of anyone else the picture draws the parts it can itself and leaves the game the
      * rest, what they hold and what hangs from them.
      */
     private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, boolean held, boolean bothHands) {

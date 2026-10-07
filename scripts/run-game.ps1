@@ -1,6 +1,7 @@
 # Starts every installed copy of the game with the built agent loaded, waits,
 # stops it and prints the agent's log. Development only: nothing is written to
-# the install except the log the agent itself creates.
+# the install except the log the agent itself creates and the CameraUnlock.ini
+# the config owner creates there when the copy has none.
 param(
     [int]$Seconds = 90
 )

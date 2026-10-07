@@ -398,7 +398,7 @@ final class Scope {
      * eye behind, sights locked and stock sights, the scope's reticle is on the point the
      * rounds go to and the game's would only lie over it. In the free look modes the scope's
      * is true only from behind the scope, and the game's stays as the mark of where the
-     * rounds go (owner, 2026-10-05).
+     * rounds go.
      */
     static boolean hidesReticle() {
         return fitted != null && !HeadTracking.freeLook();
@@ -591,7 +591,7 @@ final class Scope {
 
     /**
      * Draws the scope placed over the picture, into the depth of what the mod draws in the
-     * viewer's hands (HeldDepth, made ready for the frame before this), behind whatever of the
+     * viewer's hands (HeldDepth, which the caller has made ready for this frame), behind whatever of the
      * viewer's hands is nearer than it, and then into the picture's own depth.
      *
      * @param camera     where the frame is drawn from

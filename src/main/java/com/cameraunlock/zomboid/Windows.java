@@ -72,7 +72,8 @@ final class Windows {
     /**
      * The window the sprite paints on the north or west edge of its square. Null until a frame
      * has been drawn since it was first asked for, and for a sprite that is no window in a
-     * frame with four straight sides: an arch, a fanlight, a sheet of stained glass.
+     * frame with four straight sides, nor such a frame under an arched head: a round window, a
+     * sheet of stained glass.
      */
     static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
         Shape shape = known.get(texture);
@@ -201,7 +202,8 @@ final class Windows {
 
     /**
      * The window in a sprite laid flat on its wall: dots holds across dots a row, the top row
-     * first, each EMPTY, GLASS or FRAME. Null for what is no frame with four straight sides.
+     * first, each EMPTY, GLASS or FRAME. Null for what is no frame with four straight sides,
+     * nor such a frame under an arched head.
      */
     static Shape measure(byte[] dots, int across, int high) {
         return measure(dots, across, high, false);

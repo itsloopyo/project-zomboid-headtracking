@@ -113,8 +113,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     /**
      * One chunk's triangles as they were last built. Most of the world does not change from
-     * one frame to the next, so a chunk is only built again when it is due: every frame near
-     * the eye, where a door may open or a light come on, and every so many frames further off.
+     * one frame to the next, so a chunk is only looked at again when it is due, every frame near
+     * the eye, where a door may open or a light come on, and every so many frames further off,
+     * and built again only when what it is built from has changed or it has been kept as long
+     * as a build is.
      *
      * A build is never changed once made. The render thread may still be drawing a frame that
      * shows it, so a chunk that is due gets a new one and the old goes back to be used again
@@ -270,7 +272,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
     }
 
-    /** A chunk nearer the eye than this is built every frame. */
+    /** A chunk nearer the eye than this falls due every second or third frame, and one within a chunk and a half of the eye every frame: see buildEvery. */
     private static final float BUILT_EVERY_FRAME = 20f;
     private static final float BUILT_OFTEN = 44f;
     /** Chunks within this of the eye are drawn whichever way the view faces: what is behind the eye still casts a shadow into the picture. */
@@ -561,7 +563,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     static final float BED_HEIGHT = 0.2f;
     /** How much of a tree's trunk sprite, from the ground up, is its bole. */
     private static final float BOLE = 0.42f;
-    /** How far from the eye grass stands up, in tiles, and how many tufts a square of it has. Chunks this near are built every frame. */
+    /** How far from the eye a lawn's grass stands up, in tiles. */
     private static final float GRASS_REACH = 16f;
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
@@ -617,7 +619,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The tangent of how far round a chunk the eye may have gone since its build, seen from the chunk's nearest point: two degrees. */
     private static final float HELD_ROUND = 0.035f;
 
-    /** How far the eye may be from where a chunk's build was made from, in tiles, and the build still do. */
+    /** How far the eye may be from where what grows on a chunk was made from, in tiles, and that build still do. */
     private static float heldWithin(ViewCamera.Pose view, float distance, float middleX, float middleY) {
         return Math.max(EYE_HELD_WITHIN * Math.max(1f, distance / (CHUNK_TILES * 1.5f)), nearest(view, middleX, middleY) * HELD_ROUND);
     }
@@ -967,9 +969,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // a second, where it was read through on every frame.
                 long since = start - (missing ? 0L : current.checkedNanos);
                 // A head that is tracked is never where it was to the last bit, and neither is a
-                // player standing in a crowd. An eye within a few millimetres of where a chunk
-                // was built from, looking the same way to a quarter of a degree, is still as far
-                // as that chunk goes: its cards would turn by less than can be seen.
+                // player standing in a crowd. Of where the eye is a build holds only its band and
+                // how far apart its layers stand, so it still stands while the eye is in the band
+                // and the layers stand far enough apart.
                 // A build with no sum cannot be found unchanged: while the eye moves it is made again
                 // in its turn, as one the eye has left behind is, and not at once.
                 float nearest = nearest(view, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
@@ -991,16 +993,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
                     due = false;
                 }
-                // The eye's place is in every build: which way a card faces, how far apart
-                // two sprites on one plane stand, how much detail a square is given. While it
-                // moves a chunk that is due is made again. While it is still, what the build
-                // would read of the map is summed first, and a chunk whose sum is what its
-                // build's was is kept: a new build would be the same triangles.
+                // What the build of a chunk that is due would read of the map is summed first,
+                // and a chunk whose sum is what its build's was, with the eye still in the
+                // build's band, is kept until it is as old as a build is kept: a new build
+                // would be the same triangles.
                 long read = 0;
                 int summedFrom = missing ? frames : current.summedFrom;
-                // A build made while the eye moves is summed as well where the eye will be as good
-                // as there for some frames to come: those frames then find it unchanged, where a
-                // build with no sum would be made a second time for one.
+                // Every build is summed, whether or not the eye moves, but for one of a chunk
+                // found changed a moment ago: see summedFrom.
                 float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
                 boolean summed = (missing || due) && frames >= summedFrom;
                 if (missing || due) {
@@ -1269,8 +1269,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
     }
 
-    /** How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to be made by how far off it is: the furthest of the rings and a chunk's reach. */
+    /** How far the eye may be, in tiles, from where what grows on a chunk was made from before it is made again. */
     private static final float GROWN_HELD_WITHIN = 0.5f;
+    /** How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to be made by how far off it is: the furthest of the rings and a chunk's reach. */
     private static final float GROWN_WITHIN = Math.max(Math.max(FERN_REACH, GRASS_REACH), Math.max(FALLEN_REACH, FLOWER_REACH)) + CHUNK_REACH;
 
     /**
@@ -1281,7 +1282,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * chunk with a plant in it was a different build at every step. By band, a chunk is the
      * same build until it crosses into the next, about two chunks a frame at a car's speed.
      * The further out a band ends the more chunks cross its end, so the last ends where a crown
-     * stops being made, and a bole is made only as far as that, where it was made to sixty tiles.
+     * stops being made, and a bole is made only as far as that.
      */
     private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
@@ -1525,8 +1526,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      */
     private static int buildEvery(float distance, int slot) {
         if (distance < BUILT_EVERY_FRAME) {
-            // The chunk the eye is in and those round it every frame: their cards turn fastest
-            // as the eye moves. The rest of the near ones every second or third.
+            // The chunk the eye is in and those round it every frame, the rest of the near
+            // ones every second or third.
             return distance < CHUNK_TILES * 1.5f ? 1 : 2 + slot % 2;
         }
         return distance < BUILT_OFTEN ? 6 + slot % 4 : 18 + slot % 9;

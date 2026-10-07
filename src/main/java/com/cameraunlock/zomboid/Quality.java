@@ -14,7 +14,7 @@ import java.util.Locale;
  * the rest as it draws a frame.
  */
 final class Quality {
-    /** The row's words, as the mod's DLL hands them over (native/src/bridge.h holds the same numbers). */
+    /** The row's words, as the mod's DLL hands them over (native/src/config.h holds the same numbers). */
     static final int AUTOMATIC = 0, LOW = 1, MEDIUM = 2, HIGH = 3;
     private static final String[] NAMES = {"Automatic", "Low", "Medium", "High"};
 

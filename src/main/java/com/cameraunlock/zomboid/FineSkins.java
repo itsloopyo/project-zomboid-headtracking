@@ -249,6 +249,9 @@ public final class FineSkins {
     private static boolean waiting, gone;
     private static boolean goneSaid;
 
+    private static final int SIZE_HELD = 128;
+    private static int said, ownSaid;
+
     /**
      * What the picture's draw should wear in place of the texture the game gives a part: a
      * finer one where the pack has what it takes, or the game's own. Composing a finer one
@@ -256,9 +259,6 @@ public final class FineSkins {
      * putting back the state the game remembers, not the picture's: all of it is put back
      * here, and the caller sets its own state after this, not before. Render thread only.
      */
-    private static final int SIZE_HELD = 128;
-    private static int said, ownSaid;
-
     static Texture of(Texture bound) {
         try {
             return finer(bound);

@@ -354,7 +354,6 @@ final class OwnArms {
                     triangles.putInt(at).putInt(at + 1).putInt(at + 2).putInt(at + 2).putInt(at + 1).putInt(at + 3);
                 }
             }
-            // Its two ends, shut.
             for (int end = 0; end < 2; end++) {
                 float[] ring = profile[end == 0 ? 0 : profile.length - 1];
                 int middle = count[0];

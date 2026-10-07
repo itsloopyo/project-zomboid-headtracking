@@ -3,8 +3,8 @@ package com.cameraunlock.zomboid;
 /**
  * The wind as what grows feels it. The game's wind is a direction and a strength that it
  * changes when it likes, by any amount. Grass that leant straight along the one by the other
- * jumped whenever either did, and its gusts, which were laid out along the wind's direction
- * over a map thousands of tiles across, were all somewhere else after the smallest turn of it.
+ * would jump whenever either did, and gusts laid out along the wind's direction over a map
+ * thousands of tiles across would all be somewhere else after the smallest turn of it.
  *
  * So the push eases after the game's wind over a few seconds, and the gusts are a pattern of
  * their own that is carried along: where it has got to is kept here and only ever moves on,
@@ -30,10 +30,8 @@ final class Wind {
      * How hard what grows is pushed by a wind of the game's intensity, which is 0 in still
      * air and 1 at 120 kilometres an hour. The picture's plants lean as far as they ever do
      * at a push of 1.5. In the light air of most days, 10 kilometres an hour or so, grass
-     * only stirs: a blade's tip moves by a few hundredths of its height. It was a quarter
-     * of the way to flat in a dead calm before this was tied to the game's wind, and never
-     * still. A fresh breeze of 40 has it leaning and running in waves, and from 80 up it
-     * is laid over.
+     * only stirs: a blade's tip moves by a few hundredths of its height. A fresh breeze of
+     * 40 has it leaning and running in waves, and from 80 up it is laid over.
      */
     static float push(float intensity) {
         return 0.02f + 2f * (float) Math.pow(Math.clamp(intensity, 0f, 1f), 1.2);

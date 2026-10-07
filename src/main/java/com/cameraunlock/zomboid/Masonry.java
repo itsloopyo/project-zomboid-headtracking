@@ -55,7 +55,7 @@ final class Masonry {
 
     /**
      * How the picture lays the wall this sprite shows: a number from WallSides.laid, with the
-     * wall's colour, its joints' and its way, BRICK, LAPPED or STONE. 0 for a wall shown as the game painted
+     * wall's colour, its joints' and its way, BRICK, LAPPED, STONE or BLOCK. 0 for a wall shown as the game painted
      * it, and until a frame has been drawn since the sprite was first asked for.
      */
     static int of(Texture texture) {

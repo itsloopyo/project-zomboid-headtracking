@@ -807,9 +807,8 @@ public final class Tests {
     }
 
     /**
-     * Each vertex of the model as it was written into a chunk's mesh before the graphics card
-     * stood the models: turned, then made the size it is told along the ground and up, then
-     * moved to where the model stands.
+     * What a stood vertex is held to, bit for bit: the model's, turned, then made the size it
+     * is told along the ground and up, then moved to where the model stands.
      */
     private static void pieceStandsWhereTheModelTurnedScaledAndMovedIs() throws IOException {
         Models.Model wedge = wedge();

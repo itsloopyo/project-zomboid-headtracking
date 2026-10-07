@@ -10,7 +10,7 @@ import java.util.Arrays;
  * goes round a corner as a curve.
  *
  * The line passes through the middle of every edge between a street's square and the land's,
- * so a straight kerb lies where it always did, and through the middle of each tread of a
+ * so a straight kerb lies along the squares' edges, and through the middle of each tread of a
  * stair, which for an even stair is one straight line. Those points are not joined: they
  * pull a smooth curve towards them, as the pegs of a spline do, so a square corner is
  * rounded, by a third of a square and a little more at its point.

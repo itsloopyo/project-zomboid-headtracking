@@ -221,7 +221,7 @@ final class OwnWeapon {
     private static volatile Program program;
     private static int array, colour, surface;
     private static final int[] firstIndex = new int[PARTS], indexCount = new int[PARTS];
-    /** Where the muzzle is from the grip, in the model's metres, and how far back the fore-end and the bolt slide. */
+    /** Where the muzzle and the port are from the grip, in the model's metres, and how far back the fore-end and the bolt slide. */
     private static final float[] muzzle = new float[3], port = new float[3];
     private static float travel;
     /**

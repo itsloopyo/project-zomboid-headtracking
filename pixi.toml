@@ -41,8 +41,8 @@ package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/p
 validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
 validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
 
-# Deploys the built jar and the site JVM config to every installed copy of the
-# game. A path after the task name deploys to that one folder instead.
+# Deploys the built jar, its DLL and the site JVM config to every installed copy
+# of the game. A path after the task name deploys to that one folder instead.
 install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
 # /y keeps it prompt-free: pixi gives a task no console to read from.
 uninstall = "cmd /c scripts\\uninstall.cmd /y"

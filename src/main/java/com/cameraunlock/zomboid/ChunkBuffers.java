@@ -25,7 +25,9 @@ import org.lwjgl.opengl.GL31;
  * in the buffer where those triangles are, chunk after chunk in the order the frame lists its
  * chunks.
  *
- * Everything here runs on the render thread but forget.
+ * Everything that touches the buffer runs on the render thread. forget, describe and the
+ * sums that hold no buffer state (kept, onScreen, nearestFirst and the like) are called on
+ * the logic thread.
  *
  * What makes the hand-over between the threads safe is WorldScene's own rule: a build is filled
  * again only when no frame in flight shows it. So while a frame is being drawn, nothing it

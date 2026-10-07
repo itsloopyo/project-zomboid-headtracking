@@ -65,7 +65,7 @@ final class Roofs {
     /**
      * The tiles of the slopes the map leaves out, by square and by chunk. A chunk that holds
      * nothing else of its roof still has to find them, so they outlive laid, and each goes when
-     * its roof has not been read again for this many frames.
+     * its roof has not been read again for MADE_KEPT frames.
      */
     private static final HashMap<Long, Laid> made = new HashMap<>();
     private static final HashMap<Long, ArrayList<Laid>> madeByChunk = new HashMap<>();
@@ -122,8 +122,8 @@ final class Roofs {
 
     /**
      * Drops the made tiles and the caps of roofs not read again in MADE_KEPT frames. Each is
-     * already taken for gone by whoever asks for it, but only a chunk being built asks, so a
-     * roof the player has left behind was otherwise held for the rest of the game.
+     * already taken for gone by whoever asks for it, but only a chunk being built asks, so
+     * without this a roof the player has left behind is held for the rest of the game.
      */
     private static void forgetStale(int now) {
         made.values().removeIf(back -> now - back.roof.stamp > MADE_KEPT);

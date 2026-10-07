@@ -513,7 +513,10 @@ final class CabinShader {
 
             """;
 
-    /** The glass of a built cabin, where a line of sight from the seat leaves by it. */
+    /**
+     * The glass of a built cabin, where a line of sight from the seat leaves by it, with the
+     * lamp in the roof and how far along a line of sight anything built can be.
+     */
     static final String GLASS = """
             // Where the lamp in the roof is: in the lining between the visors and the heads
             // of those in front, on the vehicle's middle line.
@@ -548,7 +551,7 @@ final class CabinShader {
                     vec3 to = uBeamAt[i].xyz - uEye;
                     float far2 = dot(to, to);
                     vec3 way = to * inversesqrt(max(far2, 1e-4));
-                    // Only lamps that shine towards the eye, and are before it.
+                    // Only lamps that are lit, shine towards the eye and are over two tiles from it.
                     float towards = smoothstep(0.5, 0.95, dot(uBeamWay[i], -way));
                     if (uBeamAt[i].w <= 0.0 || towards <= 0.0 || far2 < 4.0) {
                         continue;

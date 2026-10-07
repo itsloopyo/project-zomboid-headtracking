@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit;
  * which the game's aim, movement and facing follow, is never written here.
  *
  * Everything runs on the game's logic thread except the receiver's own thread and the
- * thread that saves a changed mode to CameraUnlock.ini and watches it for a new field of view.
+ * thread that saves a changed mode to CameraUnlock.ini and watches it for the rows read again
+ * while the game runs.
  */
 final class HeadTracking {
     private enum Mode {
@@ -50,7 +51,7 @@ final class HeadTracking {
     private static OpenTrackReceiver receiver;
     private static NativeConfig config;
     private static final long WATCH_MILLISECONDS = 1000;
-    /** A save writes a file and the watch asks for its write time, so both are kept off the thread that draws the frame. */
+    /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
     private static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
         thread.setDaemon(true);

@@ -68,7 +68,6 @@ final class AimTests {
         AdsFade tapped = new AdsFade();
         tapped.update(true, 0);
         check(tapped.update(false, 1) > 0.999f, "a tap of the aim button moves nothing");
-        // A clock that steps backwards does not finish the transition.
         AdsFade backwards = new AdsFade();
         backwards.update(true, 1000);
         check(backwards.update(true, 900) == 1f, "a clock stepping back leaves the transition where it started");

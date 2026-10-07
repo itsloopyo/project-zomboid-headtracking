@@ -36,8 +36,10 @@ import zombie.scripting.objects.ModelScript;
  * the faces round it are run together, and with that the triangles near the eye are divided
  * and bowed outwards into the round shape they stand for.
  *
- * The bones, the textures and the colours are the game's, read from what it posed this frame,
- * and what is written is what the game's draw writes: the same colour and the same alpha.
+ * The bones, the textures and the colours are the game's, read from what it posed this frame.
+ * While bare is set what is written is the unlit colour and what KEPT describes, for the
+ * picture to light; otherwise it is what the game's draw writes, the same colour and the same
+ * alpha.
  *
  * Render thread only.
  */
@@ -1006,7 +1008,8 @@ final class CharacterDraw {
     private static boolean cutKeepsThem;
     /**
      * For each skeleton, 1 at each bone of the right arm, the same with the left arm's too,
-     * and then the same two for the hands alone.
+     * then the same two for what is carried with a held weapon, and last the left's of that
+     * alone. What is carried is the hands alone with OWN_ARMS set, and the whole arms without.
      */
     private static final IdentityHashMap<SkinningData, float[][]> arms = new IdentityHashMap<>();
     /**
@@ -1266,8 +1269,8 @@ final class CharacterDraw {
 
     /**
      * Whether the arms on a held weapon are the picture's own sleeves, from shoulders out of
-     * sight to the game's hands on the weapon. Off for now by the owner's word (2026-10-06):
-     * the game's own arms are drawn whole with their hands, carried where the weapon is held.
+     * sight to the game's hands on the weapon. Off, and the sleeves kept dormant: the game's
+     * own arms are drawn whole with their hands, carried where the weapon is held.
      */
     static final boolean OWN_ARMS = false;
 

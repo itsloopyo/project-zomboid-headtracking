@@ -36,9 +36,9 @@ import zombie.core.textures.TextureDraw;
  * brighter than the screen can show, an exposure, a film curve, and smoothed
  * edges, written over the game's own picture of the world.
  *
- * Nothing here runs unless the first-person view is on, so the game's own
- * view is drawn by the game alone. Render thread only. The game's OpenGL state
- * is saved before the frame and put back after it.
+ * Nothing here runs unless the picture is being drawn: in first person, or in
+ * a graphics mode in which it draws the game's own view. Render thread only.
+ * The game's OpenGL state is saved before the frame and put back after it.
  */
 final class Pipeline {
     /** How many texels across the shadow maps are: see Quality.shadowSize. */
@@ -193,12 +193,12 @@ final class Pipeline {
      * unbroken surface. Made for this mod and shipped in its jar.
      */
     private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
-    /** Which of the materials is planed wood. */
+    /** Which of the materials are planed wood and carpet. */
     private static final int WOOD = 6, CARPET = 9;
     /** Bark is several pictures in one texture, one behind another in the order Flora counts them. */
     private static final int BARK = 7;
     private static final String[] BARKS = {"bark-oak", "bark-linden", "bark-maple", "bark-birch", "bark-pine", "bark-hemlock", "bark-holly", "bark-dogwood"};
-    /** The materials from here on are cut-outs: four bytes a pixel, the last how solid it is. */
+    /** The one material that is a cut-out, read from a .png: the last of its four bytes a pixel is how solid it is. */
     private static final int FIRST_CUTOUT = 10;
     private static final int FIRST_MATERIAL_UNIT = 3;
     /**
@@ -462,7 +462,7 @@ final class Pipeline {
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         // The game binds no sampler to any unit, so most frames there is nothing to ask: every
         // question put to a driver that runs on a thread of its own waits for that thread, and
-        // this was thirty-two of them a frame. They are asked on one frame in 256, and on every
+        // there are thirty-two units. They are asked on one frame in 256, and on every
         // frame from then on once any unit has held one, which another mod could see to.
         boolean looked = samplersSeen || (frameNumber & SAMPLERS_ASKED_EVERY - 1) == 1;
         for (int unit = 0; unit < UNITS; unit++) {
@@ -703,7 +703,7 @@ final class Pipeline {
     /**
      * What the game has bound of one kind, to be put back when the frame is drawn. Asked into
      * an array the frame keeps: the call that hands the answer back makes a buffer for it
-     * every time, forty times a frame.
+     * every time.
      */
     private static int bound(int kind) {
         GL11.glGetIntegerv(kind, asked);
@@ -1284,7 +1284,7 @@ final class Pipeline {
         // In the mirror, where nothing is drawn is marked, and the sky is put there when the
         // glass is drawn.
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
-        // run twice in a frame: once for the mirror, once for the eye.
+        // run three times in a frame: for the mirror, for a scope and for the eye.
         arrays();
         GL33.glBindSampler(0, spriteSampler);
         GL11.glEnable(GL_DEPTH_TEST);
@@ -2752,7 +2752,7 @@ final class Pipeline {
             }
         }, SPRIGS, SPRIG_FORM));
         // The pictures are given back when first person has been off a while and made again when it is asked for.
-        // The two models are small beside them and are made once.
+        // The weapon and arm models are made once and kept.
         pieces.add(new Piece(() -> {
             if (!OwnWeapon.made()) {
                 OwnWeapon.readAhead();
@@ -3025,7 +3025,7 @@ final class Pipeline {
         nearMap = 0;
     }
 
-    /** The four shadow maps, the mirror's picture and the picture of who stands behind. Null, or what the driver refused. */
+    /** The four shadow maps: near, far, overhead and headlights. Null, or what the driver refused. */
     private static String makeShadowMaps() {
         int[] made = new int[2];
         String near = shadowMap(made);
@@ -3383,7 +3383,7 @@ final class Pipeline {
         return status == GL_FRAMEBUFFER_COMPLETE ? null : "the driver would not make the " + what + " target (status 0x" + Integer.toHexString(status) + ")";
     }
 
-    /** Null, with the driver's message added to problem, when a shader does not compile or the program does not link. */
+    /** Reads off the error flags already set, the game's among them, so that an error read afterwards is this frame's own. */
     private static void clearErrors() {
         for (int flag = 0; flag < GL_ERROR_FLAGS && GL11.glGetError() != 0; flag++) {
         }

@@ -37,7 +37,7 @@ final class ArmPose {
      * @param round    whether what is held is round about the line across the hand, a handle: the palm is then put
      *                 wherever round it brings the forearm nearest to where it is to come from, and `out` is not used
      * @param skins    the answer: for each bone the matrix that takes a corner of the model at rest to where it is drawn
-     * @param said     the answer: what BENT, TWISTED, ELBOW and WRIST name
+     * @param said     the answer: what BENT, TWISTED, ELBOW, WRIST and STRETCHED name
      * @return false if the lines given make no frame or the arm has no elbow, with the answers not to be used
      */
     static boolean solve(ArmModel model, float scale, float[] weights, float[] centre, float[] across, float[] out,

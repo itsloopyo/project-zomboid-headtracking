@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
 #Requires -Version 5.1
 # Dev deploy: puts the freshly built development jar next to the exe of every
-# installed copy of Project Zomboid and writes the site JVM config that loads
-# it, the same two writes install.cmd makes. An explicit game path wins over
+# installed copy of Project Zomboid, with the DLL it loads, and writes the site
+# JVM config that loads it, the same writes install.cmd makes. An explicit game path wins over
 # detection and stays a single target. No prompts.
 #
 # Usage: deploy.ps1 [GamePath]

@@ -473,7 +473,8 @@ final class OwnRifle {
         float seconds = Math.min((now - workedAsOf) / 1e9f, 0.05f);
         workedAsOf = now;
         // The bolt is worked a moment after the shot, by the clock the hand that works it goes by:
-        // a clock of its own here ran slow whenever frames were long, and the hand left an open bolt.
+        // the clock here counts no more than a twentieth of a second a frame, so on long frames it
+        // runs slow, and by it the hand would leave an open bolt.
         ViewModel.Held held = ViewModel.held;
         float working = held == null || held.cycled() < 0f ? NOT_WORKING : held.cycled() - ArmActs.BOLT_AFTER;
         if (working < 0f || working > WORKED_FOR) {

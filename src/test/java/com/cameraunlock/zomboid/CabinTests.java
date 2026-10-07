@@ -52,7 +52,7 @@ final class CabinTests {
             }
             int[] found = CabinParts.wheelOf(at, elements, new float[] {0.16f, 0.32f}, 0f);
             check(found != null && found.length == 36 && found[0] == wheel, "the wheel is the ring before the driver, on the driver's side");
-            // With no seat known it is the first of the roundest, as it was.
+            // With no seat known it is the first of the roundest.
             check(CabinParts.wheelOf(at, elements, null, 0f) != null, "and a body whose seats are not known still has a wheel");
         }
         check(CabinParts.wheelOf(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, new int[] {0, 1, 2, 0, 2, 3}, new float[] {0.16f, 0.32f}, 0f) == null,
