@@ -45,17 +45,15 @@ final class CabinShader {
             // and the wrist and the elbow behind it. Worked out once for a pixel.
             vec3 gGrip[2], gOutward[2], gAlong[2], gWrist[2], gElbow[2];
 
-            // At ten and two with the wheel straight. The hands go round with the wheel for
-            // the first of a turn. Past that they feed it: both slide a little down their
-            // own sides, one holding the rim while the other lets it slip, so neither
-            // leaves the wheel nor crosses the other up to full lock.
+            // At ten and two with the wheel straight. The hands hold the rim and go round
+            // with it all the way to full lock, which Cabins.STEERING_RATIO keeps short
+            // enough that neither has to let go: a rim that slips under them reads as a
+            // wheel turning faster than the hands that turn it.
             void poseArms() {
                 vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
-                float follow = uSteer / sqrt(1.0 + 4.0 * uSteer * uSteer);
-                float feed = 0.15 * (1.0 - cos(1.9 * max(abs(uSteer) - 0.35, 0.0)));
                 for (int i = 0; i < 2; i++) {
                     float way = i == 0 ? -1.0 : 1.0;
-                    float turn = 1.5708 - way * (0.96 + feed) - follow;
+                    float turn = 1.5708 - way * 0.96 - uSteer;
                     vec3 outward = vec3(0.0, cos(turn), 0.0) + rise * sin(turn);
                     vec3 grip = uWheel.xyz + outward * (uWheel.w * uKit.x);
                     vec3 shoulder = vec3(-0.06, uWheel.y + way * 0.25, -0.27);

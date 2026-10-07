@@ -312,10 +312,12 @@ final class Cabins {
     }
 
     /**
-     * The game's full lock of 0.9 is a little over a quarter turn of the steering wheel. A key
-     * winds the lock on in two thirds of a second, so a wheel geared like a real one spins.
+     * The game's full lock of 0.9 is a sixth of a turn of the steering wheel, 62 degrees. A key
+     * winds the lock on in two thirds of a second, so a wheel geared like a real one spins, and
+     * the driver's hands hold the rim from straight to lock: at lock the hand on the turn's side
+     * has come down from two to four o'clock and the other is at the top.
      */
-    private static final float STEERING_RATIO = 2f;
+    private static final float STEERING_RATIO = 1.2f;
 
     /** How far the steering wheel is turned, in radians, with the vehicle steered that far as the game counts it. */
     static float wheelTurn(float steering) {
