@@ -742,7 +742,7 @@ final class Pipeline {
             boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
-            float[] cabin = seated ? Cabins.wheel(view.ride.seatedIn) : null;
+            float[] cabin = seated ? Cabins.wheel(view.ride) : null;
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
             if (cabin != null && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS)) {
                 mirrorDrawnAt = System.nanoTime();
@@ -823,8 +823,8 @@ final class Pipeline {
         behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
         // Where the vehicle's wheel was when it was last drawn says where the mirror
         // is, whichever seat the eye is in and however the head leans.
-        float[] wheelAt = VehicleMeshes.seatedWheel;
-        VehicleMeshes.Parts body = VehicleMeshes.seatedParts;
+        float[] wheelAt = view.characters.cabin.wheel;
+        VehicleMeshes.Parts body = view.characters.cabin.parts;
         if (wheelAt != null) {
             Cabins.mirrorAt(wheelAt, Cabins.house(view.ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
             behind.eyeX = mirrorPlace[0];
@@ -2411,11 +2411,11 @@ final class Pipeline {
         boolean own = !outside && view.characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
-        FloatBuffer glass = own && seated ? VehicleMeshes.seatedPanes : null;
+        FloatBuffer glass = own && seated ? view.characters.cabin.panes : null;
         if (glass != null) {
             drawPaneMask(glass);
         }
-        VehicleMeshes.Parts parts = own && seated ? VehicleMeshes.seatedParts : null;
+        VehicleMeshes.Parts parts = own && seated ? view.characters.cabin.parts : null;
         if (parts != null) {
             drawPartKinds(parts);
         }
@@ -2475,7 +2475,7 @@ final class Pipeline {
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uInstruments", view.ride.instrumentsLit ? 0.9f * state.night : 0f);
-            float[] wheel = seated ? Cabins.wheel(view.ride.seatedIn) : null;
+            float[] wheel = seated ? Cabins.wheel(view.ride) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
                 figureLight.set("uSeat", 0f, 0f, 0f);
@@ -2491,7 +2491,7 @@ final class Pipeline {
             figureLight.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
             figureLight.set("uGauges", view.ride.roadSpeed, view.ride.engineSpeed, view.ride.fuel);
             figureLight.set("uTime", state.seconds);
-            float[] axes = VehicleMeshes.seatedAxes;
+            float[] axes = view.characters.cabin.axes;
             figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
             figureLight.set("uBodyAside", axes[3], axes[4], axes[5]);
             figureLight.set("uBodyAbove", axes[6], axes[7], axes[8]);
@@ -2524,12 +2524,12 @@ final class Pipeline {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadIdentity();
         GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(VehicleMeshes.paneMatrix);
+        GL11.glLoadMatrixf(view.characters.cabin.paneMatrix);
         GL11.glVertexPointer(3, GL_FLOAT, 0, glass);
         paneMask.use();
         // The panes of the front of the glasshouse are drawn at a half: the picture
         // builds its own there.
-        int rear = VehicleMeshes.seatedRearPanes;
+        int rear = view.characters.cabin.rearPanes;
         paneMask.set("uPane", 1f);
         GL11.glDrawArrays(GL_TRIANGLES, 0, rear);
         paneMask.set("uPane", 0.5f);
@@ -2558,7 +2558,7 @@ final class Pipeline {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadIdentity();
         GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(VehicleMeshes.paneMatrix);
+        GL11.glLoadMatrixf(view.characters.cabin.paneMatrix);
         GL11.glVertexPointer(3, GL_FLOAT, 0, parts.triangles);
         partKind.use();
         GL11.glColorMask(true, false, true, true);
@@ -2598,11 +2598,11 @@ final class Pipeline {
         // The driver's place is laid out round the wheel. Where the body's own wheel
         // is this frame, and how the body is tipped, says where the eye is in it, the
         // head leaning or not.
-        float[] at = VehicleMeshes.seatedWheel;
+        float[] at = view.characters.cabin.wheel;
         if (at == null) {
             figureLight.set("uSeat", 0f, 0f, 0f);
         } else {
-            float[] axes = VehicleMeshes.seatedAxes;
+            float[] axes = view.characters.cabin.axes;
             float toX = camera.eyeX - at[0], toY = camera.eyeY - at[1], toUp = camera.eyeUp - at[2];
             figureLight.set("uSeat", wheel[0] + (toX * axes[0] + toY * axes[1] + toUp * axes[2]) / Cabins.SCALE,
                     wheel[1] + (toX * axes[3] + toY * axes[4] + toUp * axes[5]) / Cabins.SCALE,
@@ -2615,7 +2615,7 @@ final class Pipeline {
         figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
         figureLight.set("uTrade", Cabins.trade(view.ride.seatedIn));
         float[] skin = Cabins.skin(view.ride.skin);
-        Cabins.Wear wear = Cabins.worn;
+        Cabins.Wear wear = view.ride.dress.worn;
         figureLight.set("uArms", view.ride.driving ? 1f : 0f);
         figureLight.set("uBare", skin[0], skin[1], skin[2]);
         if (wear.glove() == null) {
@@ -2635,7 +2635,7 @@ final class Pipeline {
         figureLight.set("uDash", measures[4] / Cabins.SCALE, wheel[2] + measures[5] / Cabins.SCALE);
         figureLight.set("uDoorMirror", wheel[0] + measures[6] / Cabins.SCALE, wheel[1] - Math.signum(measures[4]) * measures[7] / Cabins.SCALE,
                 wheel[2] + measures[8] / Cabins.SCALE);
-        figureLight.set("uPaint", VehicleMeshes.seatedPaint[0], VehicleMeshes.seatedPaint[1], VehicleMeshes.seatedPaint[2]);
+        figureLight.set("uPaint", view.characters.cabin.paint[0], view.characters.cabin.paint[1], view.characters.cabin.paint[2]);
         figureLight.set("uSteer", Cabins.wheelTurn(view.ride.steering));
         figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);
         figureLight.set("uDome", view.ride.doorOpen ? 1f : 0f);
@@ -3753,9 +3753,7 @@ final class Pipeline {
             FarLand.catchUp();
             Decor.letGo();
             forgetTexels();
-            FineSkins.letGo();
-            int copies = CharacterDraw.letGo();
-            VehicleMeshes.letGo();
+            int copies = view.characters.letGo();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);
             modelBuffer = modelCorners = 0;

@@ -24,6 +24,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
+import zombie.core.SpriteRenderer;
 import zombie.core.opengl.SmartShader;
 import zombie.core.skinnedmodel.ModelManager;
 import zombie.core.textures.SmartTexture;
@@ -424,14 +425,18 @@ public final class FineSkins {
         }
     }
 
-    /** Called once for each frame the picture draws, whether or not anyone in it wears a finer skin. Render thread. */
+    /** Called for each picture drawn, before it is, whether or not anyone in it wears a finer skin. Render thread. */
     static synchronized void tend() {
         if (started && !off) {
             tendOwn();
         }
     }
 
-    /** Render thread, once first person has been off a while: the skins are a view's, and a view switched off wears none. */
+    /**
+     * Render thread, once first person has been off a while for every view that drew: the skins
+     * are worn in every view's picture, and with every view switched off there is none. See
+     * Characters.letGo.
+     */
     static synchronized void letGo() {
         if (started) {
             letGoOfAll();

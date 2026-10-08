@@ -6,7 +6,6 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.IdentityHashMap;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
@@ -32,27 +31,11 @@ final class VehicleMeshes {
     /** The wheel's middle in each model's own space, or NONE for a model with no such piece. */
     private static final IdentityHashMap<ModelMesh, float[]> middles = new IdentityHashMap<>();
     /**
-     * For each vehicle script the viewer has sat in: the wheel's middle from where the vehicle
-     * stands on the ground, along the vehicle, across it and up it, by its own axes as it is
-     * tipped this frame, in tiles, and then how far across it is from the body's own middle,
-     * which says which side of the vehicle the wheel is on however it lies.
-     */
-    static final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
-
-    /**
      * The panes of each model, as loose triangles in the model's own space: the vehicle's mask
      * texture says which of its triangles are glass. Empty for a model with none found.
      */
     private static final IdentityHashMap<ModelMesh, FloatBuffer> panes = new IdentityHashMap<>();
-    /**
-     * The panes of the vehicle the viewer sits in, and the matrix that puts them on the screen.
-     * Null with none. The first seatedRearPanes vertices are the panes behind the front of the
-     * glasshouse; the rest are the screen and the front windows, where the picture builds its own.
-     */
-    static FloatBuffer seatedPanes;
-    static int seatedRearPanes;
     private static final IdentityHashMap<ModelMesh, Integer> rearPanes = new IdentityHashMap<>();
-    static final float[] paneMatrix = new float[16];
     private static final float[] shifted = new float[16], stands = new float[16];
 
     /** The triangles of a body that are not glass, sorted by what part of the cabin each is, in the model's own space. */
@@ -82,22 +65,44 @@ final class VehicleMeshes {
     }
 
     private static final IdentityHashMap<ModelMesh, Parts> parts = new IdentityHashMap<>();
-    /** The parts of the vehicle the viewer sits in, drawn with paneMatrix as the panes are. Null with none. */
-    static Parts seatedParts;
-    /** Where the wheel of the vehicle the viewer sits in is in the world this frame, or null: x, y and up. */
-    static float[] seatedWheel;
+
     /**
-     * The way the vehicle the viewer sits in faces, the side to the left of that and its own
-     * up, in the world, as its body is drawn this frame. On its springs a vehicle tips and
-     * rolls, a crash throws it on its side or its roof, and what the picture builds in its
-     * cabin is laid out along these.
+     * The vehicle one viewer sits in, as its body was drawn for that viewer's picture this
+     * frame: two viewers may sit in two vehicles, or in two seats of one. Render thread.
      */
-    static final float[] seatedAxes = new float[9];
+    static final class Seated {
+        /**
+         * The panes of the vehicle, and the matrix that puts them on the screen. Null with
+         * none. The first rearPanes vertices are the panes behind the front of the glasshouse;
+         * the rest are the screen and the front windows, where the picture builds its own.
+         */
+        FloatBuffer panes;
+        int rearPanes;
+        final float[] paneMatrix = new float[16];
+        /** The parts of the vehicle, drawn with paneMatrix as the panes are. Null with none. */
+        Parts parts;
+        /** Where the wheel of the vehicle is in the world this frame, or null: x, y and up. */
+        float[] wheel;
+        /**
+         * The way the vehicle faces, the side to the left of that and its own up, in the
+         * world, as its body is drawn this frame. On its springs a vehicle tips and rolls, a
+         * crash throws it on its side or its roof, and what the picture builds in its cabin is
+         * laid out along these.
+         */
+        final float[] axes = new float[9];
+        /** The vehicle's paint. */
+        final float[] paint = new float[3];
+        private final float[] wheelNow = new float[3];
+
+        void clear() {
+            panes = null;
+            parts = null;
+            wheel = null;
+        }
+    }
+
     private static String turnedSaid;
     private static int tipSaid;
-    private static final float[] wheelNow = new float[3];
-    /** The paint of the vehicle the viewer sits in. */
-    static final float[] seatedPaint = new float[3];
     /** What turns a vertex of the body into tiles along the vehicle, across it and up from the ground: three rows of four. */
     private static final float[] frame = new float[12];
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001;
@@ -107,17 +112,19 @@ final class VehicleMeshes {
     private static final float[] xfrm = new float[16];
 
     /**
-     * Called on the render thread for the vehicle the viewer sits in, with the matrix that
+     * Called on the render thread for the vehicle a viewer sits in, with the matrix that
      * stands it in the world, how far below that the game's draw then sets the body (it hangs
      * the model from the vehicle's centre of mass), and where the vehicle stands.
+     *
+     * @param seated what that viewer's picture is told of the vehicle
+     * @param ride   that viewer's vehicle as the logic thread has it
      */
-    static void note(String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY, float groundUp,
-            float centreOfMass, float[] eye) {
-        seatedPanes = null;
-        seatedParts = null;
-        seatedWheel = null;
-        float aheadX = View.first().ride.aheadX, aheadY = View.first().ride.aheadY;
-        float[] faces = View.first().ride.stands;
+    static void note(Seated seated, Ride ride, String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY,
+            float groundUp, float centreOfMass, float[] eye) {
+        seated.clear();
+        float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
+        float aheadX = ride.aheadX, aheadY = ride.aheadY;
+        float[] faces = ride.stands;
         Cabins.level(aheadX, aheadY, seatedAxes);
         if (!(body.modelInstance instanceof VehicleModelInstance instance) || body.modelInstance.model == null) {
             return;
@@ -159,16 +166,16 @@ final class VehicleMeshes {
                     frame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
                 }
             }
-            middle = find(mesh, instance, body.modelInstance.model.name);
+            middle = find(mesh, instance, body.modelInstance.model.name, ride.seats);
             middles.put(mesh, middle);
         }
         FloatBuffer glass = panes.get(mesh);
         if (glass != null && glass.capacity() > 0) {
-            seatedPanes = glass;
-            seatedRearPanes = rearPanes.get(mesh);
+            seated.panes = glass;
+            seated.rearPanes = rearPanes.get(mesh);
         }
-        seatedParts = parts.get(mesh);
-        paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seatedPaint);
+        seated.parts = parts.get(mesh);
+        paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seated.paint);
         if (middle == NONE) {
             return;
         }
@@ -178,23 +185,23 @@ final class VehicleMeshes {
         float x = placed[0] * mx + placed[4] * my + placed[8] * mz + placed[12];
         float y = placed[1] * mx + placed[5] * my + placed[9] * mz + placed[13];
         float up = placed[2] * mx + placed[6] * my + placed[10] * mz + placed[14] - lowered;
-        wheelNow[0] = x;
-        wheelNow[1] = y;
-        wheelNow[2] = up;
-        seatedWheel = wheelNow;
+        seated.wheelNow[0] = x;
+        seated.wheelNow[1] = y;
+        seated.wheelNow[2] = up;
+        seated.wheel = seated.wheelNow;
         float toX = x - standsX, toY = y - standsY, toUp = up - groundUp;
         float along = toX * axes[0] + toY * axes[1] + toUp * axes[2];
         float across = toX * axes[3] + toY * axes[4] + toUp * axes[5];
         float above = toX * axes[6] + toY * axes[7] + toUp * axes[8];
         float side = (x - stands[12]) * axes[3] + (y - stands[13]) * axes[4] + (up + lowered - stands[14]) * axes[5];
-        float[] known = wheels.get(script);
+        float[] known = ride.wheels.get(script);
         if (known == null) {
             Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up, %.3f from the body's middle", script, body.modelInstance.model.name, along,
                     across, above, side));
         }
         // The logic thread reads them together, so they are never written into the array it may hold.
         if (known == null || known[0] != along || known[1] != across || known[2] != above || known[3] != side) {
-            wheels.put(script, new float[] {along, across, above, side});
+            ride.wheels.put(script, new float[] {along, across, above, side});
         }
     }
 
@@ -211,8 +218,12 @@ final class VehicleMeshes {
         }
     }
 
-    /** The middle of the wheel in a body's vertices, read back from the graphics card once. */
-    private static float[] find(ModelMesh mesh, VehicleModelInstance instance, String name) {
+    /**
+     * The middle of the wheel in a body's vertices, read back from the graphics card once.
+     *
+     * @param seats where the vehicle's script seats its passengers, as Ride has them
+     */
+    private static float[] find(ModelMesh mesh, VehicleModelInstance instance, String name, float[] seats) {
         VertexBufferObject buffer = mesh.vb;
         try {
             if (handleField == null) {
@@ -243,10 +254,10 @@ final class VehicleMeshes {
                 GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
                 boolean[] glass = glassIn(raw, stride, elements, instance, name);
-                float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name);
+                float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name, seats);
                 boolean[] front = new boolean[glass.length];
                 if (wheel != NONE) {
-                    Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name);
+                    Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name, seats);
                     parts.put(mesh, made);
                     front = made.front;
                 }
@@ -266,7 +277,7 @@ final class VehicleMeshes {
         }
     }
 
-    private static float[] wheelIn(ByteBuffer raw, int stride, int vertices, int[] elements, String name) {
+    private static float[] wheelIn(ByteBuffer raw, int stride, int vertices, int[] elements, String name, float[] seats) {
         // The body as it stands this frame, in tiles along the vehicle, across it and up:
         // which of its pieces is the wheel is told by where the driver sits.
         float[] at = new float[vertices * 3];
@@ -279,7 +290,6 @@ final class VehicleMeshes {
                 at[i * 3 + row] = place;
             }
         }
-        float[] seats = View.first().ride.seats;
         int[] ring = CabinParts.wheelOf(at, elements, seats == null || seats.length < 3 ? null : new float[] {frame[3] + seats[2], Math.abs(seats[0])}, frame[7]);
         if (ring == null) {
             Log.info("the vehicle model " + name + " has no steering wheel the picture can find (" + elements.length / 3 + " triangles, none a piece of " + WHEEL_TRIANGLES
@@ -393,7 +403,7 @@ final class VehicleMeshes {
      * this frame, in tiles along the vehicle, across it and up, which is the frame the script
      * seats its passengers in.
      */
-    private static Parts partsIn(ByteBuffer raw, int stride, int vertices, int[] elements, boolean[] glass, float[] wheel, String name) {
+    private static Parts partsIn(ByteBuffer raw, int stride, int vertices, int[] elements, boolean[] glass, float[] wheel, String name, float[] scriptSeats) {
         float[] at = new float[vertices * 3], facing = new float[vertices * 3];
         for (int i = 0; i < vertices; i++) {
             for (int row = 0; row < 3; row++) {
@@ -410,7 +420,7 @@ final class VehicleMeshes {
         for (int row = 0; row < 3; row++) {
             middle[row] = frame[row * 4] * wheel[0] + frame[row * 4 + 1] * wheel[1] + frame[row * 4 + 2] * wheel[2] + frame[row * 4 + 3];
         }
-        float[] seats = CabinParts.seats(View.first().ride.seats, frame[3], frame[7], middle[1]);
+        float[] seats = CabinParts.seats(scriptSeats, frame[3], frame[7], middle[1]);
         CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
@@ -479,7 +489,8 @@ final class VehicleMeshes {
 
     /**
      * Gives up what was read of the game's meshes and pictures, which are the game's to load
-     * anew between saves: each is read again when it is next sat in or worn. Render thread.
+     * anew between saves: each is read again when it is next sat in or worn. They are read
+     * once for every view and given up when none draws: see Characters.letGo. Render thread.
      */
     static void letGo() {
         middles.clear();
@@ -487,9 +498,6 @@ final class VehicleMeshes {
         rearPanes.clear();
         parts.clear();
         means.clear();
-        seatedPanes = null;
-        seatedParts = null;
-        seatedWheel = null;
     }
 
     private static float[] meanOver(ByteBuffer texels, Texture picture, int width, int height) {

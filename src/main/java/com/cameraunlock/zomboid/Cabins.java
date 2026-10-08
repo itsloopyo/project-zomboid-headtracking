@@ -32,12 +32,13 @@ final class Cabins {
     static final float EYE_BEHIND = PLACE[0] * SCALE, EYE_ABOVE = -PLACE[2] * SCALE;
 
     /**
-     * The driver's place in the vehicle with that script, or null where the vehicle's own
-     * steering wheel has not been found: the place is built on the game's wheel, and without
-     * one there is nowhere to build it.
+     * The driver's place in the vehicle a viewer sits in or last sat in, or null where the
+     * vehicle's own steering wheel has not been found: the place is built on the game's wheel,
+     * and without one there is nowhere to build it.
      */
-    static float[] wheel(String script) {
-        return script == null || !VehicleMeshes.wheels.containsKey(script) ? null : PLACE;
+    static float[] wheel(Ride ride) {
+        String script = ride.seatedIn;
+        return script == null || !ride.wheels.containsKey(script) ? null : PLACE;
     }
 
     /**
@@ -304,8 +305,8 @@ final class Cabins {
 
     /**
      * The places of an arm the game keeps blood and dirt for, the right arm's and then the
-     * left's, each from the hand up. `stains` has two numbers for each, 0 to 1: how bloody
-     * what shows there is, and how dirty.
+     * left's, each from the hand up. A viewer's stains are two numbers for each, 0 to 1: how
+     * bloody what shows there is, and how dirty.
      */
     static final int STAINS = 12;
 
@@ -314,17 +315,20 @@ final class Cabins {
         static final BloodBodyPartType[] OF_ARMS = {BloodBodyPartType.Hand_R, BloodBodyPartType.ForeArm_R, BloodBodyPartType.UpperArm_R,
             BloodBodyPartType.Hand_L, BloodBodyPartType.ForeArm_L, BloodBodyPartType.UpperArm_L};
     }
-    static volatile float[] stains = new float[STAINS];
 
     private static final Wear BARE = new Wear(null, false, null);
-    /** Set on the logic thread, read by the picture. */
-    static volatile Wear worn = BARE;
+
+    /** One viewer's arms and hands: how stained they are and what is worn on them. Set on the logic thread, read by the picture. */
+    static final class Dress {
+        volatile float[] stains = new float[STAINS];
+        volatile Wear worn = BARE;
+    }
 
     /**
-     * Notes what the viewer wears on the arms and hands. The game keeps what is worn from the
+     * Notes what a viewer wears on the arms and hands. The game keeps what is worn from the
      * skin outwards, so of the garments over a part the last is the one that shows.
      */
-    static void noteWear(IsoPlayer player) {
+    static void noteWear(IsoPlayer player, Dress dress) {
         WornItems items = player.getWornItems();
         Garment upper = null, fore = null, glove = null;
         // The blood and the dirt on what shows of each arm: on the skin, or on whatever is worn over it there.
@@ -358,10 +362,10 @@ final class Cabins {
             fore = lower ? garment : fore;
             upper = higher ? garment : upper;
         }
-        stains = soil;
+        dress.stains = soil;
         Wear now = new Wear(fore != null ? fore : upper, fore != null, glove);
-        if (!now.equals(worn)) {
-            worn = now;
+        if (!now.equals(dress.worn)) {
+            dress.worn = now;
         }
     }
 

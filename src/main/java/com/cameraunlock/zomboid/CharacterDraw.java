@@ -1055,6 +1055,11 @@ final class CharacterDraw {
     private static Field handleField, elementsField, formatField;
     private static final IdentityHashMap<ModelMesh, Copy> copies = new IdentityHashMap<>();
 
+    /**
+     * The person begun and how they are drawn, set by begin before every person. There is one
+     * of each for every view: the views' pictures are drawn one after another on one thread,
+     * and nothing here is read before begin has set it again.
+     */
     private static ModelSlotRenderData person;
     private static float[] modelView, projection;
     private static boolean shadow;

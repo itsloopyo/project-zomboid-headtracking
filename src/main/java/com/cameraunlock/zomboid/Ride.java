@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 import zombie.characters.IsoPlayer;
 import zombie.scripting.objects.VehicleScript;
@@ -12,7 +13,7 @@ import zombie.vehicles.VehiclePart;
  * The vehicle the viewer sits in, as the first-person picture needs it: which seat, where the
  * head in that seat is, and what the cabin shows.
  *
- * Everything is set on the game's logic thread and read by the picture.
+ * Everything but the wheels is set on the game's logic thread and read by the picture.
  */
 final class Ride {
     /** The eye of someone seated in a vehicle, above the ground the vehicle stands on, in tiles. Set by eye in Base.CarNormal. */
@@ -59,6 +60,17 @@ final class Ride {
     volatile float[] stands = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
     /** How fast the viewer's vehicle is going on the map, as the game's physics has it. */
     volatile float goingX, goingY;
+
+    /**
+     * For each vehicle script the viewer has sat in: the wheel's middle from where the vehicle
+     * stands on the ground, along the vehicle, across it and up it, by its own axes as it was
+     * tipped when the picture last drew it for this viewer, in tiles, and then how far across
+     * it is from the body's own middle, which says which side of the vehicle the wheel is on
+     * however it lies. Written by the picture's thread: see VehicleMeshes.note.
+     */
+    final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
+    /** What the viewer wears on the arms and hands, asked from the driver's seat and with a weapon in hand. */
+    final Cabins.Dress dress = new Cabins.Dress();
 
     private String seatsOf;
     private final Vector3f seatAt = new Vector3f();
@@ -119,7 +131,7 @@ final class Ride {
         skin = player.getHumanVisual().getSkinTextureIndex();
         // What is worn changes seldom, and asking makes a list for every garment.
         if (driving && (wearAsked++ & 31) == 0) {
-            Cabins.noteWear(player);
+            Cabins.noteWear(player, dress);
         }
         if (seat >= 0) {
             seatTheEye(vehicle, seat, floorUp, eye);
@@ -152,7 +164,7 @@ final class Ride {
         // A passenger sits where the script seats them from the driver. The eye goes
         // with the vehicle however it is thrown.
         float[] axes = stands;
-        float[] wheel = VehicleMeshes.wheels.get(vehicle.getScriptName());
+        float[] wheel = wheels.get(vehicle.getScriptName());
         float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[3]);
         if (fromDriver != null) {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;

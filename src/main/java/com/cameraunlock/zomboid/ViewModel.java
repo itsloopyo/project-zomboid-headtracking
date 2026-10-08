@@ -196,7 +196,7 @@ public final class ViewModel {
         view.scope.fitted(weapon);
         // What is worn changes seldom, and asking makes a list for every garment.
         if ((wearAsked++ & 31) == 0) {
-            Cabins.noteWear(player);
+            Cabins.noteWear(player, view.ride.dress);
         }
         if (!gapSaid) {
             gapSaid = true;
@@ -550,7 +550,7 @@ public final class ViewModel {
      */
     boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, float[] fromAim, float[] out) {
         // Read once: the logic thread may write it again while the weapon is placed.
-        float pumped = view.viewModel.pumped;
+        float pumped = this.pumped;
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;

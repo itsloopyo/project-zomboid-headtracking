@@ -2140,7 +2140,7 @@ final class WorldScene {
             }
             float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
-            boolean mirrored = !fromOutside && seated && Cabins.wheel(WorldScene.this.view.ride.seatedIn) != null;
+            boolean mirrored = !fromOutside && seated && Cabins.wheel(WorldScene.this.view.ride) != null;
             float behindX = -WorldScene.this.view.ride.aheadX, behindY = -WorldScene.this.view.ride.aheadY;
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
             float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
