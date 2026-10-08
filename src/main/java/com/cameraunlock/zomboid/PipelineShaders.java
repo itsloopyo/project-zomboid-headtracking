@@ -11,6 +11,69 @@ package com.cameraunlock.zomboid;
 final class PipelineShaders {
     private PipelineShaders() {}
 
+    /**
+     * Where the built world ends, for every shader that draws it or what lies beyond it: the
+     * world, the figures and the far land (FarLand).
+     */
+    static final String ENDS = """
+            uniform float uFogStart;
+            uniform float uFogEnd;
+            uniform vec3 uLoaded;
+            // 0 where nothing is drawn beyond the built world, which then fades into the hills.
+            // Otherwise the far land lies behind it, and this is 1 more than a number that is
+            // another each frame the frames are mixed, and 0 each frame they are not.
+            uniform float uBeyond;
+
+            // How far gone the built world is at a place this far from the eye along the
+            // ground: 0 where it is whole, 1 where nothing of it is left. It ends at the sight
+            // the graphics mode has, and where the loaded map does, which at the wheel of a car
+            // at speed is further off ahead than behind: the game loads ahead of it.
+            float gone(vec2 fromEye) {
+                return max(smoothstep(uFogStart, uFogEnd, length(fromEye)), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(fromEye - uLoaded.xy)));
+            }
+
+            // A number from 0 to 1 for the pixel, as many of them under any number as that
+            // number is of 1, over any patch of the picture.
+            float sieve() {
+                return fract(52.9829189 * fract(dot(gl_FragCoord.xy + 5.588238 * (uBeyond - 1.0), vec2(0.06711056, 0.00583715))));
+            }
+
+            // With the far land behind it the built world does not fade: it thins out, pixel by
+            // pixel, over the further half of where it ends, and the far land has come in under
+            // it, the same way, over the nearer half. So there is never a pixel with neither,
+            // and the far land, which does not lie quite where the built ground does, is not
+            // seen to cut across it. Whether this pixel of the built world is one left out:
+            bool thinnedOut(vec2 fromEye) {
+                return uBeyond > 0.5 && sieve() < smoothstep(0.5, 1.0, gone(fromEye));
+            }
+
+            // And whether this pixel of the far land is one that has not yet come in. Its
+            // buildings come in as the built world's go, pixel for pixel: come in sooner,
+            // a block and the building it stands for were both there, one through the other.
+            bool notYetIn(vec2 fromEye, bool built) {
+                return sieve() >= (built ? smoothstep(0.5, 1.0, gone(fromEye)) : smoothstep(0.0, 0.5, gone(fromEye)));
+            }
+            """;
+
+    /** Noise that lies on the ground, the same wherever it is asked for: the clouds' shadows cross the built world and the far land as one. */
+    static final String GROUND_NOISE = """
+            float grain(vec2 p) {
+                // Map positions are in the thousands, and scaled up for fine detail they pass
+                // what a float can count singly. Wrapped, the pattern repeats only far away.
+                p = mod(p, 4096.0);
+                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // Smooth noise over the ground, for where the puddles lie.
+            float patches(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
+                        mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+            """;
+
     /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
     private static final String BEAMS = """
             uniform vec4 uBeamAt[2];
@@ -410,7 +473,7 @@ final class PipelineShaders {
      * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
      * notice is in THIRD-PARTY-NOTICES.md.
      */
-    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + """
+    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -428,9 +491,6 @@ final class PipelineShaders {
             uniform float uCutAbove;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            uniform float uFogStart;
-            uniform float uFogEnd;
-            uniform vec3 uLoaded;
             uniform float uSeconds;
             // For the glass of a set that is on: where across and down its picture the middle of the glass
             // is and how much of the picture the glass shows, and 1 for a tube with no colour, 2 for snow.
@@ -559,21 +619,7 @@ final class PipelineShaders {
                         + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
             }
 
-            float grain(vec2 p) {
-                // Map positions are in the thousands, and scaled up for fine detail they pass
-                // what a float can count singly. Wrapped, the pattern repeats only far away.
-                p = mod(p, 4096.0);
-                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-            }
-
-            // Smooth noise over the ground, for where the puddles lie.
-            float patches(vec2 p) {
-                vec2 cell = floor(p);
-                vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                return mix(mix(grain(cell), grain(cell + vec2(1.0, 0.0)), f.x),
-                        mix(grain(cell + vec2(0.0, 1.0)), grain(cell + vec2(1.0, 1.0)), f.x), f.y);
-            }
+            """ + GROUND_NOISE + """
 
             // The light and dark of a picture of boards or of courses of shingle at a place on a
             // wall, a floor or a roof. Laid on as it is, the picture comes round again every pace
@@ -1993,6 +2039,10 @@ final class PipelineShaders {
                         discard;
                     }
                 }
+                // Where the far land lies behind it, the built world thins out into it.
+                if (thinnedOut(-toEye.xy)) {
+                    discard;
+                }
                 // Every pixel of the solid world that is left out has been left out by here: the
                 // one cut after this is of what is laid over the ground, which is never drawn
                 // for its depth alone. Asked only where the solid world is, the program stops:
@@ -2668,7 +2718,8 @@ final class PipelineShaders {
                 // not bare air: faded to air, its last tiles show as dashes against them.
                 // And it ends where the loaded map does, which at the wheel of a car at speed is
                 // further off ahead than behind: the game loads ahead of it.
-                float ends = max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(toEye.xy + uLoaded.xy)));
+                // With the far land behind it, it has thinned out instead: see thinnedOut.
+                float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(toEye.xy + uLoaded.xy)));
                 if (ends > 0.0) {
                     color = mix(color, ridges(-view, air), ends);
                 }
@@ -3254,7 +3305,7 @@ final class PipelineShaders {
      * Pipeline loads: a class file holds no one string of more than 65535 bytes, and the whole
      * of it is longer.
      */
-    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + """
+    static final String FIGURE_LIGHT_PARTS = "#version 120\n" + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uFigure;
             uniform sampler2D uDepth;
             uniform sampler2DShadow uShadowNear;
@@ -3272,9 +3323,6 @@ final class PipelineShaders {
             uniform vec3 uForward;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            uniform float uFogStart;
-            uniform float uFogEnd;
-            uniform vec3 uLoaded;
             uniform float uInside;
             uniform float uPainted;
             uniform float uGlassPass;
@@ -4747,7 +4795,11 @@ final class PipelineShaders {
                 }
 
                 float range = max(ahead * length(ray) - uRangeFrom, 0.0);
-                float ends = max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
+                // With the far land behind them, figures past where the built world ends are left out as it is: see thinnedOut.
+                if (thinnedOut(ray.xy * ahead)) {
+                    discard;
+                }
+                float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
                 float haze = max(ends, 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
@@ -5205,6 +5257,122 @@ final class PipelineShaders {
             uniform float uKind;
             void main() {
                 gl_FragColor = vec4(uKind / 8.0, 1.0, 0.0, 1.0);
+            }
+            """;
+
+    /** The far land: see FarLand. A vertex is where it is on the map, as the world's are, and the eye's place is taken off it here. */
+    static final String FAR_VERTEX = """
+            #version 120
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec4 vColor;
+            varying float vUp;
+            uniform vec3 uEye;
+
+            void main() {
+                vWorld = gl_Vertex.xyz;
+                vNormal = gl_Normal;
+                vColor = gl_Color;
+                vUp = gl_MultiTexCoord0.x;
+                gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * vec4(gl_Vertex.xyz - uEye, 1.0);
+            }
+            """;
+
+    /**
+     * The far land is lit as open ground of the built world is, by the same sun, sky and
+     * clouds, and goes into the same air, so that where the one thins out into the other the
+     * two are one country. It has no shadows but the clouds'.
+     */
+    static final String FAR_FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + ENDS + GROUND_NOISE + """
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec4 vColor;
+            varying float vUp;
+            uniform sampler2D uPicture;
+            // Tiles a side of the picture, which comes round again that often.
+            uniform float uPictureSide;
+            uniform vec3 uEye;
+            uniform vec3 uLight;
+            uniform vec3 uLightColor;
+            uniform vec3 uOpenLight;
+            uniform float uDaylightKept;
+            uniform float uCover;
+            uniform vec2 uDrift;
+            uniform float uSnowLying;
+            // How far from the eye, along the ground, the far land itself ends.
+            uniform float uReach;
+            uniform float uStorey;
+
+            void main() {
+                vec3 toEye = uEye - vWorld;
+                if (notYetIn(-toEye.xy, vColor.a > 0.5)) {
+                    discard;
+                }
+                float away = length(toEye);
+                vec3 view = toEye / away;
+                vec3 n = normalize(vNormal);
+                vec3 surface;
+                float water = 0.0;
+                if (vColor.a < 0.5) {
+                    // The land: the game's own picture of its map, a pixel a tile. Seen from
+                    // near enough that a tile is many pixels of this picture, each tile keeps
+                    // its own colour to near its edge, where laid on as it is every street was
+                    // a smear into the grass beside it.
+                    vec2 at = vWorld.xy - 0.5;
+                    vec2 part = fract(at);
+                    part = part * part * (3.0 - 2.0 * part);
+                    vec4 texel = texture2D(uPicture, (floor(at) + 0.5 + part) / uPictureSide);
+                    surface = pow(texel.rgb, vec3(2.2));
+                    water = texel.a;
+                    // The picture has one colour for a field. Near to, the ground is not that even.
+                    float fine = max(length(dFdx(vWorld.xy)), length(dFdy(vWorld.xy)));
+                    float uneven = patches(vWorld.xy * 0.9) * 0.6 + patches(vWorld.xy * 3.7 + 11.0) * 0.4 - 0.5;
+                    surface *= 1.0 + 0.3 * uneven * (1.0 - water) * (1.0 - smoothstep(0.15, 0.6, fine));
+                    surface = mix(surface, vec3(0.82, 0.84, 0.88), min(uSnowLying * 2.0, 1.0) * (1.0 - water));
+                } else if (n.z > 0.5) {
+                    surface = pow(vColor.rgb, vec3(2.2)) * (0.9 + 0.2 * patches(vWorld.xy * 0.7));
+                    surface = mix(surface, vec3(0.82, 0.84, 0.88), min(uSnowLying * 2.0, 1.0));
+                } else {
+                    // A wall, with a window to each bay of two tiles on every floor. Too far off to
+                    // tell one window from the next, a wall is the colour all of it comes to.
+                    float along = dot(vWorld.xy, vec2(-n.y, n.x)) * 0.5;
+                    float up = vUp / uStorey;
+                    float bay = fract(along), storey = fract(up);
+                    float pane = step(0.22, bay) * step(bay, 0.78) * step(0.3, storey) * step(storey, 0.74) * step(0.0, vUp);
+                    float fine = max(fwidth(along), fwidth(up));
+                    pane = mix(pane, 0.56 * 0.44 * step(0.0, vUp), smoothstep(0.2, 0.55, fine));
+                    surface = mix(pow(vColor.rgb, vec3(2.2)), vec3(0.03, 0.04, 0.05), 0.85 * pane);
+                }
+
+                float facing = max(dot(n, uLight), 0.0);
+                // The clouds' shadows, as the built world has them. Past where one can be told
+                // from the next, the land is as dull as they make all of it.
+                vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
+                float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
+                float shaded = smoothstep(-0.06, 0.06, body - (1.12 - uCover));
+                shaded = mix(shaded, clamp((uCover - 0.62) / 0.5, 0.0, 1.0), smoothstep(250.0, 500.0, away));
+                float reached = 1.0 - 0.65 * shaded;
+                vec3 sunLight = pow(uLightColor, vec3(2.2));
+                vec3 lightHere = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z)
+                        + sunLight * (2.1 * reached * facing)
+                        + sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)));
+                vec3 color = surface * lightHere;
+                if (water > 0.0) {
+                    vec3 mirrored = reflect(-view, vec3(0.0, 0.0, 1.0));
+                    float glance = 0.03 + 0.97 * pow(1.0 - clamp(view.z, 0.0, 1.0), 5.0);
+                    color = mix(color, ridges(mirrored, atmosphere(mirrored)), glance * water);
+                }
+
+                float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
+                vec3 air = atmosphere(-view);
+                color = mix(color, air, 1.0 - exp(-away * (0.0022 + 0.016 * sunward)));
+                // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
+                float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
+                if (ends > 0.0) {
+                    vec3 behind = mix(ridges(-view, air), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
+                    color = mix(color, behind, ends);
+                }
+                gl_FragColor = vec4(color, 1.0);
             }
             """;
 }

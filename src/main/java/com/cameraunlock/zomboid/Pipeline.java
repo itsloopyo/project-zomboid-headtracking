@@ -184,6 +184,11 @@ final class Pipeline {
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private static float asideX, asideY;
     private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program far;
+    /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
+    private static float beyond;
+    /** How many frames go by before the pixels the built world is thinned out by come round again. */
+    private static final int SIEVES = 64;
     private static int whiteTexture, noiseTexture;
     /**
      * What stands in for a picture that is not made, where a program has a sampler for it: a
@@ -631,6 +636,8 @@ final class Pipeline {
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks);
+            // Seen from outside the viewer, the picture is of the built world alone, as it was.
+            beyond = !outside && FarLand.load(camera.eyeX, camera.eyeY) ? 1f + (FrameBlending.on() ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true);
             arrays();
             stage(STAGE_LOAD);
@@ -1583,6 +1590,43 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         leaveWorld();
+        if (beyond > 0f && !inMirror) {
+            drawFar(camera, state, fogStart, fogEnd);
+        }
+    }
+
+    /**
+     * The far land, wherever the picture's depth does not already have the built world before
+     * it: see FarLand. Drawn after the built world, most of it is hidden and costs nothing.
+     */
+    private static void drawFar(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
+        GL11.glMatrixMode(GL_PROJECTION);
+        GL11.glLoadMatrixf(projection);
+        GL11.glMatrixMode(GL_MODELVIEW);
+        GL11.glLoadMatrixf(viewed);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_BLEND);
+        far.use();
+        far.set("uPicture", 0);
+        far.set("uPictureSide", (float) FarLand.PICTURE);
+        far.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        far.set("uLight", state.lightX, state.lightY, state.lightUp);
+        far.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        far.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        far.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        far.set("uCover", state.cover);
+        far.set("uDrift", state.driftX, state.driftY);
+        far.set("uSnowLying", state.snowLying);
+        far.set("uReach", FarLand.REACH);
+        far.set("uStorey", ViewCamera.LEVEL_HEIGHT);
+        far.set("uFogStart", fogStart);
+        far.set("uFogEnd", fogEnd);
+        far.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        far.set("uBeyond", beyond);
+        atmosphere(far, state);
+        FarLand.draw(camera.eyeX, camera.eyeY);
     }
 
     /**
@@ -1700,6 +1744,7 @@ final class Pipeline {
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
         world.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        world.set("uBeyond", inMirror ? 0f : beyond);
         world.set("uWind", state.windX, state.windY, state.seconds);
         world.set("uGust", state.gustX, state.gustY, state.flutter);
         world.set("uFaced", state.facedX, state.facedY);
@@ -2144,6 +2189,7 @@ final class Pipeline {
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
             figureLight.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+            figureLight.set("uBeyond", beyond);
             figureLight.set("uWriteNear", 0f);
             // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
             figureLight.set("uInside", 0f);
@@ -2506,6 +2552,7 @@ final class Pipeline {
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
             figureLight.set("uLoaded", loadedX - pose.eyeX, loadedY - pose.eyeY, loadedWithin);
+            figureLight.set("uBeyond", mirror ? 0f : beyond);
             figureLight.set("uWriteNear", 0f);
             figureLight.set("uInside", 0f);
             figureLight.set("uGlassPass", 0f);
@@ -2580,6 +2627,7 @@ final class Pipeline {
         figureLight.set("uFogStart", fogStart);
         figureLight.set("uFogEnd", fogEnd);
         figureLight.set("uLoaded", loadedX - inGlass.eyeX, loadedY - inGlass.eyeY, loadedWithin);
+        figureLight.set("uBeyond", 0f);
         figureLight.set("uWriteNear", 0f);
         figureLight.set("uInside", 0f);
         figureLight.set("uGlassPass", 0f);
@@ -3255,6 +3303,7 @@ final class Pipeline {
         snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
         sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
         clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
+        far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
         figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);
         occlusion = Program.link("occlusion", SCREEN_VERTEX, PipelineShaders.OCCLUSION, problem);
         soften = Program.link("occlusion soften", SCREEN_VERTEX, PipelineShaders.SOFTEN, problem);
@@ -3515,6 +3564,7 @@ final class Pipeline {
         @Override
         public void render() {
             ChunkBuffers.letGo();
+            FarLand.letGo();
             Decor.letGo();
             forgetTexels();
             FineSkins.letGo();

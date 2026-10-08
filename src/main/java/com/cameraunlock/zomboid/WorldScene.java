@@ -78,7 +78,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * and the wall is only drawn while that is further than this.
      */
     static final float NEAR_CORNER_DISTANCE = 0.08f;
-    private static final float FAR = 200f;
+    /** Past where the far land ends, for an eye as high over it as the map's tallest roof. */
+    private static final float FAR = FarLand.REACH + 80f;
     private static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.8f;
     private static final float EXPOSURE_MOST = 3.5f;
@@ -1286,6 +1287,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         loadedX = map.getWorldXMinTiles() + loadedWithin;
         loadedY = map.getWorldYMinTiles() + loadedWithin;
         fogEnd = Quality.sight();
+        if (!fromOutside) {
+            FarLand.tend(view.eyeX, view.eyeY);
+        }
         float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
         // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
         boolean mirrored = !fromOutside && seated && Cabins.wheel(Ride.seatedIn) != null;
@@ -2419,6 +2423,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         spareCrowns.clear();
         Crowns.letGo();
+        FarLand.forget();
         while (!spare.isEmpty()) {
             spare.pop().scrap();
         }

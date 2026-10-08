@@ -103,7 +103,7 @@ final class Terrain {
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
     private static final int VALLEY_CHUNKS = 4;
-    private static final float VALLEY = VALLEY_CHUNKS * CHUNK_TILES;
+    static final float VALLEY = VALLEY_CHUNKS * CHUNK_TILES;
     /** How far round a chunk water is looked for, in chunks: a valley's width from anywhere within LEVELLED of it. */
     private static final int WATER_CHUNKS = VALLEY_CHUNKS + (LEVELLED + CHUNK_TILES - 1) / CHUNK_TILES;
     private static final int[] waterChunkX = new int[(2 * WATER_CHUNKS + 1) * (2 * WATER_CHUNKS + 1)];
@@ -543,14 +543,25 @@ final class Terrain {
 
     /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */
     private static float base(float x, float y) {
-        return country(x, y) + (hills(x, y) + swells(x, y)) * smooth(toWaterChunk(x, y) / VALLEY);
+        return level ? 0f : far(x, y, toWaterChunk(x, y));
+    }
+
+    /**
+     * The height of the land at (x, y) as it can be told with nothing of the map loaded there:
+     * the country, and the hills and swells on it where the nearest chunk with water in it is
+     * toWater tiles off, VALLEY and more counting as none. What a building, a street and open
+     * ground's own unevenness do to it is left out. Never level. Any thread.
+     */
+    static float far(float x, float y, float toWater) {
+        return rise(x, y) + (stand(x, y) + heave(x, y)) * smooth(toWater / VALLEY);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
     private static float country(float x, float y) {
-        if (level) {
-            return 0f;
-        }
+        return level ? 0f : rise(x, y);
+    }
+
+    private static float rise(float x, float y) {
         return 2.2f * (float) (Math.sin(x * 0.0061 + 0.7) * Math.sin(y * 0.0053 + 2.2))
                 + 1.4f * (float) Math.sin((x * 0.8 - y * 0.6) * 0.0087 + 4.0);
     }
@@ -560,9 +571,10 @@ final class Terrain {
      * over one climbs less than one in fifteen.
      */
     private static float hills(float x, float y) {
-        if (level) {
-            return 0f;
-        }
+        return level ? 0f : stand(x, y);
+    }
+
+    private static float stand(float x, float y) {
         float broad = (float) (Math.sin(x * 0.015 + 1.1) * Math.sin(y * 0.018 + 0.3) + 0.6 * Math.sin((x + y) * 0.01 + 5.0));
         float ridge = (float) (Math.sin(x * 0.033 - y * 0.022 + 2.0) * Math.sin(y * 0.03 + x * 0.009 + 0.9));
         float up = Math.max(0f, 0.5f + 0.42f * broad + 0.16f * ridge);
@@ -575,9 +587,10 @@ final class Terrain {
      * both from a street. Never steeper than one in twenty.
      */
     static float swells(float x, float y) {
-        if (level) {
-            return 0f;
-        }
+        return level ? 0f : heave(x, y);
+    }
+
+    private static float heave(float x, float y) {
         return 0.65f * (float) (Math.sin(x * 0.047 + 2.6) * Math.sin(y * 0.041 + 0.5))
                 + 0.37f * (float) Math.sin((x * 0.6 + y * 0.8) * 0.052 + 1.9);
     }

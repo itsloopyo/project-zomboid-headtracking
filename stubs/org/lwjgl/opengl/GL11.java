@@ -55,6 +55,7 @@ public final class GL11 {
     public static void glPolygonOffset(float factor, float units) { throw stub(); }
     public static void glDrawBuffer(int buffer) { throw stub(); }
     public static void glReadBuffer(int buffer) { throw stub(); }
+    public static void glTexSubImage2D(int target, int level, int xoffset, int yoffset, int width, int height, int format, int type, ByteBuffer pixels) { throw stub(); }
     public static void glTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int format,
             int type, ByteBuffer pixels) { throw stub(); }
     public static void glCopyTexImage2D(int target, int level, int internalFormat, int x, int y, int width, int height, int border) { throw stub(); }

@@ -137,6 +137,7 @@ public final class Tests {
         StyleTests.run();
         GameFixTests.run();
         MarkTests.run();
+        FarLandTests.run();
         OnlineTests.run();
         HearingTests.run();
         CrowdTests.run();
