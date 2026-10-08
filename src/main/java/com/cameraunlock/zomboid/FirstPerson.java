@@ -1139,6 +1139,15 @@ public final class FirstPerson {
     }
 
     /**
+     * The way the view faces along the map, the head's turn in it, as it was last made: not of
+     * length one, and next to nothing while the view is straight up or down. Logic thread.
+     */
+    void facing(float[] out) {
+        out[0] = trackedView.forwardX;
+        out[1] = trackedView.forwardY;
+    }
+
+    /**
      * Called with the way the game takes the player to be looking when it works out what
      * they can see. The game hides whoever is outside that cone, and its cone is the body's:
      * walking sideways the body faces the way it walks, and a zombie straight ahead of the

@@ -551,7 +551,7 @@ free look it stays, because there the scope's reticle is true only with
 your eye behind the scope, and the game's is the mark of where the rounds go.
 
 The picture in the scope is the same world in the same light, without rain and
-without the glass of windows. It shows people and zombies only as far off as the
+without the glass of windows. It shows other people only as far off as the
 game draws them.
 
 ## Troubleshooting
