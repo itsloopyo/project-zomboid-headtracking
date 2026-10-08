@@ -95,7 +95,7 @@ def one_sheet(art, title, line):
     lettered(image, line, 'georgiab.ttf', fitted(draw, line, 'georgiab.ttf', wide * 0.6, high // 28), wide // 2, round(high * 0.07), (236, 226, 204))
     draw = ImageDraw.Draw(image)
     draw.line((wide * 0.2, high * 0.905, wide * 0.8, high * 0.905), fill=(200, 190, 168), width=max(high // 400, 1))
-    lettered(image, 'RATED R  .  KNOX PICTURES  .  1993', 'georgia.ttf', fitted(draw, 'RATED R  .  KNOX PICTURES  .  1993', 'georgia.ttf', wide * 0.5, high // 44),
+    lettered(image, 'KNOX PICTURES  .  1993', 'georgia.ttf', fitted(draw, 'KNOX PICTURES  .  1993', 'georgia.ttf', wide * 0.5, high // 44),
              wide // 2, round(high * 0.945), (190, 182, 164), shadow=False)
     return image
 

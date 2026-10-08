@@ -374,7 +374,7 @@ show('film-war', FILM,
      'a naval officer with a headset looking up as the hull creaks, war movie',
      'tall plumes of water from depth charges behind a warship, war movie')
 show('film-future', FILM,
-     'a cyborg with half a metal face and a glowing red eye in a rainy alley lit by neon, science fiction action movie',
+     'a soldier with a riveted steel plate over half his face and a round blue camera lens for an eye in a rainy alley lit by neon, science fiction action movie',
      'a motorcycle chased by a huge truck down a desert highway, science fiction action movie',
      'sparks and molten steel in a dark factory, a figure walking through them, science fiction action movie',
      'a woman with a shotgun standing in the doorway of a wrecked bar, science fiction action movie',

@@ -24,8 +24,9 @@ HUNG = []
 LONG = set()
 SHAPED = {}
 LETTERED = {}
-SEEDS = {'basketball-3': 7, 'boxing-3': 7, 'hockey-1': 7, 'hockey-2': 11, 'hockey-5': 7, 'football-4': 7, 'certificate': 7,
-         'music-05': 7, 'music-07': 7, 'music-08': 7, 'screen-05': 7, 'screen-07': 11}
+SEEDS = {'basketball-3': 7, 'boxing-3': 7, 'hockey-1': 7, 'hockey-2': 11, 'hockey-5': 7, 'football-4': 21, 'certificate': 7,
+         'music-05': 21, 'music-07': 7, 'music-08': 7, 'screen-05': 7, 'screen-07': 11, 'film-cyberkiller': 21, 'film-cyberkiller-2': 21,
+         'screen-film-future-0': 21}
 
 
 def art(name, prompt, negative, size):
@@ -121,7 +122,7 @@ SPORTS = {
         'an american football running back in a white uniform carrying the ball through tacklers' + ACTION,
         'an american football receiver in a red uniform leaping to catch a pass' + ACTION,
         'a brown leather american football lying on the white yard line of a grass field' + STILL,
-        'close up portrait of an american football player in a plain blue helmet with no decal and a face mask, stadium lights' + ACTION,
+        'close up of the face of an american football player behind the face mask of a plain blue helmet with no decal, the helmet filling the frame, stadium lights' + ACTION,
         'an american football kicked through yellow goal posts in a stadium at dusk' + ACTION,
     ],
     'soccer': [
@@ -225,7 +226,8 @@ pooled('walls_decoration_05', 144, 159, 'pool')
 pooled('walls_decoration_05', 160, 175, 'fieldhockey')
 pooled('walls_decoration_05', 176, 199, 'hunting')
 
-# Paintings, by the name the game gives each. A painting is a painting of that subject and no copy of any one canvas.
+# Paintings, by the name the game gives each. Where the name points at a famous canvas the prompt describes that subject
+# in words, and the model paints it afresh: no picture of any canvas is given to it.
 OIL = ', oil painting on canvas, visible brushstrokes, rich colour, museum quality, highly detailed'
 PAINTINGS = {
     "Lilly's Waterpond": ('impressionist painting of water lilies floating on a pond, reflections of willows, soft blues, greens and violets' + OIL, WIDE),
@@ -313,7 +315,7 @@ MUSIC = [
     'four young men in matching slim grey suits and narrow ties standing in a row, 1960s beat group, black and white photograph, sharp focus',
     'a cheerful 1960s pop group of five in bright paisley shirts on a pink and rainbow striped background' + GIG,
     'a 1970s hard rock band of four long haired men on stage in front of red and yellow flames and amplifiers' + GIG,
-    'close up portrait of a red haired rock singer with a wild quiff and a black shirt against a black background, moody light' + GIG,
+    'a rock singer with shoulder length brown hair and a headband singing into a microphone on a dark stage, a black shirt, moody light' + GIG,
     'a country rock guitarist with long hair, sunglasses and a fringed jacket playing an electric guitar against an orange desert sunset' + GIG,
     'a pop singer with wavy shoulder length blond hair in a black leather jacket and white t-shirt against a deep blue background' + GIG,
     'three young men in white suits and blue caps posing back to back, 1990s rhythm and blues vocal group, cream background' + GIG,
@@ -347,16 +349,16 @@ for _side in (0, 8):
 # for a hoarding, with the film's name lettered on.
 FILM = ', movie poster key art, cinematic lighting, dramatic composition, highly detailed'
 FILMS = {
-    'Cyberkiller': ('Cyberkiller', 'close up of a grim cyborg man, half his face torn away to show a chrome skull with a glowing red eye, dark teal circuit board background' + FILM,
+    'Cyberkiller': ('Cyberkiller', 'close up of a grim square jawed soldier, a riveted steel plate over the left half of his face with a round blue camera lens where the eye was, dark teal circuit board background' + FILM,
                     'CYBERKILLER', 'IN THEATERS NOW'),
-    'Cyberkiller 2': ('Cyberkiller 2', 'a muscular bearded action hero back to back with a chrome skulled cyborg with a glowing red eye, teal digital grid background' + FILM,
+    'Cyberkiller 2': ('Cyberkiller 2', 'a muscular bearded action hero back to back with a soldier who has a riveted steel plate over half his face and a round blue camera lens for an eye, teal digital grid background' + FILM,
                       'CYBERKILLER 2', 'IN THEATERS NOW'),
     'Operation Fort Knox': ('Operation Fort Knox', 'a suave blond secret agent in a black tuxedo holding a pistol, stacks of gold bars glowing behind him, golden light' + FILM,
                             'OPERATION FORT KNOX', 'IN THEATERS NOW'),
     'PAWS': ('PAWS', 'animated family film illustration of a raccoon, a brown bear cub, a squirrel and a badger adventuring together through a sunny green forest, bright colours, storybook cartoon style',
              'PAWS', 'IN THEATERS NOW'),
     'Dog Goblin 4': ('Dog Goblin 4', 'horror film art, a huge cracked human skull looming out of darkness, pale moonlight, mist, bare trees, black and steel blue' + FILM,
-                     'DOG GOBLIN 4', 'ZERO GRAVITY'),
+                     'DOG GOBLIN 4', 'IN THEATERS NOW'),
     'Pleistocene Land': ('Pleistocene Land', 'a woolly mammoth with great curved tusks walking through a snowy pine forest in a blizzard, pale winter light' + FILM,
                          'PLEISTOCENE LAND', 'IN THEATERS NOW'),
     'Dr Oids': ('Dr Oids', '1980s arcade video game art, pixel art of a yellow blocky smiling creature and a pink blocky ghost on a dark blue neon grid, glowing green outlines',
