@@ -618,7 +618,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape;
+                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
 
@@ -655,6 +655,7 @@ final class WorldScene {
             rail = Rails.of(name);
             flightPost = Rails.flightPost(name);
             fireEscape = Rails.fireEscape(name);
+            paint = RoadPaint.marks(name);
         }
     }
 
@@ -5155,7 +5156,13 @@ final class WorldScene {
             if (floorLayer == 0 && z > lowestLevel) {
                 addCeiling(mesh, x, y, z);
             }
-            SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
+            // A line painted on the road is laid as paint, not as its sprite: see RoadPaint.
+            boolean painted = sprite.paint && !isFloor && frame.kind == 0f && Own.paint();
+            RoadPaint.Shape paint = painted ? RoadPaint.of(texture, frame) : null;
+            if (painted && paint == null && RoadPaint.unread(texture)) {
+                building.signed = false;
+            }
+            SpriteGeometry.Mesh on = paint != null ? laid.get(paint.picture) : floorLayer == 0 ? mesh : laid.get(texture.getID());
             if (frame.kind != 0f && z == 0 && floorLayer == 0) {
                 // Water knows where its bank is: each corner says whether land touches it.
                 for (int corner = 0; corner < 4; corner++) {
@@ -5188,7 +5195,11 @@ final class WorldScene {
                 frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             }
             layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
-            geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            if (paint != null) {
+                RoadPaint.lay(geometry, on, frame, paint, x, y, z);
+            } else {
+                geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            }
             layers.none();
             geometry.kerbKeep = SpriteGeometry.BOTH;
             frame.kind = 0f;

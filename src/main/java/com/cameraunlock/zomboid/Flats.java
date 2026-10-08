@@ -384,7 +384,7 @@ final class Flats {
     }
 
     /** Puts a picture with its rim on the graphics card, and gives its name. */
-    private static int picture(byte[] whole, int wide, int high) {
+    static int picture(byte[] whole, int wide, int high) {
         ByteBuffer bytes = ByteBuffer.allocateDirect(whole.length).order(ByteOrder.nativeOrder());
         bytes.put(whole).flip();
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);

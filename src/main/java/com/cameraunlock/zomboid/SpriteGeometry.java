@@ -816,6 +816,37 @@ final class SpriteGeometry {
 
     /** What Frame.flat says: the sprite's own texels, a floor laid flat, or a wall stood square along its square's north edge or its west. */
     static final int FLAT_FLOOR = 1, FLAT_NORTH = 2, FLAT_WEST = 3;
+    /** In Frame.flat while addGiven adds: a corner's texel is what the corner was given with. */
+    private static final int GIVEN = 4;
+
+    /**
+     * Adds a triangle lying on the ground of the square, its three corners given from the
+     * float at of given, each as where on the square it is, along x and y, and the two numbers
+     * the picture is handed where a texel's place would be. A corner may lie past the square's
+     * edge: it is then as high as the edge is there. Lit, tilted and stepped down a kerb as a
+     * face of the square's floor is.
+     */
+    void addGiven(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] given, int at) {
+        for (int corner = 0; corner < 3; corner++) {
+            int from = at + corner * 4, to = corner * CORNER_FLOATS;
+            clipped[to] = given[from];
+            clipped[to + 1] = given[from + 1];
+            clipped[to + 2] = 0f;
+            clipped[to + CORNER_U] = given[from + 2];
+            clipped[to + CORNER_V] = given[from + 3];
+        }
+        int flat = frame.flat;
+        frame.flat = GIVEN;
+        mesh.open = frame.open + frame.kind + 32f * frame.material;
+        mesh.face(-(lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -(lift[3] - lift[0] + lift[2] - lift[1]) / 2f, 1f);
+        if (kerb != null && tileZ == 0) {
+            System.arraycopy(clipped, 0, split[0], 0, 3 * CORNER_FLOATS);
+            split(mesh, frame, tileX, tileY, 0, 3, 0, 0, Kerbs.FINE);
+        } else {
+            fan(mesh, frame, tileX, tileY, tileZ, clipped, 3);
+        }
+        frame.flat = flat;
+    }
 
     /** The face in corners as it is, into result: a flat picture covers its whole square. */
     private int whole() {
@@ -1427,6 +1458,10 @@ final class SpriteGeometry {
         float pixelV = polygon[at + CORNER_V];
         if (frame.flat == FLAT_FLOOR) {
             emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, Flats.FROM + Flats.SPAN * polygon[at], Flats.FROM + Flats.SPAN * polygon[at + 1]);
+            return;
+        }
+        if (frame.flat == GIVEN) {
+            emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, pixelU, pixelV);
             return;
         }
         if (frame.flat != 0) {

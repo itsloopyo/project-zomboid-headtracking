@@ -21,7 +21,7 @@ final class Own {
     private static final int[] built = new int[View.COUNT];
 
     static {
-        java.util.Arrays.fill(built, ALL);
+        java.util.Arrays.fill(built, ALL | ALL << 16);
     }
 
     private Own() {}
@@ -89,12 +89,22 @@ final class Own {
     }
 
     /**
+     * Whether the lines painted on roads are laid as paint: see RoadPaint. They are the game's
+     * own markings in the game's own colours and need no picture of the mod's, so they are
+     * laid in every graphics mode, Low too, and it is the row as the file has it that says.
+     */
+    static boolean paint() {
+        return (on & TEXTURES) != 0;
+    }
+
+    /**
      * Whether a row has changed since a view's world was last built, asked by the logic thread
      * before it builds: true once for each change, and whatever that view built before it is
      * then to be built again.
      */
     static boolean taken(int view) {
-        int now = on();
+        // The rows the mode shows, and over them the rows as the file has them, which is what paint asks.
+        int now = on() | on << 16;
         if (now == built[view]) {
             return false;
         }

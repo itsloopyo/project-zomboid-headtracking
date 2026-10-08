@@ -78,6 +78,7 @@ public final class Tests {
         Checks.run("BufferTests", BufferTests::run);
         Checks.run("PictureTests", PictureTests::run);
         Checks.run("LinkTests", LinkTests::run);
+        Checks.run("RoadPaintTests", RoadPaintTests::run);
         Checks.run("shotStopsOnACharacter", Tests::shotStopsOnACharacter);
         Checks.run("insertAfterAddsTheHookOnce", Tests::insertAfterAddsTheHookOnce);
         Checks.run("insertAfterRejectsAMissingCall", Tests::insertAfterRejectsAMissingCall);

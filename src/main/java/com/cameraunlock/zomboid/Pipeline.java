@@ -174,7 +174,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     /**
      * The same program told at compile time that only depth is wanted, so the driver leaves out
      * every sum that only colours a pixel: see drawWorld.
