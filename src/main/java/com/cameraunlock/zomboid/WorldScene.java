@@ -3608,18 +3608,24 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private int heightsRound;
 
     /**
-     * The height of the land at a point the build hangs something over, which may be over the
-     * next chunk: a wire's end at the insulator of a pole that stands there. That chunk's
-     * heights are worked out here if they are not yet, where the height read 0 until whatever
-     * first built that chunk had, and the build remembers that it goes by them (landOf): when
-     * they come out otherwise this chunk is built again, which nothing told it to be before.
+     * Before the build takes the ground's height at a point that may be over the next chunk: a
+     * wire's end at the insulator of a pole that stands there, the corner of a body's picture.
+     * That chunk's heights are worked out here if they are not yet, where the height read 0
+     * until whatever first built that chunk had, and the build remembers that it goes by them
+     * (landOf): when they come out otherwise this chunk is built again, which nothing told it
+     * to be before.
      */
-    private float landAt(float x, float y) {
+    private void heightsAt(float x, float y) {
         int wx = Math.floorDiv((int) Math.floor(x), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(y), CHUNK_TILES);
         if (wx != building.wx || wy != building.wy) {
             Terrain.corners(cell, wx, wy);
             heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
         }
+    }
+
+    /** The height of the land at a point the build hangs something over: see heightsAt. */
+    private float landAt(float x, float y) {
+        heightsAt(x, y);
         return Terrain.land(x, y);
     }
 
@@ -3929,6 +3935,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             boolean right = corner == 1 || corner == 2, low = corner >= 2;
             float u = (left + (right ? wide : 0f)) / across, v = (top + (low ? high : 0f)) / down;
             float atX = x + (v + u) / 2f + nearer, atY = y + (v - u) / 2f + nearer;
+            heightsAt(atX, atY);
             mesh.add(atX, atY, z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(atX, atY, z) + BODY_UP,
                     right ? texture.getXEnd() : texture.getXStart(), low ? texture.getYEnd() : texture.getYStart(), frame.red, frame.green, frame.blue);
         }
