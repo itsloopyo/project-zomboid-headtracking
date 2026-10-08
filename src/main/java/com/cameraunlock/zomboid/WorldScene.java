@@ -2434,7 +2434,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                     }
                     IsoGridSquare square = lightSquare[at];
-                    thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), roomLit(square) ? 1 : 0);
+                    thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurns(cell, square) ? 1 : 0);
                     PZArrayList<IsoObject> objects = square.getObjects();
                     thing = sum(thing, objects.size());
                     for (int k = 0; k < objects.size(); k++) {
@@ -6603,12 +6603,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     /**
-     * Whether the light of the room a square is in burns. A chunk's sum holds it for every
-     * square: the game gives a room its lights and switches them with no mark on the room's
-     * chunks, and in daylight no square's light changes with them either, so nothing else
-     * says that a window's pane is now lit.
+     * Whether a lamp burns in the room a square is in: the room's own light, which the game's
+     * lighting sets from the switch and the power, or a lamp stood in the room. A chunk's sum
+     * holds it for every lit square of a room: the game gives a room its lights, lists its
+     * lamps and switches both with no mark on the room's chunks, and in daylight no square's
+     * light changes with them either, so nothing else says that a window's pane is now lit.
      */
-    private static boolean roomLit(IsoGridSquare square) {
+    private static boolean lampBurns(IsoCell cell, IsoGridSquare square) {
         IsoRoom room = square.getRoom();
         if (room == null) {
             return false;
@@ -6617,31 +6618,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (room.roomLights.get(i).active) {
                 return true;
             }
-        }
-        return false;
-    }
-
-    /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
-    private static final float LAMPLIT = 0.55f;
-
-    /**
-     * Whether a lamp burns in the room a square is in and lights the square: the room's own
-     * light, which the game's lighting sets from the switch and the power, or a lamp stood in
-     * the room. How bright the square is does not say so alone. The game keeps every square at
-     * full daylight for an hour after the picture's sky is the night's, and it lights whole
-     * squares in the beam of a torch or of a car's headlights.
-     */
-    static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex) {
-        IsoRoom room = square.getRoom();
-        if (room == null || !square.isSeen(playerIndex)) {
-            return false;
-        }
-        ColorInfo light = square.lighting[playerIndex].lightInfo();
-        if (Math.max(light.r, Math.max(light.g, light.b)) <= LAMPLIT) {
-            return false;
-        }
-        if (roomLit(square)) {
-            return true;
         }
         Stack<IsoLightSource> lamps = cell.getLamppostPositions();
         for (int i = 0; i < lamps.size(); i++) {
@@ -6655,6 +6631,23 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
         }
         return false;
+    }
+
+    /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
+    private static final float LAMPLIT = 0.55f;
+
+    /**
+     * Whether a lamp burns in the room a square is in and lights the square. How bright the
+     * square is does not say so alone. The game keeps every square at full daylight for an
+     * hour after the picture's sky is the night's, and it lights whole squares in the beam of
+     * a torch or of a car's headlights.
+     */
+    static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex) {
+        if (square.getRoom() == null || !square.isSeen(playerIndex)) {
+            return false;
+        }
+        ColorInfo light = square.lighting[playerIndex].lightInfo();
+        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square);
     }
 
     /**
