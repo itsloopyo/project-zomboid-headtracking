@@ -109,7 +109,7 @@ Copyright (c) 2026 itsloopyo
 ## Generated wall pictures
 
 - **Files:** every `pictures/*.jpg` inside the mod's jar: the family photographs, paintings, sports posters, band and film posters, boards and certificates that hang on walls in the first person view
-- **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. The people in the photographs and on the posters are nobody: the model drew them from a description such as "a grandmother with curly grey hair and glasses". The five portraits of American statesmen are paintings of those men as the prompt names them, and no copy of any one canvas.
+- **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. The people in the photographs and on the posters are nobody: the model drew them from a description such as "a grandmother with curly grey hair and glasses". The four portraits of American statesmen are paintings of those men as the prompt names them, and no copy of any one canvas. Where the game's name for a painting points at a famous old canvas ("Night With Stars", "Margarite", "Aaaaah!"), the prompt describes that subject in words and the model painted it afresh, so the picture is a new one after it. A team's crest, a sponsor's name or a sign in a picture is the model's own scribble and stands for no real team or company.
 - **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The pictures are decoration on walls in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 - **Usage:** The first person view shows each in the frame or on the sheet where the game has its own small sprite of a picture. Which sprite shows which picture is `pictures/index.txt`, written by `tools/pictures/pack.py` from `tools/pictures/catalogue.py`, where the prompts are. A picture is chosen for a sprite by what the game calls it ("Painting", "Lighthouse") or by what its sprite depicts (a boxer, a family), described in words.
@@ -132,7 +132,7 @@ Copyright (c) 2026 itsloopyo
 ## Generated fabrics, T-shirt prints, blood and dirt
 
 - **Files:** inside the mod's jar, `fabric/*.jpg` (eight close photographs of cloth, leather and hair, one channel each), `skins/shirtdecals/*.jpg` (sixty prints for the chest of a T-shirt) and `skins/bloodtextures/*.jpg` (dried blood and dirt), each of the last two with a `.cut.png` beside it that says what of it shows.
-- **Version:** made by `tools/skins/fabrics.py` and `tools/skins/prints.py` in this repository with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. A print is a design of the mod's own on the theme the game's name for that print gives it (a slice of pizza for a pizza place, a wolf for a wolf): no brand, mascot or lettering of the game's is in it, and the game's prints were not read. Any lettering in one is the model's own scribble and spells nothing.
+- **Version:** made by `tools/skins/fabrics.py` and `tools/skins/prints.py` in this repository with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. A print is a design of the mod's own on the theme the game's name for that print gives it (a slice of pizza for a pizza place, a wolf for a wolf): no brand, mascot or lettering of the game's is in it, and the game's prints were not read. The mascot on eight of them is a beaver of the mod's own. Any lettering in one is the model's own scribble and spells nothing.
 - **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI, on the same terms as the generated material textures above.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 - **Usage:** In the first person view the mod makes the game's own picture of each garment, head of hair and beard finer as the game runs, reading it from the player's installed copy, and multiplies the light and dark of one of the fabrics into it. Nothing of the game's pictures is in the jar. The prints, the blood and the dirt stand in for the game's own where its combiner composes what a person wears.
@@ -222,8 +222,8 @@ Project Zomboid or from anywhere else.
 
 ## Shader code
 
-The jar's shaders are this project's own, with two exceptions. Both are in the
-jar as shader source text.
+The jar's shaders are this project's own, with three exceptions. All three are in
+the jar as shader source text.
 
 ### Hash without Sine
 
@@ -256,7 +256,7 @@ SOFTWARE.
 ### FXAA pass
 
 - **Where:** the edge blend in the `SMOOTH` shader of `PipelineShaders.java`
-- **License:** BSD-3-Clause
+- **License:** BSD-3-Clause for `fxaa.glsl`, by the notice in its header, and MIT for the glsl-fxaa repository it is taken from, by that repository's `LICENSE.md`. Both notices follow.
 - **Upstream:** https://github.com/mattdesl/glsl-fxaa (`fxaa.glsl`), whose header says it is based on the code on geeks3d.com and comes from https://github.com/mitsuhiko/webgl-meincraft
 - **Usage:** Smooths the stair-steps of edges in the finished first person picture.
 - **Bundled:** yes, changed: the names are this project's, the constants are written out as numbers, it reads the picture at this project's own coordinates, and the sharpening that follows it is this project's own.
@@ -293,12 +293,83 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-### Acknowledgement
+The MIT License (MIT)
+Copyright (c) 2014 Matt DesLauriers
 
-The dither that spreads the picture's samples from pixel to pixel is the
-interleaved gradient noise formula Jorge Jimenez presented in "Next Generation
-Post Processing in Call of Duty: Advanced Warfare" (SIGGRAPH 2014,
-https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/).
-It is a published formula of three constants. No code was taken.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### Catmull-Rom filtering in nine reads
+
+- **Where:** `sharply` in the shader of `PipelineShaders.java` that carries the picture over from one frame to the next, and the reading of a sprite in the world shader of `PipelineShaders.java` and of a skin in the shader of `CharacterDraw.java`, both of which leave out the four corner reads
+- **License:** MIT
+- **Upstream:** https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1 (`SampleTextureCatmullRom`), under the licence at https://gist.github.com/TheRealMJP/bc503b0b87b643d3505d41eab8b332ae
+- **Usage:** Reads a picture between its dots through a curve over the sixteen dots round the place, in nine reads or five, so that the picture kept from the last frame, a sprite and a skin keep their edges.
+- **Bundled:** yes, changed: the names are this project's, it is written in GLSL, and what is done with the colour read is this project's own.
+
+MIT License
+
+Copyright (c) 2019 MJP
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### Acknowledgements
+
+These are published formulas and methods. No code was taken beyond the formula
+itself, and each is written here in this project's own shaders.
+
+- The dither that spreads the picture's samples from pixel to pixel is the
+  interleaved gradient noise formula Jorge Jimenez presented in "Next Generation
+  Post Processing in Call of Duty: Advanced Warfare" (SIGGRAPH 2014,
+  https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/).
+  It is a published formula of three constants.
+- What a surface throws back of its surroundings, in the shaders of
+  `Scope.java`, `OwnWeapon.java` and `OwnRifle.java`, is worked out with the
+  fitted approximation Brian Karis published in "Physically Based Shading on
+  Mobile" (Epic Games, 2014). It is a published formula of three lines.
+- A facing is kept in two numbers in `CharacterDraw.java` by octahedral
+  encoding, from "A Survey of Efficient Representations for Independent Unit
+  Vectors" by Cigolle, Donow, Evangelakos, Mara, McGuire and Meyer (Journal of
+  Computer Graphics Techniques, 2014, https://jcgt.org/published/0003/02/01/),
+  in the form Krzysztof Narkowicz gives in
+  "Octahedron normal vector encoding"
+  (https://knarkowicz.wordpress.com/2014/04/16/octahedron-normal-vector-encoding/).
+- The distances to a box and to a rod, the smooth joining of two shapes, in
+  `CabinShader.java` and `PipelineShaders.java`, and the smooth noise with its
+  slopes in `SnowShader.java`, follow the formulas Inigo Quilez sets out at
+  https://iquilezles.org/articles/distfunctions/, https://iquilezles.org/articles/smin/
+  and https://iquilezles.org/articles/morenoise/.
+- The glow round bright things is spread by the dual filter Marius Bjorge
+  presented in "Bandwidth-Efficient Rendering" (SIGGRAPH 2015).
 ---

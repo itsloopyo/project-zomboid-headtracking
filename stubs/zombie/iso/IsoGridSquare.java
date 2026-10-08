@@ -12,12 +12,14 @@ public final class IsoGridSquare {
     }
 
     public static final class ResultLight {
-        public static final int RLF_TORCH = 2;
+        public static final int RLF_TORCH = stub();
         public int id;
         public float r;
         public float g;
         public float b;
         public int flags;
+
+        private static int stub() { throw new UnsupportedOperationException("reference stub"); }
     }
 
     public final ILighting[] lighting = null;

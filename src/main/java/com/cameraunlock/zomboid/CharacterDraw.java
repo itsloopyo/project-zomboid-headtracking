@@ -432,6 +432,9 @@ final class CharacterDraw {
      * The strands' way is kept as an angle in a pair of lines that lie in the surface and are
      * found from the way it faces alone, so that whoever reads the pixel finds the same pair.
      * They are found from the folded and unfolded facing, not the true one, for that reason.
+     *
+     * The folding is the octahedral encoding of Cigolle and others, as Krzysztof Narkowicz wrote
+     * it out (THIRD-PARTY-NOTICES.md, Acknowledgements).
      */
     static final String KEPT = """
             vec2 folded(vec3 n) {
@@ -604,6 +607,8 @@ final class CharacterDraw {
                 // a curve over the four nearest dots each way, and not a straight blend of
                 // two, the edge of a sleeve or a wound is a clean line and not a blur; the
                 // colour is then drawn a little away from the mean of what is round it.
+                // The weights of the curve, and the pairs of dots the card is left to mix, are MJP's
+                // SampleTextureCatmullRom, used under its MIT licence: THIRD-PARTY-NOTICES.md.
                 vec2 size = uTexSize;
                 vec2 at = vUv * size - 0.5;
                 vec2 whole = floor(at), part = at - whole;

@@ -8,6 +8,7 @@ import java.lang.classfile.CodeTransform;
 import java.lang.classfile.FieldModel;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
+import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
@@ -146,24 +147,41 @@ final class CallSite {
     }
 
     /**
-     * Makes {@code within}, a static method that takes one object and returns one, return what
-     * the static method {@code answer} makes of its argument whenever the argument is not null.
+     * Makes {@code within}, a static method that takes one object and returns one, work an
+     * answer out once for each thing asked about. At its start it returns what the static
+     * method {@code known} has for its argument, unless that is null, and then goes on as it
+     * did. Before each of its own returns it hands what it was asked and what it is about to
+     * answer to the static method {@code learn}. What it was asked is put by at the start, so
+     * a method that writes over its argument as it works still says what it was asked.
      */
-    static byte[] answerAtOnceUnlessNull(byte[] classBytes, Method within, Method answer) {
+    static byte[] answerOnce(byte[] classBytes, Method within, Method known, Method learn) {
         boolean[] begun = {false};
+        int[] asked = {-1}, returns = {0};
         CodeTransform insert = (code, element) -> {
             if (!begun[0]) {
                 begun[0] = true;
+                asked[0] = code.allocateLocal(TypeKind.REFERENCE);
                 code.aload(0);
-                code.ifThen(Opcode.IFNONNULL, asked -> {
-                    asked.aload(0);
-                    invokeStatic(asked, answer);
-                    asked.areturn();
-                });
+                code.astore(asked[0]);
+                code.aload(0);
+                invokeStatic(code, known);
+                code.dup();
+                code.ifThenElse(Opcode.IFNONNULL, CodeBuilder::areturn, CodeBuilder::pop);
+            }
+            if (element instanceof ReturnInstruction) {
+                returns[0]++;
+                code.dup();
+                code.aload(asked[0]);
+                code.swap();
+                invokeStatic(code, learn);
             }
             code.with(element);
         };
-        return transform(classBytes, within, insert);
+        byte[] transformed = transform(classBytes, within, insert);
+        if (returns[0] == 0) {
+            throw new IllegalStateException("found no return in " + within);
+        }
+        return transformed;
     }
 
     /**

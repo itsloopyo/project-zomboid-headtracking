@@ -253,6 +253,8 @@ final class Scope {
                 vec3 shown = mix(around(back, skyGives), 0.5 * (around(normalize(back + n), skyGives) + soft), clamp(rough * 1.5, 0.0, 1.0));
                 // A satin finish is pits and peaks too small to see, and the pits throw back less than a flat face would.
                 shown *= (1.0 - 0.94 * headHides(back, view)) * mix(1.0 - 0.5 * rough, 1.0, vFinish.z);
+                // What a surface this rough throws back of its surroundings at this angle, by the fit Brian
+                // Karis published for it (THIRD-PARTY-NOTICES.md, Acknowledgements).
                 vec4 fit = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
                 float edge = min(fit.x * fit.x, exp2(-9.28 * nv)) * fit.x + fit.y;
                 vec2 share = vec2(-1.04, 1.04) * edge + fit.zw;

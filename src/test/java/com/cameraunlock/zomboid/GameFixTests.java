@@ -12,9 +12,9 @@ final class GameFixTests {
     private GameFixTests() {}
 
     static void run() {
-        aKindIsTheClassUnderTheRoot();
+        aKindIsKeptOnceItIsLearnt();
         try {
-            anAnswerIsGivenAtOnceUnlessNothingWasAsked();
+            anAnswerIsWorkedOutOnceForEachThingAsked();
             falseIsAnsweredAtOnceWhileTheListIsEmpty();
             anAnswerIsKeptUntilWhatItCameFromChanges();
         } catch (AssertionError failed) {
@@ -30,29 +30,46 @@ final class GameFixTests {
         }
     }
 
-    private static void aKindIsTheClassUnderTheRoot() {
-        // Nothing here descends from the game's root of components, so the climb ends where the game's own would: at the top.
-        check(GameFixes.componentKind(ArrayList.class) == Object.class, "a class that is no component climbs to the top, as the game's own climb does");
-        check(GameFixes.componentKind(ArrayList.class) == Object.class, "and is answered the same the second time");
-        check(GameFixes.componentKind(Object.class) == Object.class, "the top is its own kind");
+    private static void aKindIsKeptOnceItIsLearnt() {
+        check(GameFixes.knownKind(ArrayList.class) == null && GameFixes.knownKind(null) == null, "nothing is known of a class not yet asked about, nor of no class");
+        GameFixes.learnKind(ArrayList.class, java.util.AbstractList.class);
+        GameFixes.learnKind(null, Object.class);
+        check(GameFixes.knownKind(ArrayList.class) == java.util.AbstractList.class, "what was answered for a class is known of it afterwards");
+        check(GameFixes.knownKind(java.util.LinkedList.class) == null && GameFixes.knownKind(null) == null, "and of no other");
     }
 
-    public static Class<?> answered(Class<?> asked) {
-        return String.class;
+    private static final java.util.Map<Class<?>, Class<?>> learnt = new java.util.HashMap<>();
+    private static int worked;
+
+    public static Class<?> known(Class<?> asked) {
+        return learnt.get(asked);
     }
 
-    private static void anAnswerIsGivenAtOnceUnlessNothingWasAsked() throws Throwable {
-        ClassDesc classDesc = ConstantDescs.CD_Class;
+    public static void learn(Class<?> asked, Class<?> answer) {
+        learnt.put(asked, answer);
+    }
+
+    public static Class<?> parentOf(Class<?> asked) {
+        worked++;
+        return asked.getSuperclass();
+    }
+
+    private static void anAnswerIsWorkedOutOnceForEachThingAsked() throws Throwable {
+        ClassDesc classDesc = ConstantDescs.CD_Class, tests = ClassDesc.of("com.cameraunlock.zomboid.GameFixTests");
+        // The subject writes over its argument before it answers, as a method that climbs from what it was asked does.
         byte[] subject = ClassFile.of().build(ClassDesc.of("com.cameraunlock.zomboid.SubjectReturningAClass"), type -> type
                 .withFlags(ClassFile.ACC_PUBLIC)
                 .withMethodBody("kind", MethodTypeDesc.of(classDesc, classDesc), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code ->
-                        code.aload(0).areturn()));
+                        code.aload(0).invokestatic(tests, "parentOf", MethodTypeDesc.of(classDesc, classDesc)).astore(0).aload(0).areturn()));
         CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectReturningAClass", "kind", "(Ljava/lang/Class;)Ljava/lang/Class;");
-        CallSite.Method answer = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "answered", "(Ljava/lang/Class;)Ljava/lang/Class;");
-        Class<?> defined = MethodHandles.lookup().defineClass(CallSite.answerAtOnceUnlessNull(subject, within, answer));
+        CallSite.Method known = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "known", "(Ljava/lang/Class;)Ljava/lang/Class;");
+        CallSite.Method learn = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "learn", "(Ljava/lang/Class;Ljava/lang/Class;)V");
+        Class<?> defined = MethodHandles.lookup().defineClass(CallSite.answerOnce(subject, within, known, learn));
         Method kind = defined.getMethod("kind", Class.class);
-        check(kind.invoke(null, Integer.class) == String.class, "asked about a class, the method hands back the answer it was given");
-        check(kind.invoke(null, (Object) null) == null, "asked about nothing, it does what it did");
+        check(kind.invoke(null, Integer.class) == Number.class && worked == 1, "asked about a class the first time, the method works its answer out");
+        check(learnt.get(Integer.class) == Number.class && learnt.size() == 1, "and it is kept by what was asked, not by what the method made of it on the way");
+        check(kind.invoke(null, Integer.class) == Number.class && worked == 1, "asked again, it hands back what was kept and works nothing out");
+        check(kind.invoke(null, Object.class) == null && kind.invoke(null, Object.class) == null && worked == 3, "an answer of nothing is worked out each time");
     }
 
     private static void anAnswerIsKeptUntilWhatItCameFromChanges() throws Throwable {

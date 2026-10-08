@@ -226,6 +226,8 @@ final class OwnRifle {
                 vec3 back = reflect(-view, n);
                 vec3 shown = mix(around(back, skyGives), 0.5 * (around(normalize(back + n), skyGives) + soft), clamp(rough * 1.5, 0.0, 1.0));
                 shown *= 1.0 - 0.9 * headHides(back, view);
+                // What a surface this rough throws back of its surroundings at this angle, by the fit Brian
+                // Karis published for it (THIRD-PARTY-NOTICES.md, Acknowledgements).
                 vec4 fit = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
                 // Oiled wood seen along its length does not turn into a mirror of the sky as a
                 // polished thing would: its grain throws most of that light back the way it came.

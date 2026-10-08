@@ -1,8 +1,10 @@
 package zombie.iso.weather;
 
 public final class ClimateManager {
-    public static final int FLOAT_PRECIPITATION_INTENSITY = 3, FLOAT_FOG_INTENSITY = 5, FLOAT_WIND_INTENSITY = 6, FLOAT_CLOUD_INTENSITY = 8;
-    public static final int BOOL_IS_SNOW = 0;
+    public static final int FLOAT_PRECIPITATION_INTENSITY = stub(), FLOAT_FOG_INTENSITY = stub(), FLOAT_WIND_INTENSITY = stub(), FLOAT_CLOUD_INTENSITY = stub();
+    public static final int BOOL_IS_SNOW = stub();
+
+    private static int stub() { throw new UnsupportedOperationException("reference stub"); }
 
     public static class ClimateFloat {
         public void setEnableAdmin(boolean enabled) { throw new UnsupportedOperationException("reference stub"); }

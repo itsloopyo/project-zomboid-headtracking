@@ -1182,6 +1182,8 @@ final class PipelineShaders {
                     // over the four nearest dots each way, and drawn a little away from the
                     // plain blend, a leaf or a plank has an edge and not a smear. Where a sprite
                     // is cut away the plain reading decides, so its outline is as it was.
+                    // The weights of the curve, and the pairs of dots the card is left to mix, are MJP's
+                    // SampleTextureCatmullRom, used under its MIT licence: THIRD-PARTY-NOTICES.md.
                     vec2 size = 1.0 / uTexel;
                     vec2 spot = vUv * size - 0.5;
                     vec2 whole = floor(spot), part = spot - whole;
@@ -3555,6 +3557,8 @@ final class PipelineShaders {
             // drawn at, and is brought down to it where it is traced.
             const float CABIN = 0.6667;
 
+            // Distances to simple shapes, and the smooth joining of two of them, by the formulas Inigo
+            // Quilez sets out (THIRD-PARTY-NOTICES.md, Acknowledgements).
             float block(vec3 v, vec3 halves, float round) {
                 vec3 d = abs(v) - halves;
                 return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0) - round;
@@ -5275,6 +5279,8 @@ final class PipelineShaders {
             // sharp when it stops: with a tracked head, which never quite stops, it pulses.
             // Read through a curve fitted to the sixteen pixels round the place, it keeps
             // its edges. The sixteen are had from nine reads by letting the card mix pairs.
+            // The weights of the curve, and the pairs of dots the card is left to mix, are MJP's
+            // SampleTextureCatmullRom, used under its MIT licence: THIRD-PARTY-NOTICES.md.
             vec3 sharply(vec2 at) {
                 vec2 place = at * uSize;
                 vec2 middle = floor(place - 0.5) + 0.5;
@@ -5439,7 +5445,7 @@ final class PipelineShaders {
 
     /**
      * Smooths the stair-steps of edges, looking along each edge for how far to blend. The blend
-     * is the FXAA pass of glsl-fxaa, used under its BSD licence: the notice is in
+     * is the FXAA pass of glsl-fxaa, used under its BSD and MIT licences: the notices are in
      * THIRD-PARTY-NOTICES.md. The sharpening after it is this project's own.
      */
     static final String SMOOTH = """

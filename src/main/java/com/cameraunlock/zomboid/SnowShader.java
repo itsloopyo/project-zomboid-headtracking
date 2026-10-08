@@ -141,6 +141,7 @@ final class SnowShader {
             // Smooth noise at a place and how fast it changes each way. The corner vPlace is
             // counted from moves sixty tiles at a time, so the noise is made to come round
             // again every wrap of its own cells, which the caller makes a whole share of sixty tiles.
+            // The noise and its slopes are worked as Inigo Quilez sets them out (THIRD-PARTY-NOTICES.md, Acknowledgements).
             vec3 snowNoise(vec2 p, vec2 wrap, float seed) {
                 vec2 cell = floor(p), f = p - cell;
                 vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);

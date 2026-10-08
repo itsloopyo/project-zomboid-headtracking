@@ -92,6 +92,8 @@ final class CabinShader {
                 }
             }
 
+            // Distances to simple shapes, and the smooth joining of two of them, by the formulas Inigo
+            // Quilez sets out (THIRD-PARTY-NOTICES.md, Acknowledgements).
             float blend(float a, float b, float k) {
                 float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
                 return mix(b, a, h) - k * h * (1.0 - h);

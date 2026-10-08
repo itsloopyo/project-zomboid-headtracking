@@ -8,32 +8,33 @@ package com.cameraunlock.zomboid;
 public final class GameFixes {
     private GameFixes() {}
 
-    private static final String COMPONENT = "zombie.characters.ecs.ECSComponent";
-
     /**
      * The game keeps what a character is made of, its state machine among them, in a map by
      * kind, and the kind of a component is the class it descends from directly under the
      * game's root class of components. It finds that by climbing from the class asked for to
      * the root, on every asking, and a zombie's state machine alone is asked for dozens of
      * times a frame: with 300 zombies on the screen the climb and the map were a ninth of
-     * everything the game's logic thread did. A class's ancestors do not change, so the climb
-     * is made once a class.
+     * everything the game's logic thread did. A class's ancestors do not change, so the game
+     * makes the climb once a class: what its own code answered for a class is kept here, and
+     * handed back the next time that class is asked about. Where it answered nothing, nothing
+     * is kept and it works the answer out each time, as it did.
      */
-    private static final ClassValue<Class<?>> KIND = new ClassValue<>() {
+    private static final ClassValue<Class<?>[]> KIND = new ClassValue<>() {
         @Override
-        protected Class<?> computeValue(Class<?> asked) {
-            Class<?> kind = null;
-            for (Class<?> at = asked; at != null && !at.getName().equals(COMPONENT); at = at.getSuperclass()) {
-                kind = at;
-            }
-            // A ClassValue holds no null: the root itself, whose kind the game has as none, is told by this.
-            return kind == null ? Void.class : kind;
+        protected Class<?>[] computeValue(Class<?> asked) {
+            return new Class<?>[1];
         }
     };
 
-    /** What ECSComponent.getECSClass(Class) answers for a class that is not null. Called from the game's code. */
-    public static Class<?> componentKind(Class<?> asked) {
-        Class<?> kind = KIND.get(asked);
-        return kind == Void.class ? null : kind;
+    /** What ECSComponent.getECSClass(Class) answered for this class before, or null where it has not yet. Called from the game's code. */
+    public static Class<?> knownKind(Class<?> asked) {
+        return asked == null ? null : KIND.get(asked)[0];
+    }
+
+    /** Keeps what ECSComponent.getECSClass(Class) is about to answer for a class. Called from the game's code. */
+    public static void learnKind(Class<?> asked, Class<?> kind) {
+        if (asked != null) {
+            KIND.get(asked)[0] = kind;
+        }
     }
 }

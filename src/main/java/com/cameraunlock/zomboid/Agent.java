@@ -551,9 +551,10 @@ public final class Agent {
         String component = "zombie/characters/ecs/ECSComponent", player = "zombie/core/skinnedmodel/animation/AnimationPlayer";
         String character = "zombie/characters/IsoGameCharacter";
         return List.of(
-                new Patch(component, "getECSClass answered from what a class's kind was found to be", classBytes -> CallSite.answerAtOnceUnlessNull(classBytes,
+                new Patch(component, "getECSClass answered from what it answered for a class before", classBytes -> CallSite.answerOnce(classBytes,
                         new CallSite.Method(component, "getECSClass", "(Ljava/lang/Class;)Ljava/lang/Class;"),
-                        new CallSite.Method("com/cameraunlock/zomboid/GameFixes", "componentKind", "(Ljava/lang/Class;)Ljava/lang/Class;"))),
+                        new CallSite.Method("com/cameraunlock/zomboid/GameFixes", "knownKind", "(Ljava/lang/Class;)Ljava/lang/Class;"),
+                        new CallSite.Method("com/cameraunlock/zomboid/GameFixes", "learnKind", "(Ljava/lang/Class;Ljava/lang/Class;)V"))),
                 // What a character is made of is kept in a map by kind, and its state machine is
                 // asked for out of that map dozens of times a frame, by each zombie of itself and
                 // by every zombie of each one near it as they push apart: with 300 on the screen
