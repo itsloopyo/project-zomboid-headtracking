@@ -234,6 +234,11 @@ final class WallFinish {
         return level;
     }
 
+    /** The square, or null for one of a chunk the map is still filling: see read. */
+    private static IsoGridSquare filled(IsoGridSquare square) {
+        return square != null && square.getChunk().loaded ? square : null;
+    }
+
     private static Level read(IsoCell cell, IsoBuilding building, int z) {
         Level level = new Level();
         BuildingDef def = building.getDef();
@@ -259,13 +264,20 @@ final class WallFinish {
                     level.whole &= cell.getGridSquare(x, y, 0) != null;
                     continue;
                 }
+                // A chunk the map is still filling has squares with no room yet and walls not all hung: read as it
+                // stands, the inside walls of such squares are counted as the building's outside, and the level is
+                // kept as whole with that finish. It is not whole until the chunk is.
+                if (!square.getChunk().loaded) {
+                    level.whole = false;
+                    continue;
+                }
                 if (square.getBuilding() != building) {
                     continue;
                 }
                 Tally room = rooms.computeIfAbsent(square.getRoomID(), unused -> new Tally());
                 vote(room, square, true);
                 vote(room, square, false);
-                IsoGridSquare south = cell.getGridSquare(x, y + 1, z), east = cell.getGridSquare(x + 1, y, z);
+                IsoGridSquare south = filled(cell.getGridSquare(x, y + 1, z)), east = filled(cell.getGridSquare(x + 1, y, z));
                 level.whole &= z != 0 || south != null && east != null;
                 if (south != null && south.getRoomID() == -1L && !papered(south, true)) {
                     vote(outside, south, true);
