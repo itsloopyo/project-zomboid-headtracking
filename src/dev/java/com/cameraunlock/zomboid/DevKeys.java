@@ -75,17 +75,22 @@ public final class DevKeys {
     /** The full stop and the comma. */
     private static final int NEXT_PLACE_KEY = 52, LAST_PLACE_KEY = 51;
 
-    /** A tile on the ground. */
-    private record Place(String name, float x, float y) {}
+    /** A tile and the level it is on. */
+    private record Place(String name, float x, float y, int level) {
+        Place(String name, float x, float y) {
+            this(name, x, y, 0);
+        }
+    }
 
     /**
      * The first is the street south of the map's tallest building, 28 floors over tiles
-     * 12751 to 12793 by 1512 to 1544. The next four and the West Point and Louisville ones
+     * 12751 to 12793 by 1512 to 1544, and the second is on its roof. The next four and the West Point and Louisville ones
      * are spots the picture has been judged from. The rest are the game's own spawn points
      * for each town, so there is a floor to stand on at every one.
      */
     private static final Place[] PLACES = {
             new Place("Louisville, the skyscraper", 12772.5f, 1565.5f),
+            new Place("Louisville, the skyscraper's roof", 12785.415f, 1523.9503f, 26),
             new Place("Riverside, the lake shore", 6442.5f, 5187.5f),
             new Place("a wood by the railway", 10900.5f, 8500.5f),
             new Place("open farmland", 9050.5f, 8700.5f),
@@ -200,8 +205,8 @@ public final class DevKeys {
         if (safe != null && safe.getVehicle() == null && (back || GameKeyboard.isKeyPressed(NEXT_PLACE_KEY))) {
             place = back ? Math.floorMod(Math.max(place, 0) - 1, PLACES.length) : (place + 1) % PLACES.length;
             Place to = PLACES[place];
-            safe.teleportTo(to.x(), to.y(), 0);
-            Log.info((back ? "," : ".") + ": moved to " + to.name() + " (" + to.x() + ", " + to.y() + "), place " + (place + 1) + " of " + PLACES.length);
+            safe.teleportTo(to.x(), to.y(), to.level());
+            Log.info((back ? "," : ".") + ": moved to " + to.name() + " (" + to.x() + ", " + to.y() + ", level " + to.level() + "), place " + (place + 1) + " of " + PLACES.length);
         }
         if (GameKeyboard.isKeyPressed(LATER_KEY)) {
             // Past midnight is left as an hour over 24: the game's clock takes that as the next day.
