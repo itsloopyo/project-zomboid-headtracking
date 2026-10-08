@@ -56,8 +56,8 @@ final class FarLand {
     /** Tiles a side of the whole picture the graphics card holds. */
     static final int PICTURE = WINDOW * FarCells.CELL;
     private static final long NONE = Long.MIN_VALUE;
-    /** How many cells are out being made at once: each is read from the game on the logic thread, a few hundred buildings at a time. */
-    private static final int OUT_AT_ONCE = 2;
+    /** How many cells are asked for and not yet on the graphics card at once: each is a third of a megabyte and more outside the Java heap until it is. */
+    private static final int WAITING_AT_ONCE = 4;
     /** How many cells a frame are handed to the graphics card: each is a third of a megabyte of picture. */
     private static final int LANDED_A_FRAME = 2;
 
@@ -70,17 +70,34 @@ final class FarLand {
     /** A picture of the map the game ships: where the file is and which tiles it is of. */
     private record Source(Path zip, int minX, int minY, int maxX, int maxY) {}
 
+    /**
+     * What has been asked for since the view last let go of what it held. A new one takes its
+     * place each time it does, so whatever was asked for before is known by all three threads to
+     * be of a map, or a holding, that is over.
+     */
+    private static final class Asked {
+        /** The cell each place of the window was last asked to hold. Set by the logic thread, read by the render thread. */
+        final AtomicLongArray cells = new AtomicLongArray(WINDOW * WINDOW);
+        /** How many cells are asked for and not yet handed to the graphics card. */
+        final AtomicInteger waiting = new AtomicInteger();
+        /** What stopped the far land, once anything has. */
+        volatile String failure;
+
+        Asked() {
+            for (int place = 0; place < WINDOW * WINDOW; place++) {
+                cells.set(place, NONE);
+            }
+        }
+    }
+
     /** A cell as its thread made it: its picture, then its land, then its buildings, in one block the render thread frees. */
-    private record Made(long cell, OffHeap.Block block, int blockVertices) {}
+    private record Made(Asked asked, long cell, OffHeap.Block block, int blockVertices) {}
 
     /** Logic thread. Whether the map's pictures have been looked for in this save, and what was found. */
     private static boolean looked;
     private static volatile List<Source> sources = List.of();
-    /** What stopped the far land for the session, once anything has. */
-    private static volatile String failure;
-    /** The cell each place of the window was last asked to hold. Set by the logic thread, read by the render thread. */
-    private static final AtomicLongArray asked = new AtomicLongArray(WINDOW * WINDOW);
-    private static final AtomicInteger out = new AtomicInteger();
+    /** Replaced by the logic thread, read by all three. */
+    private static volatile Asked asked = new Asked();
     private static final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
     /** Steps from the eye's cell to each cell kept, as pairs, the nearest first. */
     private static final int[] NEAREST_FIRST = nearestFirst();
@@ -95,11 +112,10 @@ final class FarLand {
     private static final long[] shown = new long[WINDOW * WINDOW];
     private static final int[] buffers = new int[WINDOW * WINDOW], blockVertices = new int[WINDOW * WINDOW];
     private static boolean covered;
+    /** What the cells on the graphics card were asked for by. */
+    private static Asked held = asked;
 
     static {
-        for (int place = 0; place < WINDOW * WINDOW; place++) {
-            asked.set(place, NONE);
-        }
         Arrays.fill(shown, NONE);
     }
 
@@ -150,7 +166,8 @@ final class FarLand {
      * world: asks for whichever cells round the eye are not yet asked for, the nearest first.
      */
     static void tend(float eyeX, float eyeY) {
-        if (failure != null) {
+        Asked asked = FarLand.asked;
+        if (asked.failure != null) {
             return;
         }
         if (!looked) {
@@ -161,18 +178,18 @@ final class FarLand {
             return;
         }
         int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
-        for (int step = 0; step < NEAREST_FIRST.length && out.get() < OUT_AT_ONCE; step += 2) {
+        for (int step = 0; step < NEAREST_FIRST.length && asked.waiting.get() < WAITING_AT_ONCE; step += 2) {
             int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
             long cell = key(cellX, cellY);
             int place = place(cellX, cellY);
-            if (asked.get(place) == cell) {
+            if (asked.cells.get(place) == cell) {
                 continue;
             }
             int[] buildings = buildings(IsoWorld.instance.getMetaGrid(), cellX, cellY);
             List<Source> from = sources;
-            asked.set(place, cell);
-            out.incrementAndGet();
-            WORKER.execute(() -> make(from, cellX, cellY, buildings));
+            asked.cells.set(place, cell);
+            asked.waiting.incrementAndGet();
+            WORKER.execute(() -> make(asked, from, cellX, cellY, buildings));
         }
     }
 
@@ -272,7 +289,7 @@ final class FarLand {
     }
 
     /** The cells' thread: makes a cell and hands it over, or stops the far land and says why. */
-    private static void make(List<Source> from, int cellX, int cellY, int[] buildings) {
+    private static void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings) {
         OffHeap.Block block = null;
         try {
             int[][] around = new int[9][];
@@ -306,15 +323,14 @@ final class FarLand {
             FarCells.land(around, cellX, cellY, bytes);
             int vertices = blocks.remaining() / FarCells.VERTEX_BYTES;
             bytes.put(blocks);
-            made.add(new Made(key(cellX, cellY), block, vertices));
+            made.add(new Made(asked, key(cellX, cellY), block, vertices));
         } catch (IOException | RuntimeException | LinkageError thrown) {
             if (block != null) {
                 block.free();
             }
-            failure = "the cell " + cellX + ", " + cellY + " could not be made: " + thrown;
-            Log.error("far land: " + failure + ". Nothing more is drawn beyond the loaded map this session", thrown);
-        } finally {
-            out.decrementAndGet();
+            asked.waiting.decrementAndGet();
+            asked.failure = "the cell " + cellX + ", " + cellY + " could not be made: " + thrown;
+            Log.error("far land: " + asked.failure + ". No more of the land beyond the loaded map is made until the view has next let go of what it holds", thrown);
         }
     }
 
@@ -346,6 +362,9 @@ final class FarLand {
             // The last tile of a map that is not a whole number of cells across is the narrower.
             int wide = Math.min(image.getWidth(), FarCells.CELL), high = Math.min(image.getHeight(), FarCells.CELL);
             image.getRGB(0, 0, wide, high, pixels, 0, FarCells.CELL);
+            if (FarCells.nothing(pixels)) {
+                continue;
+            }
             return pixels;
         }
         return null;
@@ -354,15 +373,12 @@ final class FarLand {
     /**
      * Logic thread, as the view lets go of what it holds or the save is left: nothing is asked
      * for any more, what comes back from the cells' thread is not wanted, and the map's
-     * pictures are looked for afresh by the next save. The graphics card's share is letGo's.
+     * pictures are looked for afresh by the next save. The graphics card's share is catchUp's.
      */
     static void forget() {
-        for (int place = 0; place < WINDOW * WINDOW; place++) {
-            asked.set(place, NONE);
-        }
+        asked = new Asked();
         looked = false;
         sources = List.of();
-        failure = null;
         WORKER.execute(() -> {
             waters.clear();
             for (ZipFile file : open.values()) {
@@ -388,8 +404,15 @@ final class FarLand {
             if (cell == null) {
                 break;
             }
-            land(cell);
+            // Looked at after the cell was taken: what is asked for now is what the cell was asked for by, or something since.
+            catchUp();
+            if (cell.asked == held) {
+                land(cell);
+            } else {
+                cell.block.free();
+            }
         }
+        catchUp();
         if (picture == 0) {
             return false;
         }
@@ -412,7 +435,8 @@ final class FarLand {
         int cellX = (int) (cell.cell >> 32), cellY = (int) cell.cell;
         int place = place(cellX, cellY);
         ByteBuffer bytes = cell.block.bytes;
-        if (asked.get(place) != cell.cell) {
+        cell.asked.waiting.decrementAndGet();
+        if (cell.asked.cells.get(place) != cell.cell) {
             cell.block.free();
             return;
         }
@@ -500,11 +524,27 @@ final class FarLand {
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
     }
 
-    /** Render thread, after the logic thread's forget: gives the graphics card back the picture and every cell, and frees what was made and never handed over. */
-    static void letGo() {
-        for (Made cell = made.poll(); cell != null; cell = made.poll()) {
-            cell.block.free();
+    /**
+     * Render thread. Once the logic thread has forgotten what it asked for, what the graphics
+     * card holds was asked for by something that is over: the picture and every cell are given
+     * back, and whatever was made for it and never handed over is freed. Pipeline.LET_GO calls
+     * this as the view lets go, and load before it hands anything over.
+     */
+    static void catchUp() {
+        Asked now = asked;
+        if (now == held) {
+            return;
         }
+        held = now;
+        ArrayList<Made> wanted = new ArrayList<>();
+        for (Made cell = made.poll(); cell != null; cell = made.poll()) {
+            if (cell.asked == asked) {
+                wanted.add(cell);
+            } else {
+                cell.block.free();
+            }
+        }
+        made.addAll(wanted);
         if (picture == 0) {
             return;
         }

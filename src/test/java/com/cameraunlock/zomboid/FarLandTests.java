@@ -20,6 +20,8 @@ final class FarLandTests {
         aBuildingIsABlockOfItsFloors();
         aFloorSmallerThanTheOneUnderItLeavesARoofBeside();
         aCellarAloneIsNoBuilding();
+        roomsOverNothingStandOnTheGround();
+        aCellOfNothingIsToldFromOneWithSomething();
     }
 
     private static void check(boolean condition, String what) {
@@ -124,6 +126,25 @@ final class FarLandTests {
         check(blocks.limit() == 10 * 6 * FarCells.VERTEX_BYTES, "two floors of four walls each and a roof each, with no wall between two rooms of a floor, and were "
                 + blocks.limit() / (6 * FarCells.VERTEX_BYTES) + " faces");
         check(roofs(blocks)[0] == 16f, "the roofs together cover the building's 16 squares once");
+    }
+
+    private static void roomsOverNothingStandOnTheGround() {
+        int[] buildings = {5, 1, 12600, 1300, 4, 3, 1};
+        ByteBuffer blocks = FarCells.blocks(buildings, DRY, 49, 5);
+        check(blocks.limit() == 5 * 6 * FarCells.VERTEX_BYTES, "a room with none under it is four walls and a roof");
+        float pad = Terrain.far(12602f, 1301.5f, Terrain.VALLEY), lowest = Float.MAX_VALUE;
+        for (int at = 0; at < blocks.limit(); at += FarCells.VERTEX_BYTES) {
+            lowest = Math.min(lowest, blocks.getFloat(at + 8));
+        }
+        check(lowest < pad, "and its walls go down into the ground, where they stopped a floor up in the air");
+    }
+
+    private static void aCellOfNothingIsToldFromOneWithSomething() {
+        int[] pixels = new int[FarCells.CELL * FarCells.CELL];
+        Arrays.fill(pixels, 0xffa0a0a4);
+        check(FarCells.nothing(pixels), "a picture that is the map's grey all over is of nothing");
+        pixels[777] = 0xff000000 | FarCells.GRASS;
+        check(!FarCells.nothing(pixels), "and one tile of anything else makes it a picture of somewhere");
     }
 
     private static void aCellarAloneIsNoBuilding() {

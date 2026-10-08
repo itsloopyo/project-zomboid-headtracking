@@ -30,8 +30,10 @@ final class FarCells {
      * concrete it is in the built world.
      */
     private static final int PAVEMENT = 0x8e5b56, CONCRETE = 0x8f8e8a;
-    /** How far below its pad the foot of a building's wall goes: the land between two of its corners is not level. */
-    private static final float FOOTING = 3f;
+    /** How far below the lowest land at its corners the foot of a building's wall goes: the land under it is not level, and the block stands at the height of its middle. */
+    private static final float FOOTING = 1f;
+    /** What the game's map paints a cell it has no map of, from edge to edge. */
+    private static final int NOTHING = 0xa0a0a4;
     /** In a vertex's colour, what says a building's and not the land's. */
     private static final int BUILT = 0xff;
 
@@ -69,6 +71,16 @@ final class FarCells {
             }
             from += whole * whole * 4;
         }
+    }
+
+    /** Whether a cell's picture is of nothing: the grey of where the map has none, all over. Such a cell is open grass, as one with no picture is. */
+    static boolean nothing(int[] pixels) {
+        for (int pixel : pixels) {
+            if ((pixel & 0xffffff) != NOTHING) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Which chunks of a cell have water in them, a bit a chunk, a row of chunks a number. */
@@ -158,7 +170,7 @@ final class FarCells {
         for (int at = 0; at < buildings.length; ) {
             int number = buildings[at], pieces = buildings[at + 1], first = at + 2;
             at = first + pieces * 5;
-            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, top = -1;
+            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, top = -1, lowest = Integer.MAX_VALUE;
             for (int piece = first; piece < at; piece += 5) {
                 if (buildings[piece + 4] < 0) {
                     continue;
@@ -168,6 +180,7 @@ final class FarCells {
                 maxX = Math.max(maxX, buildings[piece] + buildings[piece + 2]);
                 maxY = Math.max(maxY, buildings[piece + 1] + buildings[piece + 3]);
                 top = Math.max(top, buildings[piece + 4]);
+                lowest = Math.min(lowest, buildings[piece + 4]);
             }
             if (top < 0) {
                 continue;
@@ -176,16 +189,23 @@ final class FarCells {
             int wide = maxX - minX + 2, deep = maxY - minY + 2;
             float midX = (minX + maxX) / 2f, midY = (minY + maxY) / 2f;
             float pad = Terrain.far(midX, midY, toWater(around, midX - cellX * CELL, midY - cellY * CELL));
+            float foot = 0f;
+            for (int corner = 0; corner < 4; corner++) {
+                float x = corner % 2 == 0 ? minX : maxX, y = corner < 2 ? minY : maxY;
+                foot = Math.min(foot, Terrain.far(x, y, toWater(around, x - cellX * CELL, y - cellY * CELL)) - pad);
+            }
+            foot -= FOOTING;
             int mixed = number * 0x9e3779b1;
             int[] walls = top + 1 >= TALL_FROM ? TALL_WALLS : WALLS;
             int wall = walls[(mixed >>> 8) % walls.length], roof = ROOFS[(mixed >>> 20) % ROOFS.length];
             boolean[] here = new boolean[wide * deep], above = new boolean[wide * deep];
-            cover(buildings, first, at, 0, minX, minY, wide, here);
-            for (int floor = 0; floor <= top; floor++) {
+            cover(buildings, first, at, lowest, minX, minY, wide, here);
+            // What has no rooms on the ground stands on the ground all the same: a block in the air has no underside to show.
+            for (int floor = lowest; floor <= top; floor++) {
                 Arrays.fill(above, false);
                 cover(buildings, first, at, floor + 1, minX, minY, wide, above);
-                float foot = floor == 0 ? -FOOTING : floor * ViewCamera.LEVEL_HEIGHT, head = (floor + 1) * ViewCamera.LEVEL_HEIGHT;
-                walls(here, wide, deep, minX - 1, minY - 1, pad, foot, head, wall, out);
+                float from = floor == lowest ? foot : floor * ViewCamera.LEVEL_HEIGHT, head = (floor + 1) * ViewCamera.LEVEL_HEIGHT;
+                walls(here, wide, deep, minX - 1, minY - 1, pad, from, head, wall, out);
                 roofs(here, above, wide, deep, minX - 1, minY - 1, pad, head, roof, out);
                 boolean[] next = here;
                 here = above;

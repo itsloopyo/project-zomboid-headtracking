@@ -557,10 +557,6 @@ final class Terrain {
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
-    private static float country(float x, float y) {
-        return level ? 0f : rise(x, y);
-    }
-
     private static float rise(float x, float y) {
         return 2.2f * (float) (Math.sin(x * 0.0061 + 0.7) * Math.sin(y * 0.0053 + 2.2))
                 + 1.4f * (float) Math.sin((x * 0.8 - y * 0.6) * 0.0087 + 4.0);
@@ -570,10 +566,6 @@ final class Terrain {
      * The hills that stand on the country: broad, a few tiles high, and never below it. A road
      * over one climbs less than one in fifteen.
      */
-    private static float hills(float x, float y) {
-        return level ? 0f : stand(x, y);
-    }
-
     private static float stand(float x, float y) {
         float broad = (float) (Math.sin(x * 0.015 + 1.1) * Math.sin(y * 0.018 + 0.3) + 0.6 * Math.sin((x + y) * 0.01 + 5.0));
         float ridge = (float) (Math.sin(x * 0.033 - y * 0.022 + 2.0) * Math.sin(y * 0.03 + x * 0.009 + 0.9));

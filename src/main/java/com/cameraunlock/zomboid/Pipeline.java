@@ -1624,7 +1624,7 @@ final class Pipeline {
         far.set("uFogStart", fogStart);
         far.set("uFogEnd", fogEnd);
         far.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-        far.set("uBeyond", beyond);
+        far.set("uBeyond", inScope ? Math.min(beyond, 1f) : beyond);
         atmosphere(far, state);
         FarLand.draw(camera.eyeX, camera.eyeY);
     }
@@ -1744,7 +1744,8 @@ final class Pipeline {
         world.set("uFogStart", fogStart);
         world.set("uFogEnd", fogEnd);
         world.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-        world.set("uBeyond", inMirror ? 0f : beyond);
+        // A scope's picture is not mixed with the one before it: there the built world is thinned out by the same pixels every frame.
+        world.set("uBeyond", inMirror ? 0f : inScope ? Math.min(beyond, 1f) : beyond);
         world.set("uWind", state.windX, state.windY, state.seconds);
         world.set("uGust", state.gustX, state.gustY, state.flutter);
         world.set("uFaced", state.facedX, state.facedY);
@@ -2552,7 +2553,7 @@ final class Pipeline {
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
             figureLight.set("uLoaded", loadedX - pose.eyeX, loadedY - pose.eyeY, loadedWithin);
-            figureLight.set("uBeyond", mirror ? 0f : beyond);
+            figureLight.set("uBeyond", mirror ? 0f : Math.min(beyond, 1f));
             figureLight.set("uWriteNear", 0f);
             figureLight.set("uInside", 0f);
             figureLight.set("uGlassPass", 0f);
@@ -3564,7 +3565,7 @@ final class Pipeline {
         @Override
         public void render() {
             ChunkBuffers.letGo();
-            FarLand.letGo();
+            FarLand.catchUp();
             Decor.letGo();
             forgetTexels();
             FineSkins.letGo();
