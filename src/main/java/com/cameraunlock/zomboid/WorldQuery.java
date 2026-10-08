@@ -85,13 +85,13 @@ final class WorldQuery {
      * the characters given. Positive infinity when there is nothing within
      * reach, which is open sky or open ground.
      */
-    float shotDistance(ViewCamera.Pose aim, float floorUp, float reach,
+    float shotDistance(ViewCamera.Pose aim, Terrain terrain, float floorUp, float reach,
             float[] characterX, float[] characterY, float[] characterBase, int characters) {
         float nearest = trace.firstBlockedEdge(solidToAShot, aim.eyeX, aim.eyeY, aim.forwardX, aim.forwardY, reach);
         if (aim.forwardUp < 0f) {
             nearest = Math.min(nearest, (floorUp - aim.eyeUp) / aim.forwardUp);
         } else if (aim.forwardUp > 0f) {
-            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + Terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
+            float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
             if (toCeiling < nearest && toCeiling <= reach) {
                 IsoGridSquare above = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toCeiling),
                         (int) Math.floor(aim.eyeY + aim.forwardY * toCeiling), level + 1);

@@ -45,6 +45,9 @@ import zombie.iso.RoomDef;
  * It is kept a cell of the map at a time, for AROUND cells each way of the eye's. A cell is
  * asked for by the logic thread, which reads its buildings from the game, made on a thread of
  * its own, and handed to the graphics card by the render thread.
+ *
+ * One of these is the land round one view's eye: two players may be anywhere on the map.
+ * The map's pictures and the thread that makes cells from them serve every view.
  */
 final class FarLand {
     /** Cells a side of what the graphics card holds. A power of two: a cell's place there is the low bits of its own number, so the picture needs no moving as the eye moves. */
@@ -97,8 +100,8 @@ final class FarLand {
     private static boolean looked;
     private static volatile List<Source> sources = List.of();
     /** Replaced by the logic thread, read by all three. */
-    private static volatile Asked asked = new Asked();
-    private static final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
+    private volatile Asked asked = new Asked();
+    private final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
     /** Steps from the eye's cell to each cell kept, as pairs, the nearest first. */
     private static final int[] NEAREST_FIRST = nearestFirst();
 
@@ -108,14 +111,14 @@ final class FarLand {
     private static final int WATERS_KEPT = 1024;
 
     /** Render thread only. */
-    private static int picture;
-    private static final long[] shown = new long[WINDOW * WINDOW];
-    private static final int[] buffers = new int[WINDOW * WINDOW], blockVertices = new int[WINDOW * WINDOW];
-    private static boolean covered;
+    private int picture;
+    private final long[] shown = new long[WINDOW * WINDOW];
+    private final int[] buffers = new int[WINDOW * WINDOW], blockVertices = new int[WINDOW * WINDOW];
+    private boolean covered;
     /** What the cells on the graphics card were asked for by. */
-    private static Asked held = asked;
+    private Asked held = asked;
 
-    static {
+    FarLand() {
         Arrays.fill(shown, NONE);
     }
 
@@ -133,7 +136,6 @@ final class FarLand {
         return pool;
     }
 
-    private FarLand() {}
 
     private static int[] nearestFirst() {
         int side = 2 * AROUND + 1;
@@ -165,8 +167,8 @@ final class FarLand {
      * Logic thread, each frame the picture is built from the eye of someone standing in the
      * world: asks for whichever cells round the eye are not yet asked for, the nearest first.
      */
-    static void tend(float eyeX, float eyeY) {
-        Asked asked = FarLand.asked;
+    void tend(float eyeX, float eyeY) {
+        Asked asked = this.asked;
         if (asked.failure != null) {
             return;
         }
@@ -289,7 +291,7 @@ final class FarLand {
     }
 
     /** The cells' thread: makes a cell and hands it over, or stops the far land and says why. */
-    private static void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings) {
+    private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings) {
         OffHeap.Block block = null;
         try {
             int[][] around = new int[9][];
@@ -372,11 +374,15 @@ final class FarLand {
 
     /**
      * Logic thread, as the view lets go of what it holds or the save is left: nothing is asked
-     * for any more, what comes back from the cells' thread is not wanted, and the map's
-     * pictures are looked for afresh by the next save. The graphics card's share is catchUp's.
+     * for any more and what comes back from the cells' thread is not wanted. The graphics
+     * card's share is catchUp's.
      */
-    static void forget() {
+    void forget() {
         asked = new Asked();
+    }
+
+    /** Logic thread, once no view holds any of the far land: the map's pictures are looked for afresh by the next save. */
+    static void forgetTheMap() {
         looked = false;
         sources = List.of();
         WORKER.execute(() -> {
@@ -398,7 +404,7 @@ final class FarLand {
      * It is once the eye's own cell and the eight round it are, so the built world never thins
      * out into a cell that has not come yet.
      */
-    static boolean load(float eyeX, float eyeY) {
+    boolean load(float eyeX, float eyeY) {
         for (int landed = 0; landed < LANDED_A_FRAME; landed++) {
             Made cell = made.poll();
             if (cell == null) {
@@ -431,7 +437,7 @@ final class FarLand {
         return all;
     }
 
-    private static void land(Made cell) {
+    private void land(Made cell) {
         int cellX = (int) (cell.cell >> 32), cellY = (int) cell.cell;
         int place = place(cellX, cellY);
         ByteBuffer bytes = cell.block.bytes;
@@ -491,7 +497,7 @@ final class FarLand {
      * eye with whatever program is in use, the picture on the first texture unit. The vertex
      * arrays are left switched off and nothing is left bound.
      */
-    static void draw(float eyeX, float eyeY) {
+    void draw(float eyeX, float eyeY) {
         int eyeCellX = Math.floorDiv((int) Math.floor(eyeX), FarCells.CELL), eyeCellY = Math.floorDiv((int) Math.floor(eyeY), FarCells.CELL);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, picture);
@@ -530,7 +536,7 @@ final class FarLand {
      * back, and whatever was made for it and never handed over is freed. Pipeline.LET_GO calls
      * this as the view lets go, and load before it hands anything over.
      */
-    static void catchUp() {
+    void catchUp() {
         Asked now = asked;
         if (now == held) {
             return;

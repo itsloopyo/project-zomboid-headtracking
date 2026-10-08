@@ -49,7 +49,14 @@ import zombie.iso.weather.ClimateManager;
 import zombie.util.list.PZArrayList;
 
 /**
- * One frame of the world as the first-person view draws it.
+ * The world as one player's first-person view builds and keeps it, and inside it, as Frame,
+ * one frame of that world as the view draws it.
+ *
+ * A chunk's build holds one player's view of it: which squares that player has seen and the
+ * light the game has on each for them. So the builds, and everything kept round the eye they
+ * are made from, are this object's. What was read of a sprite or a texture is the same
+ * whoever looks, and so is what a build is put together in: those are static, one for every
+ * view, and the logic thread builds one view's world at a time.
  *
  * build() runs on the game's logic thread and reads the loaded map: every
  * square the game holds in memory that the view can face becomes triangles
@@ -110,6 +117,8 @@ final class WorldScene {
     /** The part of the game's picture the frame being drawn is written to. Render thread. */
     private final int[] viewport = new int[4];
 
+    /** The land beyond the loaded map, round this view's eye. */
+    final FarLand farLand = new FarLand();
     private final Frame[] scenes = {new Frame(), new Frame(), new Frame(), new Frame()};
     private int nextScene;
 
@@ -280,6 +289,12 @@ final class WorldScene {
         volatile boolean held;
         /** The block: which filling of the build it holds, where it is, how long, and the build's place in ChunkBuffers' list of builds with a block. */
         int heldVersion, heldAt, heldFloats, heldIndex;
+        /** Which player's view the build is of: a build goes back to be filled again by the view that made it. */
+        final int of;
+
+        ChunkMeshes(int of) {
+            this.of = of;
+        }
 
         /**
          * Makes this build of what two sets hold, the solid and the laid, and leaves the sets
@@ -399,13 +414,14 @@ final class WorldScene {
     private final ChunkMeshes[] latestCrowned = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     /** The crowns of each chunk that are out being made. */
     private final Crowns.Work[] crownsWaited = new Crowns.Work[TABLE_SIDE * TABLE_SIDE];
-    /** How many pieces of work are out, wanted or not: each comes back. */
+    /** How many pieces of work are out, wanted or not: each comes back, made or not, in crownsBack. */
     private int crownsOut;
+    private final java.util.concurrent.LinkedBlockingQueue<Crowns.Work> crownsBack = new java.util.concurrent.LinkedBlockingQueue<>();
     /** What the build being made has written down of its crowns, and what a check's second build has. */
     private Crowns crownsRead = new Crowns();
-    private final Crowns crownsChecked = new Crowns();
-    private final ArrayDeque<Crowns> spareCrowns = new ArrayDeque<>();
-    private final SpriteGeometry.Frame crownFrame = new SpriteGeometry.Frame();
+    private static final Crowns crownsChecked = new Crowns();
+    private static final ArrayDeque<Crowns> spareCrowns = new ArrayDeque<>();
+    private static final SpriteGeometry.Frame crownFrame = new SpriteGeometry.Frame();
     private final ArrayDeque<ChunkMeshes> spare = new ArrayDeque<>();
     /** Builds no chunk is using, kept to be filled again: as many as a turn of the head brings into view at once. */
     private static final int MOST_SPARE = 96;
@@ -453,7 +469,25 @@ final class WorldScene {
     private boolean eyeStill;
     /** The loaded map as it was when the last frame was built: its first chunk each way and how many chunks a side it is. */
     private int mapWx, mapWy, mapSide;
-    private int frames;
+    /** How many times this view's world has been built, and the round of every view's builds that the last was in: see Rounds. */
+    private int frames, roundNow;
+    /**
+     * When each view's world was last built, on System.nanoTime's clock, and 0 for one set
+     * down since. A view whose world was built within the last second is being built: what
+     * the views share is let go once none is, and the frame's time for building is shared
+     * between those that are. A view set down may still hold its builds, so only what the
+     * next build makes again for itself is let go by this.
+     */
+    private static final long[] builtAt = new long[View.COUNT];
+    private static final long BUILDING_WITHIN_NANOS = 1_000_000_000L;
+
+    private static int building(long now) {
+        int building = 0;
+        for (long at : builtAt) {
+            building += at != 0L && now - at < BUILDING_WITHIN_NANOS ? 1 : 0;
+        }
+        return building;
+    }
     /**
      * Where the chunk being built puts its triangles: what is drawn as it stands, and what is
      * laid over a floor, the grass that runs out into a path, a stain, a rug's fringe. The game
@@ -464,8 +498,8 @@ final class WorldScene {
      * until the graphics card has it: a pair kept by each build was two copies of every chunk
      * in sight, each with the room of the fullest chunk it had ever held.
      */
-    private final SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
-    private final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers), laid = new SpriteGeometry.MeshSet(layers);
+    private static final SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+    private static final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers), laid = new SpriteGeometry.MeshSet(layers);
     /** How far in front of the place looked at the picture reaches from far overhead, in tiles. */
     private static final float OVERHEAD_DEPTH = 160f;
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
@@ -513,7 +547,7 @@ final class WorldScene {
     /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
     volatile float openNow, daylightKeptNow = 1f;
     private static final int REMAKES_A_FRAME = 12;
-    private final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
 
     /**
      * What a build asks of a sprite that is the same at every asking: its properties that go
@@ -559,13 +593,16 @@ final class WorldScene {
         }
     }
 
-    private final IdentityHashMap<IsoSprite, Kind> kinds = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, Kind> kinds = new IdentityHashMap<>();
     private static final int MESH_CHANGES = 12;
     private static final float SWITCH_WIDEST = 12f;
     /** For each sprite hung in the air: the wires it shows, see Wires.read. */
-    private final IdentityHashMap<Texture, float[]> wires = new IdentityHashMap<>();
-    /** The map the kept builds and everything kept by place were read from. */
+    private static final IdentityHashMap<Texture, float[]> wires = new IdentityHashMap<>();
+    /** The map the kept builds were read from, and the one everything every view keeps by place or by sprite was. */
     private WeakReference<IsoCell> builtIn = new WeakReference<>(null);
+    private static WeakReference<IsoCell> readIn = new WeakReference<>(null);
+    /** The rows of [Content] the kept builds were made with: see Own. */
+    private int builtWith = -1;
     /** How thick an overhead wire is drawn, in tiles: thicker than one is, or a street away it is finer than a pixel and comes and goes. */
     private static final float WIRE_THICK = 0.03f;
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
@@ -600,8 +637,8 @@ final class WorldScene {
     /** How far from a bush's middle its outer cards stand, in tiles. */
     private static final float BUSH_SPREAD = 0.16f;
     /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
-    private final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
-    private final float[] NO_BOLE = new float[0];
+    private static final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
+    private static final float[] NO_BOLE = new float[0];
     /** A bole is no thinner or thicker than this, in tiles, whatever its sprite says. */
     private static final float BOLE_THINNEST = 0.05f, BOLE_THICKEST = 0.4f;
     private static final float GRASS_SPILL = 0.35f;
@@ -617,7 +654,7 @@ final class WorldScene {
     private static final float GRASS_REACH = 16f;
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
-    private final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
     /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
@@ -655,8 +692,8 @@ final class WorldScene {
     }
 
     /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
-    private String polledBecause;
-    private boolean pollingSaid;
+    private static String polledBecause;
+    private static boolean pollingSaid;
 
     /** Whether the game tells which chunks it changes: its code took the three patches, and it keeps a texture of each chunk, which is what it marks for. */
     private boolean told() {
@@ -765,7 +802,11 @@ final class WorldScene {
 
     /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
     private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
-    /** How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES} wait for the next. */
+    /**
+     * How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES}
+     * wait for the next. It is the frame's time, and so is the time for chunks whose only news is
+     * their light: two players' views building in one frame have half of each.
+     */
     private static final long BUILD_NANOS_A_FRAME = 5_000_000L;
     /**
      * How long a frame reads and builds chunks for before one whose only news is its light
@@ -789,7 +830,7 @@ final class WorldScene {
     /** No door is lower than this, in levels. */
     private static final float LOWEST_DOOR = 0.5f;
     /** Where the opening in each wall sprite seen so far is: see openingOf. */
-    private final IdentityHashMap<Texture, float[]> openings = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> openings = new IdentityHashMap<>();
 
     /**
      * Logic thread, as the picture stops being built. A scene names the map it was last built
@@ -806,9 +847,12 @@ final class WorldScene {
             Arrays.fill(scene.around, null);
             scene.keptFrame = -1;
         }
-        // Nothing is built or read while the view is off, so nothing would come to let these go.
-        VertexLoans.letGoIdle();
-        SpriteColours.letGoOfThePage();
+        builtAt[view.index] = 0L;
+        if (building(System.nanoTime()) == 0) {
+            // Nothing is built or read while every view is off, so nothing would come to let these go.
+            VertexLoans.letGoIdle();
+            SpriteColours.letGoOfThePage();
+        }
     }
 
     Frame next() {
@@ -1016,11 +1060,11 @@ final class WorldScene {
      * The further out a band ends the more chunks cross its end, so the last ends where a crown
      * stops being made, and a bole is made only as far as that.
      */
-    private final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
+    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
     private static final float BAND_SLACK = 0.5f;
 
-    private int band(float nearest) {
+    private static int band(float nearest) {
         int band = 0;
         while (band < BAND_ENDS.length && nearest >= BAND_ENDS[band]) {
             band++;
@@ -1028,7 +1072,7 @@ final class WorldScene {
         return band;
     }
 
-    private boolean inBand(int band, float nearest) {
+    private static boolean inBand(int band, float nearest) {
         return (band == 0 || nearest >= BAND_ENDS[band - 1] - BAND_SLACK) && (band == BAND_ENDS.length || nearest < BAND_ENDS[band] + BAND_SLACK);
     }
 
@@ -1038,12 +1082,13 @@ final class WorldScene {
         return (float) Math.sqrt(clearX * clearX + clearY * clearY);
     }
 
-    private final int ALL_BANDS = (1 << BAND_AWAY.length) - 1;
+    private static final int ALL_BANDS = (1 << BAND_AWAY.length) - 1;
 
     /**
-     * Logic thread, once first person has been off for a while: lets go of every build, the
-     * ones the last frames showed among them, so that the graphics card's copy of the world can
-     * be given back (ChunkBuffers.letGo). The next switch to first person builds it again.
+     * Logic thread, once first person has been off for a while: lets go of every build of this
+     * view, the ones the last frames showed among them, so that the graphics card's copy of
+     * them can be given back (ChunkBuffers.letGo). The next switch to first person builds it
+     * again. What every view builds with is let go once no view's world is being built.
      */
     void letGo() {
         for (Frame scene : scenes) {
@@ -1055,19 +1100,22 @@ final class WorldScene {
         forgetAll();
         // What is out being made comes back first, wanted by nobody now: a build left with the other thread would keep its vertices until the view next came on.
         while (crownsOut > 0) {
-            land(Crowns.awaited());
+            land(Crowns.awaited(crownsBack));
         }
-        spareCrowns.clear();
-        Crowns.letGo();
-        FarLand.forget();
+        farLand.forget();
         while (!spare.isEmpty()) {
             spare.pop().scrap();
         }
-        solid.clear();
-        laid.clear();
-        solid.trim();
-        laid.trim();
         setDown();
+        if (building(System.nanoTime()) == 0) {
+            spareCrowns.clear();
+            Crowns.letGo();
+            FarLand.forgetTheMap();
+            solid.clear();
+            laid.clear();
+            solid.trim();
+            laid.trim();
+        }
     }
 
     /** Lets go of the builds of every chunk that has a square in the box of squares from (minX, minY) up to but not (maxX, maxY), or right beside it. */
@@ -1087,6 +1135,20 @@ final class WorldScene {
                 latestGrown[slot] = null;
             }
             forgetCrowns(slot);
+        }
+    }
+
+    /**
+     * The lie of the land this view's world is built and drawn on: the hills, or the country
+     * left level while the view is the game's own from overhead. Set by the logic thread.
+     */
+    volatile Terrain terrain = Terrain.HILLS;
+
+    /** Logic thread: has the view's country level or not, and lets go of every build made on it the other way. */
+    void level(boolean flat) {
+        if (terrain.level != flat) {
+            terrain = Terrain.of(flat);
+            forgetAll();
         }
     }
 
@@ -1136,10 +1198,10 @@ final class WorldScene {
         VertexLoans.trim(System.nanoTime());
     }
 
-    private final java.util.HashSet<String> movers = new java.util.HashSet<>();
+    private static final java.util.HashSet<String> movers = new java.util.HashSet<>();
 
     /** Whether a sprite has more than one frame, and so may show another the next time it is asked. */
-    private boolean moves(IsoSprite sprite) {
+    private static boolean moves(IsoSprite sprite) {
         boolean moves = sprite != null && sprite.getFrameCount() > 1;
         if (AUDIT_MARKS && moves && movers.size() < 60 && movers.add(String.valueOf(sprite.getName()))) {
             Log.info("chunk marks: a sprite of " + sprite.getFrameCount() + " frames, " + sprite.getName());
@@ -1248,7 +1310,7 @@ final class WorldScene {
     }
 
     /** Two triangles of a strip between two ends: each corner is an end, and whether it is the top there. */
-    private final int[] KERB_CORNERS = {0, 2, 3, 0, 3, 1};
+    private static final int[] KERB_CORNERS = {0, 2, 3, 0, 3, 1};
 
     private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
     /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
@@ -1335,11 +1397,11 @@ final class WorldScene {
     }
 
     /** The corners of a strip in the order of its two triangles: which end of the wire each is at, and which side of its middle. */
-    private final int[] STRIP_END = {0, 1, 1, 0, 1, 0}, STRIP_SIDE = {-1, -1, 1, -1, 1, 1};
+    private static final int[] STRIP_END = {0, 1, 1, 0, 1, 0}, STRIP_SIDE = {-1, -1, 1, -1, 1, 1};
 
     /** How far above the floor a body's picture is laid, in tiles: clear of the blood and the litter laid on the floor under it. */
     private static final float BODY_UP = 0.08f;
-    private final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
+    private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
 
     /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
     private static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
@@ -1363,11 +1425,11 @@ final class WorldScene {
     private static final float CARPET_UNEVEN = 0.006f;
 
     /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
-    private final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
     private static final int CROWN_LEAST_PLACES = 12;
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
-    private final IdentityHashMap<IsoSprite, float[]> feet = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, float[]> feet = new IdentityHashMap<>();
     /** How near the edge of its square a post's foot is for the post to be in the line of the wall there, in tiles. */
     private static final float IN_WALL_LINE = 0.3f;
     /** What stands in a wall's line as a flat piece is at least this tall, in levels, this long, in tiles, and this many times as long as its foot is wide. */
@@ -1376,18 +1438,18 @@ final class WorldScene {
     private static final float BRACED_REACH = 0.5f, BRACED_HIGH = 1.5f;
 
     /** What each sprite has been read as by Posts: NO_POST for one that is none. */
-    private final IdentityHashMap<IsoSprite, Object> posts = new IdentityHashMap<>();
-    private final Object NO_POST = new Object();
+    private static final IdentityHashMap<IsoSprite, Object> posts = new IdentityHashMap<>();
+    private static final Object NO_POST = new Object();
     /** How far apart, in tiles, the axes of two lengths of one post may be read on the squares one above the other. */
     private static final float SAME_POST = 0.2f;
 
     /** What each sprite the game gives no placing to has been read as: see SpriteShape. */
-    private final IdentityHashMap<IsoSprite, SpriteShape> shapes = new IdentityHashMap<>();
+    private static final IdentityHashMap<IsoSprite, SpriteShape> shapes = new IdentityHashMap<>();
 
     /** Where the sprite gives a piece's colour when it has none at the first place, as shares of that place's height. */
-    private final float[] DYE_TRIES = {1f, 0.5f, 0.75f};
+    private static final float[] DYE_TRIES = {1f, 0.5f, 0.75f};
     /** The frames a picture can hang in, from the tallest for its width to the widest. */
-    private final String[] FRAMES = {"frame_tall", "frame_square", "frame_wide"};
+    private static final String[] FRAMES = {"frame_tall", "frame_square", "frame_wide"};
     /** The least and the most a clock is made of its model's size. */
     private static final float CLOCK_SMALLEST = 0.8f, CLOCK_LARGEST = 1.6f;
 
@@ -1408,7 +1470,7 @@ final class WorldScene {
         return null;
     }
 
-    private final int[] CEILING_CORNERS = {0, 1, 2, 0, 2, 3};
+    private static final int[] CEILING_CORNERS = {0, 1, 2, 0, 2, 3};
 
     private static boolean isStair(IsoObjectType type) {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW
@@ -1419,9 +1481,9 @@ final class WorldScene {
     private static final float GABLE_LEAST = 0.05f;
 
     /** The west, east, north and south edge of a square, each as its two corners. */
-    private final int[][] EDGES = {{0, 3}, {1, 2}, {0, 1}, {3, 2}};
+    private static final int[][] EDGES = {{0, 3}, {1, 2}, {0, 1}, {3, 2}};
     /** How deep the canopy over each square of one is, in tiles, by the square's place: 0 for a floor in the air with no band round it. */
-    private final HashMap<Long, Float> canopies = new HashMap<>();
+    private static final HashMap<Long, Float> canopies = new HashMap<>();
     /** How far a canopy is looked across for its edge, in squares, and the least and most deep one is made, in tiles. */
     private static final int CANOPY_SPAN = 24;
     private static final float CANOPY_SHALLOWEST = 0.25f, CANOPY_DEEPEST = 1.2f;
@@ -1441,7 +1503,7 @@ final class WorldScene {
     /** How high up a door its width is read, in levels, and how far in from its edge the colour of its edges is taken, in frame pixels at tile scale 1. */
     private static final float DOOR_READ_AT = 0.4f, DOOR_STILE = 2.5f;
     /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
-    private final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
+    private static final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
     private static final int SPAN_FLOATS = 4;
 
     /** Cloth the picture has hung in folds of its own. */
@@ -1461,11 +1523,11 @@ final class WorldScene {
     /** A room's light is the same from every side, and shows no relief: a moulding is drawn this much darker than the leaf, as its own shadow makes it, and a panel's field this much. */
     private static final float MOULDING_SHADE = 0.8f, FIELD_SHADE = 0.93f;
     /** Where the panels of a door are, as shares of the part of the leaf they are on: across, then up a whole leaf, then up what is below a light. */
-    private final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
-    private final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
+    private static final float[] PANELS_ACROSS = {0.14f, 0.455f, 0.545f, 0.86f};
+    private static final float[] PANELS_UP = {0.1f, 0.37f, 0.45f, 0.8f, 0.86f, 0.95f}, PANELS_UP_BELOW = {0.16f, 0.86f};
     /** A boarded door: the gap between two boards, how far its ledges stand out and how high each is, in tiles, and where up the leaf they are. */
     private static final float BOARD_GAP = 0.005f, BOARD_USUAL = 0.16f, LEDGE_PROUD = 0.014f, LEDGE_HIGH = 0.085f;
-    private final float[] LEDGES_AT = {0.12f, 0.5f, 0.88f};
+    private static final float[] LEDGES_AT = {0.12f, 0.5f, 0.88f};
     /** How much darker than the boards the open joint between two is. */
     private static final float JOINT_SHADE = 0.4f;
     /** A door's knob: how high up it is in levels, how far in from the leaf's end as a share of the leaf, how thick and how far out, in tiles. */
@@ -1548,7 +1610,7 @@ final class WorldScene {
     /** How high a wall has to stand short of its level for its top to be closed: a full wall's top is under the floor or the roof over it. */
     private static final float CAPPED_BELOW = 0.97f;
     /** Where along a wall its colour is looked for, for the faces that close it. */
-    private final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
+    private static final float[] CAP_COLOUR_AT = {0.5f, 0.12f, 0.88f};
 
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
     private static final float FIGURED_PAPER = 70f;
@@ -1556,7 +1618,7 @@ final class WorldScene {
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
     /** Where along a wall its height is read, and the lowest a wall's top is looked for, in levels. */
-    private final float[] TOP_READ_AT = {0.15f, 0.5f, 0.85f};
+    private static final float[] TOP_READ_AT = {0.15f, 0.5f, 0.85f};
     private static final float LOWEST_TOP = 0.05f;
 
     /** The wall standing on the square's north or west edge that has a sprite to show, or null. */
@@ -1934,7 +1996,7 @@ final class WorldScene {
         }
 
         /**
-         * @param view               the eye and orientation the frame is drawn from, head tracking included
+         * @param pose               the eye and orientation the frame is drawn from, head tracking included
          * @param aimed              the aim, which the weapon in hand is held on
          * @param tanHalfFieldOfView the tangent of half the vertical field of view the frame is drawn with
          * @param tanHalfSet         the tangent of half the vertical field of view the player set, which
@@ -1942,27 +2004,34 @@ final class WorldScene {
          * @param from               the camera the frame is drawn by when that is somewhere else, or null: see seenFrom
          * @param opened             what is over a viewer indoors is not built, as the game leaves it out of its own view
          */
-        void build(IsoPlayer player, ViewCamera.Pose view, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
+        void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
                 ViewCamera.Pose from, boolean opened) {
             long start = System.nanoTime();
             Stall.beat();
-            Screens.tick();
+            builtAt[view.index] = start;
+            int sharing = building(start);
+            // What every view shares is tended once a round of their builds, not once for each: see Rounds.
+            boolean roundBegins = Rounds.BUILDS.begin(view.index);
+            roundNow = Rounds.BUILDS.now();
+            if (roundBegins) {
+                Screens.tick();
+            }
             boolean fromOutside = from != null;
             boolean screenOnly = seenOnly;
             seenOnly = false;
-            camera.set(view);
-            facedX = fromOutside ? from.eyeX : view.eyeX;
-            facedY = fromOutside ? from.eyeY : view.eyeY;
+            camera.set(pose);
+            facedX = fromOutside ? from.eyeX : pose.eyeX;
+            facedY = fromOutside ? from.eyeY : pose.eyeY;
             aim.set(aimed);
             outside = false;
             opacity = 1f;
-            seated = WorldScene.this.view.ride.seated;
+            seated = view.ride.seated;
             this.tanHalfFieldOfView = tanHalfFieldOfView;
             this.tanHalfSet = tanHalfSet;
-            float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
+            float flat = (float) Math.sqrt(pose.forwardX * pose.forwardX + pose.forwardY * pose.forwardY);
             if (flat > 1e-3f) {
-                rightX = -view.forwardY / flat;
-                rightY = view.forwardX / flat;
+                rightX = -pose.forwardY / flat;
+                rightY = pose.forwardX / flat;
             }
             characters = 0;
             for (int i = 0; i < shown.size(); i++) {
@@ -1970,7 +2039,7 @@ final class WorldScene {
             }
             shown.clear();
             frames++;
-            Terrain.frame(frames);
+            Terrain.frame(roundNow);
             chunksDrawn = 0;
             chunksBuilt = 0;
             chunksGrown = 0;
@@ -1979,10 +2048,10 @@ final class WorldScene {
             chunksWaiting = 0;
             Arrays.fill(builtBecause, 0);
             int agedBuilt = 0;
-            eyeStill = view.eyeX == lastEyeX && view.eyeY == lastEyeY && view.eyeUp == lastEyeUp;
-            lastEyeX = view.eyeX;
-            lastEyeY = view.eyeY;
-            lastEyeUp = view.eyeUp;
+            eyeStill = pose.eyeX == lastEyeX && pose.eyeY == lastEyeY && pose.eyeUp == lastEyeUp;
+            lastEyeX = pose.eyeX;
+            lastEyeY = pose.eyeY;
+            lastEyeUp = pose.eyeUp;
             remakes = 0;
             boxes = 0;
             furnished = 0;
@@ -2017,27 +2086,31 @@ final class WorldScene {
             openNow = gameOpen;
             daylightKeptNow = sky.daylightKept;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
-            sky.carried = WorldScene.this.view.carriedLight.light;
-            sky.marked = WorldScene.this.view.centreUse.marked;
+            sky.carried = view.carriedLight.light;
+            sky.marked = view.centreUse.marked;
             sky.facedX = facedX;
             sky.facedY = facedY;
-            sky.layersFromX = view.eyeX;
-            sky.layersFromY = view.eyeY;
-            sky.layersFromUp = view.eyeUp;
+            sky.layersFromX = pose.eyeX;
+            sky.layersFromY = pose.eyeY;
+            sky.layersFromUp = pose.eyeUp;
             sky.acrossX = rightX;
             sky.acrossY = rightY;
             exposure = adaptEye(player, fromOutside);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
-            if (Own.taken(WorldScene.this.view.index)) {
+            if (Own.on() != builtWith) {
                 // A row of [Content] was switched: every build holds what the rows were.
+                builtWith = Own.on();
                 forgetAll();
             }
             if (cell != builtIn.get()) {
-                // Another save, loaded without leaving the game: what is kept by place on the map or
-                // by one of the game's sprites is of the world before.
+                // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
                 forgetAll();
+            }
+            if (cell != readIn.get()) {
+                // And so is what is kept by place on the map or by one of the game's sprites, once for every view.
+                readIn = new WeakReference<>(cell);
                 canopies.clear();
                 openings.clear();
                 feet.clear();
@@ -2053,14 +2126,14 @@ final class WorldScene {
                 Furniture.forget();
                 Roofs.forget();
                 WallFinish.forget();
-                Terrain.level(Terrain.level);
+                Terrain.forget();
             }
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
             goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
             glass.found = false;
             if (!fromOutside && !seated && drawnAspect > 0f && Quality.shadedAndLit()) {
-                OwnReflection.find(cell, player, view, tanHalfFieldOfView * drawnAspect, glass);
+                OwnReflection.find(cell, player, terrain, pose, tanHalfFieldOfView * drawnAspect, glass);
             }
             IsoChunkMap map = cell.getChunkMap(playerIndex);
             int level = (int) Math.floor(player.getZ());
@@ -2071,11 +2144,12 @@ final class WorldScene {
             boolean telling = told();
             ChunkMarks.live = telling;
             loadedNow = loadedOf(map, IsoChunkMap.chunkGridWidth);
-            Terrain.loaded(loadedNow);
-            if (telling) {
+            int loadedForAll = Rounds.loaded(view.index, loadedNow);
+            Terrain.loaded(loadedForAll);
+            if (telling && roundBegins) {
                 // The game's own scale: a scene's frame has none until its first build has got as far as setting it.
-                Roofs.tend(cell, frames, Core.tileScale, loadedNow);
-                WallFinish.tend(cell, frames, loadedNow);
+                Roofs.tend(cell, roundNow, Core.tileScale, loadedForAll);
+                WallFinish.tend(cell, roundNow, loadedForAll);
             }
             // Seen from overhead, whoever is indoors is under a roof and the floors above. The
             // game leaves those out and so does the picture, and the walls of the floor are cut
@@ -2115,7 +2189,7 @@ final class WorldScene {
                     forgetOver(minX, minY, maxX, maxY);
                 }
             }
-            float floorUp = level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level);
+            float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
             cutFrom = indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
             lidFrom = indoors && !opened ? floorUp + ViewCamera.LEVEL_HEIGHT - LID_UNDER : Float.MAX_VALUE;
             boxMinX = minX;
@@ -2136,32 +2210,32 @@ final class WorldScene {
             loadedY = map.getWorldYMinTiles() + loadedWithin;
             fogEnd = Quality.sight();
             if (!fromOutside) {
-                FarLand.tend(view.eyeX, view.eyeY);
+                farLand.tend(pose.eyeX, pose.eyeY);
             }
-            float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
+            float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
-            boolean mirrored = !fromOutside && seated && Cabins.wheel(WorldScene.this.view.ride) != null;
-            float behindX = -WorldScene.this.view.ride.aheadX, behindY = -WorldScene.this.view.ride.aheadY;
+            boolean mirrored = !fromOutside && seated && Cabins.wheel(view.ride) != null;
+            float behindX = -view.ride.aheadX, behindY = -view.ride.aheadY;
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
-            float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
+            float forwardX = cosCone > -1f ? pose.forwardX / flat : 0f, forwardY = cosCone > -1f ? pose.forwardY / flat : 0f;
 
             mapWx = Math.floorDiv(map.getWorldXMinTiles(), CHUNK_TILES);
             mapWy = Math.floorDiv(map.getWorldYMinTiles(), CHUNK_TILES);
             mapSide = IsoChunkMap.chunkGridWidth;
             if (frames % FORGET_EVERY_FRAMES == 0) {
-                keptRoundX = view.eyeX;
-                keptRoundY = view.eyeY;
+                keptRoundX = pose.eyeX;
+                keptRoundY = pose.eyeY;
                 forgetFar();
             }
             // Nearest first. When the frame has spent its time on building, what waits is then what is
             // furthest off, all round, where walked a row at a time it was one side of the picture.
             int side = IsoChunkMap.chunkGridWidth;
             int[] walk = ChunkBuffers.nearestFirst(side);
-            int eyeGridX = Math.floorDiv((int) Math.floor(view.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
-            int eyeGridY = Math.floorDiv((int) Math.floor(view.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
+            int eyeGridX = Math.floorDiv((int) Math.floor(pose.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
+            int eyeGridY = Math.floorDiv((int) Math.floor(pose.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
             int builtLate = 0;
             int swept = 0;
-            for (Crowns.Work back = Crowns.finished(); back != null; back = Crowns.finished()) {
+            for (Crowns.Work back = crownsBack.poll(); back != null; back = crownsBack.poll()) {
                 land(back);
             }
             for (int step = 0; step < walk.length; step += 2) {
@@ -2175,7 +2249,7 @@ final class WorldScene {
                         continue;
                     }
                     int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
-                    float toChunkX = chunkX + CHUNK_TILES / 2f - view.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - view.eyeY;
+                    float toChunkX = chunkX + CHUNK_TILES / 2f - pose.eyeX, toChunkY = chunkY + CHUNK_TILES / 2f - pose.eyeY;
                     float distance = (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY);
                     if (distance > ChunkBuffers.drawnWithin(fogEnd)
                             || Math.hypot(chunkX + CHUNK_TILES / 2f - loadedX, chunkY + CHUNK_TILES / 2f - loadedY) > ChunkBuffers.drawnWithin(loadedWithin)) {
@@ -2203,7 +2277,7 @@ final class WorldScene {
                     // fast, hundreds of chunks want building at once, and built in one frame they held it
                     // for most of a second. What is near is built whatever it takes. The rest is built
                     // until the frame has spent its time on building, and the others come on the next frames.
-                    boolean late = (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME;
+                    boolean late = (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
                     // One chunk a frame is built however late the frame is: on a PC where what is near takes all
                     // of the frame's time, nothing further off would otherwise ever be built.
                     if (missing && late && builtLate++ > 0) {
@@ -2228,7 +2302,7 @@ final class WorldScene {
                     // have come out the same for: then only its crowns are made again.
                     // A build with no sum cannot be found unchanged: while the eye moves it is made again
                     // in its turn, as one the eye has left behind is, and not at once.
-                    float nearest = nearest(view, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
+                    float nearest = nearest(pose, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                     if (!missing && !inBand(current.band, nearest) && (current.alike >> band(nearest) & 1) != 0 && !withoutAlikeBands) {
                         reband(current, slot, band(nearest));
                     }
@@ -2249,7 +2323,7 @@ final class WorldScene {
                         pullLights(chunk, slot, lowest);
                     }
                     if (!missing) {
-                        Terrain.corners(cell, chunk.wx, chunk.wy);
+                        terrain.corners(cell, chunk.wx, chunk.wy);
                         land = landOf(chunk.wx, chunk.wy, current.heightsRound);
                     }
                     // Read before the chunk is: a mark made from another thread while it is read is then one more than the build remembers.
@@ -2303,7 +2377,7 @@ final class WorldScene {
                     // Nothing but light has been marked on it since it was last read, and the frame has
                     // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
                     if (due && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
-                            && System.nanoTime() - start > LIT_NANOS_A_FRAME) {
+                            && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
                         due = false;
                     }
                     // What the build of a chunk that is due would read of the map is summed first,
@@ -2422,7 +2496,7 @@ final class WorldScene {
                         builtBecause[cause]++;
                     }
                     if (missing || due) {
-                        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
                         solid.clear();
                         laid.clear();
                         fresh.placed.clear();
@@ -2537,9 +2611,9 @@ final class WorldScene {
                     boolean ungrown = grown == null || grown.wx != chunk.wx || grown.wy != chunk.wy || grown.builtFrame < current.builtFrame;
                     // A lawn's blades shorten over seven tiles and a half: made from half a tile off they are a fifteenth out.
                     float grownFrom = grown == null ? 0f
-                            : Math.max(Math.max(Math.abs(grown.eyeX - view.eyeX), Math.abs(grown.eyeY - view.eyeY)), Math.abs(grown.eyeUp - view.eyeUp));
+                            : Math.max(Math.max(Math.abs(grown.eyeX - pose.eyeX), Math.abs(grown.eyeY - pose.eyeY)), Math.abs(grown.eyeUp - pose.eyeUp));
                     boolean regrown = !ungrown && !rehearsing && distance < GROWN_WITHIN && frames - grown.checkedFrame >= every
-                            && grownFrom > Math.max(GROWN_HELD_WITHIN, heldWithin(view, distance, middleX, middleY));
+                            && grownFrom > Math.max(GROWN_HELD_WITHIN, heldWithin(pose, distance, middleX, middleY));
                     if (!current.grows && grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
                         release(grown);
                         latestGrown[slot] = null;
@@ -2550,7 +2624,7 @@ final class WorldScene {
                         if (!missing && !due) {
                             surround(map, chunk, gridX, gridY, side);
                         }
-                        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+                        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
                         solid.clear();
                         laid.clear();
                         fresh.placed.clear();
@@ -2558,9 +2632,9 @@ final class WorldScene {
                         fresh.wy = chunk.wy;
                         fresh.builtFrame = frames;
                         fresh.checkedFrame = frames;
-                        fresh.eyeX = view.eyeX;
-                        fresh.eyeY = view.eyeY;
-                        fresh.eyeUp = view.eyeUp;
+                        fresh.eyeX = pose.eyeX;
+                        fresh.eyeY = pose.eyeY;
+                        fresh.eyeUp = pose.eyeUp;
                         fresh.grown = true;
                         fresh.users = 1;
                         placed = fresh.placed;
@@ -2595,7 +2669,7 @@ final class WorldScene {
             for (IsoMovingObject mover : cell.getObjectList()) {
                 if (mover instanceof IsoGameCharacter character && character != viewer
                         && character.getAlpha(playerIndex) > CHARACTER_SHOWN_ALPHA && !character.isInvisible()) {
-                    float toX = character.getX() - view.eyeX, toY = character.getY() - view.eyeY;
+                    float toX = character.getX() - pose.eyeX, toY = character.getY() - pose.eyeY;
                     if (toX * toX + toY * toY <= REACH * REACH) {
                         addCharacter(character);
                     }
@@ -2674,7 +2748,7 @@ final class WorldScene {
                 waited.unwanted = true;
                 crownsWaited[slot] = null;
             }
-            ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes() : spare.pop();
+            ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
             fresh.placed.clear();
             fresh.wx = wx;
             fresh.wy = wy;
@@ -2697,7 +2771,7 @@ final class WorldScene {
                 tollCrownsHere++;
                 tollCrownsHereNanos += System.nanoTime() - began;
             } else {
-                Crowns.Work work = new Crowns.Work(from, fresh, slot, PLAIN, CHECK_BUILDS);
+                Crowns.Work work = new Crowns.Work(from, fresh, slot, PLAIN, CHECK_BUILDS, crownsBack);
                 Crowns.begin(work);
                 crownsWaited[slot] = work;
                 crownsOut++;
@@ -2707,7 +2781,7 @@ final class WorldScene {
 
         /** Whether a slope the map leaves out was made over the square, which a build that asks is then no plain one. */
         private boolean madeAt(int x, int y, int z) {
-            boolean made = Roofs.madeAt(x, y, z, frames) != null;
+            boolean made = Roofs.madeAt(x, y, z, roundNow) != null;
             building.plain &= !made;
             return made;
         }
@@ -2914,9 +2988,9 @@ final class WorldScene {
         private void addSquares(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
             // Once for the chunk and not once a level: until the ground round a chunk is all
             // loaded its corners are worked out afresh at every asking.
-            float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
-            float[] water = Terrain.water(chunk.wx, chunk.wy);
-            kerbs = Terrain.kerb(chunk.wx, chunk.wy);
+            float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
+            float[] water = terrain.water(chunk.wx, chunk.wy);
+            kerbs = terrain.kerb(chunk.wx, chunk.wy);
             boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;
             if (!kept && !growing) {
                 canopied = false;
@@ -3069,13 +3143,13 @@ final class WorldScene {
                 tollSumsByLevel++;
             }
             long sum = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(frame.scale)), from), to);
-            float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
-            float[] water = Terrain.water(chunk.wx, chunk.wy);
+            float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
+            float[] water = terrain.water(chunk.wx, chunk.wy);
             long land = SUM_FROM;
             for (int i = 0; i < ground.length; i++) {
                 land = sum(sum(land, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
             }
-            land = sum(land, Terrain.kerbSum(chunk.wx, chunk.wy));
+            land = sum(land, terrain.kerbSum(chunk.wx, chunk.wy));
             sum = sum(sum, land);
             int span = lightRed.length;
             if (AUDIT_MARKS) {
@@ -3318,7 +3392,7 @@ final class WorldScene {
          * view swings out sideways, and a margin. -1, which leaves nothing out, when the view
          * looks so far up or down that a corner points behind it or the picture has no shape yet.
          */
-        private float cosDrawnCone(ViewCamera.Pose view, float flat) {
+        private float cosDrawnCone(ViewCamera.Pose pose, float flat) {
             float aspect = drawnAspect;
             if (aspect == 0f || flat <= 1e-3f) {
                 return -1f;
@@ -3327,10 +3401,10 @@ final class WorldScene {
             for (int i = 0; i < 4; i++) {
                 float across = ((i & 1) == 0 ? -1f : 1f) * tanHalfFieldOfView * aspect;
                 float along = (i < 2 ? -1f : 1f) * tanHalfFieldOfView;
-                float x = view.forwardX + view.rightX * across + view.upX * along;
-                float y = view.forwardY + view.rightY * across + view.upY * along;
+                float x = pose.forwardX + pose.rightX * across + pose.upX * along;
+                float y = pose.forwardY + pose.rightY * across + pose.upY * along;
                 float length = (float) Math.sqrt(x * x + y * y);
-                float cos = (x * view.forwardX + y * view.forwardY) / (length * flat);
+                float cos = (x * pose.forwardX + y * pose.forwardY) / (length * flat);
                 if (length < 1e-3f || cos <= 0f) {
                     return -1f;
                 }
@@ -4153,7 +4227,7 @@ final class WorldScene {
                         + ", which is over no chunk beside it");
             }
             if (wx != building.wx || wy != building.wy) {
-                Terrain.corners(cell, wx, wy);
+                terrain.corners(cell, wx, wy);
                 heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
             }
         }
@@ -4161,16 +4235,16 @@ final class WorldScene {
         /** The height of the land at a point the build hangs something over: see heightsAt. */
         private float landAt(float x, float y) {
             heightsAt(x, y);
-            return Terrain.land(x, y);
+            return terrain.land(x, y);
         }
 
         /** The heights a build of a chunk goes by, as one number: the version of its own chunk's and of those round it the build took a height from. After corners. */
         private int landOf(int wx, int wy, int round) {
-            int land = Terrain.version(wx, wy);
+            int land = terrain.version(wx, wy);
             for (int bit = 0; bit < 9; bit++) {
                 if ((round >> bit & 1) != 0) {
-                    Terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
-                    land = land * 31 + Terrain.version(wx + bit / 3 - 1, wy + bit % 3 - 1);
+                    terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
+                    land = land * 31 + terrain.version(wx + bit / 3 - 1, wy + bit % 3 - 1);
                 }
             }
             return land;
@@ -4464,7 +4538,7 @@ final class WorldScene {
                 float u = (left + (right ? wide : 0f)) / across, v = (top + (low ? high : 0f)) / down;
                 float atX = x + (v + u) / 2f + nearer, atY = y + (v - u) / 2f + nearer;
                 heightsAt(atX, atY);
-                mesh.add(atX, atY, z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(atX, atY, z) + BODY_UP,
+                mesh.add(atX, atY, z * ViewCamera.LEVEL_HEIGHT + terrain.lift(atX, atY, z) + BODY_UP,
                         right ? texture.getXEnd() : texture.getXStart(), low ? texture.getYEnd() : texture.getYStart(), frame.red, frame.green, frame.blue);
             }
         }
@@ -4484,7 +4558,7 @@ final class WorldScene {
                 return;
             }
             float x = character.getX(), y = character.getY();
-            float base = character.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, character.getZ());
+            float base = character.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(x, y, character.getZ());
             if (characters == characterX.length) {
                 characterX = Arrays.copyOf(characterX, characters * 2);
                 characterY = Arrays.copyOf(characterY, characters * 2);
@@ -5561,13 +5635,13 @@ final class WorldScene {
          * light for them.
          */
         private void addBacks(IsoChunk chunk, int chunkX, int chunkY) {
-            ArrayList<Roofs.Laid> backs = Roofs.madeIn(cell, chunk.wx, chunk.wy, frames, frame.scale);
-            ArrayList<Roofs.Capped> caps = Roofs.cappedIn(cell, chunk.wx, chunk.wy, frames, frame.scale);
+            ArrayList<Roofs.Laid> backs = Roofs.madeIn(cell, chunk.wx, chunk.wy, roundNow, frame.scale);
+            ArrayList<Roofs.Capped> caps = Roofs.cappedIn(cell, chunk.wx, chunk.wy, roundNow, frame.scale);
             if (backs == null && caps == null) {
                 return;
             }
             building.plain = false;
-            float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
+            float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
             frame.light(unseenLight.r, unseenLight.g, unseenLight.b);
             frame.open = 1f;
             frame.kind = 0f;
@@ -5693,8 +5767,8 @@ final class WorldScene {
                 // The building's lowest level, and no other: on the roof's own level its walls are
                 // the gables of its other ends, cut to the roof's slope, and a gable's sprite laid
                 // on this wall would be mostly air.
-                WallFinish.Facing facing = WallFinish.facing(cell, standing, ground, north, room, frames);
-                Texture finish = WallFinish.outside(cell, standing, ground, room, frames);
+                WallFinish.Facing facing = WallFinish.facing(cell, standing, ground, north, room, roundNow);
+                Texture finish = WallFinish.outside(cell, standing, ground, room, roundNow);
                 float alongA = north ? 1f : 0f, alongB = north ? 0f : 1f;
                 if (facing == null) {
                     // That face of the building has no plain wall to take the sprite of: the gable
@@ -6380,7 +6454,7 @@ final class WorldScene {
                     IsoGridSquare under = cell.getGridSquare(underX, underY, level);
                     IsoBuilding standing = under == null ? null : under.getBuilding();
                     if (standing != null) {
-                        finish = WallFinish.outside(cell, standing, level, under.getRoomID(), frames);
+                        finish = WallFinish.outside(cell, standing, level, under.getRoomID(), roundNow);
                     }
                 }
             }
@@ -7326,9 +7400,9 @@ final class WorldScene {
             if (building == null) {
                 return 0;
             }
-            Texture shows = far == -1L ? WallFinish.outside(cell, building, z, own, frames) : WallFinish.room(cell, building, z, far, frames);
+            Texture shows = far == -1L ? WallFinish.outside(cell, building, z, own, roundNow) : WallFinish.room(cell, building, z, far, roundNow);
             if (far == -1L) {
-                farFacing = WallFinish.facing(cell, building, z, north, own, frames);
+                farFacing = WallFinish.facing(cell, building, z, north, own, roundNow);
             }
             if (shows == null || shows == texture) {
                 return 0;
@@ -7430,7 +7504,7 @@ final class WorldScene {
          */
         private void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
             building.plain = false;
-            Roofs.Laid laid = Roofs.at(cell, x, y, z, frames, frame.scale);
+            Roofs.Laid laid = Roofs.at(cell, x, y, z, roundNow, frame.scale);
             // A square with two roof sprites has one of them fitted. The other lies as it reads.
             // The fitted one holds what its sprite read as, which the fit leaves as it was.
             RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : Roofs.measure(frame, texture, x, y, z);
@@ -7675,7 +7749,7 @@ final class WorldScene {
 
         private boolean slopesAlong(int x, int y, int z, int axis) {
             building.plain = false;
-            Roofs.Laid map = Roofs.at(cell, x, y, z, frames, frame.scale), made = Roofs.madeAt(x, y, z, frames);
+            Roofs.Laid map = Roofs.at(cell, x, y, z, roundNow, frame.scale), made = Roofs.madeAt(x, y, z, roundNow);
             return map != null && !map.tile.shaped && !map.tile.fitting && map.tile.fitAxis == axis
                     || made != null && !made.tile.shaped && (made.tile.fitAxis == axis || made.tile.peak > 0f && made.tile.peakAxis == axis);
         }

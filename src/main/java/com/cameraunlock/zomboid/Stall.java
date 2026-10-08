@@ -23,7 +23,7 @@ final class Stall {
     private static Thread watcher;
     private static boolean said;
 
-    /** Called by the logic thread each time it builds a frame of the first person view. With the view off no frame is looked for. */
+    /** Called by the logic thread each time it builds a frame of a player's first person view. With every view off no frame is looked for. */
     static void beat() {
         beatNanos = System.nanoTime();
         if (watcher == null) {
@@ -41,7 +41,7 @@ final class Stall {
                 return;
             }
             long since = System.nanoTime() - beatNanos;
-            if (since < STALLED_NANOS || !View.first().firstPerson.isOn()) {
+            if (since < STALLED_NANOS || !anyOn()) {
                 said = false;
             } else if (!said) {
                 // Once a stall: the frames also stop for good when a save is left, and that is said once too.
@@ -49,6 +49,16 @@ final class Stall {
                 Log.info(String.format(Locale.ROOT, "no frame for %.1f s. Where the game's threads stand:%s", since / 1e9, standing()));
             }
         }
+    }
+
+    private static boolean anyOn() {
+        for (int player = 0; player < View.COUNT; player++) {
+            View view = View.of(player);
+            if (view != null && view.firstPerson.isOn()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String standing() {

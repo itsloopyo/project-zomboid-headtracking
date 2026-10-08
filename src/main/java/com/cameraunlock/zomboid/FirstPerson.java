@@ -456,10 +456,7 @@ public final class FirstPerson {
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
         boolean overheadAsked = !Quality.plain() && failure == null && allowed(view.player());
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
-        if (Terrain.level != overhead()) {
-            Terrain.level(overhead());
-            view.worldScene.forgetAll();
-        }
+        view.worldScene.level(overhead());
         IsoPlayer player = view.player();
         rideAlong(player);
         tread(player);
@@ -566,15 +563,15 @@ public final class FirstPerson {
 
         float zoom = Core.getInstance().getZoom(player.getIndex());
         holdTheCursorAhead(player, zoom);
-        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
+        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
         eye[0] = player.getX();
         eye[1] = player.getY();
         // Eased from where the last frame at the eye had it. The first of them has none before it.
         eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, eyeHeight(player), sinceLastFrame, EYE_HEIGHT_SECONDS) : eyeHeight(player);
         eye[2] = floorUp + eyeHigh;
-        view.headlights.gather(eye[0], eye[1]);
+        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
         BaseVehicle vehicle = player.getVehicle();
-        view.ride.note(player, vehicle, floorUp, eye);
+        view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
         boolean sightsUp = view.controls.sightsUp(player);
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
         view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
@@ -663,8 +660,12 @@ public final class FirstPerson {
      * only out of doors, or pacing a room would use up the marks kept from the street.
      */
     private void tread(IsoPlayer player) {
-        if (player == null || ClimateManager.getInstance().getSnowFracNow() <= 0f) {
+        if (ClimateManager.getInstance().getSnowFracNow() <= 0f) {
             SnowPrints.forget();
+            return;
+        }
+        if (player == null) {
+            SnowPrints.lifted(view.index);
             return;
         }
         // The square is asked of the map by where the walker or the vehicle is: someone seated in a vehicle is on no square of their own.
@@ -672,14 +673,14 @@ public final class FirstPerson {
         float x = vehicle == null ? player.getX() : vehicle.getX(), y = vehicle == null ? player.getY() : vehicle.getY();
         IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(player.getZ()));
         if (player.isDead() || square == null || !square.isOutside()) {
-            SnowPrints.lifted();
+            SnowPrints.lifted(view.index);
         } else {
-            treadUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, player.getZ());
-            float floorUp = treadUp;
+            treadUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, player.getZ());
+            float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT;
             if (vehicle == null) {
-                SnowPrints.walked(x, y, floorUp);
+                SnowPrints.walked(view.index, x, y, floorUp);
             } else {
-                SnowPrints.drove(x, y, floorUp);
+                SnowPrints.drove(view.index, x, y, floorUp);
             }
         }
         if (TRACE && (treadSaid++ & 255) == 0) {
@@ -768,9 +769,9 @@ public final class FirstPerson {
     private void rehearse(IsoPlayer player) {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         Vector2 facing = player.getForwardDirection();
-        ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, level) + eyeHeight(player),
+        ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player),
                 (float) Math.atan2(facing.y, facing.x), 0f);
-        view.headlights.gather(x, y);
+        view.headlights.gather(view.worldScene.terrain, x, y);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
         WorldScene.Frame scene = view.worldScene.next();
@@ -798,16 +799,16 @@ public final class FirstPerson {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         float floorUp = level * ViewCamera.LEVEL_HEIGHT;
         aimOverhead(player, floorUp);
-        ViewCamera.clean(standingView, x, y, floorUp + Terrain.lift(x, y, level) + eyeHeight(player), OVERHEAD_YAW, OVERHEAD_PITCH);
+        ViewCamera.clean(standingView, x, y, floorUp + view.worldScene.terrain.lift(x, y, level) + eyeHeight(player), OVERHEAD_YAW, OVERHEAD_PITCH);
         if (TRACE && (overheadSaid & 127) == 1) {
             int index = player.getIndex();
             ViewCamera.project(overheadView, overheadHalfHigh / OVERHEAD_AWAY, (float) IsoCamera.getScreenWidth(index) / IsoCamera.getScreenHeight(index),
-                    x, y, floorUp + Terrain.lift(x, y, level), ndc);
+                    x, y, floorUp + view.worldScene.terrain.lift(x, y, level), ndc);
             Log.info(String.format(Locale.ROOT, "overhead: the picture has the player's feet at (%.1f, %.1f), lift %.3f",
                     (ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index), (0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index),
-                    Terrain.lift(x, y, level)));
+                    view.worldScene.terrain.lift(x, y, level)));
         }
-        view.headlights.gather(x, y);
+        view.headlights.gather(view.worldScene.terrain, x, y);
         Vector2 facing = player.getForwardDirection();
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
@@ -866,7 +867,7 @@ public final class FirstPerson {
      */
     private void placeReticle(WorldScene.Frame scene, float floorUp) {
         pictureTanHalf = scene.tanHalfFieldOfView();
-        shotDistance = world.shotDistance(aimView, floorUp, WorldScene.REACH,
+        shotDistance = world.shotDistance(aimView, view.worldScene.terrain, floorUp, WorldScene.REACH,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
         // The game looks for a shot's target along a line through this point. With nothing
         // in reach it is a point as far along the view as anything could have been. The
@@ -877,7 +878,7 @@ public final class FirstPerson {
         float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
         IsoPlayer player = view.player();
         float level = player.getZ();
-        float aimedLevel = (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
+        float aimedLevel = (aimedUp - view.worldScene.terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
         view.controls.aimAt(aimedX, aimedY, aimedLevel);
         // The game takes the square an attack is made at from what its own view has under the
         // pointer, and under this picture that is nothing. A shot that hits nobody is told
@@ -972,7 +973,7 @@ public final class FirstPerson {
         if (player.getVehicle() != null) {
             return false;
         }
-        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
+        float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
         CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();

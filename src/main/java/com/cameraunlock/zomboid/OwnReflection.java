@@ -98,7 +98,7 @@ final class OwnReflection {
      *
      * @param tanHalfAcross the tangent of half the picture's field of view from side to side
      */
-    static void find(IsoCell cell, IsoPlayer player, ViewCamera.Pose view, float tanHalfAcross, Glass into) {
+    static void find(IsoCell cell, IsoPlayer player, Terrain terrain, ViewCamera.Pose view, float tanHalfAcross, Glass into) {
         into.found = false;
         // The viewer is seen in the glass straight along the line that meets it squarely. With
         // that line outside the picture there is nothing of them to draw.
@@ -142,7 +142,7 @@ final class OwnReflection {
             return;
         }
         into.count = 0;
-        into.foot = level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), level);
+        into.foot = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
         int middle = into.north ? fromX : fromY;
         for (int along = middle - REACH; along <= middle + REACH && into.count < MOST; along++) {
             // A window stands on the square the edge belongs to, and a mirror on whichever

@@ -456,7 +456,7 @@ public final class Characters {
                 // told from their colour, and the picture lights the cabin itself, by the
                 // light the game would have given it.
                 int at = i * 4;
-                float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
+                float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                 String script = view.ride.seatedIn;
                 if (script != null && !parts(data).isEmpty()) {
@@ -599,7 +599,7 @@ public final class Characters {
             // view's.
             float jointUp = view.modelHead.jointUp;
             if (!Float.isNaN(jointUp)) {
-                float eyesUp = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
+                float eyesUp = z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
                 data.z += (camera.eyeUp - eyesUp) / ViewCamera.LEVEL_HEIGHT;
                 if (TRACE && (liftSaid++ & 127) == 0) {
                     Log.info(String.format(Locale.ROOT, "glass: the viewer is stood %.3f higher, head joint %.3f in the model, scale %.3f", camera.eyeUp - eyesUp, jointUp, data.finalScale));
@@ -1338,7 +1338,7 @@ public final class Characters {
                 // The place is where the draw stands the model, and the ball round it is what it cannot reach out of.
                 boolean stands = data.character != null && !data.inVehicle;
                 float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
-                float up = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + (stands ? PERSON_MIDDLE : 0f);
+                float up = z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z) + (stands ? PERSON_MIDDLE : 0f);
                 float round = stands ? PERSON_ROUND : MODEL_REACH;
                 if (seenFrom != null) {
                     // Left out when the ball lies wholly behind the pass's eye, wholly past one edge of
@@ -1365,7 +1365,7 @@ public final class Characters {
                 int at = rootsFound++ * 4;
                 roots[at] = data.x;
                 roots[at + 1] = data.y;
-                roots[at + 2] = data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z);
+                roots[at + 2] = data.z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(data.x, data.y, data.z);
                 roots[at + 3] = data.animPlayerAngle;
             }
             if (data.character == null) {
@@ -1411,7 +1411,7 @@ public final class Characters {
      * rest, what they hold and what hangs from them.
      */
     private void character(ModelSlotRenderData data, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands) {
-        place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
+        place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
         if (!own || held) {
@@ -1470,7 +1470,7 @@ public final class Characters {
      * and the game does its seating on top of that.
      */
     private void seated(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(viewMatrix, placed, combined);
         gameCamera = ModelCamera.instance;
@@ -1496,7 +1496,7 @@ public final class Characters {
      * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
     private void vehicle(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(viewMatrix, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];

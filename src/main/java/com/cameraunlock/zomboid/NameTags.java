@@ -72,7 +72,7 @@ public final class NameTags {
             return;
         }
         float x = character.getX(), y = character.getY();
-        float up = character.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, character.getZ()) + ABOVE;
+        float up = character.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, character.getZ()) + ABOVE;
         if (!view.firstPerson.inPicture(x, y, up, ndc)) {
             at.set(NOWHERE, NOWHERE);
             return;
@@ -138,7 +138,7 @@ public final class NameTags {
         for (IsoMovingObject mover : cell.getObjectList()) {
             if (mover instanceof IsoPlayer other && other != viewer) {
                 float x = other.getX(), y = other.getY();
-                float along = passes(clean, x, y, other.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, other.getZ()));
+                float along = passes(clean, x, y, other.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, other.getZ()));
                 if (along < nearest) {
                     nearest = along;
                     found = other;

@@ -20,7 +20,8 @@ import org.lwjgl.opengl.GL31;
  * are handed to the graphics card once, the first time a frame draws it, and stay there until
  * no frame shows the build any more. From then on the graphics card's is the only copy: the
  * memory the vertices came in goes back to carry the next build. All of them live in one
- * buffer, each build in a block of its own, so that every triangle wearing one texture is
+ * buffer, the builds of every player's view together, each build in a block of its own, so
+ * that every triangle wearing one texture is
  * still one draw however many chunks it is spread over: the draw is given the list of places
  * in the buffer where those triangles are, chunk after chunk in the order the frame lists its
  * chunks.
@@ -63,6 +64,8 @@ final class ChunkBuffers {
     private static int capacity;
     /** Every build with a block, in no order: each knows its place here. They are what is carried over when the buffer is made anew. */
     private static final ArrayList<WorldScene.ChunkMeshes> holders = new ArrayList<>();
+    /** How many of them are each view's. */
+    private static final int[] heldOf = new int[View.COUNT];
     private static int sentBuilds;
     private static long sentFloats;
     /** What the last frame came to, for the logic thread's log: megabytes in use and in all, builds sent and megabytes sent. */
@@ -244,17 +247,21 @@ final class ChunkBuffers {
     }
 
     /**
-     * Gives the buffer back to the graphics card once no build has a block in it: first person
-     * has been off a while and the logic thread has let every build go (WorldScene.letGo).
+     * Frees the blocks of a view whose first person has been off a while, the logic thread
+     * having let every build of it go (WorldScene.letGo), and gives the buffer back to the
+     * graphics card once no build of any view has a block in it.
      */
-    static void letGo() {
+    static void letGo(int view) {
         dropForgotten();
         if (buffer == 0) {
             return;
         }
+        if (heldOf[view] != 0) {
+            // Every build of the view was let go, so none should hold a block: one that does was lost by whatever let it go.
+            Log.info("first person keeps the world's room on the graphics card: " + heldOf[view] + " builds of player " + (view + 1) + "'s view still hold a part of it");
+            return;
+        }
         if (!holders.isEmpty()) {
-            // Every build was let go, so none should hold a block: one that does was lost by whatever let it go.
-            Log.info("first person keeps the world's room on the graphics card: " + holders.size() + " builds still hold a part of it");
             return;
         }
         GL15.glDeleteBuffers(buffer);
@@ -278,6 +285,7 @@ final class ChunkBuffers {
             holders.set(build.heldIndex, last);
             last.heldIndex = build.heldIndex;
         }
+        heldOf[build.of]--;
         build.held = false;
     }
 
@@ -311,6 +319,7 @@ final class ChunkBuffers {
         build.heldVersion = version;
         build.heldIndex = holders.size();
         holders.add(build);
+        heldOf[build.of]++;
         build.held = true;
         return true;
     }

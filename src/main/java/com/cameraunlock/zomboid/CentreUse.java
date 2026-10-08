@@ -79,7 +79,7 @@ final class CentreUse {
     private float[] boxOf(IsoObject found) {
         if (found instanceof IsoWorldInventoryObject item) {
             float x = item.getWorldPosX(), y = item.getWorldPosY();
-            float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, (int) Math.floor(item.getWorldPosZ()));
+            float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, (int) Math.floor(item.getWorldPosZ()));
             return new float[] {x - ITEM_HALF, y - ITEM_HALF, up + OFF_THE_FLOOR * 0.5f, x + ITEM_HALF, y + ITEM_HALF, up + ITEM_HIGH};
         }
         IsoGridSquare square = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
@@ -87,7 +87,7 @@ final class CentreUse {
             return null;
         }
         float x = square.getX(), y = square.getY();
-        float floor = square.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x + 0.5f, y + 0.5f, square.getZ());
+        float floor = square.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x + 0.5f, y + 0.5f, square.getZ());
         float storey = ViewCamera.LEVEL_HEIGHT;
         if (found instanceof IsoDoor door) {
             return onEdge(x, y, door.north, false, floor + OFF_THE_FLOOR, floor + DOOR_TOP * storey);
@@ -290,7 +290,7 @@ final class CentreUse {
         for (int i = 0; i < items.size(); i++) {
             IsoWorldInventoryObject item = items.get(i);
             float x = item.getWorldPosX(), y = item.getWorldPosY();
-            float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, square.getZ());
+            float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, square.getZ());
             float toX = x - view.eyeX, toY = y - view.eyeY, toUp = up - view.eyeUp;
             float along = toX * view.forwardX + toY * view.forwardY + toUp * view.forwardUp;
             if (along <= 0f || along > reach) {

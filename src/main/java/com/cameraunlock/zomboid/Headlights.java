@@ -24,7 +24,8 @@ final class Headlights {
     volatile float[] beams = new float[BEAMS * STRIDE];
     private final Vector3f facing = new Vector3f();
 
-    void gather(float eyeX, float eyeY) {
+    /** @param terrain the lie of the land the view the beams are gathered for is drawn on */
+    void gather(Terrain terrain, float eyeX, float eyeY) {
         float[] found = new float[BEAMS * STRIDE];
         float nearest = Float.MAX_VALUE, second = Float.MAX_VALUE;
         for (BaseVehicle vehicle : IsoWorld.instance.currentCell.getVehicles()) {
@@ -54,7 +55,7 @@ final class Headlights {
             int at = slot * STRIDE;
             found[at] = vehicle.getX() + wayX * NOSE;
             found[at + 1] = vehicle.getY() + wayY * NOSE;
-            found[at + 2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + LAMP_HEIGHT;
+            found[at + 2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + LAMP_HEIGHT;
             float length = (float) Math.sqrt(1f + DIP * DIP);
             found[at + 3] = wayX / length;
             found[at + 4] = wayY / length;

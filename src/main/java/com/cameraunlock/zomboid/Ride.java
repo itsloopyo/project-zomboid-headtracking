@@ -88,9 +88,10 @@ final class Ride {
      *
      * @param vehicle the vehicle the player is in, or null
      * @param floorUp how high the floor under the player is
+     * @param terrain the lie of the land the player's view is drawn on
      * @param eye     the eye's x, y and height, which a seat replaces
      */
-    void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, float[] eye) {
+    void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, Terrain terrain, float[] eye) {
         // The picture reads the seats as soon as it sees the viewer seated: they are set first.
         if (vehicle != null && !vehicle.getScriptName().equals(seatsOf)) {
             seatsOf = vehicle.getScriptName();
@@ -134,7 +135,7 @@ final class Ride {
             Cabins.noteWear(player, dress);
         }
         if (seat >= 0) {
-            seatTheEye(vehicle, seat, floorUp, eye);
+            seatTheEye(vehicle, seat, floorUp, terrain, eye);
         }
     }
 
@@ -144,7 +145,7 @@ final class Ride {
         return (float) Math.atan2(facing.z, facing.x);
     }
 
-    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
+    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, Terrain terrain, float[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across
         // the vehicle. Which way the vehicle faces the game gives with y as up.
@@ -170,7 +171,7 @@ final class Ride {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;
             eye[0] = vehicle.getX() + axes[0] * back + axes[3] * across + axes[6] * raised;
             eye[1] = vehicle.getY() + axes[1] * back + axes[4] * across + axes[7] * raised;
-            eye[2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + axes[2] * back + axes[5] * across
+            eye[2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + axes[2] * back + axes[5] * across
                     + axes[8] * raised;
         }
         if (FirstPerson.TRACE && (seatSaid++ & 127) == 0) {

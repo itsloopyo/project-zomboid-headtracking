@@ -725,12 +725,12 @@ final class Pipeline {
             frameNanos = System.nanoTime();
             shadedAndLit = Quality.shadedAndLit();
             frameColor = sceneColor;
-            SpriteColours.read();
+            SpriteColours.read(view.index);
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks);
             // Seen from outside the viewer, the picture is of the built world alone, as it was.
-            beyond = !outside && FarLand.load(camera.eyeX, camera.eyeY) ? 1f + (FrameBlending.on() ? frameNumber % SIEVES : 0) : 0f;
+            beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (FrameBlending.on() ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true);
             arrays();
             stage(STAGE_LOAD);
@@ -1791,7 +1791,7 @@ final class Pipeline {
         far.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
         far.set("uBeyond", inScope ? Math.min(beyond, 1f) : beyond);
         atmosphere(far, state);
-        FarLand.draw(camera.eyeX, camera.eyeY);
+        view.worldScene.farLand.draw(camera.eyeX, camera.eyeY);
     }
 
     /**
@@ -1922,7 +1922,7 @@ final class Pipeline {
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
         // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
-        SnowPrints.placed(camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
+        SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         for (int i = 0; i < snowTrod[0]; i++) {
             to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
         }
@@ -3743,14 +3743,14 @@ final class Pipeline {
         @Override
         public void render() {
             holds = false;
+            ChunkBuffers.letGo(view.index);
+            view.worldScene.farLand.catchUp();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.
                     return;
                 }
             }
-            ChunkBuffers.letGo();
-            FarLand.catchUp();
             Decor.letGo();
             forgetTexels();
             int copies = view.characters.letGo();

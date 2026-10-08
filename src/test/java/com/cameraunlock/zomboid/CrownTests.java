@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.concurrent.LinkedBlockingQueue;
+
 /** Tests of the crown of sprigs a tree or a bush is given in place of its sprite's painted leaves. */
 final class CrownTests {
     private static final int WIDE = 128, HIGH = 256;
@@ -223,13 +225,18 @@ final class CrownTests {
     private static void crownsMadeOnTheirThreadAreTheSameCrowns() {
         SpriteGeometry.MeshSet here = new SpriteGeometry.MeshSet(), empty = new SpriteGeometry.MeshSet();
         chunkOfThree(0.6f).mesh(here, PLAIN, new SpriteGeometry.Frame());
-        WorldScene.ChunkMeshes made = new WorldScene.ChunkMeshes(), there = new WorldScene.ChunkMeshes(), spared = new WorldScene.ChunkMeshes();
+        WorldScene.ChunkMeshes made = new WorldScene.ChunkMeshes(0), there = new WorldScene.ChunkMeshes(0), spared = new WorldScene.ChunkMeshes(0);
         made.fill(here, empty);
-        Crowns.Work wanted = new Crowns.Work(chunkOfThree(0.6f), there, 5, PLAIN, false), unwanted = new Crowns.Work(chunkOfThree(0.6f), spared, 6, PLAIN, false);
+        LinkedBlockingQueue<Crowns.Work> back = new LinkedBlockingQueue<>(), otherViews = new LinkedBlockingQueue<>();
+        Crowns.Work wanted = new Crowns.Work(chunkOfThree(0.6f), there, 5, PLAIN, false, back), unwanted = new Crowns.Work(chunkOfThree(0.6f), spared, 6, PLAIN, false, back);
+        Crowns.Work others = new Crowns.Work(chunkOfThree(0.6f), new WorldScene.ChunkMeshes(1), 5, PLAIN, false, otherViews);
         unwanted.unwanted = true;
         Crowns.begin(wanted);
+        Crowns.begin(others);
         Crowns.begin(unwanted);
-        check(Crowns.awaited() == wanted && Crowns.awaited() == unwanted && Crowns.finished() == null, "every piece of work comes back, in the order it went, and no more");
+        check(Crowns.awaited(back) == wanted && Crowns.awaited(back) == unwanted && back.poll() == null, "every piece of work comes back, in the order it went, and no more");
+        check(Crowns.awaited(otherViews) == others && otherViews.poll() == null, "and to the view that handed it over, not to another");
+        others.into.scrap();
         check(spared.vertices == null && spared.floats == 0, "crowns nobody wants any more are not made");
         check(there.floats == made.floats && there.runs == made.runs && there.floats > 0, "the build made on the other thread is as long");
         for (int at = 0; at < made.floats; at++) {
@@ -241,9 +248,9 @@ final class CrownTests {
         // One dot of paint is no crown, and is never written down as one: made all the same, the making fails.
         Crowns none = new Crowns();
         none.add(LEAVES, frame(), Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame()), 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 12f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.LINDEN, 7);
-        Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false);
+        Crowns.Work failing = new Crowns.Work(none, spared, 7, PLAIN, false, back);
         Crowns.begin(failing);
-        check(Crowns.awaited() == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");
+        check(Crowns.awaited(back) == failing && failing.failed instanceof IllegalStateException, "work that fails comes back too, with what it threw");
     }
 
     private static void spriteMeasuredAsNoCrownMakesNone() {

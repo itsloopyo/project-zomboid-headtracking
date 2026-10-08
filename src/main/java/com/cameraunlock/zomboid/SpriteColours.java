@@ -80,9 +80,15 @@ final class SpriteColours {
      * Reads the sprites asked for since the last frame. The game keeps many sprites on one
      * sheet, and OpenGL hands back a sheet whole, so every sprite waiting on one sheet is read
      * from one copy of it. One sheet a frame: a sheet is tens of megabytes to copy, and a
-     * street's walls are on a handful of them.
+     * street's walls are on a handful of them. A frame in which two players' pictures are
+     * drawn is still one, and the sheet is read for the first of them.
+     *
+     * @param view the number of the player whose picture is about to be drawn
      */
-    static synchronized void read() {
+    static synchronized void read(int view) {
+        if (!Rounds.DRAWS.begin(view)) {
+            return;
+        }
         for (Texture texture = asked.poll(); texture != null; texture = asked.poll()) {
             waiting.add(texture);
         }

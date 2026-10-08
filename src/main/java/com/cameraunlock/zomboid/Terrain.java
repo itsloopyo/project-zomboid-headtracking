@@ -41,6 +41,10 @@ import zombie.iso.sprite.IsoSprite;
  *
  * Heights are kept at the corners of the squares, a chunk at a time. The logic thread works
  * them out and both threads read them.
+ *
+ * There are two lies of the land, the hills and the country left level, and each player's
+ * view is drawn on one of them (WorldScene.terrain): what a square is made of is the same for
+ * both and is kept once.
  */
 final class Terrain {
     static final int CHUNK_TILES = 8;
@@ -89,7 +93,16 @@ final class Terrain {
         boolean water;
     }
 
-    private static final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE);
+    /** The land with its hills, and the land as level as the game's map is: see level. */
+    static final Terrain HILLS = new Terrain(false), LEVEL = new Terrain(true);
+
+    /**
+     * Whether the country is left as level as the game's map is. Seen from overhead the picture
+     * has to lie where the game's own does, or the pointer is not on what it seems to be on:
+     * the game knows nothing of hills. Kerbs and banks, which are a hand high, stay.
+     */
+    final boolean level;
+    private final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE);
     private static final Kinds[] known = new Kinds[TABLE_SIDE * TABLE_SIDE];
     private static final Kinds passing = new Kinds();
     static final byte[] around = new byte[SPAN * SPAN];
@@ -98,7 +111,7 @@ final class Terrain {
     private static final float[] streetAround = new float[SPAN * SPAN];
     private static final float[] midXAround = new float[SPAN * SPAN], midYAround = new float[SPAN * SPAN];
     /** The height of the pad of each building whose pad can no longer change, by the middle of the building. */
-    private static final HashMap<Long, Float> pads = new HashMap<>();
+    private final HashMap<Long, Float> pads = new HashMap<>();
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
@@ -136,24 +149,41 @@ final class Terrain {
     }
 
     /** The version of a chunk's heights. After corners. */
-    static int version(int wx, int wy) {
+    int version(int wx, int wy) {
         return grids.get(slot(wx, wy)).version;
     }
 
-    /** Logic thread, once a frame the picture is built. */
+    /** Logic thread, once a round of the views' builds: see Rounds. */
     static void frame(int number) {
         frame = number;
         frameNanos = System.nanoTime();
     }
 
-    private Terrain() {}
+    private Terrain(boolean level) {
+        this.level = level;
+    }
+
+    static Terrain of(boolean level) {
+        return level ? LEVEL : HILLS;
+    }
+
+    /** For a map loaded anew: lets go of every height worked out and of what every square was made of. Logic thread. */
+    static void forget() {
+        for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE; slot++) {
+            HILLS.grids.set(slot, null);
+            LEVEL.grids.set(slot, null);
+        }
+        Arrays.fill(known, null);
+        HILLS.pads.clear();
+        LEVEL.pads.clear();
+    }
 
     private static int slot(int wx, int wy) {
         return (wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1));
     }
 
     /** The height of the ground at (x, y) above the flat map, in tiles. 0 where it is not known. */
-    static float height(float x, float y) {
+    float height(float x, float y) {
         return height(x, y, true);
     }
 
@@ -161,11 +191,11 @@ final class Terrain {
      * The height of the land at (x, y) with no street cut into it: what hangs over the ground,
      * a wire, keeps its height where it crosses a kerb. 0 where it is not known.
      */
-    static float land(float x, float y) {
+    float land(float x, float y) {
         return height(x, y, false);
     }
 
-    private static float height(float x, float y, boolean kerbed) {
+    private float height(float x, float y, boolean kerbed) {
         int tileX = (int) Math.floor(x), tileY = (int) Math.floor(y);
         int wx = Math.floorDiv(tileX, CHUNK_TILES), wy = Math.floorDiv(tileY, CHUNK_TILES);
         Grid grid = grids.get(slot(wx, wy));
@@ -181,17 +211,17 @@ final class Terrain {
     }
 
     /** Where the kerbs of a chunk run, as Kerbs keeps it, and null where the chunk has no street. After corners. */
-    static float[] kerb(int wx, int wy) {
+    float[] kerb(int wx, int wy) {
         return grids.get(slot(wx, wy)).kerb;
     }
 
     /** The kerbs of a chunk as one number, which is another when they run otherwise. After corners. */
-    static long kerbSum(int wx, int wy) {
+    long kerbSum(int wx, int wy) {
         return grids.get(slot(wx, wy)).kerbSum;
     }
 
     /** The height of water at the corners of a chunk, laid out as corners gives the land's. After corners. */
-    static float[] water(int wx, int wy) {
+    float[] water(int wx, int wy) {
         return grids.get(slot(wx, wy)).water;
     }
 
@@ -200,7 +230,7 @@ final class Terrain {
      * not yet or if the ground round the chunk was not all loaded when they last were. Logic
      * thread.
      */
-    static float[] corners(IsoCell cell, int wx, int wy) {
+    float[] corners(IsoCell cell, int wx, int wy) {
         int slot = slot(wx, wy);
         Grid grid = grids.get(slot);
         boolean known = grid != null && grid.wx == wx && grid.wy == wy;
@@ -285,7 +315,7 @@ final class Terrain {
     }
 
     /** Fills streetAround, for an around whose first square is (x, y) of the map. After findWater. */
-    static void streets(int x, int y) {
+    void streets(int x, int y) {
         for (int i = 0; i < SPAN; i++) {
             for (int j = 0; j < SPAN; j++) {
                 if (around[i * SPAN + j] == STREET) {
@@ -296,7 +326,7 @@ final class Terrain {
     }
 
     /** The height of the corner at (x, y) of the map, which is the corner (cornerI, cornerJ) of around. After streets. */
-    static float corner(float x, float y, int cornerI, int cornerJ) {
+    float corner(float x, float y, int cornerI, int cornerJ) {
         float toMade = REACH, toWater = REACH, toPad = REACH, toBuilt = REACH, toStreet = REACH;
         float touchingPads = 0f, nearPads = 0f, nearWeight = 0f;
         int touching = 0;
@@ -366,7 +396,7 @@ final class Terrain {
      * Fills around and padsAround with what each square within LEVELLED of the chunk is. False if
      * some of it is not loaded, which counts as made ground, or if a pad may yet change.
      */
-    private static boolean gather(IsoCell cell, int wx, int wy) {
+    private boolean gather(IsoCell cell, int wx, int wy) {
         boolean all = true;
         int reach = (LEVELLED + CHUNK_TILES - 1) / CHUNK_TILES;
         for (int cx = -reach; cx <= reach; cx++) {
@@ -514,25 +544,8 @@ final class Terrain {
         return name.startsWith("blends_natural") ? NATURAL : name.startsWith("blends_street") ? STREET : MADE;
     }
 
-    /**
-     * Whether the country is left as level as the game's map is. Seen from overhead the picture
-     * has to lie where the game's own does, or the pointer is not on what it seems to be on:
-     * the game knows nothing of hills. Kerbs and banks, which are a hand high, stay.
-     */
-    static volatile boolean level;
-
-    /** Sets whether the country is level, and lets go of every height worked out the other way. Logic thread. */
-    static void level(boolean flat) {
-        level = flat;
-        for (int slot = 0; slot < grids.length(); slot++) {
-            grids.set(slot, null);
-        }
-        Arrays.fill(known, null);
-        pads.clear();
-    }
-
     /** What is drawn at (x, y), on any floor, stands this much above where the flat map has it. */
-    static float lift(float x, float y, float z) {
+    float lift(float x, float y, float z) {
         return height(x, y);
     }
 
@@ -542,7 +555,7 @@ final class Terrain {
     }
 
     /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */
-    private static float base(float x, float y) {
+    private float base(float x, float y) {
         return level ? 0f : far(x, y, toWaterChunk(x, y));
     }
 
@@ -578,7 +591,7 @@ final class Terrain {
      * some hundred and thirty tiles from one crest to the next, which is near enough to see
      * both from a street. Never steeper than one in twenty.
      */
-    static float swells(float x, float y) {
+    float swells(float x, float y) {
         return level ? 0f : heave(x, y);
     }
 
@@ -591,7 +604,7 @@ final class Terrain {
      * The rises and hollows of open country, a stone's throw across and a man's height or so
      * from top to bottom. Made ground is cut level through them: a road runs between its banks.
      */
-    private static float knolls(float x, float y) {
+    private float knolls(float x, float y) {
         if (level) {
             return 0f;
         }
@@ -600,7 +613,7 @@ final class Terrain {
     }
 
     /** What is uneven underfoot on open ground, the same wherever and whenever it is asked. */
-    private static float roll(float x, float y) {
+    private float roll(float x, float y) {
         if (level) {
             return 0f;
         }

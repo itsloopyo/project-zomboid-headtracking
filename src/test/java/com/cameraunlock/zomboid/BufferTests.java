@@ -10,6 +10,7 @@ final class BufferTests {
     private BufferTests() {}
 
     static void run() {
+        aRoundIsCountedOnceForEveryViewThatBuilds();
         blocksAreTakenFromTheFirstGapThatHoldsThem();
         blocksGivenBackJoinTheirNeighbours();
         aBlockThatWasNotTakenIsRefused();
@@ -224,7 +225,7 @@ final class BufferTests {
         solid.get(1).add(3f, -2f, 0.5f, 0f, 0f, 1f, 1f, 1f);
         solid.get(2).add(7f, 4f, -1f, 0f, 0f, 1f, 1f, 1f);
         laid.get(1).add(5f, 9f, 6f, 0f, 0f, 1f, 1f, 1f);
-        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes();
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         build.fill(solid, laid);
         check(build.minX == 3f && build.maxX == 7f && build.minY == -2f && build.maxY == 9f && build.minUp == -1f && build.maxUp == 6f,
                 "the box runs from the least to the greatest of every run's vertices");
@@ -439,7 +440,7 @@ final class BufferTests {
         solid.get(6);
         triangles(solid.get(3, 0x21), 5, 2f);
         triangles(laid.get(4), 1, 3f);
-        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes();
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         int before = build.version;
         build.fill(solid, laid);
         int vertex = SpriteGeometry.VERTEX_FLOATS;
@@ -466,7 +467,7 @@ final class BufferTests {
         SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
         triangles(solid.get(1), 400, 1f);
         long lent = VertexLoans.lentBytes();
-        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes();
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         build.fill(solid, laid);
         long one = VertexLoans.lentBytes() - lent;
         check(one >= build.floats * 4L && one < build.floats * 8L, "a build borrows room for its vertices and less than twice that");
@@ -660,5 +661,18 @@ final class BufferTests {
             space.give(block[0], block[1]);
         }
         check(space.take(capacity) == 0, "with everything given back the buffer is one gap again");
+    }
+
+    private static void aRoundIsCountedOnceForEveryViewThatBuilds() {
+        Rounds.BUILDS.begin(0);
+        int from = Rounds.BUILDS.now();
+        check(Rounds.BUILDS.begin(0) && Rounds.BUILDS.begin(0) && Rounds.BUILDS.now() == from + 2, "one view building alone begins a round at every build");
+        check(!Rounds.BUILDS.begin(1) && Rounds.BUILDS.now() == from + 2, "a second view's build is in the round the first began");
+        check(Rounds.BUILDS.begin(0) && !Rounds.BUILDS.begin(1) && Rounds.BUILDS.now() == from + 3, "and the two by turns count one round for both");
+        check(Rounds.BUILDS.begin(1) && Rounds.BUILDS.begin(1) && Rounds.BUILDS.now() == from + 5, "the first let go, the second counts every build of its own");
+        Rounds.loaded(0, 5);
+        int both = Rounds.loaded(1, 7);
+        check(Rounds.loaded(0, 5) == both && Rounds.loaded(1, 7) == both, "the maps loaded as they were are the same number");
+        check(Rounds.loaded(0, 6) != both && Rounds.loaded(1, 8) != Rounds.loaded(1, 7), "and another when either view's map has another set of chunks");
     }
 }

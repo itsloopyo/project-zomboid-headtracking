@@ -171,15 +171,16 @@ final class Crowns {
 
     /**
      * The crowns of one chunk on their way through the other thread: what they are made
-     * from, the build they are made into, and after the making whether it failed. The logic
-     * thread sets all of it but the last before it hands the work over, and reads it again
-     * only when the work comes back in done.
+     * from, the build they are made into, where the view that wants them takes them back in,
+     * and after the making whether it failed. The logic thread sets all of it but the last
+     * before it hands the work over, and reads it again only when the work comes back in done.
      */
     static final class Work implements Runnable {
         final Crowns from;
         final WorldScene.ChunkMeshes into;
         final int slot, plain;
         final boolean summed;
+        private final LinkedBlockingQueue<Work> done;
         /** Set by the logic thread when the chunk has been let go of or built again otherwise: the crowns are then not made. */
         volatile boolean unwanted;
         /** When the work was handed over, on System.nanoTime's clock. */
@@ -188,12 +189,13 @@ final class Crowns {
         /** What the making threw, for the logic thread to throw on when it takes the work back in. */
         Throwable failed;
 
-        Work(Crowns from, WorldScene.ChunkMeshes into, int slot, int plain, boolean summed) {
+        Work(Crowns from, WorldScene.ChunkMeshes into, int slot, int plain, boolean summed, LinkedBlockingQueue<Work> done) {
             this.from = from;
             this.into = into;
             this.slot = slot;
             this.plain = plain;
             this.summed = summed;
+            this.done = done;
         }
 
         @Override
@@ -225,8 +227,6 @@ final class Crowns {
     private static final int TRIMMED_EVERY = 512;
     private static int sinceTrimmed;
 
-    /** Every piece of work handed over comes back here, made or not. */
-    private static final LinkedBlockingQueue<Work> done = new LinkedBlockingQueue<>();
     /**
      * One thread: the crowns of a drive through a wood are a tenth of the logic thread's
      * time, and the game keeps four threads busy on such a drive as it is. It stands a step
@@ -263,13 +263,8 @@ final class Crowns {
         });
     }
 
-    /** The next piece of work that has come back, or null when none has. */
-    static Work finished() {
-        return done.poll();
-    }
-
-    /** The next piece of work to come back, waited for: for when everything handed over has to be back before the logic thread goes on. */
-    static Work awaited() {
+    /** The next piece of a view's work to come back, waited for: for when everything it handed over has to be back before the logic thread goes on. */
+    static Work awaited(LinkedBlockingQueue<Work> done) {
         try {
             return done.take();
         } catch (InterruptedException stopped) {

@@ -1,15 +1,16 @@
 package com.cameraunlock.zomboid;
 
 /**
- * Where the viewer has walked and driven while snow lay, for SnowShader to press into it: a
- * footprint at every stride, left and right by turns, and a rut under each side of a vehicle
- * along the way it went.
+ * Where the players at this screen have walked and driven while snow lay, for SnowShader to
+ * press into it: a footprint at every stride, left and right by turns, and a rut under each
+ * side of a vehicle along the way it went. The marks are in the snow, and every view shows
+ * all of them, whoever made them. Each walker's way is their own: see Trail.
  *
  * Only the newest are kept, {@link #PRINTS} footprints and {@link #RUTS} stretches of rut: the
- * oldest goes as a new one is made. Whoever says where the viewer is forgets them all when
+ * oldest goes as a new one is made. Whoever says where a walker is forgets them all when
  * no snow lies any more, so the next fall is unmarked.
  *
- * The game's logic thread says where the viewer is and the picture's thread reads the marks.
+ * The game's logic thread says where each walker is and the picture's thread reads the marks.
  */
 final class SnowPrints {
     /** How many footprints and how many stretches of rut are kept: the lengths of SnowShader's uSnowPrint and uSnowRut. */
@@ -23,33 +24,50 @@ final class SnowPrints {
     /** How far from its place a footprint reaches, and how far from its middle line a rut does, in tiles, each with room to spare. */
     private static final float REACH_OF_PRINT = 0.3f, REACH_OF_RUT = 0.9f;
 
-    /** A footprint is its place on the map, the way the foot pointed in radians and how high the ground stands. */
+    /**
+     * A footprint is its place on the map, the way the foot pointed in radians and how high
+     * its floor is on the game's flat map: each view lifts it by the lie of its own land.
+     */
     private static final float[] prints = new float[PRINTS * 4];
     /** A stretch of rut is the place it runs from and the place it runs to, down the middle of the vehicle. */
     private static final float[] ruts = new float[RUTS * 4];
-    /** How high the ground under each stretch of rut stands. */
+    /** How high the floor under each stretch of rut is on the game's flat map. */
     private static final float[] rutsUp = new float[RUTS];
     private static int printNext, printCount, rutNext, rutCount;
-    private static boolean leftFoot, afoot, awheel;
-    private static float lastX, lastY;
+
+    /** One walker's way: which foot is next, whether they are on foot or at the wheel, and where they last were. */
+    private static final class Trail {
+        boolean leftFoot, afoot, awheel;
+        float lastX, lastY;
+    }
+
+    /** A trail for each player at this screen, by the player's number. */
+    private static final Trail[] trails = new Trail[View.COUNT];
+
+    static {
+        for (int walker = 0; walker < trails.length; walker++) {
+            trails[walker] = new Trail();
+        }
+    }
 
     private SnowPrints() {}
 
-    /** The viewer is on foot at that place, on ground that high. */
-    static synchronized void walked(float x, float y, float floorUp) {
-        if (!afoot || Math.hypot(x - lastX, y - lastY) > JUMP) {
-            afoot = true;
-            awheel = false;
-            lastX = x;
-            lastY = y;
+    /** A walker is on foot at that place, on a floor that high on the flat map. */
+    static synchronized void walked(int walker, float x, float y, float floorUp) {
+        Trail trail = trails[walker];
+        if (!trail.afoot || Math.hypot(x - trail.lastX, y - trail.lastY) > JUMP) {
+            trail.afoot = true;
+            trail.awheel = false;
+            trail.lastX = x;
+            trail.lastY = y;
             return;
         }
-        float alongX = x - lastX, alongY = y - lastY;
+        float alongX = x - trail.lastX, alongY = y - trail.lastY;
         float gone = (float) Math.hypot(alongX, alongY);
         if (gone < STRIDE) {
             return;
         }
-        float side = leftFoot ? STANCE : -STANCE;
+        float side = trail.leftFoot ? STANCE : -STANCE;
         int at = printNext * 4;
         prints[at] = x - alongY / gone * side;
         prints[at + 1] = y + alongX / gone * side;
@@ -57,33 +75,34 @@ final class SnowPrints {
         prints[at + 3] = floorUp;
         printNext = (printNext + 1) % PRINTS;
         printCount = Math.min(printCount + 1, PRINTS);
-        leftFoot = !leftFoot;
-        lastX = x;
-        lastY = y;
+        trail.leftFoot = !trail.leftFoot;
+        trail.lastX = x;
+        trail.lastY = y;
     }
 
-    /** The viewer is in a vehicle whose middle is at that place, on ground that high. */
-    static synchronized void drove(float x, float y, float floorUp) {
-        if (!awheel || Math.hypot(x - lastX, y - lastY) > JUMP) {
-            awheel = true;
-            afoot = false;
-            lastX = x;
-            lastY = y;
+    /** A walker is in a vehicle whose middle is at that place, on a floor that high on the flat map. */
+    static synchronized void drove(int walker, float x, float y, float floorUp) {
+        Trail trail = trails[walker];
+        if (!trail.awheel || Math.hypot(x - trail.lastX, y - trail.lastY) > JUMP) {
+            trail.awheel = true;
+            trail.afoot = false;
+            trail.lastX = x;
+            trail.lastY = y;
             return;
         }
-        if (Math.hypot(x - lastX, y - lastY) < RUT) {
+        if (Math.hypot(x - trail.lastX, y - trail.lastY) < RUT) {
             return;
         }
         int at = rutNext * 4;
-        ruts[at] = lastX;
-        ruts[at + 1] = lastY;
+        ruts[at] = trail.lastX;
+        ruts[at + 1] = trail.lastY;
         ruts[at + 2] = x;
         ruts[at + 3] = y;
         rutsUp[rutNext] = floorUp;
         rutNext = (rutNext + 1) % RUTS;
         rutCount = Math.min(rutCount + 1, RUTS);
-        lastX = x;
-        lastY = y;
+        trail.lastX = x;
+        trail.lastY = y;
     }
 
     /** How many marks are kept, in words, for the log. */
@@ -91,10 +110,10 @@ final class SnowPrints {
         return printCount + " footprints and " + rutCount + " stretches of rut";
     }
 
-    /** There is no viewer to leave a mark: the next place one is at begins a new walk. */
-    static synchronized void lifted() {
-        afoot = false;
-        awheel = false;
+    /** A walker is nowhere they leave a mark: the next place they are at begins a new walk. */
+    static synchronized void lifted(int walker) {
+        trails[walker].afoot = false;
+        trails[walker].awheel = false;
     }
 
     /** Every mark is gone: the save was left, or the snow has gone. */
@@ -103,12 +122,15 @@ final class SnowPrints {
         printNext = 0;
         rutCount = 0;
         rutNext = 0;
-        lifted();
+        for (int walker = 0; walker < trails.length; walker++) {
+            lifted(walker);
+        }
     }
 
     /**
-     * The marks as the world's shader takes them, for a picture drawn from that eye: places are
-     * counted from the corner the shader's vPlace is, which moves sixty tiles at a time.
+     * The marks as the world's shader takes them, for a picture drawn from that eye on that
+     * lie of the land: places are counted from the corner the shader's vPlace is, which moves
+     * sixty tiles at a time.
      *
      * @param printsOut  PRINTS times x, y, the foot's way and the ground's height
      * @param rutsOut    RUTS times the x and y a stretch runs from and the x and y it runs to
@@ -117,7 +139,7 @@ final class SnowPrints {
      *                   and the greatest x and y of a box that holds every mark, the least
      *                   over the greatest when there are none
      */
-    static synchronized void placed(float eyeX, float eyeY, float[] printsOut, float[] rutsOut, float[] rutsUpOut, float[] rest) {
+    static synchronized void placed(Terrain terrain, float eyeX, float eyeY, float[] printsOut, float[] rutsOut, float[] rutsUpOut, float[] rest) {
         float cornerX = eyeX % 60f - eyeX, cornerY = eyeY % 60f - eyeY;
         float leastX = Float.MAX_VALUE, leastY = Float.MAX_VALUE, mostX = -Float.MAX_VALUE, mostY = -Float.MAX_VALUE;
         for (int i = 0; i < printCount * 4; i += 4) {
@@ -125,7 +147,7 @@ final class SnowPrints {
             printsOut[i] = x;
             printsOut[i + 1] = y;
             printsOut[i + 2] = prints[i + 2];
-            printsOut[i + 3] = prints[i + 3];
+            printsOut[i + 3] = prints[i + 3] + terrain.height(prints[i], prints[i + 1]);
             leastX = Math.min(leastX, x - REACH_OF_PRINT);
             leastY = Math.min(leastY, y - REACH_OF_PRINT);
             mostX = Math.max(mostX, x + REACH_OF_PRINT);
@@ -140,7 +162,9 @@ final class SnowPrints {
             mostX = Math.max(mostX, x + REACH_OF_RUT);
             mostY = Math.max(mostY, y + REACH_OF_RUT);
         }
-        System.arraycopy(rutsUp, 0, rutsUpOut, 0, rutCount);
+        for (int i = 0; i < rutCount; i++) {
+            rutsUpOut[i] = rutsUp[i] + terrain.height(ruts[i * 4 + 2], ruts[i * 4 + 3]);
+        }
         rest[0] = printCount;
         rest[1] = rutCount;
         rest[2] = leastX;
