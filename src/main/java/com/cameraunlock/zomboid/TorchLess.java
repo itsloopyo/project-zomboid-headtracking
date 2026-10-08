@@ -27,9 +27,14 @@ import zombie.iso.LightingJNI;
  *
  * So where the sum is under 1 the light without the torch is known exactly. Where it was
  * stopped at 1, which is most of the fan near the character, what is left is only that the
- * light was at least 1 less the share. Those squares take theirs from the squares round them
- * that are known, room by room, the nearest first: a dark room stays as dark as its corners,
- * and a lamp's light runs on under the fan as it lies beside it.
+ * light was at least 1 less the share. Such a square keeps the light it last had when it
+ * was known, which is the light it had before the torch came onto it: a room's own light does
+ * not change because a torch is turned on it. Only a square never known since it came within
+ * the torch's reach takes its light from the squares round it that are known, room by room,
+ * the nearest first: a dark room stays as dark as its corners, and a lamp's light runs on
+ * under the fan as it lies beside it. Taken from the squares round it every time, a square's
+ * light was another at every step the torch's fan moved, and every chunk under the fan was
+ * built again for it.
  *
  * The engine keeps its torch. What the character can see by it, how well zombies see the
  * character and whether a page can be read are worked out from the same squares, and none of
@@ -52,6 +57,8 @@ final class TorchLess {
         final int fromX, fromY, level, span, counter;
         final float[] light;
         final boolean[] lit;
+        /** Whether a square's light here is one it was known to have, now or when it was last known, and not one taken from the squares round it. */
+        final boolean[] met;
 
         Taken(int fromX, int fromY, int level, int span, int counter) {
             this.fromX = fromX;
@@ -61,6 +68,7 @@ final class TorchLess {
             this.counter = counter;
             light = new float[span * span * 3];
             lit = new boolean[span * span];
+            met = new boolean[span * span];
         }
     }
 
@@ -119,6 +127,8 @@ final class TorchLess {
                 without(with.r, red, next.light, known, least, at * 3);
                 without(with.g, green, next.light, known, least, at * 3 + 1);
                 without(with.b, blue, next.light, known, least, at * 3 + 2);
+                int before = now == null || now.level != level ? -1 : at(now, fromX + i, fromY + j);
+                next.met[at] = keep(next.light, known, least, at * 3, before >= 0 && now.met[before] ? now.light : null, before * 3);
             }
         }
         settle(span, next.light, known, least, room);
@@ -157,6 +167,46 @@ final class TorchLess {
                 }
             }
         }
+    }
+
+    /** Where the square at (x, y) is in what was taken, or -1 when it is outside it. */
+    private static int at(Taken of, int x, int y) {
+        int i = x - of.fromX, j = y - of.fromY;
+        return i < 0 || j < 0 || i >= of.span || j >= of.span ? -1 : j * of.span + i;
+    }
+
+    /**
+     * The engine's light is in steps of 1/255, and a sum less the torch's share comes back a
+     * step or so off what the square has with no torch on it. Within this of what the square
+     * was last known to have, it has what it had.
+     */
+    private static final float SAME_WITHIN = 2f / 255f;
+
+    /**
+     * Gives a square the light it was last known to have, where it has one. A part that is
+     * known now and within a step or two of that stays to the bit what it was, so that the
+     * square is the same light for as long as nothing but the torch changes on it. A part the
+     * torch has blotted out takes what was known, or the least it can now be if that is more,
+     * and counts as known from here on. With no light known before, the square is left as it
+     * was read.
+     *
+     * @param before the lights of the last taking, or null when the square had none known in it
+     * @return whether the square's light is now all known
+     */
+    static boolean keep(float[] light, boolean[] known, float[] least, int at, float[] before, int beforeAt) {
+        if (before == null) {
+            return known[at] && known[at + 1] && known[at + 2];
+        }
+        for (int part = 0; part < 3; part++) {
+            float was = before[beforeAt + part];
+            if (!known[at + part]) {
+                light[at + part] = Math.max(was, least[at + part]);
+                known[at + part] = true;
+            } else if (Math.abs(light[at + part] - was) <= SAME_WITHIN) {
+                light[at + part] = was;
+            }
+        }
+        return true;
     }
 
     /** One of a square's red, green or blue: exactly what it is without the torch where the sum was not stopped at 1, and otherwise the least it can be. */

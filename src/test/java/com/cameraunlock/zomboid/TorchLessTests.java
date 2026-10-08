@@ -17,6 +17,34 @@ final class TorchLessTests {
         aSquareCutOffKeepsItsLeast();
         nothingIsGivenLessThanItsLeast();
         aSquareKnownInPartKeepsTheColourRoundIt();
+        aSquareTheTorchComesOntoKeepsTheLightItHad();
+    }
+
+    private static void aSquareTheTorchComesOntoKeepsTheLightItHad() {
+        float[] before = {0.2f, 0.3f, 0.4f};
+        float[] light = new float[3], least = new float[3];
+        boolean[] known = new boolean[3];
+        // The torch stops red at 1, and leaves green a step off what it was and blue as it was.
+        TorchLess.without(1f, 0.9f, light, known, least, 0);
+        TorchLess.without(0.8f + 1f / 255f, 0.5f, light, known, least, 1);
+        TorchLess.without(0.9f, 0.5f, light, known, least, 2);
+        check(TorchLess.keep(light, known, least, 0, before, 0), "a square with a light known before is known still");
+        check(light[0] == 0.2f && known[0], "a part the torch has blotted out keeps what it was last known to be: " + light[0]);
+        check(light[1] == 0.3f, "a part a step off what it was is what it was, to the bit: " + light[1]);
+        check(light[2] == 0.4f, "and so is one that has not moved: " + light[2]);
+
+        // The room's own lamp goes on under the torch: the least the light can be is now more than it was.
+        TorchLess.without(1f, 0.3f, light, known, least, 0);
+        TorchLess.without(0.95f, 0.3f, light, known, least, 1);
+        TorchLess.without(0.4f, 0f, light, known, least, 2);
+        TorchLess.keep(light, known, least, 0, before, 0);
+        check(near(light[0], 0.7f), "a blotted part is never less than the least it can be: " + light[0]);
+        check(near(light[1], 0.65f), "a known part that has really changed is what it is now: " + light[1]);
+
+        TorchLess.without(1f, 0.9f, light, known, least, 0);
+        TorchLess.without(0.5f, 0f, light, known, least, 1);
+        TorchLess.without(0.5f, 0f, light, known, least, 2);
+        check(!TorchLess.keep(light, known, least, 0, null, 0) && !known[0] && near(light[0], 0.1f), "with nothing known before, a blotted square is left for the squares round it");
     }
 
     private static void aSumUnderOneGivesTheLightBack() {
