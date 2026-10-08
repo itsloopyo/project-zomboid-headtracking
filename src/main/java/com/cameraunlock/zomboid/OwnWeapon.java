@@ -639,14 +639,14 @@ final class OwnWeapon {
     private final float[] tumbled = new float[3];
 
     /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */
-    private static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
+    static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
         out[0] = camera.rightX * x + camera.upX * y - camera.forwardX * z;
         out[1] = camera.rightY * x + camera.upY * y - camera.forwardY * z;
         out[2] = camera.rightUp * x + camera.upUp * y - camera.forwardUp * z;
     }
 
     /** A direction of the world's in the view's axes, written into a matrix at a column's first place. */
-    private static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
+    static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
         out[at] = camera.rightX * x + camera.rightY * y + camera.rightUp * z;
         out[at + 1] = camera.upX * x + camera.upY * y + camera.upUp * z;
         out[at + 2] = -(camera.forwardX * x + camera.forwardY * y + camera.forwardUp * z);

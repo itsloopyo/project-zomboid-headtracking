@@ -623,13 +623,13 @@ final class OwnRifle {
             nextCase = (nextCase + 1) % CASES;
             caseAge[flying] = 0f;
             ViewModelMath.place(model, port[0], port[1], port[2], seenAt);
-            inWorld(camera, seenAt[0], seenAt[1], seenAt[2], caseAt[flying]);
+            OwnWeapon.inWorld(camera, seenAt[0], seenAt[1], seenAt[2], caseAt[flying]);
             caseAt[flying][0] += camera.eyeX;
             caseAt[flying][1] += camera.eyeY;
             caseAt[flying][2] += camera.eyeUp;
-            inWorld(camera, THROWN_RIGHT, THROWN_UP, THROWN_BACK, caseGoes[flying]);
+            OwnWeapon.inWorld(camera, THROWN_RIGHT, THROWN_UP, THROWN_BACK, caseGoes[flying]);
             for (int column = 0; column < 3; column++) {
-                inWorld(camera, model[column * 4], model[column * 4 + 1], model[column * 4 + 2], seenAt);
+                OwnWeapon.inWorld(camera, model[column * 4], model[column * 4 + 1], model[column * 4 + 2], seenAt);
                 System.arraycopy(seenAt, 0, caseAxes[flying], column * 3, 3);
             }
         }
@@ -651,28 +651,14 @@ final class OwnRifle {
                 seenAt[axis] = x * c + y * s;
                 tumbled[axis] = -x * s + y * c;
             }
-            seenFrom(camera, seenAt[0], seenAt[1], seenAt[2], seen, 0);
-            seenFrom(camera, tumbled[0], tumbled[1], tumbled[2], seen, 4);
-            seenFrom(camera, axes[6], axes[7], axes[8], seen, 8);
-            seenFrom(camera, at[0] - camera.eyeX, at[1] - camera.eyeY, at[2] - camera.eyeUp, seen, 12);
+            OwnWeapon.seenFrom(camera, seenAt[0], seenAt[1], seenAt[2], seen, 0);
+            OwnWeapon.seenFrom(camera, tumbled[0], tumbled[1], tumbled[2], seen, 4);
+            OwnWeapon.seenFrom(camera, axes[6], axes[7], axes[8], seen, 8);
+            OwnWeapon.seenFrom(camera, at[0] - camera.eyeX, at[1] - camera.eyeY, at[2] - camera.eyeUp, seen, 12);
             seen[3] = 0f;
             seen[7] = 0f;
             seen[11] = 0f;
             seen[15] = 1f;
         }
-    }
-
-    /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */
-    private static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
-        out[0] = camera.rightX * x + camera.upX * y - camera.forwardX * z;
-        out[1] = camera.rightY * x + camera.upY * y - camera.forwardY * z;
-        out[2] = camera.rightUp * x + camera.upUp * y - camera.forwardUp * z;
-    }
-
-    /** A direction of the world's in the view's axes, written into a matrix at a column's first place. */
-    private static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
-        out[at] = camera.rightX * x + camera.rightY * y + camera.rightUp * z;
-        out[at + 1] = camera.upX * x + camera.upY * y + camera.upUp * z;
-        out[at + 2] = -(camera.forwardX * x + camera.forwardY * y + camera.forwardUp * z);
     }
 }

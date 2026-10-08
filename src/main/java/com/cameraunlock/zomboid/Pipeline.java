@@ -96,7 +96,6 @@ final class Pipeline {
     private static final int GL_NEAREST = 0x2600;
     private static final int GL_LINEAR = 0x2601;
     private static final int GL_REPEAT = 0x2901;
-    private static final int GL_LINEAR_MIPMAP_LINEAR = 0x2703;
     private static final int GL_CLAMP_TO_EDGE = 0x812F;
     private static final int GL_EQUAL = 0x0202;
     private static final int GL_LEQUAL = 0x0203;
@@ -1369,15 +1368,7 @@ final class Pipeline {
             float[] seen = viewed, cast = projection;
             ViewCamera.view(lamp, seen);
             ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
-            for (int column = 0; column < 4; column++) {
-                for (int row = 0; row < 4; row++) {
-                    float sum = 0f;
-                    for (int k = 0; k < 4; k++) {
-                        sum += cast[k * 4 + row] * seen[column * 4 + k];
-                    }
-                    beamMatrix[column * 4 + row] = sum;
-                }
-            }
+            multiply(cast, seen, beamMatrix);
             lend(beamed, this::makeBeamed);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, beamTarget);
             GL11.glClearDepth(1.0);
@@ -1419,15 +1410,7 @@ final class Pipeline {
         float[] seen = viewed, cast = projection;
         ViewCamera.view(lamp, seen);
         ViewCamera.projection(TORCH_TAN, 1f, TORCH_NEAR, torchAt[3] + TORCH_PAST_REACH, cast);
-        for (int column = 0; column < 4; column++) {
-            for (int row = 0; row < 4; row++) {
-                float sum = 0f;
-                for (int k = 0; k < 4; k++) {
-                    sum += cast[k * 4 + row] * seen[column * 4 + k];
-                }
-                torchMatrix[column * 4 + row] = sum;
-            }
-        }
+        multiply(cast, seen, torchMatrix);
         lend(torched, this::makeTorched);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, torchTarget);
         GL11.glViewport(0, 0, torchSize, torchSize);
@@ -3124,21 +3107,21 @@ final class Pipeline {
 
     /** The weapon the mod has a model of its own for, over the hands that hold it, in the light of the frame. */
     private void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        Program program = view.ownWeapon.begin();
-        atmosphere(program, state);
-        setBasis(program, camera);
-        setFlash(program);
-        program.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-        program.set("uLight", state.lightX, state.lightY, state.lightUp);
-        program.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        program.set("uNearMatrix", nearMatrix);
-        program.set("uFarMatrix", farMatrix);
-        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_FAR_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        lightHeld(view.ownWeapon.begin(), camera, state);
         view.ownWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
+    }
+
+    /** A projection times a view, each sixteen floats by columns. */
+    private static void multiply(float[] cast, float[] seen, float[] out) {
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 4; row++) {
+                float sum = 0f;
+                for (int k = 0; k < 4; k++) {
+                    sum += cast[k * 4 + row] * seen[column * 4 + k];
+                }
+                out[column * 4 + row] = sum;
+            }
+        }
     }
 
     /**

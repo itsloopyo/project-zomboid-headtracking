@@ -227,6 +227,8 @@ final class WallFinish {
     private static Level of(IsoCell cell, IsoBuilding building, int z, int frame) {
         if (known.size() > MOST_BUILDINGS) {
             known.clear();
+            // Every level is read anew from here and lists itself again: one left listed would be tended twice.
+            tendedLevels.clear();
         }
         Level[] levels = known.computeIfAbsent(building, unused -> new Level[LEVELS]);
         int slot = z & (LEVELS - 1);

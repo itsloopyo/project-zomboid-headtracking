@@ -906,10 +906,8 @@ final class SpriteGeometry {
         // The colour is taken from inside the square, wherever the tuft stands: past the
         // square's edge the ground's sprite is its empty corner.
         float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
-        float pixelU = Math.clamp(frameU(frame, inA, inB), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
-        float pixelV = Math.clamp(frameV(frame, inA, inB, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
-        float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
-        float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        float u = textureU(frame, inA, inB);
+        float v = textureV(frame, inA, inB, 0f);
         float x0 = tileX + a - rightX * halfWidth, y0 = tileY + b - rightY * halfWidth;
         float x1 = tileX + a + rightX * halfWidth, y1 = tileY + b + rightY * halfWidth;
         float base = liftAt(a, b);
@@ -943,10 +941,8 @@ final class SpriteGeometry {
         // The colour is taken from inside the square, wherever the plant stands: past the
         // square's edge the ground's sprite is its empty corner.
         float inA = Math.clamp(a, 0.1f, 0.9f), inB = Math.clamp(b, 0.1f, 0.9f);
-        float pixelU = Math.clamp(frameU(frame, inA, inB), frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
-        float pixelV = Math.clamp(frameV(frame, inA, inB, 0f), frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
-        plantU = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
-        plantV = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        plantU = textureU(frame, inA, inB);
+        plantV = textureV(frame, inA, inB, 0f);
         plantX = tileX + a;
         plantY = tileY + b;
         plantUp = liftAt(a, b);
@@ -1198,11 +1194,12 @@ final class SpriteGeometry {
         float rise = up1 - up0, lean = r0 - r1, length = (float) Math.sqrt(rise * rise + lean * lean);
         float flat = rise / length, upward = lean / length;
         for (int side = 0; side < sides; side++) {
+            double from = side * 2.0 * Math.PI / sides, to = (side + 1) * 2.0 * Math.PI / sides;
+            float cosFrom = (float) Math.cos(from), sinFrom = (float) Math.sin(from), cosTo = (float) Math.cos(to), sinTo = (float) Math.sin(to);
             for (int corner = 0; corner < 6; corner++) {
                 // Two triangles: low from, low to, high to, then low from, high to, high from.
                 boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                double angle = (far ? side + 1 : side) * 2.0 * Math.PI / sides;
-                float cos = (float) Math.cos(angle), sin = (float) Math.sin(angle), r = high ? r1 : r0;
+                float cos = far ? cosTo : cosFrom, sin = far ? sinTo : sinFrom, r = high ? r1 : r0;
                 mesh.face(cos * flat, sin * flat, upward);
                 mesh.add(x + cos * r, y + sin * r, high ? up1 : up0, u, v, red, green, blue);
             }

@@ -163,8 +163,8 @@ final class ArmHolds {
                 float[] part = new float[9];
                 ArmPose.about(about, (float) Math.acos(cos) * share, part);
                 float[] a = {from[0], from[1], from[2]}, o = {from[3], from[4], from[5]};
-                turn(part, a, across);
-                turn(part, o, out);
+                ArmPose.turned(part, a, across);
+                ArmPose.turned(part, o, out);
             } else if (cos <= -0.999f) {
                 // Half a turn has no one line to be about: the lines go straight across.
                 for (int axis = 0; axis < 3; axis++) {
@@ -421,21 +421,14 @@ final class ArmHolds {
             for (int axis = 0; axis < 3; axis++) {
                 arm[axis] = hold.at[axis] - pin[axis];
             }
-            turn(turn, arm, turnedArm);
+            ArmPose.turned(turn, arm, turnedArm);
             for (int axis = 0; axis < 3; axis++) {
                 hold.at[axis] = pin[axis] + turnedArm[axis];
             }
-            turn(turn, hold.across.clone(), hold.across);
-            turn(turn, hold.out.clone(), hold.out);
+            ArmPose.turned(turn, hold.across.clone(), hold.across);
+            ArmPose.turned(turn, hold.out.clone(), hold.out);
         }
         return hold;
-    }
-
-    private static void turn(float[] turn, float[] line, float[] out) {
-        float x = line[0], y = line[1], z = line[2];
-        out[0] = turn[0] * x + turn[3] * y + turn[6] * z;
-        out[1] = turn[1] * x + turn[4] * y + turn[7] * z;
-        out[2] = turn[2] * x + turn[5] * y + turn[8] * z;
     }
 
     /** The left hand, or null when it is not on the weapon nor busy with it. */

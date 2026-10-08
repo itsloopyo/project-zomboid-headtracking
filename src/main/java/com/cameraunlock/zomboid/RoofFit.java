@@ -554,7 +554,14 @@ final class RoofFit {
     }
 
     private static boolean stands(HashMap<Long, Boolean> built, Site site, int x, int y, int z) {
-        return built.computeIfAbsent(key(x, y, z), unused -> site.stands(x, y, z));
+        // Asked up to a thousand times a square where two slopes meet, nearly always of a square already known: no lambda is made for those.
+        Long key = key(x, y, z);
+        Boolean known = built.get(key);
+        if (known == null) {
+            known = site.stands(x, y, z);
+            built.put(key, known);
+        }
+        return known;
     }
 
     /** Makes the tile of a made roof over one square, unless the building has something else there. */

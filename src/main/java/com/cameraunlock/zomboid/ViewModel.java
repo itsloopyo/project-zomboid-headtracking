@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.HashSet;
 import java.util.Locale;
 import org.joml.Vector3f;
 import zombie.characters.IsoPlayer;
@@ -126,6 +127,9 @@ public final class ViewModel {
     private static final float NOT_PUMPING = -1f;
     private boolean racked;
     private float sinceShot = NOT_PUMPING, cycled = NOT_PUMPING, done;
+    /** The way of reloading the weapon last held had, as the game hands it over, and the kind of action that is. */
+    private Object reloadTypeSeen;
+    private int actionSeen = ArmActs.NO_ACTION;
     private int doing, roundsBefore;
     private float round, handled, seated = ArmActs.NOT_SEATING, sinceRound, roundTakes = ArmActs.ROUND_TAKES;
     private int actionBefore, roundsIn;
@@ -281,7 +285,16 @@ public final class ViewModel {
             }
         }
         pumped = sinceShot == NOT_PUMPING ? 0f : pumpAt(sinceShot);
-        int action = firearm ? ArmActs.kind(String.valueOf(weapon.getWeaponReloadType())) : ArmActs.NO_ACTION;
+        int action = ArmActs.NO_ACTION;
+        if (firearm) {
+            // Asked every frame, and naming the kind makes a string each time: it is named again only for another way of reloading.
+            Object reloadType = weapon.getWeaponReloadType();
+            if (reloadType != reloadTypeSeen) {
+                reloadTypeSeen = reloadType;
+                actionSeen = ArmActs.kind(String.valueOf(reloadType));
+            }
+            action = actionSeen;
+        }
         if (cycled >= 0f) {
             cycled += seconds;
             if (cycled > ArmActs.CYCLE_LASTS) {
@@ -520,7 +533,7 @@ public final class ViewModel {
     boolean hasMuzzle;
     /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
     boolean handgun;
-    private String noMuzzleSaidOf;
+    private final HashSet<String> noMuzzleSaid = new HashSet<>();
     /** A firearm whose muzzle is nearer its grip than this, in the game's units, is a handgun. */
     private static final float HANDGUN_WITHIN = 0.25f;
     /**
@@ -557,8 +570,7 @@ public final class ViewModel {
         ModelScript script = instance.modelScript;
         ModelAttachment barrel = how.firearm && script != null ? script.getAttachmentById(MUZZLE) : null;
         hasMuzzle = barrel != null;
-        if (how.firearm && !hasMuzzle && !how.item.equals(noMuzzleSaidOf)) {
-            noMuzzleSaidOf = how.item;
+        if (how.firearm && !hasMuzzle && noMuzzleSaid.add(how.item)) {
             Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": it is held by its grip and its shots have no flash");
         }
         handgun = hasMuzzle && Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) < HANDGUN_WITHIN;

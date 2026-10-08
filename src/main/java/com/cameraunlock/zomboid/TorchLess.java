@@ -79,6 +79,10 @@ final class TorchLess {
     }
 
     private volatile Taken taken;
+    /** What one reading works with, kept between readings and grown to the widest reach met: a reading writes every part of them that it reads. */
+    private boolean[] known = new boolean[0];
+    private float[] least = new float[0];
+    private long[] room = new long[0];
 
     /**
      * Reads the squares round the character, on the logic thread, before the scene is built.
@@ -103,9 +107,11 @@ final class TorchLess {
             return;
         }
         Taken next = new Taken(fromX, fromY, level, span, counter);
-        boolean[] known = new boolean[span * span * 3];
-        float[] least = new float[span * span * 3];
-        long[] room = new long[span * span];
+        if (room.length < span * span) {
+            known = new boolean[span * span * 3];
+            least = new float[span * span * 3];
+            room = new long[span * span];
+        }
         int firstTorch = index * TORCHES_A_PLAYER + 1;
         for (int j = 0; j < span; j++) {
             for (int i = 0; i < span; i++) {

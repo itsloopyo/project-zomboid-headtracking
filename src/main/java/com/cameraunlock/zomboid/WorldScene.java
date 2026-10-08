@@ -518,6 +518,13 @@ final class WorldScene {
     private int topLevel = Integer.MAX_VALUE;
     /** The buildings the game opens in its own view, as the builds were last made for them, and as the game has them now. */
     private final ArrayList<BuildingDef> openBuildings = new ArrayList<>(), openBuildingsNow = new ArrayList<>();
+    /**
+     * Whether the builds standing gave the plants of the last band a crown and a bole:
+     * Quality.crownsToSight as the logic thread last read it. Without, a tree out there is the
+     * game's sprite on its fan of cards, which turns into a crown as the eye comes within
+     * Crowns.REACH of it.
+     */
+    private boolean crownedToSight;
 
     /**
      * Whether the roof and the ceilings the mod makes over a square are left out so that the
@@ -2153,6 +2160,7 @@ final class WorldScene {
             if (cell != builtIn.get()) {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
+                strung.clear();
                 forgetAll();
             }
             if (cell != readIn.get()) {
@@ -2170,7 +2178,6 @@ final class WorldScene {
                 leafPlaces.clear();
                 doorSpans.clear();
                 wires.clear();
-                strung.clear();
                 Furniture.forget();
                 Roofs.forget();
                 WallFinish.forget();
@@ -2256,7 +2263,9 @@ final class WorldScene {
             }
             topLevel = top;
             openBuildings.clear();
-            openBuildings.addAll(openBuildingsNow);
+            if (!openBuildingsNow.isEmpty()) {
+                openBuildings.addAll(openBuildingsNow);
+            }
             float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
             cutFrom = gamesView || indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
             cutBelow = 0f;
@@ -3543,9 +3552,10 @@ final class WorldScene {
             // does indoors, though less.
             int trees = 0;
             if (under != null) {
+                IsoCell round = IsoWorld.instance.currentCell;
                 for (int dx = -3; dx <= 3; dx++) {
                     for (int dy = -3; dy <= 3; dy++) {
-                        IsoGridSquare near = IsoWorld.instance.currentCell.getGridSquare(under.getX() + dx, under.getY() + dy, under.getZ());
+                        IsoGridSquare near = round.getGridSquare(under.getX() + dx, under.getY() + dy, under.getZ());
                         if (near != null && near.HasTree()) {
                             trees++;
                         }
@@ -4273,8 +4283,9 @@ final class WorldScene {
          */
         private boolean addWires(Texture texture, String name, int x, int y, int z) {
             float[] lines = wiresOn(texture, name, frame);
+            long square = (long) x << 38 | (long) y << 16 | (long) z << 12 | (long) Poles.index(name) << 4;
             for (int i = 0; i < lines.length; i += 4) {
-                long key = (long) x << 38 | (long) y << 16 | (long) z << 12 | (long) Poles.index(name) << 4 | i / 4;
+                long key = square | i / 4;
                 float[] pieces = strung.get(key);
                 if (pieces == null) {
                     hungOn = z;
@@ -5216,14 +5227,6 @@ final class WorldScene {
         /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
         private int boleX = Integer.MIN_VALUE, boleY, boleBark;
         private float boleThick, boleTall;
-        /**
-         * Whether the builds standing gave the plants of the last band a crown and a bole:
-         * Quality.crownsToSight as the logic thread last read it. Without, a tree out there is the
-         * game's sprite on its fan of cards, which turns into a crown as the eye comes within
-         * Crowns.REACH of it.
-         */
-        private boolean crownedToSight;
-
         /**
          * Stands a crown of sprigs for the plant whose leaves the frame is set to, in the mesh of
          * the leaves' own texture, which gives the sprigs their colour. False when the plant is
@@ -7379,14 +7382,7 @@ final class WorldScene {
                 }
                 float r = paper.colours[stripe * 3] / Math.max(paperTint[0], 0.02f), g = paper.colours[stripe * 3 + 1] / Math.max(paperTint[1], 0.02f),
                         bl = paper.colours[stripe * 3 + 2] / Math.max(paperTint[2], 0.02f);
-                frame.red = red * r;
-                frame.green = green * g;
-                frame.blue = blue * bl;
-                for (int corner = 0; corner < 4; corner++) {
-                    frame.cornerRed[corner] = paperRed[corner] * r;
-                    frame.cornerGreen[corner] = paperGreen[corner] * g;
-                    frame.cornerBlue[corner] = paperBlue[corner] * bl;
-                }
+                shade(red, green, blue, r, g, bl);
                 float sealStart = low == from ? sealFrom : 0f, sealEnd = high == to ? sealTo : 0f;
                 geometry.sealLow = startIsLow ? sealStart : sealEnd;
                 geometry.sealHigh = startIsLow ? sealEnd : sealStart;

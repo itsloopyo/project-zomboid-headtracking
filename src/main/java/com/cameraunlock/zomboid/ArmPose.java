@@ -454,7 +454,7 @@ final class ArmPose {
         }
     }
 
-    private static void turned(float[] turn, float[] line, float[] out) {
+    static void turned(float[] turn, float[] line, float[] out) {
         float x = line[0], y = line[1], z = line[2];
         out[0] = turn[0] * x + turn[3] * y + turn[6] * z;
         out[1] = turn[1] * x + turn[4] * y + turn[7] * z;

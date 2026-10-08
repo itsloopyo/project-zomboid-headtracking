@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
@@ -101,7 +102,7 @@ final class VehicleMeshes {
         }
     }
 
-    private static String turnedSaid;
+    private static final HashSet<String> turnedSaid = new HashSet<>();
     private static int tipSaid;
     /** What turns a vertex of the body into tiles along the vehicle, across it and up from the ground: three rows of four. */
     private static final float[] frame = new float[12];
@@ -141,8 +142,7 @@ final class VehicleMeshes {
         }
         multiply(shifted, xfrm, stands);
         multiply(eye, stands, paneMatrix);
-        if (!Cabins.axes(stands, faces, seatedAxes) && !script.equals(turnedSaid)) {
-            turnedSaid = script;
+        if (!Cabins.axes(stands, faces, seatedAxes) && turnedSaid.add(script)) {
             Log.info("the body of " + script + " does not lie along the way its vehicle faces: its cabin is laid out by the vehicle as the physics has it, not by the body as it is drawn");
         }
         float[] axes = seatedAxes;

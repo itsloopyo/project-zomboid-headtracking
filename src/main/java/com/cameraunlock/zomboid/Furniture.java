@@ -193,10 +193,12 @@ final class Furniture {
     }
 
     static Furniture known(IsoSprite sprite) {
-        if (!furniture.containsKey(sprite)) {
-            furniture.put(sprite, recognise(sprite));
+        Furniture piece = furniture.get(sprite);
+        if (piece == null && !furniture.containsKey(sprite)) {
+            piece = recognise(sprite);
+            furniture.put(sprite, piece);
         }
-        return furniture.get(sprite);
+        return piece;
     }
 
     /**

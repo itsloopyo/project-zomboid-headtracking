@@ -495,7 +495,7 @@ final class Roofs {
             Capped cap = held.get(i);
             if (now - cap.roof.stamp > MADE_KEPT) {
                 held.remove(i);
-                capped.values().remove(cap);
+                capped.remove(keyOf(cap.cap), cap);
             }
         }
         return held;

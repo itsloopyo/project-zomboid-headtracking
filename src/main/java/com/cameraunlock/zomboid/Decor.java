@@ -219,8 +219,10 @@ final class Decor {
                 return;
             }
             for (int picture = 0; picture < textures.length; picture++) {
-                GL11.glDeleteTextures(textures[picture]);
-                textures[picture] = 0;
+                if (textures[picture] != 0) {
+                    GL11.glDeleteTextures(textures[picture]);
+                    textures[picture] = 0;
+                }
                 if (waiting[picture] != null) {
                     waiting[picture].memory.free();
                     waiting[picture] = null;

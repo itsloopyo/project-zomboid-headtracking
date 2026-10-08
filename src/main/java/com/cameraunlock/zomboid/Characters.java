@@ -459,8 +459,8 @@ public final class Characters {
                 float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                 String script = view.ride.seatedIn;
+                ViewCamera.view(camera, eyeView);
                 if (script != null && !parts(data).isEmpty()) {
-                    ViewCamera.view(camera, eyeView);
                     multiply(projection, eyeView, combined);
                     VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
                             data.centerOfMassY, combined);
@@ -472,7 +472,6 @@ public final class Characters {
                 data.ambientG = 1f;
                 data.ambientB = 1f;
                 fromSeat = true;
-                ViewCamera.view(camera, eyeView);
                 vehicle(data, i * 4, eyeView);
                 fromSeat = false;
                 data.ambientR = ownAmbient[0];
@@ -523,7 +522,7 @@ public final class Characters {
                 // A firearm with a muzzle has its left hand held on the fore-end.
                 // Anything else carried in both hands is not in both at every moment: a
                 // left hand that is off it stays with the body, where the game has it.
-                heldBoth = both && (view.viewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
+                heldBoth = both && (view.viewModel.hasMuzzle || !(arms[0] && arms[1] && ArmPose.apart(joints[0], joints[1]) > ON_WEAPON));
                 if (!arms[0] && !armless) {
                     armless = true;
                     Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
@@ -782,7 +781,7 @@ public final class Characters {
         // weapon. The solver then brings the shoulder to the hand, up into the picture, and
         // the arm's far end is a dome in front of the eye. The upper arm is out of sight,
         // so it is as long as the reach needs and the shoulder stays put.
-        float reaching = (apart(shoulder, wrist) * REACH_SPARE + WRIST_SWINGS) / apart(wrist, rigid) - 1f;
+        float reaching = (ArmPose.apart(shoulder, wrist) * REACH_SPARE + WRIST_SWINGS) / ArmPose.apart(wrist, rigid) - 1f;
         if (!ViewModelMath.arm(shoulder, pole, Math.max(UPPER_ARM, reaching), wrist, rigid, palm, turn, elbow, wristSaid[side])) {
             return false;
         }
@@ -939,7 +938,7 @@ public final class Characters {
             thumb[axis] *= way;
         }
         float turn = left ? palmSide : -palmSide;
-        cross(along, thumb, facing);
+        ArmPose.cross(along, thumb, facing);
         for (int axis = 0; axis < 3; axis++) {
             facing[axis] *= turn;
         }
@@ -956,7 +955,7 @@ public final class Characters {
         unit(view.viewModel.muzzle[0] - view.viewModel.gripSeen[0], view.viewModel.muzzle[1] - view.viewModel.gripSeen[1], view.viewModel.muzzle[2] - view.viewModel.gripSeen[2], barrel);
         float tipped = view.viewModel.over[0] * barrel[0] + view.viewModel.over[1] * barrel[1] + view.viewModel.over[2] * barrel[2];
         unit(view.viewModel.over[0] - barrel[0] * tipped, view.viewModel.over[1] - barrel[1] * tipped, view.viewModel.over[2] - barrel[2] * tipped, upright);
-        cross(barrel, upright, aside);
+        ArmPose.cross(barrel, upright, aside);
         unit(upright[0] * PALM_UP + aside[0] * PALM_RIGHT, upright[1] * PALM_UP + aside[1] * PALM_RIGHT, upright[2] * PALM_UP + aside[2] * PALM_RIGHT, wantFacing);
         float into = 0f;
         for (int axis = 0; axis < 3; axis++) {
@@ -964,7 +963,7 @@ public final class Characters {
             into += wantAlong[axis] * wantFacing[axis];
         }
         unit(wantAlong[0] - wantFacing[0] * into, wantAlong[1] - wantFacing[1] * into, wantAlong[2] - wantFacing[2] * into, wantAlong);
-        cross(wantFacing, wantAlong, wantThumb);
+        ArmPose.cross(wantFacing, wantAlong, wantThumb);
         for (int axis = 0; axis < 3; axis++) {
             wantThumb[axis] *= palmSide;
         }
@@ -995,13 +994,6 @@ public final class Characters {
         out[2] = z / length;
     }
 
-    private static void cross(float[] a, float[] b, float[] out) {
-        float x = a[1] * b[2] - a[2] * b[1], y = a[2] * b[0] - a[0] * b[2], z = a[0] * b[1] - a[1] * b[0];
-        out[0] = x;
-        out[1] = y;
-        out[2] = z;
-    }
-
     /** For the trace: how the wrists of the hands on the weapon are bent. */
     String describeArms() {
         StringBuilder said = new StringBuilder();
@@ -1025,11 +1017,6 @@ public final class Characters {
             }
         }
         return said.toString();
-    }
-
-    private static float apart(float[] a, float[] b) {
-        float x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2];
-        return (float) Math.sqrt(x * x + y * y + z * z);
     }
 
     /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */

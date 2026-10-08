@@ -150,6 +150,10 @@ public final class FirstPerson {
     private WorldScene.Frame paceScene;
     /** A frame this long is a hitch the player feels: the log says what the frame before it built and drew. */
     private static final long LONG_FRAME_NANOS = 100_000_000L;
+    /** A PC that draws every frame that slowly would write a line a frame, and each line is a write to disk: one a second, with how many went unsaid. */
+    private static final long LONG_FRAME_LOG_INTERVAL_NANOS = 1_000_000_000L;
+    private long longFrameLoggedNanos = System.nanoTime() - LONG_FRAME_LOG_INTERVAL_NANOS;
+    private int longFramesUnsaid;
     private boolean haveRawX, haveRawY;
     private int lastRawX, lastRawY;
     private int cursorX, cursorY;
@@ -476,13 +480,15 @@ public final class FirstPerson {
             saidAt = System.nanoTime();
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
-        boolean overheadAsked = !Quality.plain() && failure == null && allowed(view.player());
+        IsoPlayer player = view.player();
+        // Asked once: the answer is several looks into the game's Lua, and the frame goes by one answer throughout.
+        boolean allowed = allowed(player);
+        boolean overheadAsked = !Quality.plain() && allowed;
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
         view.worldScene.level(overhead());
-        IsoPlayer player = view.player();
         rideAlong(player);
         tread(player);
-        if ((on || !view.flight.home()) && !allowed(player)) {
+        if ((on || !view.flight.home()) && !allowed) {
             if (on) {
                 Log.info(who() + "first person off: " + whyNot(player));
             }
@@ -532,7 +538,7 @@ public final class FirstPerson {
                     Math.toDegrees(yaw), facings(player), Math.toDegrees(mouseTurned), mouseMost));
         }
         boolean flown = on || !view.flight.home();
-        view.characters.wanted = flown || overhead && allowed(player) && !player.isDead();
+        view.characters.wanted = flown || overhead && allowed && !player.isDead();
         if (view.hasMouse()) {
             MouseGrab.wanted = lookCaptured;
             MouseGrab.kept = active && pointer.on();
@@ -551,7 +557,7 @@ public final class FirstPerson {
             if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
-            if (gettingReady && !allowed(player)) {
+            if (gettingReady && !allowed) {
                 gettingReady = false;
             } else if (gettingReady) {
                 getReady(player, now);
@@ -750,7 +756,14 @@ public final class FirstPerson {
             Quality.rest(view.index);
         }
         if (frameNanos > LONG_FRAME_NANOS && paceScene != null) {
-            Log.info(String.format(Locale.ROOT, "first person long frame: %.0f ms, %s", frameNanos / 1e6, paceScene.timing()));
+            if (now - longFrameLoggedNanos < LONG_FRAME_LOG_INTERVAL_NANOS) {
+                longFramesUnsaid++;
+            } else {
+                Log.info(String.format(Locale.ROOT, "first person long frame: %.0f ms, %s%s", frameNanos / 1e6, paceScene.timing(),
+                        longFramesUnsaid == 0 ? "" : ", and " + longFramesUnsaid + " more long frames since the last of these lines"));
+                longFrameLoggedNanos = now;
+                longFramesUnsaid = 0;
+            }
         }
         if (now - paceSince > paceWait) {
             Runtime memory = Runtime.getRuntime();

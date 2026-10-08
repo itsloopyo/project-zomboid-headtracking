@@ -123,10 +123,11 @@ final class SkyState {
         float clouds = Math.clamp(climate.getCloudIntensity(), 0f, 1f);
         float rain = Math.clamp(climate.getRainIntensity(), 0f, 1f);
         float snowing = Math.clamp(climate.getSnowIntensity(), 0f, 1f);
-        float overcast = Math.max((float) Math.pow(clouds, 1.6) * 0.7f, Math.max(rain, snowing));
+        float cloudy = (float) Math.pow(clouds, 1.6);
+        float overcast = Math.max(cloudy * 0.7f, Math.max(rain, snowing));
         // The game's figure is half way up for a day of broken cloud, which still shows a
         // good deal of blue: the sky only closes over near the top of it, or in rain.
-        cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max((float) Math.pow(clouds, 1.6) * 0.75f, rain);
+        cover = COVER_CLEAR + (COVER_OVERCAST - COVER_CLEAR) * Math.max(cloudy * 0.75f, rain);
 
         zenithRed = mix(0.010f, 0.240f, day) + 0.10f * twilight;
         zenithGreen = mix(0.016f, 0.430f, day) + 0.04f * twilight;
@@ -188,12 +189,13 @@ final class SkyState {
             float elapsed = Math.min((now - lastNanos) / 1e9f, 0.25f);
             wetness = Math.clamp(wetness + (this.rain > 0.05f ? elapsed / SECONDS_TO_WET : -elapsed / SECONDS_TO_DRY), 0f, 1f);
             float speed = DRIFT_STILL + DRIFT_PER_WIND * Math.clamp(climate.getWindIntensity(), 0f, 1f);
-            driftedX += (float) Math.cos(windAngle) * speed * elapsed;
-            driftedY += (float) Math.sin(windAngle) * speed * elapsed;
+            float windCos = (float) Math.cos(windAngle), windSin = (float) Math.sin(windAngle);
+            driftedX += windCos * speed * elapsed;
+            driftedY += windSin * speed * elapsed;
             // The noise repeats every 1, and a float that only ever grew would lose the fraction.
             driftedX -= (float) Math.floor(driftedX);
             driftedY -= (float) Math.floor(driftedY);
-            wind.blow((float) Math.cos(windAngle) * windStrength, (float) Math.sin(windAngle) * windStrength, Wind.speed(gusting), elapsed);
+            wind.blow(windCos * windStrength, windSin * windStrength, Wind.speed(gusting), elapsed);
         }
         windX = wind.pushX;
         windY = wind.pushY;

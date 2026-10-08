@@ -55,15 +55,16 @@ final class SnowPrints {
     /** A walker is on foot at that place, on a floor that high on the flat map. */
     static synchronized void walked(int walker, float x, float y, float floorUp) {
         Trail trail = trails[walker];
-        if (!trail.afoot || Math.hypot(x - trail.lastX, y - trail.lastY) > JUMP) {
+        float alongX = x - trail.lastX, alongY = y - trail.lastY;
+        double away = Math.hypot(alongX, alongY);
+        if (!trail.afoot || away > JUMP) {
             trail.afoot = true;
             trail.awheel = false;
             trail.lastX = x;
             trail.lastY = y;
             return;
         }
-        float alongX = x - trail.lastX, alongY = y - trail.lastY;
-        float gone = (float) Math.hypot(alongX, alongY);
+        float gone = (float) away;
         if (gone < STRIDE) {
             return;
         }
@@ -83,14 +84,15 @@ final class SnowPrints {
     /** A walker is in a vehicle whose middle is at that place, on a floor that high on the flat map. */
     static synchronized void drove(int walker, float x, float y, float floorUp) {
         Trail trail = trails[walker];
-        if (!trail.awheel || Math.hypot(x - trail.lastX, y - trail.lastY) > JUMP) {
+        double gone = Math.hypot(x - trail.lastX, y - trail.lastY);
+        if (!trail.awheel || gone > JUMP) {
             trail.awheel = true;
             trail.afoot = false;
             trail.lastX = x;
             trail.lastY = y;
             return;
         }
-        if (Math.hypot(x - trail.lastX, y - trail.lastY) < RUT) {
+        if (gone < RUT) {
             return;
         }
         int at = rutNext * 4;
