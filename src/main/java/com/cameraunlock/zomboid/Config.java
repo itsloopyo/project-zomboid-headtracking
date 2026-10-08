@@ -186,7 +186,9 @@ final class Config {
                     writable | live, true),
             core.configLocalBool("Content", "OwnTextures",
                     "true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,\n"
-                            + "paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.",
+                            + "paint, carpet, cloth and wallpaper, and the lines painted on roads drawn as paint\n"
+                            + "with clean edges, which is so in every graphics mode. false: the colours of the\n"
+                            + "game's sprites alone, and the lines as the game's sprites have them.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
                     "true: windows, doors, curtains and handrails built by the mod, the posts under a\n"
