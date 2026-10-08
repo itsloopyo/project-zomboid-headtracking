@@ -32,6 +32,10 @@ final class Roofs {
     static final float WHOLE_TILE_WIDE = 50f;
     /** This many rows of a sprite with nothing painted on them end what is painted above them, in frame pixels at tile scale 1. */
     private static final float PAINT_GAP = 3f;
+    /** The top or the foot of a sprite further than this from over its middle, in frame pixels at tile scale 1, is not the corner drawn there: see cut. A corner at the sprite's end is 32 from it. */
+    private static final float CUT_ASIDE = 20f;
+    /** How far along the line from the north-west corner of a square to the south-east a tile with its north-west corner cut away is looked at for the half that is gone, and for the half that is there. */
+    private static final float CUT_AWAY = 0.2f, CUT_KEPT = 0.6f;
     /** How wide the sprite of half a tile is, in unscaled pixels, and how far in from its frame's left edge the east half starts at the least. */
     private static final float HALF_NARROWEST = 47f, HALF_WIDEST = 54f, HALF_INSET = 8f;
     private static final int KEPT = 600, RETRIED = 30;
@@ -651,6 +655,12 @@ final class Roofs {
             return half;
         }
         boolean fitting = frame.width <= WHOLE_TILE_WIDE * frame.scale;
+        if (!fitting) {
+            RoofFit.Tile cut = cut(frame, texture, x, y, z, northWest, southEast);
+            if (cut != null) {
+                return cut;
+            }
+        }
         // A few sprites have a stray pixel or two far from the tile, at the foot of the
         // frame, and their outline then runs from the tile to the stray. The tile is the
         // longest run of rows with paint on them.
@@ -713,6 +723,65 @@ final class Roofs {
             }
         }
         return tile(x, y, z, alongX > alongY ? RoofFit.ALONG_X : RoofFit.ALONG_Y, alongX != alongY, z + northWest, z + southEast, fitting);
+    }
+
+    /**
+     * A tile cut to a triangle, where a hip crosses its square and the map has only this side of
+     * it: or null for a tile that is not. One corner of the square is cut away, the north-west or
+     * the south-east, and the top of the sprite, or its foot, is then one of the other two
+     * corners: it lies at an end of the sprite and not over its middle. Read as the corner cut
+     * away, it put the tile a sixth of a floor out, and a hip's end was a fan of steps. The
+     * corner cut away was at the height of the one found, the square's other side being the
+     * lower or the higher, and which of the two was found says which way the tile slopes.
+     */
+    private static RoofFit.Tile cut(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z, float northWest, float southEast) {
+        float middle = SpriteGeometry.frameU(frame, 0f, 0f), aside = CUT_ASIDE * frame.scale;
+        // The tile is the longest run of rows with paint on them: a stray pixel under it is no corner of it.
+        int from = (int) frame.top;
+        int[] rows = RoofFit.longestRun((int) frame.height, Math.round(PAINT_GAP * frame.scale), row -> paintedRow(frame, texture, from + row));
+        int first = from + rows[0], last = from + rows[1];
+        float top = paintedAlong(frame, texture, first), foot = paintedAlong(frame, texture, last);
+        boolean topAside = Math.abs(top - middle) > aside, footAside = Math.abs(foot - middle) > aside;
+        if (topAside == footAside) {
+            return null;
+        }
+        // The north-east corner is drawn at the sprite's right end, the south-west at its left.
+        boolean northEast = topAside ? top > middle : foot > middle;
+        float a = northEast ? 1f : 0f, b = 1f - a;
+        if (topAside) {
+            northWest = SpriteGeometry.heightDrawnAt(frame, a, b, first);
+        } else {
+            southEast = SpriteGeometry.heightDrawnAt(frame, a, b, last + 1);
+        }
+        float climb = Math.abs(northWest - southEast);
+        if (climb < FLAT || climb > STEEPEST) {
+            return null;
+        }
+        // Half of the square is painted and half is not: a place well inside each, both over the
+        // sprite's middle. A trim that runs round a corner of a roof has that corner and no middle.
+        float away = topAside ? CUT_AWAY : 1f - CUT_AWAY, kept = topAside ? CUT_KEPT : 1f - CUT_KEPT;
+        if (texture.isMaskSet(Math.round(middle), Math.round(SpriteGeometry.frameV(frame, away, away, northWest + (southEast - northWest) * away)))
+                || !texture.isMaskSet(Math.round(middle), Math.round(SpriteGeometry.frameV(frame, kept, kept, northWest + (southEast - northWest) * kept)))) {
+            return null;
+        }
+        // The north-east corner is as high as the north-west and the south-west as the south-east
+        // on a slope along y, and the other way about on one along x.
+        RoofFit.Tile cut = tile(x, y, z, northEast == topAside ? RoofFit.ALONG_Y : RoofFit.ALONG_X, true, z + northWest, z + southEast, false);
+        cut.cutCorner = topAside ? 0 : 2;
+        return cut;
+    }
+
+    /** The middle of what is painted in row v of the sprite, as a frame column. NaN if nothing is. */
+    private static float paintedAlong(SpriteGeometry.Frame frame, Texture texture, int v) {
+        int count = 0;
+        long sum = 0;
+        for (int u = (int) frame.left; u < frame.left + frame.width; u++) {
+            if (texture.isMaskSet(u, v)) {
+                sum += u;
+                count++;
+            }
+        }
+        return count == 0 ? Float.NaN : (float) sum / count;
     }
 
     private static RoofFit.Tile tile(int x, int y, int z, int axis, boolean sure, float low, float high, boolean fitting) {

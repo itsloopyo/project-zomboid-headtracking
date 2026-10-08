@@ -7355,7 +7355,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         roof = laid == null ? null : laid.roof;
         if (tile.shaped) {
             addGable(x, y, z, tile.corners[0] - z, tile.corners[1] - z, tile.corners[3] - z, 0f, 0);
-        } else {
+        } else if (tile.cutCorner < 0) {
             RoofFit.cornersOf(tile.fitAxis, tile.fitLow - z, tile.fitHigh - z, gable);
             addGable(x, y, z, gable[0], gable[1], gable[3], 0f, 0);
         }
@@ -7424,6 +7424,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (added == 0) {
             return;
         }
+        if (tile.cutCorner >= 0) {
+            underCut(tile, x, y, z);
+            return;
+        }
         if (placed) {
             underRoof(x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low);
         } else if (frame.width > Roofs.WHOLE_TILE_WIDE * frame.scale) {
@@ -7449,6 +7453,49 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         addEave(sheet, x, y, z, atOrigin, alongX, alongY, true);
         addRake(sheet, x, y, z, atOrigin, alongX, alongY);
     }
+
+    /**
+     * What goes with a tile the map cuts to a triangle, where a hip would cross its square and
+     * the map has the slope on one side of it only (Roofs.cut): the plain sheet under the half
+     * of the square the tile covers, the eave along its low edge where it has the whole of
+     * one, and a wall under the cut, from the roof down to the floor it stands over, in the
+     * roof's own covering. Given what a whole tile has, the sheet and the strip past a gable
+     * stood out beyond the cut, and the end of the roof was open under it.
+     */
+    private void underCut(RoofFit.Tile tile, int x, int y, int z) {
+        SpriteGeometry.Mesh sheet = roofSheet();
+        boolean alongX = tile.fitAxis == RoofFit.ALONG_X;
+        float low = tile.fitLow - z, high = tile.fitHigh - z;
+        RoofFit.cornersOf(tile.fitAxis, low, high, gable);
+        float[] lift = geometry.lift;
+        int at = 0;
+        for (int corner = 0; corner < 4; corner++) {
+            if (corner != tile.cutCorner) {
+                set(folded, at++, x + RoofFit.cornerX(corner), y + RoofFit.cornerY(corner), under(z, gable[corner]) + lift[corner]);
+            }
+        }
+        SpriteGeometry.addTriangle(sheet, folded, roofU, roofV, frame.red, frame.green, frame.blue);
+        // The north-west corner is on the edge nearer the map's origin whichever way the tile slopes, and the south-east on the far one.
+        if (low < high == (tile.cutCorner == 2)) {
+            addEave(sheet, x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low, true);
+        }
+        // Down to the first floor under the cut, and never into a room.
+        int foot = z;
+        while (foot > 0) {
+            IsoGridSquare here = cell.getGridSquare(x, y, foot), below = cell.getGridSquare(x, y, foot - 1);
+            if (here != null && here.getFloor() != null || below != null && below.getRoomID() != -1L) {
+                break;
+            }
+            foot--;
+        }
+        set(cutWall, 0, x, y + 1f, foot * ViewCamera.LEVEL_HEIGHT + lift[3]);
+        set(cutWall, 1, x + 1f, y, foot * ViewCamera.LEVEL_HEIGHT + lift[1]);
+        set(cutWall, 2, x + 1f, y, (z + gable[1]) * ViewCamera.LEVEL_HEIGHT + lift[1]);
+        set(cutWall, 3, x, y + 1f, (z + gable[3]) * ViewCamera.LEVEL_HEIGHT + lift[3]);
+        SpriteGeometry.addQuad(sheet, cutWall, roofU, roofV, frame.red, frame.green, frame.blue);
+    }
+
+    private final float[] cutWall = new float[12];
 
     /**
      * The mesh the mod's own roofing goes in, and into roofU and roofV the texel all of it

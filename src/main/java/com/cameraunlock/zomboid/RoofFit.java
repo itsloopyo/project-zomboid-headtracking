@@ -87,6 +87,13 @@ final class RoofFit {
         int peakAxis;
         /** Whether the tile is a slope carried on over the square of another, to meet it in a valley: see valleys. */
         boolean carried;
+        /**
+         * For a tile the map cuts to a triangle, the corner of its square that is cut away, as
+         * cornerX and cornerY number them: the north-west or the south-east. The tile is the half
+         * of its plane on the other side of the line from the south-west corner to the north-east.
+         * -1 for a whole tile. See Roofs.cut.
+         */
+        int cutCorner = -1;
         private int group = -1;
 
         Tile(int x, int y, int z, int axis, boolean sure, float low, float high) {
@@ -202,7 +209,9 @@ final class RoofFit {
             groups++;
         }
         for (Tile tile : tiles) {
-            if (tile.axis == NORTH_WEST_ODD || tile.axis == SOUTH_EAST_ODD) {
+            if (tile.cutCorner >= 0) {
+                foldCut(tile, at);
+            } else if (tile.axis == NORTH_WEST_ODD || tile.axis == SOUTH_EAST_ODD) {
                 fold(tile, at);
             } else if (!tile.fitted && tile.axis != LEVEL && !tile.sure) {
                 adopt(tile, at);
@@ -263,6 +272,29 @@ final class RoofFit {
         tile.crease = NW_SE;
         tile.shaped = true;
         tile.own = 3;
+    }
+
+    /**
+     * A tile cut to a triangle is half of a hip: the slope that would meet it along the cut
+     * faces away from the game's view, and the map leaves that half of the square bare. Where
+     * the roof goes on past the corner cut away, on either square beside it, the other half is
+     * that slope: the tile's own plane turned over the cut, so that the corner cut away is as
+     * high as the one across from it, and the tile is folded along the cut with the mod's own
+     * sheet on the half its sprite has nothing of. Where no roof is beside it there, the slope
+     * ends at the cut with nothing behind it and the tile is left a triangle: see
+     * WorldScene.underCut.
+     */
+    private static void foldCut(Tile tile, HashMap<Long, Tile> at) {
+        int step = tile.cutCorner == 0 ? -1 : 1;
+        if (at.get(key(tile.x + step, tile.y, tile.z)) == null && at.get(key(tile.x, tile.y + step, tile.z)) == null) {
+            return;
+        }
+        cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, tile.corners);
+        tile.corners[tile.cutCorner] = tile.corners[2 - tile.cutCorner];
+        tile.crease = NE_SW;
+        tile.shaped = true;
+        // The first of the fold's two triangles has the south-east corner, the second the north-west.
+        tile.own = tile.cutCorner == 0 ? 1 : 2;
     }
 
     /** Whether two tiles next to each other are of one slope: they slope the same way and agree along the edge they share. */
