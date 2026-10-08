@@ -120,9 +120,15 @@ final class WallFinish {
             }
             tended++;
             BuildingDef def = building.getDef();
-            boolean due = level.whole ? structuresOn(def) != level.structures : level.loaded != loaded && frame - level.stamp >= RETRIED;
+            // One read while part of the building was not loaded waits out its frames from when it was read: kept fresh
+            // while it waited, as one not due is, it was never due where the levels are few enough to come round sooner
+            // than that, and the building stood in whatever finish its first reading gave it.
+            boolean waits = !level.whole && level.loaded != loaded;
+            boolean due = level.whole ? structuresOn(def) != level.structures : waits && frame - level.stamp >= RETRIED;
             if (!due) {
-                level.stamp = frame;
+                if (!waits) {
+                    level.stamp = frame;
+                }
                 continue;
             }
             Level fresh = read(cell, building, one.z);

@@ -167,10 +167,14 @@ final class Roofs {
                 drop(roof);
                 continue;
             }
-            boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy) != roof.structures
-                    : roof.loaded != loaded && now - roof.stamp >= RETRIED;
+            // One read short of loaded ground waits out its frames from when it was read: kept fresh while it waited,
+            // as one not due is, it was never due where the roofs are few enough to come round sooner than that.
+            boolean waits = !roof.whole && roof.loaded != loaded;
+            boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy) != roof.structures : waits && now - roof.stamp >= RETRIED;
             if (!due) {
-                roof.stamp = now;
+                if (!waits) {
+                    roof.stamp = now;
+                }
                 tended++;
                 continue;
             }
