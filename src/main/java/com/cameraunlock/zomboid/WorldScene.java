@@ -5248,6 +5248,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
                 gablesPainted++;
                 int built = Own.textures() ? Masonry.of(finish) : 0;
+                building.signed &= !Own.textures() || !Masonry.unread(finish);
                 SpriteGeometry.Mesh painted = solid.get(PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
                 painted.open = frame.open + 32f * PAINT;
                 float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
@@ -5962,10 +5963,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             how = Masonry.of(texture);
             unread |= Masonry.unread(texture);
         }
+        // A sprite is read by the next frame drawn. A build that went without any it asked
+        // for is made again when next due, though nothing it read of the map has changed:
+        // what was read may lay the wall one way now and the rest another once it is in.
+        building.signed &= !unread;
         if (how == 0) {
-            // A sprite is read by the next frame drawn. A build that went without is made
-            // again when next due, though nothing it read of the map has changed.
-            building.signed &= !unread;
             return mesh;
         }
         return solid.get(texture.getID(), how);
@@ -7016,6 +7018,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return 0;
         }
         float[] colour = SpriteColours.of(shows);
+        // The picture reads a sprite's colour and how it is laid on the next frame drawn, and tells nobody when it has:
+        // a build that went without either is made again when next due. Left signed, it stood painted in the wrong
+        // colour, or as boards where the wall is brick, until its chunk was next marked.
+        this.building.signed &= !SpriteColours.unread(shows) && (far != -1L || !Masonry.unread(shows));
         if (colour == null) {
             return 0;
         }
@@ -7247,6 +7253,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      */
     private SpriteGeometry.Mesh roofSheet() {
         float[] colour = roof == null || roof.finish == null ? null : SpriteColours.of(roof.finish);
+        building.signed &= roof == null || roof.finish == null || !SpriteColours.unread(roof.finish);
         SpriteGeometry.Mesh sheet;
         if (colour == null) {
             sheet = solid.get(PLAIN);
