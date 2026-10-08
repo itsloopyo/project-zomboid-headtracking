@@ -142,7 +142,8 @@ final class SnowPrints {
      *                   over the greatest when there are none
      */
     static synchronized void placed(Terrain terrain, float eyeX, float eyeY, float[] printsOut, float[] rutsOut, float[] rutsUpOut, float[] rest) {
-        float cornerX = eyeX % 60f - eyeX, cornerY = eyeY % 60f - eyeY;
+        // As the picture's mod(uEye, 60.0), which for an eye west or north of the map's first square is not what % gives.
+        float cornerX = -60f * (float) Math.floor(eyeX / 60f), cornerY = -60f * (float) Math.floor(eyeY / 60f);
         float leastX = Float.MAX_VALUE, leastY = Float.MAX_VALUE, mostX = -Float.MAX_VALUE, mostY = -Float.MAX_VALUE;
         for (int i = 0; i < printCount * 4; i += 4) {
             float x = prints[i] + cornerX, y = prints[i + 1] + cornerY;

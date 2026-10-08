@@ -1821,7 +1821,8 @@ final class CharacterDraw {
         String lacks = handle.faceDataOnly ? "its buffer holds no vertices"
                 : from[PLACE] < 0 ? "it has no places" : from[NORMAL] < 0 ? "it has no normals" : from[WEIGHTS] < 0 ? "it has no bone weights"
                 : from[BONE_NUMBERS] < 0 ? "it has no bone numbers" : from[UV] < 0 ? "it has no texture places"
-                : elements == null || elements.length < count || count % 3 != 0 ? "its triangles are not kept as a list of " + count + " corners" : null;
+                : elements == null || elements.length < count || count % 3 != 0 ? "its triangles are not kept as a list of " + count + " corners"
+                : count == 0 ? "it has no triangles" : null;
         if (lacks != null) {
             Log.info("the model " + name + " is left to the game's own draw: " + lacks);
             return new Copy(buffer, modification, 0, 0, 0, null, null, null);

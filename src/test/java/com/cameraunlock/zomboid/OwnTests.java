@@ -89,8 +89,6 @@ final class OwnTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

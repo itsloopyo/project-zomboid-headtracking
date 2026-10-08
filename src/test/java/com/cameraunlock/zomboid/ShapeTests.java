@@ -8,27 +8,28 @@ final class ShapeTests {
     private ShapeTests() {}
 
     static void run() {
-        slabOverAShopFrontIsABeamAlongItsWall();
-        sillAlongANorthWallIsABeamAtItsFloor();
-        billboardSheetIsAPanelOnItsLine();
-        endSheetStandsInThePlaneOfTheWholeOneBesideIt();
-        rowOfLettersIsALowPanel();
-        binAndPostAreNeitherPanelNorBeam();
-        beamHasAnUndersideAndPanelIsOneUprightFace();
-        depthFarAcrossTheMapKeepsItsOrderFromTheEye();
-        lampProudOfItsWallIsFoundWhereItIsFixed();
-        newModelsAreInTheJar();
-        footOfAPostIsItsCornerNearestTheView();
-        cardOnAnUpperFloorStopsAtTheFloor();
-        squarePostIsReadWithItsSidesAlongTheGrid();
-        columnIsReadRoundWithItsBaseAndItsAxis();
-        postWithBracesHasAnArmEachWay();
-        spireAndCrateAreNoPosts();
-        postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear();
-        strutIsABoxAlongItsLine();
-        headOfAPostIsTheCardAboveItsShaft();
-        pipeWithABendAtItsFootIsAPostFromTheBendUp();
-        litterAndLowSlabsLieFlat();
+        Checks.run("copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow", ShapeTests::copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow);
+        Checks.run("slabOverAShopFrontIsABeamAlongItsWall", ShapeTests::slabOverAShopFrontIsABeamAlongItsWall);
+        Checks.run("sillAlongANorthWallIsABeamAtItsFloor", ShapeTests::sillAlongANorthWallIsABeamAtItsFloor);
+        Checks.run("billboardSheetIsAPanelOnItsLine", ShapeTests::billboardSheetIsAPanelOnItsLine);
+        Checks.run("endSheetStandsInThePlaneOfTheWholeOneBesideIt", ShapeTests::endSheetStandsInThePlaneOfTheWholeOneBesideIt);
+        Checks.run("rowOfLettersIsALowPanel", ShapeTests::rowOfLettersIsALowPanel);
+        Checks.run("binAndPostAreNeitherPanelNorBeam", ShapeTests::binAndPostAreNeitherPanelNorBeam);
+        Checks.run("beamHasAnUndersideAndPanelIsOneUprightFace", ShapeTests::beamHasAnUndersideAndPanelIsOneUprightFace);
+        Checks.run("depthFarAcrossTheMapKeepsItsOrderFromTheEye", ShapeTests::depthFarAcrossTheMapKeepsItsOrderFromTheEye);
+        Checks.run("lampProudOfItsWallIsFoundWhereItIsFixed", ShapeTests::lampProudOfItsWallIsFoundWhereItIsFixed);
+        Checks.run("newModelsAreInTheJar", ShapeTests::newModelsAreInTheJar);
+        Checks.run("footOfAPostIsItsCornerNearestTheView", ShapeTests::footOfAPostIsItsCornerNearestTheView);
+        Checks.run("cardOnAnUpperFloorStopsAtTheFloor", ShapeTests::cardOnAnUpperFloorStopsAtTheFloor);
+        Checks.run("squarePostIsReadWithItsSidesAlongTheGrid", ShapeTests::squarePostIsReadWithItsSidesAlongTheGrid);
+        Checks.run("columnIsReadRoundWithItsBaseAndItsAxis", ShapeTests::columnIsReadRoundWithItsBaseAndItsAxis);
+        Checks.run("postWithBracesHasAnArmEachWay", ShapeTests::postWithBracesHasAnArmEachWay);
+        Checks.run("spireAndCrateAreNoPosts", ShapeTests::spireAndCrateAreNoPosts);
+        Checks.run("postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear", ShapeTests::postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear);
+        Checks.run("strutIsABoxAlongItsLine", ShapeTests::strutIsABoxAlongItsLine);
+        Checks.run("headOfAPostIsTheCardAboveItsShaft", ShapeTests::headOfAPostIsTheCardAboveItsShaft);
+        Checks.run("pipeWithABendAtItsFootIsAPostFromTheBendUp", ShapeTests::pipeWithABendAtItsFootIsAPostFromTheBendUp);
+        Checks.run("litterAndLowSlabsLieFlat", ShapeTests::litterAndLowSlabsLieFlat);
     }
 
     private static void pipeWithABendAtItsFootIsAPostFromTheBendUp() {
@@ -295,9 +296,7 @@ final class ShapeTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b, float within) {
@@ -359,6 +358,29 @@ final class ShapeTests {
         frame.top = top;
         frame.width = right - left + 1;
         frame.height = bottom - top + 1;
+    }
+
+    private static void copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow() {
+        // The coping along a parapet's west edge: a slab a fiftieth of a level thick a third of a level up, and its shadow down the wall to the foot.
+        SpriteGeometry.Frame frame = frame();
+        SpriteShape.Painted slab = box(frame, 0.06f, 0f, 0.32f, 0.25f, 1f, 0.34f), withShadow = box(frame, 0.06f, 0f, 0.06f, 0.25f, 1f, 0.34f);
+        trim(frame, withShadow);
+        SpriteShape outline = SpriteShape.read(withShadow, frame);
+        check(outline.kind == SpriteShape.BEAM && outline.h1 - outline.h0 > 0.2f, "the test's coping reads from its outline as a deep box, or it shows nothing: " + (outline.h1 - outline.h0));
+        int left = Math.round(frame.left), top = Math.round(frame.top), across = Math.round(frame.width), down = Math.round(frame.height);
+        boolean[] solid = new boolean[across * down];
+        for (int row = 0; row < down; row++) {
+            for (int column = 0; column < across; column++) {
+                solid[row * across + column] = slab.at(left + column, top + row);
+            }
+        }
+        SpriteShape body = SpriteShape.withoutShadow(outline, Solids.outline(solid, left, top, across, down), frame);
+        check(body.kind == SpriteShape.BEAM && !body.alongX, "the coping's solid paint is a beam along its wall");
+        check(body.h1 - body.h0 < 0.04f && Math.abs(body.h1 - 0.34f) < 0.02f, "it is the slab at the top of the wall, from " + body.h0 + " to " + body.h1);
+        check(Math.abs(body.a0 - 0.06f) < 0.03f && Math.abs(body.a1 - 0.25f) < 0.03f && body.b0 < 0.05f && body.b1 > 0.95f, "and lies where the slab is painted");
+        check(Math.round(frame.left) == left && Math.round(frame.height) == down, "the frame is left as it was given");
+        check(SpriteShape.withoutShadow(outline, Solids.outline(new boolean[across * down], left, top, across, down), frame) == outline,
+                "a sprite with no solid paint keeps the reading of its outline");
     }
 
     private static void slabOverAShopFrontIsABeamAlongItsWall() {

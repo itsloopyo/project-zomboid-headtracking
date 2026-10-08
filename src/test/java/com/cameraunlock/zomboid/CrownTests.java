@@ -10,16 +10,16 @@ final class CrownTests {
     private CrownTests() {}
 
     static void run() {
-        leavesAreFoundOnlyWhereTheSpritePaintsThem();
-        crownStandsWhereTheSpriteShowsItAndEverySprigSaysWhereItsColourIs();
-        crownFurtherOffIsFewerSprigs();
-        spriteWithNextToNothingPaintedHasNoCrown();
-        sprigIsChosenByTheSpeciesInTheName();
-        crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem();
-        crownsMadeFromTheSameAreKnownForTheSame();
-        crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown();
-        crownsMadeOnTheirThreadAreTheSameCrowns();
-        spriteMeasuredAsNoCrownMakesNone();
+        Checks.run("leavesAreFoundOnlyWhereTheSpritePaintsThem", CrownTests::leavesAreFoundOnlyWhereTheSpritePaintsThem);
+        Checks.run("crownStandsWhereTheSpriteShowsItAndEverySprigSaysWhereItsColourIs", CrownTests::crownStandsWhereTheSpriteShowsItAndEverySprigSaysWhereItsColourIs);
+        Checks.run("crownFurtherOffIsFewerSprigs", CrownTests::crownFurtherOffIsFewerSprigs);
+        Checks.run("spriteWithNextToNothingPaintedHasNoCrown", CrownTests::spriteWithNextToNothingPaintedHasNoCrown);
+        Checks.run("sprigIsChosenByTheSpeciesInTheName", CrownTests::sprigIsChosenByTheSpeciesInTheName);
+        Checks.run("crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem", CrownTests::crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem);
+        Checks.run("crownsMadeFromTheSameAreKnownForTheSame", CrownTests::crownsMadeFromTheSameAreKnownForTheSame);
+        Checks.run("crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown", CrownTests::crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown);
+        Checks.run("crownsMadeOnTheirThreadAreTheSameCrowns", CrownTests::crownsMadeOnTheirThreadAreTheSameCrowns);
+        Checks.run("spriteMeasuredAsNoCrownMakesNone", CrownTests::spriteMeasuredAsNoCrownMakesNone);
     }
 
     /** A round crown painted in the upper half of the sprite, over a bare stick of trunk that is no part of it. */
@@ -267,8 +267,6 @@ final class CrownTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

@@ -8,16 +8,16 @@ final class SnowPrintTests {
     private SnowPrintTests() {}
 
     static void run() {
-        aWalkLeavesAFootprintAStrideLeftAndRightByTurns();
-        standingStillLeavesNothing();
-        aJumpAcrossTheMapIsNotAWalk();
-        onlyTheNewestFootprintsAreKept();
-        aDriveLeavesItsPathInStretches();
-        gettingOutOfAVehicleDoesNotJoinItsRutToTheWalk();
-        placesAreCountedFromThePicturesCorner();
-        onlyTheNewestStretchesOfRutAreKept();
-        forgottenTheyAreGone();
-        twoWalkersEachLeaveTheirOwnWay();
+        Checks.run("aWalkLeavesAFootprintAStrideLeftAndRightByTurns", SnowPrintTests::aWalkLeavesAFootprintAStrideLeftAndRightByTurns);
+        Checks.run("standingStillLeavesNothing", SnowPrintTests::standingStillLeavesNothing);
+        Checks.run("aJumpAcrossTheMapIsNotAWalk", SnowPrintTests::aJumpAcrossTheMapIsNotAWalk);
+        Checks.run("onlyTheNewestFootprintsAreKept", SnowPrintTests::onlyTheNewestFootprintsAreKept);
+        Checks.run("aDriveLeavesItsPathInStretches", SnowPrintTests::aDriveLeavesItsPathInStretches);
+        Checks.run("gettingOutOfAVehicleDoesNotJoinItsRutToTheWalk", SnowPrintTests::gettingOutOfAVehicleDoesNotJoinItsRutToTheWalk);
+        Checks.run("placesAreCountedFromThePicturesCorner", SnowPrintTests::placesAreCountedFromThePicturesCorner);
+        Checks.run("onlyTheNewestStretchesOfRutAreKept", SnowPrintTests::onlyTheNewestStretchesOfRutAreKept);
+        Checks.run("forgottenTheyAreGone", SnowPrintTests::forgottenTheyAreGone);
+        Checks.run("twoWalkersEachLeaveTheirOwnWay", SnowPrintTests::twoWalkersEachLeaveTheirOwnWay);
     }
 
     /** Walks so many steps of that length from a place along x. */
@@ -171,8 +171,6 @@ final class SnowPrintTests {
     }
 
     private static void check(boolean condition, String message) {
-        if (!condition) {
-            throw new AssertionError(message);
-        }
+        Checks.check(condition, message);
     }
 }

@@ -56,6 +56,10 @@ final class Decor {
     private static int[] textures;
     /** Whether each picture's texture was made at half size. */
     private static boolean[] madeSmall;
+    /** Until when no picture is made after the graphics card had no room for one, or 0 if it always had. Render thread. */
+    private static long noRoomUntilNanos;
+    private static final long NO_ROOM_RESTS_NANOS = 10_000_000_000L;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
 
     /** A picture read out of the jar, at the size it was read at: half the file's in a graphics mode that shows smaller pictures. */
     private record Read(OffHeap.Block memory, int wide, int high) {}
@@ -251,10 +255,14 @@ final class Decor {
     static int texture(int held) {
         int picture = -1 - held;
         synchronized (Decor.class) {
+            if (textures[picture] == 0 && noRoomUntilNanos != 0L && System.nanoTime() < noRoomUntilNanos) {
+                return Pipeline.none();
+            }
             if (textures[picture] == 0 || waiting[picture] != null) {
                 Read read = waiting[picture];
                 if (textures[picture] != 0) {
                     GL11.glDeleteTextures(textures[picture]);
+                    textures[picture] = 0;
                     Pipeline.forgetTexels();
                 }
                 if (read == null) {
@@ -265,12 +273,38 @@ final class Decor {
                     } catch (IOException e) {
                         throw new UncheckedIOException(path + " could not be read", e);
                     }
+                    waiting[picture] = read;
+                }
+                // What the frame raised before this is the frame's, and is not laid to the picture.
+                int before = GL11.glGetError();
+                if (before != 0) {
+                    Pipeline.noted(before);
+                    throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(before) + " was raised in the frame before the picture " + index.names.get(picture) + " was made");
                 }
                 int texture = GL11.glGenTextures();
                 GL11.glBindTexture(GL_TEXTURE_2D, texture);
                 GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, read.wide, read.high, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.memory.bytes);
-                read.memory.free();
                 GL30.glGenerateMipmap(GL_TEXTURE_2D);
+                int error = GL11.glGetError();
+                Pipeline.noted(error);
+                if (error != 0) {
+                    GL11.glBindTexture(GL_TEXTURE_2D, Pipeline.none());
+                    GL11.glDeleteTextures(texture);
+                }
+                if (error == GL_OUT_OF_MEMORY) {
+                    // The card has no room for it. What was read is kept, and no picture is tried again for a while.
+                    if (noRoomUntilNanos == 0L) {
+                        Log.info("the graphics card has no room for the picture " + index.names.get(picture) + ": pictures it has no room for are left blank and tried again every "
+                                + NO_ROOM_RESTS_NANOS / 1_000_000_000L + " seconds");
+                    }
+                    noRoomUntilNanos = System.nanoTime() + NO_ROOM_RESTS_NANOS;
+                    return Pipeline.none();
+                }
+                read.memory.free();
+                waiting[picture] = null;
+                if (error != 0) {
+                    throw new IllegalStateException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of the picture " + index.names.get(picture));
+                }
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                 GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -278,7 +312,6 @@ final class Decor {
                 Pictures.sharpenAtSlant();
                 textures[picture] = texture;
                 madeSmall[picture] = read.wide < (int) index.sizes.get(picture)[0];
-                waiting[picture] = null;
             }
             return textures[picture];
         }

@@ -176,7 +176,7 @@ final class Config {
                             + "frames. false: the game's sprites of them.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPictures",
-                    "true: the mod's photographs, paintings and posters on walls, and programmes on a\n"
+                    "true: the mod's photographs, paintings, posters and signs on walls, and programmes on a\n"
                             + "television that is on. false: the game's pictures, and only colour bars on a\n"
                             + "television.",
                     writable | live, true),
@@ -189,9 +189,9 @@ final class Config {
                             + "paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors and curtains built by the mod, and the outside of a wall\n"
-                            + "finished as its building is. false: the game's sprites of them, on both sides of\n"
-                            + "the wall.",
+                    "true: windows, doors, curtains and handrails built by the mod, the posts under a\n"
+                            + "fire escape, and the outside of a wall finished as its building is. false: the\n"
+                            + "game's sprites of them, on both sides of the wall.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
                     "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"

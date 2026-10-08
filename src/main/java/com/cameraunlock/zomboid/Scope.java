@@ -563,6 +563,11 @@ final class Scope {
         if (glass == null || program == null) {
             return;
         }
+        if (!(finalScale * finalScale * (part[1] * part[1] + part[5] * part[5] + part[9] * part[9]) > 0f)) {
+            // The frame a scope is fitted to a weapon the game has not yet placed, the part's matrix is all noughts:
+            // there is nothing to draw, and nothing measured from it is kept.
+            return;
+        }
         float size = finalScale * UNITS_PER_METRE;
         for (int column = 0; column < 3; column++) {
             model[column * 4] = part[column] * size;
@@ -681,6 +686,11 @@ final class Scope {
         // is to the right of someone looking along it.
         ViewModelMath.turned(model, AXIS, a);
         float metre = unit(a);
+        if (!(metre > 0f)) {
+            // The view the weapon is held in has no size: there is nothing to draw, and nothing measured from it is kept.
+            GL20.glUseProgram(0);
+            return;
+        }
         ViewModelMath.turned(model, TOP, b);
         float along = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
         for (int axis = 0; axis < 3; axis++) {

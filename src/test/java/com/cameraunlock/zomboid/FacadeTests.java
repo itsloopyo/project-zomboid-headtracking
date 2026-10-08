@@ -12,24 +12,24 @@ final class FacadeTests {
     private FacadeTests() {}
 
     static void run() {
-        brickIsToldByItsUprightJoints();
-        lappedBoardsHaveShadowsAndNoUprightJoints();
-        lowWallOfBrickIsBrick();
-        blocksAreDeepCoursesOfOneGrey();
-        stoneHasDeepCoursesAndNoTwoStonesAlike();
-        boardedWallCarriesItsColour();
-        wallInAnotherLightIsTheSamePaint();
-        paintedWallIsLeftAsPainted();
-        onlyOutsideWallsAreLaid();
-        wireIsReadAsItsTwoEndsOverTheSquare();
-        brokenLineIsOneWire();
-        wireLevelAcrossTheViewFillsItsSpriteAndIsStillAWire();
-        onlyTheSheetsWiresAreWires();
-        wireRunsTheWayTheMapsWiresRun();
-        poleIsItsLengthsAndItsArm();
-        halfTilesHeldALevelUpPeakTheRidgeTheyBelongTo();
-        halfTileOnItsOwnSquareMakesItsRidge();
-        halfTileThatJoinsNoSlopeMakesNothing();
+        Checks.run("brickIsToldByItsUprightJoints", FacadeTests::brickIsToldByItsUprightJoints);
+        Checks.run("lappedBoardsHaveShadowsAndNoUprightJoints", FacadeTests::lappedBoardsHaveShadowsAndNoUprightJoints);
+        Checks.run("lowWallOfBrickIsBrick", FacadeTests::lowWallOfBrickIsBrick);
+        Checks.run("blocksAreDeepCoursesOfOneGrey", FacadeTests::blocksAreDeepCoursesOfOneGrey);
+        Checks.run("stoneHasDeepCoursesAndNoTwoStonesAlike", FacadeTests::stoneHasDeepCoursesAndNoTwoStonesAlike);
+        Checks.run("boardedWallCarriesItsColour", FacadeTests::boardedWallCarriesItsColour);
+        Checks.run("wallInAnotherLightIsTheSamePaint", FacadeTests::wallInAnotherLightIsTheSamePaint);
+        Checks.run("paintedWallIsLeftAsPainted", FacadeTests::paintedWallIsLeftAsPainted);
+        Checks.run("onlyOutsideWallsAreLaid", FacadeTests::onlyOutsideWallsAreLaid);
+        Checks.run("wireIsReadAsItsTwoEndsOverTheSquare", FacadeTests::wireIsReadAsItsTwoEndsOverTheSquare);
+        Checks.run("brokenLineIsOneWire", FacadeTests::brokenLineIsOneWire);
+        Checks.run("wireLevelAcrossTheViewFillsItsSpriteAndIsStillAWire", FacadeTests::wireLevelAcrossTheViewFillsItsSpriteAndIsStillAWire);
+        Checks.run("onlyTheSheetsWiresAreWires", FacadeTests::onlyTheSheetsWiresAreWires);
+        Checks.run("wireRunsTheWayTheMapsWiresRun", FacadeTests::wireRunsTheWayTheMapsWiresRun);
+        Checks.run("poleIsItsLengthsAndItsArm", FacadeTests::poleIsItsLengthsAndItsArm);
+        Checks.run("halfTilesHeldALevelUpPeakTheRidgeTheyBelongTo", FacadeTests::halfTilesHeldALevelUpPeakTheRidgeTheyBelongTo);
+        Checks.run("halfTileOnItsOwnSquareMakesItsRidge", FacadeTests::halfTileOnItsOwnSquareMakesItsRidge);
+        Checks.run("halfTileThatJoinsNoSlopeMakesNothing", FacadeTests::halfTileThatJoinsNoSlopeMakesNothing);
     }
 
     /** What is painted at a place on a wall set straight: how far along it in dots, and how many rows down. */
@@ -325,9 +325,7 @@ final class FacadeTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

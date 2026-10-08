@@ -109,6 +109,7 @@ final class VehicleMeshes {
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_TEXTURE_WIDTH = 0x1000, GL_TEXTURE_HEIGHT = 0x1001;
     private static final int GL_RGBA = 0x1908, GL_UNSIGNED_BYTE = 0x1401;
 
+    private static final int PLACE_NORMAL_AND_TEXTURE_PLACE = 32;
     private static Field handleField, elementsField, bufferField, strideField;
     private static final float[] xfrm = new float[16];
 
@@ -247,6 +248,12 @@ final class VehicleMeshes {
             int bound = GL11.glGetInteger(GL_ARRAY_BUFFER_BINDING);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, bufferField.getInt(handle));
             int bytes = GL15.glGetBufferParameteri(GL_ARRAY_BUFFER, GL_BUFFER_SIZE);
+            String lacks = lacks(stride, bytes, elements);
+            if (lacks != null) {
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
+                Log.info("the vehicle model " + name + " is not laid out as the game's own bodies are (" + lacks + "): its driver's place and its glass are the game's own");
+                return NONE;
+            }
             // The body's vertices as the graphics card has them, read once and given back when what is kept of them is made.
             OffHeap.Block read = OffHeap.take(bytes);
             try {
@@ -275,6 +282,28 @@ final class VehicleMeshes {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
         }
+    }
+
+    /**
+     * What of a body's buffer is not as the reads below take it, or null: a place, a normal and a
+     * texture place of floats at bytes 0, 12 and 24 of each vertex, as every body of the game's
+     * has them, and triangles that name only vertices the buffer holds. A body a vehicle mod
+     * supplies need not be.
+     */
+    static String lacks(int stride, int bytes, int[] elements) {
+        if (stride < PLACE_NORMAL_AND_TEXTURE_PLACE) {
+            return stride + " bytes a vertex";
+        }
+        if (elements.length % 3 != 0) {
+            return elements.length + " corners, which is not a list of triangles";
+        }
+        int vertices = bytes / stride;
+        for (int element : elements) {
+            if (element < 0 || element >= vertices) {
+                return "a corner at vertex " + element + " of " + vertices;
+            }
+        }
+        return null;
     }
 
     private static float[] wheelIn(ByteBuffer raw, int stride, int vertices, int[] elements, String name, float[] seats) {

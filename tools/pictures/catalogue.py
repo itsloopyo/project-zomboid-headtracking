@@ -11,6 +11,7 @@ wall, inside its frame: it is cut to that. LETTERED says what is written on a po
 """
 
 import shows
+import signs
 
 NO_TEXT = 'text, letters, words, caption, watermark, signature, logo, frame, border'
 PHOTO_NEGATIVE = NO_TEXT + ', illustration, painting, cartoon, 3d render, deformed, extra fingers, blurry, modern, smartphone'
@@ -413,3 +414,10 @@ for _show, _shots in shows.SHOWS.items():
         _name = 'screen-%s-%d' % (_show, _i)
         art(_name, _prompt, SCREEN_NEGATIVE, TUBE)
         SHOTS[_name] = _name
+
+# Shop signs, notices and flags (signs.py): their grounds and emblems are art like any other, and each shows on the
+# name and group the game gives the sign.
+for _name, (_prompt, _negative, _wide, _high) in signs.ART.items():
+    art(_name, _prompt, _negative, (_wide, _high))
+SEEDS.update(signs.SEEDS)
+HUNG += signs.HUNG

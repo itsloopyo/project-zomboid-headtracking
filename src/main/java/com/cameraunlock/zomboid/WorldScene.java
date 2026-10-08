@@ -29,6 +29,7 @@ import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
 import zombie.iso.LightingJNI;
+import zombie.iso.RoomDef;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
@@ -266,6 +267,8 @@ final class WorldScene {
          * through as it falls due, as every chunk is without the game's marks.
          */
         private boolean restless;
+        /** Whether it was made, or last read and kept, for a view drawn as the game's own: a room not yet seen is built otherwise for the eye. */
+        private boolean gamesView;
         /** The light of its seen squares out of doors, as its last reading left them: see OpenLight. Null until it has been read. */
         private OpenLight seen;
         /** Dev only: every float of the build as one number. */
@@ -518,6 +521,29 @@ final class WorldScene {
     private int topLevel = Integer.MAX_VALUE;
     /** The buildings the game opens in its own view, as the builds were last made for them, and as the game has them now. */
     private final ArrayList<BuildingDef> openBuildings = new ArrayList<>(), openBuildingsNow = new ArrayList<>();
+    /** The rooms of those buildings, where rain and snow are kept out with no roof drawn: see Shelter. Null while no building is open. */
+    private Shelter shelter;
+
+    /** The rooms of the opened buildings round a square, each with the storeys its building has from the ground up. */
+    private Shelter shelterRound(int x, int y) {
+        Shelter made = new Shelter(x, y);
+        for (int i = 0; i < openBuildings.size(); i++) {
+            BuildingDef def = openBuildings.get(i);
+            int storeys = 0;
+            for (int r = 0; r < def.rooms.size(); r++) {
+                storeys = Math.max(storeys, def.rooms.get(r).level + 1);
+            }
+            for (int r = 0; r < def.rooms.size(); r++) {
+                ArrayList<RoomDef.RoomRect> rects = def.rooms.get(r).rects;
+                for (int k = 0; k < rects.size(); k++) {
+                    RoomDef.RoomRect rect = rects.get(k);
+                    made.cover(rect.x, rect.y, rect.w, rect.h, storeys);
+                }
+            }
+        }
+        return made;
+    }
+
     /**
      * Whether the builds standing gave the plants of the last band a crown and a bole:
      * Quality.crownsToSight as the logic thread last read it. Without, a tree out there is the
@@ -592,7 +618,9 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds;
+                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape;
+        /** What length of handrail the sprite is, or null: see Rails. */
+        final Rails.Piece rail;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -624,6 +652,9 @@ final class WorldScene {
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind");
             onTop = properties.has("IsTableTop");
             holds = properties.get("container") != null;
+            rail = Rails.of(name);
+            flightPost = Rails.flightPost(name);
+            fireEscape = Rails.fireEscape(name);
         }
     }
 
@@ -654,6 +685,8 @@ final class WorldScene {
     private static final float FLAT_ROOF_ON_FLOOR = 0.06f;
     /** Half the thickness of a wall, in tiles. */
     static final float WALL_HALF = 0.04f;
+    /** How far from the line of a wall the middle of a handrail fixed to it runs, in tiles. */
+    private static final float RAIL_OFF_WALL = WALL_HALF + 0.09f;
     private static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     static final float SURFACE_PIXELS_PER_LEVEL = 96f;
@@ -888,8 +921,10 @@ final class WorldScene {
             Arrays.fill(scene.groundObject, null);
             Arrays.fill(scene.lightSquare, null);
             Arrays.fill(scene.around, null);
+            scene.lampsNear.clear();
             scene.keptFrame = -1;
         }
+        chunkMap = null;
         builtAt[view.index] = 0L;
         if (building(System.nanoTime()) == 0) {
             // Nothing is built or read while every view is off, so nothing would come to let these go.
@@ -1142,6 +1177,7 @@ final class WorldScene {
             scene.shown.clear();
         }
         forgetAll();
+        forgetTheOpened();
         // What is out being made comes back first, wanted by nobody now: a build left with the other thread would keep its vertices until the view next came on.
         while (crownsOut > 0) {
             land(Crowns.awaited(crownsBack));
@@ -1194,6 +1230,13 @@ final class WorldScene {
             terrain = Terrain.of(flat);
             forgetAll();
         }
+    }
+
+    /** After every build has been let go of: no building of the map they were made on is held as one the game had open. */
+    private void forgetTheOpened() {
+        openBuildings.clear();
+        openBuildingsNow.clear();
+        topLevel = Integer.MAX_VALUE;
     }
 
     /** Lets go of every build: for when what all of them were built on has changed. */
@@ -1516,6 +1559,17 @@ final class WorldScene {
 
     private static final int[] CEILING_CORNERS = {0, 1, 2, 0, 2, 3};
 
+    /** Which square of a flight a sprite of this type is: 0 the bottom one, 2 the top, -1 for no stair. */
+    private static int thirdOf(IsoObjectType type) {
+        return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
+                : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
+                : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
+    }
+
+    private static boolean climbsWest(IsoObjectType type) {
+        return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
+    }
+
     private static boolean isStair(IsoObjectType type) {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW
                 || type == IsoObjectType.stairsBN || type == IsoObjectType.stairsMN || type == IsoObjectType.stairsTN;
@@ -1751,6 +1805,9 @@ final class WorldScene {
 
         /** The chunk builds this frame draws. */
         private final ArrayList<ChunkMeshes> shown = new ArrayList<>();
+        /** Whether any of them has water on it, and the plane that water lies in round the eye: see WaterMirror. */
+        private boolean waterShown;
+        private final float[] waterPlane = new float[4];
         private Models.Instances placed;
         private final SpriteGeometry geometry = new SpriteGeometry();
         private final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
@@ -1839,6 +1896,8 @@ final class WorldScene {
         private boolean gamesView;
         /** For such a frame, the walls the game cuts away: see Cutaways and Pipeline.cutRows. */
         private final float[] cutRows = new float[Cutaways.FLOATS];
+        /** For such a frame, where rain and snow are kept out with no roof drawn, or null: see Shelter. */
+        private Shelter sheltered;
         private int cutRowsX, cutRowsY;
         private float cutBelow;
         /**
@@ -2088,6 +2147,7 @@ final class WorldScene {
                 release(shown.get(i));
             }
             shown.clear();
+            waterShown = false;
             frames++;
             Terrain.frame(roundNow);
             chunksDrawn = 0;
@@ -2162,6 +2222,7 @@ final class WorldScene {
                 builtIn = new WeakReference<>(cell);
                 strung.clear();
                 forgetAll();
+                forgetTheOpened();
             }
             if (cell != readIn.get()) {
                 // And so is what is kept by place on the map or by one of the game's sprites, once for every view.
@@ -2262,10 +2323,18 @@ final class WorldScene {
                 }
             }
             topLevel = top;
+            boolean sameOpen = openBuildings.equals(openBuildingsNow);
             openBuildings.clear();
             if (!openBuildingsNow.isEmpty()) {
                 openBuildings.addAll(openBuildingsNow);
             }
+            int stoodX = (int) Math.floor(player.getX()), stoodY = (int) Math.floor(player.getY());
+            if (openBuildings.isEmpty()) {
+                shelter = null;
+            } else if (!sameOpen || shelter == null || shelter.strayedFrom(stoodX, stoodY)) {
+                shelter = shelterRound(stoodX, stoodY);
+            }
+            sheltered = gamesView && level < 0 ? Shelter.EVERYWHERE : shelter;
             float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
             cutFrom = gamesView || indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
             cutBelow = 0f;
@@ -2340,7 +2409,7 @@ final class WorldScene {
                         continue;
                     }
                     IsoChunk chunk = map.getChunk(gridX, gridY);
-                    if (chunk == null) {
+                    if (chunk == null || !chunk.loaded) {
                         continue;
                     }
                     int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
@@ -2379,8 +2448,6 @@ final class WorldScene {
                         chunksWaiting++;
                         continue;
                     }
-                    // One that has waited twice its time waits no longer: the chunks are walked nearest first,
-                    // and the last of them would wait as long as those before it kept falling due.
                     // While chunks wait for their first build, the time goes to them: one built already
                     // and not right by the eye is shown as it is, or those at the end of the walk would
                     // wait for as long as the ones before them kept falling due.
@@ -2439,7 +2506,7 @@ final class WorldScene {
                     boolean settled = !missing && (start - current.bornNanos >= SETTLES_IN_NANOS
                             || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
                     boolean quiet = telling && !missing && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
-                            && current.epoch == epoch && land == current.land && ringAsItWas && settled;
+                            && current.epoch == epoch && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
                     // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
                     if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
                         quiet = false;
@@ -2455,6 +2522,8 @@ final class WorldScene {
                     int why = !AUDIT_MARKS || !telling || missing ? 0 : (marks != current.marks ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
                             | (land != current.land ? 8 : 0) | (!ringAsItWas ? 16 : 0) | (current.restless ? 32 : 0)
                             | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
+                    // One that has waited twice its time waits no longer: the chunks are walked nearest first,
+                    // and the last of them would wait as long as those before it kept falling due.
                     boolean due = !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
                             && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                     || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
@@ -2570,6 +2639,7 @@ final class WorldScene {
                             current.ring = ring;
                             current.loaded = loadedNow;
                             current.restless = restless;
+                            current.gamesView = gamesView;
                             chunksKept++;
                             due = false;
                         } else {
@@ -2618,6 +2688,7 @@ final class WorldScene {
                         fresh.ring = ring;
                         fresh.loaded = loadedNow;
                         fresh.restless = summed && restless;
+                        fresh.gamesView = gamesView;
                         if (AUDIT_MARKS) {
                             auditKeep(fresh, summed);
                         }
@@ -2699,6 +2770,7 @@ final class WorldScene {
                     }
                     current.users++;
                     shown.add(current);
+                    waterShown |= Terrain.holdsWater(chunk.wx, chunk.wy);
                     ChunkMeshes crowned = latestCrowned[slot];
                     if (crowned != null && crowned.wx == chunk.wx && crowned.wy == chunk.wy) {
                         crowned.users++;
@@ -2719,7 +2791,7 @@ final class WorldScene {
                         grown = null;
                     }
                     // What grows is made with its chunk. Made again only because the eye has moved, it waits for a frame with the time.
-                    if (Own.plants() && lowest <= 0 && current.grows && (ungrown || regrown && !late)) {
+                    if (Own.plants() && current.grows && (ungrown || regrown && !late)) {
                         if (!missing && !due) {
                             surround(map, chunk, gridX, gridY, side);
                         }
@@ -3826,12 +3898,9 @@ final class WorldScene {
                 String name = sprite.getName();
                 int cut = name.lastIndexOf('_');
                 // The game's sheets all end in a number. A map's own tile need not, and is then of its sheet's first row.
-                int row = 0;
-                try {
-                    row = Integer.parseInt(name.substring(cut + 1)) / 16;
-                } catch (NumberFormatException unnumbered) {
-                }
-                known = new int[] {1 + (name.substring(0, cut).hashCode() & 0xffff) * 64 + (row >= 1 && row <= 3 ? 32 + row : row)};
+                String number = name.substring(cut + 1);
+                int row = !number.isEmpty() && number.length() <= 6 && number.chars().allMatch(Character::isDigit) ? Integer.parseInt(number) / 16 : 0;
+                known = new int[] {1 + (name.substring(0, Math.max(cut, 0)).hashCode() & 0xffff) * 64 + (row >= 1 && row <= 3 ? 32 + row : row)};
                 ranks.put(sprite, known);
             }
             return known[0];
@@ -4150,7 +4219,13 @@ final class WorldScene {
                 frame.material = materialOf(floor.getSprite().getName(), true);
             }
             geometry.kerbKeep = geometry.kerbStreet ? SpriteGeometry.LAND : SpriteGeometry.STREET;
-            geometry.addFace(solid.get(texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            int flat = Flats.of(texture, frame, Flats.FLOOR);
+            if (flat == 0 && Flats.unread(texture, Flats.FLOOR)) {
+                building.signed = false;
+            }
+            frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
+            geometry.addFace(solid.get(flat != 0 ? flat : texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            frame.flat = 0;
             geometry.kerbKeep = SpriteGeometry.BOTH;
             frame.material = 0f;
         }
@@ -4336,7 +4411,11 @@ final class WorldScene {
             @Override
             public int lines(int x, int y, float[] out) {
                 int gridX = Math.floorDiv(x, CHUNK_TILES) - mapWx, gridY = Math.floorDiv(y, CHUNK_TILES) - mapWy;
-                if (gridX < 0 || gridY < 0 || gridX >= mapSide || gridY >= mapSide || chunkMap.getChunk(gridX, gridY) == null) {
+                if (gridX < 0 || gridY < 0 || gridX >= mapSide || gridY >= mapSide) {
+                    return -1;
+                }
+                IsoChunk hungIn = chunkMap.getChunk(gridX, gridY);
+                if (hungIn == null || !hungIn.loaded) {
                     return -1;
                 }
                 IsoGridSquare square = cell.getGridSquare(x, y, hungOn);
@@ -4811,6 +4890,10 @@ final class WorldScene {
             if (addStair(mesh, texture, type, x, y, z)) {
                 return;
             }
+            if (overLayer == 0 && Own.buildings() && (kind.rail != null && addRail(kind.rail, x, y, z)
+                    || kind.flightPost && underAFlightsHead(x, y, z))) {
+                return;
+            }
 
             if (z > 0 && kind.roofAccent && underARake(x, y, z)) {
                 return;
@@ -5056,11 +5139,23 @@ final class WorldScene {
             if (!isFloor && z == 0 && sprite.natural) {
                 return;
             }
+            frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
+            // The floor of a square is its sprite laid flat, a picture that goes on into the
+            // squares beside it: see Flats. Not water, which the picture moves, nor what is
+            // painted over a floor.
+            boolean floor = isFloor && overLayer == 0 && floorLayer == 0 && frame.kind == 0f;
+            int flat = floor ? Flats.of(texture, frame, Flats.FLOOR) : 0;
+            if (flat == 0 && floor && Flats.unread(texture, Flats.FLOOR)) {
+                building.signed = false;
+            }
+            frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
+            if (flat != 0) {
+                mesh = solid.get(flat);
+            }
             if (floorLayer == 0 && z > lowestLevel) {
                 addCeiling(mesh, x, y, z);
             }
             SpriteGeometry.Mesh on = floorLayer == 0 ? mesh : laid.get(texture.getID());
-            frame.kind = properties.has(IsoFlagType.water) ? SpriteGeometry.WATER : 0f;
             if (frame.kind != 0f && z == 0 && floorLayer == 0) {
                 // Water knows where its bank is: each corner says whether land touches it.
                 for (int corner = 0; corner < 4; corner++) {
@@ -5084,15 +5179,20 @@ final class WorldScene {
             if (z == 0 && geometry.kerb != null && (!isFloor || beyondKerb >= 0)) {
                 geometry.kerbKeep = geometry.kerbStreet && !vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
             }
-            if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && (sprite.carpet || sprite.tiled)
-                    && Own.textures() && addTiles(texture, sprite.carpet, x, y, z)) {
-                return;
+            if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && (sprite.carpet || sprite.tiled) && Own.textures()) {
+                // Tiles are faces of their own on the sprite's own mesh, painted over.
+                frame.flat = 0;
+                if (addTiles(texture, sprite.carpet, x, y, z)) {
+                    return;
+                }
+                frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             }
             layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
             geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             layers.none();
             geometry.kerbKeep = SpriteGeometry.BOTH;
             frame.kind = 0f;
+            frame.flat = 0;
             geometry.cover = null;
         }
         private final float[] tileTint = new float[4];
@@ -5391,6 +5491,15 @@ final class WorldScene {
                 shapeFrame.scale = frame.scale;
                 WorldScene.frameOf(shapeFrame, object, texture);
                 shape = SpriteShape.read(texture::isMaskSet, shapeFrame);
+                if (shape.kind == SpriteShape.BEAM) {
+                    // Its solid paint is read by the next frame drawn: until then it is the beam its outline makes, and the build is made again.
+                    Solids.Outline solid = Solids.of(texture, shapeFrame);
+                    if (solid == null) {
+                        building.signed = false;
+                        return shape;
+                    }
+                    shape = SpriteShape.withoutShadow(shape, solid, shapeFrame);
+                }
                 shapes.put(sprite, shape);
             }
             return shape;
@@ -5578,7 +5687,9 @@ final class WorldScene {
                 }
                 // And every length is as high as the whole picture: the sprites of two lengths
                 // differ by a pixel at the foot, which is a step in the picture's lower edge.
-                wholeOf(object, piece);
+                if (!wholeOf(object, piece) && piece.lettered) {
+                    return false;
+                }
                 hungAt[WallHung.BOTTOM] = wholeAt[WallHung.BOTTOM];
                 hungAt[WallHung.TOP] = wholeAt[WallHung.TOP];
             }
@@ -5642,20 +5753,25 @@ final class WorldScene {
          * sprites of all its squares: into wholeAt as WallHung.painted leaves one square's, with
          * the places along the wall counted from the corner of the square the object is on. Each
          * square's sprite is taken to stand on its square as the object's does on this one, and
-         * the lengths to follow each other along the wall the way the map's x or y grows.
+         * the lengths to follow each other along the wall the way the map's x or y grows. False
+         * where a square's sprite is not painted as something on that wall: the whole is then
+         * of the other squares alone.
          */
-        private void wholeOf(IsoObject object, Furniture piece) {
+        private boolean wholeOf(IsoObject object, Furniture piece) {
             wholeAt[WallHung.FROM] = wholeAt[WallHung.BOTTOM] = Float.MAX_VALUE;
             wholeAt[WallHung.TO] = wholeAt[WallHung.TOP] = -Float.MAX_VALUE;
             partFrame.scale = frame.scale;
+            boolean every = true;
             for (int k = 0; k < piece.lengths(); k++) {
                 IsoSprite part = piece.width > 1 ? piece.grid.getSprite(k, piece.gridY) : piece.grid.getSprite(piece.gridX, k);
                 Texture painting = part == null ? null : part.getTextureForCurrentFrame(object.getDir());
                 if (!usable(painting)) {
+                    every = false;
                     continue;
                 }
                 WorldScene.frameOf(partFrame, object, painting);
                 if (!WallHung.painted(partFrame, piece.wall, partAt)) {
+                    every = false;
                     continue;
                 }
                 int from = k - piece.lengthAt();
@@ -5664,6 +5780,7 @@ final class WorldScene {
                 wholeAt[WallHung.BOTTOM] = Math.min(wholeAt[WallHung.BOTTOM], partAt[WallHung.BOTTOM]);
                 wholeAt[WallHung.TOP] = Math.max(wholeAt[WallHung.TOP], partAt[WallHung.TOP]);
             }
+            return every;
         }
 
         /**
@@ -6486,7 +6603,11 @@ final class WorldScene {
                 WallSides.tint(key, paperTint);
                 near = solid.get(texture.getID(), key);
             }
+            // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
+            near = stoodSquare(near, texture, da != 0f);
+            int nearFlat = frame.flat;
             addSkin(near, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+            frame.flat = 0;
             skinStart = (startJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
             skinEnd = (endJoin & WallJoins.FAR) != 0 ? WALL_HALF : 0f;
             geometry.shownA = -inX;
@@ -6544,8 +6665,16 @@ final class WorldScene {
             }
             // The far skin is papered as the near one only where it shows the same sprite.
             paper = faced == null && tint == 0 ? paper : null;
-            addSkin(faced != null ? laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z) : tint != 0 ? solid.get(texture.getID(), tint) : near, opening, at, x, y, z, 0f, 0f, da, db,
-                    fromStart, fromEnd, fromTop, startIsLow);
+            SpriteGeometry.Mesh far = near;
+            if (faced != null) {
+                far = stoodSquare(laid(solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z), faced.texture, da != 0f);
+            } else if (tint != 0) {
+                far = solid.get(texture.getID(), tint);
+            } else {
+                frame.flat = nearFlat;
+            }
+            addSkin(far, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
+            frame.flat = 0;
             paper = null;
             // Out of doors, on a whole wall in one colour.
             if (tint != 0 && farColour != null && frame.open > 0.5f && opening[at + OPENING_TOP] >= WHOLE_WALL) {
@@ -6609,6 +6738,27 @@ final class WorldScene {
                 frame.cornerGreen[near] = frame.cornerGreen[far] = green;
                 frame.cornerBlue[near] = frame.cornerBlue[far] = blue;
             }
+        }
+
+        /**
+         * The mesh a wall's skin goes in when it is to show the given sprite as the frame has
+         * it: the mesh of the sprite stood square, with the frame told so, where the skin was
+         * to go in the sprite's own mesh and is the wall itself. Any other mesh, one painted
+         * over, laid as masonry or papered, is given back as it is.
+         */
+        private SpriteGeometry.Mesh stoodSquare(SpriteGeometry.Mesh mesh, Texture texture, boolean north) {
+            frame.flat = 0;
+            if (overLayer != 0 || mesh.tint != 0 || mesh.texture != texture.getID()) {
+                return mesh;
+            }
+            int as = north ? Flats.NORTH : Flats.WEST;
+            int stood = Flats.of(texture, frame, as);
+            if (stood == 0) {
+                building.signed &= !Flats.unread(texture, as);
+                return mesh;
+            }
+            frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
+            return solid.get(stood);
         }
 
         /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
@@ -7745,7 +7895,8 @@ final class WorldScene {
                 // A flat roof that lies on its level has the floor there under it already, and lies
                 // clear of it: in the floor's own plane the two are drawn through each other.
                 layers.lie(SpriteGeometry.LAYERS_UP, level < FLAT_ROOF_ON_FLOOR ? FLAT_ROOF_LAYERS : 0f);
-                int made = geometry.addFace(mesh, frame, x, y, z, 0f, 0f, level, 1f, 0f, 0f, 0f, 1f, 0f);
+                int made = geometry.addFace(roofLaidFlat(mesh, texture, level, 0f, 0f), frame, x, y, z, 0f, 0f, level, 1f, 0f, 0f, 0f, 1f, 0f);
+                frame.flat = 0;
                 layers.none();
                 if (made > 0 && level > 2f * UNDER_ROOF) {
                     underRoof(x, y, z, level, 0f, 0f);
@@ -7762,8 +7913,10 @@ final class WorldScene {
                 heldLift[corner] = lift[corner];
                 lift[corner] += (fitted - read) * ViewCamera.LEVEL_HEIGHT;
             }
-            int added = readAlongX ? geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
-                    : geometry.addFace(mesh, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
+            SpriteGeometry.Mesh slope = roofLaidFlat(mesh, texture, northWest, readAlongX ? southEast - northWest : 0f, readAlongX ? 0f : southEast - northWest);
+            int added = readAlongX ? geometry.addFace(slope, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
+                    : geometry.addFace(slope, frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
+            frame.flat = 0;
             System.arraycopy(heldLift, 0, lift, 0, 4);
             boolean placed = tile.fitted || tile.sure;
             if (alongX) {
@@ -7788,6 +7941,22 @@ final class WorldScene {
                 // is under the tile whichever way it slopes, and still closes the roof.
                 underRoof(x, y, z, Math.min(low, high), 0f, 0f);
             }
+        }
+
+        /**
+         * The mesh a whole tile of roof goes in on the plane its sprite reads as, given as Flats
+         * holds one: the mesh of the sprite laid flat on that plane, with the frame told so,
+         * so the tile's courses meet the next tile's. The sprite's own mesh for a sprite that
+         * does not paint the whole of the plane.
+         */
+        private SpriteGeometry.Mesh roofLaidFlat(SpriteGeometry.Mesh mesh, Texture texture, float high, float climbA, float climbB) {
+            int flat = Flats.of(texture, frame, Flats.ROOF, high, climbA, climbB);
+            if (flat == 0) {
+                building.signed &= !Flats.unread(texture, Flats.ROOF);
+                return mesh;
+            }
+            frame.flat = SpriteGeometry.FLAT_FLOOR;
+            return solid.get(flat);
         }
 
         /**
@@ -8106,17 +8275,25 @@ final class WorldScene {
         /**
          * A flight is three squares, each a third of a level, rising towards -x (W) or -y (N): see
          * Stairs. Each square is built as the four steps its sprite paints, every tread and riser
-         * showing what the sprite has there.
+         * showing what the sprite has there, and what carries them is built with them: see Flights.
          * Returns false, adding nothing, for a sprite that is not a stair.
          */
         private boolean addStair(SpriteGeometry.Mesh mesh, Texture texture, IsoObjectType type, int x, int y, int z) {
-            int third = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsBN ? 0
-                    : type == IsoObjectType.stairsMW || type == IsoObjectType.stairsMN ? 1
-                    : type == IsoObjectType.stairsTW || type == IsoObjectType.stairsTN ? 2 : -1;
+            int third = thirdOf(type);
             if (third < 0) {
                 return false;
             }
-            boolean west = type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
+            boolean west = climbsWest(type);
+            // A flight the sprite paints with a side is closed: risers, a string down each side
+            // from the steps to the underside, the underside itself, and a back under the top
+            // step. A fire escape or a flight of logs has no side painted. Its treads are slabs
+            // with air between them, and what the sprite shows through the gaps is not on them.
+            // The side the sprite shows is the one towards the game's view, south of a flight
+            // that climbs west and east of one that climbs north.
+            float middle = third + 0.5f, band = middle / 3f - Stairs.STRING / 2f;
+            float sideA = west ? 0.5f : 1f, sideB = west ? 1f : 0.5f;
+            boolean closed = painted(texture, sideA, sideB, band);
+            float riser = closed ? Stairs.RISE : Flights.TREAD;
             int added = 0;
             for (int step = 0; step < Stairs.STEPS; step++) {
                 // The tread runs from its riser at near back to far, the way the flight climbs.
@@ -8131,24 +8308,32 @@ final class WorldScene {
                 geometry.shownUp = (step - shown) * Stairs.RISE;
                 added += west ? geometry.addFace(mesh, frame, x, y, z, far, 0f, high, Stairs.GOING, 0f, 0f, 0f, 1f, 0f)
                         : geometry.addFace(mesh, frame, x, y, z, 0f, far, high, 0f, Stairs.GOING, 0f, 1f, 0f, 0f);
-                added += west ? geometry.addFace(mesh, frame, x, y, z, near, 0f, high - Stairs.RISE, 0f, 1f, 0f, 0f, 0f, Stairs.RISE)
-                        : geometry.addFace(mesh, frame, x, y, z, 0f, near, high - Stairs.RISE, 1f, 0f, 0f, 0f, 0f, Stairs.RISE);
+                added += west ? geometry.addFace(mesh, frame, x, y, z, near, 0f, high - riser, 0f, 1f, 0f, 0f, 0f, riser)
+                        : geometry.addFace(mesh, frame, x, y, z, 0f, near, high - riser, 1f, 0f, 0f, 0f, 0f, riser);
             }
             geometry.shownA = geometry.shownB = geometry.shownUp = 0f;
-            // A flight the sprite paints with a side is closed: a string down each side from the
-            // steps to the underside, the underside itself, and a back under the top step. They
-            // are in the colour the sprite's own side has. Stairs of open treads, a fire escape
-            // or a flight of logs, have no side painted and are left as treads. The side the
-            // sprite shows is the one towards the game's view, south of a flight that climbs
-            // west and east of one that climbs north.
-            float middle = third + 0.5f, band = middle / 3f - Stairs.STRING / 2f;
-            float sideA = west ? 0.5f : 1f, sideB = west ? 1f : 0.5f;
-            if (added == 0 || !painted(texture, sideA, sideB, band)) {
+            if (added == 0) {
                 return true;
             }
-            float u = SpriteGeometry.textureU(frame, sideA, sideB), v = SpriteGeometry.textureV(frame, sideA, sideB, band);
+            if (!closed) {
+                // What carries the treads is in the mean of what the sprite paints. The build
+                // that first meets the sprite has no colour for it yet and is made again.
+                float[] colour = SpriteColours.of(texture);
+                if (colour == null) {
+                    building.signed &= !SpriteColours.unread(texture);
+                    return true;
+                }
+                SpriteGeometry.Mesh plain = solid.get(PLAIN, WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
+                plain.open = frame.open;
+                plain.sway = 0f;
+                flightOn(plain, x, y, z, west, third);
+                // The posts under the flight stand in for the one the map stands there, which is left out only with the rest of what the mod builds.
+                flights.open(third, !hangsInAir && Own.buildings());
+                return true;
+            }
             mesh.open = frame.open + 32f * frame.material;
             mesh.sway = 0f;
+            float u = SpriteGeometry.textureU(frame, sideA, sideB), v = SpriteGeometry.textureV(frame, sideA, sideB, band);
             float[] c = reveal;
             for (int side = 0; side <= 1; side++) {
                 for (int step = 0; step < Stairs.STEPS; step++) {
@@ -8176,6 +8361,128 @@ final class WorldScene {
                 SpriteGeometry.addQuad(mesh, c, u, v, frame.red, frame.green, frame.blue);
             }
             return true;
+        }
+
+        private final Flights flights = new Flights(this::flightQuad);
+        private final float[] flightCorners = new float[12];
+        private SpriteGeometry.Mesh flightMesh;
+        /** Where on its square a point of Flights' frame is: a = flightA + along * alongA + across * acrossA, and b likewise. */
+        private float flightA, flightB, alongA, alongB, acrossA, acrossB;
+        private int flightX, flightY, flightZ;
+
+        /** Has what Flights builds next go into this mesh, as the given square of a flight on the square at x, y, z. */
+        private void flightOn(SpriteGeometry.Mesh mesh, int x, int y, int z, boolean west, int third) {
+            frameOn(mesh, x, y, z, west ? 1f + third : 0f, west ? 0f : 1f + third, west ? -1f : 0f, west ? 0f : -1f, west ? 0f : 1f, west ? 1f : 0f);
+        }
+
+        private void frameOn(SpriteGeometry.Mesh mesh, int x, int y, int z, float a, float b, float sA, float sB, float cA, float cB) {
+            flightMesh = mesh;
+            flightX = x;
+            flightY = y;
+            flightZ = z;
+            flightA = a;
+            flightB = b;
+            alongA = sA;
+            alongB = sB;
+            acrossA = cA;
+            acrossB = cB;
+        }
+
+        private void flightQuad(float[] q) {
+            float[] c = flightCorners;
+            for (int corner = 0; corner < 4; corner++) {
+                float along = q[corner * 3], across = q[corner * 3 + 1];
+                float a = flightA + along * alongA + across * acrossA, b = flightB + along * alongB + across * acrossB;
+                set(c, corner, flightX + a, flightY + b, (flightZ + q[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b));
+            }
+            SpriteGeometry.addQuad(flightMesh, c, 0f, 0f, frame.red, frame.green, frame.blue);
+        }
+
+        /** Which square of a flight that climbs the given way the map has at a place: 0 the bottom one, 2 the top, -1 for none. */
+        private int flightThirdAt(int x, int y, int z, boolean west) {
+            IsoGridSquare square = cell.getGridSquare(x, y, z);
+            if (square == null) {
+                return -1;
+            }
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && thirdOf(sprite.getType()) >= 0 && climbsWest(sprite.getType()) == west) {
+                    return thirdOf(sprite.getType());
+                }
+            }
+            return -1;
+        }
+
+        /**
+         * A length of handrail, built as a rail: see Rails and Flights. A length of a flight's
+         * rail is built where the map has the square of the flight it is the rail of, on its
+         * own square or on the one before it across the flight, and the lengths the map hangs
+         * a level up over a flight are that same rail, built already. A rail along a wall
+         * stands clear of the wall on the flight's side. False for a length of a flight's rail
+         * with no flight to be the rail of, which is left the sprite it is.
+         */
+        private boolean addRail(Rails.Piece piece, int x, int y, int z) {
+            boolean slope = piece.part == Rails.SLOPE || piece.part == Rails.ABOVE;
+            boolean own = false;
+            // What is built depends on a square that may be another chunk's.
+            building.plain = false;
+            if (slope) {
+                int level = piece.part == Rails.ABOVE ? z - 1 : z;
+                own = flightThirdAt(x, y, level, piece.west) == piece.third;
+                if (!own && flightThirdAt(piece.west ? x : x - 1, piece.west ? y - 1 : y, level, piece.west) != piece.third) {
+                    return false;
+                }
+                if (piece.part == Rails.ABOVE) {
+                    return true;
+                }
+            }
+            SpriteGeometry.Mesh mesh = solid.get(PLAIN, WallSides.key(piece.red, piece.green, piece.blue, WallSides.FLAT));
+            mesh.open = frame.open;
+            mesh.sway = 0f;
+            if (slope) {
+                boolean walled = piece.west ? wallNorth : wallWest;
+                flightOn(mesh, x, y, z, piece.west, piece.third);
+                flights.slope(piece.third, piece.style, walled ? (own ? RAIL_OFF_WALL : -RAIL_OFF_WALL) : 0f);
+                return true;
+            }
+            if (piece.part == Rails.LEVEL_WEST || piece.part == Rails.LEVEL_BOTH) {
+                frameOn(mesh, x, y, z, 0f, 0f, 0f, 1f, 1f, 0f);
+                flights.level(piece.style, 0f);
+            }
+            if (piece.part == Rails.LEVEL_NORTH || piece.part == Rails.LEVEL_BOTH) {
+                frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
+                flights.level(piece.style, 0f);
+            }
+            if (piece.part == Rails.CORNER_POST || piece.part == Rails.LEVEL_BOTH && piece.style == Rails.BALUSTRADE) {
+                frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
+                flights.cornerPost(piece.style);
+            }
+            return true;
+        }
+
+        /**
+         * Whether a post the map stands under the head of a flight is the one Flights stands
+         * there: it is on the square a fire escape arrives over, and the flight's top square has
+         * a floor for the built posts to stand on.
+         */
+        private boolean underAFlightsHead(int x, int y, int z) {
+            building.plain = false;
+            for (int way = 0; way <= 1; way++) {
+                boolean west = way == 0;
+                IsoGridSquare top = cell.getGridSquare(west ? x + 1 : x, west ? y : y + 1, z);
+                if (top == null || top.getFloor() == null) {
+                    continue;
+                }
+                PZArrayList<IsoObject> objects = top.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    IsoSprite sprite = objects.get(i).getSprite();
+                    if (sprite != null && thirdOf(sprite.getType()) == 2 && climbsWest(sprite.getType()) == west && kindOf(sprite).fireEscape) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /** A corner of a flight's own faces: along is how far down the square from its high edge, across how far over it, high in levels above its floor. */
@@ -8235,6 +8542,8 @@ final class WorldScene {
             view.pipeline.cutRowsX = cutRowsX;
             view.pipeline.cutRowsY = cutRowsY;
             view.pipeline.cutBelow = outside ? cutBelow : 0f;
+            view.pipeline.sheltered = sheltered;
+            view.pipeline.away = outside ? outsideAway : 0f;
             view.pipeline.cutBox[0] = boxMinX;
             view.pipeline.cutBox[1] = boxMinY;
             view.pipeline.cutBox[2] = boxMaxX;
@@ -8244,6 +8553,10 @@ final class WorldScene {
             view.pipeline.focusX = camera.eyeX;
             view.pipeline.focusY = camera.eyeY;
             view.pipeline.focusUp = camera.eyeUp;
+            if (waterShown) {
+                WaterMirror.plane(terrain, camera.eyeX, camera.eyeY, waterPlane);
+            }
+            view.pipeline.water = waterShown ? waterPlane : null;
             if (outside) {
                 view.pipeline.rangeFrom = Math.max(outsideAway - OVERHEAD_RANGE, 0f);
                 // From far overhead nothing fades into the sky: the edge of the loaded map is beyond

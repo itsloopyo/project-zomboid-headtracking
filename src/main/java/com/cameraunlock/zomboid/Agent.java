@@ -561,12 +561,21 @@ public final class Agent {
                 // the looking up was a ninth of the game's logic thread. A character is given
                 // its state machine once, when it is made. It is kept beside the map, and let go
                 // whenever anything is put in the map or taken out of it.
-                new Patch(character, "getStateMachineComponent kept once found", classBytes -> CallSite.keepInField(classBytes,
-                        new CallSite.Method(character, "getStateMachineComponent", "()Lzombie/characters/component/StateMachineComponent;"),
-                        "cameraUnlockStateMachine", "zombie/iso/IsoMovingObject", List.of(
-                                new CallSite.Method(character, "setECSComponent", "(L" + component + ";)V"),
-                                new CallSite.Method(character, "removeECSComponent", "(L" + component + ";)V"),
-                                new CallSite.Method(character, "removeECSComponent", "(Ljava/lang/Class;)V")))),
+                new Patch(character, "getStateMachineComponent kept once found", classBytes -> {
+                    List<CallSite.Method> changers = List.of(
+                            new CallSite.Method(character, "setECSComponent", "(L" + component + ";)V"),
+                            new CallSite.Method(character, "removeECSComponent", "(L" + component + ";)V"),
+                            new CallSite.Method(character, "removeECSComponent", "(Ljava/lang/Class;)V"));
+                    // A changer the game no longer has by that name would be given a method nothing calls, and what is kept would never be let go.
+                    for (CallSite.Method changer : changers) {
+                        String why = Links.notInherited("zombie/iso/IsoMovingObject", changer.name(), changer.descriptor(), Links::running);
+                        if (why != null) {
+                            throw new IllegalStateException(changer + " is not inherited as it was: " + why);
+                        }
+                    }
+                    return CallSite.keepInField(classBytes, new CallSite.Method(character, "getStateMachineComponent", "()Lzombie/characters/component/StateMachineComponent;"),
+                            "cameraUnlockStateMachine", "zombie/iso/IsoMovingObject", changers);
+                }),
                 // The game asks of every bone of every character on every frame whether the bone is
                 // among those hung on another skeleton, by boxing the bone's number, taking a
                 // predicate out of a pool that keeps its own in a hash set, and walking the list

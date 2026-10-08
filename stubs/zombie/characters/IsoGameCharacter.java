@@ -5,7 +5,6 @@ import zombie.iso.Vector2;
 import zombie.vehicles.BaseVehicle;
 
 public abstract class IsoGameCharacter extends IsoMovingObject {
-    public Safety getSafety() { throw new UnsupportedOperationException("reference stub"); }
     public CharacterInputMode getInputMode() { throw new UnsupportedOperationException("reference stub"); }
     public int getJoypadBind() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.component.CharacterInputComponent getCharacterInputComponent() { throw new UnsupportedOperationException("reference stub"); }
@@ -21,6 +20,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isSitOnGround() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSittingOnFurniture() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.skinnedmodel.animation.AnimationPlayer getAnimationPlayer() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isAsleep() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDead() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.WornItems.WornItems getWornItems() { throw new UnsupportedOperationException("reference stub"); }
     public BaseVehicle getVehicle() { throw new UnsupportedOperationException("reference stub"); }

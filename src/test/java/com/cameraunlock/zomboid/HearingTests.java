@@ -10,10 +10,10 @@ final class HearingTests {
     private HearingTests() {}
 
     static void run() {
-        theOverheadCameraIsHeardAsTheGameHearsIt();
-        atTheEyeTheRightEarIsTheViewsRight();
-        theEarsStaySquareAllTheWayIn();
-        theCameraIsNoWayOutFromTheEye();
+        Checks.run("theOverheadCameraIsHeardAsTheGameHearsIt", HearingTests::theOverheadCameraIsHeardAsTheGameHearsIt);
+        Checks.run("atTheEyeTheRightEarIsTheViewsRight", HearingTests::atTheEyeTheRightEarIsTheViewsRight);
+        Checks.run("theEarsStaySquareAllTheWayIn", HearingTests::theEarsStaySquareAllTheWayIn);
+        Checks.run("theCameraIsNoWayOutFromTheEye", HearingTests::theCameraIsNoWayOutFromTheEye);
     }
 
     /** The side the game's sound engine takes for the right ear: its up crossed with the way it faces. */
@@ -79,9 +79,7 @@ final class HearingTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

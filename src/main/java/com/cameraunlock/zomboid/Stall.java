@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Locale;
 import java.util.Map;
+import zombie.characters.IsoPlayer;
 
 /**
  * Says where the game stood while it stood still. A frame that takes seconds leaves nothing
@@ -54,7 +55,9 @@ final class Stall {
     private static boolean anyOn() {
         for (int player = 0; player < View.COUNT; player++) {
             View view = View.of(player);
-            if (view != null && view.firstPerson.isOn()) {
+            // A player asleep has no frame drawn, by the game's own choice.
+            IsoPlayer viewer = view == null ? null : view.player();
+            if (viewer != null && !viewer.isAsleep() && view.firstPerson.isOn()) {
                 return true;
             }
         }

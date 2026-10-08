@@ -5,19 +5,19 @@ final class ScopeTests {
     private ScopeTests() {}
 
     static void run() {
-        onlyTheThreeMagnifyingScopesAreKnown();
-        scopeShowsTheWorldItsPowerTimesLargerThanTheUnaidedView();
-        pictureIsDrawnWideEnoughForTheWholeField();
-        wholeFieldIsLitFromTheExitPupil();
-        eyeOffTheAxisLosesThePicture();
-        eyeTooNearKeepsTheWholePicture();
-        shadowComesInFromOneSide();
-        noPictureIsDrawnForAnEyeThatCannotSeeOne();
-        eyeBoxIsMeasuredInTheHeadsOwnMillimetres();
-        leanInStopsShortOfTheGlass();
-        mouseMovesTheScopesPictureAsFarAsTheHipsView();
-        shapeIsWholeAndStandsOnTheRifle();
-        eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece();
+        Checks.run("onlyTheThreeMagnifyingScopesAreKnown", ScopeTests::onlyTheThreeMagnifyingScopesAreKnown);
+        Checks.run("scopeShowsTheWorldItsPowerTimesLargerThanTheUnaidedView", ScopeTests::scopeShowsTheWorldItsPowerTimesLargerThanTheUnaidedView);
+        Checks.run("pictureIsDrawnWideEnoughForTheWholeField", ScopeTests::pictureIsDrawnWideEnoughForTheWholeField);
+        Checks.run("wholeFieldIsLitFromTheExitPupil", ScopeTests::wholeFieldIsLitFromTheExitPupil);
+        Checks.run("eyeOffTheAxisLosesThePicture", ScopeTests::eyeOffTheAxisLosesThePicture);
+        Checks.run("eyeTooNearKeepsTheWholePicture", ScopeTests::eyeTooNearKeepsTheWholePicture);
+        Checks.run("shadowComesInFromOneSide", ScopeTests::shadowComesInFromOneSide);
+        Checks.run("noPictureIsDrawnForAnEyeThatCannotSeeOne", ScopeTests::noPictureIsDrawnForAnEyeThatCannotSeeOne);
+        Checks.run("eyeBoxIsMeasuredInTheHeadsOwnMillimetres", ScopeTests::eyeBoxIsMeasuredInTheHeadsOwnMillimetres);
+        Checks.run("leanInStopsShortOfTheGlass", ScopeTests::leanInStopsShortOfTheGlass);
+        Checks.run("mouseMovesTheScopesPictureAsFarAsTheHipsView", ScopeTests::mouseMovesTheScopesPictureAsFarAsTheHipsView);
+        Checks.run("shapeIsWholeAndStandsOnTheRifle", ScopeTests::shapeIsWholeAndStandsOnTheRifle);
+        Checks.run("eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece", ScopeTests::eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece);
     }
 
     private static void onlyTheThreeMagnifyingScopesAreKnown() {
@@ -228,8 +228,6 @@ final class ScopeTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

@@ -740,7 +740,7 @@ def desk():
     return model
 
 
-def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False):
+def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, made="wood", top_of="worktop"):
     """One square of a run of cupboards, a metre wide so that each meets the next: the counter under a worktop when
     base, the cupboard on the wall when not. Its origin is the middle of its square, which a corner piece fills along
     two of its edges: its back, and the side on its left as it is looked at. A shop's counter is panelled: it has no
@@ -763,14 +763,14 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False):
         if base:
             cuboid(body, side, side + deep - lip - 0.06, -0.5, front + lip + 0.06, 0.0, kick)
         cuboid(body, side, side + deep - lip, -0.5, front + lip, kick, top)
-    model.hard(body, "wood", bevel=0.004)
+    model.hard(body, made, bevel=0.004)
 
     # A corner piece's two faces are plain: the doors of a corner cupboard are on the pieces either side of it.
     if panelled and not corner:
         frame, panel = bmesh.new(), bmesh.new()
         framed_door(frame, panel, -0.498, 0.498, kick + 0.012, top - 0.012, front + lip - 0.02, rail=0.075, thick=0.02)
-        model.hard(frame, "wood", bevel=0.004)
-        model.hard(panel, "wood", bevel=0.003)
+        model.hard(frame, made, bevel=0.004)
+        model.hard(panel, made, bevel=0.003)
     elif not corner:
         frame, panel, pulls = bmesh.new(), bmesh.new(), bmesh.new()
         face = front + lip - 0.02
@@ -779,8 +779,8 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False):
             framed_door(frame, panel, low, far, kick + 0.012, top - 0.012, face, rail=0.06, thick=0.02, field=False)
             grip = top - 0.14 if base else kick + 0.07
             bar_handle(pulls, way * 0.05 - 0.006, way * 0.05 + 0.006, face, grip, grip + 0.11, proud=0.028, thick=0.01)
-        model.hard(frame, "wood", bevel=0.004)
-        model.hard(panel, "wood", bevel=0.003)
+        model.hard(frame, made, bevel=0.004)
+        model.hard(panel, made, bevel=0.003)
         model.hard(pulls, "metal", bevel=0.003, segments=1)
 
     if base:
@@ -811,7 +811,7 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False):
             cuboid(tops, side if corner else -0.5, 0.5, front, back, top, high)
             if corner:
                 cuboid(tops, side, side + deep, -0.5, front, top, high)
-        model.hard(tops, "worktop", bevel=0.005, segments=2)
+        model.hard(tops, top_of, bevel=0.005, segments=2)
     return model
 
 
@@ -1582,7 +1582,7 @@ def low_shelves():
     return model
 
 
-def wall_shelf(name, boards):
+def wall_shelf(name, boards, made="wood"):
     """Boards on brackets on a wall, the wall at +Y. Its top is the top of the highest board."""
     model = Model(name)
     half, front, back = 0.45, -0.13, 0.13
@@ -1595,7 +1595,7 @@ def wall_shelf(name, boards):
             cuboid(brackets, x - 0.009, x + 0.009, back - 0.012, back, z, z + 0.13)
             cuboid(brackets, x - 0.009, x + 0.009, front + 0.04, back - 0.012, z + 0.118, z + 0.13)
             prism_y(brackets, (x, z + 0.105, 0.008, 0.012, front + 0.07), (x, z + 0.02, 0.008, 0.012, back - 0.012))
-    model.hard(planks, "wood", bevel=0.005, segments=2)
+    model.hard(planks, made, bevel=0.005, segments=2)
     model.hard(brackets, "metal", bevel=0.002, segments=1)
     return model
 
@@ -2231,6 +2231,590 @@ def serving_counter():
     return model
 
 
+def range_hood():
+    """A canopy hood over a cooker: a steel lip, a canopy whose front slopes back to a duct, and the duct going up
+    to the ceiling. Its back, flat, is at +Y, and its foot is the lower edge of the lip: the mod hangs it over a hob."""
+    model = Model("range_hood")
+    half, front, back = 0.44, -0.3, 0.3
+    canopy = bmesh.new()
+    cuboid(canopy, -half, half, front, back, 0.0, 0.07)
+    prism(canopy, (0.0, 0.0, 2 * half, back - front, 0.07), (0.0, back - 0.15, 2 * half - 0.2, 0.3, 0.36))
+    model.hard(canopy, "steel", bevel=0.006, segments=2)
+    duct = bmesh.new()
+    cuboid(duct, -0.16, 0.16, back - 0.27, back - 0.03, 0.36, 0.86)
+    model.hard(duct, "steel", bevel=0.004, segments=1)
+    filters = bmesh.new()
+    for side in (-1, 1):
+        cuboid(filters, side * 0.215 - 0.19, side * 0.215 + 0.19, front + 0.06, back - 0.06, -0.006, 0.0)
+    model.plain(filters, "rubber")
+    return model
+
+
+def ruffled(bm, rng, about, by):
+    """Moves every vertex of a part in or out from the upright through about by up to by, for something of no
+    regular shape: a bag's folds, a heap."""
+    for vert in bm.verts:
+        away = Vector((vert.co.x - about[0], vert.co.y - about[1], 0.0))
+        if away.length > 1e-6:
+            vert.co += away.normalized() * rng.uniform(-by, by)
+
+
+def garbage_can():
+    """A round can with a bin bag in it: the bag's top turned down over the rim in folds, and what has been thrown
+    away heaped to the brim."""
+    model = Model("garbage_can")
+    rng = random.Random(17)
+    can = bmesh.new()
+    profile = [(0.0, 0.0), (0.225, 0.0), (0.232, 0.012)]
+    for z in (0.2, 0.42):
+        profile += [(0.232 + 0.03 * z / 0.7, z - 0.012), (0.24 + 0.03 * z / 0.7, z), (0.232 + 0.03 * z / 0.7, z + 0.012)]
+    profile += [(0.262, 0.7), (0.0, 0.7)]
+    lathe(can, profile, segments=24)
+    model.turned(can, "paint", sharp=35.0)
+    bag = bmesh.new()
+    lathe(bag, [(0.2, 0.655), (0.25, 0.722), (0.274, 0.71), (0.283, 0.62), (0.28, 0.53), (0.268, 0.53), (0.266, 0.69), (0.24, 0.7), (0.2, 0.64)],
+          segments=24, closed=True)
+    ruffled(bag, rng, (0.0, 0.0), 0.008)
+    for vert in bag.verts:
+        if vert.co.z < 0.56:
+            vert.co.z += rng.uniform(-0.035, 0.03)
+    model.turned(bag, "rubber", sharp=70.0)
+    heap = bmesh.new()
+    lathe(heap, [(0.0, 0.6), (0.205, 0.6), (0.2, 0.655), (0.13, 0.705), (0.06, 0.725), (0.0, 0.73)], segments=14)
+    for vert in heap.verts:
+        if vert.co.z > 0.66:
+            vert.co.z += rng.uniform(-0.02, 0.03)
+    model.turned(heap, "rubber", sharp=25.0)
+    for made, lumps in (("shade", ((0.07, 0.03, 0.735, 0.06), (-0.09, -0.06, 0.715, 0.05))), ("linen", ((-0.03, 0.1, 0.725, 0.055),)),
+                        ("metal", ((0.02, -0.1, 0.72, 0.045),))):
+        lump = bmesh.new()
+        for x, y, z, size in lumps:
+            bmesh.ops.create_icosphere(lump, subdivisions=1, radius=size, matrix=Matrix.Translation((x, y, z)) @ Matrix.Diagonal((1.0, 0.8, 0.6, 1.0)))
+        for vert in lump.verts:
+            vert.co += Vector((rng.uniform(-0.012, 0.012), rng.uniform(-0.012, 0.012), rng.uniform(-0.008, 0.008)))
+        model.turned(lump, made, sharp=20.0)
+    return model
+
+
+def waste_basket():
+    """A small bin for under a desk: oval, wider at its rim, open."""
+    model = Model("waste_basket")
+    bin_ = bmesh.new()
+    lathe(bin_, [(0.0, 0.0), (0.125, 0.0), (0.13, 0.01), (0.165, 0.35), (0.168, 0.36), (0.156, 0.36), (0.122, 0.022), (0.0, 0.022)], segments=20, sy=0.78)
+    model.turned(bin_, "plastic", sharp=40.0)
+    return model
+
+
+def louvre(name, width, height, made, slats, deep=0.045):
+    """A grille on a wall, its back at +Y: a frame, slats across it that lean with their lower edge out, and the dark behind them."""
+    model = Model(name)
+    half, front, back, rail = width / 2, -deep, 0.0, 0.035
+    frame = bmesh.new()
+    cuboid(frame, -half, half, front, back, 0.0, rail)
+    cuboid(frame, -half, half, front, back, height - rail, height)
+    cuboid(frame, -half, -half + rail, front, back, rail, height - rail)
+    cuboid(frame, half - rail, half, front, back, rail, height - rail)
+    model.hard(frame, made, bevel=0.005, segments=2)
+    dark = bmesh.new()
+    cuboid(dark, -half + rail, half - rail, back - 0.006, back, rail, height - rail)
+    model.plain(dark, "rubber")
+    blades = bmesh.new()
+    step = (height - 2 * rail) / slats
+    for n in range(slats):
+        z = rail + n * step
+        prism_y(blades, (0.0, z + 0.2 * step, width - 2 * rail, 0.005, front + 0.004), (0.0, z + 0.85 * step, width - 2 * rail, 0.005, back - 0.008))
+    model.hard(blades, made, bevel=0.002, segments=1)
+    return model
+
+
+def round_vent():
+    """A round vent on a wall, its back at +Y: a domed face with slots across it."""
+    model = Model("round_vent")
+    face = bmesh.new()
+    lathe(face, [(0.0, 0.0), (0.17, 0.0), (0.17, 0.02), (0.14, 0.034), (0.0, 0.04)], segments=20, to=along_y(0.0, 0.0, 0.17))
+    model.turned(face, "enamel", sharp=40.0)
+    slots = bmesh.new()
+    for n in range(5):
+        z = 0.17 + (n - 2) * 0.052
+        reach = math.sqrt(max(0.125 ** 2 - (z - 0.17) ** 2, 0.0))
+        cuboid(slots, -reach, reach, -0.043, -0.03, z - 0.011, z + 0.011)
+    model.plain(slots, "rubber")
+    return model
+
+
+def exit_sign():
+    """The sign over a way out, its back at +Y: a white case with the word in red letters standing a little out of its face."""
+    model = Model("exit_sign")
+    case = bmesh.new()
+    cuboid(case, -0.19, 0.19, -0.05, 0.0, 0.0, 0.2)
+    model.hard(case, "enamel", bevel=0.006, segments=2)
+    word = bmesh.new()
+    face, low, high, bar = -0.05, 0.045, 0.155, 0.02
+
+    def stroke(x0, x1, z0, z1):
+        cuboid(word, x0, x1, face - 0.004, face, z0, z1)
+
+    # Whoever reads the sign looks along +Y, and has the model's -X on their left.
+    stroke(-0.15, -0.13, low, high)
+    for z in (low, (low + high) / 2 - bar / 2, high - bar):
+        stroke(-0.13, -0.085, z, z + bar)
+    for lean in (-1, 1):
+        prism(word, (-0.035 - lean * 0.026, face - 0.002, bar, 0.004, low), (-0.035 + lean * 0.026, face - 0.002, bar, 0.004, high))
+    stroke(0.03, 0.05, low, high)
+    stroke(0.08, 0.15, high - bar, high)
+    stroke(0.105, 0.125, low, high - bar)
+    model.plain(word, "vinyl")
+    return model
+
+
+def strip_light():
+    """A fluorescent fitting along a wall, its back at +Y: a white tray with one tube under a ribbed cover."""
+    model = Model("strip_light")
+    tray = bmesh.new()
+    cuboid(tray, -0.5, 0.5, -0.03, 0.0, 0.0, 0.1)
+    for side in (-1, 1):
+        cuboid(tray, side * 0.5 - 0.02, side * 0.5 + 0.02, -0.085, 0.0, 0.0, 0.1)
+    model.hard(tray, "enamel", bevel=0.004, segments=1)
+    tube = bmesh.new()
+    lathe(tube, [(0.0, -0.48), (0.03, -0.48), (0.03, 0.48), (0.0, 0.48)], segments=10, to=along_x(0.0, -0.055, 0.05))
+    model.turned(tube, "shade", sharp=60.0)
+    return model
+
+
+def sconce():
+    """A lamp on a wall, the wall at +Y: a brass plate, an arm that comes out and turns up, and a shade on it."""
+    model = Model("sconce")
+    brass = bmesh.new()
+    cuboid(brass, -0.05, 0.05, 0.085, 0.1, 0.0, 0.16)
+    prism_y(brass, (0.0, 0.05, 0.02, 0.02, -0.03), (0.0, 0.07, 0.02, 0.02, 0.085))
+    lathe(brass, [(0.0, 0.04), (0.012, 0.04), (0.012, 0.14), (0.022, 0.15), (0.0, 0.155)], cy=-0.03, segments=10)
+    model.hard(brass, "metal", bevel=0.003, segments=1)
+    shade = bmesh.new()
+    lathe(shade, [(0.1, 0.13), (0.104, 0.13), (0.064, 0.3), (0.06, 0.3)], cy=-0.03, segments=18, closed=True)
+    bmesh.ops.create_uvsphere(shade, u_segments=8, v_segments=5, radius=0.028, matrix=Matrix.Translation((0.0, -0.03, 0.19)))
+    model.turned(shade, "shade", sharp=60.0)
+    return model
+
+
+def pedestal_sink():
+    """A basin on a column, the wall at +Y. Its rim is 0.87 above the floor."""
+    model = Model("pedestal_sink")
+    lift = 0.43
+    bowl = bmesh.new()
+    lathe(bowl, [(0.0, 0.27 + lift), (0.11, 0.28 + lift), (0.21, 0.34 + lift), (0.25, 0.42 + lift), (0.26, 0.44 + lift), (0.235, 0.44 + lift),
+                 (0.2, 0.36 + lift), (0.1, 0.315 + lift), (0.0, 0.31 + lift)], segments=22, sy=0.8)
+    cuboid(bowl, -0.25, 0.25, 0.14, 0.21, 0.36 + lift, 0.47 + lift)
+    lathe(bowl, [(0.0, 0.0), (0.12, 0.0), (0.115, 0.03), (0.075, 0.09), (0.062, 0.45), (0.09, 0.66), (0.11, 0.72), (0.0, 0.72)], cy=0.04, segments=16, sy=0.85)
+    model.turned(bowl, "ceramic", sharp=50.0)
+    taps = bmesh.new()
+    lathe(taps, [(0.0, 0.47 + lift), (0.018, 0.47 + lift), (0.018, 0.56 + lift), (0.0, 0.565 + lift)], cy=0.175, segments=10)
+    prism_y(taps, (0.0, 0.535 + lift, 0.022, 0.02, 0.05), (0.0, 0.55 + lift, 0.022, 0.02, 0.175))
+    for side in (-0.09, 0.09):
+        lathe(taps, [(0.0, 0.47 + lift), (0.02, 0.47 + lift), (0.024, 0.495 + lift), (0.0, 0.5 + lift)], cx=side, cy=0.175, segments=8)
+    model.turned(taps, "steel", sharp=40.0)
+    return model
+
+
+def medicine_cabinet():
+    """A cupboard on a bathroom wall with a mirror for its door, the wall at +Y."""
+    model = Model("medicine_cabinet")
+    half, front, back, high = 0.23, -0.14, 0.0, 0.58
+    body = bmesh.new()
+    cuboid(body, -half, half, front + 0.02, back, 0.0, high)
+    cuboid(body, -half - 0.012, half + 0.012, front, back, high, high + 0.02)
+    model.hard(body, "enamel", bevel=0.005, segments=2)
+    frame = bmesh.new()
+    rail, face = 0.035, front
+    cuboid(frame, -half + 0.004, half - 0.004, face, face + 0.02, 0.006, 0.006 + rail)
+    cuboid(frame, -half + 0.004, half - 0.004, face, face + 0.02, high - 0.006 - rail, high - 0.006)
+    cuboid(frame, -half + 0.004, -half + 0.004 + rail, face, face + 0.02, 0.006 + rail, high - 0.006 - rail)
+    cuboid(frame, half - 0.004 - rail, half - 0.004, face, face + 0.02, 0.006 + rail, high - 0.006 - rail)
+    model.hard(frame, "enamel", bevel=0.004, segments=1)
+    glass = bmesh.new()
+    cuboid(glass, -half + rail, half - rail, face + 0.008, face + 0.02, rail, high - rail)
+    model.plain(glass, "pane")
+    pull = bmesh.new()
+    knob(pull, half - 0.022, face, 0.1, 0.8)
+    model.turned(pull, "metal")
+    return model
+
+
+def hand_dryer():
+    """A hot air hand dryer on a wall, the wall at +Y: a rounded steel case, the spout under it and its button."""
+    model = Model("hand_dryer")
+    case = bmesh.new()
+    cuboid(case, -0.13, 0.13, -0.17, 0.0, 0.05, 0.3)
+    model.hard(case, "steel", bevel=0.035, segments=3)
+    spout = bmesh.new()
+    lathe(spout, [(0.0, 0.0), (0.035, 0.0), (0.04, 0.012), (0.04, 0.06), (0.0, 0.06)], cy=-0.1, segments=12)
+    lathe(spout, [(0.0, 0.0), (0.026, 0.0), (0.024, 0.012), (0.0, 0.014)], segments=12, to=along_y(0.0, -0.17, 0.2))
+    model.turned(spout, "metal", sharp=40.0)
+    return model
+
+
+def coat_rack():
+    """A shelf on a wall with a row of hooks under it, the wall at +Y."""
+    model = Model("coat_rack")
+    half = 0.46
+    boards = bmesh.new()
+    cuboid(boards, -half, half, -0.2, 0.0, 0.2, 0.225)
+    cuboid(boards, -half, half, -0.02, 0.0, 0.07, 0.2)
+    for side in (-1, 1):
+        outline_along_x(boards, [(-0.18, 0.2), (0.0, 0.2), (0.0, 0.05), (-0.03, 0.05)], side * (half - 0.05) - 0.012, side * (half - 0.05) + 0.012)
+    model.hard(boards, "wood", bevel=0.004, segments=1)
+    hooks = bmesh.new()
+    for n in range(4):
+        x = (n - 1.5) * 0.22
+        prism_y(hooks, (x, 0.13, 0.012, 0.012, -0.075), (x, 0.13, 0.012, 0.012, -0.02))
+        cuboid(hooks, x - 0.006, x + 0.006, -0.087, -0.075, 0.124, 0.17)
+        prism_y(hooks, (x, 0.04, 0.012, 0.012, -0.09), (x, 0.1, 0.012, 0.012, -0.02))
+        cuboid(hooks, x - 0.006, x + 0.006, -0.102, -0.09, 0.034, 0.08)
+    model.hard(hooks, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def clothes_rail():
+    """A shop's rail for clothes on hangers, two squares long: a bar on two posts, each on a foot across it with castors."""
+    model = Model("clothes_rail")
+    half, top = 0.8, 1.55
+    frame = bmesh.new()
+    lathe(frame, [(0.016, -half - 0.06), (0.016, half + 0.06)], segments=10, caps=True, to=along_x(0.0, 0.0, top))
+    for side in (-1, 1):
+        lathe(frame, [(0.018, 0.07), (0.018, top)], cx=side * half, segments=10)
+        cuboid(frame, side * half - 0.018, side * half + 0.018, -0.3, 0.3, 0.06, 0.09)
+    lathe(frame, [(0.012, -half), (0.012, half)], segments=8, to=along_x(0.0, 0.0, 0.3))
+    model.turned(frame, "steel", sharp=40.0)
+    castors = bmesh.new()
+    for side in (-1, 1):
+        for y in (-0.27, 0.27):
+            lathe(castors, [(0.0, -0.012), (0.03, -0.012), (0.03, 0.012), (0.0, 0.012)], segments=10, to=along_x(side * half, y, 0.03))
+    model.turned(castors, "rubber")
+    return model
+
+
+def filing_cabinet():
+    """A steel filing cabinet of three drawers, each with a pull and a holder for its label."""
+    model = Model("filing_cabinet")
+    half, front, back, top = 0.235, -0.3, 0.3, 1.02
+    body = bmesh.new()
+    cuboid(body, -half, half, front, back, 0.0, top)
+    model.hard(body, "paint", bevel=0.006, segments=2)
+    fronts, trim = bmesh.new(), bmesh.new()
+    high = (top - 0.05) / 3
+    for n in range(3):
+        low = 0.03 + n * high
+        cuboid(fronts, -half + 0.012, half - 0.012, front - 0.016, front, low, low + high - 0.012)
+        bar_handle(trim, -0.07, 0.07, front - 0.016, low + high * 0.62, low + high * 0.62 + 0.016, proud=0.026, thick=0.01)
+        cuboid(trim, -0.045, 0.045, front - 0.02, front - 0.016, low + high * 0.3, low + high * 0.3 + 0.035)
+    model.hard(fronts, "paint", bevel=0.005, segments=2)
+    model.hard(trim, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def carton(name, width, depth, high):
+    """A cardboard box, shut: its four flaps meet along the middle of its top under a strip of tape that runs a hand down each end."""
+    model = Model(name)
+    hx, hy = width / 2, depth / 2
+    box = bmesh.new()
+    cuboid(box, -hx, hx, -hy, hy, 0.0, high - 0.006)
+    for side in (-1, 1):
+        low, far = sorted((side * 0.003, side * hy))
+        cuboid(box, -hx, hx, low, far, high - 0.006, high)
+    model.hard(box, "paint", bevel=0.004, segments=1)
+    tape = bmesh.new()
+    cuboid(tape, -hx - 0.002, hx + 0.002, -0.03, 0.03, high - 0.0005, high + 0.002)
+    for side in (-1, 1):
+        low, far = sorted((side * hx, side * (hx + 0.002)))
+        cuboid(tape, low, far, -0.03, 0.03, high - 0.11, high + 0.002)
+    model.plain(tape, "shade")
+    return model
+
+
+def computer():
+    """A desktop computer of the nineties: the case lying flat, the tube monitor on it, the keyboard before them."""
+    model = Model("computer")
+    case = bmesh.new()
+    cuboid(case, -0.21, 0.21, -0.12, 0.28, 0.0, 0.105)
+    model.hard(case, "shade", bevel=0.006, segments=2)
+    slots = bmesh.new()
+    cuboid(slots, 0.04, 0.17, -0.123, -0.12, 0.06, 0.07)
+    cuboid(slots, 0.04, 0.17, -0.123, -0.12, 0.032, 0.042)
+    model.plain(slots, "plastic")
+    tube = bmesh.new()
+    lathe(tube, [(0.0, 0.105), (0.11, 0.105), (0.12, 0.115), (0.07, 0.14), (0.0, 0.14)], cy=0.06, segments=14)
+    cuboid(tube, -0.185, 0.185, -0.1, 0.02, 0.14, 0.46)
+    prism_y(tube, (0.0, 0.3, 0.36, 0.31, 0.02), (0.0, 0.29, 0.22, 0.2, 0.27))
+    model.hard(tube, "shade", bevel=0.012, segments=2)
+    glass = bmesh.new()
+    cuboid(glass, -0.15, 0.15, -0.104, -0.1, 0.185, 0.425)
+    model.hard(glass, "screen", bevel=0.01, segments=2)
+    keys = bmesh.new()
+    prism(keys, (0.0, -0.3, 0.44, 0.16, 0.0), (0.0, -0.295, 0.44, 0.15, 0.022))
+    model.hard(keys, "shade", bevel=0.004, segments=1)
+    caps = bmesh.new()
+    cuboid(caps, -0.2, 0.2, -0.36, -0.235, 0.022, 0.027)
+    model.plain(caps, "linen")
+    return model
+
+
+def water_cooler():
+    """A water dispenser: a cabinet with two taps over a drip tray, and the bottle upside down on top."""
+    model = Model("water_cooler")
+    body = bmesh.new()
+    cuboid(body, -0.16, 0.16, -0.16, 0.16, 0.0, 0.98)
+    model.hard(body, "shade", bevel=0.012, segments=2)
+    trim = bmesh.new()
+    cuboid(trim, -0.1, 0.1, -0.2, -0.16, 0.6, 0.615)
+    for x in (-0.045, 0.045):
+        cuboid(trim, x - 0.012, x + 0.012, -0.19, -0.16, 0.76, 0.8)
+    model.hard(trim, "metal", bevel=0.003, segments=1)
+    recess = bmesh.new()
+    cuboid(recess, -0.11, 0.11, -0.162, -0.16, 0.62, 0.84)
+    model.plain(recess, "plastic")
+    bottle = bmesh.new()
+    profile = [(0.0, 0.98), (0.04, 0.98), (0.045, 1.03), (0.12, 1.09)]
+    for z in (1.16, 1.25):
+        profile += [(0.135, z - 0.035), (0.125, z), (0.135, z + 0.035)]
+    profile += [(0.135, 1.34), (0.11, 1.38), (0.0, 1.385)]
+    lathe(bottle, profile, segments=18)
+    model.turned(bottle, "paint", sharp=50.0)
+    return model
+
+
+def floor_lamp(name, shaded):
+    """A lamp that stands on the floor: a weighted foot and a thin post, with a shade on top, or the dish of an
+    uplighter. The post is paint, which the mod dyes."""
+    model = Model(name)
+    top = 1.5 if shaded else 1.72
+    post_ = bmesh.new()
+    lathe(post_, [(0.0, 0.0), (0.14, 0.0), (0.14, 0.018), (0.05, 0.035), (0.014, 0.05), (0.014, top), (0.0, top)], segments=16)
+    model.turned(post_, "paint", sharp=40.0)
+    light = bmesh.new()
+    if shaded:
+        lathe(light, [(0.17, 1.28), (0.174, 1.28), (0.114, 1.62), (0.11, 1.62)], segments=20, closed=True)
+        bmesh.ops.create_uvsphere(light, u_segments=8, v_segments=5, radius=0.035, matrix=Matrix.Translation((0.0, 0.0, 1.45)))
+    else:
+        lathe(light, [(0.0, 1.7), (0.03, 1.7), (0.12, 1.75), (0.17, 1.8), (0.16, 1.805), (0.1, 1.77), (0.0, 1.75)], segments=20)
+    model.turned(light, "shade", sharp=50.0)
+    return model
+
+
+def dresser_mirror():
+    """A chest of drawers with a looking glass standing on its top between two posts, the wall at +Y. The chest's top is 0.88 high."""
+    model = Model("dresser_mirror")
+    half, front, back, top = 0.46, -0.23, 0.24, 0.88
+    body = bmesh.new()
+    cuboid(body, -half + 0.03, half - 0.03, front + 0.04, back, 0.0, 0.07)
+    cuboid(body, -half, half, front, back, 0.07, top - 0.035)
+    model.hard(body, "wood", bevel=0.006)
+    board = bmesh.new()
+    cuboid(board, -half - 0.025, half + 0.025, front - 0.035, back, top - 0.035, top)
+    model.hard(board, "wood", bevel=0.01, segments=3)
+    fronts, pulls = bmesh.new(), bmesh.new()
+    drawer_fronts(fronts, pulls, -half + 0.012, half - 0.012, 0.08, top - 0.045, 3, front - 0.018, at=(0.25, 0.75), size=1.15)
+    model.hard(fronts, "wood", bevel=0.005)
+    model.turned(pulls, "metal")
+    frame = bmesh.new()
+    wide, low, high, rail, face = 0.31, top + 0.05, top + 0.86, 0.05, back - 0.07
+    for side in (-1, 1):
+        cuboid(frame, side * (wide + 0.03) - 0.02, side * (wide + 0.03) + 0.02, face, face + 0.04, top, top + 0.5)
+    cuboid(frame, -wide, wide, face, face + 0.032, low, low + rail)
+    cuboid(frame, -wide, -wide + rail, face, face + 0.032, low + rail, high - rail)
+    cuboid(frame, wide - rail, wide, face, face + 0.032, low + rail, high - rail)
+    outline_along_y(frame, [(-wide, high - rail), (wide, high - rail), (wide, high), (wide * 0.6, high + 0.07), (0.0, high + 0.095), (-wide * 0.6, high + 0.07),
+                            (-wide, high)], face, face + 0.032)
+    model.hard(frame, "wood", bevel=0.006, segments=2)
+    glass = bmesh.new()
+    cuboid(glass, -wide + rail - 0.004, wide - rail + 0.004, face + 0.011, face + 0.032, low + rail - 0.004, high - rail + 0.004)
+    model.plain(glass, "pane")
+    return model
+
+
+def side_table():
+    """A small table for the end of a sofa, with one drawer under its top."""
+    model = Model("side_table")
+    half, top = 0.25, 0.5
+    under = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            prism(under, (x * (half - 0.035), y * (half - 0.035), 0.03, 0.03, 0.0), (x * (half - 0.035), y * (half - 0.035), 0.045, 0.045, top - 0.025))
+    cuboid(under, -half + 0.04, half - 0.04, -half + 0.03, half - 0.03, top - 0.14, top - 0.025)
+    model.hard(under, "wood", bevel=0.004, segments=1)
+    board = bmesh.new()
+    cuboid(board, -half, half, -half, half, top - 0.025, top)
+    model.hard(board, "wood", bevel=0.009, segments=3)
+    fronts, pulls = bmesh.new(), bmesh.new()
+    drawer_fronts(fronts, pulls, -half + 0.06, half - 0.06, top - 0.135, top - 0.03, 1, -half + 0.03 - 0.014, thick=0.014)
+    model.hard(fronts, "wood", bevel=0.004)
+    model.turned(pulls, "metal")
+    return model
+
+
+def media_stand():
+    """A low open cabinet a television stands on: a top, a foot, two sides and a shelf between them, with a back."""
+    model = Model("media_stand")
+    half, front, back, top = 0.45, -0.24, 0.24, 0.42
+    boards = bmesh.new()
+    cuboid(boards, -half, half, front, back, top - 0.03, top)
+    cuboid(boards, -half + 0.01, half - 0.01, front + 0.01, back, 0.04, 0.065)
+    cuboid(boards, -half + 0.01, half - 0.01, front + 0.02, back, 0.215, 0.235)
+    for side in (-1, 1):
+        low, far = sorted((side * (half - 0.035), side * (half - 0.01)))
+        cuboid(boards, low, far, front + 0.01, back, 0.0, top - 0.03)
+    cuboid(boards, -half + 0.035, half - 0.035, back - 0.012, back, 0.065, top - 0.03)
+    model.hard(boards, "wood", bevel=0.005, segments=2)
+    return model
+
+
+def bar_stool():
+    """A tall stool for a bar: a round padded seat on four splayed legs with a ring to rest the feet on. Its seat is 0.75 high."""
+    model = Model("bar_stool")
+    top = 0.75
+    seat = bmesh.new()
+    lathe(seat, [(0.0, top - 0.06), (0.165, top - 0.06), (0.18, top - 0.045), (0.18, top - 0.015), (0.16, top), (0.0, top + 0.005)], segments=20)
+    model.turned(seat, "wood", sharp=50.0)
+    legs = bmesh.new()
+    for n in range(4):
+        angle = math.radians(45 + n * 90)
+        x, y = math.cos(angle), math.sin(angle)
+        prism(legs, (x * 0.2, y * 0.2, 0.03, 0.03, 0.0), (x * 0.12, y * 0.12, 0.036, 0.036, top - 0.06))
+    lathe(legs, [(0.165, 0.24), (0.178, 0.25), (0.165, 0.26), (0.152, 0.25)], segments=16, closed=True)
+    model.hard(legs, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def clothes_dryer():
+    """A tumble dryer: a white case with a round door in its front and its dials on a console along the back. Its top is 0.92 high."""
+    model = Model("clothes_dryer")
+    half, front, back, top = 0.34, -0.33, 0.33, 0.92
+    body = bmesh.new()
+    cuboid(body, -half, half, front, back, 0.03, top)
+    cuboid(body, -half, half, back - 0.14, back, top, top + 0.16)
+    model.hard(body, "enamel", bevel=0.012, segments=3)
+    door = bmesh.new()
+    lathe(door, [(0.15, 0.0), (0.215, 0.0), (0.215, 0.02), (0.2, 0.034), (0.15, 0.034)], segments=22, closed=True, to=along_y(0.0, front, 0.5))
+    model.turned(door, "enamel", sharp=40.0)
+    glass = bmesh.new()
+    lathe(glass, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.09, 0.026), (0.0, 0.03)], segments=18, to=along_y(0.0, front, 0.5))
+    model.turned(glass, "screen", sharp=50.0)
+    feet = bmesh.new()
+    for x in (-1, 1):
+        for y in (front + 0.05, back - 0.05):
+            lathe(feet, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.03), (0.0, 0.03)], cx=x * (half - 0.06), cy=y, segments=10)
+    cuboid(feet, -half + 0.03, half - 0.03, back - 0.146, back - 0.14, top + 0.03, top + 0.13)
+    model.turned(feet, "rubber")
+    dials = bmesh.new()
+    lathe(dials, [(0.0, 0.0), (0.04, 0.0), (0.036, 0.022), (0.0, 0.025)], segments=14, to=along_y(0.17, back - 0.146, top + 0.08))
+    lathe(dials, [(0.0, 0.0), (0.02, 0.0), (0.018, 0.018), (0.0, 0.02)], segments=10, to=along_y(-0.12, back - 0.146, top + 0.08))
+    model.turned(dials, "metal")
+    return model
+
+
+def plank_bench():
+    """A bench with no back, two squares long: three planks on two steel legs. Its seat is 0.45 high."""
+    model = Model("plank_bench")
+    half, top = 0.9, 0.45
+    planks = bmesh.new()
+    for n in range(3):
+        y = (n - 1) * 0.125
+        cuboid(planks, -half, half, y - 0.057, y + 0.057, top - 0.04, top)
+    model.hard(planks, "wood", bevel=0.006, segments=2)
+    legs = bmesh.new()
+    for side in (-1, 1):
+        x = side * (half - 0.3)
+        cuboid(legs, x - 0.03, x + 0.03, -0.17, 0.17, top - 0.055, top - 0.04)
+        cuboid(legs, x - 0.025, x + 0.025, -0.03, 0.03, 0.02, top - 0.055)
+        cuboid(legs, x - 0.04, x + 0.04, -0.17, 0.17, 0.0, 0.02)
+    model.hard(legs, "steel", bevel=0.004, segments=1)
+    return model
+
+
+def pew():
+    """A church pew three squares long: a seat and a leaning back between two shaped ends. Its seat is 0.44 high, its back at +Y."""
+    model = Model("pew")
+    half, seat = 1.45, 0.44
+    boards = bmesh.new()
+    cuboid(boards, -half + 0.05, half - 0.05, -0.2, 0.17, seat - 0.035, seat)
+    outline_along_x(boards, [(0.13, seat - 0.035), (0.17, seat - 0.035), (0.262, 0.95), (0.222, 0.95)], -half + 0.05, half - 0.05)
+    cuboid(boards, -half + 0.05, half - 0.05, 0.1, 0.13, 0.08, seat - 0.035)
+    model.hard(boards, "wood", bevel=0.006, segments=2)
+    ends = bmesh.new()
+    for side in (-1, 1):
+        low, far = sorted((side * (half - 0.05), side * half))
+        outline_along_x(ends, [(-0.27, 0.0), (0.27, 0.0), (0.27, 0.6), (0.29, 0.98), (0.21, 1.0), (0.13, 0.66), (-0.2, 0.62), (-0.27, 0.56)], low, far)
+    model.hard(ends, "wood", bevel=0.01, segments=2)
+    return model
+
+
+def bunk_bed(name, made):
+    """Two beds, one over the other, in one frame of four posts, with a ladder at the foot. Its head is at +Y."""
+    model = Model(name)
+    hx, hy, top = 0.47, 0.98, 1.72
+    frame = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            cuboid(frame, x * hx - 0.03, x * hx + 0.03, y * hy - 0.03, y * hy + 0.03, 0.0, top)
+    for low in (0.3, 1.2):
+        for x in (-1, 1):
+            cuboid(frame, x * hx - 0.015, x * hx + 0.015, -hy + 0.03, hy - 0.03, low, low + 0.14)
+        for y in (-1, 1):
+            cuboid(frame, -hx + 0.03, hx - 0.03, y * hy - 0.015, y * hy + 0.015, low, low + 0.3)
+        cuboid(frame, -hx + 0.015, hx - 0.015, -hy + 0.015, hy - 0.015, low + 0.02, low + 0.05)
+    # The rail that keeps whoever sleeps on top from rolling out, and the ladder up to them.
+    cuboid(frame, -hx - 0.012, -hx + 0.012, -hy + 0.5, hy - 0.03, 1.5, 1.56)
+    for x in (-0.28, 0.02):
+        cuboid(frame, x - 0.015, x + 0.015, -hy - 0.035, -hy - 0.015, 0.0, 1.5)
+    for z in (0.28, 0.58, 0.88, 1.18):
+        cuboid(frame, -0.28, 0.02, -hy - 0.04, -hy - 0.012, z, z + 0.025)
+    model.hard(frame, made, bevel=0.005, segments=1)
+    for low in (0.35, 1.25):
+        mattress = bmesh.new()
+        cuboid(mattress, -hx + 0.035, hx - 0.035, -hy + 0.035, hy - 0.035, low, low + 0.15)
+        model.hard(mattress, "linen", bevel=0.03, segments=2)
+        pillow = bmesh.new()
+        cage = grid_box(pillow, spread(-0.3, 0.3, 2), spread(hy - 0.47, hy - 0.09, 2), [low + 0.15, low + 0.24])
+        cage[(1, 1, 1)].co.z += 0.03
+        crease(pillow, cage, 0.3)
+        model.soft(pillow, "pillow", levels=2)
+        blanket = bmesh.new()
+        cuboid(blanket, -hx + 0.03, hx - 0.03, -hy + 0.03, hy - 0.55, low + 0.1, low + 0.165)
+        model.hard(blanket, "cloth", bevel=0.02, segments=2)
+    return model
+
+
+def school_desk():
+    """A pupil's desk: a board on four steel legs with a tray for books under it, open towards whoever sits at it. Its top is 0.74 high."""
+    model = Model("school_desk")
+    hx, hy, top = 0.4, 0.3, 0.74
+    board = bmesh.new()
+    cuboid(board, -hx, hx, -hy, hy, top - 0.025, top)
+    model.hard(board, "wood", bevel=0.007, segments=2)
+    steel = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            cuboid(steel, x * (hx - 0.04) - 0.014, x * (hx - 0.04) + 0.014, y * (hy - 0.04) - 0.014, y * (hy - 0.04) + 0.014, 0.0, top - 0.025)
+        cuboid(steel, x * (hx - 0.04) - 0.01, x * (hx - 0.04) + 0.01, -hy + 0.054, hy - 0.054, 0.12, 0.14)
+    cuboid(steel, -hx + 0.054, hx - 0.054, -hy + 0.05, hy - 0.04, top - 0.16, top - 0.15)
+    cuboid(steel, -hx + 0.054, hx - 0.054, hy - 0.05, hy - 0.04, top - 0.15, top - 0.025)
+    for x in (-1, 1):
+        cuboid(steel, x * (hx - 0.06) - 0.006, x * (hx - 0.06) + 0.006, -hy + 0.05, hy - 0.04, top - 0.15, top - 0.025)
+    model.hard(steel, "plastic", bevel=0.003, segments=1)
+    return model
+
+
+def indoors():
+    """What stood in rooms as flat cards and wrapped boxes until it was made (session flat-in, 2026-10-08)."""
+    return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
+            round_vent(), exit_sign(), strip_light(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), coat_rack(), clothes_rail(),
+            filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), computer(), water_cooler(),
+            floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
+            plank_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),
+            cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
+            cabinet("steel_counter_sink", 0.62, 0.90, True, sink=True, made="steel", top_of="steel"),
+            cabinet("steel_counter_corner", 0.62, 0.90, True, corner=True, made="steel", top_of="steel"),
+            wall_shelf("wire_wall_shelf", 1, made="plastic"), wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -2247,7 +2831,7 @@ def every():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
-              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()]
+              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()] + indoors()
 
 
 def main():

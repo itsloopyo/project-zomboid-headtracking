@@ -103,7 +103,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`Delete` switches between the game's own view and the first person view, and the camera flies from one to the other in a little over half a second. In the `Low` graphics mode nothing of the first person view is loaded until you first ask for it, so the first press of a session shows `First person: getting ready` while the view is made, and then flies. In `Medium` and `High` the mod draws the game's own view as well, so what it draws with is loaded as play begins. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F8` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press the key. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. The first person view stays off in split screen. On a multiplayer server it works: see [On a server](#on-a-server).
+`Delete` switches between the game's own view and the first person view, and the camera flies from one to the other in a little over half a second. In the `Low` graphics mode nothing of the first person view is loaded until you first ask for it, so the first press of a session shows `First person: getting ready` while the view is made, and then flies. In `Medium` and `High` the mod draws the game's own view as well, so what it draws with is loaded as play begins. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F8` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press the key. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. On a multiplayer server it works: see [On a server](#on-a-server).
 
 ### In first person
 
@@ -183,7 +183,7 @@ The first person view and head tracking work when you join a multiplayer server.
 - Your character's head turns with yours on your own screen only. The mod sends nothing to the server, so other players do not see it turn.
 - Dying and coming back as a new character leaves you in first person.
 
-Where you and another player can hurt each other, two things are held to what the game gives a player without the mod, so that nobody loses a fight to it. That is a server with PvP on, where either the server has no safety system or your own safety is off. With your safety on, or on a server with PvP off, neither applies and the mod plays as it does alone.
+Where you and another player can hurt each other, two things are held to what the game gives a player without the mod, so that nobody loses a fight to it. That is any server with PvP on, whatever your own safety is set to: the game lets a player whose safety is off hurt one whose safety is on. On a server with PvP off neither applies and the mod plays as it does alone.
 
 - Leaning does not move a shot. With the sights up in sights locked, the lean across the aim eases out and the round leaves from your character, where the other players see your weapon. Alone, your arms and weapon move with your head and the round leaves from where your eye is.
 - Walking sideways or backwards puts your character in the game's own aiming stance, at the pace the game gives that stance, with the sights down. The game shows a player what is in front of their character, and other players read which way a character faces to tell what its player can see. In first person you see where the view faces, so there your character faces it too. Walking forward, and forward with a sideways key, is as it is alone.
@@ -235,7 +235,7 @@ The mod's own picture costs a graphics card far more than the game's own view do
 
 Each frame of the first person picture is drawn on its own. `FrameBlending=true` in `CameraUnlock.ini` mixes each frame with the one before it instead: fine edges, leaves and the grain of soft shadows are smoother and steadier, and the whole picture is a little softer, as much standing still as while you turn or walk. It is `false` unless you change it, and it is read again while the game runs.
 
-The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors and curtains built as shapes, skins for zombies and for the living, the cloth, leather and hair of what they wear, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople`, `OwnArms` and `OwnClothes`. Set a row to `false` and the mod draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. In `Low` the game's own view is the game's own picture and shows none of the mod's. In `Medium` and `High` the mod draws that view too, and the rows switch what it shows there as they do in first person.
+The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors, curtains and handrails built as shapes, skins for zombies and for the living, the cloth, leather and hair of what they wear, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople`, `OwnArms` and `OwnClothes`. Set a row to `false` and the mod draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. In `Low` the game's own view is the game's own picture and shows none of the mod's. In `Medium` and `High` the mod draws that view too, and the rows switch what it shows there as they do in first person.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `Delete` is the switch for that.
 
@@ -451,7 +451,7 @@ OwnWeapons=true
 ; true: the mod's models of furniture, appliances, street lamps, clocks and picture
 ; frames. false: the game's sprites of them.
 OwnFurniture=true
-; true: the mod's photographs, paintings and posters on walls, and programmes on a
+; true: the mod's photographs, paintings, posters and signs on walls, and programmes on a
 ; television that is on. false: the game's pictures, and only colour bars on a
 ; television.
 OwnPictures=true
@@ -461,9 +461,9 @@ OwnPlants=true
 ; true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,
 ; paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.
 OwnTextures=true
-; true: windows, doors and curtains built by the mod, and the outside of a wall
-; finished as its building is. false: the game's sprites of them, on both sides of
-; the wall.
+; true: windows, doors, curtains and handrails built by the mod, the posts under a
+; fire escape, and the outside of a wall finished as its building is. false: the
+; game's sprites of them, on both sides of the wall.
 OwnBuildings=true
 ; true: the mod's own skins for zombies near the eye, each with a lifelike face.
 ; false: the game's own painted skins.
@@ -605,7 +605,7 @@ Run `uninstall.cmd`. This removes the mod's jar and DLL, the `ProjectZomboid64.s
 
 ## Building from Source
 
-Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake and Visual Studio with the C++ workload. Pixi provides the JDK, CMake and Visual Studio build `CameraUnlockCore.dll` from the cameraunlock-core submodule, and the build needs no game install.
+Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake, Visual Studio with the C++ workload, and Node.js for `pixi run package`. Pixi provides the JDK, CMake and Visual Studio build `CameraUnlockCore.dll` from the cameraunlock-core submodule, and the build needs no game install.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git
@@ -613,7 +613,7 @@ cd project-zomboid-headtracking
 pixi run build      # compiles the jar and the DLL into build\
 pixi run test       # unit tests
 pixi run package    # installer ZIP in release\, and a -dev ZIP with the development keys in
-pixi run install    # deploys to every installed copy of the game
+pixi run install    # deploys the development jar, with the development keys in, to every installed copy of the game
 ```
 
 ## Community & Support

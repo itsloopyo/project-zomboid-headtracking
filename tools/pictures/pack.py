@@ -18,12 +18,13 @@ import sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import catalogue
+import signs
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'pictures'
 FONTS = pathlib.Path('C:/Windows/Fonts')
 QUALITY = 86
 # The longest side a picture is kept at, by what it is: a snapshot in a frame a hand across is worth fewer pixels than a hoarding.
-LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344}
+LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344, 'sign': signs.LONGEST}
 SMALL = 768
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
@@ -174,6 +175,8 @@ def made(folder, name):
 
 def picture(folder, name):
     """The finished picture of that name, or None where its art is not made yet."""
+    if name in signs.PICTURES:
+        return signs.picture(signs.PICTURES[name], lambda art: made(folder, art))
     if name in catalogue.LETTERED:
         base, layout, title, line = catalogue.LETTERED[name]
         art = made(folder, base)

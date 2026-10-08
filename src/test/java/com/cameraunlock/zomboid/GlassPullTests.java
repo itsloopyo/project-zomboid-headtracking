@@ -9,12 +9,12 @@ final class GlassPullTests {
     private GlassPullTests() {}
 
     static void run() {
-        steadySpeedPullsAtNothing();
-        gatheringSpeedLeansRunsBackAndHoldsTheFrontScreens();
-        brakingHurriesTheFrontScreensRuns();
-        aBendLeansRunsToItsOutside();
-        leanAndPaceHaveTheirLimits();
-        clocksBeginAgainWithThePictures();
+        Checks.run("steadySpeedPullsAtNothing", GlassPullTests::steadySpeedPullsAtNothing);
+        Checks.run("gatheringSpeedLeansRunsBackAndHoldsTheFrontScreens", GlassPullTests::gatheringSpeedLeansRunsBackAndHoldsTheFrontScreens);
+        Checks.run("brakingHurriesTheFrontScreensRuns", GlassPullTests::brakingHurriesTheFrontScreensRuns);
+        Checks.run("aBendLeansRunsToItsOutside", GlassPullTests::aBendLeansRunsToItsOutside);
+        Checks.run("leanAndPaceHaveTheirLimits", GlassPullTests::leanAndPaceHaveTheirLimits);
+        Checks.run("clocksBeginAgainWithThePictures", GlassPullTests::clocksBeginAgainWithThePictures);
     }
 
     /** Drives for so many seconds from the picture's clock at start, facing aheadX, aheadY, the speed changing by that much a second. Returns the clock it ends at. */
@@ -72,9 +72,7 @@ final class GlassPullTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

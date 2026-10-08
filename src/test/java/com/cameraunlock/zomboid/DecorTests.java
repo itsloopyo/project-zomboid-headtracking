@@ -5,16 +5,26 @@ final class DecorTests {
     private DecorTests() {}
 
     static void run() {
-        pictureOfTheFramesShapeFillsItCornerToCorner();
-        tallPictureInASquareFrameKeepsItsWidthAndTheUpperPartOfItsHeight();
-        widePictureInATallFrameShowsItsMiddle();
-        squaresOfALongPictureShowItsPartsInOrder();
-        paintedFrameLeavesARailRoundThePictureThatLooksOutsideIt();
-        everyFrameHasAPaneInsideItsMoulding();
-        everyTelevisionHasGlassTheShapeOfATubeOnItsFront();
-        jarHoldsAPictureForEverythingATelevisionShows();
-        aShowCutsRoundItsShotsAndMovesAcrossEachOne();
-        aBroadcastNobodyListedIsItsChannelsShow();
+        Checks.run("pictureOfTheFramesShapeFillsItCornerToCorner", DecorTests::pictureOfTheFramesShapeFillsItCornerToCorner);
+        Checks.run("tallPictureInASquareFrameKeepsItsWidthAndTheUpperPartOfItsHeight", DecorTests::tallPictureInASquareFrameKeepsItsWidthAndTheUpperPartOfItsHeight);
+        Checks.run("widePictureInATallFrameShowsItsMiddle", DecorTests::widePictureInATallFrameShowsItsMiddle);
+        Checks.run("squaresOfALongPictureShowItsPartsInOrder", DecorTests::squaresOfALongPictureShowItsPartsInOrder);
+        Checks.run("paintedFrameLeavesARailRoundThePictureThatLooksOutsideIt", DecorTests::paintedFrameLeavesARailRoundThePictureThatLooksOutsideIt);
+        Checks.run("everyFrameHasAPaneInsideItsMoulding", DecorTests::everyFrameHasAPaneInsideItsMoulding);
+        Checks.run("everyTelevisionHasGlassTheShapeOfATubeOnItsFront", DecorTests::everyTelevisionHasGlassTheShapeOfATubeOnItsFront);
+        Checks.run("jarHoldsAPictureForEverythingATelevisionShows", DecorTests::jarHoldsAPictureForEverythingATelevisionShows);
+        Checks.run("aShowCutsRoundItsShotsAndMovesAcrossEachOne", DecorTests::aShowCutsRoundItsShotsAndMovesAcrossEachOne);
+        Checks.run("aBroadcastNobodyListedIsItsChannelsShow", DecorTests::aBroadcastNobodyListedIsItsChannelsShow);
+        Checks.run("aShopsSignShowsAPictureTheShapeOfItsBoard", DecorTests::aShopsSignShowsAPictureTheShapeOfItsBoard);
+    }
+
+    private static void aShopsSignShowsAPictureTheShapeOfItsBoard() {
+        // The coffee shop's sign is three squares long and under a quarter as high: a picture of another shape would lose its ends.
+        int low = Decor.of("location_restaurant_seahorse_01_67", "Sign", "Coffee Low", true);
+        check(low != Decor.NONE, "the sign the game calls Coffee Low shows a picture of the mod's");
+        check(low != Decor.NONE && Math.abs(Decor.wideForHigh(low) - 2.98f / 0.71f) < 0.05f, "and it is the shape of the board");
+        check(Decor.of("walls_decoration_01_16", "Flag", "Stars n Stripes", false) != Decor.NONE, "a flag hung on a wall shows one too");
+        check(Decor.of("signs_one-off_08_93", "Sign", "", false) == Decor.NONE, "and a sign the mod has no picture for shows none");
     }
 
     private static float u(float[] laid, float x) {
@@ -183,8 +193,6 @@ final class DecorTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

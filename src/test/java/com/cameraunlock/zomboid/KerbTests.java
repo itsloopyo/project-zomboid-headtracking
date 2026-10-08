@@ -11,24 +11,22 @@ final class KerbTests {
     }
 
     static void run() {
-        straightKerbLiesOnTheEdgeOfItsSquares();
-        evenStairIsOneStraightSlant();
-        stairOfLongTreadsIsOneStraightSlant();
-        stairOfTwoByTwoIsOneStraightSlant();
-        squareCornerIsRoundedAndKeepsTheMiddleOfItsSquare();
-        jogAtTheEndOfALongKerbIsNotASlant();
-        lineKeepsOutOfAHouse();
-        chunksAgreeAlongTheEdgeTheyShare();
-        islandOneSquareWideIsStillThere();
-        streetAgainstWaterHasNoKerb();
-        chunkWithNoStreetHasNoField();
-        floorAKerbCrossesIsLaidAtTwoHeightsAndIsAllThere();
+        Checks.run("straightKerbLiesOnTheEdgeOfItsSquares", KerbTests::straightKerbLiesOnTheEdgeOfItsSquares);
+        Checks.run("evenStairIsOneStraightSlant", KerbTests::evenStairIsOneStraightSlant);
+        Checks.run("stairOfLongTreadsIsOneStraightSlant", KerbTests::stairOfLongTreadsIsOneStraightSlant);
+        Checks.run("stairOfTwoByTwoIsOneStraightSlant", KerbTests::stairOfTwoByTwoIsOneStraightSlant);
+        Checks.run("squareCornerIsRoundedAndKeepsTheMiddleOfItsSquare", KerbTests::squareCornerIsRoundedAndKeepsTheMiddleOfItsSquare);
+        Checks.run("jogAtTheEndOfALongKerbIsNotASlant", KerbTests::jogAtTheEndOfALongKerbIsNotASlant);
+        Checks.run("lineKeepsOutOfAHouse", KerbTests::lineKeepsOutOfAHouse);
+        Checks.run("chunksAgreeAlongTheEdgeTheyShare", KerbTests::chunksAgreeAlongTheEdgeTheyShare);
+        Checks.run("islandOneSquareWideIsStillThere", KerbTests::islandOneSquareWideIsStillThere);
+        Checks.run("streetAgainstWaterHasNoKerb", KerbTests::streetAgainstWaterHasNoKerb);
+        Checks.run("chunkWithNoStreetHasNoField", KerbTests::chunkWithNoStreetHasNoField);
+        Checks.run("floorAKerbCrossesIsLaidAtTwoHeightsAndIsAllThere", KerbTests::floorAKerbCrossesIsLaidAtTwoHeightsAndIsAllThere);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /** The field of the chunk whose corner is at (originX, originY) of a map, with nothing on it but street and made ground. */

@@ -52,6 +52,10 @@ public final class Hooks {
         boolean first = index <= lastDrawn;
         lastDrawn = index;
         int pressed = Tracking.pressedFor(index, first);
+        if (first && everyoneSleeps()) {
+            // No frame comes while they sleep, and the keys pressed through the night are not all acted on at once as they wake.
+            Tracking.dropTheNextPresses();
+        }
         if (first) {
             for (int i = 0; i < View.COUNT; i++) {
                 View gone = View.of(i);
@@ -66,6 +70,17 @@ public final class Hooks {
             }
             View.join(index).firstPerson.afterWorldRender(pressed);
         }
+    }
+
+    /** Whether every player at the screen is asleep: one awake still has their frames, and their keys. */
+    private static boolean everyoneSleeps() {
+        for (int i = 0; i < IsoPlayer.numPlayers; i++) {
+            IsoPlayer each = IsoPlayer.players[i];
+            if (each != null && !each.isAsleep()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Called when the game has loaded its Lua: at its start, and each time it loads it again. */

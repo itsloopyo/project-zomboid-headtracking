@@ -17,6 +17,8 @@ final class AttackClock {
      */
     static final float HELD_AGAIN = 0.85f;
     private static final float NONE = -1f;
+    /** The least of an animation that is before the landing and after it: both are divided by. */
+    private static final float LANDS_SOONEST = 0.05f;
 
     private float at = NONE, seen = NONE, lands, pace;
     /** Whether the frame last stepped is the one an attack began on, and the one it landed on. */
@@ -37,7 +39,7 @@ final class AttackClock {
             began = true;
             pace = 0f;
             at = 0f;
-            lands = landsAt;
+            lands = Math.clamp(landsAt, LANDS_SOONEST, HELD_AGAIN - LANDS_SOONEST);
             seen = fraction;
         } else if (playing) {
             // An animation that has not moved on has fired nothing new: the game is paused.

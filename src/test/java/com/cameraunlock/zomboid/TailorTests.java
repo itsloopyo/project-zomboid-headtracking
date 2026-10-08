@@ -10,19 +10,19 @@ final class TailorTests {
     private TailorTests() {}
 
     static void run() {
-        eachPictureIsMadeFinerWithWhatItIsMadeOf();
-        aMaskAndWhatIsNotWornAreLeftAlone();
-        aPictureFineEnoughIsLeftAlone();
-        anEdgeBetweenTwoColoursStaysAnEdge();
-        aPictureNotSquareIsEnlargedEachWayAlike();
-        aGarmentsEdgeIsCutCleanAndAStainsFades();
-        aLineOneDotBroadIsKept();
-        thePaintWithinAColourIsEvenedOut();
-        whatIsSeeThroughLendsNoColour();
-        theFabricLightensAndDarkensAboutTheGamesColour();
-        aGreyPictureIsReadAsPainted();
-        everyFabricIsInTheJar();
-        thePrintsAndStainsAreInTheJarWithWhatOfThemShows();
+        Checks.run("eachPictureIsMadeFinerWithWhatItIsMadeOf", TailorTests::eachPictureIsMadeFinerWithWhatItIsMadeOf);
+        Checks.run("aMaskAndWhatIsNotWornAreLeftAlone", TailorTests::aMaskAndWhatIsNotWornAreLeftAlone);
+        Checks.run("aPictureFineEnoughIsLeftAlone", TailorTests::aPictureFineEnoughIsLeftAlone);
+        Checks.run("anEdgeBetweenTwoColoursStaysAnEdge", TailorTests::anEdgeBetweenTwoColoursStaysAnEdge);
+        Checks.run("aPictureNotSquareIsEnlargedEachWayAlike", TailorTests::aPictureNotSquareIsEnlargedEachWayAlike);
+        Checks.run("aGarmentsEdgeIsCutCleanAndAStainsFades", TailorTests::aGarmentsEdgeIsCutCleanAndAStainsFades);
+        Checks.run("aLineOneDotBroadIsKept", TailorTests::aLineOneDotBroadIsKept);
+        Checks.run("thePaintWithinAColourIsEvenedOut", TailorTests::thePaintWithinAColourIsEvenedOut);
+        Checks.run("whatIsSeeThroughLendsNoColour", TailorTests::whatIsSeeThroughLendsNoColour);
+        Checks.run("theFabricLightensAndDarkensAboutTheGamesColour", TailorTests::theFabricLightensAndDarkensAboutTheGamesColour);
+        Checks.run("aGreyPictureIsReadAsPainted", TailorTests::aGreyPictureIsReadAsPainted);
+        Checks.run("everyFabricIsInTheJar", TailorTests::everyFabricIsInTheJar);
+        Checks.run("thePrintsAndStainsAreInTheJarWithWhatOfThemShows", TailorTests::thePrintsAndStainsAreInTheJarWithWhatOfThemShows);
     }
 
     private static void thePrintsAndStainsAreInTheJarWithWhatOfThemShows() {
@@ -345,8 +345,6 @@ final class TailorTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

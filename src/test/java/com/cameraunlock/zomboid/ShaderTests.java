@@ -73,6 +73,7 @@ final class ShaderTests {
         if (whole.equals(depth) || !depth.contains("const bool depthOnly = true;")) {
             throw new AssertionError("the world depth program is not the world's program told to draw depth alone");
         }
+        wiresAreOutOfTheMapFromAbove(programs);
         try {
             if (Files.exists(OUT)) {
                 try (Stream<Path> old = Files.list(OUT)) {
@@ -111,6 +112,44 @@ final class ShaderTests {
             throw new AssertionError(e);
         }
         System.out.println("shader tests: " + programs.size() + " programs pass " + VALIDATOR);
+    }
+
+    /**
+     * An overhead wire is thrown out of the map read as what keeps the sky off the ground, and out of no other map
+     * the shadow program draws. Read from the sources, since nothing here can run a shader: that the wire's branch
+     * of the vertex stage puts the vertex outside the clip volume, before it is placed by the matrix, when
+     * uFromAbove is set, and that the one draw that sets it is the map from above, which also sets it back.
+     */
+    private static void wiresAreOutOfTheMapFromAbove(List<Linked> programs) {
+        String vertex = null;
+        for (Linked program : programs) {
+            if (program.name.equals("shadow")) {
+                vertex = program.stages.get("vert");
+            }
+        }
+        if (vertex == null) {
+            throw new AssertionError("no program is linked as \"shadow\"");
+        }
+        String wire = "if (material > 11.5 && material < 12.5) {";
+        int at = vertex.indexOf(wire);
+        if (at < 0 || vertex.indexOf(wire, at + 1) >= 0) {
+            throw new AssertionError("the shadow vertex stage has not exactly one branch for an overhead wire");
+        }
+        String branch = vertex.substring(at + wire.length()).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ").strip();
+        if (!branch.startsWith("if (uFromAbove > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }")) {
+            throw new AssertionError("the shadow vertex stage does not throw an overhead wire out of the map from above before it places it");
+        }
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        int roof = pipeline.indexOf("private void castRoof("), set = pipeline.indexOf("shadow.set(\"uFromAbove\", 1f); try {");
+        int back = pipeline.indexOf("} finally { shadow.set(\"uFromAbove\", 0f); } }", set), next = pipeline.indexOf(" private ", roof + 1);
+        if (roof < 0 || set < roof || back < set || back > next || count(pipeline, "\"uFromAbove\", 1f") != 1) {
+            throw new AssertionError("uFromAbove is not set for the map from above alone, and set back whatever the draw does");
+        }
     }
 
     private static String fragment(List<Linked> programs, String name) {

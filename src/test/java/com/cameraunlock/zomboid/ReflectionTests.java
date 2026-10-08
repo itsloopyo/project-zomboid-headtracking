@@ -9,9 +9,9 @@ final class ReflectionTests {
     private ReflectionTests() {}
 
     static void run() {
-        mirroredViewPutsAPointWhereTheGlassShowsIt();
-        eyeBehindTheGlassSeesTheWorldAsTheGlassShowsIt();
-        openingsStandBeforeTheGlassOnTheEyesSide();
+        Checks.run("mirroredViewPutsAPointWhereTheGlassShowsIt", ReflectionTests::mirroredViewPutsAPointWhereTheGlassShowsIt);
+        Checks.run("eyeBehindTheGlassSeesTheWorldAsTheGlassShowsIt", ReflectionTests::eyeBehindTheGlassSeesTheWorldAsTheGlassShowsIt);
+        Checks.run("openingsStandBeforeTheGlassOnTheEyesSide", ReflectionTests::openingsStandBeforeTheGlassOnTheEyesSide);
     }
 
     private static OwnReflection.Glass wall(boolean north, float at, float side, float... along) {
@@ -104,8 +104,6 @@ final class ReflectionTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

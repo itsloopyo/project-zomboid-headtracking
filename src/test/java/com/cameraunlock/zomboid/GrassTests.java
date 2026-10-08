@@ -7,21 +7,19 @@ final class GrassTests {
     private GrassTests() {}
 
     static void run() {
-        stripCarriesItsEdgeItsKindAndItsHeight();
-        pointedStripEndsInOneCorner();
-        fanWidensFromItsFoot();
-        headStartsWhereItsStemEnds();
-        lawnIsTheSameEveryTimeItIsGrown();
-        lawnFurtherOffIsFewerPlants();
-        lawnBehindTheEyeIsNotGrown();
-        lawnKeepsInsideItsBounds();
-        poorGroundGrowsLess();
+        Checks.run("stripCarriesItsEdgeItsKindAndItsHeight", GrassTests::stripCarriesItsEdgeItsKindAndItsHeight);
+        Checks.run("pointedStripEndsInOneCorner", GrassTests::pointedStripEndsInOneCorner);
+        Checks.run("fanWidensFromItsFoot", GrassTests::fanWidensFromItsFoot);
+        Checks.run("headStartsWhereItsStemEnds", GrassTests::headStartsWhereItsStemEnds);
+        Checks.run("lawnIsTheSameEveryTimeItIsGrown", GrassTests::lawnIsTheSameEveryTimeItIsGrown);
+        Checks.run("lawnFurtherOffIsFewerPlants", GrassTests::lawnFurtherOffIsFewerPlants);
+        Checks.run("lawnBehindTheEyeIsNotGrown", GrassTests::lawnBehindTheEyeIsNotGrown);
+        Checks.run("lawnKeepsInsideItsBounds", GrassTests::lawnKeepsInsideItsBounds);
+        Checks.run("poorGroundGrowsLess", GrassTests::poorGroundGrowsLess);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void near(float got, float wanted, float within, String what) {

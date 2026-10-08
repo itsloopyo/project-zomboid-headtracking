@@ -22,6 +22,8 @@ from diffusers import StableDiffusionXLImg2ImgPipeline, StableDiffusionXLPipelin
 from PIL import Image
 
 MODEL = 'stabilityai/stable-diffusion-xl-base-1.0'
+# The commit of the model on the hub that every picture here was made with.
+REVISION = '462165984030d82259a11f4367a4eed129e94a7b'
 EVEN = 'flat even overcast lighting, seamless texture, photorealistic, sharp focus, highly detailed, 8k'
 BARK = 'close-up photograph of '
 WHOLE = ' filling the whole frame, '
@@ -133,7 +135,7 @@ def in_pieces(run, source, piece, margin, scale, wrap):
 
 class Maker:
     def __init__(self):
-        self.pipe = StableDiffusionXLPipeline.from_pretrained(MODEL, torch_dtype=torch.float16, variant='fp16', use_safetensors=True)
+        self.pipe = StableDiffusionXLPipeline.from_pretrained(MODEL, revision=REVISION, torch_dtype=torch.float16, variant='fp16', use_safetensors=True)
         self.pipe.set_progress_bar_config(disable=True)
         self.again = StableDiffusionXLImg2ImgPipeline(**self.pipe.components)
         self.again.set_progress_bar_config(disable=True)

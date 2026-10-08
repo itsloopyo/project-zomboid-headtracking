@@ -155,6 +155,11 @@ final class CallSite {
      * a method that writes over its argument as it works still says what it was asked.
      */
     static byte[] answerOnce(byte[] classBytes, Method within, Method known, Method learn) {
+        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor()) && !method.flags().has(AccessFlag.STATIC)) {
+                throw new IllegalStateException(within + " is not static");
+            }
+        }
         boolean[] begun = {false};
         int[] asked = {-1}, returns = {0};
         CodeTransform insert = (code, element) -> {

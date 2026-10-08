@@ -18,6 +18,7 @@ import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.textures.ColorInfo;
 import zombie.iso.IsoGridSquare;
+import zombie.vehicles.BaseVehicle;
 
 /**
  * The game's models in the first-person picture: zombies, survivors and
@@ -447,10 +448,10 @@ public final class Characters {
         // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
         // apart from the world, so that the picture can leave out what of it is in the
         // way without leaving a hole in the world behind it.
+        BaseVehicle sat = view.ride.sat;
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
-            float toX = data.x - camera.eyeX, toY = data.y - camera.eyeY;
-            if (data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+            if (sat != null && data.character == null && data.object == sat) {
                 ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
                 // Drawn in full light, whatever the hour: which of its pixels are glass is
                 // told from their colour, and the picture lights the cabin itself, by the
@@ -1276,6 +1277,7 @@ public final class Characters {
      */
     private int draw(float[] viewMatrix, boolean withViewer, boolean casting, float[] map, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = view.player();
+        BaseVehicle sat = view.ride.sat;
         int drawn = 0;
         float ambientSum = 0f;
         long began = TALLY ? System.nanoTime() : 0L;
@@ -1314,14 +1316,14 @@ public final class Characters {
                 continue;
             }
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
-            if (!withViewer && view.pipeline.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+            if (!withViewer && view.pipeline.seated && data.character == null && data.object == sat) {
                 continue;
             }
             if (mirrored) {
                 // Nothing of the vehicle the mirror hangs in, nor who rides in it, and
                 // nothing the mirror does not take in.
                 float behind = toX * mirrorWayX + toY * mirrorWayY, aside = Math.abs(toX * mirrorWayY - toY * mirrorWayX);
-                if (toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
+                if (data.object == sat || data.inVehicle && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
                     continue;
                 }
             } else if (!WITHOUT_CULL && (seenFrom != null || map != null && eyeAlone)) {

@@ -100,7 +100,7 @@ public final class Controls {
      * sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        return player != null && player.getVehicle() == null && view.firstPerson.movingAside() && Online.bodyFacesTheView(player);
+        return player != null && player.getVehicle() == null && view.firstPerson.movingAside() && Online.bodyFacesTheView();
     }
 
     private boolean turnedOnly;

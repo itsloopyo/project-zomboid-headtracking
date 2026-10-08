@@ -14,20 +14,18 @@ final class FarLandTests {
     }
 
     static void run() {
-        aPictureIsHalvedDownToOnePixel();
-        waterIsFoundByTheChunk();
-        theLandLiesAsTheBuiltWorldsDoes();
-        aBuildingIsABlockOfItsFloors();
-        aFloorSmallerThanTheOneUnderItLeavesARoofBeside();
-        aCellarAloneIsNoBuilding();
-        roomsOverNothingStandOnTheGround();
-        aCellOfNothingIsToldFromOneWithSomething();
+        Checks.run("aPictureIsHalvedDownToOnePixel", FarLandTests::aPictureIsHalvedDownToOnePixel);
+        Checks.run("waterIsFoundByTheChunk", FarLandTests::waterIsFoundByTheChunk);
+        Checks.run("theLandLiesAsTheBuiltWorldsDoes", FarLandTests::theLandLiesAsTheBuiltWorldsDoes);
+        Checks.run("aBuildingIsABlockOfItsFloors", FarLandTests::aBuildingIsABlockOfItsFloors);
+        Checks.run("aFloorSmallerThanTheOneUnderItLeavesARoofBeside", FarLandTests::aFloorSmallerThanTheOneUnderItLeavesARoofBeside);
+        Checks.run("aCellarAloneIsNoBuilding", FarLandTests::aCellarAloneIsNoBuilding);
+        Checks.run("roomsOverNothingStandOnTheGround", FarLandTests::roomsOverNothingStandOnTheGround);
+        Checks.run("aCellOfNothingIsToldFromOneWithSomething", FarLandTests::aCellOfNothingIsToldFromOneWithSomething);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static ByteBuffer buffer(int bytes) {

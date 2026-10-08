@@ -27,14 +27,14 @@ final class PictureTests {
     private static final int HEAD = 32;
 
     static void run() throws IOException {
-        everyPackedPictureIsTheOneMadeFromItsSources();
-        theBarksArePackedInTheOrderTheyAreCountedIn();
-        aPictureIsReadWholeOrWithoutItsLargestLevel();
-        aFileThatIsNotAWholePictureIsRefused();
-        blocksUnpackAsTheReferenceUnpacksThem();
-        aPictureUnpackedIsItsSourceToWithinWhatPackingCosts();
-        aBarkIsItsOwnSourceAtEveryLevel();
-        onlyTheWeaponsColourIsAScreens();
+        Checks.run("everyPackedPictureIsTheOneMadeFromItsSources", PictureTests::everyPackedPictureIsTheOneMadeFromItsSources);
+        Checks.run("theBarksArePackedInTheOrderTheyAreCountedIn", PictureTests::theBarksArePackedInTheOrderTheyAreCountedIn);
+        Checks.run("aPictureIsReadWholeOrWithoutItsLargestLevel", PictureTests::aPictureIsReadWholeOrWithoutItsLargestLevel);
+        Checks.run("aFileThatIsNotAWholePictureIsRefused", PictureTests::aFileThatIsNotAWholePictureIsRefused);
+        Checks.run("blocksUnpackAsTheReferenceUnpacksThem", PictureTests::blocksUnpackAsTheReferenceUnpacksThem);
+        Checks.run("aPictureUnpackedIsItsSourceToWithinWhatPackingCosts", PictureTests::aPictureUnpackedIsItsSourceToWithinWhatPackingCosts);
+        Checks.run("aBarkIsItsOwnSourceAtEveryLevel", PictureTests::aBarkIsItsOwnSourceAtEveryLevel);
+        Checks.run("onlyTheWeaponsColourIsAScreens", PictureTests::onlyTheWeaponsColourIsAScreens);
     }
 
     /** What made.txt lists: each output with its SHA-256 and how it was made, and under it the sources it was made from, each with its SHA-256. */
@@ -254,8 +254,6 @@ final class PictureTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError("FAILED: " + what);
-        }
+        Checks.check(condition, what);
     }
 }

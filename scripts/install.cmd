@@ -41,7 +41,7 @@ set "FRAMEWORK_TYPE=JavaAgent"
 :: unconditionally and would reset every key on every update.
 set "MOD_SEED_FILES="
 :: Post-install help text. `&echo ` starts each further line.
-set "MOD_CONTROLS=Controls (nav cluster / chord):&echo   End      / Ctrl+Shift+Y  Toggle head tracking&echo   PageUp   / Ctrl+Shift+G  Cycle tracking mode: full, rotation only, position only&echo   PageDown / Ctrl+Shift+H  Toggle yaw mode: world-locked or camera-local&echo   Insert   / Ctrl+Shift+U  Cycle aim mode: sights locked, free look with a marker, stock sights&echo   Delete                   Toggle the first person view&echo   F9                       Cycle graphics mode: Low, Medium, High&echo   F8                       Cycle picture style: Vivid, Natural, Bleak"
+set "MOD_CONTROLS=Controls (nav cluster / chord):&echo   End      / Ctrl+Shift+Y  Toggle head tracking&echo   PageUp   / Ctrl+Shift+G  Cycle tracking mode: full, rotation only, position only&echo   PageDown / Ctrl+Shift+H  Toggle yaw mode: world-locked or camera-local&echo   Insert   / Ctrl+Shift+U  Cycle aim mode: sights locked, free look with a marker, stock sights&echo   Delete                   Toggle the first person view&echo   F9                       Cycle graphics mode: Low, Medium, High&echo   F8                       Cycle picture style: Vivid, Natural, Bleak&echo   F7                       Turn split screen: side by side or one above the other"
 :: --- END CONFIG BLOCK ---
 
 :: Pin delayed expansion off before `%*` is expanded on the `call` below.

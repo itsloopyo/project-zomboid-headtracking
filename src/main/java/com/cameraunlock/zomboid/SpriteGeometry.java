@@ -335,6 +335,12 @@ final class SpriteGeometry {
         /** What the next face is made of: 0 nothing in particular, or one of the pictures of materials the picture lays over it. */
         float material;
         /**
+         * Whether the texture is the square's own floor laid flat, or the wall along one of its
+         * edges stood square: see Flats. A face then takes its texels by where on the square,
+         * or how far along the wall and how high, each of its corners is.
+         */
+        int flat;
+        /**
          * The light at the square's four corners, (0, 0), (1, 0), (1, 1) then (0, 1). A face
          * takes its light from these by where on the square each of its vertices is, so the
          * light runs smoothly from one square into the next.
@@ -502,12 +508,12 @@ final class SpriteGeometry {
         // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
         // pixel or two short of its edge; cutting the face there would leave a slit between two
         // walls, so the face is allowed to run that far past the sprite and takes the last texels.
-        int covered = clipToFrame(frame, 0f);
+        int covered = frame.flat == FLAT_FLOOR ? whole() : clipToFrame(frame, 0f);
         if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
             return 0;
         }
         // A face wholly on the sprite came through uncut, and with slack would come through the same.
-        int count = wasCut || afresh ? clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale) : covered;
+        int count = frame.flat != FLAT_FLOOR && (wasCut || afresh) ? clipToFrame(frame, EDGE_SLACK_PIXELS * frame.scale) : covered;
         float up1 = dh1 * ViewCamera.LEVEL_HEIGHT, up2 = dh2 * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         if (up1 == 0f && up2 == 0f) {
@@ -806,6 +812,17 @@ final class SpriteGeometry {
         }
         result = from;
         return count;
+    }
+
+    /** What Frame.flat says: the sprite's own texels, a floor laid flat, or a wall stood square along its square's north edge or its west. */
+    static final int FLAT_FLOOR = 1, FLAT_NORTH = 2, FLAT_WEST = 3;
+
+    /** The face in corners as it is, into result: a flat picture covers its whole square. */
+    private int whole() {
+        System.arraycopy(corners, 0, clipped, 0, 4 * CORNER_FLOATS);
+        result = clipped;
+        wasCut = false;
+        return 4;
     }
 
     /**
@@ -1408,6 +1425,14 @@ final class SpriteGeometry {
         int at = index * CORNER_FLOATS;
         float pixelU = polygon[at + CORNER_U];
         float pixelV = polygon[at + CORNER_V];
+        if (frame.flat == FLAT_FLOOR) {
+            emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, Flats.FROM + Flats.SPAN * polygon[at], Flats.FROM + Flats.SPAN * polygon[at + 1]);
+            return;
+        }
+        if (frame.flat != 0) {
+            emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, Flats.WALL_FROM + Flats.WALL_SPAN * polygon[at + (frame.flat == FLAT_NORTH ? 0 : 1)], 1f - polygon[at + 2]);
+            return;
+        }
         // Across and down separately: a wall's side edges are upright, and an inset towards the
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = EDGE_INSET_PIXELS * frame.scale;
@@ -1445,6 +1470,11 @@ final class SpriteGeometry {
         pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+        emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, u, v);
+    }
+
+    /** Adds the corner of a face that starts at the given float of polygon, with the texel (u, v). */
+    private void emitAt(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int at, float u, float v) {
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
@@ -1531,17 +1561,5 @@ final class SpriteGeometry {
         mesh.add(x0, y0, baseUp + bottom, 0f, 0f, red, green, blue);
         mesh.add(x1, y1, baseUp + top, 0f, 0f, red, green, blue);
         mesh.add(x0, y0, baseUp + top, 0f, 0f, red, green, blue);
-    }
-
-    /** Adds an untextured rectangle lying flat at height up, centred on (x, y). */
-    static void addPlainFlat(Mesh mesh, float x, float y, float up, float halfX, float halfY,
-            float red, float green, float blue) {
-        mesh.face(0f, 0f, 1f);
-        mesh.add(x - halfX, y - halfY, up, 0f, 0f, red, green, blue);
-        mesh.add(x + halfX, y - halfY, up, 0f, 0f, red, green, blue);
-        mesh.add(x + halfX, y + halfY, up, 0f, 0f, red, green, blue);
-        mesh.add(x - halfX, y - halfY, up, 0f, 0f, red, green, blue);
-        mesh.add(x + halfX, y + halfY, up, 0f, 0f, red, green, blue);
-        mesh.add(x - halfX, y + halfY, up, 0f, 0f, red, green, blue);
     }
 }

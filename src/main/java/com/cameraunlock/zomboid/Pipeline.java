@@ -86,7 +86,7 @@ final class Pipeline {
     private static final int GL_TEXTURE_3D = 0x806F;
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
-    private static final int GL_TEXTURE_MIN_FILTER = 0x2801;
+    private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_LINEAR_MIPMAP_LINEAR = 0x2703;
     private static final int GL_TEXTURE_WRAP_S = 0x2802;
     private static final int GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_TEXTURE_WRAP_R = 0x8072;
@@ -249,6 +249,11 @@ final class Pipeline {
     private final float[] roofMatrix = new float[16];
     private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
     private static final int RAIN_DROPS = 9000;
+    /** The unit the rain and the snow read the block of sheltered squares on. */
+    private static final int SHELTER_UNIT = 1;
+    /** The unit the develop pass reads it on, how bright fog is against the sky it hangs under, and how far over the ground the eye the scene is built round is, in tiles. */
+    private static final int DEVELOP_SHELTER_UNIT = 5;
+    private static final float FOG_BRIGHT = 1.1f, FOG_EYE_OVER_GROUND = 1.6f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
     /**
@@ -316,7 +321,9 @@ final class Pipeline {
     private final Lent torched = new Lent("torch's shadow map");
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures");
-    private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
+    /** What water shows, at half the picture's size: only in High with water in the frame. */
+    private final Lent watered = new Lent("picture of what water shows");
+    private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered};
     private final Lent[] UNSIZED = {beamed, torched, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
@@ -366,6 +373,11 @@ final class Pipeline {
      * two passes of a frame as readily as between two frames.
      */
     boolean seated;
+    /**
+     * The plane the water round the eye lies in, where the frame shows any: the unit vector
+     * square to it and how far along it the plane is, see WaterMirror. Null with no water.
+     */
+    float[] water;
     float rangeFrom;
     float focusX, focusY, focusUp;
     /**
@@ -385,6 +397,12 @@ final class Pipeline {
     float cutRowsX, cutRowsY, cutBelow;
     /** How much of CUT_BEHIND the cut still reaches behind the viewer: all of it from overhead, none as the camera reaches the eye. */
     float cutBehind = 1f;
+    /** Where rain and snow are kept out with no roof drawn, or null: see Shelter. */
+    Shelter sheltered;
+    /** How far the camera outside the viewer is from the place it looks at, in tiles. */
+    float away;
+    private int shelterTexture;
+    private Shelter shelterHeld;
     /** The height above which everything in the viewer's building is left out, while the camera is above it. */
     float lid = Float.MAX_VALUE;
     final float[] cutBox = new float[4];
@@ -496,6 +514,17 @@ final class Pipeline {
     private long mirrorDrawnAt;
     /** While set, the world is drawn into the picture a scope's eyepiece shows. */
     private boolean inScope;
+    /**
+     * What water shows: the world over it, drawn from the eye's image under it at half the
+     * picture's size. Only in High, and only in a frame with water in it. See WaterMirror.
+     */
+    private int waterColor, waterTarget, waterDepth, waterWidth, waterHeight;
+    private final ViewCamera.Pose under = new ViewCamera.Pose();
+    /** While set, the world is drawn into that picture. */
+    private boolean inWater;
+    /** Whether this frame drew it, for the eye's own picture to show. */
+    private boolean waterDrawn;
+    private static final int WATER_UNIT = 18;
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
     private static final int MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
@@ -776,6 +805,10 @@ final class Pipeline {
             if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
+            waterDrawn = water != null && shadedAndLit && !outside;
+            if (waterDrawn) {
+                drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
             if (steadying) {
@@ -792,7 +825,7 @@ final class Pipeline {
             view.characters.movers.end();
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
-            if ((state.rain > 0f || state.snow > 0f) && !overhead) {
+            if ((state.rain > 0f || state.snow > 0f) && sheltered != Shelter.EVERYWHERE) {
                 drawRain(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
             // After the sky and the rain, which are both beyond any glass: the sky is painted
@@ -910,6 +943,24 @@ final class Pipeline {
         }
         behindListed.of(drawn, leftOut, true);
         return behindListed;
+    }
+
+    /**
+     * What the water of the frame shows of the world over it, sky and all: see WaterMirror.
+     * Drawn before the eye's own picture of the world, which shows it wherever it draws water.
+     */
+    private void drawOverWater(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
+            float fogStart, float fogEnd) {
+        WaterMirror.mirror(camera, water, under);
+        lend(watered, this::makeWatered);
+        float tan = tanHalfFieldOfView * WaterMirror.MARGIN;
+        inWater = true;
+        drawWorld(under, state, tan, aspect, near, far, fogStart, fogEnd);
+        inWater = false;
+        drawSkyInto(waterTarget, waterWidth, waterHeight, false, under, state, tan, aspect, near, far);
+        // Far water reads it coarser than it was drawn: see overWater in the world's program.
+        GL11.glBindTexture(GL_TEXTURE_2D, waterColor);
+        GL30.glGenerateMipmap(GL_TEXTURE_2D);
     }
 
     /**
@@ -1447,9 +1498,15 @@ final class Pipeline {
         shadow.use();
         shadow.set("uMatrix", roofMatrix);
         shadow.set("uSunWay", 0f, 0f, 1f);
-        ChunkBuffers.Listing held = heldBy(roofMatrix, state, roofListed, ROOF_MAP);
-        drawRanges(held, 0, held.solidRanges());
-        drawModels(shadow, false, false, null, 0f, 0f);
+        shadow.set("uFromAbove", 1f);
+        try {
+            ChunkBuffers.Listing held = heldBy(roofMatrix, state, roofListed, ROOF_MAP);
+            drawRanges(held, 0, held.solidRanges());
+            drawModels(shadow, false, false, null, 0f, 0f);
+        } finally {
+            // Every other map this program draws has its wires in it.
+            shadow.set("uFromAbove", 0f);
+        }
     }
 
     /**
@@ -1583,12 +1640,39 @@ final class Pipeline {
         GL11.glDepthMask(true);
     }
 
+    /** The box of air rain and snow fall in: its width, its height, and how far under the eye it reaches. See the rain shader and Wind. */
+    private static final float RAIN_BOX = Wind.CARRIED_WRAP, RAIN_HIGH = 12f, RAIN_UNDER_EYE = 0.35f * RAIN_HIGH;
+    /** Half the width of a streak of rain, in tiles, and how long the eye takes a drop in for, in seconds: a streak is as long as the drop goes in that. */
+    private static final float RAIN_HALF_WIDE = 0.008f, RAIN_SEEN_FOR = 0.032f;
+    /** How much of a drop and of a flake shows, at its middle. */
+    private static final float RAIN_SHOWN = 0.55f, SNOW_SHOWN = 0.9f;
+    /**
+     * From far overhead: how far under the place looked at the box reaches at least, the most
+     * boxes drawn along each side of the ground in the picture, and the least a streak or a
+     * flake is across, in dots of the picture.
+     */
+    private static final float RAIN_UNDER_PLACE = 1f;
+    private static final int RAIN_BOXES_MOST = 5;
+    private static final float RAIN_DOTS_LEAST = 1.1f, SNOW_DOTS_LEAST = 1.5f;
+    /**
+     * From far overhead a line of sight crosses the whole depth of the falling rain, where an
+     * eye in it sees the near drops large and few. This share of the drops, and of the flakes,
+     * is drawn there, which is as heavy as the game's own view has its rain and its snow.
+     */
+    private static final float RAIN_SHARE_OVERHEAD = 0.15f, SNOW_SHARE_OVERHEAD = 0.35f;
+    /** How long a drop is taken in for from far overhead: the game's own view has its rain as short strokes, a fifth of a tile or so. */
+    private static final float RAIN_SEEN_FOR_OVERHEAD = 0.014f;
+    private final float[] rainBox = new float[4];
+
     /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
     private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         GL11.glMatrixMode(GL_PROJECTION);
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        // Aside as the world was drawn: the panes drawn after this load the same matrix and are tested against the world's depth.
+        projection[8] += asideX;
+        projection[9] += asideY;
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
         ViewCamera.view(camera, viewed);
@@ -1606,8 +1690,37 @@ final class Pipeline {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
+        holdShelter(SHELTER_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
+        // Round the eye, the one box the eye is in. From far overhead, the boxes over the ground
+        // the picture shows and over as much again towards the camera as the rain stands high,
+        // which is where the lines of sight to that ground come down through it.
+        int boxesX = 1, boxesY = 1;
+        float dot = 0f;
+        rainBox[0] = camera.eyeX;
+        rainBox[1] = camera.eyeY;
+        rainBox[2] = camera.eyeUp;
+        rainBox[3] = RAIN_UNDER_EYE;
+        if (overhead) {
+            float halfHigh = tanHalfFieldOfView * away, halfWide = halfHigh * aspect;
+            float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
+            float steep = Math.max(-camera.forwardUp, 0.2f);
+            float aheadX = flat > 1e-4f ? camera.forwardX / flat : 1f, aheadY = flat > 1e-4f ? camera.forwardY / flat : 0f;
+            float towards = RAIN_HIGH * flat / steep, along = halfHigh / steep;
+            float placeUp = camera.eyeUp + camera.forwardUp * away;
+            rainBox[0] = camera.eyeX + camera.forwardX * away - aheadX * towards / 2f;
+            rainBox[1] = camera.eyeY + camera.forwardY * away - aheadY * towards / 2f;
+            rainBox[2] = placeUp;
+            rainBox[3] = Math.clamp(placeUp + RAIN_UNDER_PLACE, RAIN_UNDER_PLACE, RAIN_UNDER_EYE);
+            float reachX = Math.abs(aheadX) * (along + towards / 2f) + Math.abs(aheadY) * halfWide;
+            float reachY = Math.abs(aheadY) * (along + towards / 2f) + Math.abs(aheadX) * halfWide;
+            boxesX = Math.clamp((int) Math.ceil(2f * reachX / RAIN_BOX), 1, RAIN_BOXES_MOST);
+            boxesY = Math.clamp((int) Math.ceil(2f * reachY / RAIN_BOX), 1, RAIN_BOXES_MOST);
+            // Half a dot of the picture, in tiles, at the place looked at.
+            dot = halfHigh / height;
+        }
+        boolean lidded = overhead && lid < Float.MAX_VALUE / 2f;
         if (state.rain > 0f) {
             // Added to what is there. The picture's alpha is left alone: it says what mirrors.
             GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
@@ -1617,13 +1730,18 @@ final class Pipeline {
             rain.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
             rain.set("uFall", state.carriedX, state.carriedY, state.rainClock);
             rain.set("uAir", state.airX, state.airY);
-            rain.set("uRain", state.rain);
+            rain.set("uRain", state.rain * (overhead ? RAIN_SHARE_OVERHEAD : 1f));
             rain.set("uSeated", seated ? 1f : 0f);
+            rain.set("uBox", rainBox[0], rainBox[1], rainBox[2], rainBox[3]);
+            rain.set("uThin", Math.max(RAIN_HALF_WIDE, RAIN_DOTS_LEAST * dot));
+            rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
+            rain.set("uShown", RAIN_SHOWN);
+            setShelter(rain, SHELTER_UNIT, lidded);
             setBeams(rain, TORCH_UNIT);
             // A drop shows the sky it falls through.
             rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
                     1.6f * (float) Math.pow(state.horizonBlue, 2.2));
-            GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+            drawBoxes(rain, boxesX, boxesY);
         }
         if (state.snow > 0f) {
             // A flake is white and hides what is behind it: laid over the picture, not added to it.
@@ -1634,20 +1752,61 @@ final class Pipeline {
             snow.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
             snow.set("uFall", state.carriedX, state.carriedY, state.snowClock);
             snow.set("uAir", state.airX, state.airY);
-            snow.set("uSnow", state.snow);
+            snow.set("uSnow", state.snow * (overhead ? SNOW_SHARE_OVERHEAD : 1f));
             snow.set("uSeated", seated ? 1f : 0f);
+            snow.set("uBox", rainBox[0], rainBox[1], rainBox[2], rainBox[3]);
+            snow.set("uThin", SNOW_DOTS_LEAST * dot);
+            snow.set("uShown", SNOW_SHOWN);
+            setShelter(snow, SHELTER_UNIT, lidded);
             setBeams(snow, TORCH_UNIT);
             // A flake is lit by the whole sky, and by the sun or the moon when there is one.
             snow.set("uTint", (float) Math.pow(0.5f * (state.horizonRed + state.zenithRed) + 0.35f * state.lightRed, 2.2),
                     (float) Math.pow(0.5f * (state.horizonGreen + state.zenithGreen) + 0.35f * state.lightGreen, 2.2),
                     (float) Math.pow(0.5f * (state.horizonBlue + state.zenithBlue) + 0.35f * state.lightBlue, 2.2));
-            GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+            drawBoxes(snow, boxesX, boxesY);
         }
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(true);
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    /** Draws the drops once for each box of a block of them, the block's middle on the place the boxes are counted from. */
+    private static void drawBoxes(Program falling, int boxesX, int boxesY) {
+        for (int boxY = 0; boxY < boxesY; boxY++) {
+            for (int boxX = 0; boxX < boxesX; boxX++) {
+                falling.set("uTile", (boxX - (boxesX - 1) / 2f) * RAIN_BOX, (boxY - (boxesY - 1) / 2f) * RAIN_BOX);
+                GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
+            }
+        }
+    }
+
+    /** Has the frame's block of sheltered squares on the graphics card, on a unit. A view keeps the one small texture for as long as it draws. */
+    private void holdShelter(int unit) {
+        GL13.glActiveTexture(GL_TEXTURE0 + unit);
+        GL33.glBindSampler(unit, 0);
+        if (shelterTexture == 0) {
+            shelterTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, shelterTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, Shelter.SIDE, Shelter.SIDE, 0, GL_RED, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            filter(GL_NEAREST);
+            shelterHeld = null;
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, shelterTexture);
+        if (sheltered != null && sheltered != shelterHeld) {
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Shelter.SIDE, Shelter.SIDE, GL_RED, GL_UNSIGNED_BYTE, sheltered.storeys);
+            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            shelterHeld = sheltered;
+        }
+    }
+
+    private void setShelter(Program falling, int unit, boolean lidded) {
+        falling.set("uShelter", unit);
+        falling.set("uShelterAt", sheltered == null ? 0f : sheltered.x, sheltered == null ? 0f : sheltered.y, sheltered == null ? 0f : 1f / Shelter.SIDE,
+                255f * ViewCamera.LEVEL_HEIGHT);
+        falling.set("uLidBox", lidded ? cutBox[0] : 0f, lidded ? cutBox[1] : 0f, lidded ? cutBox[2] : 0f, lidded ? cutBox[3] : 0f);
     }
 
     /**
@@ -1679,8 +1838,8 @@ final class Pipeline {
 
     private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
-        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : width, inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : sceneTarget);
+        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : width, drawnHigh());
         // In the mirror, where nothing is drawn is marked, and the sky is put there when the
         // glass is drawn.
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
@@ -1701,7 +1860,7 @@ final class Pipeline {
         // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
         // and with more detail than one frame's pixels hold.
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-        if (!inMirror && !inScope) {
+        if (!inMirror && !inScope && !inWater) {
             if (steadying) {
                 jitterAt = (jitterAt + 1) % JITTER_X.length;
                 asideX = JITTER_X[jitterAt] / width;
@@ -1730,7 +1889,7 @@ final class Pipeline {
         // same lines the same way twice: a pixel one kept and the other left out would be a
         // pinhole, and without=depth is the picture to hold a capture against.
         // The same in both drawings of the solid world, which must agree on which model of a piece is there.
-        float pixel = 2f * tanHalfFieldOfView / (inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
+        float pixel = 2f * tanHalfFieldOfView / drawnHigh();
         if (depthFirst) {
             tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             worldDepth.set("uLaid", 0f);
@@ -1743,7 +1902,7 @@ final class Pipeline {
             GL11.glDepthMask(false);
         }
         // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the scope.
-        boolean own = !inMirror && !inScope;
+        boolean own = !inMirror && !inScope && !inWater;
         if (own) {
             stage(STAGE_DEPTH);
         }
@@ -1759,7 +1918,9 @@ final class Pipeline {
         // What is laid over the floors, mixed in by how see-through each pixel is, and the grass
         // that stands on them.
         GL11.glEnable(GL_BLEND);
-        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // The picture's alpha is how much of a mirror a pixel is, 1 for none, and what is laid gives how much of the pixel it covers:
+        // mixed in as the colour is, a pixel half covered would be left a quarter of a mirror.
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         world.set("uCut", 0.02f);
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
@@ -1767,7 +1928,7 @@ final class Pipeline {
         // by the next. It is drawn by itself before the rest of what is laid: its depth first,
         // as the solid world's is, and then a pixel is lit only for the blade nearest the eye
         // there. The rest lies on the ground in layers that are mixed each over the last, and
-        // is drawn once, in the order listed, as it always was.
+        // is drawn once, in the order listed.
         if (depthFirst) {
             GL11.glDisable(GL_BLEND);
             worldDepth.use();
@@ -1791,6 +1952,7 @@ final class Pipeline {
         if (own) {
             stage(STAGE_LAID);
         }
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         leaveWorld();
@@ -1828,7 +1990,7 @@ final class Pipeline {
         far.set("uFogStart", fogStart);
         far.set("uFogEnd", fogEnd);
         far.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-        far.set("uBeyond", inScope ? Math.min(beyond, 1f) : beyond);
+        far.set("uBeyond", inScope || inWater ? Math.min(beyond, 1f) : beyond);
         atmosphere(far, state);
         view.worldScene.farLand.draw(camera.eyeX, camera.eyeY);
     }
@@ -1915,7 +2077,7 @@ final class Pipeline {
         to.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
         to.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         // How much of its distance from the eye a pixel of this picture takes in, up and down.
-        to.set("uPixel", 2f * tanHalfFieldOfView / (inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height));
+        to.set("uPixel", 2f * tanHalfFieldOfView / drawnHigh());
         to.set("uRangeFrom", rangeFrom);
         to.set("uCutAbove", cutAbove);
         to.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
@@ -1953,7 +2115,27 @@ final class Pipeline {
         to.set("uFogEnd", fogEnd);
         to.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
         // A scope's picture is not mixed with the one before it: there the built world is thinned out by the same pixels every frame.
-        to.set("uBeyond", inMirror ? 0f : inScope ? Math.min(beyond, 1f) : beyond);
+        to.set("uBeyond", inMirror ? 0f : inScope || inWater ? Math.min(beyond, 1f) : beyond);
+        // The picture drawn from under the water has nothing in it that lies under the water's plane, nor the water.
+        if (inWater) {
+            to.set("uUnder", water[0], water[1], water[2], water[3]);
+        } else {
+            to.set("uUnder", 0f, 0f, 0f, 0f);
+        }
+        // The eye's own picture shows it where it draws water. A mirror's and a scope's look
+        // from somewhere else, and their water shows the sky alone.
+        boolean shown = waterDrawn && !inWater && !inMirror && !inScope;
+        GL13.glActiveTexture(GL_TEXTURE0 + WATER_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, shown ? waterColor : whiteTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        to.set("uWaterPicture", WATER_UNIT);
+        if (shown) {
+            to.set("uWater", water[0], water[1], water[2], WaterMirror.above(water, camera.eyeX, camera.eyeY, camera.eyeUp));
+        } else {
+            to.set("uWater", 0f, 0f, 0f, 0f);
+        }
+        to.set("uWaterShare", 1f / WaterMirror.MARGIN);
+        to.set("uRuffle", WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY)));
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
         to.set("uFaced", state.facedX, state.facedY);
@@ -2032,8 +2214,8 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_FORM_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
         to.set("uSprigForm", SPRIG_FORM_UNIT);
-        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror ? 0f : 1f);
-        to.set("uMirrors", shadedAndLit ? 1f : 0f);
+        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror || inWater ? 0f : 1f);
+        to.set("uMirrors", shadedAndLit && !inWater ? 1f : 0f);
         to.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
@@ -2328,6 +2510,9 @@ final class Pipeline {
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
         float[] marked = overhead ? null : state.marked;
+        develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
+        develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
+        develop.set("uAhead", camera.forwardX, camera.forwardY, camera.forwardUp);
         if (marked == null) {
             develop.set("uMarkedLow", 1f, 1f, 1f);
             develop.set("uMarkedHigh", 0f, 0f, 0f);
@@ -2335,9 +2520,27 @@ final class Pipeline {
             develop.set("uMarkedLow", marked[0], marked[1], marked[2]);
             develop.set("uMarkedHigh", marked[3], marked[4], marked[5]);
             develop.set("uEyeAt", camera.eyeX, camera.eyeY, camera.eyeUp);
-            develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
-            develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
-            develop.set("uAhead", camera.forwardX, camera.forwardY, camera.forwardUp);
+        }
+        // Seen from far overhead the fog is a sheet over the ground: see the develop shader. It
+        // thins away as the camera comes down to the eye, where the lit air is the fog.
+        float fog = overhead && sheltered != Shelter.EVERYWHERE ? state.fog * cutBehind : 0f;
+        develop.set("uFog", fog, state.gustX, state.gustY);
+        if (fog > 0f) {
+            holdShelter(DEVELOP_SHELTER_UNIT);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            setShelter(develop, DEVELOP_SHELTER_UNIT, lid < Float.MAX_VALUE / 2f);
+            float feetUp = focusUp - FOG_EYE_OVER_GROUND;
+            develop.set("uFogFrom", camera.eyeX + camera.forwardX * away - focusX, camera.eyeY + camera.forwardY * away - focusY,
+                    camera.eyeUp + camera.forwardUp * away - feetUp);
+            develop.set("uFogViewer", focusX, focusY, feetUp);
+            develop.set("uFogSpan", tanHalfFieldOfView * aspect * away, tanHalfFieldOfView * away);
+            // Fog is the colour of the sky it hangs under, with most of the blue out of it.
+            float red = (float) Math.pow(0.65f * state.horizonRed + 0.35f * state.zenithRed, 2.2);
+            float green = (float) Math.pow(0.65f * state.horizonGreen + 0.35f * state.zenithGreen, 2.2);
+            float blue = (float) Math.pow(0.65f * state.horizonBlue + 0.35f * state.zenithBlue, 2.2);
+            float grey = 0.3f * red + 0.59f * green + 0.11f * blue;
+            develop.set("uFogColor", FOG_BRIGHT * (grey + 0.3f * (red - grey)), FOG_BRIGHT * (grey + 0.3f * (green - grey)),
+                    FOG_BRIGHT * (grey + 0.3f * (blue - grey)));
         }
         boolean sunAhead = ViewCamera.project(camera, tanHalfFieldOfView, aspect, camera.eyeX + state.sunX, camera.eyeY + state.sunY,
                 camera.eyeUp + state.sunUp, sunNdc);
@@ -3265,11 +3468,17 @@ final class Pipeline {
         }
         pieces.add(Piece.ofPictures(() -> {
             try {
-                int oldSprigs = sprigs, oldForm = sprigForm;
-                sprigs = Pictures.load(SPRIGS, false);
-                sprigForm = Pictures.load(SPRIG_FORM, false);
-                GL11.glDeleteTextures(oldSprigs);
-                GL11.glDeleteTextures(oldForm);
+                int newSprigs = Pictures.load(SPRIGS, false), newForm;
+                try {
+                    newForm = Pictures.load(SPRIG_FORM, false);
+                } catch (IOException e) {
+                    GL11.glDeleteTextures(newSprigs);
+                    throw e;
+                }
+                GL11.glDeleteTextures(sprigs);
+                GL11.glDeleteTextures(sprigForm);
+                sprigs = newSprigs;
+                sprigForm = newForm;
                 return null;
             } catch (IOException e) {
                 return "the sprigs could not be read: " + e.getMessage();
@@ -3792,6 +4001,7 @@ final class Pipeline {
             ChunkBuffers.letGo(view.index);
             view.worldScene.farLand.catchUp();
             int copies = view.characters.letGo();
+            view.characters.movers.forget();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.
@@ -3948,6 +4158,22 @@ final class Pipeline {
         selfColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
         selfTarget = target(selfColor);
         return complete("viewer in the glass");
+    }
+
+    private String makeWatered() {
+        waterWidth = Math.max(1, width / 2);
+        waterHeight = Math.max(1, height / 2);
+        waterColor = texture(GL_RGBA16F, waterWidth, waterHeight, GL_RGBA, GL_FLOAT, GL_LINEAR);
+        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        waterDepth = texture(GL_DEPTH_COMPONENT24, waterWidth, waterHeight, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+        waterTarget = target(waterColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, waterDepth, 0);
+        return complete("what water shows");
+    }
+
+    /** How many pixels high the picture being drawn into is. */
+    private int drawnHigh() {
+        return inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : inWater ? waterHeight : height;
     }
 
     /** The shade of what stands near and the lit air, at half the picture's size: only in High. */

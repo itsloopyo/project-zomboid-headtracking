@@ -70,6 +70,13 @@ final class Movers {
         seen.put(who, stands);
     }
 
+    /** With the view off: nobody of the last frame drawn is held on to, nor the map they stood on. */
+    void forget() {
+        last.clear();
+        seen.clear();
+        found = 0;
+    }
+
     /** As the frame's people and vehicles have all been drawn: whoever was not in it is forgotten. */
     void end() {
         IdentityHashMap<Object, float[]> gone = last;

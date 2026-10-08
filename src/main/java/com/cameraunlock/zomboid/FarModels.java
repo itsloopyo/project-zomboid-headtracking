@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import org.joml.Vector3f;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.vehicles.BaseVehicle;
 
@@ -52,7 +53,11 @@ public final class FarModels {
         } else if (!(moving instanceof BaseVehicle && withinSight(moving))) {
             return false;
         }
-        moving.getCurrentSquare().cacheLightInfo();
+        IsoGridSquare square = moving.getCurrentSquare();
+        if (square == null) {
+            return moving.isOnScreen();
+        }
+        square.cacheLightInfo();
         return true;
     }
 
@@ -98,7 +103,7 @@ public final class FarModels {
 
     /** Whether vehicles are drawn by where they are and not by what the game's own view shows of them. */
     private boolean shownWhole() {
-        return view.firstPerson.coversTheGamesView() && !Online.contested(view.player());
+        return view.firstPerson.coversTheGamesView() && !Online.contested();
     }
 
     private boolean withinSight(IsoMovingObject moving) {

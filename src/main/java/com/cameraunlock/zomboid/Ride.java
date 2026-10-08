@@ -50,6 +50,11 @@ final class Ride {
      * seated on the way in and kept on the way out.
      */
     volatile String seatedIn;
+    /**
+     * The vehicle the viewer sits in, or last sat in, for telling its model from another vehicle's beside it and for
+     * nothing else. Null before the first, and once the view lets go of the map.
+     */
+    volatile BaseVehicle sat;
     /** The way the viewer's vehicle faces, on the map. */
     volatile float aheadX, aheadY;
     /**
@@ -106,6 +111,10 @@ final class Ride {
         }
         if (vehicle != null) {
             seatedIn = vehicle.getScriptName();
+        }
+        // Kept on the way out, as seatedIn is: the picture of the frame before is still drawn seated.
+        if (vehicle != null) {
+            sat = vehicle;
         }
         seated = vehicle != null;
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();

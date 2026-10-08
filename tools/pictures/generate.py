@@ -17,6 +17,8 @@ from PIL import Image
 import catalogue
 
 MODEL = 'stabilityai/stable-diffusion-xl-base-1.0'
+# The commit of the model on the hub that every picture here was made with.
+REVISION = '462165984030d82259a11f4367a4eed129e94a7b'
 
 
 def main():
@@ -42,7 +44,7 @@ def main():
         print('nothing to make', flush=True)
         return
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(MODEL, torch_dtype=torch.float16, variant='fp16', use_safetensors=True)
+    pipe = StableDiffusionXLPipeline.from_pretrained(MODEL, revision=REVISION, torch_dtype=torch.float16, variant='fp16', use_safetensors=True)
     pipe.set_progress_bar_config(disable=True)
     # The words are worked out once with the text models on the card, which then leave it to the denoiser.
     pipe.text_encoder.to('cuda')

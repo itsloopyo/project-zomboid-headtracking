@@ -236,8 +236,10 @@ final class WallFinish {
         // With the game telling, a level is read again by tend alone, which tells every chunk the building stands on
         // when it comes out otherwise: a reading made here is for the one wall that asked.
         if (level == null || !ChunkMarks.live && frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
+            boolean listed = level != null && level.listed;
             level = read(cell, building, z);
             level.stamp = frame;
+            level.listed = listed;
             levels[slot] = level;
         }
         // Whenever the game is telling, not only at a first reading: it may begin to tell after the level was read.

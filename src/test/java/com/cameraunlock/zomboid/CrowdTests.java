@@ -9,15 +9,13 @@ public final class CrowdTests {
     private static final float TAN_HIGH = (float) Math.tan(Math.toRadians(55)), ASPECT = 16f / 9f;
 
     static void run() {
-        aPointInThePictureIsOutsideNoEdge();
-        aPointPastAnEdgeIsThatFarOutside();
-        aShadowThatFallsIntoThePictureIsKept();
+        Checks.run("aPointInThePictureIsOutsideNoEdge", CrowdTests::aPointInThePictureIsOutsideNoEdge);
+        Checks.run("aPointPastAnEdgeIsThatFarOutside", CrowdTests::aPointPastAnEdgeIsThatFarOutside);
+        Checks.run("aShadowThatFallsIntoThePictureIsKept", CrowdTests::aShadowThatFallsIntoThePictureIsKept);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static float[] multiply(float[] m, float x, float y, float z) {

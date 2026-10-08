@@ -16,9 +16,7 @@ final class StyleTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void f10GoesRoundTheThree() {

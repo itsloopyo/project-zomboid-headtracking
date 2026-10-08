@@ -33,14 +33,14 @@ final class LinkTests {
     private LinkTests() {}
 
     static void run() {
-        everythingUsedAsItIsResolves();
-        aMethodIsFoundAsItIsCalled();
-        aFieldIsFoundAsItIsUsed();
-        aClassOnlyNamedIsLookedUp();
-        aMethodReferenceIsLookedUp();
-        aFieldReadByNameIsDeclaredAsRead();
-        aClassMadeOfOneOfTheGamesFitsIt();
-        aGameThatIsNotThereResolvesNothing();
+        Checks.run("everythingUsedAsItIsResolves", LinkTests::everythingUsedAsItIsResolves);
+        Checks.run("aMethodIsFoundAsItIsCalled", LinkTests::aMethodIsFoundAsItIsCalled);
+        Checks.run("aFieldIsFoundAsItIsUsed", LinkTests::aFieldIsFoundAsItIsUsed);
+        Checks.run("aClassOnlyNamedIsLookedUp", LinkTests::aClassOnlyNamedIsLookedUp);
+        Checks.run("aMethodReferenceIsLookedUp", LinkTests::aMethodReferenceIsLookedUp);
+        Checks.run("aFieldReadByNameIsDeclaredAsRead", LinkTests::aFieldReadByNameIsDeclaredAsRead);
+        Checks.run("aClassMadeOfOneOfTheGamesFitsIt", LinkTests::aClassMadeOfOneOfTheGamesFitsIt);
+        Checks.run("aGameThatIsNotThereResolvesNothing", LinkTests::aGameThatIsNotThereResolvesNothing);
     }
 
     private static byte[] type(ClassDesc name, int flags, ClassDesc parent, Consumer<ClassBuilder> members) {
@@ -100,15 +100,12 @@ final class LinkTests {
     }
 
     private static void accepted(String what, Links.Result result) {
-        if (!result.unresolved().isEmpty()) {
-            throw new AssertionError(what + ", got: " + result.unresolved());
-        }
+        Checks.check(result.unresolved().isEmpty(), what + ", got: " + result.unresolved());
     }
 
     private static void refused(String what, String why, Links.Result result) {
-        if (result.unresolved().size() != 1 || !result.unresolved().getFirst().endsWith(": " + why)) {
-            throw new AssertionError(what + ": expected one refusal ending \"" + why + "\", got: " + result.unresolved());
-        }
+        Checks.check(result.unresolved().size() == 1 && result.unresolved().getFirst().endsWith(": " + why),
+                what + ": expected one refusal ending \"" + why + "\", got: " + result.unresolved());
     }
 
     private static final Consumer<CodeBuilder> MAKE = code -> code.invokestatic(THING, "make", TO_INT).pop();

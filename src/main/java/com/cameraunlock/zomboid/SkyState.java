@@ -69,6 +69,8 @@ final class SkyState {
     float gustX, gustY, flutter;
     /** How much there is in the air for light to catch: a little on a clear day, a lot in fog. */
     float mist;
+    /** How thick the game has its fog, 0 to 1. */
+    float fog;
     /** How hard it is raining, 0 to 1. Snow is not rain. */
     float rain;
     /** How hard it is snowing, 0 to 1, and how much of the ground snow lies on, 0 to 1. */
@@ -77,7 +79,7 @@ final class SkyState {
     float airX, airY, carriedX, carriedY, rainClock, snowClock;
     /** How wet the ground is, 0 to 1: it takes a while to wet in rain and longer to dry after it. */
     float wet;
-    /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene. */
+    /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene, and by the rigs that draw a scene of their own. */
     float outdoors;
 
     private static float driftedX, driftedY;
@@ -177,7 +179,8 @@ final class SkyState {
         // grass here rises and falls with them.
         float gusting = (float) ClimateManager.getWindTickFinal();
         float windStrength = Wind.push(gusting);
-        mist = MIST_CLEAR + MIST_FOG * Math.clamp(climate.getFogIntensity(), 0f, 1f) + MIST_RAIN * rain;
+        fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
+        mist = MIST_CLEAR + MIST_FOG * fog + MIST_RAIN * rain;
         // Morning and evening air holds more than noon's: damp rising, dust and pollen hanging.
         mist *= 1f + 1.0f * (1f - Math.clamp(sunUp / 0.6f, 0f, 1f)) * (1f - night);
 

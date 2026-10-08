@@ -6,17 +6,15 @@ final class QualityTests {
     private static final long SECOND = 1_000_000_000L;
 
     static void run() {
-        aLevelAskedForIsKept();
-        automaticStepsDownWhileThePictureIsSlow();
-        automaticStaysWhereThePictureKeepsUp();
-        twoViewsAreCountedAsOnePicture();
+        Checks.run("aLevelAskedForIsKept", QualityTests::aLevelAskedForIsKept);
+        Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
+        Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
+        Checks.run("twoViewsAreCountedAsOnePicture", QualityTests::twoViewsAreCountedAsOnePicture);
         Quality.set(Quality.HIGH);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /** Counts frames at a steady rate for a time, and returns the time it ended at. */

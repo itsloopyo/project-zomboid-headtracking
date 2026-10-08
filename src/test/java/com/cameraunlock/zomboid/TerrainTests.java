@@ -27,9 +27,7 @@ final class TerrainTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /** Fills the map of the test: made ground up to the street, the street, then open ground, the same in every row. */

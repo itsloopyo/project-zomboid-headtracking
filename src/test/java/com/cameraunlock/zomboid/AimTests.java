@@ -11,17 +11,15 @@ final class AimTests {
     private AimTests() {}
 
     static void run() {
-        aimModeCyclesThroughThreeInOrder();
-        forwardStopIsShortOfTheLimit();
-        weaponStaysOnTheAimWhileTheHeadTurnsAndLeans();
-        weaponComesWithTheEyeWhenItHasTheLean();
-        betweenAgreesWithTheViewMatrices();
+        Checks.run("aimModeCyclesThroughThreeInOrder", AimTests::aimModeCyclesThroughThreeInOrder);
+        Checks.run("forwardStopIsShortOfTheLimit", AimTests::forwardStopIsShortOfTheLimit);
+        Checks.run("weaponStaysOnTheAimWhileTheHeadTurnsAndLeans", AimTests::weaponStaysOnTheAimWhileTheHeadTurnsAndLeans);
+        Checks.run("weaponComesWithTheEyeWhenItHasTheLean", AimTests::weaponComesWithTheEyeWhenItHasTheLean);
+        Checks.run("betweenAgreesWithTheViewMatrices", AimTests::betweenAgreesWithTheViewMatrices);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

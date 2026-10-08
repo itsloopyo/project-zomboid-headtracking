@@ -4,14 +4,12 @@ final class StairTests {
     private StairTests() {}
 
     static void run() {
-        aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove();
-        theUndersideStaysUnderEveryTreadAndMeetsTheFloor();
+        Checks.run("aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove", StairTests::aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove);
+        Checks.run("theUndersideStaysUnderEveryTreadAndMeetsTheFloor", StairTests::theUndersideStaysUnderEveryTreadAndMeetsTheFloor);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

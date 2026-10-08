@@ -18,9 +18,9 @@ final class SplitScreenTests {
     private SplitScreenTests() {}
 
     static void run() {
-        twoPlayersSideBySideAreAsTheGameHasThem();
-        twoPlayersStackedHaveTheWholeWidthAndHalfTheHeightEach();
-        anyOtherNumberOfPlayersIsAsTheGameHasIt();
+        Checks.run("twoPlayersSideBySideAreAsTheGameHasThem", SplitScreenTests::twoPlayersSideBySideAreAsTheGameHasThem);
+        Checks.run("twoPlayersStackedHaveTheWholeWidthAndHalfTheHeightEach", SplitScreenTests::twoPlayersStackedHaveTheWholeWidthAndHalfTheHeightEach);
+        Checks.run("anyOtherNumberOfPlayersIsAsTheGameHasIt", SplitScreenTests::anyOtherNumberOfPlayersIsAsTheGameHasIt);
         try {
             aCountComparedIsFilteredAndOneUsedOtherwiseIsNot();
             aCountComparedIsCountedAndItsBranchRequired();
@@ -34,9 +34,7 @@ final class SplitScreenTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /**

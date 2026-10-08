@@ -5,15 +5,13 @@ final class CutawayTests {
     private CutawayTests() {}
 
     static void run() {
-        everySquareOfABlockReadsBackWhatWasPutInIt();
-        aFloatHoldsItsTwelveSquaresExactly();
-        onlyTheTwoWallMarksAreKept();
+        Checks.run("everySquareOfABlockReadsBackWhatWasPutInIt", CutawayTests::everySquareOfABlockReadsBackWhatWasPutInIt);
+        Checks.run("aFloatHoldsItsTwelveSquaresExactly", CutawayTests::aFloatHoldsItsTwelveSquaresExactly);
+        Checks.run("onlyTheTwoWallMarksAreKept", CutawayTests::onlyTheTwoWallMarksAreKept);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /** The marks a test puts on a square: every one of none, north, west and both, in no order that follows the block's rows. */

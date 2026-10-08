@@ -7,13 +7,13 @@ final class WindTests {
     private WindTests() {}
 
     static void run() {
-        pushFollowsTheGamesWind();
-        windThatTurnsRoundAtOnceMovesTheGrassNoFasterThanItBlows();
-        pushComesRoundToANewWindInAFewSeconds();
-        gustsAreCarriedTheWayTheWindBlows();
-        travelAndClockStayWithinWhatTheyRepeatOver();
-        rainAndSnowAreCarriedAtTheAirsSpeedAndNeverJump();
-        dropsAndFlakesHaveFallenAWholeNumberOfBoxesWhenTheirClocksStartAgain();
+        Checks.run("pushFollowsTheGamesWind", WindTests::pushFollowsTheGamesWind);
+        Checks.run("windThatTurnsRoundAtOnceMovesTheGrassNoFasterThanItBlows", WindTests::windThatTurnsRoundAtOnceMovesTheGrassNoFasterThanItBlows);
+        Checks.run("pushComesRoundToANewWindInAFewSeconds", WindTests::pushComesRoundToANewWindInAFewSeconds);
+        Checks.run("gustsAreCarriedTheWayTheWindBlows", WindTests::gustsAreCarriedTheWayTheWindBlows);
+        Checks.run("travelAndClockStayWithinWhatTheyRepeatOver", WindTests::travelAndClockStayWithinWhatTheyRepeatOver);
+        Checks.run("rainAndSnowAreCarriedAtTheAirsSpeedAndNeverJump", WindTests::rainAndSnowAreCarriedAtTheAirsSpeedAndNeverJump);
+        Checks.run("dropsAndFlakesHaveFallenAWholeNumberOfBoxesWhenTheirClocksStartAgain", WindTests::dropsAndFlakesHaveFallenAWholeNumberOfBoxesWhenTheirClocksStartAgain);
     }
 
     private static void rainAndSnowAreCarriedAtTheAirsSpeedAndNeverJump() {
@@ -51,9 +51,7 @@ final class WindTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void pushFollowsTheGamesWind() {

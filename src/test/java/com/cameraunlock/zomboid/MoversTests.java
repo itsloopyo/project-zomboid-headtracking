@@ -5,11 +5,24 @@ final class MoversTests {
     private MoversTests() {}
 
     static void run() {
-        aMoverStoodWhereItWasNotedTheFrameBefore();
-        aMoverFirstSeenStoodWhereItStands();
-        aMoverThatMissedAFrameIsFirstSeenAgain();
-        theNearestSixteenAreKept();
-        nobodyIsNotedForAPictureThatIsNotSteadied();
+        Checks.run("aMoverStoodWhereItWasNotedTheFrameBefore", MoversTests::aMoverStoodWhereItWasNotedTheFrameBefore);
+        Checks.run("aMoverFirstSeenStoodWhereItStands", MoversTests::aMoverFirstSeenStoodWhereItStands);
+        Checks.run("aMoverThatMissedAFrameIsFirstSeenAgain", MoversTests::aMoverThatMissedAFrameIsFirstSeenAgain);
+        Checks.run("theNearestSixteenAreKept", MoversTests::theNearestSixteenAreKept);
+        Checks.run("nobodyIsNotedForAPictureThatIsNotSteadied", MoversTests::nobodyIsNotedForAPictureThatIsNotSteadied);
+        Checks.run("nobodyIsHeldOnToOnceForgotten", MoversTests::nobodyIsHeldOnToOnceForgotten);
+    }
+
+    private static void nobodyIsHeldOnToOnceForgotten() {
+        Movers movers = new Movers();
+        Object walker = new Object();
+        movers.begin(true);
+        movers.note(walker, 10f, 20f, 0.5f, 1f, 4f);
+        movers.end();
+        movers.forget();
+        movers.begin(true);
+        movers.note(walker, 11f, 20f, 0.5f, 1f, 4f);
+        check(movers.found == 1 && movers.before[0] == 11f, "a mover noted again after the view was let go of is first seen: where it stood before is not kept");
     }
 
     private static void aMoverStoodWhereItWasNotedTheFrameBefore() {
@@ -90,8 +103,6 @@ final class MoversTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

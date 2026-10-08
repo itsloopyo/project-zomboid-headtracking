@@ -87,10 +87,13 @@ final class WorldQuery {
      */
     float shotDistance(ViewCamera.Pose aim, Terrain terrain, float floorUp, float reach,
             float[] characterX, float[] characterY, float[] characterBase, int characters) {
-        float nearest = trace.firstBlockedEdge(solidToAShot, aim.eyeX, aim.eyeY, aim.forwardX, aim.forwardY, reach);
+        float nearest;
         if (aim.forwardUp < 0f) {
-            nearest = Math.min(nearest, (floorUp - aim.eyeUp) / aim.forwardUp);
-        } else if (aim.forwardUp > 0f) {
+            nearest = downward(aim, floorUp, reach);
+        } else {
+            nearest = trace.firstBlockedEdge(solidToAShot, aim.eyeX, aim.eyeY, aim.forwardX, aim.forwardY, reach);
+        }
+        if (aim.forwardUp > 0f) {
             float toCeiling = ((level + 1) * ViewCamera.LEVEL_HEIGHT + terrain.height(aim.eyeX, aim.eyeY) - aim.eyeUp) / aim.forwardUp;
             if (toCeiling < nearest && toCeiling <= reach) {
                 IsoGridSquare above = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toCeiling),
@@ -104,6 +107,38 @@ final class WorldQuery {
             nearest = Math.min(nearest, cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]));
         }
         return nearest <= reach ? nearest : Float.POSITIVE_INFINITY;
+    }
+
+    /**
+     * The distance along an aim below level to the first wall or floor. The aim's own level has
+     * a floor only where the map has one: from an upper window, a balcony or the head of a
+     * stair the shot goes on past the edge of it, down through the level below and the walls
+     * that stand there, to the ground. The ground and whatever is under it is floor everywhere.
+     */
+    private float downward(ViewCamera.Pose aim, float floorUp, float reach) {
+        int aimedFrom = level;
+        try {
+            float from = 0f;
+            while (true) {
+                float toFloor = (floorUp - (aimedFrom - level) * ViewCamera.LEVEL_HEIGHT - aim.eyeUp) / aim.forwardUp;
+                float wall = from + trace.firstBlockedEdge(solidToAShot, aim.eyeX + aim.forwardX * from, aim.eyeY + aim.forwardY * from, aim.forwardX, aim.forwardY,
+                        Math.min(toFloor, reach) - from);
+                if (wall <= toFloor) {
+                    return wall;
+                }
+                if (toFloor > reach) {
+                    return Float.POSITIVE_INFINITY;
+                }
+                IsoGridSquare under = cell.getGridSquare((int) Math.floor(aim.eyeX + aim.forwardX * toFloor), (int) Math.floor(aim.eyeY + aim.forwardY * toFloor), level);
+                if (level <= 0 || under != null && under.getFloor() != null) {
+                    return toFloor;
+                }
+                level--;
+                from = toFloor;
+            }
+        } finally {
+            level = aimedFrom;
+        }
     }
 
     /** Where a ray enters an upright cylinder of a character's size standing at (x, y, base), or infinity. */

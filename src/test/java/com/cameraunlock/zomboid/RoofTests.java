@@ -11,21 +11,21 @@ final class RoofTests {
     private RoofTests() {}
 
     static void run() {
-        planeAndFoldAreToldApartByTheMiddle();
-        longestRunLeavesOutAStrayRow();
-        roofOverAnLShapedBuildingIsClosedAllRound();
-        hipsAndValleyOfTheLShapeAreFoldedTheRightWay();
-        mapTilesAtAHipKeepTheirOwnHalf();
-        ridgeAndHipsAreCappedAndAValleyIsNot();
-        gableOneTileWiderThanItsSlopesIsLevelAtTheRidge();
-        chimneySquareInASlopeIsMended();
-        roofWithBothSidesAndMoreBuildingBeyondGetsNoMore();
-        hipTileOfTheMapIsBothItsSlopes();
-        wingRunsIntoTheMainRoofInAStraightValley();
-        slopeIsNotCarriedOverAHip();
-        valleyTileThatReadsLevelIsFolded();
-        lowestRowThatReadsLevelIsTheSlopeGoingOnDown();
-        meanColourOfATileCountsTheDarkBetweenItsShingles();
+        Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
+        Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
+        Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
+        Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
+        Checks.run("mapTilesAtAHipKeepTheirOwnHalf", RoofTests::mapTilesAtAHipKeepTheirOwnHalf);
+        Checks.run("ridgeAndHipsAreCappedAndAValleyIsNot", RoofTests::ridgeAndHipsAreCappedAndAValleyIsNot);
+        Checks.run("gableOneTileWiderThanItsSlopesIsLevelAtTheRidge", RoofTests::gableOneTileWiderThanItsSlopesIsLevelAtTheRidge);
+        Checks.run("chimneySquareInASlopeIsMended", RoofTests::chimneySquareInASlopeIsMended);
+        Checks.run("roofWithBothSidesAndMoreBuildingBeyondGetsNoMore", RoofTests::roofWithBothSidesAndMoreBuildingBeyondGetsNoMore);
+        Checks.run("hipTileOfTheMapIsBothItsSlopes", RoofTests::hipTileOfTheMapIsBothItsSlopes);
+        Checks.run("wingRunsIntoTheMainRoofInAStraightValley", RoofTests::wingRunsIntoTheMainRoofInAStraightValley);
+        Checks.run("slopeIsNotCarriedOverAHip", RoofTests::slopeIsNotCarriedOverAHip);
+        Checks.run("valleyTileThatReadsLevelIsFolded", RoofTests::valleyTileThatReadsLevelIsFolded);
+        Checks.run("lowestRowThatReadsLevelIsTheSlopeGoingOnDown", RoofTests::lowestRowThatReadsLevelIsTheSlopeGoingOnDown);
+        Checks.run("meanColourOfATileCountsTheDarkBetweenItsShingles", RoofTests::meanColourOfATileCountsTheDarkBetweenItsShingles);
     }
 
     private static void meanColourOfATileCountsTheDarkBetweenItsShingles() {
@@ -404,9 +404,7 @@ final class RoofTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

@@ -12,7 +12,7 @@ final class GameFixTests {
     private GameFixTests() {}
 
     static void run() {
-        aKindIsKeptOnceItIsLearnt();
+        Checks.run("aKindIsKeptOnceItIsLearnt", GameFixTests::aKindIsKeptOnceItIsLearnt);
         try {
             anAnswerIsWorkedOutOnceForEachThingAsked();
             falseIsAnsweredAtOnceWhileTheListIsEmpty();
@@ -25,9 +25,7 @@ final class GameFixTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void aKindIsKeptOnceItIsLearnt() {

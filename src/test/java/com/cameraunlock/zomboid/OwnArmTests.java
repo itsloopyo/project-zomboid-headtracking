@@ -17,8 +17,8 @@ final class OwnArmTests {
         leftArmIsTheRightOneInAMirror(model);
         fingersBendAsThePoseHasThem(model);
         forearmTurnsWithTheHandAlongItsLength(model);
-        actionIsKnownByTheGamesNameForIt();
-        handKeepsTimeWithTheRoundsGoingIn();
+        Checks.run("actionIsKnownByTheGamesNameForIt", OwnArmTests::actionIsKnownByTheGamesNameForIt);
+        Checks.run("handKeepsTimeWithTheRoundsGoingIn", OwnArmTests::handKeepsTimeWithTheRoundsGoingIn);
         rightHandWorksTheBoltAndComesBackToTheGrip(model);
         leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(model);
         leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model);
@@ -28,9 +28,9 @@ final class OwnArmTests {
         handUnderAForeEndComesBackToWhereItsArmReaches(model);
         handOnAPumpIsOnItAndGoesWithIt(model);
         upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre(model);
-        elbowIsWhereTheTwoBonesMeet();
+        Checks.run("elbowIsWhereTheTwoBonesMeet", OwnArmTests::elbowIsWhereTheTwoBonesMeet);
         wristIsWhereTheArmPutsIt(model);
-        longGunIsHeldNearerAtTheHipThanItsSightsAsk();
+        Checks.run("longGunIsHeldNearerAtTheHipThanItsSightsAsk", OwnArmTests::longGunIsHeldNearerAtTheHipThanItsSightsAsk);
         armsAreTheSizeArmsAreAndStartWhereShouldersAre(model);
     }
 
@@ -477,9 +477,7 @@ final class OwnArmTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b, float within) {

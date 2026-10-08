@@ -9,14 +9,14 @@ final class SpanTests {
     private SpanTests() {}
 
     static void run() {
-        everyLengthOfASpanHangsBetweenTheSameTwoInsulators();
-        lengthThatPassesOverAnInsulatorIsHeldThere();
-        wiresOfOneRunKeepToTheirOwnInsulators();
-        runThatTurnsAtAPoleIsMadeFastToItFromBothWays();
-        runThatStopsInTheAirIsHeldWhereItStops();
-        spanTheMapIsNotLoadedToTheEndOfIsTakenForAUsualOne();
-        wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds();
-        lengthsOfASpanSwingAsOne();
+        Checks.run("everyLengthOfASpanHangsBetweenTheSameTwoInsulators", SpanTests::everyLengthOfASpanHangsBetweenTheSameTwoInsulators);
+        Checks.run("lengthThatPassesOverAnInsulatorIsHeldThere", SpanTests::lengthThatPassesOverAnInsulatorIsHeldThere);
+        Checks.run("wiresOfOneRunKeepToTheirOwnInsulators", SpanTests::wiresOfOneRunKeepToTheirOwnInsulators);
+        Checks.run("runThatTurnsAtAPoleIsMadeFastToItFromBothWays", SpanTests::runThatTurnsAtAPoleIsMadeFastToItFromBothWays);
+        Checks.run("runThatStopsInTheAirIsHeldWhereItStops", SpanTests::runThatStopsInTheAirIsHeldWhereItStops);
+        Checks.run("spanTheMapIsNotLoadedToTheEndOfIsTakenForAUsualOne", SpanTests::spanTheMapIsNotLoadedToTheEndOfIsTakenForAUsualOne);
+        Checks.run("wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds", SpanTests::wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds);
+        Checks.run("lengthsOfASpanSwingAsOne", SpanTests::lengthsOfASpanSwingAsOne);
     }
 
     /** A map of one level: the lines on each square, the poles, and how far along x it is loaded. */
@@ -267,9 +267,7 @@ final class SpanTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

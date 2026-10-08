@@ -292,6 +292,7 @@ public final class FirstPerson {
     private void letGo() {
         held = false;
         rehearsed = false;
+        view.ride.sat = null;
         world.look(null, 0);
         view.worldScene.letGo();
     }
@@ -357,7 +358,7 @@ public final class FirstPerson {
             if (held) {
                 letGo();
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
-                Log.info(why + ": first person has given back what it held");
+                Log.info(why + ": first person has let go of the map, and the render thread is asked for what the graphics card holds of it");
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it would stop the game on its way out of the save.
@@ -443,6 +444,20 @@ public final class FirstPerson {
             }
             on = false;
             overhead = false;
+            // A frame that throws again before it reaches them never clears these.
+            landed = false;
+            active = false;
+            lookCaptured = false;
+            wasCaptured = false;
+            fromTheEye = false;
+            view.characters.wanted = false;
+            if (view.hasMouse()) {
+                MouseGrab.wanted = false;
+                MouseGrab.kept = false;
+                if (MouseGrab.applied || MouseGrab.keeping) {
+                    SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
+                }
+            }
             view.flight.cut(false);
             view.hearing.rest();
         }
@@ -516,7 +531,9 @@ public final class FirstPerson {
         } else if (!on) {
             stride.reset();
         }
-        active = landed && !GameTime.isGamePaused() && !player.isDead();
+        // The game stops drawing the world of a player who sleeps once their screen has faded, and with it this frame:
+        // the look is let go of as the sleep begins, while frames still come to let go of the mouse.
+        active = landed && !GameTime.isGamePaused() && !player.isDead() && !player.isAsleep();
         if (!landed) {
             pointer.reset();
         } else if (active && view.hasMouse()) {
@@ -616,7 +633,7 @@ public final class FirstPerson {
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
         view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, view.ride.tilt, world, sightsUp,
-                vehicle == null && Online.leanCarriesTheShot(player), view.viewModel.forwardStop(), vehicle != null, trackedView);
+                vehicle == null && Online.leanCarriesTheShot(), view.viewModel.forwardStop(), vehicle != null, trackedView);
         // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
         float beamFlat = (float) Math.sqrt(Math.max(1f - trackedView.forwardUp * trackedView.forwardUp, 0f));

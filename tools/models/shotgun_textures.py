@@ -47,7 +47,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     pipe = StableDiffusionXLPipeline.from_pretrained(
-        'stabilityai/stable-diffusion-xl-base-1.0', torch_dtype=torch.float16, variant='fp16', use_safetensors=True)
+        'stabilityai/stable-diffusion-xl-base-1.0', revision='462165984030d82259a11f4367a4eed129e94a7b', torch_dtype=torch.float16, variant='fp16',
+        use_safetensors=True)
     # The graphics card is shared: each part of the model is on it only while it runs.
     pipe.enable_model_cpu_offload()
     pipe.vae.enable_tiling()

@@ -11,7 +11,9 @@ This repository and its release ZIP contain no Project Zomboid code, no
 extracted assets and no data files. The files under `stubs/` are signature-only
 stand-ins written for this project: each lists the class and member names the
 agent calls, with the signatures the game's classes and LWJGL's declare, and
-has no body beyond a throw. They are on the compile classpath only and are
+has no body beyond a throw and no value of the game's: a constant the agent
+reads is declared with no value, and the compiled agent reads it from the game's
+own class as it runs. They are on the compile classpath only and are
 never packed into the jar.
 
 ## Project Zomboid
@@ -108,12 +110,13 @@ Copyright (c) 2026 itsloopyo
 
 ## Generated wall pictures
 
-- **Files:** every `pictures/*.jpg` inside the mod's jar: the family photographs, paintings, sports posters, band and film posters, boards and certificates that hang on walls in the first person view
+- **Files:** every `pictures/*.jpg` inside the mod's jar: the family photographs, paintings, sports posters, band and film posters, boards and certificates that hang on walls in the first person view, and the shop signs, notices and flags
 - **Version:** made with Stable Diffusion XL base 1.0, from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to the model. The people in the photographs and on the posters are nobody: the model drew them from a description such as "a grandmother with curly grey hair and glasses". The four portraits of American statesmen are paintings of those men as the prompt names them, and no copy of any one canvas. Where the game's name for a painting points at a famous old canvas ("Night With Stars", "Margarite", "Aaaaah!"), the prompt describes that subject in words and the model painted it afresh, so the picture is a new one after it. A team's crest, a sponsor's name or a sign in a picture is the model's own scribble and stands for no real team or company.
 - **License:** the model is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The pictures are decoration on walls in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
 - **Usage:** The first person view shows each in the frame or on the sheet where the game has its own small sprite of a picture. Which sprite shows which picture is `pictures/index.txt`, written by `tools/pictures/pack.py` from `tools/pictures/catalogue.py`, where the prompts are. A picture is chosen for a sprite by what the game calls it ("Painting", "Lighthouse") or by what its sprite depicts (a boxer, a family), described in words.
 - **Lettering:** `tools/pictures/pack.py` letters the film and band posters and the certificates, in Impact and Georgia as installed with Windows. Only the letters as drawn are in a picture. No font file is bundled. The names of the films are the ones the game gives those posters, and the names of the bands and singers are the ones that can be read on the game's own. The title of the one film the game calls only "Movie", the line under each name, the film company and the two medical schools are made up for the mod.
+- **Signs:** a shop sign, a notice or a flag (`tools/pictures/signs.py`) says what the game's own says, set as type in Impact, Georgia, Arial, Arial Black, Segoe Script and Mistral as installed with Windows, over a generated ground that has no writing on it: painted sheet metal, a slate, cloth. The emblem on the coffee shop's sign is the outline of a shape generated from a description of it. The flag of the United States is drawn by the tool. The names on the signs are the ones the game's signs carry.
 - **Bundled:** the pictures, yes. The model is not.
 
 ## Generated skins for zombies and the living

@@ -7,20 +7,23 @@ final class WindowTests {
     private WindowTests() {}
 
     static void run() {
-        sashWindowIsAFrameARailAndTwoPanes();
-        barsOneDotWideMakeALightEach();
-        raggedLineBesideABarIsHalfADot();
-        openWindowHasNoGlassWhereTheSashWas();
-        brokenPaneKeepsTheShareOfGlassItsSpriteShows();
-        frameWithNoStileAtOneEndRunsOn();
-        archIsMeasuredOverItsSquarePart();
-        curtainDrawnAcrossIsOneLengthOfCloth();
-        curtainPulledBackIsTwo();
-        sheetRolledUpHangsNowhere();
-        wallpaperIsItsStripes();
-        plainWallWithADoorInItIsOneStripe();
-        chequeredFloorIsItsTiles();
-        boardsAreNoTiles();
+        Checks.run("sashWindowIsAFrameARailAndTwoPanes", WindowTests::sashWindowIsAFrameARailAndTwoPanes);
+        Checks.run("barsOneDotWideMakeALightEach", WindowTests::barsOneDotWideMakeALightEach);
+        Checks.run("raggedLineBesideABarIsHalfADot", WindowTests::raggedLineBesideABarIsHalfADot);
+        Checks.run("openWindowHasNoGlassWhereTheSashWas", WindowTests::openWindowHasNoGlassWhereTheSashWas);
+        Checks.run("brokenPaneKeepsTheShareOfGlassItsSpriteShows", WindowTests::brokenPaneKeepsTheShareOfGlassItsSpriteShows);
+        Checks.run("frameWithNoStileAtOneEndRunsOn", WindowTests::frameWithNoStileAtOneEndRunsOn);
+        Checks.run("archIsMeasuredOverItsSquarePart", WindowTests::archIsMeasuredOverItsSquarePart);
+        Checks.run("curtainDrawnAcrossIsOneLengthOfCloth", WindowTests::curtainDrawnAcrossIsOneLengthOfCloth);
+        Checks.run("curtainPulledBackIsTwo", WindowTests::curtainPulledBackIsTwo);
+        Checks.run("sheetRolledUpHangsNowhere", WindowTests::sheetRolledUpHangsNowhere);
+        Checks.run("wallpaperIsItsStripes", WindowTests::wallpaperIsItsStripes);
+        Checks.run("plainWallWithADoorInItIsOneStripe", WindowTests::plainWallWithADoorInItIsOneStripe);
+        Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
+        Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
+        Checks.run("floorLaidFlatMeetsItselfAtTheSquaresEdge", WindowTests::floorLaidFlatMeetsItselfAtTheSquaresEdge);
+        Checks.run("halfASquareIsNoFlatFloor", WindowTests::halfASquareIsNoFlatFloor);
+        Checks.run("wallStoodSquareRunsOnIntoTheNextLength", WindowTests::wallStoodSquareRunsOnIntoTheNextLength);
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */
@@ -328,10 +331,169 @@ final class WindowTests {
         }), 64) == null, "a floor of boards is left to its sprite");
     }
 
-    private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
+    /**
+     * A sheet holding one floor sprite as the game paints it, a diamond 128 dots across and 64
+     * down with its top corner at dot (64, 0): every dot whose middle is in the diamond, and the
+     * staircase dots that touch it, in the colour the floor has at the place the dot's middle shows.
+     */
+    private static java.nio.ByteBuffer diamond(java.util.function.BiFunction<Float, Float, float[]> colour, float kept) {
+        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 64 * 4);
+        for (int y = 0; y < 64; y++) {
+            for (int x = 0; x < 128; x++) {
+                float u = x + 0.5f - 64f, v = y + 0.5f;
+                float a = (v / 32f + u / 64f) / 2f, b = (v / 32f - u / 64f) / 2f;
+                if (a < -0.02f || b < -0.02f || a > 1.02f || b > 1.02f || a > kept) {
+                    continue;
+                }
+                float[] c = colour.apply(a, b);
+                int at = (y * 128 + x) * 4;
+                sheet.put(at, (byte) Math.round(c[0] * 255f)).put(at + 1, (byte) Math.round(c[1] * 255f)).put(at + 2, (byte) Math.round(c[2] * 255f)).put(at + 3, (byte) 255);
+            }
         }
+        return sheet;
+    }
+
+    /** Joints running corner to corner across the square, two to a square each way, as a floor of tiles laid on the diagonal has them. */
+    private static float[] diagonalTiles(float a, float b) {
+        float one = (float) Math.cos(2.0 * Math.PI * 2.0 * (a + b)), other = (float) Math.cos(2.0 * Math.PI * 2.0 * (a - b));
+        float shade = 0.5f + 0.2f * one + 0.2f * other;
+        return new float[] {shade, shade * 0.8f, shade * 0.6f};
+    }
+
+    private static void floorLaidFlatMeetsItselfAtTheSquaresEdge() {
+        byte[] dots = Flats.laid(diamond(WindowTests::diagonalTiles, 2f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f);
+        check(dots != null, "a diamond painted to its edges is a square of floor");
+        int side = Flats.SIDE;
+        float worst = 0f;
+        for (int j = 0; j < side; j++) {
+            for (int i = 0; i < side; i++) {
+                float[] c = diagonalTiles((i + 0.5f) / side, (j + 0.5f) / side);
+                check((dots[(j * side + i) * 4 + 3] & 0xff) == 255, "every dot of the flat picture is painted");
+                worst = Math.max(worst, Math.abs((dots[(j * side + i) * 4] & 0xff) / 255f - c[0]));
+            }
+        }
+        check(worst < 0.06f, "each dot of the flat picture is the floor at its own place, edges and corners too: off by " + worst);
+        // Across the square's edge the picture goes on as it does inside the square: the last dot and the first are a dot apart.
+        float seam = 0f, inside = 0f;
+        for (int k = 0; k < side; k++) {
+            seam = Math.max(seam, Math.abs((dots[(k * side) * 4] & 0xff) - (dots[(k * side + side - 1) * 4] & 0xff)));
+            seam = Math.max(seam, Math.abs((dots[k * 4] & 0xff) - (dots[((side - 1) * side + k) * 4] & 0xff)));
+            inside = Math.max(inside, Math.abs((dots[(k * side + 40) * 4] & 0xff) - (dots[(k * side + 41) * 4] & 0xff)));
+        }
+        check(seam <= inside + 6f, "the joints run on through the edge of the square: a step of " + seam + " there against " + inside + " inside it");
+        // The rim holds what lies past each edge: the far side of the square.
+        byte[] whole = Flats.rimmed(dots, true);
+        int rim = Flats.RIM, all = Flats.WHOLE;
+        check(whole[(rim * all + rim) * 4] == dots[0] && whole[(rim * all + rim - 1) * 4] == dots[(side - 1) * 4]
+                && whole[((rim - 1) * all + rim) * 4] == dots[(side - 1) * side * 4] && whole[((all - 1) * all + all - 1) * 4] == dots[((rim - 1) * side + rim - 1) * 4],
+                "the rim round the flat picture is the far side of the square");
+        byte[] ended = Flats.rimmed(dots, false);
+        check(ended[(rim * all + rim - 1) * 4] == dots[0] && ended[((all - 1) * all + all - 1) * 4] == dots[((side - 1) * side + side - 1) * 4],
+                "and a roof's rim, which the next tile up is no part of, is its own last dots");
+        // The same floor tipped up as a tile of roof, a sixth of a level over the square: laid flat on that slope it is the same picture.
+        // The frame dot of a point of that slope is 64 * (a - b) + 64 across and 32 * a + 192 down: the climb takes back what b adds.
+        java.nio.ByteBuffer tipped = java.nio.ByteBuffer.allocate(128 * 32 * 4);
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 128; x++) {
+                float a = (y + 0.5f) / 32f, b = a - (x + 0.5f - 64f) / 64f;
+                if (b < -0.02f || b > 1.02f) {
+                    continue;
+                }
+                float[] c = diagonalTiles(a, b);
+                int at = (y * 128 + x) * 4;
+                tipped.put(at, (byte) Math.round(c[0] * 255f)).put(at + 1, (byte) Math.round(c[1] * 255f)).put(at + 2, (byte) Math.round(c[2] * 255f)).put(at + 3, (byte) 255);
+            }
+        }
+        byte[] slope = Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f);
+        check(slope != null, "a tile of roof painted to its edges is laid flat on its slope");
+        float off = 0f;
+        for (int j = 8; j < side - 8; j++) {
+            for (int i = 8; i < side - 8; i++) {
+                off = Math.max(off, Math.abs((slope[(j * side + i) * 4] & 0xff) / 255f - diagonalTiles((i + 0.5f) / side, (j + 0.5f) / side)[0]));
+            }
+        }
+        check(off < 0.08f, "and each dot of it is the roof at its own place on the slope: off by " + off);
+    }
+
+    private static void halfASquareIsNoFlatFloor() {
+        check(Flats.laid(diamond(WindowTests::diagonalTiles, 0.5f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f) == null,
+                "a sprite that paints half its square is left to its sprite");
+    }
+
+    /** How bright a wall of courses is at a place along it and a height up it, each 0 to 1: eight courses, each a shade of its own, with a joint a third of the way along. */
+    private static float courses(float along, float up) {
+        float course = (float) Math.floor(up * 8f);
+        return 0.35f + 0.05f * course + (Math.abs(along - 0.33f) < 0.02f ? -0.2f : 0f);
+    }
+
+    private static void wallStoodSquareRunsOnIntoTheNextLength() {
+        // A wall along the north edge as the game paints it, in a whole frame of 128 by 256 with the square's corner at (64, 192):
+        // on the slant, stopping three dots short of its far end, with a window in it.
+        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        for (int y = 0; y < 256; y++) {
+            for (int x = 64; x < 125; x++) {
+                float along = (x + 0.5f - 64f) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
+                boolean window = along > 0.3f && along < 0.6f && up > 0.3f && up < 0.7f;
+                if (up < 0f || up > 1f || window) {
+                    continue;
+                }
+                byte shade = (byte) Math.round(courses(along, up) * 255f);
+                int at = (y * 128 + x) * 4;
+                sheet.put(at, shade).put(at + 1, shade).put(at + 2, shade).put(at + 3, (byte) 255);
+            }
+        }
+        byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        check(dots != null, "a wall painted along the north edge is a wall");
+        int wide = Flats.WALL_LONG, high = Flats.WALL_HIGH;
+        float worst = 0f;
+        for (int j = 4; j < high - 4; j++) {
+            for (int i = 0; i < wide; i++) {
+                float along = (i + 0.5f) / wide, up = 1f - (j + 0.5f) / high;
+                boolean window = along > 0.3f && along < 0.6f && up > 0.3f && up < 0.7f;
+                boolean edge = Math.abs(along - 0.3f) < 0.02f || Math.abs(along - 0.6f) < 0.02f || Math.abs(up - 0.3f) < 0.01f || Math.abs(up - 0.7f) < 0.01f;
+                int at = (j * wide + i) * 4;
+                if (edge) {
+                    continue;
+                }
+                check(((dots[at + 3] & 0xff) > 127) != window, "the wall is painted to both its ends and the window is left open: dot " + i + ", " + j);
+                // Off a course's own edge and off the joint, where two shades meet in one dot.
+                float inCourse = up * 8f - (float) Math.floor(up * 8f);
+                if (!window && inCourse > 0.15f && inCourse < 0.85f && Math.abs(along - 0.33f) > 0.04f && i < wide - 3) {
+                    worst = Math.max(worst, Math.abs((dots[at] & 0xff) / 255f - courses(along, up)));
+                }
+            }
+        }
+        check(worst < 0.02f, "each course is level and in its own shade from end to end: off by " + worst);
+        int low = (high - 20) * wide;
+        check(dots[(low + wide - 1) * 4] == dots[(low + wide - 4) * 4] && dots[(low + wide - 1) * 4 + 3] != 0, "the dots the sprite's end lacks are the last it has");
+        byte[] whole = Flats.wallRimmed(dots);
+        int rim = Flats.WALL_RIM, all = Flats.WALL_WHOLE;
+        check(whole[(20 * all + rim) * 4] == dots[20 * wide * 4] && whole[(20 * all + rim - 1) * 4] == dots[(20 * wide + wide - 1) * 4]
+                && whole[(20 * all + all - 1) * 4] == dots[(20 * wide + rim - 1) * 4], "and the rim at each end is the wall's other end, which is the next length's");
+        check(Flats.stood(sheet, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a sprite with nothing along the west edge is no wall there");
+        // A fence of pickets with gaps of all sorts at its ends, row by row, is left as painted.
+        java.nio.ByteBuffer pickets = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        for (int y = 0; y < 256; y++) {
+            for (int x = 64; x < 128; x++) {
+                float along = (x + 0.5f - 64f) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
+                int row = (int) Math.floor(up * 192f);
+                if (up < 0f || up > 0.5f || (x - 64 + row / 3) % 8 < 4) {
+                    continue;
+                }
+                pickets.put((y * 128 + x) * 4 + 3, (byte) 255);
+            }
+        }
+        byte[] fence = Flats.stood(pickets, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        int open = 0;
+        for (int j = high / 2 + 4; j < high - 4; j++) {
+            open += (fence[(j * wide) * 4 + 3] & 0xff) < 128 ? 1 : 0;
+        }
+        check(open > high / 8, "the gaps at a fence's end stay open: " + open + " rows of them");
+        check(fence[(10 * wide + 30) * 4 + 3] == 0, "and nothing is painted over a low fence");
+    }
+
+    private static void check(boolean condition, String what) {
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

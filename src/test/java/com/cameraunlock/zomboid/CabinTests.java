@@ -7,20 +7,21 @@ final class CabinTests {
     private CabinTests() {}
 
     static void run() {
-        steeringWheelTurnsASixthOfATurnToFullLock();
-        driverIsSeatedOnTheWheelsSide();
-        bodyIsToldIntoSeatsDashDoorAndBonnet();
-        mirroredBodyIsToldTheSame();
-        bodyWithItsSeatsInItsShellHasNoSeatPieces();
-        signOnTheRoofIsNotASeat();
-        frontOfTheGlasshouseIsUnseenAndTheBackKept();
-        passengersSitWhereTheScriptSeatsThemFromTheDriver();
-        mirrorHangsFromTheVehicleWhicheverWayItFaces();
-        mirrorLeavesOutWhatItCannotShow();
-        cabinTipsAndRollsWithItsBody();
-        eyeIsSeatedAlongTheVehiclesOwnAxes();
-        viewTipsAndRollsWithTheVehicle();
-        wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
+        Checks.run("steeringWheelTurnsASixthOfATurnToFullLock", CabinTests::steeringWheelTurnsASixthOfATurnToFullLock);
+        Checks.run("bodyNotLaidOutAsTheGamesOwnIsToldBeforeItIsRead", CabinTests::bodyNotLaidOutAsTheGamesOwnIsToldBeforeItIsRead);
+        Checks.run("driverIsSeatedOnTheWheelsSide", CabinTests::driverIsSeatedOnTheWheelsSide);
+        Checks.run("bodyIsToldIntoSeatsDashDoorAndBonnet", CabinTests::bodyIsToldIntoSeatsDashDoorAndBonnet);
+        Checks.run("mirroredBodyIsToldTheSame", CabinTests::mirroredBodyIsToldTheSame);
+        Checks.run("bodyWithItsSeatsInItsShellHasNoSeatPieces", CabinTests::bodyWithItsSeatsInItsShellHasNoSeatPieces);
+        Checks.run("signOnTheRoofIsNotASeat", CabinTests::signOnTheRoofIsNotASeat);
+        Checks.run("frontOfTheGlasshouseIsUnseenAndTheBackKept", CabinTests::frontOfTheGlasshouseIsUnseenAndTheBackKept);
+        Checks.run("passengersSitWhereTheScriptSeatsThemFromTheDriver", CabinTests::passengersSitWhereTheScriptSeatsThemFromTheDriver);
+        Checks.run("mirrorHangsFromTheVehicleWhicheverWayItFaces", CabinTests::mirrorHangsFromTheVehicleWhicheverWayItFaces);
+        Checks.run("mirrorLeavesOutWhatItCannotShow", CabinTests::mirrorLeavesOutWhatItCannotShow);
+        Checks.run("cabinTipsAndRollsWithItsBody", CabinTests::cabinTipsAndRollsWithItsBody);
+        Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
+        Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
+        Checks.run("wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack", CabinTests::wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack);
     }
 
     /** A ring of 36 triangles standing across the vehicle, as a body has for its wheel, that far out from its middle across and up. Returns its first vertex. */
@@ -211,10 +212,19 @@ final class CabinTests {
         check(near(-lean[2], 0f) && near(-lean[5], 1f) && near(-lean[8], 0f), "on foot the same lean is level");
     }
 
+    private static void bodyNotLaidOutAsTheGamesOwnIsToldBeforeItIsRead() {
+        check(VehicleMeshes.lacks(32, 96, new int[] {0, 1, 2}) == null, "a triangle of three vertices of 32 bytes each is read");
+        check(VehicleMeshes.lacks(44, 132, new int[] {2, 1, 0}) == null, "and of wider vertices");
+        check(VehicleMeshes.lacks(32, 96, new int[0]) == null, "and a body of no triangles");
+        check(VehicleMeshes.lacks(24, 72, new int[] {0, 1, 2}) != null, "a vertex too short to hold a place, a normal and a texture place is not");
+        check(VehicleMeshes.lacks(0, 96, new int[] {0, 1, 2}) != null, "nor one of no length");
+        check(VehicleMeshes.lacks(32, 96, new int[] {0, 1, 3}) != null, "nor a corner past the last vertex");
+        check(VehicleMeshes.lacks(32, 96, new int[] {0, -1, 2}) != null, "nor one before the first");
+        check(VehicleMeshes.lacks(32, 96, new int[] {0, 1}) != null, "nor corners that are not triangles");
+    }
+
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

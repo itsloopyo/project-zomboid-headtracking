@@ -47,145 +47,151 @@ public final class Tests {
         Quality.set(Quality.HIGH);
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
-        cameraLooksAlongItsYaw();
-        cameraPutsPlusYOnTheRightWhenFacingPlusX();
-        cameraPutsHigherPointsHigher();
-        cameraPitchLooksUp();
-        cameraTurnsRightWithPositiveYaw();
-        headYawTurnsTheViewRight();
-        headPitchLooksUp();
-        headRollTiltsTheViewLeft();
-        worldYawKeepsTheHorizonLevel();
-        flightLeavesTheOverheadCameraAndLandsOnTheTrackedView();
-        flightTakesItsTimeWhateverTheFrames();
-        flightMixesThePicturesOnlyWhileTheCameraIsStill();
-        projectionAgreesWithTheViewMatrix();
-        reticleStaysCentredUnderRollAndMovesStraightUnderPitch();
-        reticleFollowsThePointWhenTheEyeLeans();
-        reticleFollowsTheFieldOfView();
-        nearPlaneKeepsItsCornersInsideTheLeanSkin();
-        fieldOfViewSetIsTheOneDrawnWith();
-        lightTakesTheHeadingOfItsAngles();
-        gridTraceFindsTheFirstBlockedEdge();
-        CabinTests.run();
-        GlassPullTests.run();
-        MoversTests.run();
-        SnowPrintTests.run();
-        TorchLessTests.run();
-        AimTests.run();
-        ArmTests.run();
-        OwnArmTests.run();
-        BufferTests.run();
-        PictureTests.run();
-        LinkTests.run();
-        shotStopsOnACharacter();
-        insertAfterAddsTheHookOnce();
-        insertAfterRejectsAMissingCall();
-        insertAfterRejectsTwoCalls();
-        insertAfterEachAddsTheHookAfterEveryCall();
-        returnedBooleanGoesThroughTheFilter();
-        staticIntFieldIsRequiredAsDeclared();
-        attackHoldsTheAimForAShortTail();
-        aFirearmsShotWaitsForTheAimToBear();
-        keysHeldThroughTheLandingKeepTheirWalk();
-        theGroundLosesItsLightWithTheSun();
-        fieldOfViewEasesToTheAimedZoomAndBack();
-        firstPersonKeysReplaceTheStockOnes();
-        pointerComesOutForTheInventoryKeyAPanelAndAHeldButton();
-        transformerHasNoGapOnceEveryPatchIsIn();
-        exceptionTheGameCaughtFromTheModIsWrittenOnce();
-        hookIsGivenAStaticMethodsFirstArgument();
-        transformerLeavesAClassItCannotPatchAloneAndNamesTheGap();
-        transformerNamesAClassTheGameDoesNotHave();
-        floorFaceShowsTheSpritesDiamond();
-        faceMadeTheShortWayIsTheFaceMadeTheLongWay();
-        wallFaceIsClippedToTheTrimmedSprite();
-        faceOutsideTheTrimmedSpriteAddsNothing();
-        uprightSpriteStandsOnItsAnchor();
-        smoothNormalsAgreeAcrossASeam();
-        partsAreToldByTheirNames();
-        textureRunsDownAMeshTheSameEitherSideOfASeam();
-        fringeThinsOutWithDistance();
-        fineSkinFileIsNamedAfterTheGamesTexture();
-        hookBeforeAReturnGetsTheResultAndTheFirstArgument();
-        packedModelIsReadBack();
-        brokenModelFilesAreRefused();
-        quarterTurnsCarryAModelsFrontRoundTheCompass();
-        modelsAreLaidOutOneAfterAnotherForTheGraphicsCard();
-        pieceIsPackedAsThePictureIsToldIt();
-        pieceStandsWhereTheModelTurnedScaledAndMovedIs();
-        pieceCarriesTheLightOfItsSquaresCorners();
-        pieceIsHeldByItsBall();
-        paintingOnAWallIsFoundWhereItHangs();
-        spriteDrawnForAnotherWallIsNoPainting();
-        pictureLiesOverItsFrameAsTheSpritePaintsIt();
-        frameIsChosenByThePicturesShape();
-        jarHoldsEveryModelStoodOnTheFloor();
-        wallTintSurvivesItsPacking();
-        meshesAreKeptByTextureAndTint();
-        BuildingTests.run();
-        RoofTests.run();
-        ShapeTests.run();
-        CrownTests.run();
-        GrassTests.run();
-        WindTests.run();
-        WindowTests.run();
-        ReflectionTests.run();
-        DecorTests.run();
-        OwnTests.run();
-        ScopeTests.run();
-        RifleTests.run();
-        KerbTests.run();
-        StairTests.run();
-        CutawayTests.run();
-        TerrainTests.run();
-        FacadeTests.run();
-        SpanTests.run();
-        QualityTests.run();
-        StyleTests.run();
-        GameFixTests.run();
-        MarkTests.run();
-        FarLandTests.run();
-        OnlineTests.run();
-        HearingTests.run();
-        SplitScreenTests.run();
-        CrowdTests.run();
-        TailorTests.run();
-        usualColourIsWhatMostOfTheSpriteIsPaintedIn();
-        theBuildThatShipsHasNoDevelopmentKeys();
-        heldWeaponPointsAheadWithItsBarrelOnTheLineAsked();
-        heldWeaponKeepsItsShapeAndTheGamesMirror();
-        weaponWithoutAMuzzleIsHeldByItsGrip();
-        weaponWithNoFrameIsNotHeld();
-        weaponTurnsAboutItsGrip();
-        easingCoversAllButOneOverEInItsConstantAtAnyFrameRate();
-        recoilIsOverInAHundredAndFiftyMilliseconds();
-        stepBobsTheWeaponDownAndAcross();
-        flashIsBrightestAtTheShotAndGoneAfterItsTime();
-        plantsStandWhereTheyStoodAndAreNeverTooMany();
-        fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner();
-        tuftCarriesHowWellItsGrassDoes();
-        boleIsClosedAboveItsFoot();
-        barkIsAsLargeRoundABoleAsUpIt();
-        ivyKeepsToTheBoleAndSaysHowFarUpItIs();
-        boulderIsClosed();
-        fernGrowsFromItsRoot();
-        litterShowsAsMuchAsItsCornersSay();
-        elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints();
-        pumpGoesBackAndComesForwardAgain();
-        armTooShortToReachBringsItsShoulderWithIt();
-        armWithNoWayForItsElbowToDropHasNone();
-        attackStartsAndEndsWhereTheWeaponIsHeld();
-        swingDrawsBackToTheRightAndSweepsAcrossToTheLeft();
-        attackComesInFasterAndFasterUntilItLands();
-        attackMovesWithoutAJump();
-        attackIsShownAFrameBehindAndLandsOnce();
-        attacksHeldOneAfterAnotherEachBegin();
-        attackLetGoOfRunsOnAndOnePausedStandsStill();
-        raiseLeavesTheStraightLineOnlyBetweenItsEnds();
-        meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
-        ShaderTests.run();
-        System.out.println("all tests passed");
+        Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
+        Checks.run("cameraPutsPlusYOnTheRightWhenFacingPlusX", Tests::cameraPutsPlusYOnTheRightWhenFacingPlusX);
+        Checks.run("cameraPutsHigherPointsHigher", Tests::cameraPutsHigherPointsHigher);
+        Checks.run("cameraPitchLooksUp", Tests::cameraPitchLooksUp);
+        Checks.run("cameraTurnsRightWithPositiveYaw", Tests::cameraTurnsRightWithPositiveYaw);
+        Checks.run("headYawTurnsTheViewRight", Tests::headYawTurnsTheViewRight);
+        Checks.run("headPitchLooksUp", Tests::headPitchLooksUp);
+        Checks.run("headRollTiltsTheViewLeft", Tests::headRollTiltsTheViewLeft);
+        Checks.run("worldYawKeepsTheHorizonLevel", Tests::worldYawKeepsTheHorizonLevel);
+        Checks.run("flightLeavesTheOverheadCameraAndLandsOnTheTrackedView", Tests::flightLeavesTheOverheadCameraAndLandsOnTheTrackedView);
+        Checks.run("flightTakesItsTimeWhateverTheFrames", Tests::flightTakesItsTimeWhateverTheFrames);
+        Checks.run("flightMixesThePicturesOnlyWhileTheCameraIsStill", Tests::flightMixesThePicturesOnlyWhileTheCameraIsStill);
+        Checks.run("projectionAgreesWithTheViewMatrix", Tests::projectionAgreesWithTheViewMatrix);
+        Checks.run("reticleStaysCentredUnderRollAndMovesStraightUnderPitch", Tests::reticleStaysCentredUnderRollAndMovesStraightUnderPitch);
+        Checks.run("reticleFollowsThePointWhenTheEyeLeans", Tests::reticleFollowsThePointWhenTheEyeLeans);
+        Checks.run("reticleFollowsTheFieldOfView", Tests::reticleFollowsTheFieldOfView);
+        Checks.run("nearPlaneKeepsItsCornersInsideTheLeanSkin", Tests::nearPlaneKeepsItsCornersInsideTheLeanSkin);
+        Checks.run("fieldOfViewSetIsTheOneDrawnWith", Tests::fieldOfViewSetIsTheOneDrawnWith);
+        Checks.run("lightTakesTheHeadingOfItsAngles", Tests::lightTakesTheHeadingOfItsAngles);
+        Checks.run("gridTraceFindsTheFirstBlockedEdge", Tests::gridTraceFindsTheFirstBlockedEdge);
+        Checks.run("CabinTests", CabinTests::run);
+        Checks.run("GlassPullTests", GlassPullTests::run);
+        Checks.run("MoversTests", MoversTests::run);
+        Checks.run("SnowPrintTests", SnowPrintTests::run);
+        Checks.run("TorchLessTests", TorchLessTests::run);
+        Checks.run("AimTests", AimTests::run);
+        Checks.run("ArmTests", ArmTests::run);
+        Checks.run("OwnArmTests", OwnArmTests::run);
+        Checks.run("BufferTests", BufferTests::run);
+        Checks.run("PictureTests", PictureTests::run);
+        Checks.run("LinkTests", LinkTests::run);
+        Checks.run("shotStopsOnACharacter", Tests::shotStopsOnACharacter);
+        Checks.run("insertAfterAddsTheHookOnce", Tests::insertAfterAddsTheHookOnce);
+        Checks.run("insertAfterRejectsAMissingCall", Tests::insertAfterRejectsAMissingCall);
+        Checks.run("insertAfterRejectsTwoCalls", Tests::insertAfterRejectsTwoCalls);
+        Checks.run("insertAfterEachAddsTheHookAfterEveryCall", Tests::insertAfterEachAddsTheHookAfterEveryCall);
+        Checks.run("returnedBooleanGoesThroughTheFilter", Tests::returnedBooleanGoesThroughTheFilter);
+        Checks.run("staticIntFieldIsRequiredAsDeclared", Tests::staticIntFieldIsRequiredAsDeclared);
+        Checks.run("attackHoldsTheAimForAShortTail", Tests::attackHoldsTheAimForAShortTail);
+        Checks.run("aFirearmsShotWaitsForTheAimToBear", Tests::aFirearmsShotWaitsForTheAimToBear);
+        Checks.run("keysHeldThroughTheLandingKeepTheirWalk", Tests::keysHeldThroughTheLandingKeepTheirWalk);
+        Checks.run("theGroundLosesItsLightWithTheSun", Tests::theGroundLosesItsLightWithTheSun);
+        Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
+        Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
+        Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAHeldButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAHeldButton);
+        Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
+        Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
+        Checks.run("hookIsGivenAStaticMethodsFirstArgument", Tests::hookIsGivenAStaticMethodsFirstArgument);
+        Checks.run("transformerLeavesAClassItCannotPatchAloneAndNamesTheGap", Tests::transformerLeavesAClassItCannotPatchAloneAndNamesTheGap);
+        Checks.run("transformerNamesAClassTheGameDoesNotHave", Tests::transformerNamesAClassTheGameDoesNotHave);
+        Checks.run("floorFaceShowsTheSpritesDiamond", Tests::floorFaceShowsTheSpritesDiamond);
+        Checks.run("flatFloorTakesItsTexelsFromWhereItLies", Tests::flatFloorTakesItsTexelsFromWhereItLies);
+        Checks.run("faceMadeTheShortWayIsTheFaceMadeTheLongWay", Tests::faceMadeTheShortWayIsTheFaceMadeTheLongWay);
+        Checks.run("wallFaceIsClippedToTheTrimmedSprite", Tests::wallFaceIsClippedToTheTrimmedSprite);
+        Checks.run("faceOutsideTheTrimmedSpriteAddsNothing", Tests::faceOutsideTheTrimmedSpriteAddsNothing);
+        Checks.run("uprightSpriteStandsOnItsAnchor", Tests::uprightSpriteStandsOnItsAnchor);
+        Checks.run("smoothNormalsAgreeAcrossASeam", Tests::smoothNormalsAgreeAcrossASeam);
+        Checks.run("partsAreToldByTheirNames", Tests::partsAreToldByTheirNames);
+        Checks.run("textureRunsDownAMeshTheSameEitherSideOfASeam", Tests::textureRunsDownAMeshTheSameEitherSideOfASeam);
+        Checks.run("fringeThinsOutWithDistance", Tests::fringeThinsOutWithDistance);
+        Checks.run("fineSkinFileIsNamedAfterTheGamesTexture", Tests::fineSkinFileIsNamedAfterTheGamesTexture);
+        Checks.run("hookBeforeAReturnGetsTheResultAndTheFirstArgument", Tests::hookBeforeAReturnGetsTheResultAndTheFirstArgument);
+        Checks.run("packedModelIsReadBack", Tests::packedModelIsReadBack);
+        Checks.run("brokenModelFilesAreRefused", Tests::brokenModelFilesAreRefused);
+        Checks.run("quarterTurnsCarryAModelsFrontRoundTheCompass", Tests::quarterTurnsCarryAModelsFrontRoundTheCompass);
+        Checks.run("modelsAreLaidOutOneAfterAnotherForTheGraphicsCard", Tests::modelsAreLaidOutOneAfterAnotherForTheGraphicsCard);
+        Checks.run("pieceIsPackedAsThePictureIsToldIt", Tests::pieceIsPackedAsThePictureIsToldIt);
+        Checks.run("pieceStandsWhereTheModelTurnedScaledAndMovedIs", Tests::pieceStandsWhereTheModelTurnedScaledAndMovedIs);
+        Checks.run("pieceCarriesTheLightOfItsSquaresCorners", Tests::pieceCarriesTheLightOfItsSquaresCorners);
+        Checks.run("pieceIsHeldByItsBall", Tests::pieceIsHeldByItsBall);
+        Checks.run("paintingOnAWallIsFoundWhereItHangs", Tests::paintingOnAWallIsFoundWhereItHangs);
+        Checks.run("spriteDrawnForAnotherWallIsNoPainting", Tests::spriteDrawnForAnotherWallIsNoPainting);
+        Checks.run("pictureLiesOverItsFrameAsTheSpritePaintsIt", Tests::pictureLiesOverItsFrameAsTheSpritePaintsIt);
+        Checks.run("frameIsChosenByThePicturesShape", Tests::frameIsChosenByThePicturesShape);
+        Checks.run("jarHoldsEveryModelStoodOnTheFloor", Tests::jarHoldsEveryModelStoodOnTheFloor);
+        Checks.run("wallTintSurvivesItsPacking", Tests::wallTintSurvivesItsPacking);
+        Checks.run("meshesAreKeptByTextureAndTint", Tests::meshesAreKeptByTextureAndTint);
+        Checks.run("BuildingTests", BuildingTests::run);
+        Checks.run("RoofTests", RoofTests::run);
+        Checks.run("ShapeTests", ShapeTests::run);
+        Checks.run("CrownTests", CrownTests::run);
+        Checks.run("GrassTests", GrassTests::run);
+        Checks.run("WindTests", WindTests::run);
+        Checks.run("WindowTests", WindowTests::run);
+        Checks.run("ReflectionTests", ReflectionTests::run);
+        Checks.run("WaterMirrorTests", WaterMirrorTests::run);
+        Checks.run("DecorTests", DecorTests::run);
+        Checks.run("OwnTests", OwnTests::run);
+        Checks.run("ScopeTests", ScopeTests::run);
+        Checks.run("RifleTests", RifleTests::run);
+        Checks.run("KerbTests", KerbTests::run);
+        Checks.run("StairTests", StairTests::run);
+        Checks.run("FlightTests", FlightTests::run);
+        Checks.run("CutawayTests", CutawayTests::run);
+        Checks.run("ShelterTests", ShelterTests::run);
+        Checks.run("TerrainTests", TerrainTests::run);
+        Checks.run("FootingTests", FootingTests::run);
+        Checks.run("FacadeTests", FacadeTests::run);
+        Checks.run("SpanTests", SpanTests::run);
+        Checks.run("QualityTests", QualityTests::run);
+        Checks.run("StyleTests", StyleTests::run);
+        Checks.run("GameFixTests", GameFixTests::run);
+        Checks.run("MarkTests", MarkTests::run);
+        Checks.run("FarLandTests", FarLandTests::run);
+        Checks.run("OnlineTests", OnlineTests::run);
+        Checks.run("HearingTests", HearingTests::run);
+        Checks.run("SplitScreenTests", SplitScreenTests::run);
+        Checks.run("CrowdTests", CrowdTests::run);
+        Checks.run("TailorTests", TailorTests::run);
+        Checks.run("usualColourIsWhatMostOfTheSpriteIsPaintedIn", Tests::usualColourIsWhatMostOfTheSpriteIsPaintedIn);
+        Checks.run("theBuildThatShipsHasNoDevelopmentKeys", Tests::theBuildThatShipsHasNoDevelopmentKeys);
+        Checks.run("heldWeaponPointsAheadWithItsBarrelOnTheLineAsked", Tests::heldWeaponPointsAheadWithItsBarrelOnTheLineAsked);
+        Checks.run("heldWeaponKeepsItsShapeAndTheGamesMirror", Tests::heldWeaponKeepsItsShapeAndTheGamesMirror);
+        Checks.run("weaponWithoutAMuzzleIsHeldByItsGrip", Tests::weaponWithoutAMuzzleIsHeldByItsGrip);
+        Checks.run("weaponWithNoFrameIsNotHeld", Tests::weaponWithNoFrameIsNotHeld);
+        Checks.run("weaponTurnsAboutItsGrip", Tests::weaponTurnsAboutItsGrip);
+        Checks.run("easingCoversAllButOneOverEInItsConstantAtAnyFrameRate", Tests::easingCoversAllButOneOverEInItsConstantAtAnyFrameRate);
+        Checks.run("recoilIsOverInAHundredAndFiftyMilliseconds", Tests::recoilIsOverInAHundredAndFiftyMilliseconds);
+        Checks.run("stepBobsTheWeaponDownAndAcross", Tests::stepBobsTheWeaponDownAndAcross);
+        Checks.run("flashIsBrightestAtTheShotAndGoneAfterItsTime", Tests::flashIsBrightestAtTheShotAndGoneAfterItsTime);
+        Checks.run("plantsStandWhereTheyStoodAndAreNeverTooMany", Tests::plantsStandWhereTheyStoodAndAreNeverTooMany);
+        Checks.run("fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner", Tests::fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner);
+        Checks.run("tuftCarriesHowWellItsGrassDoes", Tests::tuftCarriesHowWellItsGrassDoes);
+        Checks.run("boleIsClosedAboveItsFoot", Tests::boleIsClosedAboveItsFoot);
+        Checks.run("barkIsAsLargeRoundABoleAsUpIt", Tests::barkIsAsLargeRoundABoleAsUpIt);
+        Checks.run("ivyKeepsToTheBoleAndSaysHowFarUpItIs", Tests::ivyKeepsToTheBoleAndSaysHowFarUpItIs);
+        Checks.run("boulderIsClosed", Tests::boulderIsClosed);
+        Checks.run("fernGrowsFromItsRoot", Tests::fernGrowsFromItsRoot);
+        Checks.run("litterShowsAsMuchAsItsCornersSay", Tests::litterShowsAsMuchAsItsCornersSay);
+        Checks.run("elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints", Tests::elbowKeepsBothBonesTheirLengthsAndDropsTheWayThePolePoints);
+        Checks.run("pumpGoesBackAndComesForwardAgain", Tests::pumpGoesBackAndComesForwardAgain);
+        Checks.run("armTooShortToReachBringsItsShoulderWithIt", Tests::armTooShortToReachBringsItsShoulderWithIt);
+        Checks.run("armWithNoWayForItsElbowToDropHasNone", Tests::armWithNoWayForItsElbowToDropHasNone);
+        Checks.run("attackStartsAndEndsWhereTheWeaponIsHeld", Tests::attackStartsAndEndsWhereTheWeaponIsHeld);
+        Checks.run("swingDrawsBackToTheRightAndSweepsAcrossToTheLeft", Tests::swingDrawsBackToTheRightAndSweepsAcrossToTheLeft);
+        Checks.run("attackComesInFasterAndFasterUntilItLands", Tests::attackComesInFasterAndFasterUntilItLands);
+        Checks.run("attackMovesWithoutAJump", Tests::attackMovesWithoutAJump);
+        Checks.run("attackIsShownAFrameBehindAndLandsOnce", Tests::attackIsShownAFrameBehindAndLandsOnce);
+        Checks.run("attacksHeldOneAfterAnotherEachBegin", Tests::attacksHeldOneAfterAnotherEachBegin);
+        Checks.run("attackLetGoOfRunsOnAndOnePausedStandsStill", Tests::attackLetGoOfRunsOnAndOnePausedStandsStill);
+        Checks.run("attackThatLandsAtItsVeryStartOrEndIsStillANumber", Tests::attackThatLandsAtItsVeryStartOrEndIsStillANumber);
+        Checks.run("raiseLeavesTheStraightLineOnlyBetweenItsEnds", Tests::raiseLeavesTheStraightLineOnlyBetweenItsEnds);
+        Checks.run("meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears", Tests::meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears);
+        Checks.run("ShaderTests", ShaderTests::run);
+        Checks.tally();
     }
 
     private static float apart(float[] a, float[] b) {
@@ -360,6 +366,17 @@ public final class Tests {
         check(clock.reached() == 0f, "and a clock that is reset has no attack");
         clock.step(true, 0.5f, 0.25f, frame);
         check(clock.began, "so the next thing it sees is one beginning");
+    }
+
+    private static void attackThatLandsAtItsVeryStartOrEndIsStillANumber() {
+        float frame = 1f / 60f;
+        for (float lands : new float[] {0f, AttackClock.HELD_AGAIN, 1f}) {
+            AttackClock clock = new AttackClock();
+            clock.step(true, 0f, lands, frame);
+            clock.step(true, 0.02f, lands, frame);
+            check(clock.reached() >= 0f && clock.reached() <= 1f && clock.past() >= 0f && clock.past() <= 1f, "an attack said to land " + lands + " of the way through is somewhere between its start and its end");
+            check(clock.past() < 1f, "and is not over as it begins");
+        }
     }
 
     private static void attackLetGoOfRunsOnAndOnePausedStandsStill() {
@@ -1836,9 +1853,7 @@ public final class Tests {
             "removeFromWorld", "removeFromSquare", "teleportTo", "setHotwired", "setContainerContentAmount", "setCurrentAmmoCount"};
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {
@@ -1916,6 +1931,31 @@ public final class Tests {
         check(hasVertex(mesh, 11f, 20f, 0f, 1f, 0.875f), "the +x corner is the right of the diamond");
         check(hasVertex(mesh, 11f, 21f, 0f, 0.5f, 1f), "the far corner is the bottom of the diamond");
         check(hasVertex(mesh, 10f, 21f, 0f, 0f, 0.875f), "the +y corner is the left of the diamond");
+    }
+
+    private static void flatFloorTakesItsTexelsFromWhereItLies() {
+        SpriteGeometry.Frame frame = wholeFrame();
+        frame.flat = SpriteGeometry.FLAT_FLOOR;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        float from = Flats.FROM, to = Flats.FROM + Flats.SPAN;
+        check(new SpriteGeometry().addFace(mesh, frame, 10, 20, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f) == 2, "a flat floor is two triangles");
+        check(hasVertex(mesh, 10f, 20f, 0f, from, from) && hasVertex(mesh, 11f, 20f, 0f, to, from) && hasVertex(mesh, 11f, 21f, 0f, to, to)
+                && hasVertex(mesh, 10f, 21f, 0f, from, to), "the square's corners are the corners of the picture inside its rim, so the square beside goes on where this one stops");
+        // A part of the square, as a kerb leaves it: the texels are still those of where it lies.
+        SpriteGeometry.Mesh part = new SpriteGeometry.Mesh();
+        new SpriteGeometry().addFace(part, frame, 10, 20, 0, 0.25f, 0.5f, 0f, 0.5f, 0f, 0f, 0f, 0.25f, 0f);
+        check(hasVertex(part, 10.25f, 20.5f, 0f, from + 0.25f * Flats.SPAN, from + 0.5f * Flats.SPAN)
+                && hasVertex(part, 10.75f, 20.75f, 0f, from + 0.75f * Flats.SPAN, from + 0.75f * Flats.SPAN), "a part of the square takes its own part of the picture");
+        // A wall stood square: its texels go by how far along the edge and how high, whichever edge it is.
+        for (int as = SpriteGeometry.FLAT_NORTH; as <= SpriteGeometry.FLAT_WEST; as++) {
+            boolean north = as == SpriteGeometry.FLAT_NORTH;
+            frame.flat = as;
+            SpriteGeometry.Mesh wall = new SpriteGeometry.Mesh();
+            new SpriteGeometry().addFace(wall, frame, 10, 20, 0, 0f, 0f, 0f, north ? 0.5f : 0f, north ? 0f : 0.5f, 0f, 0f, 0f, 0.5f);
+            float half = Flats.WALL_FROM + 0.5f * Flats.WALL_SPAN;
+            check(hasVertex(wall, 10f, 20f, 0f, Flats.WALL_FROM, 1f) && hasVertex(wall, north ? 10.5f : 10f, north ? 20f : 20.5f, 0.5f * ViewCamera.LEVEL_HEIGHT, half, 0.5f),
+                    "a wall stood square takes its texels by how far along it and how high, " + (north ? "north" : "west"));
+        }
     }
 
     /**

@@ -85,12 +85,8 @@ Write-Host "  plugins/$coreDll" -ForegroundColor Green
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
 $readme = Join-Path $projectDir 'README.md'
-if (Test-Path $readme) {
-    Copy-Item $readme -Destination $staging -Force
-    Write-Host '  README.md' -ForegroundColor Green
-} else {
-    Write-Warning 'README.md does not exist yet, so this installer ZIP ships without one.'
-}
+Copy-Item $readme -Destination $staging -Force
+Write-Host '  README.md' -ForegroundColor Green
 
 # The staged manifest takes the version being packaged, so it cannot disagree
 # with the jar beside it.

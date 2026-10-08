@@ -9,15 +9,15 @@ final class TorchLessTests {
     private TorchLessTests() {}
 
     static void run() {
-        aSumUnderOneGivesTheLightBack();
-        aSumStoppedAtOneIsOnlyALeast();
-        aDarkRoomStaysAsDarkAsItsCorners();
-        aLampsLightRunsOnUnderTheFan();
-        nothingIsCarriedThroughAWall();
-        aSquareCutOffKeepsItsLeast();
-        nothingIsGivenLessThanItsLeast();
-        aSquareKnownInPartKeepsTheColourRoundIt();
-        aSquareTheTorchComesOntoKeepsTheLightItHad();
+        Checks.run("aSumUnderOneGivesTheLightBack", TorchLessTests::aSumUnderOneGivesTheLightBack);
+        Checks.run("aSumStoppedAtOneIsOnlyALeast", TorchLessTests::aSumStoppedAtOneIsOnlyALeast);
+        Checks.run("aDarkRoomStaysAsDarkAsItsCorners", TorchLessTests::aDarkRoomStaysAsDarkAsItsCorners);
+        Checks.run("aLampsLightRunsOnUnderTheFan", TorchLessTests::aLampsLightRunsOnUnderTheFan);
+        Checks.run("nothingIsCarriedThroughAWall", TorchLessTests::nothingIsCarriedThroughAWall);
+        Checks.run("aSquareCutOffKeepsItsLeast", TorchLessTests::aSquareCutOffKeepsItsLeast);
+        Checks.run("nothingIsGivenLessThanItsLeast", TorchLessTests::nothingIsGivenLessThanItsLeast);
+        Checks.run("aSquareKnownInPartKeepsTheColourRoundIt", TorchLessTests::aSquareKnownInPartKeepsTheColourRoundIt);
+        Checks.run("aSquareTheTorchComesOntoKeepsTheLightItHad", TorchLessTests::aSquareTheTorchComesOntoKeepsTheLightItHad);
     }
 
     private static void aSquareTheTorchComesOntoKeepsTheLightItHad() {
@@ -192,9 +192,7 @@ final class TorchLessTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

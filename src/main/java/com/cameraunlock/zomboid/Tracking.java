@@ -33,6 +33,8 @@ final class Tracking {
     private static Config config;
     private static CameraUnlock.Settings settings;
     private static boolean secondListening;
+    /** The port the first player's tracker is listened for on. */
+    private static int firstPort;
     /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
     static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
@@ -96,6 +98,7 @@ final class Tracking {
      */
     static void start(Path gameDirectory) {
         int port = open(gameDirectory, null);
+        firstPort = port;
         listen(port);
         core.hotkeysStart();
         saver.scheduleWithFixedDelay(Tracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS, TimeUnit.MILLISECONDS);
@@ -151,7 +154,13 @@ final class Tracking {
     static void listenForSecond() {
         if (!secondListening) {
             secondListening = true;
-            core.viewStart(1, config.secondPlayerPort());
+            int port = config.secondPlayerPort();
+            if (port == firstPort) {
+                // Core refuses the port by throwing, which here would be into the game's own frame.
+                Log.info("SecondPlayerUdpPort is " + port + ", the same as UdpPort: the second player's head is not tracked until CameraUnlock.ini gives them a port of their own and the game is started again");
+                return;
+            }
+            core.viewStart(1, port);
         }
     }
 
@@ -241,6 +250,11 @@ final class Tracking {
             }
             save(() -> config.saveOption(option, value));
         }
+    }
+
+    /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
+    static void dropTheNextPresses() {
+        outOfSave = true;
     }
 
     /**

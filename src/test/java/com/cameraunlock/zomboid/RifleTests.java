@@ -5,9 +5,9 @@ final class RifleTests {
     private RifleTests() {}
 
     static void run() {
-        boltIsShutBeforeAndAfter();
-        handleIsUpBeforeTheBoltIsDrawnAndUntilItIsHome();
-        boltComesRightBackOnce();
+        Checks.run("boltIsShutBeforeAndAfter", RifleTests::boltIsShutBeforeAndAfter);
+        Checks.run("handleIsUpBeforeTheBoltIsDrawnAndUntilItIsHome", RifleTests::handleIsUpBeforeTheBoltIsDrawnAndUntilItIsHome);
+        Checks.run("boltComesRightBackOnce", RifleTests::boltComesRightBackOnce);
     }
 
     private static void boltIsShutBeforeAndAfter() {
@@ -49,8 +49,6 @@ final class RifleTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

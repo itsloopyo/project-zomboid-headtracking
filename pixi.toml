@@ -19,7 +19,7 @@ glslang = "16.6.*"
 [tasks]
 update-submodule = "git submodule update --remote cameraunlock-core && powershell -NoProfile -ExecutionPolicy Bypass -File cameraunlock-core/scripts/update-submodule.ps1"
 sync = "git submodule update --remote cameraunlock-core"
-update-deps = "powershell -NoProfile -Command \"Write-Host 'No vendored dependencies to update (shim-only mod).'\""
+update-deps = "powershell -NoProfile -Command \"Write-Host 'No vendored dependencies to update: the mod uses no mod loader.'\""
 
 # Nothing to prepare: javac compiles against the signature stubs in stubs/, so
 # the build needs no file from a game install and no downloaded reference.
@@ -45,7 +45,7 @@ package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/p
 validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
 validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
 
-# Deploys the built jar, cameraunlock-core's DLL and the site JVM config to every installed copy
+# Deploys the development jar (the development keys in), cameraunlock-core's DLL and the site JVM config to every installed copy
 # of the game. A path after the task name deploys to that one folder instead.
 install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
 # /y keeps it prompt-free: pixi gives a task no console to read from.
@@ -53,7 +53,3 @@ uninstall = "cmd /c scripts\\uninstall.cmd /y"
 
 release = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
 release-nightly = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-nightly.ps1"
-
-# Launches every installed copy's game with the built agent loaded, for
-# development. Arguments after the task name are passed to the script.
-run-game = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-game.ps1", depends-on = ["build"] }

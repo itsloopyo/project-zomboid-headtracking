@@ -10,30 +10,30 @@ final class BuildingTests {
     private BuildingTests() {}
 
     static void run() {
-        plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor();
-        canopyIsLinedWithPanelsAndALightEveryThirdSquare();
-        finishIsWhatMostWallsShow();
-        roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen();
-        sheetmateIsNamedByItsPlaceOnTheSheet();
-        slopeOfUnevenTilesIsOnePlane();
-        twoSlopesMeetAtTheirRidge();
-        slopeClimbsFromOneLevelIntoTheNext();
-        lowerRoofBesideAHigherOneKeepsItsOwnPlane();
-        tileFarFromItsSlopeLeavesTheSlopeAsRead();
-        shallowRoofKeepsItsOwnPitch();
-        unclearTileTakesThePlaneOfItsRow();
-        unclearTileWhereTwoSlopesMeetIsLeftAlone();
-        pipeAlongAWallMeetsAcrossTwoSprites();
-        wallTopTakesItsTexelsFromBelowTheSeal();
-        farSlopeIsTheNearOneOverTheRidge();
-        farSlopeStartsPastARoofsLevelTop();
-        farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey();
-        roofWithBothItsSlopesGetsNoMore();
-        pavementIsNotLooseStone();
-        skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner();
-        wallThatEndsAloneIsClosedAcrossItsEnd();
-        eavesMeetAtAHipAndRunOutOverAGable();
-        openGroundHasTheLightMostOfItHas();
+        Checks.run("plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor", BuildingTests::plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor);
+        Checks.run("canopyIsLinedWithPanelsAndALightEveryThirdSquare", BuildingTests::canopyIsLinedWithPanelsAndALightEveryThirdSquare);
+        Checks.run("finishIsWhatMostWallsShow", BuildingTests::finishIsWhatMostWallsShow);
+        Checks.run("roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen", BuildingTests::roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen);
+        Checks.run("sheetmateIsNamedByItsPlaceOnTheSheet", BuildingTests::sheetmateIsNamedByItsPlaceOnTheSheet);
+        Checks.run("slopeOfUnevenTilesIsOnePlane", BuildingTests::slopeOfUnevenTilesIsOnePlane);
+        Checks.run("twoSlopesMeetAtTheirRidge", BuildingTests::twoSlopesMeetAtTheirRidge);
+        Checks.run("slopeClimbsFromOneLevelIntoTheNext", BuildingTests::slopeClimbsFromOneLevelIntoTheNext);
+        Checks.run("lowerRoofBesideAHigherOneKeepsItsOwnPlane", BuildingTests::lowerRoofBesideAHigherOneKeepsItsOwnPlane);
+        Checks.run("tileFarFromItsSlopeLeavesTheSlopeAsRead", BuildingTests::tileFarFromItsSlopeLeavesTheSlopeAsRead);
+        Checks.run("shallowRoofKeepsItsOwnPitch", BuildingTests::shallowRoofKeepsItsOwnPitch);
+        Checks.run("unclearTileTakesThePlaneOfItsRow", BuildingTests::unclearTileTakesThePlaneOfItsRow);
+        Checks.run("unclearTileWhereTwoSlopesMeetIsLeftAlone", BuildingTests::unclearTileWhereTwoSlopesMeetIsLeftAlone);
+        Checks.run("pipeAlongAWallMeetsAcrossTwoSprites", BuildingTests::pipeAlongAWallMeetsAcrossTwoSprites);
+        Checks.run("wallTopTakesItsTexelsFromBelowTheSeal", BuildingTests::wallTopTakesItsTexelsFromBelowTheSeal);
+        Checks.run("farSlopeIsTheNearOneOverTheRidge", BuildingTests::farSlopeIsTheNearOneOverTheRidge);
+        Checks.run("farSlopeStartsPastARoofsLevelTop", BuildingTests::farSlopeStartsPastARoofsLevelTop);
+        Checks.run("farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey", BuildingTests::farSlopeStopsWhereTheBuildingDoesAndAtAnUpperStorey);
+        Checks.run("roofWithBothItsSlopesGetsNoMore", BuildingTests::roofWithBothItsSlopesGetsNoMore);
+        Checks.run("pavementIsNotLooseStone", BuildingTests::pavementIsNotLooseStone);
+        Checks.run("skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner", BuildingTests::skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner);
+        Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
+        Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
+        Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
     }
 
     private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
@@ -332,9 +332,7 @@ final class BuildingTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

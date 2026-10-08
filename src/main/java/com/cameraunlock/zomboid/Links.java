@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -96,14 +97,47 @@ final class Links {
                 }
             }
         }
-        ClassLoader loader = Links.class.getClassLoader();
-        return check(ours, REFLECTED, name -> {
-            try (InputStream in = loader.getResourceAsStream(name + ".class")) {
-                return in == null ? null : in.readAllBytes();
-            } catch (IOException failure) {
-                throw new UncheckedIOException(failure);
+        return check(ours, REFLECTED, Links::running);
+    }
+
+    /** The class file of a class the game runs from, by internal name, or null where there is none. */
+    static byte[] running(String name) {
+        try (InputStream in = Links.class.getClassLoader().getResourceAsStream(name + ".class")) {
+            return in == null ? null : in.readAllBytes();
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
+    }
+
+    /**
+     * Why a class given a method of its own could not hand on to the one it inherits by way of
+     * {@code parent}, or null where it can: {@code parent} or a class or interface above it has
+     * the method with a body, and it is not static, private or final.
+     */
+    static String notInherited(String parent, String name, String descriptor, Function<String, byte[]> classBytes) {
+        ArrayDeque<String> queue = new ArrayDeque<>(List.of(parent));
+        Set<String> visited = new HashSet<>();
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            byte[] bytes = visited.add(current) ? classBytes.apply(current) : null;
+            if (bytes == null) {
+                continue;
             }
-        });
+            ClassModel model = ClassFile.of().parse(bytes);
+            for (MethodModel method : model.methods()) {
+                if (method.methodName().equalsString(name) && method.methodType().equalsString(descriptor)) {
+                    for (AccessFlag refused : List.of(AccessFlag.STATIC, AccessFlag.PRIVATE, AccessFlag.FINAL, AccessFlag.ABSTRACT)) {
+                        if (method.flags().has(refused)) {
+                            return current + " has it " + refused.name().toLowerCase(Locale.ROOT);
+                        }
+                    }
+                    return null;
+                }
+            }
+            model.superclass().ifPresent(above -> queue.add(above.asInternalName()));
+            model.interfaces().forEach(above -> queue.add(above.asInternalName()));
+        }
+        return "neither " + parent + " nor anything above it has it";
     }
 
     /**

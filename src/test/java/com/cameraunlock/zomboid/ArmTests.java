@@ -4,19 +4,17 @@ final class ArmTests {
     private ArmTests() {}
 
     static void run() {
-        wristIsMeasuredAsTheOvalRoundItsCorners();
-        handWithinAnEasyBendIsLeftAsItWasPosed();
-        handIsTurnedAboutItsPalmUntilTheWristBendsNoFurtherThanAWristDoes();
-        handPosedDeadAgainstItsArmIsTurnedRoundToIt();
-        forearmComesToTheGripFromBehindAndBelow();
-        handTurnsWithoutAJumpAsItsPoseDoes();
-        cutEndOfTheHandIsInsideItsCuff();
+        Checks.run("wristIsMeasuredAsTheOvalRoundItsCorners", ArmTests::wristIsMeasuredAsTheOvalRoundItsCorners);
+        Checks.run("handWithinAnEasyBendIsLeftAsItWasPosed", ArmTests::handWithinAnEasyBendIsLeftAsItWasPosed);
+        Checks.run("handIsTurnedAboutItsPalmUntilTheWristBendsNoFurtherThanAWristDoes", ArmTests::handIsTurnedAboutItsPalmUntilTheWristBendsNoFurtherThanAWristDoes);
+        Checks.run("handPosedDeadAgainstItsArmIsTurnedRoundToIt", ArmTests::handPosedDeadAgainstItsArmIsTurnedRoundToIt);
+        Checks.run("forearmComesToTheGripFromBehindAndBelow", ArmTests::forearmComesToTheGripFromBehindAndBelow);
+        Checks.run("handTurnsWithoutAJumpAsItsPoseDoes", ArmTests::handTurnsWithoutAJumpAsItsPoseDoes);
+        Checks.run("cutEndOfTheHandIsInsideItsCuff", ArmTests::cutEndOfTheHandIsInsideItsCuff);
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     /** A forearm and the hand's own length from palm to wrist, in tiles. */

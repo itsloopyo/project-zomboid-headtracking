@@ -158,6 +158,8 @@ public final class FineSkins {
         /** A picture this step reads, or how it was composed when it was itself a composition. */
         final Texture tex, mask;
         final Recipe texFrom, maskFrom;
+        /** Set when the combiner is handed back a picture this step reads as it is: it now holds some other picture or none. */
+        boolean texBack, maskBack;
 
         Step(TextureCombinerCommand command) {
             x = command.x;
@@ -181,8 +183,6 @@ public final class FineSkins {
     /** How the game composed one texture. */
     private static final class Recipe {
         final Step[] steps;
-        /** The count of textures handed back when this was noted. */
-        final long noted;
         /** Set once it is known that composing this again would give nothing finer. */
         boolean plain;
 
@@ -191,7 +191,6 @@ public final class FineSkins {
             for (int step = 0; step < steps.length; step++) {
                 steps[step] = new Step(commands.get(step));
             }
-            noted = handedBack;
         }
     }
 
@@ -240,9 +239,6 @@ public final class FineSkins {
     private static Path folder;
     /** How the game composed each texture it has not yet handed back. */
     private static final IdentityHashMap<Texture, Recipe> recipes = new IdentityHashMap<>();
-    /** When each texture the combiner was handed back was handed back, by the count of them. */
-    private static final IdentityHashMap<Texture, Long> handedBackAt = new IdentityHashMap<>();
-    private static long handedBack;
     /** The finer texture for each of the game's, the one drawn longest ago first. The game's textures are equal only to themselves. */
     private static final LinkedHashMap<Texture, Fine> fine = new LinkedHashMap<>(64, 0.75f, true);
     private static long fineBytes;
@@ -347,7 +343,6 @@ public final class FineSkins {
             each.texture.destroy();
         }
         recipes.clear();
-        handedBackAt.clear();
         fine.clear();
         fineBytes = 0;
         packed.clear();
@@ -469,9 +464,27 @@ public final class FineSkins {
         if (!on()) {
             return;
         }
-        handedBackAt.put(texture, ++handedBack);
+        for (Recipe recipe : recipes.values()) {
+            handedBack(recipe, texture);
+        }
         recipes.remove(texture);
         destroy(fine.remove(texture));
+    }
+
+    /** Marks each step of a recipe, and of the recipes it is composed from, that reads a texture the combiner has been handed back. */
+    private static void handedBack(Recipe recipe, Texture texture) {
+        for (Step step : recipe.steps) {
+            if (step.texFrom != null) {
+                handedBack(step.texFrom, texture);
+            } else if (step.tex == texture) {
+                step.texBack = true;
+            }
+            if (step.maskFrom != null) {
+                handedBack(step.maskFrom, texture);
+            } else if (step.mask == texture) {
+                step.maskBack = true;
+            }
+        }
     }
 
     private static synchronized Texture finer(Texture bound) throws Exception {
@@ -551,20 +564,19 @@ public final class FineSkins {
     private static boolean anyPacked(Recipe recipe) {
         boolean any = false;
         for (Step step : recipe.steps) {
-            any |= step.texFrom != null ? anyPacked(step.texFrom) : packedIfStill(step.tex, recipe);
-            any |= step.maskFrom != null ? anyPacked(step.maskFrom) : packedIfStill(step.mask, recipe);
+            any |= step.texFrom != null ? anyPacked(step.texFrom) : packedIfStill(step.tex, step.texBack);
+            any |= step.maskFrom != null ? anyPacked(step.maskFrom) : packedIfStill(step.mask, step.maskBack);
         }
         return any;
     }
 
-    private static boolean packedIfStill(Texture read, Recipe recipe) {
+    private static boolean packedIfStill(Texture read, boolean back) {
         if (read == null) {
             return false;
         }
         // A texture the combiner made by a way this does not note, and has since taken
         // back, now holds some other picture or none.
-        Long back = handedBackAt.get(read);
-        if (back != null && back > recipe.noted) {
+        if (back) {
             gone = true;
             return false;
         }

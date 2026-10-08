@@ -10,28 +10,28 @@ final class BufferTests {
     private BufferTests() {}
 
     static void run() {
-        aRoundIsCountedOnceForEveryViewThatBuilds();
-        blocksAreTakenFromTheFirstGapThatHoldsThem();
-        blocksGivenBackJoinTheirNeighbours();
-        aBlockThatWasNotTakenIsRefused();
-        blocksComingAndGoingNeverOverlap();
-        whatIsLaidCarriesItsLayersAndACardDoesNot();
-        aSetListsWhatWasAskedForInTheOrderItWasAsked();
-        aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor();
-        aBuildIsFilledWithItsRunsOneAfterAnother();
-        aBuildFilledAgainGivesBackWhatNoFrameTook();
-        loansGoRoundAndTheIdleOnesAreCapped();
-        aBuildKnowsTheBoxItsVerticesAreIn();
-        aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt();
-        aBoxIsLeftOutOfTheEyesPictureOnlyWhenNoneOfItIsInIt();
-        aBufferJustMadeIsNeverMostlyEmpty();
-        everyChunkThatCanBeDrawnIsKept();
-        aPictureHalvedIsTheMeanOfItsDotsInFours();
-        memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen();
-        chunksAreWalkedNearestFirstAndEachOnce();
-        onlyChunksUnderOrBesideABoxTouchIt();
-        noChunkOnTheScreenIsLeftOut();
-        aLowLightReachesFurtherForItsShadows();
+        Checks.run("aRoundIsCountedOnceForEveryViewThatBuilds", BufferTests::aRoundIsCountedOnceForEveryViewThatBuilds);
+        Checks.run("blocksAreTakenFromTheFirstGapThatHoldsThem", BufferTests::blocksAreTakenFromTheFirstGapThatHoldsThem);
+        Checks.run("blocksGivenBackJoinTheirNeighbours", BufferTests::blocksGivenBackJoinTheirNeighbours);
+        Checks.run("aBlockThatWasNotTakenIsRefused", BufferTests::aBlockThatWasNotTakenIsRefused);
+        Checks.run("blocksComingAndGoingNeverOverlap", BufferTests::blocksComingAndGoingNeverOverlap);
+        Checks.run("whatIsLaidCarriesItsLayersAndACardDoesNot", BufferTests::whatIsLaidCarriesItsLayersAndACardDoesNot);
+        Checks.run("aSetListsWhatWasAskedForInTheOrderItWasAsked", BufferTests::aSetListsWhatWasAskedForInTheOrderItWasAsked);
+        Checks.run("aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor", BufferTests::aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor);
+        Checks.run("aBuildIsFilledWithItsRunsOneAfterAnother", BufferTests::aBuildIsFilledWithItsRunsOneAfterAnother);
+        Checks.run("aBuildFilledAgainGivesBackWhatNoFrameTook", BufferTests::aBuildFilledAgainGivesBackWhatNoFrameTook);
+        Checks.run("loansGoRoundAndTheIdleOnesAreCapped", BufferTests::loansGoRoundAndTheIdleOnesAreCapped);
+        Checks.run("aBuildKnowsTheBoxItsVerticesAreIn", BufferTests::aBuildKnowsTheBoxItsVerticesAreIn);
+        Checks.run("aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt", BufferTests::aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt);
+        Checks.run("aBoxIsLeftOutOfTheEyesPictureOnlyWhenNoneOfItIsInIt", BufferTests::aBoxIsLeftOutOfTheEyesPictureOnlyWhenNoneOfItIsInIt);
+        Checks.run("aBufferJustMadeIsNeverMostlyEmpty", BufferTests::aBufferJustMadeIsNeverMostlyEmpty);
+        Checks.run("everyChunkThatCanBeDrawnIsKept", BufferTests::everyChunkThatCanBeDrawnIsKept);
+        Checks.run("aPictureHalvedIsTheMeanOfItsDotsInFours", BufferTests::aPictureHalvedIsTheMeanOfItsDotsInFours);
+        Checks.run("memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen", BufferTests::memoryWorkedOutAheadIsFreedWhenTheWorkIsForgottenAndOnlyThen);
+        Checks.run("chunksAreWalkedNearestFirstAndEachOnce", BufferTests::chunksAreWalkedNearestFirstAndEachOnce);
+        Checks.run("onlyChunksUnderOrBesideABoxTouchIt", BufferTests::onlyChunksUnderOrBesideABoxTouchIt);
+        Checks.run("noChunkOnTheScreenIsLeftOut", BufferTests::noChunkOnTheScreenIsLeftOut);
+        Checks.run("aLowLightReachesFurtherForItsShadows", BufferTests::aLowLightReachesFurtherForItsShadows);
     }
 
     /** The game's own view: looking north-west along the ground, a floor up drawn 4.24 tiles further along. */
@@ -576,9 +576,7 @@ final class BufferTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void blocksAreTakenFromTheFirstGapThatHoldsThem() {

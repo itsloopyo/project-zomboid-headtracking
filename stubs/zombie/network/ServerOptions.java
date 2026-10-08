@@ -6,7 +6,6 @@ public final class ServerOptions {
     }
 
     public BooleanServerOption pvp;
-    public BooleanServerOption safetySystem;
 
     public static ServerOptions getInstance() { throw new UnsupportedOperationException("reference stub"); }
 }

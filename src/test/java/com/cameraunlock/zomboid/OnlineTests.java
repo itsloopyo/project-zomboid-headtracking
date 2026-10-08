@@ -11,8 +11,8 @@ public final class OnlineTests {
     private OnlineTests() {}
 
     static void run() {
-        keysAheadAreToldFromKeysAside();
-        aViewIsOnAPersonFromFeetToHead();
+        Checks.run("keysAheadAreToldFromKeysAside", OnlineTests::keysAheadAreToldFromKeysAside);
+        Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         try {
             aCallIsHandedToItsReplacement();
         } catch (AssertionError failed) {
@@ -23,9 +23,7 @@ public final class OnlineTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void keysAheadAreToldFromKeysAside() {

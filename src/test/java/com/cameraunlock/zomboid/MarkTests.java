@@ -10,10 +10,10 @@ final class MarkTests {
     private MarkTests() {}
 
     static void run() {
-        aChunkThatIsToldHasAnotherNumber();
-        aBoxOfChunksIsToldWhole();
-        aLightIsCountedOnItsLevel();
-        aTallyIsCountedIntoAnother();
+        Checks.run("aChunkThatIsToldHasAnotherNumber", MarkTests::aChunkThatIsToldHasAnotherNumber);
+        Checks.run("aBoxOfChunksIsToldWhole", MarkTests::aBoxOfChunksIsToldWhole);
+        Checks.run("aLightIsCountedOnItsLevel", MarkTests::aLightIsCountedOnItsLevel);
+        Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         try {
             aMethodOfAnObjectHandsItselfOverBeforeAnythingElse();
             aStaticMethodIsRefused();
@@ -25,9 +25,7 @@ final class MarkTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static void aLightIsCountedOnItsLevel() {

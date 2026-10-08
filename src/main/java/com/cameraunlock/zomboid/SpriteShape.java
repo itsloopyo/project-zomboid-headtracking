@@ -130,6 +130,30 @@ final class SpriteShape {
     }
 
     /**
+     * A beam read from a sprite's whole outline, read again from its solid paint alone. The
+     * artists paint a thing's shadow into its sprite, and a beam with its shadow down the
+     * wall under it reads as a box as deep as the shadow is long, with a second slab for a
+     * foot and sides of shadow. The beam the solid paint makes is the thing. Where the solid
+     * paint alone is no beam, the reading of the outline stands.
+     */
+    static SpriteShape withoutShadow(SpriteShape beam, Solids.Outline solid, SpriteGeometry.Frame frame) {
+        if (beam.kind != BEAM || solid.width == 0) {
+            return beam;
+        }
+        float left = frame.left, top = frame.top, width = frame.width, height = frame.height;
+        frame.left = solid.left;
+        frame.top = solid.top;
+        frame.width = solid.width;
+        frame.height = solid.height;
+        SpriteShape body = read(solid, frame);
+        frame.left = left;
+        frame.top = top;
+        frame.width = width;
+        frame.height = height;
+        return body.kind == BEAM && body.alongX == beam.alongX ? body : beam;
+    }
+
+    /**
      * Reads the shape of the sprite whose painted pixels fill the rectangle of the frame
      * from (left, top), width across and height down, in whole pixels.
      */

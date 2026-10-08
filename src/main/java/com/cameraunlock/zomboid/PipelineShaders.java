@@ -560,6 +560,19 @@ final class PipelineShaders {
             uniform float uSnowLying;
             // 1 where a wet road, a polished floor and glass are mirrors, which the last pass traces: 0 outside the High graphics mode.
             uniform float uMirrors;
+            // For the picture drawn from under the water (WaterMirror): the plane nothing under
+            // which is in it, as the way it faces and how far along that it is. All 0 in any other picture.
+            uniform vec4 uUnder;
+            // That picture, for the eye's own to show where it draws water, and the plane the
+            // water lies in: the way it faces and how far over it the eye is. All 0 with no such picture.
+            uniform sampler2D uWaterPicture;
+            uniform vec4 uWater;
+            // How much of that picture's width and height this one takes up (one over WaterMirror.MARGIN).
+            uniform float uWaterShare;
+            // How rough the wind has the water: 1 in a light breeze.
+            uniform float uRuffle;
+            // How much of its distance from the eye a pixel of this picture takes in, up and down.
+            uniform float uPixel;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
@@ -754,12 +767,39 @@ final class PipelineShaders {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
             }
 
+            // How far from the plane of the picture of what water shows water may lie and
+            // still be shown it, in tiles; how far off what water shows is taken to stand, in
+            // tiles, where a ripple or a rise of the water throws the eye's line aside; and
+            // how long a streak the ripples a pixel cannot show draw a reflection out into, as
+            // a multiple of how much they tilt the water.
+            const float WATER_LEVEL_WITHIN = 0.3, WATER_THROW = 24.0, WATER_STREAK = 0.52;
+            const int WATER_TAPS = 8;
+
+            // What the water shows of a place, counted from the eye: its image in the water's
+            // plane is found in the picture drawn from under the water where the eye's own
+            // picture would draw it. For level water that is the pixel being drawn, whatever
+            // way the eye is turned.
+            // coarser says how many levels coarser than the picture itself it is read.
+            vec3 overWater(vec3 fromEye, float coarser) {
+                vec3 image = fromEye - 2.0 * (dot(uWater.xyz, fromEye) + uWater.w) * uWater.xyz;
+                vec4 seen = gl_ModelViewProjectionMatrix * vec4(image, 1.0);
+                return texture2D(uWaterPicture, seen.xy / max(seen.w, 1e-4) * (0.5 * uWaterShare) + 0.5, coarser).rgb;
+            }
+
+            // How many of them fit across a tile, for the three sizes of ripple on water.
+            const vec3 RIPPLES = vec3(1.3, 3.1, 7.7);
+
             // The height of water's surface: three sizes of ripple, each drifting its own way.
-            float swell(vec2 p) {
+            // kept is how much of each size is there, 1 for all of it.
+            float swellOf(vec2 p, vec3 kept) {
                 float t = uSeconds;
-                return patches(p * 1.3 + vec2(t * 0.21, t * 0.13)) * 0.5
-                        + patches(p * 3.1 + vec2(-t * 0.33, t * 0.27)) * 0.3
-                        + patches(p * 7.7 + vec2(t * 0.41, -t * 0.52)) * 0.2;
+                return patches(p * RIPPLES.x + vec2(t * 0.21, t * 0.13)) * 0.5 * kept.x
+                        + patches(p * RIPPLES.y + vec2(-t * 0.33, t * 0.27)) * 0.3 * kept.y
+                        + patches(p * RIPPLES.z + vec2(t * 0.41, -t * 0.52)) * 0.2 * kept.z;
+            }
+
+            float swell(vec2 p) {
+                return swellOf(p, vec3(1.0));
             }
 
             // How much of the sky a point can see. The land round the eye is kept as a map of
@@ -2139,6 +2179,9 @@ final class PipelineShaders {
                 if (thinnedOut(-toEye.xy)) {
                     discard;
                 }
+                if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, vWorld) < uUnder.w)) {
+                    discard;
+                }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade.
                 float shown = 1.0;
@@ -2428,7 +2471,7 @@ final class PipelineShaders {
                 float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 // How much of the sky's light gets to the place. Under trees it is thinned and
                 // green, not gone. A crown is the leaves the sky is seen through, not something under them.
-                float skyOver = open > 0.5 && range < 40.0 && !crown ? mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range)) : 1.0;
+                float skyOver = open > 0.5 && range < 16.0 && !crown ? mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(10.0, 16.0, range)) : 1.0;
                 // Snow that has settled. It lies on whatever is under the open sky and faces up:
                 // the ground, a roof, the top of a wall or a car, and it is a surface of its
                 // own there, with a shape and a depth: see SnowShader. It comes in patches that
@@ -2684,7 +2727,7 @@ final class PipelineShaders {
                 float ripple = 0.0;
                 if (water) {
                     shine = 1.0 - foam;
-                    ripple = 0.05;
+                    ripple = 0.05 * uRuffle;
                     color *= 0.55;
                 } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
                     float bare = uWet * (1.0 - snowed);
@@ -2786,17 +2829,43 @@ final class PipelineShaders {
                     // another, none of them regular. Its slope here is the difference between
                     // its height here and a little way off each way.
                     float e = 0.04;
-                    float level = swell(vWorld.xy);
-                    vec2 wave = vec2(swell(vWorld.xy + vec2(e, 0.0)) - level, swell(vWorld.xy + vec2(0.0, e)) - level) * (9.0 / e) * 0.1;
                     // Far off a pixel takes in many ripples, and what it shows is their mean,
                     // which is level water. Tilted by whichever ripple the pixel's middle fell
-                    // on, the far shore's reflection breaks up into dashes that crawl.
-                    wave *= 1.0 - smoothstep(14.0, 55.0, range);
-                    vec3 surface = normalize(vec3(n.xy + wave * ripple + rings, n.z));
+                    // on, the far shore's reflection breaks up into dashes that crawl. On
+                    // water a size of ripple goes as the stretch of water a pixel takes in,
+                    // which seen at a glance is long, comes up to the size of one of them.
+                    float spot = away * uPixel / max(dot(view, n), 0.02);
+                    vec3 kept = water ? 1.0 - smoothstep(0.25, 0.6, spot * RIPPLES) : vec3(1.0);
+                    float level = swellOf(vWorld.xy, kept);
+                    vec2 wave = vec2(swellOf(vWorld.xy + vec2(e, 0.0), kept) - level, swellOf(vWorld.xy + vec2(0.0, e), kept) - level) * (9.0 / e) * 0.1;
+                    float near = water ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);
+                    vec3 surface = normalize(vec3(n.xy + wave * (ripple * near) + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);
                     float glance = 0.03 + 0.97 * pow(1.0 - clamp(dot(view, surface), 0.0, 1.0), 5.0);
-                    color = mix(color, ridges(mirrored, atmosphere(mirrored)) * (0.35 + 0.65 * open), glance * shine);
+                    vec3 shows;
+                    if (water && uWater.z > 0.0 && abs(uWater.w - dot(uWater.xyz, toEye)) < WATER_LEVEL_WITHIN) {
+                        // The ripples a pixel cannot show are still there: each throws the eye's
+                        // line a little higher or lower than level water would, and what the
+                        // pixel shows is all of those at once, the far bank drawn out towards
+                        // the eye in a streak, the longer for the more the wind has roughened it.
+                        // The streak is read at so many places along it, each from a picture
+                        // as coarse as they are far apart.
+                        float drawn = ripple * dot(1.0 - kept, RIPPLES * vec3(0.5, 0.3, 0.2)) / dot(RIPPLES, vec3(0.5, 0.3, 0.2)) * WATER_STREAK;
+                        vec2 toward = view.xy / max(length(view.xy), 1e-4);
+                        float coarser = log2(max(4.0 * drawn / uPixel * 0.5 * uWaterShare / float(WATER_TAPS), 1.0));
+                        shows = vec3(0.0);
+                        for (int i = 0; i < WATER_TAPS; i++) {
+                            vec3 tipped = normalize(surface + vec3(toward * (drawn * ((float(i) + 0.5) * 2.0 / float(WATER_TAPS) - 1.0)), 0.0));
+                            vec3 thrown = reflect(-view, tipped);
+                            thrown.z = abs(thrown.z);
+                            shows += overWater(thrown * WATER_THROW - toEye, coarser);
+                        }
+                        shows /= float(WATER_TAPS);
+                    } else {
+                        shows = ridges(mirrored, atmosphere(mirrored));
+                    }
+                    color = mix(color, shows * (0.35 + 0.65 * open), glance * shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * shine * reached * glossed(surface, view, uLight, water ? 0.09 : 0.2, 0.02));
                     // Headlights on a wet road are a long streak of glare towards the eye.
                     for (int i = 0; i < 2; i++) {
@@ -2848,7 +2917,8 @@ final class PipelineShaders {
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
-                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(shine, polish) * step(0.8, n.z), pane));
+                // Water shows the world by the picture drawn from under it, and is no mirror for the last pass to trace.
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(water ? 0.0 : shine, polish) * step(0.8, n.z), pane));
             }
             """;
 
@@ -2861,6 +2931,8 @@ final class PipelineShaders {
             uniform vec3 uWind;
             varying float vLeaves;
             varying vec3 vAt;
+            // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
+            uniform float uFromAbove;
             """ + GRASS_WIND + MODEL_STANDS + FACED + """
             void main() {
                 if (uModel > 0.5) {
@@ -2894,6 +2966,14 @@ final class PipelineShaders {
                 }
                 // An overhead wire swings where the view has it: see swung.
                 if (material > 11.5 && material < 12.5) {
+                    // A wire keeps neither the sky's light nor the weather off what is under it,
+                    // and that map is read at places tiles away from the one being lit: in it
+                    // a thing as thin and high as a wire is cover over every place that reads
+                    // a texel under it, in lines far finer than anything it could shelter.
+                    if (uFromAbove > 0.5) {
+                        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                        return;
+                    }
                     vec2 across;
                     float swing;
                     wireOff(gl_MultiTexCoord0.xy, across, swing);
@@ -2944,6 +3024,13 @@ final class PipelineShaders {
      * drop would be somewhere else. uFall is how far the air has carried the rain so far and
      * the seconds it has been falling, both kept by Wind, which only move on, and uAir is how
      * fast the air moves now, which is what slants the streak.
+     *
+     * The drops are the same drops whoever looks: the box repeats over the whole map, and
+     * uBox says which of it to draw. Round the eye that is the one box the eye is in. From
+     * far overhead it is the boxes over the ground in the picture, each drawn in its turn
+     * with its place among them in uTile, and a streak is no thinner than uThin, which is
+     * what the picture there can show. uLong is how long the eye takes a drop in for, in
+     * seconds, which is the streak's length over the drop's speed.
      */
     static final String RAIN_VERTEX = """
             #version 120
@@ -2951,6 +3038,10 @@ final class PipelineShaders {
             uniform vec3 uFall;
             uniform vec2 uAir;
             uniform float uRain;
+            uniform vec4 uBox;
+            uniform vec2 uTile;
+            uniform float uThin;
+            uniform float uLong;
             varying vec3 vWorld;
             varying vec2 vIn;
 
@@ -2963,13 +3054,13 @@ final class PipelineShaders {
                 // A whole number of sixteenths of ten tiles a second: see Wind.RAIN_CLOCK.
                 float speed = 0.625 * (18.0 + floor(8.0 * fract(seed.x * 37.0 + seed.y * 91.0)));
                 vec3 p = vec3(seed.xy * 2.0 * BOX + uFall.xy, seed.z * HIGH - speed * uFall.z);
-                p.xy = mod(p.xy - uEye.xy + BOX, 2.0 * BOX) - BOX + uEye.xy;
-                p.z = mod(p.z - uEye.z + HIGH * 0.35, HIGH) - HIGH * 0.35 + uEye.z;
+                p.xy = mod(p.xy - uBox.xy + BOX, 2.0 * BOX) - BOX + uBox.xy + uTile;
+                p.z = mod(p.z - uBox.z + uBox.w, HIGH) - uBox.w + uBox.z;
                 vec3 way = normalize(vec3(uAir, -speed));
                 vec3 side = normalize(cross(way, uEye - p));
                 float along = corner > 1.5 ? 1.0 : 0.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                vec3 at = p - way * (0.032 * length(vec3(uAir, speed)) * along) + side * (across * 0.008);
+                vec3 at = p - way * (uLong * length(vec3(uAir, speed)) * along) + side * (across * uThin);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
@@ -2990,6 +3081,9 @@ final class PipelineShaders {
             uniform vec3 uFall;
             uniform vec2 uAir;
             uniform float uSnow;
+            uniform vec4 uBox;
+            uniform vec2 uTile;
+            uniform float uThin;
             varying vec3 vWorld;
             varying vec2 vIn;
 
@@ -3007,8 +3101,8 @@ final class PipelineShaders {
                 float wide = (0.06 + 0.14 * fract(seed.z * 29.0 + seed.x * 3.0)) / (1.0 + 0.15 * length(uAir));
                 vec2 wander = vec2(sin(turn * often + seed.x * 40.0), cos(turn * (often + 7.0) + seed.z * 40.0)) * wide;
                 vec3 p = vec3(seed.xy * 2.0 * BOX + uFall.xy + wander, seed.z * HIGH - speed * uFall.z);
-                p.xy = mod(p.xy - uEye.xy + BOX, 2.0 * BOX) - BOX + uEye.xy;
-                p.z = mod(p.z - uEye.z + HIGH * 0.35, HIGH) - HIGH * 0.35 + uEye.z;
+                p.xy = mod(p.xy - uBox.xy + BOX, 2.0 * BOX) - BOX + uBox.xy + uTile;
+                p.z = mod(p.z - uBox.z + uBox.w, HIGH) - uBox.w + uBox.z;
                 vec3 toEye = normalize(uEye - p);
                 vec3 side = normalize(cross(vec3(0.0, 0.0, 1.0), toEye) + vec3(1e-5, 0.0, 0.0));
                 vec3 over = cross(toEye, side);
@@ -3016,12 +3110,36 @@ final class PipelineShaders {
                 vec3 going = vec3(uAir, -speed);
                 float along = corner > 1.5 ? 1.0 : -1.0;
                 float across = corner > 0.5 && corner < 2.5 ? 1.0 : -1.0;
-                float size = 0.014 + 0.016 * fract(seed.x * 71.0 + seed.z * 13.0);
+                float size = max(0.014 + 0.016 * fract(seed.x * 71.0 + seed.z * 13.0), uThin);
                 vec3 at = p + side * (across * size) + over * (along * size) + going * (0.0025 * along);
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it snows the more of the flakes there are.
                 gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uSnow ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+            }
+            """;
+
+    /**
+     * Whether a place in the air is inside a building the picture has taken the roof off, where
+     * the map of roofs has nothing to keep the rain out with. Seen as the game's own view those
+     * are the buildings the game opens: uShelter holds, for each square of the block that starts
+     * at uShelterAt.xy, how many storeys of rooms stand on it, uShelterAt.z is one over the
+     * block's side, or 0 when there is no block, and uShelterAt.w is the height the texture's
+     * most stands for. On the camera's way to the eye it is the
+     * viewer's own building, whose box is uLidBox.
+     */
+    static final String SHELTERED = """
+            uniform sampler2D uShelter;
+            uniform vec4 uShelterAt;
+            uniform vec4 uLidBox;
+
+            bool sheltered(vec3 at) {
+                if (at.x > uLidBox.x && at.x < uLidBox.z && at.y > uLidBox.y && at.y < uLidBox.w) {
+                    return true;
+                }
+                vec2 square = (at.xy - uShelterAt.xy) * uShelterAt.z;
+                return uShelterAt.z > 0.0 && square.x > 0.0 && square.x < 1.0 && square.y > 0.0 && square.y < 1.0
+                        && at.z < texture2D(uShelter, square).r * uShelterAt.w;
             }
             """;
 
@@ -3032,13 +3150,17 @@ final class PipelineShaders {
             uniform vec3 uTint;
             uniform vec3 uEye;
             uniform float uSeated;
+            uniform float uShown;
             varying vec3 vWorld;
             varying vec2 vIn;
-            """ + BEAMS + """
+            """ + BEAMS + SHELTERED + """
 
             void main() {
                 // The vehicle the viewer sits in has a roof the map of roofs knows nothing of.
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
+                    discard;
+                }
+                if (sheltered(vWorld)) {
                     discard;
                 }
                 // A flake under a roof never fell there.
@@ -3056,7 +3178,7 @@ final class PipelineShaders {
                 if (uTorchAt.w > 0.0) {
                     lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
-                gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * 1.6), body * open * 0.9);
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * 1.6), body * open * uShown);
             }
             """;
 
@@ -3067,13 +3189,17 @@ final class PipelineShaders {
             uniform vec3 uTint;
             uniform vec3 uEye;
             uniform float uSeated;
+            uniform float uShown;
             varying vec3 vWorld;
             varying vec2 vIn;
-            """ + BEAMS + """
+            """ + BEAMS + SHELTERED + """
 
             void main() {
                 // The vehicle the viewer sits in has a roof the map of roofs knows nothing of.
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
+                    discard;
+                }
+                if (sheltered(vWorld)) {
                     discard;
                 }
                 // The map of what is overhead, seen from straight above: a drop under a roof
@@ -3093,7 +3219,7 @@ final class PipelineShaders {
                 if (uTorchAt.w > 0.0) {
                     lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
-                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * 0.55);
+                gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * uShown);
             }
             """;
 
@@ -3590,9 +3716,8 @@ final class PipelineShaders {
 
             float built(vec3 p, float nearest, inout float part);
             vec3 builtPaint(vec3 p, float part);
-            // What the part last painted is made of: 0 grained like leather, 1 woven cloth,
-            // 2 the nap of a roof's lining, 3 carpet; how strongly its grain shows; and how
-            // much of a mirror it is.
+            // What the part last painted is made of: 0 grained like leather, 1 woven cloth;
+            // how strongly its grain shows; and how much of a mirror it is.
             float gWoven = 0.0, gGrain = 0.6, gGloss = 0.4;
             // How much of it is a lit display, which glows with the instruments.
             float gGlow = 0.0;
@@ -4648,10 +4773,10 @@ final class PipelineShaders {
                     if (builtCabin && woven > 0.5) {
                         // Cloth is a nap of short fibres, and on a seat or a door a weave of
                         // threads over it, which is let go where a thread is finer than a pixel.
-                        float nap = dot(texture2D(uCarpet, lie * (woven > 2.5 ? 5.0 : woven > 1.5 ? 12.0 : 8.0)).rgb, vec3(0.299, 0.587, 0.114)) * uCarpetGain;
+                        float nap = dot(texture2D(uCarpet, lie * 8.0).rgb, vec3(0.299, 0.587, 0.114)) * uCarpetGain;
                         vec2 thread = lie / 0.0045;
                         float fine = clamp(1.0 - 1.4 * max(fwidth(thread.x), fwidth(thread.y)), 0.0, 1.0);
-                        float weave = woven < 1.5 ? 1.0 - 0.3 * fine * abs(sin(3.1416 * thread.x) * sin(3.1416 * thread.y)) : 1.0;
+                        float weave = 1.0 - 0.3 * fine * abs(sin(3.1416 * thread.x) * sin(3.1416 * thread.y));
                         grain = vec3(nap * weave);
                     } else if (woven > 0.5) {
                         grain = texture2D(uCloth, lie * 11.0).rgb * uCabinGain.y;
@@ -4967,6 +5092,16 @@ final class PipelineShaders {
             uniform vec3 uAcross;
             uniform vec3 uUpward;
             uniform vec3 uAhead;
+            // Fog over the game's own view. uFog is how thick it lies and how far it has drifted,
+            // uFogViewer is where the viewer's feet are, uFogFrom is the place at the middle of
+            // the picture counted from there, and uFogSpan is half the picture's width and
+            // height at that place, in tiles.
+            uniform vec3 uFog;
+            uniform vec3 uFogFrom;
+            uniform vec3 uFogViewer;
+            uniform vec2 uFogSpan;
+            uniform vec3 uFogColor;
+            """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
@@ -5168,6 +5303,37 @@ final class PipelineShaders {
             }
 
             // 1 where what the picture shows at uv stands inside the marked box.
+            // Banks of fog as a pattern over the map that comes round every 32 squares of its
+            // lattice, so that the drift it is carried by can start again from nothing.
+            float banks(vec2 q) {
+                vec2 cell = floor(q), f = fract(q);
+                f = f * f * (3.0 - 2.0 * f);
+                vec2 next = mod(cell + 1.0, 32.0);
+                cell = mod(cell, 32.0);
+                return mix(mix(hash(cell), hash(vec2(next.x, cell.y)), f.x), mix(hash(vec2(cell.x, next.y)), hash(next), f.x), f.y);
+            }
+
+            // How much of the picture the fog hides at a pixel, seen from far overhead, where
+            // every line of sight comes down through the fog at the same slant whatever it
+            // lands on. The game's own view has its fog as a sheet over everything with a
+            // clearing round the player, and so has this: a sheet at the height of the
+            // viewer's feet, thin for a few tiles round them, thickening to banks that drift on
+            // the wind, and none over a room the picture has opened. Where the line of sight
+            // crosses the sheet is worked out from the pixel alone and not from the picture's
+            // depth: placed by that depth, the fog had runs of pixels over grass left clear.
+            float fogged(vec2 ndc) {
+                vec3 from = uFogFrom + uAcross * (ndc.x * uFogSpan.x) + uUpward * (ndc.y * uFogSpan.y);
+                from -= uAhead * (from.z / uAhead.z);
+                vec3 at = from + uFogViewer;
+                if (sheltered(at + vec3(0.0, 0.0, 0.1))) {
+                    return 0.0;
+                }
+                vec2 q = (at.xy + uFog.yz) / 8.0;
+                float bank = mix(banks(q), banks(q * 2.0 + 11.0), 0.35);
+                float thick = smoothstep(2.5, 7.0, length(from.xy) + (bank - 0.5) * 3.0);
+                return uFog.x * mix(0.16, 0.8 + 0.18 * bank, thick);
+            }
+
             float marked(vec2 uv) {
                 vec3 seen = placeAt(uv);
                 vec3 at = uEyeAt + uAcross * seen.x + uUpward * seen.y + uAhead * seen.z;
@@ -5196,6 +5362,9 @@ final class PipelineShaders {
                 }
                 if (uWithout.y < 0.5) {
                     c += ofItsOwnDepth(uVolume, uv, ahead).rgb;
+                }
+                if (uFog.x > 0.0) {
+                    c = mix(c, uFogColor, fogged(uv * 2.0 - 1.0));
                 }
                 if (uLens.y > 0.0) {
                     c += flare(uv) * uLens.y;
@@ -5573,10 +5742,10 @@ final class PipelineShaders {
                     float fine = max(length(dFdx(vWorld.xy)), length(dFdy(vWorld.xy)));
                     float uneven = patches(vWorld.xy * 0.9) * 0.6 + patches(vWorld.xy * 3.7 + 11.0) * 0.4 - 0.5;
                     surface *= 1.0 + 0.3 * uneven * (1.0 - water) * (1.0 - smoothstep(0.15, 0.6, fine));
-                    surface = mix(surface, vec3(0.82, 0.84, 0.88), min(uSnowLying * 2.0, 1.0) * (1.0 - water));
+                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * (1.0 - water));
                 } else if (n.z > 0.5) {
                     surface = pow(vColor.rgb, vec3(2.2)) * (0.9 + 0.2 * patches(vWorld.xy * 0.7));
-                    surface = mix(surface, vec3(0.82, 0.84, 0.88), min(uSnowLying * 2.0, 1.0));
+                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0));
                 } else {
                     // A wall, with a window to each bay of two tiles on every floor. Too far off to
                     // tell one window from the next, a wall is the colour all of it comes to.

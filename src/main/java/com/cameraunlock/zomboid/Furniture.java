@@ -70,6 +70,8 @@ final class Furniture {
     int picture = Decor.NONE;
     /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
     boolean pinned;
+    /** Whether it is a lettered board, which shows the mod's picture only where every square of it can: half a name in one hand and half in another reads as neither. */
+    boolean lettered;
     /** How wide a frame is painted round that picture, in tiles: a painting on a board with no moulding has one. */
     float rail;
     /** Whether this is a television, which shows a picture when it is on, and whether it is one with no colour. */
@@ -226,6 +228,10 @@ final class Furniture {
         boolean counterHigh = surface >= 30 && surface <= 40;
         IsoDirections facing = sprite.getFacing();
         boolean blocks = properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans);
+        Furniture indoors = Indoors.anyWay(sprite, name, called, group, holds, properties, facing, blocks);
+        if (indoors != null) {
+            return indoors;
+        }
         if (facing != null && !blocks && holds.isEmpty() && !onTable && surface == 0) {
             // The game gives a facing as one of the four ways along the map's axes.
             int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
@@ -267,6 +273,7 @@ final class Furniture {
                     Furniture pinned = new Furniture(sprite, "canvas", faces).hang(WallHung.behind(facing), true);
                     pinned.picture = picture;
                     pinned.pinned = true;
+                    pinned.lettered = called.equals("Sign");
                     return pinned;
                 }
             }
@@ -302,6 +309,10 @@ final class Furniture {
         int along = alongY ? height : width, across = alongY ? width : height;
         boolean single = grid == null, pair = along == 1 && across == 2;
         boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
+        indoors = Indoors.facing(sprite, name, called, group, holds, properties, turns, along, across);
+        if (indoors != null) {
+            return indoors;
+        }
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.
         if (name.startsWith("furniture_bedding") && called.equals("Bed") && along == 2 && across <= 2) {
@@ -571,6 +582,6 @@ final class Furniture {
     private static final Set<String> FRAMED = Set.of("Painting", "Paintings", "Certificate", "Whiteboard", "Noteboard", "Dartboard");
     /** How wide the frame round a painting longer than a square is, in tiles. */
     private static final float PAINTED_RAIL = 0.05f;
-    /** And the sheets pinned to a wall with one. */
-    private static final Set<String> PINNED = Set.of("Poster", "Banner");
+    /** And the sheets pinned to a wall with one, the boards of a shop's sign and a flag hung flat. */
+    private static final Set<String> PINNED = Set.of("Poster", "Banner", "Sign", "Flag");
 }

@@ -46,6 +46,8 @@ final class Pictures {
     /** Whether the graphics card has been asked what it reads, and whether BC7 has to be unpacked for it. */
     private static boolean cardAsked;
     private static volatile boolean unpacks;
+    /** Whether the card reads a texture along the slant it is seen at. Without, the setting is an error, and it is not made. */
+    private static volatile boolean slants;
 
     private Pictures() {}
 
@@ -61,6 +63,7 @@ final class Pictures {
         }
         GLCapabilities card = GL.getCapabilities();
         cardAsked = true;
+        slants = card.OpenGL46 || card.GL_EXT_texture_filter_anisotropic;
         if (NO_BC7) {
             unpacks = true;
             Log.info("cameraunlock.zomboid.noBc7 is set: the mod's own pictures are unpacked as they are read, as for a graphics card that reads no BC7");
@@ -277,8 +280,7 @@ final class Pictures {
             }
             at += size;
         }
-        // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
-        // a graphics card with no room for the picture says so now.
+        // A graphics card with no room for the picture says so now.
         int error = GL11.glGetError();
         Pipeline.noted(error);
         if (error != 0) {
@@ -289,9 +291,9 @@ final class Pictures {
         GL11.glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(target, GL_TEXTURE_WRAP_S, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(target, GL_TEXTURE_WRAP_T, repeats ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY, anisotropy);
-        // A driver without the means refuses the setting, which leaves the texture as it was: that is all it costs.
-        GL11.glGetError();
+        if (slants) {
+            GL11.glTexParameteri(target, GL_TEXTURE_MAX_ANISOTROPY, anisotropy);
+        }
         return texture;
     }
 
@@ -314,10 +316,10 @@ final class Pictures {
         return half;
     }
 
-    /** Has the texture bound now read along the slant it is seen at, where the driver can. */
+    /** Has the texture bound now read along the slant it is seen at, where the card can. Render thread, once askCard has run. */
     static void sharpenAtSlant() {
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, ANISOTROPY);
-        // A driver without the means refuses the setting, which leaves the texture as it was: that is all it costs.
-        GL11.glGetError();
+        if (slants) {
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, ANISOTROPY);
+        }
     }
 }

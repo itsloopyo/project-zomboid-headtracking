@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import zombie.characters.IsoPlayer;
 import zombie.network.GameClient;
 import zombie.network.ServerOptions;
 
@@ -10,9 +9,8 @@ import zombie.network.ServerOptions;
  *
  * The view, the head and the keys are the viewer's own and play there as they do alone.
  * What another player could lose a fight to is held to what the game itself gives everyone,
- * and only where there can be a fight: on a server that allows players to hurt each other,
- * for a viewer who can. Among friends on a server without it, or with the viewer's own
- * safety on, nothing is held back.
+ * and only where there can be a fight: on a server that allows players to hurt each other.
+ * Among friends on a server without it nothing is held back.
  */
 final class Online {
     private Online() {}
@@ -23,22 +21,13 @@ final class Online {
     }
 
     /**
-     * Whether the viewer can fight another player here: the server allows it, and either it
-     * has no safety for players to keep on or the viewer's own is off. Asked of the game
-     * every time, since a player switches their safety as they play.
+     * Whether the viewer can fight another player here: the server allows it. The viewer's
+     * own safety does not settle it. The game refuses a hit between two players only while
+     * both have their safety on (CombatManager.checkPVP), so a viewer with theirs on can
+     * still be hurt by, and hurt, a player with theirs off.
      */
-    static boolean contested(IsoPlayer viewer) {
-        if (!joined()) {
-            return false;
-        }
-        ServerOptions options = ServerOptions.getInstance();
-        if (!options.pvp.getValue()) {
-            return false;
-        }
-        if (!options.safetySystem.getValue()) {
-            return true;
-        }
-        return viewer != null && !viewer.getSafety().isEnabled();
+    static boolean contested() {
+        return joined() && ServerOptions.getInstance().pvp.getValue();
     }
 
     /**
@@ -48,8 +37,8 @@ final class Online {
      * round a corner the body has not passed, so the lean across the aim eases out as the
      * sights come up.
      */
-    static boolean leanCarriesTheShot(IsoPlayer viewer) {
-        return !contested(viewer);
+    static boolean leanCarriesTheShot() {
+        return !contested();
     }
 
     /**
@@ -61,8 +50,8 @@ final class Online {
      * that moves any way but ahead is put in the game's own aiming stance, which is the one
      * way the game has of facing one way and moving another, at the pace it gives that.
      */
-    static boolean bodyFacesTheView(IsoPlayer viewer) {
-        return contested(viewer);
+    static boolean bodyFacesTheView() {
+        return contested();
     }
 
     /** The cosine of how far from straight ahead the movement keys may ask and still count as ahead: forward with a sideways key is. */
