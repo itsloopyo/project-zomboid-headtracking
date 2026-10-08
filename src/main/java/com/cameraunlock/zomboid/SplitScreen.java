@@ -33,7 +33,7 @@ public final class SplitScreen {
     private static volatile boolean patched;
     private static boolean asked;
     /** The row the game's panels were last laid out for. */
-    private static int laidOut = VERTICAL;
+    private static boolean laidOutStacked;
 
     private SplitScreen() {}
 
@@ -133,13 +133,11 @@ public final class SplitScreen {
             }
         }
         int now = layout();
-        if (now == laidOut) {
+        boolean stacked = stacked(now, IsoPlayer.numPlayers);
+        if (stacked == laidOutStacked) {
             return;
         }
-        laidOut = now;
-        if (IsoPlayer.numPlayers != 2) {
-            return;
-        }
+        laidOutStacked = stacked;
         Integer width = Core.getInstance().getScreenWidth(), height = Core.getInstance().getScreenHeight();
         LuaEventManager.triggerEvent("OnResolutionChange", width, height, width, height);
         for (IsoPlayer player : IsoPlayer.players) {

@@ -3745,6 +3745,7 @@ final class Pipeline {
             holds = false;
             ChunkBuffers.letGo(view.index);
             view.worldScene.farLand.catchUp();
+            int copies = view.characters.letGo();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.
@@ -3753,7 +3754,6 @@ final class Pipeline {
             }
             Decor.letGo();
             forgetTexels();
-            int copies = view.characters.letGo();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);
             modelBuffer = modelCorners = 0;

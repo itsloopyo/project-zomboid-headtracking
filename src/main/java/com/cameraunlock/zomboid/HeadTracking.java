@@ -279,11 +279,11 @@ final class HeadTracking {
     }
 
     private void ride(boolean inVehicle) {
+        Tracking.rides(index, inVehicle);
         if (inVehicle == seated) {
             return;
         }
         seated = inVehicle;
-        Tracking.rides(index, inVehicle);
         if (Tracking.worldYaw()) {
             Log.info(seated ? "in a vehicle's seat: head yaw turns about the view's own up" : "out of the vehicle: head yaw turns about straight up again");
         }

@@ -136,8 +136,9 @@ final class CentreUse {
      *
      * @param view    the clean view
      * @param floorUp the height of the floor the player stands on, in tiles above level 0
+     * @param pointer whether the player has a pointer to work a container's panels with
      */
-    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer) {
         IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
         if (found == null) {
             return Outcome.NOTHING;
@@ -150,6 +151,11 @@ final class CentreUse {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
             Object[] answered = call(CLICK_HANDLER, PRESS, found, Double.valueOf(player.getIndex()), player);
             return answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]) ? Outcome.USED : Outcome.NOTHING;
+        }
+        if (!pointer) {
+            // The game's click on a container is the first player's, whoever asks, and its panels are a pointer's. A
+            // controller's own key opens what its player stands at, so the key is left to the game.
+            return Outcome.NOTHING;
         }
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
         IsoGridSquare from = player.getCurrentSquare();

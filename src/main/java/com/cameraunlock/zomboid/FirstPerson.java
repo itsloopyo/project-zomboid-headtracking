@@ -246,19 +246,19 @@ public final class FirstPerson {
     void toggle() {
         IsoPlayer player = view.player();
         if (!on && !allowed(player)) {
-            Log.info("first person stays off: " + whyNot(player));
+            Log.info(who() + "first person stays off: " + whyNot(player));
             return;
         }
         if (gettingReady) {
             gettingReady = false;
-            Log.info("first person no longer asked for");
+            Log.info(who() + "first person no longer asked for");
             return;
         }
         // With the picture already drawing the game's own view there is nothing left to make and the world is built.
         if (!on && (view.pipeline.unprepared() || view.pipeline.contentWaited() || !rehearsed && !overhead())) {
             gettingReady = true;
             readySince = System.nanoTime();
-            Log.info("first person asked for: what it is drawn with is being made");
+            Log.info(who() + "first person asked for: what it is drawn with is being made");
             return;
         }
         switchView(player);
@@ -299,8 +299,30 @@ public final class FirstPerson {
      * the look still holding it, by a server that stops or drops the player.
      */
     void leftSave() {
+        SnowPrints.forget();
+        giveBack("the save was left");
+    }
+
+    /**
+     * Called once a frame while there is no player at this view's number: they left the game
+     * with the view on, or with what it holds still held. No frame of theirs comes again to
+     * give it back, and the other view would wait on it for what the two share.
+     */
+    void playerGone() {
+        if (on || held || pictureUp || !view.flight.home()) {
+            giveBack("player " + (view.index + 1) + " is gone");
+        }
+        Tracking.gone(view.index);
+    }
+
+    /** What a line in the log begins with to say whose view it is of, for any player but the first. */
+    private String who() {
+        return view.index == 0 ? "" : "player " + (view.index + 1) + ": ";
+    }
+
+    /** Switches the view off where it stands and gives back all it holds, from outside any frame of its own. */
+    private void giveBack(String why) {
         try {
-            SnowPrints.forget();
             on = false;
             gettingReady = false;
             landed = false;
@@ -331,11 +353,11 @@ public final class FirstPerson {
             if (held) {
                 letGo();
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
-                Log.info("the save was left: first person has given back what it held");
+                Log.info(why + ": first person has given back what it held");
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it would stop the game on its way out of the save.
-            Log.error("first person could not give back what it held as the save was left", thrown);
+            Log.error("first person could not give back what it held: " + why, thrown);
         }
     }
 
@@ -348,7 +370,7 @@ public final class FirstPerson {
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
             stride.begin(traceMoveX, traceMoveY, yaw);
         }
-        Log.info("first person " + (on ? "on, " + facings(player) : "off"));
+        Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
     }
 
     /** The ways the game has of saying which way a character faces, in degrees on the map: a landing that looks wrong is read off these. */
@@ -462,7 +484,7 @@ public final class FirstPerson {
         tread(player);
         if ((on || !view.flight.home()) && !allowed(player)) {
             if (on) {
-                Log.info("first person off: " + whyNot(player));
+                Log.info(who() + "first person off: " + whyNot(player));
             }
             on = false;
             view.flight.cut(false);
@@ -784,7 +806,7 @@ public final class FirstPerson {
         rehearsals++;
         if (scene.waiting() == 0) {
             rehearsed = true;
-            Log.info("first person world rehearsed over " + rehearsals + " frames");
+            Log.info(who() + "first person world rehearsed over " + rehearsals + " frames");
         }
     }
 
@@ -974,7 +996,7 @@ public final class FirstPerson {
             return false;
         }
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
-        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell);
+        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell, view.hasMouse());
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }

@@ -38,6 +38,9 @@ public final class Hooks {
         return player == null ? null : View.of(player.getIndex());
     }
 
+    /** The number of the player the game last drew the world for. */
+    private static int lastDrawn;
+
     /** Called from IngameState.renderFrameInternal straight after the game has drawn a player's world. */
     public static void afterWorldRender() {
         IsoPlayer player = IsoPlayer.getInstance();
@@ -45,7 +48,18 @@ public final class Hooks {
             return;
         }
         int index = player.getIndex();
-        int pressed = Tracking.pressedFor(index);
+        // The game draws its players in the order of their numbers, leaving out any that are gone or asleep.
+        boolean first = index <= lastDrawn;
+        lastDrawn = index;
+        int pressed = Tracking.pressedFor(index, first);
+        if (first) {
+            for (int i = 0; i < View.COUNT; i++) {
+                View gone = View.of(i);
+                if (gone != null && gone.player() == null) {
+                    gone.firstPerson.playerGone();
+                }
+            }
+        }
         if (index < View.COUNT) {
             if (index == 1) {
                 Tracking.listenForSecond();
@@ -243,14 +257,22 @@ public final class Hooks {
         return view == null ? zombie.getScreenProperY(playerIndex) : view.farModels.screenDown(zombie, playerIndex);
     }
 
-    /** In place of the game's own call where it sets a player's listener. */
-    public static void listener(int index, float x, float y, float z, float goingX, float goingY, float goingZ,
+    /**
+     * In place of the game's own call where it sets a player's listener. The game numbers its
+     * listeners by the players there are: with the first player gone, the second's is listener 0.
+     */
+    public static void listener(int listener, float x, float y, float z, float goingX, float goingY, float goingZ,
             float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ) {
-        View view = View.of(index);
+        View view = null;
+        for (int i = 0, there = 0; i < IsoPlayer.players.length && view == null; i++) {
+            if (IsoPlayer.players[i] != null && there++ == listener) {
+                view = View.of(i);
+            }
+        }
         if (view == null) {
-            javafmod.FMOD_Studio_Listener3D(index, x, y, z, goingX, goingY, goingZ, forwardX, forwardY, forwardZ, upX, upY, upZ);
+            javafmod.FMOD_Studio_Listener3D(listener, x, y, z, goingX, goingY, goingZ, forwardX, forwardY, forwardZ, upX, upY, upZ);
         } else {
-            view.hearing.listener(index, x, y, z, goingX, goingY, goingZ, forwardX, forwardY, forwardZ, upX, upY, upZ);
+            view.hearing.listener(listener, x, y, z, goingX, goingY, goingZ, forwardX, forwardY, forwardZ, upX, upY, upZ);
         }
     }
 

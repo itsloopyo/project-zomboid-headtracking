@@ -79,7 +79,7 @@ public final class Controls {
         }
         stockAim = stock;
         if (captured && player.getVehicle() == null && !togglesAim(player)) {
-            attackDown = pad ? CharacterJoypadButtonBinding.Attack.isDown(player.getJoypadBind())
+            attackDown = pad ? padIsTheCharacters(player) && CharacterJoypadButtonBinding.Attack.isDown(player.getJoypadBind())
                     : CharacterInputKeyBinding.Attack.isKeyDownInWorld();
             filteredAim = aim.held(stock, attackDown, System.nanoTime());
         } else {
@@ -105,10 +105,15 @@ public final class Controls {
 
     private boolean turnedOnly;
 
+    /** Whether a controller's triggers are the character's: while it works one of the game's panels the game has it ignore the aim. */
+    private static boolean padIsTheCharacters(IsoPlayer player) {
+        return !player.getCharacterInputComponent().isJoypadIgnoreAim();
+    }
+
     /** Whether a controller's shove input is raising a firearm's sights. */
     private boolean sightsOnTheShove(IsoPlayer player) {
         ViewModel.Held held = view.viewModel.held;
-        return held != null && held.firearm() && CharacterJoypadButtonBinding.Melee.isDown(player.getJoypadBind());
+        return held != null && held.firearm() && padIsTheCharacters(player) && CharacterJoypadButtonBinding.Melee.isDown(player.getJoypadBind());
     }
 
     /**

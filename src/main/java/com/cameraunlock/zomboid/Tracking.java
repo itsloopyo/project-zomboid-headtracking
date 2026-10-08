@@ -195,10 +195,12 @@ final class Tracking {
     /**
      * Once for each player drawn in a frame of a save, before that player's view: what was
      * pressed that is theirs to act on or to say, as Config's bits. The keys are read at the
-     * first player drawn, and what is every view's is done there and then.
+     * first player drawn in the frame, and what is every view's is done there and then.
+     *
+     * @param first whether this is the first player the game draws in this frame
      */
-    static int pressedFor(int playerIndex) {
-        if (playerIndex == firstDrawn()) {
+    static int pressedFor(int playerIndex, boolean first) {
+        if (first) {
             int pressed = 0;
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
@@ -237,15 +239,6 @@ final class Tracking {
         int mine = owed[playerIndex];
         owed[playerIndex] = 0;
         return mine;
-    }
-
-    private static int firstDrawn() {
-        for (int i = 0; i < IsoPlayer.numPlayers; i++) {
-            if (IsoPlayer.players[i] != null) {
-                return i;
-            }
-        }
-        return 0;
     }
 
     /** A save was left: what is pressed until a frame of the next is not acted on. */
@@ -294,10 +287,15 @@ final class Tracking {
         save(config::saveTrackingMode);
     }
 
-    /** A view says whether it is from a vehicle's seat. */
+    /** A view says, each frame it has a player, whether it is from a vehicle's seat. */
     static void rides(int view, boolean inVehicle) {
         viewed[view] = true;
         seated[view] = inVehicle;
+    }
+
+    /** A view has no player. */
+    static void gone(int view) {
+        viewed[view] = false;
     }
 
     /** From a vehicle's seat head yaw turns about the view's own up whatever is saved, so the key does nothing while every view there is, is from one. */
