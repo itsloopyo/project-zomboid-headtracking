@@ -234,8 +234,8 @@ public final class CoreTests {
                 "65 degrees, everything of the mod's own on, the Low graphics mode, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.TOGGLE | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
-                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) == 8,
-                "the eight actions have a bit each");
+                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH) == 10,
+                "the eight actions have a bit each, and the first person key three");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {

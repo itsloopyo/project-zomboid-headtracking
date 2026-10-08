@@ -225,12 +225,13 @@ final class Tracking {
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN);
-            owed[0] = said | pressed & Config.FIRST_PERSON;
-            // Held, the first person key is the second player's.
-            boolean held = (pressed & Config.FIRST_PERSON_SECOND) != 0;
-            owed[1] = said | (held ? Config.FIRST_PERSON : 0);
-            if (held && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
-                Log.info("the first person key was held, which is a second player's, and there is none at the screen");
+            // Tapped, the first person key is the first player's. Tapped twice it is the second player's, and held it is both's.
+            boolean firsts = (pressed & (Config.FIRST_PERSON | Config.FIRST_PERSON_BOTH)) != 0;
+            boolean seconds = (pressed & (Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH)) != 0;
+            owed[0] = said | (firsts ? Config.FIRST_PERSON : 0);
+            owed[1] = said | (seconds ? Config.FIRST_PERSON : 0);
+            if ((pressed & Config.FIRST_PERSON_SECOND) != 0 && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
+                Log.info("the first person key was tapped twice, which is a second player's, and there is none at the screen");
             }
         }
         if (playerIndex >= View.COUNT) {

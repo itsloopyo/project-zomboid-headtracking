@@ -12,7 +12,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **Redrawn graphics in both views** - in the `Medium` and `High` graphics modes the mod draws the isometric view as well as first person, with its own lighting, shadows, textures and models. `F9` cycles the modes, and `Low` leaves the isometric view as the game draws it
 - **Multiplayer** - works when you join a server, and only you need the mod
-- **Two players at one screen** - each has a first person view and a head tracker of their own. Tap `Delete` for the first player, hold it for the second
+- **Two players at one screen** - each has a first person view and a head tracker of their own. Tap `Delete` for the first player, tap it twice for the second, hold it for both
 
 ## Requirements
 
@@ -163,7 +163,7 @@ The inventory, crafting, the health panel, the map and the game's menus all need
 
 A second player joins the screen with a controller, as the game has it, and has a first person view of their own. Each view is switched by itself: one player can be in first person while the other stays in the game's own view.
 
-- **`Delete` tapped** switches the first player's view. **`Delete` held** for 0.4 seconds switches the second player's.
+- **`Delete` tapped** switches the first player's view, **tapped twice** the second player's, and **held** for 0.4 seconds both players'. A tap acts 0.3 seconds after the key is let go, which is how long a second tap has to follow it.
 - **The second player's tracker** sends the OpenTrack UDP protocol to port `4243`, where the first player's sends to `4242`. Run a second tracker, or a second output, pointed at `127.0.0.1:4243`. The port is `SecondPlayerUdpPort` in [Configuration](#configuration).
 - **On a controller in first person** the aiming stick turns the view, and the movement stick walks the way the view faces. The right trigger attacks. With a firearm in hand the left trigger raises the sights, and does not shove while it does: without one it is the game's shove as before. The controller works the game's panels as it does in the game's own view.
 - **The modes are shared.** Turning tracking on and off, the tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are one setting for both players, on the keys above.
@@ -197,7 +197,7 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Cycle tracking mode | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode | `Page Down` | `Ctrl+Shift+H` |
 | Cycle aim mode | `Insert` | `Ctrl+Shift+U` |
-| Toggle first person view | `Delete` tapped, held for a second player | - |
+| Toggle first person view | `Delete` tapped; tapped twice for a second player; held for both | - |
 | Cycle graphics mode | `F9` | - |
 | Cycle picture style | `F8` | - |
 | Turn split screen | `F7` | - |
@@ -421,7 +421,8 @@ YawModeKey=default
 ; (TrueFreeLook, FreeLookMarker, StockSights).
 TrueFreeLookKey=default
 ; Goes into the first person view and back to the game's own. Tapped, for the first
-; player. Held for 400 ms, for a second player at the same screen.
+; player. Tapped twice, for a second player at the same screen. Held for 400 ms,
+; for both.
 FirstPersonKey=Delete
 ; Goes to the next graphics mode: Low, Medium, High (Quality).
 CycleQualityKey=F9

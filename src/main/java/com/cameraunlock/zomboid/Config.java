@@ -22,14 +22,14 @@ final class Config {
 
     /**
      * The bits of pressed keys: core's four, then the mod's own. The first person key is the
-     * first player's tapped and a second player's held, and a view is handed FIRST_PERSON for
-     * either.
+     * first player's tapped, a second player's tapped twice and both players' held, and a view
+     * is handed FIRST_PERSON for whichever of those is its own.
      */
     static final int TOGGLE = CameraUnlock.HOTKEY_TOGGLE, CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3,
-            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4;
+            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4, FIRST_PERSON_BOTH = CameraUnlock.HOTKEY_LOCAL << 5;
 
     private static final int SECOND_PLAYER_PORT = 4243;
 
@@ -143,10 +143,11 @@ final class Config {
                         + "a quarter each, as the game has it, whichever this says. Read again while the game\n"
                         + "runs.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
-        core.configLocalHotkeyHeld("FirstPersonKey",
+        core.configLocalHotkeyTaps("FirstPersonKey",
                 "Goes into the first person view and back to the game's own. Tapped, for the first\n"
-                        + "player. Held for " + CameraUnlock.HOLD_MS + " ms, for a second player at the same screen.",
-                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND);
+                        + "player. Tapped twice, for a second player at the same screen. Held for " + CameraUnlock.HOLD_MS + " ms,\n"
+                        + "for both.",
+                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_BOTH);
         core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Low, Medium, High (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
