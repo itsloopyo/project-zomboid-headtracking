@@ -45,6 +45,8 @@ final class Pipeline {
 
     Pipeline(View view) {
         this.view = view;
+        CORE = corePieces();
+        CONTENT = contentPieces();
     }
 
     /** How many texels across the shadow maps are: see Quality.shadowSize. */
@@ -3085,13 +3087,13 @@ final class Pipeline {
      * the scope's program, the mirror, the rain and the surfaces every mode reads. Nothing of
      * it is made until first person is first asked for.
      */
-    private final List<Piece> CORE = corePieces();
+    private final List<Piece> CORE;
     /**
      * The pictures of the mod's own surfaces and plants and its weapon models, which only a
      * graphics mode that shows the mod's own draws from: about 135 MB on the graphics card at
      * full size, that the Low mode never reads.
      */
-    private final List<Piece> CONTENT = contentPieces();
+    private final List<Piece> CONTENT;
 
     private List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
