@@ -264,6 +264,43 @@ final class PipelineShaders {
                 float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
                 return vec4(at.xy + uWind.xy * (take * lean), at.zw);
             }
+
+            // What a vertex of an overhead wire carries where a texel's place would be: a way
+            // across the wire on the map, the same for the whole of a span, whose length is
+            // which corner of the wire's two strips the vertex is (1 and 2 either side of the
+            // level strip, 3 and 4 the top and the bottom of the upright one) and, in what is
+            // left over a tenth, where in its swing the span is. See WorldScene.cable.
+            vec3 wireOff(vec2 carried, out vec2 across, out float swing) {
+                float size = length(carried);
+                float corner = floor(size);
+                across = carried / size;
+                swing = (size - corner - 0.1) * 7.853982;
+                return corner < 1.5 ? vec3(across, 0.0) : corner < 2.5 ? vec3(-across, 0.0) : vec3(0.0, 0.0, corner < 3.5 ? 1.0 : -1.0);
+            }
+
+            // Where the wind has swung a vertex of an overhead wire to. A wire is held at
+            // its two insulators and hangs between them, and it swings as a whole about the
+            // line from one to the other, as a pendulum does: so a vertex is carried round
+            // that line at the end of an arm as long as the wire hangs below it there,
+            // nothing at an insulator and most in the middle of the span, and rises as it
+            // goes. The wind leans the wire over by how squarely it blows across it, and it
+            // swings to and fro about that lean, a heavy cable taking five seconds over one
+            // swing, with every third swing or so a smaller one. The clock, uWind.z, starts
+            // again after an hour, in which both rates come to a whole number of swings. At
+            // the hardest the plants are ever pushed, 1.5, a wire leans 0.12 of a radian and
+            // swings 0.105 either side of that: where it hangs 0.9 of a tile, the most it
+            // does, two wires swinging against each other close by 0.19 of a tile, and
+            // those of one run are no nearer than 0.36.
+            vec3 swung(vec3 at, float hangs, vec2 across, float swing) {
+                float blows = length(uWind.xy);
+                if (hangs <= 0.0 || blows < 0.001) {
+                    return at;
+                }
+                float square = dot(uWind.xy, across) / blows;
+                float beat = sin(uWind.z * 1.2566371 + swing) * (0.65 + 0.35 * sin(uWind.z * 0.4799655 + 1.7 * swing));
+                float turn = min(blows, 1.5) * (0.08 * square + 0.07 * (0.4 + 0.6 * abs(square)) * beat);
+                return at + hangs * vec3(across * sin(turn), 1.0 - cos(turn));
+            }
             """;
 
     /**
@@ -431,7 +468,9 @@ final class PipelineShaders {
                 // Nor what lies under trees or clings to a bole, though a fern, a weed and a
                 // flower growing out of the ground do.
                 bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
-                vec4 at = strip ? vec4(swayed(stands.xyz, high, vBlade.z), 1.0) : still ? stands : blown(stands, looks);
+                // An overhead wire: the length of its facing says how far it hangs below the line between its insulators, see swung.
+                bool wire = uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5;
+                vec4 at = strip ? vec4(swayed(stands.xyz, high, vBlade.z), 1.0) : still || wire ? stands : blown(stands, looks);
                 if (strip) {
                     // Grass parts round whoever stands in it. The eye is over the viewer's
                     // feet: what grows within a pace of them is pressed outward and down, the
@@ -449,16 +488,18 @@ final class PipelineShaders {
                 // than a pixel is drawn only where it crosses the middle of one: a row of
                 // dashes that crawl as the head moves. A wire is two strips, one upright and
                 // one level, and takes no texel: where a texel's place would be, its vertex
-                // carries the way it stands off the middle of the wire, the level strip's as
-                // a way on the map of length one and the upright strip's as up or down, of
-                // length two to tell it by. Here it is stood off the middle as far as makes
-                // the wire a pixel thick from where the eye is. 0.015 is half of
-                // WorldScene.WIRE_THICK.
-                if (uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5) {
-                    vec2 way = gl_MultiTexCoord0.xy;
-                    vec3 off = dot(way, way) > 2.0 ? vec3(0.0, 0.0, sign(way.x)) : vec3(way, 0.0);
+                // carries which corner of which strip it is, see wireOff. Here it is stood
+                // off the middle as far as makes the wire a pixel thick from where the eye
+                // is. 0.015 is half of WorldScene.WIRE_THICK.
+                if (wire) {
+                    vec2 across;
+                    float swing;
+                    vec3 off = wireOff(gl_MultiTexCoord0.xy, across, swing);
+                    at.xyz = swung(at.xyz, length(gl_Normal) - 1.0, across, swing);
                     at.xyz += off * max(0.0, 0.6 * uPixel * length(at.xyz - uEye) - 0.015);
                     vUv = vec2(0.0);
+                    vNormal = normalize(looks);
+                    vCover = 1.0;
                 }
                 vWorld = at.xyz + lies;
                 // The map is thousands of tiles across and a number here holds seven digits, so
@@ -2797,6 +2838,15 @@ final class PipelineShaders {
                 if (mod(gl_Color.a, 32.0) > 23.5) {
                     float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
                     gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
+                    return;
+                }
+                // An overhead wire swings where the view has it: see swung.
+                if (material > 11.5 && material < 12.5) {
+                    vec2 across;
+                    float swing;
+                    wireOff(gl_MultiTexCoord0.xy, across, swing);
+                    vAt = swung(stands.xyz, length(gl_Normal) - 1.0, across, swing);
+                    gl_Position = uMatrix * vec4(vAt, 1.0);
                     return;
                 }
                 gl_Position = uMatrix * blown(stands, gl_Normal);

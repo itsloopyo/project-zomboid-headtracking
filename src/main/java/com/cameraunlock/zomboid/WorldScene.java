@@ -252,8 +252,11 @@ final class WorldScene {
             unseenRead = scene.readUnseen;
         }
         private long epoch;
-        /** The heights the build was made on, and which chunks round its own it took any from: see landOf. */
+        /** The heights the build was made on, and which chunks it took any from, those round its own and those further off: see landOf. */
         private int land, heightsRound;
+        private long[] heightsFar = NO_CHUNKS;
+        /** Whether the build left the span of a wire unknown at an end because the map was not loaded that far: see landOf. */
+        private boolean wantsMap;
         /** Which of the chunk and the eight round it were loaded when it was last read, a bit each, and which chunks the map had loaded then: see loadedNow. */
         private int ring, loaded;
         /**
@@ -598,6 +601,7 @@ final class WorldScene {
     private static final float SWITCH_WIDEST = 12f;
     /** For each sprite hung in the air: the wires it shows, see Wires.read. */
     private static final IdentityHashMap<Texture, float[]> wires = new IdentityHashMap<>();
+    private static final long[] NO_CHUNKS = new long[0];
     /** The map the kept builds were read from, and the one everything every view keeps by place or by sprite was. */
     private WeakReference<IsoCell> builtIn = new WeakReference<>(null);
     private static WeakReference<IsoCell> readIn = new WeakReference<>(null);
@@ -669,6 +673,16 @@ final class WorldScene {
     private final long[] tollWhy = new long[10];
     /** Which chunks of the map are loaded, as one number. */
     private int loadedNow;
+    /** The map the builds read, for whether a chunk of it is loaded. */
+    private IsoChunkMap chunkMap;
+    /**
+     * The spans the lengths of overhead wire hang in, as Spans finds them, by the square, the
+     * sprite and which of its lines a length is. A span is found by following its wire to both
+     * its poles, some chunks either way, once: the map does not move its poles. One left
+     * unknown at an end for want of map is found again when the map has other chunks loaded.
+     */
+    private final HashMap<Long, float[]> strung = new HashMap<>();
+    private int strungWith;
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
@@ -2126,6 +2140,7 @@ final class WorldScene {
                 leafPlaces.clear();
                 doorSpans.clear();
                 wires.clear();
+                strung.clear();
                 Furniture.forget();
                 Roofs.forget();
                 WallFinish.forget();
@@ -2147,6 +2162,12 @@ final class WorldScene {
             boolean telling = told();
             ChunkMarks.live = telling;
             loadedNow = loadedOf(map, IsoChunkMap.chunkGridWidth);
+            chunkMap = map;
+            if (loadedNow != strungWith) {
+                // A span left unknown at an end for want of map is found again now that the map has other chunks loaded.
+                strung.values().removeIf(Spans::wanting);
+                strungWith = loadedNow;
+            }
             int loadedForAll = Rounds.loaded(view.index, loadedNow);
             Terrain.loaded(loadedForAll);
             if (telling && roundBegins) {
@@ -2327,7 +2348,7 @@ final class WorldScene {
                     }
                     if (!missing) {
                         terrain.corners(cell, chunk.wx, chunk.wy);
-                        land = landOf(chunk.wx, chunk.wy, current.heightsRound);
+                        land = landOf(chunk.wx, chunk.wy, current.heightsRound, current.heightsFar, current.heightsFar.length, current.wantsMap);
                     }
                     // Read before the chunk is: a mark made from another thread while it is read is then one more than the build remembers.
                     int marks = ChunkMarks.around(chunk.wx, chunk.wy);
@@ -2536,6 +2557,8 @@ final class WorldScene {
                         bandAway = BAND_AWAY[fresh.band];
                         alike = ALL_BANDS;
                         heightsRound = 0;
+                        heightsFarCount = 0;
+                        wantsMap = false;
                         placed = fresh.placed;
                         building = fresh;
                         chunksBuilt++;
@@ -2550,7 +2573,9 @@ final class WorldScene {
                         // while there was none. The chunk is then told still, and is built once more.
                         fresh.told = toldSoFar;
                         fresh.heightsRound = heightsRound;
-                        fresh.land = landOf(chunk.wx, chunk.wy, heightsRound);
+                        fresh.heightsFar = heightsFarCount == 0 ? NO_CHUNKS : Arrays.copyOf(heightsFar, heightsFarCount);
+                        fresh.wantsMap = wantsMap;
+                        fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
                         if (fresh.seen == null) {
                             fresh.seen = new OpenLight();
                         }
@@ -4172,67 +4197,154 @@ final class WorldScene {
         }
 
         /**
-         * The wires a sprite of overhead wire shows, each strung where it is painted: from the
-         * place on the square its one end is drawn over to the place its other end is, at the
-         * height of the insulators on a pole's arm. The game's view cannot tell how high a line in
-         * the air is, only where it is drawn, and at that one height the lines of a run come out
-         * over their poles' arms, each square's meeting the next square's end to end. False,
-         * adding nothing, for a sprite that is no wire: a length of the pole.
+         * The wires a sprite of overhead wire shows, each hung where it is painted over the map
+         * and as high as its span has it there: a wire is held at the insulators of two poles and
+         * hangs between them, whatever the land under it does (Spans). The game's view cannot tell
+         * how high a line in the air is, only where it is drawn, and at the height of the
+         * insulators the lines of a run come out over their poles' arms, each square's meeting
+         * the next square's end to end. False, adding nothing, for a sprite that is no wire: a
+         * length of the pole.
          */
         private boolean addWires(Texture texture, String name, int x, int y, int z) {
+            float[] lines = wiresOn(texture, name, frame);
+            for (int i = 0; i < lines.length; i += 4) {
+                long key = (long) x << 38 | (long) y << 16 | (long) z << 12 | (long) Poles.index(name) << 4 | i / 4;
+                float[] pieces = strung.get(key);
+                if (pieces == null) {
+                    hungOn = z;
+                    pieces = spans.find(x, y, x + lines[i], y + lines[i + 1], x + lines[i + 2], y + lines[i + 3]);
+                    strung.put(key, pieces);
+                    if (FirstPerson.TRACE) {
+                        Log.info("wire span: " + x + "," + y + "," + z + " " + name + " line " + i / 4 + " " + Arrays.toString(pieces) + " eye "
+                                + Math.round(Math.hypot(x - lastEyeX, y - lastEyeY)));
+                    }
+                }
+                wantsMap |= Spans.wanting(pieces);
+                float held = (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT;
+                for (int piece = 0; piece < pieces.length; piece += Spans.PIECE) {
+                    int from = piece + Spans.FROM, to = piece + Spans.TO;
+                    float fromUp = held + landAt(pieces[from + Spans.END_LAND], pieces[from + Spans.END_LAND + 1]);
+                    float toUp = held + landAt(pieces[to + Spans.END_LAND], pieces[to + Spans.END_LAND + 1]);
+                    float sag = Spans.sag(Spans.span(pieces, piece));
+                    for (int end = 0; end < 2; end++) {
+                        float endX = pieces[piece + end * 2], endY = pieces[piece + end * 2 + 1], along = Spans.along(pieces, piece, endX, endY);
+                        float straight = fromUp + (toUp - fromUp) * along;
+                        float up = Math.max(straight - Spans.hangs(along, sag), landAt(endX, endY) + Spans.CLEAR);
+                        set(wireEnds, end, endX, endY, up);
+                        wireHangs[end] = Math.max(0f, straight - up);
+                    }
+                    cable(wireEnds[0], wireEnds[1], wireEnds[2], wireHangs[0], wireEnds[3], wireEnds[4], wireEnds[5], wireHangs[1], Spans.swing(pieces, piece));
+                }
+            }
+            return lines.length > 0;
+        }
+
+        /** The wires a sprite shows, as Wires reads them off it in a frame set for it. Empty for a sprite that is no wire. */
+        private float[] wiresOn(Texture texture, String name, SpriteGeometry.Frame in) {
             float[] lines = wires.get(texture);
             if (lines == null) {
-                lines = Wires.hangs(name) ? Wires.read(texture::isMaskSet, frame) : Wires.NONE;
+                lines = Wires.hangs(name) ? Wires.read(texture::isMaskSet, in) : Wires.NONE;
                 wires.put(texture, lines);
                 if (FirstPerson.TRACE) {
                     Log.info("wires read off " + texture.getName() + ": " + Arrays.toString(lines));
                 }
             }
-            if (lines.length > 0) {
-                findInsulators(x, y, z);
-            }
-            for (int i = 0; i < lines.length; i += 4) {
-                set(wireEnds, 0, x + lines[i], y + lines[i + 1], 0f);
-                set(wireEnds, 1, x + lines[i + 2], y + lines[i + 3], 0f);
-                for (int end = 0; end < 6; end += 3) {
-                    // Where a run turns at a pole its sprites stop a hand or two short of the arm, each way.
-                    float nearest = Poles.MADE_FAST * Poles.MADE_FAST, endX = wireEnds[end], endY = wireEnds[end + 1];
-                    for (int at = 0; at < insulators; at += 2) {
-                        float awayX = insulatorsAt[at] - endX, awayY = insulatorsAt[at + 1] - endY, away = awayX * awayX + awayY * awayY;
-                        if (away < nearest) {
-                            nearest = away;
-                            wireEnds[end] = insulatorsAt[at];
-                            wireEnds[end + 1] = insulatorsAt[at + 1];
-                        }
-                    }
-                    // Over the land and not the street: a wire that crossed a kerb would step down by its height.
-                    wireEnds[end + 2] = (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT + landAt(wireEnds[end], wireEnds[end + 1]);
-                }
-                cable(wireEnds[0], wireEnds[1], wireEnds[2], wireEnds[3], wireEnds[4], wireEnds[5]);
-            }
-            return lines.length > 0;
+            return lines;
         }
+
+        /** The level the wire hangs on whose span is being found, and the map the spans are found on. */
+        private int hungOn;
+        private final SpriteGeometry.Frame hungFrame = new SpriteGeometry.Frame();
+        private final Spans spans = new Spans(new Spans.Hung() {
+            @Override
+            public int lines(int x, int y, float[] out) {
+                int gridX = Math.floorDiv(x, CHUNK_TILES) - mapWx, gridY = Math.floorDiv(y, CHUNK_TILES) - mapWy;
+                if (gridX < 0 || gridY < 0 || gridX >= mapSide || gridY >= mapSide || chunkMap.getChunk(gridX, gridY) == null) {
+                    return -1;
+                }
+                IsoGridSquare square = cell.getGridSquare(x, y, hungOn);
+                // As a build takes a sprite for wire: one hung on a square of air.
+                if (square == null || square.getFloor() != null) {
+                    return 0;
+                }
+                int count = 0;
+                PZArrayList<IsoObject> objects = square.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    IsoObject object = objects.get(i);
+                    IsoSprite sprite = object.getSprite();
+                    if (sprite == null || !Wires.hangs(sprite.getName())) {
+                        continue;
+                    }
+                    Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                    if (!usable(texture)) {
+                        // Its picture is not there to read yet: what the wire does here is not known.
+                        return -1;
+                    }
+                    hungFrame.scale = frame.scale;
+                    WorldScene.frameOf(hungFrame, object, texture);
+                    float[] lines = wiresOn(texture, sprite.getName(), hungFrame);
+                    for (int line = 0; line < lines.length; line += 2) {
+                        out[count++] = x + lines[line];
+                        out[count++] = y + lines[line + 1];
+                    }
+                }
+                return count;
+            }
+
+            @Override
+            public int pins(int x, int y, float[] out, int at) {
+                Poles.Arm arm = Poles.arm(poleOn(x, y, hungOn));
+                Posts shaft = arm == null ? null : shaftOf(x, y, hungOn);
+                if (shaft == null) {
+                    return 0;
+                }
+                float axisX = x + shaft.a, axisY = y + shaft.b;
+                for (int which = -1; which <= 1; which++) {
+                    Poles.insulator(arm, which, axisX, axisY, shaft.half * Poles.TAPER, insulatorAt);
+                    out[at++] = insulatorAt[0];
+                    out[at++] = insulatorAt[1];
+                    out[at++] = axisX;
+                    out[at++] = axisY;
+                }
+                return Spans.POLE_PINS;
+            }
+        });
 
         /** Which of the chunks round the one being built the build has taken the land's height from, a bit each: see landAt. */
         private int heightsRound;
+        /** The chunks further off it has taken one from, each as its two numbers in one: the span of a wire ends at a pole some chunks away. */
+        private long[] heightsFar = new long[8];
+        private int heightsFarCount;
+        /** Whether the build has left the span of a wire unknown at an end because the map is not loaded that far. */
+        private boolean wantsMap;
 
         /**
-         * Before the build takes the ground's height at a point that may be over the next chunk: a
-         * wire's end at the insulator of a pole that stands there, the corner of a body's picture.
-         * A chunk's heights read as none until they are first worked out, so that chunk's are
-         * worked out here if they are not yet, and the build remembers that it goes by them
+         * Before the build takes the ground's height at a point that may be over another chunk: the
+         * corner of a body's picture over the next one, the pole a wire's span ends at some chunks
+         * away. A chunk's heights read as none until they are first worked out, so that chunk's
+         * are worked out here if they are not yet, and the build remembers that it goes by them
          * (landOf): when they come out otherwise this chunk is built again.
          */
         private void heightsAt(float x, float y) {
             int wx = Math.floorDiv((int) Math.floor(x), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(y), CHUNK_TILES);
-            if (Math.abs(wx - building.wx) > 1 || Math.abs(wy - building.wy) > 1) {
-                throw new IllegalArgumentException("the build of the chunk at " + building.wx + ", " + building.wy + " asked the ground's height at " + x + ", " + y
-                        + ", which is over no chunk beside it");
+            if (wx == building.wx && wy == building.wy) {
+                return;
             }
-            if (wx != building.wx || wy != building.wy) {
-                terrain.corners(cell, wx, wy);
+            terrain.corners(cell, wx, wy);
+            if (Math.abs(wx - building.wx) <= 1 && Math.abs(wy - building.wy) <= 1) {
                 heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
+                return;
             }
+            long far = (long) wx << 32 | wy & 0xFFFFFFFFL;
+            for (int known = 0; known < heightsFarCount; known++) {
+                if (heightsFar[known] == far) {
+                    return;
+                }
+            }
+            if (heightsFarCount == heightsFar.length) {
+                heightsFar = Arrays.copyOf(heightsFar, heightsFarCount * 2);
+            }
+            heightsFar[heightsFarCount++] = far;
         }
 
         /** The height of the land at a point the build hangs something over: see heightsAt. */
@@ -4241,8 +4353,14 @@ final class WorldScene {
             return terrain.land(x, y);
         }
 
-        /** The heights a build of a chunk goes by, as one number: the version of its own chunk's and of those round it the build took a height from. After corners. */
-        private int landOf(int wx, int wy, int round) {
+        /**
+         * The heights a build of a chunk goes by, as one number: the version of its own chunk's
+         * and of those the build took a height from, round it (round) and further off (the
+         * first count of far). A build that left a wire's span unknown for want of map goes by
+         * which chunks the map has loaded as well: it is made again when the map has others.
+         * After corners.
+         */
+        private int landOf(int wx, int wy, int round, long[] far, int count, boolean wantsMap) {
             int land = terrain.version(wx, wy);
             for (int bit = 0; bit < 9; bit++) {
                 if ((round >> bit & 1) != 0) {
@@ -4250,29 +4368,15 @@ final class WorldScene {
                     land = land * 31 + terrain.version(wx + bit / 3 - 1, wy + bit % 3 - 1);
                 }
             }
-            return land;
-        }
-
-        private final float[] wireEnds = new float[6], insulatorsAt = new float[54], insulatorAt = new float[2];
-        private int insulators;
-
-        /** Fills insulatorsAt with where the insulators stand of every pole whose top is on a square or one beside it, two numbers each. */
-        private void findInsulators(int x, int y, int z) {
-            insulators = 0;
-            for (int beside = 0; beside < 9; beside++) {
-                int poleX = x + beside % 3 - 1, poleY = y + beside / 3 - 1;
-                Poles.Arm arm = Poles.arm(poleOn(poleX, poleY, z));
-                Posts shaft = arm == null ? null : shaftOf(poleX, poleY, z);
-                if (shaft == null) {
-                    continue;
-                }
-                for (int which = -1; which <= 1; which++) {
-                    Poles.insulator(arm, which, poleX + shaft.a, poleY + shaft.b, shaft.half * Poles.TAPER, insulatorAt);
-                    insulatorsAt[insulators++] = insulatorAt[0];
-                    insulatorsAt[insulators++] = insulatorAt[1];
-                }
+            for (int known = 0; known < count; known++) {
+                int farX = (int) (far[known] >> 32), farY = (int) far[known];
+                terrain.corners(cell, farX, farY);
+                land = land * 31 + terrain.version(farX, farY);
             }
+            return wantsMap ? land * 31 + loadedNow : land;
         }
+
+        private final float[] wireEnds = new float[6], wireHangs = new float[2], insulatorAt = new float[2];
 
         /** The shaft of the pole that has a length on a square, as Posts reads the lowest of its lengths, or null. */
         private Posts shaftOf(int x, int y, int z) {
@@ -4372,17 +4476,26 @@ final class WorldScene {
         /**
          * A wire from one point to another: two strips crossed, so that it has a width from below
          * as from the side. A wire has no texel, and where a texel's place is each vertex carries
-         * the way it stands off the middle of the wire: the picture stands it off further where
-         * the wire is far from the eye, so that it is never finer than a pixel. For the level
-         * strip that is a way on the map of length one, and for the upright strip up or down, as
-         * 2 or -2 across and nothing down.
+         * what the picture moves it by as it draws, see wireOff in PipelineShaders: the way
+         * across the wire on the map, of a length that says which corner of which strip the
+         * vertex is, 1 and 2 for the two sides of the level strip and 3 and 4 for the top and the
+         * bottom of the upright one, and after that, between a tenth and nine tenths, where in
+         * its swing the wire's span is (swing, 0 to 1). The picture stands a vertex off the
+         * middle of the wire where it is far from the eye, so that the wire is never finer than
+         * a pixel, and swings it in the wind by how far the wire hangs there below the line
+         * between its insulators (hangs0, hangs1), which rides on the length of its facing as
+         * a plant's sway does.
+         *
+         * The way across is the same one for every length of a span, whichever of its ends a
+         * length is read from first: lengths that took it for themselves would swing against
+         * each other.
          */
-        private void cable(float x0, float y0, float up0, float x1, float y1, float up1) {
+        private void cable(float x0, float y0, float up0, float hangs0, float x1, float y1, float up1, float hangs1, float swing) {
             SpriteGeometry.Mesh plain = solid.get(PLAIN);
             plain.open = frame.open + SpriteGeometry.CARD + 32f * WIRE;
-            plain.sway = 0f;
             float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-            float sideX = -(y1 - y0) / length, sideY = (x1 - x0) / length, half = WIRE_THICK / 2f;
+            float turned = Spans.acrossSign(-(y1 - y0), x1 - x0) / length;
+            float sideX = -(y1 - y0) * turned, sideY = (x1 - x0) * turned, half = WIRE_THICK / 2f, carried = 0.1f + 0.8f * swing;
             for (int strip = 0; strip < 2; strip++) {
                 boolean upright = strip == 0;
                 float offX = upright ? 0f : sideX, offY = upright ? 0f : sideY, offUp = upright ? 1f : 0f;
@@ -4390,10 +4503,13 @@ final class WorldScene {
                 for (int corner = 0; corner < 6; corner++) {
                     int side = STRIP_SIDE[corner];
                     boolean far = STRIP_END[corner] == 1;
+                    float tells = (upright ? 3f : 1f) + (side > 0 ? 0f : 1f) + carried;
+                    plain.sway = far ? hangs1 : hangs0;
                     plain.add((far ? x1 : x0) + offX * side * half, (far ? y1 : y0) + offY * side * half, (far ? up1 : up0) + offUp * side * half,
-                            upright ? 2f * side : sideX * side, upright ? 0f : sideY * side, frame.red, frame.green, frame.blue);
+                            sideX * tells, sideY * tells, frame.red, frame.green, frame.blue);
                 }
             }
+            plain.sway = 0f;
         }
 
         private boolean spreads(int at, int own, int mine) {

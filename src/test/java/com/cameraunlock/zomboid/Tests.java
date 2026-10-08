@@ -138,6 +138,7 @@ public final class Tests {
         StairTests.run();
         TerrainTests.run();
         FacadeTests.run();
+        SpanTests.run();
         QualityTests.run();
         StyleTests.run();
         GameFixTests.run();
