@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
+import zombie.characters.IsoPlayer;
 import zombie.ui.UIElement;
 import zombie.ui.UIElementInterface;
 import zombie.ui.UIManager;
@@ -49,9 +50,10 @@ final class Panels {
      * How many panels are open that need a pointer: the ones the game itself
      * marks as showing the cursor (its context and radial menus) or as taking
      * the keyboard (crafting, building, the map, vehicle mechanics), and its
-     * windows and dialogs.
+     * windows and dialogs. A panel that is another player's at the same screen is not counted:
+     * they work it with their controller, and it is no reason for this player's pointer to come out.
      */
-    static int open() {
+    static int open(int playerIndex) {
         // Looked up every time: a class held from before the game reloaded its Lua would match nothing.
         for (int i = 0; i < windowClasses.length; i++) {
             windowClasses[i] = LuaManager.env.rawget(WINDOW_CLASSES.get(i)) instanceof KahluaTable table ? table : null;
@@ -63,12 +65,33 @@ final class Panels {
         List<UIElementInterface> elements = UIManager.getUI();
         for (int i = 0; i < elements.size(); i++) {
             UIElementInterface element = elements.get(i);
-            if (element.isVisible() && (element.isForceCursorVisible() || element.isWantKeyEvents()
+            if (element.isVisible() && !(element instanceof UIElement owned && isAnothers(owned.getTable(), playerIndex))
+                    && (element.isForceCursorVisible() || element.isWantKeyEvents()
                     || element instanceof UIElement drawn && isWindow(drawn.getTable()))) {
                 open++;
             }
         }
         return open;
+    }
+
+    /** The fields the game's panels keep their player in: a number in the first two, the player itself in the rest. */
+    private static final String[] OWNER_FIELDS = {"playerNum", "player", "character", "chr", "playerObj"};
+
+    /** Whether a panel says it is a player's and that player is not the one asked about. One that says nothing is everyone's. */
+    private static boolean isAnothers(KahluaTable panel, int playerIndex) {
+        if (panel == null) {
+            return false;
+        }
+        for (String field : OWNER_FIELDS) {
+            Object owner = panel.rawget(field);
+            if (owner instanceof Double number) {
+                return number.intValue() != playerIndex;
+            }
+            if (owner instanceof IsoPlayer player) {
+                return player.getIndex() != playerIndex;
+            }
+        }
+        return false;
     }
 
     /** A Lua object's class is its metatable, and that class's parent is the class's own. */

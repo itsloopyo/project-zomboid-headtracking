@@ -941,7 +941,7 @@ public final class FirstPerson {
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
         String was = TRACE ? pointer.describe() : null;
-        int panels = Panels.open();
+        int panels = Panels.open(view.index);
         long now = System.nanoTime();
         if (Mouse.isButtonDown(AIM_BUTTON)) {
             aimedAt = now;
