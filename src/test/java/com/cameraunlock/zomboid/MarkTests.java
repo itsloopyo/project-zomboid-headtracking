@@ -12,6 +12,7 @@ final class MarkTests {
     static void run() {
         aChunkThatIsToldHasAnotherNumber();
         aBoxOfChunksIsToldWhole();
+        aLightIsCountedOnItsLevel();
         aTallyIsCountedIntoAnother();
         try {
             aMethodOfAnObjectHandsItselfOverBeforeAnythingElse();
@@ -27,6 +28,20 @@ final class MarkTests {
         if (!condition) {
             throw new AssertionError(what);
         }
+    }
+
+    private static void aLightIsCountedOnItsLevel() {
+        int tenth = ChunkMarks.litAround(300, 400, 10), ninth = ChunkMarks.litAround(300, 400, 9), beside = ChunkMarks.litAround(301, 401, 10);
+        int far = ChunkMarks.litAround(302, 400, 10), loose = ChunkMarks.litLooseAround(300, 400), all = ChunkMarks.around(300, 400), things = ChunkMarks.thingsAround(300, 400);
+        ChunkMarks.lit(ChunkMarks.slot(300, 400), 10);
+        check(ChunkMarks.litAround(300, 400, 10) == tenth + 1, "a light marked on a level is counted on that level");
+        check(ChunkMarks.litAround(300, 400, 9) == ninth, "and on no other");
+        check(ChunkMarks.litAround(301, 401, 10) == beside + 1, "the chunk beside it counts it too: it reads that chunk's squares along its edge");
+        check(ChunkMarks.litAround(302, 400, 10) == far, "a chunk two away does not");
+        check(ChunkMarks.litLooseAround(300, 400) == loose && ChunkMarks.around(300, 400) == all + 1 && ChunkMarks.thingsAround(300, 400) == things,
+                "it is a mark, for light and nothing else, and one that named its level");
+        ChunkMarks.lit(ChunkMarks.slot(300, 400), -33);
+        check(ChunkMarks.litLooseAround(300, 400) == loose + 1 && ChunkMarks.litAround(300, 400, 10) == tenth + 1, "a light marked with no level is counted apart");
     }
 
     private static void aChunkThatIsToldHasAnotherNumber() {

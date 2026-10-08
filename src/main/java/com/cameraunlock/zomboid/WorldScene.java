@@ -190,6 +190,39 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private int marks, told;
         /** Of those marks, the ones for anything but light: see ChunkMarks.thingsAround. */
         private int things;
+        /**
+         * For a build that was summed, the sum of each of its levels from sumFrom to sumTo, what
+         * ChunkMarks had counted for the light of each when it was read, and for light marked
+         * with no level. A level whose count is what it was is not read again: see signature.
+         * sumTo is under sumFrom for a build with no sums. And the light a square not yet seen
+         * was given, which is no square's own and changes with the hour, unmarked.
+         */
+        private long[] levelSums = new long[0];
+        private int[] litSeen = new int[0];
+        private int sumFrom, sumTo = -1, litLoose;
+        private long unseenRead;
+        /**
+         * When every level was last read. The engine's light for a square can go on changing
+         * with nothing marked, as it does for minutes after the hour is set, so a chunk read
+         * by its marked levels is still read whole as often as one nothing is marked on.
+         */
+        private long wholeNanos;
+
+        /** Takes the sums of the levels as the last reading left them: one made at a time given, for a chunk whose build till now is given, or null. */
+        private void keepLevels(WorldScene scene, long now, ChunkMeshes before) {
+            wholeNanos = scene.readByLevel ? before.wholeNanos : now;
+            int levels = scene.readTo - scene.readFrom + 1;
+            if (levelSums.length < levels) {
+                levelSums = new long[levels];
+                litSeen = new int[levels];
+            }
+            System.arraycopy(scene.readSums, 0, levelSums, 0, levels);
+            System.arraycopy(scene.readLit, 0, litSeen, 0, levels);
+            sumFrom = scene.readFrom;
+            sumTo = scene.readTo;
+            litLoose = scene.readLoose;
+            unseenRead = scene.readUnseen;
+        }
         private long epoch;
         /** The heights the build was made on, and which chunks round its own it took any from: see landOf. */
         private int land, heightsRound;
@@ -835,7 +868,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * would never be marked for its light. The engine's flag for a level of a chunk is put
      * down by the asking, and the game asks itself for the levels its own view has on screen,
      * though it then takes only the squares that view shows: for those the game's note of its
-     * own asking is gone by, and every square is taken.
+     * own asking is gone by, and every square is taken. Under the first person picture the
+     * game asks for none (Agent.coveredPatches leaves that out with the rest of what it does
+     * for a texture it never draws), and every level is asked for here.
      */
     private void pullLights(IsoChunk chunk, int slot, int lowest) {
         int pass = LightingJNI.getUpdateCounter(playerIndex);
@@ -846,9 +881,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         litAt[slot] = pass;
         litByGame[slot] = chunk.lightingUpdateCounter;
         FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
+        boolean gameAsks = !FirstPerson.coversTheGamesView();
         for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
             tollPulls++;
-            if (!taken && (levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
+            if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
                 continue;
             }
             tollPulled++;
@@ -878,6 +914,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static long tollCrownsWaitNanos, tollCrownsLongestNanos;
     private static long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private static long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
+    private static long tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsDiffered, tollSumsLate;
 
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
     static String tolls() {
@@ -886,6 +923,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
+        told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
+                tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsLate, tollSumsDiffered);
+        tollSumsByLevel = tollLevelsRead = tollLevelsKept = tollSumsChecked = tollSumsDiffered = tollSumsLate = 0;
         if (AUDIT_STALE) {
             told += String.format(Locale.ROOT, ", chunks left alone built beside %d and what grows on them %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleGrownAsked,
                     tollStaleDue, tollStale);
@@ -1433,7 +1473,30 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
                 if (summed) {
                     long summing = System.nanoTime();
-                    read = signature(chunk, chunkX, chunkY, lowest);
+                    // Read for nothing but light the game marked, which it marks by its level: the other levels are as they were summed.
+                    boolean lightAlone = telling && !missing && !AUDIT_MARKS && stands && current.signed && !current.restless && settled && ringAsItWas
+                            && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch && current.land == land
+                            && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy) && start - current.wholeNanos < sweptEvery(distance, slot);
+                    read = signature(chunk, chunkX, chunkY, lowest, lightAlone ? current : null);
+                    if (CHECK_BUILDS && readByLevel) {
+                        long[] byLevel = Arrays.copyOf(readSums, readTo - readFrom + 1);
+                        read = signature(chunk, chunkX, chunkY, lowest, null);
+                        tollSumsChecked++;
+                        for (int z = readFrom; z <= readTo; z++) {
+                            if (byLevel[z - readFrom] == readSums[z - readFrom]) {
+                                continue;
+                            }
+                            // A light the whole reading was the first to ask for is marked by that asking, and the level is read the next time.
+                            boolean markedSince = ChunkMarks.litAround(chunk.wx, chunk.wy, z) != readLit[z - readFrom];
+                            if (markedSince) {
+                                tollSumsLate++;
+                            } else {
+                                tollSumsDiffered++;
+                            }
+                            Log.info(String.format(Locale.ROOT, "chunk sums: level %d of the chunk at %d, %d, kept as it was summed, is another sum read now, %s", z, chunk.wx, chunk.wy,
+                                    markedSince ? "and that reading marked its light" : "WITH NOTHING MARKED"));
+                        }
+                    }
                     slowed(summing);
                     tollSums++;
                     tollSumNanos += System.nanoTime() - summing;
@@ -1481,6 +1544,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         current.checkedNanos = start;
                         current.marks = marks;
                         current.things = things;
+                        current.keepLevels(this, start, current);
                         current.land = land;
                         current.ring = ring;
                         current.loaded = loadedNow;
@@ -1524,6 +1588,11 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.plain = true;
                     fresh.marks = marks;
                     fresh.things = things;
+                    if (summed) {
+                        fresh.keepLevels(this, start, current);
+                    } else {
+                        fresh.sumTo = fresh.sumFrom - 1;
+                    }
                     fresh.epoch = epoch;
                     fresh.ring = ring;
                     fresh.loaded = loadedNow;
@@ -1886,7 +1955,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
         int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
         System.arraycopy(standing.groundLayers, 0, auditLayers, 0, auditLayers.length);
-        long sum = signature(chunk, chunkX, chunkY, lowest);
+        long sum = signature(chunk, chunkX, chunkY, lowest, null);
         solid.clear();
         laid.clear();
         checkPlaced.clear();
@@ -2436,9 +2505,32 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      *
      * It reads the lights as a build does, so the squares it sees count towards the frame's
      * light as they would have.
+     *
+     * Each level is summed apart and the sums summed. Given a build whose chunk has had
+     * nothing but light marked since it was read, a level whose light no mark names takes the
+     * sum the build has for it and is not read. What is then kept of the reading is not whole,
+     * and a build that follows reads the chunk's light itself.
+     *
+     * @param readFor a build of the chunk to take the sums of its unmarked levels from, or null to read every level
      */
-    private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest) {
+    private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
         int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
+        readUnseen = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b));
+        readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
+        readFrom = from;
+        readTo = to;
+        if (readSums.length < to - from + 1) {
+            readSums = new long[to - from + 1];
+            readLit = new int[to - from + 1];
+        }
+        // Before the levels are read: a mark made while one is read is then one more than is remembered for it.
+        readLoose = ChunkMarks.litLooseAround(chunk.wx, chunk.wy);
+        for (int z = from; z <= to; z++) {
+            readLit[z - from] = ChunkMarks.litAround(chunk.wx, chunk.wy, z);
+        }
+        if (readByLevel) {
+            tollSumsByLevel++;
+        }
         long sum = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(frame.scale)), from), to);
         float[] ground = Terrain.corners(cell, chunk.wx, chunk.wy);
         float[] water = Terrain.water(chunk.wx, chunk.wy);
@@ -2481,6 +2573,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             }
         }
         for (int z = from; z <= to; z++) {
+            if (readByLevel && readLit[z - from] == readFor.litSeen[z - from]) {
+                readSums[z - from] = readFor.levelSums[z - from];
+                tollLevelsKept++;
+                continue;
+            }
+            tollLevelsRead++;
+            long level = SUM_FROM;
             readLights(chunkX, chunkY, z);
             System.arraycopy(lightRed, 0, keptRed, (z - from) * span, span);
             System.arraycopy(lightGreen, 0, keptGreen, (z - from) * span, span);
@@ -2492,14 +2591,14 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 for (int i = 0; i < treed.length; i++) {
                     trees = sum(trees, treed[i] ? 1 : 0);
                 }
-                sum = sum(sum, trees);
+                level = sum(level, trees);
                 auditTrees = trees;
             }
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     int at = i * LIGHT_SPAN + j;
                     if (lightOpen[at] < 0) {
-                        sum = sum(sum, -1);
+                        level = sum(level, -1);
                         if (AUDIT_MARKS) {
                             auditLights[(z - from) * span + at] = auditThings[(z - from) * span + at] = -1;
                         }
@@ -2532,7 +2631,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                             // The game marks the chunk when a set goes on or off or between the bars and a programme, each of
                             // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel or a tape.
                             int showing = Screens.showing(set);
-                            sum = sum(sum, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
+                            level = sum(level, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
                         }
                         if (object instanceof IsoDoor door) {
                             thing = sum(thing, door.IsOpen() ? 2 : 1);
@@ -2551,13 +2650,20 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                             restless |= picture == 0 && square.getChunk().getRenderLevels(playerIndex).isOnScreen(z);
                         }
                     }
-                    sum = sum(sum(sum, lit), thing);
+                    level = sum(sum(level, lit), thing);
                     if (AUDIT_MARKS) {
                         auditLights[(z - from) * span + at] = lit;
                         auditThings[(z - from) * span + at] = thing;
                     }
                 }
             }
+            readSums[z - from] = level;
+        }
+        for (int z = from; z <= to; z++) {
+            sum = sum(sum, readSums[z - from]);
+        }
+        if (readByLevel) {
+            keptFrame = -1;
         }
         if (restless) {
             tollRestless++;
@@ -2577,6 +2683,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     }
 
     private static final long SUM_FROM = 0x9E3779B97F4A7C15L;
+    /** What the last reading of a chunk came to level by level, from readFrom to readTo, with ChunkMarks' counts for the light of each as they were before it, and whether it took any level's sum from a build. */
+    private long[] readSums = new long[8];
+    private int[] readLit = new int[8];
+    private int readFrom, readTo, readLoose;
+    private long readUnseen;
+    private boolean readByLevel;
 
     /** Dev only: keeps with a build what its sum was made of. */
     private void auditKeep(ChunkMeshes fresh, boolean summed) {

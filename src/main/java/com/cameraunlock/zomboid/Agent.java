@@ -408,7 +408,7 @@ public final class Agent {
      */
     private static List<Patch> chunkMarkPatches() {
         String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
-        MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";J)V");
+        MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";IJ)V");
         ClassDesc marks = ClassDesc.ofInternalName("com/cameraunlock/zomboid/ChunkMarks");
         return List.of(
                 new Patch(chunk, "invalidateRenderChunkLevel telling which chunk it marks", classBytes -> {
@@ -421,10 +421,10 @@ public final class Agent {
                     return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(chunk, "invalidateRenderChunkLevels", "(J)V"),
                             code -> code.aload(0).lload(1).invokestatic(marks, "marked", marked));
                 }),
-                new Patch(levels, "invalidateLevel telling which chunk's light it marks", classBytes -> {
+                new Patch(levels, "invalidateLevel telling which chunk's light it marks and on which level", classBytes -> {
                     refuseChunkMarksIfAsked();
                     return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(levels, "invalidateLevel", "(IJ)V"),
-                            code -> code.aload(0).lload(2).invokestatic(marks, "lit", lit));
+                            code -> code.aload(0).iload(1).lload(2).invokestatic(marks, "lit", lit));
                 }));
     }
 
