@@ -31,6 +31,7 @@ import zombie.core.textures.Texture;
 import zombie.core.textures.TextureCombiner;
 import zombie.core.textures.TextureCombinerCommand;
 import zombie.core.textures.TextureCombinerShaderParam;
+import zombie.core.textures.TextureFBO;
 import zombie.core.textures.TextureID;
 
 /**
@@ -227,7 +228,7 @@ public final class FineSkins {
 
     private static final int GL_ALL_ATTRIB_BITS = 0x000FFFFF, GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
     private static final int GL_ATTRIB_STACK_DEPTH = 0x0BB0, GL_CLIENT_ATTRIB_STACK_DEPTH = 0x0BB1;
-    private static final int GL_DRAW_FRAMEBUFFER = 0x8CA9, GL_READ_FRAMEBUFFER = 0x8CA8;
+    private static final int GL_FRAMEBUFFER = 0x8D40, GL_DRAW_FRAMEBUFFER = 0x8CA9, GL_READ_FRAMEBUFFER = 0x8CA8;
     private static final int GL_DRAW_FRAMEBUFFER_BINDING = 0x8CA6, GL_READ_FRAMEBUFFER_BINDING = 0x8CAA;
     private static final int GL_CURRENT_PROGRAM = 0x8B8D, GL_VERTEX_ARRAY_BINDING = 0x85B5;
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069;
@@ -921,26 +922,42 @@ public final class FineSkins {
         int vertices = GL11.glGetInteger(GL_ARRAY_BUFFER_BINDING), elements = GL11.glGetInteger(GL_ELEMENT_ARRAY_BUFFER_BINDING);
         int pushed = GL11.glGetInteger(GL_ATTRIB_STACK_DEPTH), clientPushed = GL11.glGetInteger(GL_CLIENT_ATTRIB_STACK_DEPTH);
         int remembered = Texture.lastTextureID;
+        int believed = TextureFBO.lastID;
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+        // The combiner pushes the draw buffers of the framebuffer the game believes is bound,
+        // TextureFBO.lastID, and pops them onto the one it believes in as it ends. The game's
+        // logic thread sets that belief to none as it destroys the game's own framebuffer for a
+        // window of another size (TextureFBO.destroy, from Core.setScreenSize), whatever the
+        // render thread is in the middle of. A composition that write lands in pops a colour
+        // attachment onto the window's framebuffer, which is GL_INVALID_OPERATION. So the
+        // combiner is run believing none is bound, with none bound: that write changes nothing.
+        TextureFBO.lastID = 0;
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, 0);
         composing = true;
         try {
             return composed(recipe);
         } finally {
             composing = false;
+            TextureFBO.lastID = believed;
             // The combiner pushes state of its own and pops it as it ends. One that threw
-            // on the way has not, and what it left is popped with what was pushed here.
+            // on the way has not, and what it left is popped before what was pushed here.
             while (GL11.glGetInteger(GL_CLIENT_ATTRIB_STACK_DEPTH) > clientPushed) {
                 GL11.glPopClientAttrib();
             }
-            while (GL11.glGetInteger(GL_ATTRIB_STACK_DEPTH) > pushed) {
+            while (GL11.glGetInteger(GL_ATTRIB_STACK_DEPTH) > pushed + 1) {
                 GL11.glPopAttrib();
             }
+            // What was pushed here has the draw buffers of the picture's framebuffer in it, and
+            // they are popped onto whichever is bound, so the picture's is bound first. The
+            // combiner ends with another bound: popped there, a colour attachment onto the
+            // window's framebuffer, they are GL_INVALID_OPERATION.
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTo);
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFrom);
+            GL11.glPopAttrib();
             GL30.glBindVertexArray(arrays);
             GL15.glBindBuffer(GL_ARRAY_BUFFER, vertices);
             GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elements);
-            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTo);
-            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFrom);
             GL20.glUseProgram(program);
             Texture.lastTextureID = remembered;
         }
