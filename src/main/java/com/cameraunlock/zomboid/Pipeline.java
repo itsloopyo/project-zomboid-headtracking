@@ -39,14 +39,18 @@ import zombie.core.textures.TextureDraw;
  * Nothing here runs unless the picture is being drawn: in first person, or in
  * a graphics mode in which it draws the game's own view. Render thread only.
  * The game's OpenGL state is saved before the frame and put back after it.
+ *
+ * There is one of these for each view, and it holds what is that view's alone: the pictures
+ * at the size of its part of the screen, its shadow maps, which are centred on its eye, the
+ * frame before this one, and what the scene says of the frame being drawn. What a picture is
+ * drawn with whoever looks is static and made once: the programs, the mod's own pictures and
+ * models, and the making of them a piece a frame.
  */
 final class Pipeline {
     final View view;
 
     Pipeline(View view) {
         this.view = view;
-        CORE = corePieces();
-        CONTENT = contentPieces();
     }
 
     /** How many texels across the shadow maps are: see Quality.shadowSize. */
@@ -121,7 +125,7 @@ final class Pipeline {
     private static final int GL_COLOR_ARRAY = 0x8076;
     private static final int GL_TEXTURE_COORD_ARRAY = 0x8078;
     /** Index, edge flag, fog coordinate and secondary colour: the arrays this frame does not use. */
-    private final int[] OTHER_ARRAYS = {0x8077, 0x8079, 0x8457, 0x845E};
+    private static final int[] OTHER_ARRAYS = {0x8077, 0x8079, 0x8457, 0x845E};
     /** Every OpenGL has at least this many generic vertex attributes and old-style texture coordinate sets. */
     private static final int VERTEX_ATTRIBUTES = 16;
     private static final int TEXTURE_COORD_UNITS = 8;
@@ -177,12 +181,31 @@ final class Pipeline {
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
-    /** Why the picture cannot be drawn on this machine, or null. Set once, on the render thread. */
+    /**
+     * Why no view's picture can be drawn on this machine, or null: a piece of what they are all
+     * drawn with could not be made. Set once, on the render thread.
+     */
+    private static volatile String broken;
+    /**
+     * Why this view's picture cannot be drawn, or null: its own pictures could not be made, or
+     * a frame of it threw. The other view's goes on being drawn. A fault in what they share
+     * that only shows as a frame is drawn is met by each view in its own frame.
+     */
     private volatile String failure;
-    private volatile boolean prepared;
-    private Program rain;
-    private Program snow;
-    private Program steady;
+    /**
+     * Whether this view has asked for a piece or drawn a frame since it last let go. What every
+     * view is drawn with is given back once none has.
+     */
+    private boolean holds;
+    /** The number of the game's frame being drawn, the same for every view drawn in it. */
+    private static int gameFrame;
+    /** The game's frame this view last had its turn in, and the one the last piece was made in. */
+    private int turnIn;
+    private static int pieceIn = -1;
+    private static volatile boolean prepared;
+    private static Program rain;
+    private static Program snow;
+    private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private final int[] keptColor = new int[2], keptTarget = new int[2];
     private int keptNow;
@@ -191,24 +214,24 @@ final class Pipeline {
     /** How much of the last frame's picture goes into this one. */
     private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
-    private final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
-    private final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
+    private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
+    private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
-    private Program far;
+    private static Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program far;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
     /** How many frames go by before the pixels the built world is thinned out by come round again. */
     private static final int SIEVES = 64;
-    private int whiteTexture, noiseTexture;
+    private static int whiteTexture, noiseTexture;
     /**
      * What stands in for a picture that is not made, where a program has a sampler for it: a
      * colour of nothing at all, which is what such a picture is cleared to before it is drawn
      * into, and for a shadow map a depth as far off as depth goes, which shades nothing.
      */
-    private int noneTexture, farDepth;
+    private static int noneTexture, farDepth;
     private int nearMap, farMap, nearTarget, farTarget;
     /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see drawShadows. */
     private boolean farDrawn, roofDrawn, castFar;
@@ -218,30 +241,30 @@ final class Pipeline {
     private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
     private static final int RAIN_DROPS = 9000;
     /** The drops, on the graphics card: they are the same every frame. */
-    private int rainDrops;
+    private static int rainDrops;
     /**
      * What open ground is made of, as pictures of the stuff itself that join up with themselves
      * at their edges: tarmac, gravel, earth, grass. They are laid over the ground by where it
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
+    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
     /** Which of the materials are planed wood and carpet. */
     private static final int WOOD = 6, CARPET = 9;
     /** Bark is several pictures in one texture, one behind another in the order Flora counts them. */
     private static final int BARK = 7;
     private static final int FIRST_MATERIAL_UNIT = 3;
-    private final int[] materialTexture = new int[MATERIALS.length];
+    private static final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
-    private final float[] materialGain = ones(MATERIALS.length);
+    private static final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
-    private final String[] NATURE = {"litter", "rock", "frond", "ivy"};
+    private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
     private static final int FIRST_NATURE_UNIT = 24;
-    private final int[] natureTexture = new int[NATURE.length];
-    private final float[] natureGain = ones(NATURE.length);
+    private static final int[] natureTexture = new int[NATURE.length];
+    private static final float[] natureGain = ones(NATURE.length);
     /** The sprigs a crown is made of, all in one picture: see Flora.addCrown. */
     private static final int SPRIG_UNIT = 28;
-    private int sprigs, sprigForm;
+    private static int sprigs, sprigForm;
     private static final int SPRIG_FORM_UNIT = 29;
     private int width, height;
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
@@ -259,6 +282,8 @@ final class Pipeline {
         final String what;
         final ArrayList<Integer> textures = new ArrayList<>(), targets = new ArrayList<>();
         long usedNanos;
+        /** What its textures take on the graphics card. */
+        long bytes;
 
         Lent(String what) {
             this.what = what;
@@ -278,7 +303,10 @@ final class Pipeline {
     private final Lent beamed = new Lent("headlights' shadow map");
     /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
     private final Lent torched = new Lent("torch's shadow map");
+    /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
+    private final Lent mirrored = new Lent("mirror's pictures");
     private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
+    private final Lent[] UNSIZED = {beamed, torched, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
     private Lent making;
@@ -292,11 +320,11 @@ final class Pipeline {
     private static final float OWN_NEAR = 0.3f;
     private int occlusionTarget, occlusionColor, softTarget, softColor;
     private int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
-    private int spriteSampler;
-    private int skinSampler;
+    private static int spriteSampler;
+    private static int skinSampler;
     private boolean glazed;
     private static final int SKIN_UNITS = 8;
-    private int depthSampler;
+    private static int depthSampler;
     /** How wide the sun is, as the width of a shadow's soft edge for each tile between caster and ground. Wider than the real sun's: the real one's edge is too fine to read at this scale. */
     private static final float SUN_WIDTH = 0.06f;
     private int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
@@ -317,7 +345,7 @@ final class Pipeline {
     /** The glass the viewer is shown in this frame, or null: see OwnReflection. */
     OwnReflection.Glass reflection;
     private int selfTarget, selfColor;
-    private Program selfShown;
+    private static Program selfShown;
     private final ViewCamera.Pose inGlass = new ViewCamera.Pose();
     private final float[] selfView = new float[16], selfProjection = new float[16];
     private final FloatBuffer selfCorners = buffer(OwnReflection.MOST * 18);
@@ -359,7 +387,7 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
             STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14;
     private final long[] stageNanos = new long[STAGE_NAMES.length];
@@ -391,8 +419,8 @@ final class Pipeline {
     private static final float SEEN_MARGIN = 0.5f;
     private boolean[] leftOut = new boolean[256];
     /** The width and height of each texture a frame has drawn with, by its OpenGL name, and the frame each was last asked of the driver: see tellTexel. */
-    private int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
-    private int texelsKnown;
+    private static int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
+    private static int texelsKnown;
     /** A texture's size is asked again after this many frames and up to as many more, by its name, so they are not all asked in one frame. A power of two. */
     private static final int TEXEL_KEPT_FRAMES = 256;
     private int frameNumber;
@@ -401,6 +429,8 @@ final class Pipeline {
     private final int[] heldChunks = new int[5];
     /** Written after heldChunks, and read before it by the logic thread. */
     private volatile int heldOf;
+    /** What this view's own pictures and shadow maps take on the graphics card, as its last frame left them. Read by the logic thread. */
+    private volatile long heldBytes;
     /** What the shadow map being drawn holds. */
     private final MapBounds mapBounds = new MapBounds();
     /**
@@ -410,28 +440,28 @@ final class Pipeline {
      */
     private static final float BLOWN_MOST = 0.115f * 2f;
     /** Every model the mod has, on the graphics card as Models.buffer lays them out. */
-    private int modelBuffer;
+    private static int modelBuffer;
     /** Every model's triangles, as Models.corners lists them. */
-    private int modelCorners;
+    private static int modelCorners;
     private static final int MODEL_STRIDE = Models.BUFFER_FLOATS * Float.BYTES;
     private final float[] nearMatrix = new float[16], farMatrix = new float[16];
     private final float[] beamMatrix = new float[16];
     private int beamMap, beamTarget;
     private int paneColor, paneTarget;
-    private Program paneMask;
+    private static Program paneMask;
     private static final int PANE_UNIT = 23;
     /**
      * What part of the cabin each pixel of the vehicle sat in is, and how far off: the body's
      * own triangles, its glass left out, each drawn in the number of its kind.
      */
     private int partsColor, partsDepth, partsTarget;
-    private Program partKind;
+    private static Program partKind;
     private static final int PARTS_UNIT = 18, PARTS_DEPTH_UNIT = 19;
     /** The game's vehicle draw binds its own textures over the low units, the wood's among them: the cabin reads the wood from here. */
     private static final int WOOD_UNIT = 17;
     private int figureNormal;
     private static final int NORMAL_UNIT = 22;
-    private final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
+    private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
     private int mirrorColor, mirrorTarget, mirrorDepth;
     /** The people and vehicles the mirror shows, as the game or the picture draws them, before they are lit into the mirror's picture. */
     private int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal;
@@ -471,13 +501,13 @@ final class Pipeline {
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
-    private final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
-    private final String[] ROOT_AT = new String[Characters.ROOTS];
-    private final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
+    private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
+    private static final String[] ROOT_AT = new String[Characters.ROOTS];
+    private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
     private final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
     private final float[] snowTrod = new float[6];
 
-    {
+    static {
         for (int i = 0; i < Headlights.BEAMS; i++) {
             BEAM_AT[i] = "uBeamAt[" + i + "]";
             BEAM_WAY[i] = "uBeamWay[" + i + "]";
@@ -495,13 +525,14 @@ final class Pipeline {
     }
     private volatile float lastMillis;
     /** Whether any texture unit has been found with a sampler of the game's or another mod's bound to it, and how often they are looked at until one has. */
-    private boolean samplersSeen;
+    private static boolean samplersSeen;
     private static final int SAMPLERS_ASKED_EVERY = 256;
 
 
     /** Why first person cannot be drawn here, for the log and to keep the view off, or null. */
     String failure() {
-        return failure;
+        String shared = broken;
+        return shared != null ? shared : failure;
     }
 
     float lastMillis() {
@@ -512,7 +543,20 @@ final class Pipeline {
     String describeShadows() {
         int of = heldOf;
         return "of " + of + " chunks the shadow maps hold near " + heldChunks[NEAR_MAP] + " far " + heldChunks[FAR_MAP] + " headlights " + heldChunks[BEAM_MAP]
-                + " roof " + heldChunks[ROOF_MAP] + " torch " + heldChunks[TORCH_MAP];
+                + " roof " + heldChunks[ROOF_MAP] + " torch " + heldChunks[TORCH_MAP]
+                + ", and this view's pictures and shadow maps take " + (heldBytes >> 20) + " MB on the graphics card";
+    }
+
+    /** Every map and picture of this view's own, four bytes to a texel of depth or of a screen's colour and eight to one of light. */
+    private long held() {
+        long bytes = nearMap == 0 ? 0L : 3L * 4 * shadowSize * shadowSize;
+        for (Lent set : SIZED) {
+            bytes += set.bytes;
+        }
+        for (Lent set : UNSIZED) {
+            bytes += set.bytes;
+        }
+        return bytes + view.scope.pictureBytes() + view.heldDepth.bytes();
     }
 
     /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
@@ -522,9 +566,21 @@ final class Pipeline {
         return gains;
     }
 
-    /** The number of the frame being drawn, for whatever is done once a frame. Render thread. */
-    int frame() {
-        return frameNumber;
+    /** The number of the game's frame being drawn, for whatever is done once a frame however many views are drawn in it. Render thread. */
+    static int frame() {
+        return gameFrame;
+    }
+
+    /**
+     * Counts the game's frames, as a view begins its part of one: a view that has had its turn
+     * in the frame counted is beginning the next.
+     */
+    private void turn() {
+        if (turnIn == gameFrame) {
+            gameFrame++;
+        }
+        turnIn = gameFrame;
+        holds = true;
     }
 
     private static FloatBuffer buffer(int floats) {
@@ -539,11 +595,14 @@ final class Pipeline {
      */
     void draw(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
             float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport) {
-        if (failure != null) {
+        if (failure() != null) {
             return;
         }
         long start = System.nanoTime();
         clearErrors();
+        if (chunks != null) {
+            turn();
+        }
         frameNumber++;
 
         int program = bound(GL_CURRENT_PROGRAM);
@@ -582,9 +641,9 @@ final class Pipeline {
         // pushes behind would leave more on every frame the fault came again.
         try {
             if (chunks == null) {
-                failure = prepareNext();
-                if (failure != null) {
-                    Log.info("first person cannot be drawn on this machine: " + failure);
+                broken = prepareNext();
+                if (broken != null) {
+                    Log.info("first person cannot be drawn on this machine: " + broken);
                 }
             } else {
                 picture(chunks, camera, state, tanHalfFieldOfView, near, far, fogStart, fogEnd, exposure, viewport, drawTarget);
@@ -592,9 +651,15 @@ final class Pipeline {
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it ends the game's whole frame, its own panels with it, and comes again
             // on the next. The view goes off instead, and the log has why.
-            failure = "the frame's draw threw " + thrown;
+            if (chunks == null) {
+                broken = "the making of a piece threw " + thrown;
+            } else {
+                failure = "the frame's draw threw " + thrown;
+            }
             Log.error("first person cannot be drawn", thrown);
             view.characters.unwind();
+            // The other view's frames go on, and are not to find this as the throw left it.
+            CharacterDraw.bare = false;
         } finally {
             for (int unit = 0; unit < UNITS; unit++) {
                 GL33.glBindSampler(unit, samplers[unit]);
@@ -618,7 +683,7 @@ final class Pipeline {
     private void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
             float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
             int drawTarget) {
-        while (failure == null && !prepared) {
+        while (broken == null && !prepared) {
             // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
             if (!coreBegun) {
                 coreBegun = true;
@@ -627,10 +692,16 @@ final class Pipeline {
                 Pictures.small = picturesSmall;
             }
             makes = CORE;
-            failure = prepareNext();
+            broken = prepareNext();
         }
-        if (failure == null && pieceWaits()) {
-            failure = prepareNext();
+        // One piece a frame, whichever view's turn comes first in it.
+        if (broken == null && pieceIn != gameFrame && pieceWaits()) {
+            broken = prepareNext();
+        }
+        if (broken != null) {
+            clearErrors();
+            Log.info("first person cannot be drawn on this machine: " + broken);
+            return;
         }
         if (failure == null && nearMap != 0 && shadowSize != Quality.shadowSize()) {
             giveBackShadowMaps();
@@ -673,7 +744,7 @@ final class Pipeline {
             stage(STAGE_SHADOWS);
             float[] cabin = seated ? Cabins.wheel(view.ride.seatedIn) : null;
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
-            if (cabin != null && System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS) {
+            if (cabin != null && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS)) {
                 mirrorDrawnAt = System.nanoTime();
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
                 stage(STAGE_MIRROR);
@@ -726,6 +797,7 @@ final class Pipeline {
             stage(STAGE_SMOOTH);
             reportStages();
             takeBackLent();
+            heldBytes = held();
             int error = GL11.glGetError();
             if (error != 0) {
                 failure = "OpenGL error 0x" + Integer.toHexString(error) + " drawing the picture";
@@ -769,6 +841,7 @@ final class Pipeline {
         behind.upY = 0f;
         behind.upUp = 1f;
         shownBehind = listBehind(behind, state, fogEnd);
+        lend(mirrored, this::makeMirror);
         inMirror = true;
         drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far, fogStart, fogEnd);
         inMirror = false;
@@ -923,13 +996,13 @@ final class Pipeline {
      * everything the driver has been handed so far, and there is a draw between each two.
      * Asked again because the game may delete a texture and give its name to another.
      */
-    private void tellTexel(int at, int texture) {
+    private static void tellTexel(int at, int texture) {
         int mask = texelOf.length - 1;
         int slot = texture * 0x9E3779B1 >>> 16 & mask;
         while (texelOf[slot] != 0 && texelOf[slot] != texture) {
             slot = slot + 1 & mask;
         }
-        if (texelOf[slot] == 0 || frameNumber - texelRead[slot] >= TEXEL_KEPT_FRAMES + (texture & TEXEL_KEPT_FRAMES - 1)) {
+        if (texelOf[slot] == 0 || gameFrame - texelRead[slot] >= TEXEL_KEPT_FRAMES + (texture & TEXEL_KEPT_FRAMES - 1)) {
             if (texelOf[slot] == 0 && ++texelsKnown * 2 > texelOf.length) {
                 int[] names = texelOf, wide = texelWide, high = texelHigh, read = texelRead;
                 texelOf = new int[names.length * 2];
@@ -957,7 +1030,7 @@ final class Pipeline {
             texelOf[slot] = texture;
             texelWide[slot] = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH);
             texelHigh[slot] = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
-            texelRead[slot] = frameNumber;
+            texelRead[slot] = gameFrame;
         }
         GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
     }
@@ -985,7 +1058,7 @@ final class Pipeline {
      * chunks' buffer at a model's vertex numbers, so that array is off until arrays() puts it
      * back.
      */
-    private void modelArrays() {
+    private static void modelArrays() {
         boolean made = modelBuffer != 0;
         if (!made) {
             modelBuffer = GL15.glGenBuffers();
@@ -2034,6 +2107,11 @@ final class Pipeline {
     }
 
     private void reportStages() {
+        if (TIMES && stageOpen) {
+            // What comes after the last stage is charged to none. Left open, it would still be open as another view's frame began its own.
+            GL15.glEndQuery(GL_TIME_ELAPSED);
+            stageOpen = false;
+        }
         if (!TIMES || ++stageFrames < 240) {
             return;
         }
@@ -2562,7 +2640,7 @@ final class Pipeline {
         figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);
         figureLight.set("uDome", view.ride.doorOpen ? 1f : 0f);
         GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, mirrored.made() ? mirrorColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
         figureLight.set("uBehind", MIRROR_UNIT);
     }
@@ -3042,8 +3120,8 @@ final class Pipeline {
      * frame for three and a half seconds. FirstPerson has a piece made on each frame from the
      * moment first person, or a graphics mode in which the picture draws the game's own view, is asked for.
      */
-    private int preparing;
-    private long preparingNanos, preparingWorst;
+    private static int preparing;
+    private static long preparingNanos, preparingWorst;
     private static final String NOISE_AHEAD = "cloud noise";
 
     /**
@@ -3080,24 +3158,24 @@ final class Pipeline {
      * shallow water is the soil, and a vehicle's cabin is trimmed in the wood, carpet, vinyl and
      * cloth. They are made with the core.
      */
-    private final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
+    private static final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
 
     /**
      * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
-     * the scope's program, the mirror, the rain and the surfaces every mode reads. Nothing of
+     * the scope's program, the rain and the surfaces every mode reads. Nothing of
      * it is made until first person is first asked for.
      */
-    private final List<Piece> CORE;
+    private static final List<Piece> CORE = corePieces();
     /**
      * The pictures of the mod's own surfaces and plants and its weapon models, which only a
      * graphics mode that shows the mod's own draws from: about 135 MB on the graphics card at
      * full size, that the Low mode never reads.
      */
-    private final List<Piece> CONTENT;
+    private static final List<Piece> CONTENT = contentPieces();
 
-    private List<Piece> corePieces() {
+    private static List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
-        pieces.add(new Piece(this::linkPrograms));
+        pieces.add(new Piece(Pipeline::linkPrograms));
         pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -3109,9 +3187,8 @@ final class Pipeline {
         pieces.add(new Piece(Scope::prepare));
         pieces.add(new Piece(() -> {
             makeSamplers();
-            String problem = makeMirror();
             makeRainDrops();
-            return problem;
+            return null;
         }));
         // Last, one for each of ALWAYS_READ: LET_GO gives these back, and the making begins again from the first of them.
         for (int material = 0; material < MATERIALS.length; material++) {
@@ -3122,13 +3199,13 @@ final class Pipeline {
         return pieces;
     }
 
-    private Piece materialPiece(int material) {
+    private static Piece materialPiece(int material) {
         String picture = "/materials/" + MATERIALS[material] + ".bc";
         return material == BARK ? Piece.ofPictures(() -> loadBarks(picture), picture)
                 : Piece.ofPictures(() -> loadPicture(picture, materialTexture, materialGain, material), picture);
     }
 
-    private List<Piece> contentPieces() {
+    private static List<Piece> contentPieces() {
         List<Piece> pieces = new ArrayList<>();
         for (int material = 0; material < MATERIALS.length; material++) {
             if (!ALWAYS_READ.contains(MATERIALS[material])) {
@@ -3153,41 +3230,41 @@ final class Pipeline {
             }
         }, SPRIGS, SPRIG_FORM));
         // The weapon and arm models are given back with the pictures and made again with them: see giveBackContent.
-        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, view.ownWeapon::prepare));
-        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, view.ownRifle::prepare));
+        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
+        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
         pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
 
     private static final String SPRIGS = "/materials/sprigs.bc", SPRIG_FORM = "/materials/sprigs-form.bc";
-    private boolean coreBegun;
-    private volatile boolean contentBegun;
+    private static boolean coreBegun;
+    private static volatile boolean contentBegun;
     /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
-    private List<Piece> makes;
+    private static List<Piece> makes;
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
-    private volatile boolean picturesSmall;
-    private volatile List<Piece> resized;
+    private static volatile boolean picturesSmall;
+    private static volatile List<Piece> resized;
     /** Whether a making of the core's surfaces at another size was given up part way, so that they are of both sizes. */
-    private volatile boolean coreMixed;
+    private static volatile boolean coreMixed;
     /**
      * Set for the rest of the session once the graphics card has had no room for the content:
      * it is not asked again, the pictures stay the half size ones, and every mode is drawn
      * with what Low is drawn with. First person needs none of the content.
      */
-    private volatile boolean contentRefused;
+    private static volatile boolean contentRefused;
     /** Set by whoever is told by the driver, while a piece is made, that it is out of memory: see noted. */
-    private boolean noRoom;
+    private static boolean noRoom;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** Dev only: the piece of the content, counted from 1, at whose making the graphics card is taken to have run out of room. */
     private static final int NO_ROOM_AT = Integer.getInteger("cameraunlock.zomboid.noRoomAt", 0);
-    private int resizedNext;
-    private int contentPreparing;
+    private static int resizedNext;
+    private static int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
-    private volatile boolean contentReady;
+    private static volatile boolean contentReady;
 
     /** Whether there is anything left to make before the first picture can be drawn. */
     boolean unprepared() {
-        return !prepared && failure == null;
+        return !prepared && failure() == null;
     }
 
     /**
@@ -3200,7 +3277,7 @@ final class Pipeline {
 
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
     boolean contentWaited() {
-        return !Quality.plain() && !contentReady && !contentRefused && failure == null;
+        return !Quality.plain() && !contentReady && !contentRefused && failure() == null;
     }
 
     /**
@@ -3209,23 +3286,23 @@ final class Pipeline {
      * now reads them at.
      */
     boolean contentHalfMade() {
-        return failure == null && (contentBegun && !contentReady || resized != null || prepared && (coreMixed || picturesSmall != small()));
+        return failure() == null && (contentBegun && !contentReady || resized != null || prepared && (coreMixed || picturesSmall != small()));
     }
 
     /** Whether the pictures are to be the half size ones: in a mode that reads them so, and once the graphics card has had no room for the content. */
-    private boolean small() {
+    private static boolean small() {
         return Quality.smallerPictures() || contentRefused;
     }
 
     /** Told each OpenGL error met while a piece is made, by whoever asks the driver for it: out of memory is not a fault of this build. */
-    void noted(int error) {
+    static void noted(int error) {
         if (error == GL_OUT_OF_MEMORY) {
             noRoom = true;
         }
     }
 
     /** A colour of nothing, for a sampler whose picture is not made. Render thread. */
-    int none() {
+    static int none() {
         return noneTexture;
     }
 
@@ -3237,7 +3314,9 @@ final class Pipeline {
     final TextureDraw.GenericDrawer PREPARE = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
-            if (failure == null && pieceWaits()) {
+            turn();
+            // Two views getting ready in one frame make one piece between them.
+            if (failure() == null && pieceIn != gameFrame && pieceWaits()) {
                 draw(null, null, null, 0f, 0f, 0f, 0f, 0f, 0f, null);
             }
         }
@@ -3248,8 +3327,8 @@ final class Pipeline {
      * pieces still to be made are made from: the core's the first time, and the content's the
      * first time a mode that shows the mod's own is on.
      */
-    private boolean pieceWaits() {
-        if (failure != null) {
+    private static boolean pieceWaits() {
+        if (broken != null) {
             return false;
         }
         if (!coreBegun) {
@@ -3312,8 +3391,9 @@ final class Pipeline {
     }
 
     /** Makes the next piece of the core, or of the content once the core is made. Null, or what the driver refused or the jar lacked. */
-    private String prepareNext() {
+    private static String prepareNext() {
         long start = System.nanoTime();
+        pieceIn = gameFrame;
         noRoom = false;
         String problem;
         boolean lastOfCore = false, lastOfContent = false, lastOfResized = false;
@@ -3385,7 +3465,7 @@ final class Pipeline {
     }
 
     /** Null, or what the driver refused. */
-    private String linkPrograms() {
+    private static String linkPrograms() {
         StringBuilder problem = new StringBuilder();
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
@@ -3410,7 +3490,7 @@ final class Pipeline {
         return problem.length() > 0 ? problem.toString() : null;
     }
 
-    private String makeNoise() {
+    private static String makeNoise() {
         ByteBuffer cells;
         try {
             cells = Ahead.take(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE));
@@ -3428,7 +3508,7 @@ final class Pipeline {
         return null;
     }
 
-    private void makeWhite() {
+    private static void makeWhite() {
         // What a thing with no sprite is drawn with: the vertex colour alone.
         whiteTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
@@ -3449,7 +3529,7 @@ final class Pipeline {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     }
 
-    private void makeSamplers() {
+    private static void makeSamplers() {
         // Reads a shadow map's depth as a number, where the map's own settings compare it.
         depthSampler = sampler(GL_NEAREST, GL_CLAMP_TO_EDGE);
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
@@ -3501,6 +3581,7 @@ final class Pipeline {
         beamTarget = made[1];
         beamed.textures.add(beamMap);
         beamed.targets.add(beamTarget);
+        beamed.bytes = 4L * shadowSize * shadowSize;
         return problem;
     }
 
@@ -3513,6 +3594,7 @@ final class Pipeline {
         torchTarget = made[1];
         torched.textures.add(torchMap);
         torched.targets.add(torchTarget);
+        torched.bytes = 4L * torchSize * torchSize;
         return problem;
     }
 
@@ -3549,6 +3631,7 @@ final class Pipeline {
         }
         set.targets.clear();
         set.textures.clear();
+        set.bytes = 0;
     }
 
     /** At the end of a frame: gives back each set that no frame has drawn into for a while. */
@@ -3559,7 +3642,7 @@ final class Pipeline {
                 Log.info("first person picture: the " + set.what + " given back, unused");
             }
         }
-        for (Lent set : new Lent[] {beamed, torched}) {
+        for (Lent set : UNSIZED) {
             if (set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
                 giveBack(set);
                 Log.info("first person picture: the " + set.what + " given back, unused");
@@ -3587,7 +3670,7 @@ final class Pipeline {
         return problem;
     }
 
-    private void makeRainDrops() {
+    private static void makeRainDrops() {
         // Where each drop starts in its box of air, and which corner of its streak each of its
         // six vertices is. The same every run: rain needs no surprises.
         FloatBuffer drops = buffer(RAIN_DROPS * 6 * 4);
@@ -3640,23 +3723,32 @@ final class Pipeline {
             giveBackSized();
             width = 0;
             height = 0;
+            giveBack(mirrored);
             giveBackShadowMaps();
             view.scope.giveBackPicture();
+            heldBytes = 0;
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
         }
     };
 
     /**
-     * Queued once first person has been off for a while and the logic thread has let every
-     * build go: gives back the graphics card's copy of the world, the pictures and models of
+     * Queued once a view's first person has been off for a while and the logic thread has let
+     * its every build go. Once no view holds any of it, gives back the graphics card's copy of the world, the pictures and models of
      * the mod's own, the surfaces every mode reads, the furniture's models and the copies of
      * the game's meshes, and whatever was read ahead for a making that will not now happen.
-     * What is left is the programs, the cloud noise, the mirror and the rain, which are small.
+     * What is left is the programs, the cloud noise and the rain, which are small.
      * Asked for again, the rest is made again, as it was the first time.
      */
     final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
+            holds = false;
+            for (int other = 0; other < View.COUNT; other++) {
+                if (View.of(other) != null && View.of(other).pipeline.holds) {
+                    // Another view is drawn with all of it still: this one gave its own back as it was set down.
+                    return;
+                }
+            }
             ChunkBuffers.letGo();
             FarLand.catchUp();
             Decor.letGo();
@@ -3694,7 +3786,7 @@ final class Pipeline {
      * Ends a making at another size part way, after what was read ahead for it is let go. Some of the core's
      * surfaces are then at one size and some at the other: all are made again by the next piece asked for.
      */
-    private void giveUpResize() {
+    private static void giveUpResize() {
         if (resized != null) {
             resized = null;
             coreMixed = true;
@@ -3702,7 +3794,7 @@ final class Pipeline {
     }
 
     /** Gives back the pictures and models of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
-    private void giveBackContent() {
+    private static void giveBackContent() {
         Pictures.letGoOfReadAhead();
         // What was read ahead for a making at another size went with the rest, and its next piece would wait for it for good.
         giveUpResize();
@@ -3733,7 +3825,7 @@ final class Pipeline {
     }
 
     /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */
-    void forgetTexels() {
+    static void forgetTexels() {
         Arrays.fill(texelOf, 0);
         texelsKnown = 0;
     }
@@ -3884,6 +3976,7 @@ final class Pipeline {
         int texture = GL11.glGenTextures();
         if (making != null) {
             making.textures.add(texture);
+            making.bytes += (long) w * h * (internal == GL_RGBA16F ? 8 : 4);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);
@@ -3908,7 +4001,7 @@ final class Pipeline {
         return null;
     }
 
-    private String loadBarks(String path) {
+    private static String loadBarks(String path) {
         try {
             int old = materialTexture[BARK];
             materialTexture[BARK] = Pictures.loadLayers(path);

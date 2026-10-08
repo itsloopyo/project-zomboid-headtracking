@@ -2029,7 +2029,7 @@ final class WorldScene {
             exposure = adaptEye(player, fromOutside);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
-            if (Own.taken()) {
+            if (Own.taken(WorldScene.this.view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were.
                 forgetAll();
             }

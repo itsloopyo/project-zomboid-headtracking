@@ -260,7 +260,7 @@ final class OwnWeapon {
     }
 
     /** Reads the model out of the jar and gives it to the graphics card. Null, or what went wrong. */
-    String prepare() {
+    static String prepare() {
         if (program == null) {
             StringBuilder problem = new StringBuilder();
             program = Program.link("own weapon", VERTEX, FRAGMENT, problem);
@@ -277,7 +277,7 @@ final class OwnWeapon {
         return problem;
     }
 
-    private String make() {
+    private static String make() {
         try {
             ByteBuffer mesh = ByteBuffer.wrap(read(MESH)).order(ByteOrder.LITTLE_ENDIAN);
             if (mesh.remaining() < HEAD_BYTES || mesh.getInt() != MAGIC || mesh.getInt() != VERSION) {
@@ -314,7 +314,7 @@ final class OwnWeapon {
             return e.getMessage();
         }
         int error = GL11.glGetError();
-        view.pipeline.noted(error);
+        Pipeline.noted(error);
         if (error != 0) {
             return "OpenGL error 0x" + Integer.toHexString(error) + " making the shotgun's model";
         }
@@ -639,14 +639,14 @@ final class OwnWeapon {
     private final float[] tumbled = new float[3];
 
     /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */
-    private void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
+    private static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
         out[0] = camera.rightX * x + camera.upX * y - camera.forwardX * z;
         out[1] = camera.rightY * x + camera.upY * y - camera.forwardY * z;
         out[2] = camera.rightUp * x + camera.upUp * y - camera.forwardUp * z;
     }
 
     /** A direction of the world's in the view's axes, written into a matrix at a column's first place. */
-    private void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
+    private static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
         out[at] = camera.rightX * x + camera.rightY * y + camera.rightUp * z;
         out[at + 1] = camera.upX * x + camera.upY * y + camera.upUp * z;
         out[at + 2] = -(camera.forwardX * x + camera.forwardY * y + camera.forwardUp * z);

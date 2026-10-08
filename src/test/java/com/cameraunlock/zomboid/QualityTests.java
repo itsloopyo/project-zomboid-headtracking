@@ -9,6 +9,7 @@ final class QualityTests {
         aLevelAskedForIsKept();
         automaticStepsDownWhileThePictureIsSlow();
         automaticStaysWhereThePictureKeepsUp();
+        twoViewsAreCountedAsOnePicture();
         Quality.set(Quality.HIGH);
     }
 
@@ -24,7 +25,7 @@ final class QualityTests {
         long now = from;
         while (now - from < (long) (seconds * SECOND)) {
             now += step;
-            Quality.frame(now);
+            Quality.frame(0, now);
         }
         return now;
     }
@@ -59,12 +60,38 @@ final class QualityTests {
         check(Quality.sight() == 48, "below which there is nothing");
     }
 
+    private static void twoViewsAreCountedAsOnePicture() {
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        long step = SECOND / 30, now = SECOND;
+        for (int frame = 0; frame < 30 * 4; frame++) {
+            now += step;
+            Quality.frame(0, now);
+            Quality.frame(1, now + 1000);
+        }
+        check(Quality.sight() == 64, "two views drawn thirty times a second are thirty frames a second, and take it down a level");
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        for (int frame = 0; frame < 30 * 4; frame++) {
+            now += step;
+            Quality.rest(0);
+            Quality.frame(1, now);
+        }
+        check(Quality.sight() == 64, "with the first view off the second's frames are the ones counted, and the first's being off does not begin the count again");
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        Quality.rest(1);
+        now = frames(now + 60 * SECOND, 60f, 10f);
+        check(Quality.sight() == 80, "and with both off the count begins again");
+        Quality.rest(0);
+    }
+
     private static void automaticStaysWhereThePictureKeepsUp() {
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
         long now = frames(SECOND, 60f, 30f);
         check(Quality.sight() == 80, "at sixty frames a second the picture stays whole");
-        Quality.rest();
+        Quality.rest(0);
         now = frames(now + 60 * SECOND, 60f, 10f);
         check(Quality.sight() == 80, "and a minute with the view off is not a minute of slow frames");
         now = frames(now, 30f, 3.2f);

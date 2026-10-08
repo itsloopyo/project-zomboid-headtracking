@@ -77,7 +77,7 @@ final class Crosshair {
     }
 
     /** A box between whole pixels, so its edges are sharp. */
-    private void box(int left, int bottom, int right, int top, int width, int height) {
+    private static void box(int left, int bottom, int right, int top, int width, int height) {
         float x0 = left * 2f / width - 1f, x1 = right * 2f / width - 1f;
         float y0 = bottom * 2f / height - 1f, y1 = top * 2f / height - 1f;
         GL11.glBegin(GL_TRIANGLE_STRIP);

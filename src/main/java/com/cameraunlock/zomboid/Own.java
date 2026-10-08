@@ -17,8 +17,12 @@ final class Own {
     static final int ALL = WEAPONS | FURNITURE | PICTURES | PLANTS | TEXTURES | BUILDINGS | ZOMBIES | PEOPLE | ARMS | CLOTHES;
 
     private static volatile int on = ALL;
-    /** The rows the world was last built with, known to the logic thread alone. */
-    private static int built = ALL;
+    /** The rows each view's world was last built with, known to the logic thread alone. */
+    private static final int[] built = new int[View.COUNT];
+
+    static {
+        java.util.Arrays.fill(built, ALL);
+    }
 
     private Own() {}
 
@@ -85,16 +89,16 @@ final class Own {
     }
 
     /**
-     * Whether a row has changed since the world was last built, asked by the logic thread
-     * before it builds: true once for each change, and whatever was built before it is then
-     * to be built again.
+     * Whether a row has changed since a view's world was last built, asked by the logic thread
+     * before it builds: true once for each change, and whatever that view built before it is
+     * then to be built again.
      */
-    static boolean taken() {
+    static boolean taken(int view) {
         int now = on();
-        if (now == built) {
+        if (now == built[view]) {
             return false;
         }
-        built = now;
+        built[view] = now;
         return true;
     }
 

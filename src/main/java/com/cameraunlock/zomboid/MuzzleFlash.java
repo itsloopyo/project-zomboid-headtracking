@@ -85,7 +85,7 @@ final class MuzzleFlash {
     }
 
     /** How much of a flash is left this long after its shot: 1 at the shot, 0 from SECONDS on. */
-    float left(float seconds) {
+    static float left(float seconds) {
         return seconds < 0f || seconds >= SECONDS ? 0f : 1f - seconds / SECONDS;
     }
 

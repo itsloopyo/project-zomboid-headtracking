@@ -10,13 +10,15 @@ final class OwnTests {
         try {
             everythingIsOnUntilARowSaysOtherwise();
             aSwitchedRowHasTheWorldBuiltAgainOnce();
+            aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
             Own.picturesMade(true);
             Quality.set(Quality.HIGH);
             Own.set(before);
-            Own.taken();
+            Own.taken(0);
+            Own.taken(1);
         }
     }
 
@@ -37,30 +39,30 @@ final class OwnTests {
     private static void nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade() {
         Quality.set(Quality.HIGH);
         Own.set(Own.ALL);
-        Own.taken();
+        Own.taken(0);
         Own.picturesMade(false);
         check(!Own.weapons() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.people() && Own.rows() == Own.ALL,
                 "in High with its pictures still to be made every row reads off, and the file's rows are as they were");
-        check(Own.taken() && !Own.taken(), "and the world is built without them, once");
+        check(Own.taken(0) && !Own.taken(0), "and the world is built without them, once");
         Own.picturesMade(true);
-        check(Own.weapons() && Own.plants() && Own.textures() && Own.taken() && !Own.taken(), "made, they are shown and the world is built again, once");
+        check(Own.weapons() && Own.plants() && Own.textures() && Own.taken(0) && !Own.taken(0), "made, they are shown and the world is built again, once");
     }
 
     private static void theLowGraphicsModeShowsNothingOfTheModsOwn() {
         Own.set(Own.ALL);
-        Own.taken();
+        Own.taken(0);
         Quality.set(Quality.LOW);
         check(!Own.weapons() && !Own.furniture() && !Own.pictures() && !Own.plants() && !Own.textures() && !Own.buildings() && !Own.zombies()
                 && !Own.people(), "in Low every row reads off, whatever the file says");
-        check(Own.taken() && !Own.taken(), "and going to it has the world built again, once");
+        check(Own.taken(0) && !Own.taken(0), "and going to it has the world built again, once");
         Quality.set(Quality.AUTOMATIC);
-        check(Own.plants() && Own.people() && Own.taken(), "Automatic shows all of it again");
+        check(Own.plants() && Own.people() && Own.taken(0), "Automatic shows all of it again");
         Quality.set(Quality.MEDIUM);
-        check(!Own.plants() && Own.furniture() && Own.textures() && Own.buildings() && Own.people() && Own.taken(),
+        check(!Own.plants() && Own.furniture() && Own.textures() && Own.buildings() && Own.people() && Own.taken(0),
                 "Medium shows all of it but the plants, which are the game's, and has the world built again");
         check(Quality.next() == Quality.HIGH, "the hotkey goes from Medium to High");
         Quality.set(Quality.HIGH);
-        check(Own.plants() && Own.taken(), "High has the mod's plants back");
+        check(Own.plants() && Own.taken(0), "High has the mod's plants back");
         check(Quality.next() == Quality.LOW, "from High round to Low");
         Quality.set(Quality.LOW);
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
@@ -68,13 +70,22 @@ final class OwnTests {
 
     private static void aSwitchedRowHasTheWorldBuiltAgainOnce() {
         Own.set(Own.ALL);
-        Own.taken();
-        check(!Own.taken(), "rows that have not changed leave the world as it is built");
+        Own.taken(0);
+        check(!Own.taken(0), "rows that have not changed leave the world as it is built");
         Own.set(Own.ALL & ~Own.PLANTS);
-        check(Own.taken(), "a row switched off has it built again");
-        check(!Own.taken(), "once");
+        check(Own.taken(0), "a row switched off has it built again");
+        check(!Own.taken(0), "once");
         Own.set(Own.ALL);
-        check(Own.taken() && !Own.taken(), "and switched back on, once more");
+        check(Own.taken(0) && !Own.taken(0), "and switched back on, once more");
+    }
+
+    private static void aSwitchedRowHasEachViewsWorldBuiltAgain() {
+        Own.set(Own.ALL);
+        Own.taken(0);
+        Own.taken(1);
+        Own.set(Own.ALL & ~Own.FURNITURE);
+        check(Own.taken(0) && Own.taken(1), "a row switched has the world of each view built again");
+        check(!Own.taken(0) && !Own.taken(1), "each of them once");
     }
 
     private static void check(boolean condition, String what) {

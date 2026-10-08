@@ -708,7 +708,7 @@ public final class FirstPerson {
 
     private void notePace(long now, long frameNanos) {
         if (!on) {
-            Quality.rest();
+            Quality.rest(view.index);
             paceWait = PACE_FIRST_NANOS;
             paceSince = now;
             paceFrames = 0;
@@ -718,9 +718,9 @@ public final class FirstPerson {
         paceFrames++;
         paceWorst = Math.max(paceWorst, frameNanos);
         if (landed && !GameTime.isGamePaused()) {
-            Quality.frame(now);
+            Quality.frame(view.index, now);
         } else {
-            Quality.rest();
+            Quality.rest(view.index);
         }
         if (frameNanos > LONG_FRAME_NANOS && paceScene != null) {
             Log.info(String.format(Locale.ROOT, "first person long frame: %.0f ms, %s", frameNanos / 1e6, paceScene.timing()));

@@ -31,6 +31,8 @@ final class Quality {
     private static final long HITCH_NANOS = 250_000_000L;
     private static long countedSince, lastFrame;
     private static int counted;
+    /** The views whose frames are being counted. The count is one for all of them: see frame. */
+    private static final boolean[] counting = new boolean[View.COUNT];
 
     private Quality() {}
 
@@ -78,12 +80,21 @@ final class Quality {
     }
 
     /**
-     * Counts a frame of the first person view drawn while the game runs. With the row at
+     * Counts a frame of a view's first person drawn while the game runs. With the row at
      * Automatic, a count that comes out under {@link #SLOWEST} frames a second takes the
      * picture down a level. It is never taken up again in a session: what made the frames slow
      * may be the level left behind, and trying it again would be the stutter back.
+     *
+     * The game's frame is counted once however many views are drawn in it: the first of the
+     * views being counted counts for all.
      */
-    static synchronized void frame(long now) {
+    static synchronized void frame(int view, long now) {
+        counting[view] = true;
+        for (int before = 0; before < view; before++) {
+            if (counting[before]) {
+                return;
+            }
+        }
         if (row != AUTOMATIC || level == LOW) {
             return;
         }
@@ -118,8 +129,14 @@ final class Quality {
         }
     }
 
-    /** The count begins again: the view was off, or the game paused. */
-    static void rest() {
+    /** A view's frames are no longer counted: it was off, or the game paused. With none counted the count begins again. */
+    static synchronized void rest(int view) {
+        counting[view] = false;
+        for (boolean other : counting) {
+            if (other) {
+                return;
+            }
+        }
         countedSince = 0L;
     }
 

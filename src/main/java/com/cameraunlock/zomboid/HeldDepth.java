@@ -79,6 +79,11 @@ final class HeldDepth {
         GL11.glClear(GL_DEPTH_BUFFER_BIT);
     }
 
+    /** What the depth takes on the graphics card. */
+    long bytes() {
+        return depth == 0 ? 0L : 4L * wide * high;
+    }
+
     /** Draws into the target from here on. */
     void bind() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);

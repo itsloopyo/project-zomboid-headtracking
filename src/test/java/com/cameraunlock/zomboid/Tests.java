@@ -556,9 +556,9 @@ public final class Tests {
     }
 
     private static void flashIsBrightestAtTheShotAndGoneAfterItsTime() {
-        check(muzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
-        check(near(muzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
-        check(muzzleFlash.left(MuzzleFlash.SECONDS) == 0f && muzzleFlash.left(1f) == 0f, "and gone after its time");
+        check(MuzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
+        check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
+        check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
         float[] light = {9f, 9f, 9f, 9f, 9f, 9f, 9f};
         muzzleFlash.light(light);
         check(light[0] == 0f && light[3] == 0f && light[4] > 0f, "with no weapon drawn there is no light, only its colour");

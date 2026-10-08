@@ -476,6 +476,11 @@ final class Scope {
         Log.info(String.format(Locale.ROOT, "first person picture: the scope's picture made in %.1f ms", (System.nanoTime() - start) / 1e6));
     }
 
+    /** What the picture's four textures take on the graphics card, the colour's smaller copies of itself among them. */
+    long pictureBytes() {
+        return pictureTarget == 0 ? 0L : (long) PICTURE * PICTURE * (8 * 4 / 3 + 3 * 4);
+    }
+
     /** Gives the picture's targets back if no frame has drawn into them since before. */
     void takeBackPicture(long before) {
         if (pictureTarget != 0 && picturedNanos < before) {
@@ -500,7 +505,7 @@ final class Scope {
         figureNormal = 0;
     }
 
-    private int texture(int kept, int format, int type, int smaller, int larger) {
+    private static int texture(int kept, int format, int type, int smaller, int larger) {
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, kept, PICTURE, PICTURE, 0, format, type, (ByteBuffer) null);
@@ -511,7 +516,7 @@ final class Scope {
         return texture;
     }
 
-    private int arrayOf(ScopeOptics.Glass glass) {
+    private static int arrayOf(ScopeOptics.Glass glass) {
         int which = 0;
         while (ScopeOptics.KNOWN[which] != glass) {
             which++;
@@ -535,7 +540,7 @@ final class Scope {
         return which;
     }
 
-    private void attribute(String name, int size, int offset) {
+    private static void attribute(String name, int size, int offset) {
         int at = GL20.glGetAttribLocation(program.id, name);
         GL20.glEnableVertexAttribArray(at);
         GL20.glVertexAttribPointer(at, size, GL_FLOAT, false, ScopeModel.FLOATS * Float.BYTES, (long) offset * Float.BYTES);
@@ -723,7 +728,7 @@ final class Scope {
         // A scope the eye is not behind has no picture, and the program multiplies what it reads of one by nought:
         // with none made it reads a colour of nothing, where no texture at all is the driver's to answer for.
         GL13.glActiveTexture(GL_TEXTURE0 + PICTURE_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor != 0 ? pictureColor : view.pipeline.none());
+        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor != 0 ? pictureColor : Pipeline.none());
         GL13.glActiveTexture(GL_TEXTURE0 + HANDS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, handsDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -775,7 +780,7 @@ final class Scope {
         }
     }
 
-    private float unit(float[] v) {
+    private static float unit(float[] v) {
         float length = (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         v[0] /= length;
         v[1] /= length;
