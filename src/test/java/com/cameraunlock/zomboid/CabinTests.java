@@ -19,6 +19,7 @@ final class CabinTests {
         mirrorLeavesOutWhatItCannotShow();
         cabinTipsAndRollsWithItsBody();
         eyeIsSeatedAlongTheVehiclesOwnAxes();
+        viewTipsAndRollsWithTheVehicle();
         wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
     }
 
@@ -172,6 +173,42 @@ final class CabinTests {
         Cabins.axes(length[0], length[1], length[2], high[0], high[1], high[2], axes);
         check(Cabins.axes(stood(new float[] {-left[0], -left[1], -left[2]}, high, length, 1.5f), axes, body) && are(body, axes),
                 "nose up and rolled at once, the body's matrix and the physics give the same axes");
+    }
+
+    private static void viewTipsAndRollsWithTheVehicle() {
+        float[] axes = new float[9], tilt = new float[9], lean = new float[9];
+        float c = (float) Math.cos(Math.toRadians(30)), s = (float) Math.sin(Math.toRadians(30));
+        // Level, heading north-east: nothing is turned.
+        float h = (float) Math.sqrt(0.5);
+        Cabins.axes(h, h, 0f, 0f, 0f, 1f, axes);
+        Cabins.tilt(axes, h, h, tilt);
+        check(are(tilt, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "a level vehicle turns the view by nothing, whichever way it heads");
+        // Heading east, rolled 30 degrees onto its right side: a view's right at yaw 0 is +y, and its up leans that way.
+        Cabins.axes(1f, 0f, 0f, 0f, s, c, axes);
+        Cabins.tilt(axes, 1f, 0f, tilt);
+        ViewCamera.Pose view = new ViewCamera.Pose();
+        ViewCamera.clean(view, 0f, 0f, 0f, 0f, 0f);
+        ViewCamera.tilt(view, tilt);
+        check(near(view.forwardX, 1f) && near(view.forwardY, 0f) && near(view.forwardUp, 0f), "rolled, a view straight ahead still looks straight ahead");
+        check(near(view.upX, 0f) && near(view.upY, s) && near(view.upUp, c), "and its up is the vehicle's up");
+        check(near(view.rightX, 0f) && near(view.rightY, c) && near(view.rightUp, -s), "and its right dips");
+        // Looking out of the side window of a car on its right side is looking at the ground.
+        Cabins.axes(1f, 0f, 0f, 0f, 1f, 0f, axes);
+        Cabins.tilt(axes, 1f, 0f, tilt);
+        ViewCamera.clean(view, 0f, 0f, 0f, (float) Math.toRadians(90), 0f);
+        ViewCamera.tilt(view, tilt);
+        check(near(view.forwardX, 0f) && near(view.forwardY, 0f) && near(view.forwardUp, -1f), "on its right side, the view out of the right window is straight down");
+        // Nose down 30 degrees, heading north: straight ahead looks down the slope, and a lean forward goes down it.
+        Cabins.axes(0f, c, -s, 0f, s, c, axes);
+        Cabins.tilt(axes, 0f, 1f, tilt);
+        float north = (float) Math.toRadians(90);
+        ViewCamera.clean(view, 0f, 0f, 0f, north, 0f);
+        ViewCamera.tilt(view, tilt);
+        check(near(view.forwardX, 0f) && near(view.forwardY, c) && near(view.forwardUp, -s), "nose down, a view straight ahead looks down with the nose");
+        HeadTracking.trackerToWorld(north, tilt, lean);
+        check(near(-lean[2], 0f) && near(-lean[5], c) && near(-lean[8], -s), "and a lean forward, the tracker's z negative, goes down the slope with it");
+        HeadTracking.trackerToWorld(north, null, lean);
+        check(near(-lean[2], 0f) && near(-lean[5], 1f) && near(-lean[8], 0f), "on foot the same lean is level");
     }
 
     private static void check(boolean condition, String what) {

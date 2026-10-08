@@ -83,9 +83,12 @@ final class HeadTracking {
      * allowance stays on the forward lean. The lean follows where the body faces and stays
      * level: looking down does not turn a lean forward into a lean into the floor.
      *
+     * From a vehicle's seat the lean goes with the vehicle as it lies.
+     *
      * @param cleanYaw the yaw the clean view was built from
+     * @param tilt     how the vehicle sat in is turned from level, as Cabins.tilt gives it, or null on foot
      */
-    static void trackerToWorld(float cleanYaw, float[] matrix) {
+    static void trackerToWorld(float cleanYaw, float[] tilt, float[] matrix) {
         float cos = (float) Math.cos(cleanYaw);
         float sin = (float) Math.sin(cleanYaw);
         // right = -x and forward = -z, then world x = -sin * right + cos * forward and world y = cos * right + sin * forward.
@@ -98,6 +101,14 @@ final class HeadTracking {
         matrix[6] = 0f;
         matrix[7] = 1f;
         matrix[8] = 0f;
+        if (tilt != null) {
+            for (int column = 0; column < 3; column++) {
+                float x = matrix[column], y = matrix[3 + column], up = matrix[6 + column];
+                matrix[column] = tilt[0] * x + tilt[1] * y + tilt[2] * up;
+                matrix[3 + column] = tilt[3] * x + tilt[4] * y + tilt[5] * up;
+                matrix[6 + column] = tilt[6] * x + tilt[7] * y + tilt[8] * up;
+            }
+        }
     }
 
     /**
@@ -182,12 +193,13 @@ final class HeadTracking {
      *
      * @param inGameplay the first-person view is on, the game is running and the character is alive
      * @param cleanYaw   the yaw the clean view was built from, which the lean follows
+     * @param tilt       how the vehicle sat in is turned from level, which the clean view has in it, or null on foot
      * @param sightsUp   whether a firearm's sights are up this frame
      * @param rigAvailable whether the weapon can be moved with the eye: on foot, and not where players fight
      * @param forwardStop with the sights up, how far along the aim a lean may take the eye
      * @param inVehicle  whether the view is from a vehicle's seat
      */
-    void view(boolean inGameplay, ViewCamera.Pose clean, float cleanYaw, WorldQuery world, boolean sightsUp,
+    void view(boolean inGameplay, ViewCamera.Pose clean, float cleanYaw, float[] tilt, WorldQuery world, boolean sightsUp,
             boolean rigAvailable, float forwardStop, boolean inVehicle, ViewCamera.Pose out) {
         ride(inVehicle);
         out.set(clean);
@@ -195,7 +207,7 @@ final class HeadTracking {
         input.aimForward[0] = clean.forwardX;
         input.aimForward[1] = clean.forwardY;
         input.aimForward[2] = clean.forwardUp;
-        trackerToWorld(cleanYaw, input.trackerToWorld);
+        trackerToWorld(cleanYaw, tilt, input.trackerToWorld);
         ask(inGameplay && Tracking.enabled(), CameraUnlock.FRAME_LEAN | (sightsUp ? CameraUnlock.FRAME_AIMING : 0)
                 | (rigAvailable ? CameraUnlock.FRAME_RIG_AVAILABLE : 0));
         if ((frame.flags & CameraUnlock.STATE_POSE) == 0) {

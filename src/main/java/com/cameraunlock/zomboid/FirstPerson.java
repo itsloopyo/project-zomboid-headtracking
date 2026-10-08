@@ -598,6 +598,10 @@ public final class FirstPerson {
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
         view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
+        // From a seat the view tips and rolls with the vehicle, as the eye does.
+        if (view.ride.tilt != null) {
+            ViewCamera.tilt(cleanView, view.ride.tilt);
+        }
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         if (lookCaptured && vehicle == null) {
             view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
@@ -605,7 +609,7 @@ public final class FirstPerson {
             view.centreUse.marked = null;
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
-        view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp,
+        view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, view.ride.tilt, world, sightsUp,
                 vehicle == null && Online.leanCarriesTheShot(player), view.viewModel.forwardStop(), vehicle != null, trackedView);
         // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();

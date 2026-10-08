@@ -1056,7 +1056,8 @@ final class WorldScene {
      * chunk with a plant in it was a different build at every step. By band, a chunk is the
      * same build until it crosses into the next, about two chunks a frame at a car's speed.
      * The further out a band ends the more chunks cross its end, so the last ends where a crown
-     * stops being made, and a bole is made only as far as that.
+     * stops being made below the High mode, and a bole is made only as far as that. In High the
+     * last band has both: see crownedToSight.
      */
     private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
@@ -2098,6 +2099,11 @@ final class WorldScene {
             cell = IsoWorld.instance.currentCell;
             if (Own.taken(view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were.
+                forgetAll();
+            }
+            if (crownedToSight != Quality.crownsToSight()) {
+                // Every build in the last band holds whether its trees were given crowns and boles.
+                crownedToSight = Quality.crownsToSight();
                 forgetAll();
             }
             if (cell != builtIn.get()) {
@@ -5024,6 +5030,13 @@ final class WorldScene {
         /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
         private int boleX = Integer.MIN_VALUE, boleY, boleBark;
         private float boleThick, boleTall;
+        /**
+         * Whether the builds standing gave the plants of the last band a crown and a bole:
+         * Quality.crownsToSight as the logic thread last read it. Without, a tree out there is the
+         * game's sprite on its fan of cards, which turns into a crown as the eye comes within
+         * Crowns.REACH of it.
+         */
+        private boolean crownedToSight;
 
         /**
          * Stands a crown of sprigs for the plant whose leaves the frame is set to, in the mesh of
@@ -5031,7 +5044,7 @@ final class WorldScene {
          * too far off for one or its texture shows too little to make one of.
          */
         private boolean addCrown(Texture texture, String name, boolean bush, int x, int y, int z) {
-            if (!within(Crowns.REACH, true)) {
+            if (!crownedToSight && !within(Crowns.REACH, true)) {
                 return false;
             }
             float away = bandAway;
@@ -5275,7 +5288,7 @@ final class WorldScene {
          * the tree is too far off for one, or its sprite has no bole that can be read.
          */
         private boolean addBole(IsoSprite sprite, Texture texture, int x, int y, int z) {
-            if (!within(TRUNK_REACH, true)) {
+            if (!crownedToSight && !within(TRUNK_REACH, true)) {
                 return false;
             }
             float[] bole = boles.get(sprite);

@@ -229,6 +229,22 @@ final class Cabins {
         out[8] = highUp;
     }
 
+    /**
+     * How a vehicle with these three axes is turned from standing level on its heading: three
+     * rows of three that take a way in the world as it would be with the vehicle level to the
+     * way it is with the vehicle as it lies. Nothing is changed for a level vehicle, whichever
+     * way it heads.
+     *
+     * @param aheadX the way the vehicle heads on the map, of length one
+     */
+    static void tilt(float[] axes, float aheadX, float aheadY, float[] out) {
+        for (int row = 0; row < 3; row++) {
+            out[row * 3] = axes[row] * aheadX - axes[3 + row] * aheadY;
+            out[row * 3 + 1] = axes[row] * aheadY + axes[3 + row] * aheadX;
+            out[row * 3 + 2] = axes[6 + row];
+        }
+    }
+
     /** The same three for a vehicle standing level, heading this way on the map. */
     static void level(float aheadX, float aheadY, float[] out) {
         out[0] = aheadX;

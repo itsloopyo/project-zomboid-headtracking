@@ -186,6 +186,15 @@ final class Quality {
         return level != HIGH;
     }
 
+    /**
+     * Whether a tree or a bush is the mod's own, a crown of sprigs on a round bole, as far as the
+     * view is built. Below High one further off than Crowns.REACH is the game's sprite
+     * on a fan of cards, which costs less to build and draw and changes to a crown as the eye nears it.
+     */
+    static boolean crownsToSight() {
+        return level == HIGH;
+    }
+
     /** Whether near surfaces are given the depth of what they show. */
     static boolean relief() {
         return level == HIGH;

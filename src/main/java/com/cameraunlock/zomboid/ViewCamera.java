@@ -111,6 +111,25 @@ final class ViewCamera {
         pose.upX = ux; pose.upY = uy; pose.upUp = uu;
     }
 
+    /**
+     * Turns a view about its eye by three rows of three: what the viewer sits in has tipped
+     * or rolled, and the view goes with it.
+     */
+    static void tilt(Pose pose, float[] by) {
+        float x = pose.rightX, y = pose.rightY, up = pose.rightUp;
+        pose.rightX = by[0] * x + by[1] * y + by[2] * up;
+        pose.rightY = by[3] * x + by[4] * y + by[5] * up;
+        pose.rightUp = by[6] * x + by[7] * y + by[8] * up;
+        x = pose.upX; y = pose.upY; up = pose.upUp;
+        pose.upX = by[0] * x + by[1] * y + by[2] * up;
+        pose.upY = by[3] * x + by[4] * y + by[5] * up;
+        pose.upUp = by[6] * x + by[7] * y + by[8] * up;
+        x = pose.forwardX; y = pose.forwardY; up = pose.forwardUp;
+        pose.forwardX = by[0] * x + by[1] * y + by[2] * up;
+        pose.forwardY = by[3] * x + by[4] * y + by[5] * up;
+        pose.forwardUp = by[6] * x + by[7] * y + by[8] * up;
+    }
+
     static float[] view(Pose pose) {
         float[] out = new float[16];
         view(pose, out);

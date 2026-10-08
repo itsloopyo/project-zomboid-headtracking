@@ -241,7 +241,7 @@ public final class CoreTests {
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
         float[] m = new float[9];
-        HeadTracking.trackerToWorld(cleanYaw, m);
+        HeadTracking.trackerToWorld(cleanYaw, null, m);
         return new float[] {m[0] * x + m[1] * y + m[2] * z, m[3] * x + m[4] * y + m[5] * z, m[6] * x + m[7] * y + m[8] * z};
     }
 
@@ -261,7 +261,7 @@ public final class CoreTests {
         check(is(lean(radians(90), 0.1f, 0f, 0f), 0.1f, 0f, 0f), "and the tracker's +x is along +x, still against the view's right");
         check(is(lean(radians(35), 0f, 0.05f, 0f), 0f, 0f, 0.05f), "the tracker's y is up whichever way the view faces");
         float[] m = new float[9];
-        HeadTracking.trackerToWorld(radians(200), m);
+        HeadTracking.trackerToWorld(radians(200), null, m);
         check(m[6] == 0f && m[8] == 0f && m[1] == 0f && m[4] == 0f, "and no lean across or along the view goes up or down: the lean stays level");
 
         ViewCamera.Pose clean = new ViewCamera.Pose(), turned = new ViewCamera.Pose(), expected = new ViewCamera.Pose();
@@ -331,7 +331,7 @@ public final class CoreTests {
     private static void frame() throws InterruptedException {
         Thread.sleep((long) (FRAME_SECONDS * 1000));
         // No weapon is in hand, and the lean is not handed to one.
-        headTracking.view(true, clean, cleanYaw, noMap, sightsUp, false, ViewModel.FORWARD_STOP, inVehicle, out);
+        headTracking.view(true, clean, cleanYaw, null, noMap, sightsUp, false, ViewModel.FORWARD_STOP, inVehicle, out);
     }
 
     private static boolean within(int milliseconds, BooleanSupplier reached) throws InterruptedException {

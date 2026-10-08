@@ -204,7 +204,7 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Turn split screen | `F7` | - |
 
 - **Tracking mode** cycles rotation and position, rotation only, then position only. Rotation only is how you turn the positional lean off.
-- **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up.
+- **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up. In a vehicle the view tips and rolls with it, and head yaw there is always about the view's own up; on foot it is as you set it.
 - **Aim mode** is how head tracking behaves while a firearm's sights are up. See [Aiming down sights](#aiming-down-sights).
 - **Graphics mode** and **picture style** are `Quality` and `Style` in [Configuration](#configuration).
 - **Split screen** is for two players at one screen: the key goes between side by side, as the game has them, and player 1 above player 2, each with the whole width and half the height, says on the screen which it went to and saves it as `SplitScreen`. With one, three or four players the key does nothing and the screen is laid out as the game lays it out.

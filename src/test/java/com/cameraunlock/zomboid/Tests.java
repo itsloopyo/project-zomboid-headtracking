@@ -1806,7 +1806,31 @@ public final class Tests {
         check(DevKeys.class.getDeclaredFields().length == 1 && DevKeys.class.getDeclaredMethods().length == 1
                 && DevKeys.class.getNestMembers().length == 1, "and it holds nothing but its flag and an empty poll");
         check(DevPatches.list().isEmpty(), "and nothing of the game's is patched for them");
+        // A key put in the wrong source tree would pass all of that. What a development key does it does by calling
+        // the game, and a class names every method it calls: none of the classes that ship may name one of these.
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(java.nio.file.Path.of("build/classes"))) {
+            int read = 0;
+            for (java.nio.file.Path file : files.filter(each -> each.toString().endsWith(".class")).toList()) {
+                String names = new String(java.nio.file.Files.readAllBytes(file), java.nio.charset.StandardCharsets.ISO_8859_1);
+                read++;
+                for (String cheat : CHEATS) {
+                    check(!names.contains(cheat), file.getFileName() + " ships and names " + cheat + ", which only a development key calls");
+                }
+            }
+            check(read > 100, "the classes that ship were read: " + read);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
+
+    /**
+     * What of the game a cheat calls and nothing that ships does: the clock, the weather, health
+     * and damage, the game's own cheats, making and removing zombies, moving the player, and
+     * taking a vehicle. All but the three of the game's own modes are what the development keys call.
+     */
+    private static final String[] CHEATS = {"setTimeOfDay", "setAdminValue", "setEnableAdmin", "setForceSnow", "RestoreToFullHealth",
+            "setAvoidDamage", "PlayerCheats", "isCheatAllowed", "setGodMod", "setGhostMode", "setInvisible", "createRealZombieNow",
+            "removeFromWorld", "removeFromSquare", "teleportTo", "setHotwired", "setContainerContentAmount", "setCurrentAmmoCount"};
 
     private static void check(boolean condition, String what) {
         if (!condition) {

@@ -58,6 +58,13 @@ final class Ride {
      * picture reads them on another thread, so a new array is set whole each time.
      */
     volatile float[] stands = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
+    /**
+     * How the viewer's vehicle is turned from standing level on its heading, as Cabins.tilt
+     * gives it, or null on foot. The view from a seat is turned by it, so the viewer tips and
+     * rolls with the vehicle. Set and read on the logic thread.
+     */
+    float[] tilt;
+    private final float[] tilted = new float[9];
     /** How fast the viewer's vehicle is going on the map, as the game's physics has it. */
     volatile float goingX, goingY;
 
@@ -103,6 +110,7 @@ final class Ride {
         seated = vehicle != null;
         instrumentsLit = vehicle != null && vehicle.isEngineRunning();
         if (vehicle == null) {
+            tilt = null;
             return;
         }
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
@@ -122,6 +130,9 @@ final class Ride {
         float[] axes = new float[9];
         Cabins.axes(facing.x / nose, facing.z / nose, facing.y / nose, above.x / high, above.z / high, above.y / high, axes);
         stands = axes;
+        float flat = Math.max((float) Math.hypot(facing.x, facing.z), 1e-3f);
+        Cabins.tilt(axes, facing.x / flat, facing.z / flat, tilted);
+        tilt = tilted;
         vehicle.getLinearVelocity(going);
         goingX = going.x;
         goingY = going.z;
