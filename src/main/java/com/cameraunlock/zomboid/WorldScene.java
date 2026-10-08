@@ -37,6 +37,7 @@ import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.areas.IsoRoom;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
+import zombie.iso.fboRenderChunk.FBORenderCutaways;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
@@ -509,14 +510,37 @@ final class WorldScene {
     private static final float OVERHEAD_RANGE = 12f;
     /** How much of its opening-up the eye is refused at full night. */
     private static final float NIGHT_HELD_BACK = 0.5f;
-    /** The highest floor built: all of them, but for a viewer indoors seen from overhead. */
+    /**
+     * The highest floor built where the game leaves out what is over it: every floor is built,
+     * but for a view drawn as the game's own while the game opens a building or the viewer is
+     * under the ground.
+     */
     private int topLevel = Integer.MAX_VALUE;
-    /** The building the viewer is in, a square wider all round, in tiles. */
-    private int cutMinX, cutMinY, cutMaxX, cutMaxY;
+    /** The buildings the game opens in its own view, as the builds were last made for them, and as the game has them now. */
+    private final ArrayList<BuildingDef> openBuildings = new ArrayList<>(), openBuildingsNow = new ArrayList<>();
 
-    /** Whether what is over a square is left out so that the viewer indoors can be seen from overhead. */
+    /**
+     * Whether the roof and the ceilings the mod makes over a square are left out so that the
+     * viewer can be seen from overhead. They lie over more than their own square, so they go by
+     * the box of a building the game opens, a square wider all round, and under the ground
+     * by nothing: the game shows nothing over a viewer there.
+     */
     private boolean cutAway(int x, int y) {
-        return topLevel != Integer.MAX_VALUE && x >= cutMinX && x < cutMaxX && y >= cutMinY && y < cutMaxY;
+        if (topLevel < 0) {
+            return true;
+        }
+        for (int i = 0; i < openBuildings.size(); i++) {
+            BuildingDef def = openBuildings.get(i);
+            if (x >= def.getX() - 1 && x < def.getX() + def.getW() + 1 && y >= def.getY() - 1 && y < def.getY() + def.getH() + 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Lets go of the builds of the chunks a building stands on. */
+    private void forgetOver(BuildingDef def) {
+        forgetOver(def.getX() - 1, def.getY() - 1, def.getX() + def.getW() + 1, def.getY() + def.getH() + 1);
     }
     /** How much of a wall is left standing when the walls are cut down, in tiles. */
     private static final float WALL_LEFT = 0.7f;
@@ -1804,6 +1828,12 @@ final class WorldScene {
         private int playerIndex;
         private int lowestLevel;
         private float cutFrom = Float.MAX_VALUE;
+        /** Whether the frame is built as the game's own view, which leaves out and cuts away what the game does. */
+        private boolean gamesView;
+        /** For such a frame, the walls the game cuts away: see Cutaways and Pipeline.cutRows. */
+        private final float[] cutRows = new float[Cutaways.FLOATS];
+        private int cutRowsX, cutRowsY;
+        private float cutBelow;
         /**
          * The height at which the viewer's storey ends, for a viewer indoors whose building is
          * whole in the scene: what is above it is left out of the picture while the camera is too.
@@ -2015,7 +2045,7 @@ final class WorldScene {
          * @param tanHalfSet         the tangent of half the vertical field of view the player set, which
          *                           the first is narrower than while a firearm is aimed
          * @param from               the camera the frame is drawn by when that is somewhere else, or null: see seenFrom
-         * @param opened             what is over a viewer indoors is not built, as the game leaves it out of its own view
+         * @param opened             the frame is the game's own view: what the game leaves out of that view is not built, and the walls it cuts away are cut
          */
         void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float tanHalfFieldOfView, float tanHalfSet,
                 ViewCamera.Pose from, boolean opened) {
@@ -2175,9 +2205,9 @@ final class WorldScene {
                 Roofs.tend(cell, roundNow, Core.tileScale, loadedForAll);
                 WallFinish.tend(cell, roundNow, loadedForAll);
             }
-            // Seen from overhead, whoever is indoors is under a roof and the floors above. The
-            // game leaves those out and so does the picture, and the walls of the floor are cut
-            // low: see Pipeline.cutAbove.
+            // On the camera's way between the game's own view and the eye, whoever is indoors is
+            // under a roof and the floors above. Those are left out while the camera is over
+            // them, and the near walls of the floor are cut low: see Pipeline.cutAbove and lid.
             IsoGridSquare stoodOn = player.getCurrentSquare();
             // Under an arcade or a canopy the viewer is out of doors and still under a floor.
             IsoGridSquare roofed = fromOutside && stoodOn != null && !stoodOn.isOutside() ? stoodOn : null;
@@ -2196,25 +2226,57 @@ final class WorldScene {
                 maxX = def.getX() + def.getW() + 1;
                 maxY = def.getY() + def.getH() + 1;
             }
-            // What every chunk's build goes by. Nothing of it is set while the building is built whole.
-            boolean open = indoors && opened;
-            int top = open ? level : Integer.MAX_VALUE;
-            if (top != topLevel || open && (minX != cutMinX || minY != cutMinY || maxX != cutMaxX || maxY != cutMaxY)) {
-                // Only the chunks a cut-away building stands on are built by it: the one that was cut away and the one that is now.
-                if (topLevel != Integer.MAX_VALUE) {
-                    forgetOver(cutMinX, cutMinY, cutMaxX, cutMaxY);
+            // As the game's own view, the picture leaves out what the game does, and the game is
+            // asked what that is: the floors over the viewer's in the buildings it opens, which
+            // are the viewer's own and those between its camera and the viewer or what the
+            // viewer aims at, and everything over the viewer's level under the ground. This
+            // runs as the game has just drawn this player's world, so what it holds is this frame's.
+            gamesView = fromOutside && opened;
+            openBuildingsNow.clear();
+            if (gamesView) {
+                openBuildingsNow.addAll(FBORenderCutaways.getInstance().getCollapsedBuildings());
+            }
+            // What every chunk's build goes by. Nothing of it is set while every building is built whole.
+            int top = gamesView && (level < 0 || !openBuildingsNow.isEmpty()) ? level : Integer.MAX_VALUE;
+            if (top != topLevel && (top < 0 || topLevel < 0)) {
+                // Under the ground what is left out is left out of every chunk.
+                forgetAll();
+            } else {
+                // Only the chunks an opened building stands on are built by it: one that was opened and one that is now.
+                for (int i = 0; i < openBuildings.size(); i++) {
+                    if (top != topLevel || !openBuildingsNow.contains(openBuildings.get(i))) {
+                        forgetOver(openBuildings.get(i));
+                    }
                 }
-                topLevel = top;
-                cutMinX = minX;
-                cutMinY = minY;
-                cutMaxX = maxX;
-                cutMaxY = maxY;
-                if (open) {
-                    forgetOver(minX, minY, maxX, maxY);
+                for (int i = 0; i < openBuildingsNow.size(); i++) {
+                    if (top != topLevel || !openBuildings.contains(openBuildingsNow.get(i))) {
+                        forgetOver(openBuildingsNow.get(i));
+                    }
                 }
             }
+            topLevel = top;
+            openBuildings.clear();
+            openBuildings.addAll(openBuildingsNow);
             float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
-            cutFrom = indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
+            cutFrom = gamesView || indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
+            cutBelow = 0f;
+            if (gamesView) {
+                // The walls of the viewer's floor that the game cuts away, for the squares round the viewer.
+                cutBelow = floorUp + ViewCamera.LEVEL_HEIGHT;
+                cutRowsX = (int) Math.floor(player.getX()) - Cutaways.SIDE / 2;
+                cutRowsY = (int) Math.floor(player.getY()) - Cutaways.SIDE / 2;
+                Cutaways.clear(cutRows);
+                long now = System.currentTimeMillis();
+                for (int row = 0; row < Cutaways.SIDE; row++) {
+                    for (int column = 0; column < Cutaways.SIDE; column++) {
+                        IsoGridSquare square = cell.getGridSquare(cutRowsX + column, cutRowsY + row, level);
+                        int marks = square == null ? 0 : square.getPlayerCutawayFlag(playerIndex, now);
+                        if (marks != 0) {
+                            Cutaways.put(cutRows, column, row, marks);
+                        }
+                    }
+                }
+            }
             lidFrom = indoors && !opened ? floorUp + ViewCamera.LEVEL_HEIGHT - LID_UNDER : Float.MAX_VALUE;
             boxMinX = minX;
             boxMinY = minY;
@@ -3044,7 +3106,7 @@ final class WorldScene {
                 for (int localX = 0; localX < CHUNK_TILES; localX++) {
                     for (int localY = 0; localY < CHUNK_TILES; localY++) {
                         IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
-                        if (square == null || z > topLevel && cutAway(chunkX + localX, chunkY + localY)) {
+                        if (square == null || z > topLevel && !FBORenderCutaways.getInstance().shouldRenderBuildingSquare(playerIndex, square)) {
                             continue;
                         }
                         if (!growing) {
@@ -3154,7 +3216,7 @@ final class WorldScene {
          */
         private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
-            readUnseen = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b));
+            readUnseen = sum(sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b)), gamesView ? 1 : 0);
             readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
             readFrom = from;
             readTo = to;
@@ -3525,9 +3587,13 @@ final class WorldScene {
                     // has on screen.
                     ColorInfo light = view.torchLess.light(square, playerIndex, torchless);
                     boolean outside = square.isOutside();
-                    if (!square.isSeen(playerIndex)) {
+                    // As the game's own view a room keeps the engine's light whether or not it has
+                    // been seen: none in a room the player has not seen into, and less in one
+                    // they have seen and cannot see now, which is how the game shows them.
+                    boolean seen = square.isSeen(playerIndex);
+                    if (!seen && !(gamesView && square.getRoomID() != -1L)) {
                         light = unseenLight;
-                    } else if (inChunk) {
+                    } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
                             reading.add(light.r, light.g, light.b);
@@ -4662,9 +4728,13 @@ final class WorldScene {
             }
         }
 
-        /** Whether a square is in a room the game has never had in the player's sight. */
+        /**
+         * Whether a square is in a room the game has never had in the player's sight, in a frame
+         * that leaves out what is in such a room. As the game's own view the frame leaves nothing
+         * out of it: the room has the engine's light, which is what hides it.
+         */
         private boolean unexplored(IsoGridSquare square) {
-            return square.getRoomID() != -1L && !square.isSeen(playerIndex);
+            return !gamesView && square.getRoomID() != -1L && !square.isSeen(playerIndex);
         }
 
         /**
@@ -8165,6 +8235,10 @@ final class WorldScene {
             view.pipeline.cutAbove = outside ? cutFrom : Float.MAX_VALUE;
             view.pipeline.cutBehind = 1f - landing;
             view.pipeline.lid = outside && outsideCamera.eyeUp > lidFrom ? lidFrom : Float.MAX_VALUE;
+            view.pipeline.cutRows = cutRows;
+            view.pipeline.cutRowsX = cutRowsX;
+            view.pipeline.cutRowsY = cutRowsY;
+            view.pipeline.cutBelow = outside ? cutBelow : 0f;
             view.pipeline.cutBox[0] = boxMinX;
             view.pipeline.cutBox[1] = boxMinY;
             view.pipeline.cutBox[2] = boxMaxX;

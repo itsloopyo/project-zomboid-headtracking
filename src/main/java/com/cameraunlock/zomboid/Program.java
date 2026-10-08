@@ -88,4 +88,9 @@ final class Program {
     void set(String name, float[] matrix) {
         GL20.glUniformMatrix4fv(at(name), false, matrix);
     }
+
+    /** Sets an array of floats, every element of it. */
+    void setEach(String name, float[] values) {
+        GL20.glUniform1fv(at(name), values);
+    }
 }

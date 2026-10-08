@@ -29,10 +29,11 @@ public final class FarModels {
     private final float[] faces = new float[2];
     /**
      * The cosine of how far round from the way the view faces a zombie is shown whole on foot:
-     * 120 degrees. The widest picture ends 69 degrees round, and a zombie is whole for the rest
-     * before a turn of the view can bring it in, the game giving it its model a tick after it is asked for.
+     * 90 degrees. The widest picture ends 69 degrees round, and a zombie is whole for the rest
+     * before a turn of the view brings it in, the game giving it its model a tick after it is
+     * asked for. At 120 degrees a crowd all round was a third more zombies drawn.
      */
-    private static final float ROUND = -0.5f;
+    private static final float ROUND = 0f;
     /** A view that faces along the map by less than this is straight up or down, and whatever stands round the viewer is before it. */
     private static final float LEVEL_LEAST = 0.2f;
 

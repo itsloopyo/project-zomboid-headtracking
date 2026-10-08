@@ -70,6 +70,9 @@ final class Pipeline {
     private static final int GL_RG8 = 0x822B;
     private static final int GL_RGBA8 = 0x8058;
     private static final int GL_RGBA16F = 0x881A;
+    private static final int GL_R16F = 0x822D;
+    private static final int GL_R8 = 0x8229;
+    private static final int GL_RED = 0x1903;
     private static final int GL_DEPTH_COMPONENT = 0x1902;
     private static final int GL_DEPTH_COMPONENT24 = 0x81A6;
     private static final int GL_TEXTURE_2D = 0x0DE1;
@@ -207,11 +210,18 @@ final class Pipeline {
     private static Program snow;
     private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
-    private final int[] keptColor = new int[2], keptTarget = new int[2];
+    private final int[] keptColor = new int[2], keptAhead = new int[2], keptTarget = new int[2];
+    /**
+     * Beside the scene, where what it shows moves by itself: 1 a person, a half a vehicle, nought
+     * anything else. The people's light writes it through movesTarget, which is the scene's
+     * target with this beside its colour. Only with FrameBlending on.
+     */
+    private int sceneMoves, movesTarget, movesAlone;
+    private static final String[] MOVER_AT = new String[Movers.MOST], MOVER_BEFORE = new String[Movers.MOST];
     private int keptNow;
     private boolean keptAny;
-    private final ViewCamera.Pose before = new ViewCamera.Pose();
-    /** How much of the last frame's picture goes into this one. */
+    private final ViewCamera.Pose before = new ViewCamera.Pose(), aimBefore = new ViewCamera.Pose();
+    /** How much of the last frame's picture goes into this one at the most: see STEADY for where it is less. */
     private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
     private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
@@ -272,6 +282,8 @@ final class Pipeline {
     private int frameColor;
     /** Quality.shadedAndLit as the frame began: the logic thread may change the mode between two passes of a frame. */
     private boolean shadedAndLit;
+    /** FrameBlending.on as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
+    private boolean steadying;
 
     /**
      * Pictures that only some frames draw into. Each set is made by the first frame that draws
@@ -362,8 +374,16 @@ final class Pipeline {
      * in tiles: the world fades into the sky by there as well as by the picture's own sight.
      */
     float loadedX, loadedY, loadedWithin = Float.MAX_VALUE / 2f;
-    /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
+    /** The height above which walls are left out, for a viewer seen from overhead: see the world shader. */
     float cutAbove = Float.MAX_VALUE;
+    /**
+     * For the picture drawn as the game's own view, the walls the game cuts away: see Cutaways.
+     * The block of squares' marks, its first square, and the height the walls of the viewer's
+     * floor reach, which is 0 on the camera's way to the eye, when the walls left out are the
+     * near ones of the viewer's building.
+     */
+    float[] cutRows;
+    float cutRowsX, cutRowsY, cutBelow;
     /** How much of CUT_BEHIND the cut still reaches behind the viewer: all of it from overhead, none as the camera reaches the eye. */
     float cutBehind = 1f;
     /** The height above which everything in the viewer's building is left out, while the camera is above it. */
@@ -514,6 +534,10 @@ final class Pipeline {
         }
         for (int i = 0; i < ROOT_AT.length; i++) {
             ROOT_AT[i] = "uRoot[" + i + "]";
+        }
+        for (int i = 0; i < Movers.MOST; i++) {
+            MOVER_AT[i] = "uMover[" + i + "]";
+            MOVER_BEFORE[i] = "uMoverBefore[" + i + "]";
         }
         for (int i = 0; i < PRINT_AT.length; i++) {
             PRINT_AT[i] = "uSnowPrint[" + i + "]";
@@ -724,13 +748,14 @@ final class Pipeline {
             }
             frameNanos = System.nanoTime();
             shadedAndLit = Quality.shadedAndLit();
+            steadying = FrameBlending.on();
             frameColor = sceneColor;
             SpriteColours.read(view.index);
             FineSkins.tend();
             drawn = chunks;
             ChunkBuffers.load(chunks);
             // Seen from outside the viewer, the picture is of the built world alone, as it was.
-            beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (FrameBlending.on() ? frameNumber % SIEVES : 0) : 0f;
+            beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true);
             arrays();
             stage(STAGE_LOAD);
@@ -754,9 +779,18 @@ final class Pipeline {
             }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
+            if (steadying) {
+                // Nothing in the picture moves by itself until the people's light says so.
+                lend(steadied, this::makeSteadied);
+                GL30.glBindFramebuffer(GL_FRAMEBUFFER, movesAlone);
+                GL11.glClearColor(0f, 0f, 0f, 0f);
+                GL11.glClear(GL_COLOR_BUFFER_BIT);
+            }
+            view.characters.movers.begin(steadying);
             if (figures) {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
+            view.characters.movers.end();
             stage(STAGE_FIGURES);
             drawSky(camera, state, tanHalfFieldOfView, aspect, near, far);
             if ((state.rain > 0f || state.snow > 0f) && !overhead) {
@@ -773,7 +807,7 @@ final class Pipeline {
             if (glazed) {
                 drawGlass();
             }
-            if (FrameBlending.on()) {
+            if (steadying) {
                 drawSteady(camera, tanHalfFieldOfView, aspect, near, far);
             } else {
                 keptAny = false;
@@ -1505,7 +1539,6 @@ final class Pipeline {
     }
 
     private void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(steadied, this::makeSteadied);
         int next = 1 - keptNow;
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_BLEND);
@@ -1516,6 +1549,9 @@ final class Pipeline {
         steady.set("uScene", 0);
         steady.set("uBefore", 1);
         steady.set("uDepth", 2);
+        steady.set("uAheadBefore", 3);
+        GL13.glActiveTexture(GL_TEXTURE0 + 3);
+        GL11.glBindTexture(GL_TEXTURE_2D, keptAhead[keptNow]);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
@@ -1532,6 +1568,25 @@ final class Pipeline {
         steady.set("uRightBefore", before.rightX, before.rightY, before.rightUp);
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
+        ViewCamera.Pose aim = view.characters.aim;
+        steady.set("uAimEye", aim.eyeX, aim.eyeY, aim.eyeUp);
+        steady.set("uAimRight", aim.rightX, aim.rightY, aim.rightUp);
+        steady.set("uAimUp", aim.upX, aim.upY, aim.upUp);
+        steady.set("uAimForward", aim.forwardX, aim.forwardY, aim.forwardUp);
+        steady.set("uAimEyeBefore", aimBefore.eyeX, aimBefore.eyeY, aimBefore.eyeUp);
+        steady.set("uAimRightBefore", aimBefore.rightX, aimBefore.rightY, aimBefore.rightUp);
+        steady.set("uAimUpBefore", aimBefore.upX, aimBefore.upY, aimBefore.upUp);
+        steady.set("uAimForwardBefore", aimBefore.forwardX, aimBefore.forwardY, aimBefore.forwardUp);
+        steady.set("uMoves", 4);
+        GL13.glActiveTexture(GL_TEXTURE0 + 4);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneMoves);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        Movers movers = view.characters.movers;
+        steady.set("uMovers", (float) movers.found);
+        for (int i = 0; i < movers.found; i++) {
+            steady.set(MOVER_AT[i], movers.now[i * 4], movers.now[i * 4 + 1], movers.now[i * 4 + 2], movers.now[i * 4 + 3]);
+            steady.set(MOVER_BEFORE[i], movers.before[i * 4], movers.before[i * 4 + 1], movers.before[i * 4 + 2], movers.before[i * 4 + 3]);
+        }
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
         steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
@@ -1541,6 +1596,7 @@ final class Pipeline {
         keptNow = next;
         keptAny = true;
         before.set(camera);
+        aimBefore.set(aim);
         GL11.glDepthMask(true);
     }
 
@@ -1663,7 +1719,7 @@ final class Pipeline {
         // and with more detail than one frame's pixels hold.
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         if (!inMirror && !inScope) {
-            if (FrameBlending.on()) {
+            if (steadying) {
                 jitterAt = (jitterAt + 1) % JITTER_X.length;
                 asideX = JITTER_X[jitterAt] / width;
                 asideY = JITTER_Y[jitterAt] / height;
@@ -1896,6 +1952,10 @@ final class Pipeline {
         float nearerX = -camera.forwardX / flat, nearerY = -camera.forwardY / flat;
         to.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
         to.set("uLid", lid);
+        if (cutBelow > 0f) {
+            to.setEach("uCutRows", cutRows);
+        }
+        to.set("uCutMarked", cutRowsX, cutRowsY, cutBelow);
         to.set("uLight", state.lightX, state.lightY, state.lightUp);
         setBeams(to, TORCH_UNIT_IN_WORLD);
         float[] carried = state.carried;
@@ -2329,8 +2389,9 @@ final class Pipeline {
             // The game's draw leaves its own program, buffers and arrays bound.
             resumeFlat();
 
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
             figureLight.use();
+            figureLight.set("uMoves", pass == 0 ? 1f : 0.5f);
             figureLight.set("uFigure", 0);
             figureLight.set("uDepth", 3);
             figureLight.set("uShadowNear", 1);
@@ -2444,8 +2505,10 @@ final class Pipeline {
         figureLight.set("uCarpetGain", materialGain[CARPET]);
         resumeFlat();
         if (own) {
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            // The viewer's own body before a person is not that person: what it covers goes as the body does.
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
             figureLight.use();
+            figureLight.set("uMoves", 0f);
             GL13.glActiveTexture(GL_TEXTURE0 + 4);
             GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? repaintedColor : noneTexture);
             figureLight.set("uRepainted", 4);
@@ -3860,8 +3923,17 @@ final class Pipeline {
     private String makeSteadied() {
         for (int i = 0; i < 2; i++) {
             keptColor[i] = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
+            keptAhead[i] = texture(GL_R16F, width, height, GL_RED, GL_FLOAT, GL_NEAREST);
             keptTarget[i] = target(keptColor[i]);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, keptAhead[i], 0);
+            GL20.glDrawBuffers(BOTH_BUFFERS);
         }
+        sceneMoves = texture(GL_R8, width, height, GL_RED, GL_UNSIGNED_BYTE, GL_NEAREST);
+        movesAlone = target(sceneMoves);
+        movesTarget = target(sceneColor);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, sceneMoves, 0);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, sceneDepth, 0);
+        GL20.glDrawBuffers(BOTH_BUFFERS);
         keptAny = false;
         return complete("steadied picture");
     }
@@ -3974,7 +4046,7 @@ final class Pipeline {
         int texture = GL11.glGenTextures();
         if (making != null) {
             making.textures.add(texture);
-            making.bytes += (long) w * h * (internal == GL_RGBA16F ? 8 : 4);
+            making.bytes += (long) w * h * (internal == GL_RGBA16F ? 8 : internal == GL_R16F ? 2 : internal == GL_R8 ? 1 : 4);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, (ByteBuffer) null);

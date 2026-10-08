@@ -4,6 +4,7 @@ import zombie.characters.IsoGameCharacter;
 
 public final class ModelSlotRenderData {
     public IsoGameCharacter character;
+    public zombie.iso.IsoMovingObject object;
     public final ModelInstanceRenderDataList modelData = null;
     public zombie.core.skinnedmodel.animation.AnimationPlayer animPlayer;
     public float animPlayerAngle;

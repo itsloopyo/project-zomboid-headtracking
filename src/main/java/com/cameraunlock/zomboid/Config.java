@@ -136,10 +136,9 @@ final class Config {
                 writable | live, Style.words(), Style.VIVID.ordinal());
         frameBlending = core.configLocalBool("General", "FrameBlending",
                 "Whether each frame of the first person picture is mixed with the one before it.\n"
-                        + "false: every frame is drawn on its own, so the picture is as sharp while you turn\n"
-                        + "or walk as it is standing still. true: fine edges, leaves and the grain of soft\n"
-                        + "shadows are steadier in a still view, and what moves across the picture is\n"
-                        + "softened and can smear. Read again while the game runs.",
+                        + "false: every frame is drawn on its own. true: fine edges, leaves and the grain of\n"
+                        + "soft shadows are smoother and steadier, and the whole picture is a little softer,\n"
+                        + "as much standing still as while you turn or walk. Read again while the game runs.",
                 writable | live, false);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it. SplitScreenKey goes from one to the other\n"

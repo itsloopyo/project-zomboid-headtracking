@@ -69,6 +69,7 @@ public final class Tests {
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         GlassPullTests.run();
+        MoversTests.run();
         SnowPrintTests.run();
         TorchLessTests.run();
         AimTests.run();
@@ -136,6 +137,7 @@ public final class Tests {
         RifleTests.run();
         KerbTests.run();
         StairTests.run();
+        CutawayTests.run();
         TerrainTests.run();
         FacadeTests.run();
         SpanTests.run();

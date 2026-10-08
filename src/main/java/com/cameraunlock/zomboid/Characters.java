@@ -1251,6 +1251,9 @@ public final class Characters {
         notingRoots = false;
     }
 
+    /** Where the people and vehicles the eye's picture draws stand, and stood a frame ago. */
+    final Movers movers = new Movers();
+
     /**
      * Where each person drawn into the view stands and the way they are turned, so that the
      * picture can lay cloth and skin on them that moves as they do.
@@ -1367,6 +1370,13 @@ public final class Characters {
                 roots[at + 1] = data.y;
                 roots[at + 2] = data.z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(data.x, data.y, data.z);
                 roots[at + 3] = data.animPlayerAngle;
+            }
+            if (kind == BY_EYE && !data.inVehicle) {
+                // Who rides is not noted: they go as the vehicle goes.
+                boolean stands = data.character != null;
+                float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
+                movers.note(stands ? data.character : data.object, x, y, z * ViewCamera.LEVEL_HEIGHT + this.view.worldScene.terrain.lift(x, y, z), stands ? data.animPlayerAngle : 0f,
+                        toX * toX + toY * toY);
             }
             if (data.character == null) {
                 vehicle(data, i * 4, viewMatrix);

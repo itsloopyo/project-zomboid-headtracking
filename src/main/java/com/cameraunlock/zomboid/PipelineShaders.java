@@ -525,7 +525,9 @@ final class PipelineShaders {
      * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
      * notice is in THIRD-PARTY-NOTICES.md.
      */
-    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + """
+    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
+            + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
+            + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -569,6 +571,41 @@ final class PipelineShaders {
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
             uniform float uLid;
+            // The walls the game cuts away, for the picture drawn as the game's own view: see Cutaways.
+            // uCutMarked is the block's first square, and the height its walls are cut up to, or 0 with no block.
+            uniform float uCutRows[CUT_FLOATS];
+            uniform vec3 uCutMarked;
+            const float CUT_DIGIT[12] = float[12](1.0, 4.0, 16.0, 64.0, 256.0, 1024.0, 4096.0, 16384.0, 65536.0, 262144.0, 1048576.0, 4194304.0);
+
+            // The game's marks on a square: 1 with its north wall cut away, 2 with its west wall, 3 with both.
+            float cutMarks(vec2 square) {
+                vec2 at = square - uCutMarked.xy;
+                if (at.x < 0.0 || at.y < 0.0 || at.x >= CUT_SIDE || at.y >= CUT_SIDE) {
+                    return 0.0;
+                }
+                float part = floor(at.x / 12.0);
+                float digits = floor(uCutRows[int(at.y) * CUT_FLOATS_A_ROW + int(part)] / CUT_DIGIT[int(at.x - part * 12.0)]);
+                return digits - 4.0 * floor(digits / 4.0);
+            }
+
+            // Whether a point is in a wall the game has cut away, or hangs on one. A square's north wall
+            // runs along its north edge and its west wall along its west edge. A wall is taken by the way
+            // it faces, or the end of one that stands would go with the cut wall it meets. Something
+            // hung has faces every way, and goes by the wall it is nearest. A wall's own ends run a
+            // little past its square, into the corner.
+            bool cutAway(vec3 at, vec3 facing, bool hung) {
+                vec2 edge = floor(at.xy + 0.5), off = abs(at.xy - edge);
+                float reach = hung ? 0.45 : 0.3;
+                bool north = off.y < reach && (hung ? off.y < off.x : abs(facing.y) > abs(facing.x));
+                bool west = off.x < reach && (hung ? off.x <= off.y : abs(facing.x) >= abs(facing.y));
+                if (north) {
+                    return mod(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 2.0) > 0.5 || mod(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 2.0) > 0.5;
+                }
+                if (west) {
+                    return cutMarks(vec2(edge.x, floor(at.y - 0.06))) > 1.5 || cutMarks(vec2(edge.x, floor(at.y + 0.06))) > 1.5;
+                }
+                return false;
+            }
             uniform vec3 uHole;
             uniform float uHoleUp;
             uniform float uHoleTrees;
@@ -2045,16 +2082,19 @@ final class PipelineShaders {
                 } else if (!model && cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
-                // Seen from overhead with the viewer indoors, the walls of that floor are cut
-                // down to a low course, or the room is hidden behind its own near walls.
-                // Whatever stands between the overhead eye and the viewer is opened in a round
-                // window about them, or a building across the street hides them altogether.
+                // What stands between the overhead eye and the viewer and is no part of a
+                // building is opened in a round window about them, where the game lets its
+                // own picture of such a thing be seen through: a cupboard, a fridge, a hedge.
                 // A tree is opened in a wider one: a wood is tree after tree, and through a
                 // window the size of a doorway there is only the next crown. The mod's trees
                 // are their crowns, boles and ivy, and the game's are cards of its plant sheets.
+                // A building in the way is the game's to open: it leaves out the floors over
+                // the viewer's and cuts walls away, and the picture does as it does below.
                 bool tree = crown || core || vMaterial > 56.5 && vMaterial < 58.5
                         || vMaterial > 4.5 && vMaterial < 6.5 && vKind > 1.5 && vKind < 3.5;
-                if (uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
+                bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
+                bool standing = vKind > 1.5 && vKind < 3.5;
+                if ((tree || ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
                         && distance(gl_FragCoord.xy, uHole.xy) < (tree ? uHoleTrees : uHole.z) * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
                     discard;
                 }
@@ -2068,10 +2108,12 @@ final class PipelineShaders {
                 if (boxed && vWorld.z > uLid) {
                     discard;
                 }
-                if (vWorld.z > uCutAbove && dot(vWorld.xy, uCutNear.xy) > uCutNear.z && boxed) {
-                    bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
-                    bool standing = vKind > 1.5 && vKind < 3.5;
-                    if (ofModel ? vHung > 0.5 : !standing) {
+                // As the game's own view, the walls cut down to a low course are the ones the
+                // game cuts away. On the camera's way to the viewer's eye they are the walls of
+                // the viewer's building that stand between the two.
+                bool marked = uCutMarked.z > 0.0;
+                if (vWorld.z > uCutAbove && (marked ? vWorld.z < uCutMarked.z : dot(vWorld.xy, uCutNear.xy) > uCutNear.z && boxed)) {
+                    if ((ofModel ? vHung > 0.5 : !standing) && (!marked || cutAway(vWorld, vNormal, ofModel))) {
                         discard;
                     }
                 }
@@ -2527,6 +2569,14 @@ final class PipelineShaders {
                     // A stone's foot is in the shade of the next stone, and a groove of its own lip.
                     reached *= reliefShade;
                     sun = reached * facing;
+                }
+                // As the game's own view the picture has the roof and the floors above off a
+                // building the game opens, and the sun falls straight into its rooms. The game
+                // shows a room by its light alone: none in one the player has not seen into,
+                // less in one they cannot see now. So what is under a roof has the sun there by
+                // as much as the game's light for its square, and a room the game has dark is dark.
+                if (uCutMarked.z > 0.0 && open < 0.5) {
+                    sun *= pow(min(max(vColor.r, max(vColor.g, vColor.b)), 1.0), 2.2);
                 }
 
                 // The game's light for the square is the light that is there without the sun
@@ -3455,6 +3505,7 @@ final class PipelineShaders {
             uniform vec2 uWearGain;
             // 1 where the mod's own textures give skin and cloth their grain, 0 where a figure shows the game's texture alone.
             uniform float uWornGrain;
+            uniform float uMoves;
             uniform vec4 uRoot[16];
             uniform float uRoots;
             uniform vec2 uCabinGain;
@@ -4201,6 +4252,9 @@ final class PipelineShaders {
 
     static final String FIGURE_LIGHT_MAIN = """
             void main() {
+                // For the steadying pass, beside the picture where there is such a place: what
+                // is lit here moves by itself.
+                gl_FragData[1] = vec4(uMoves);
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec4 figure = texture2D(uFigure, uv);
                 vec2 ndc = uv * 2.0 - 1.0;
@@ -4373,7 +4427,7 @@ final class PipelineShaders {
                         if (!open && kind < 3.5 || inCabin(out3).z < -0.3 && open) {
                             discard;
                         }
-                        gl_FragColor = paneBuilt(out3);
+                        gl_FragData[0] = paneBuilt(out3);
                         // The pane is as far off as it is, in the picture's own measure of
                         // depth: whatever of the cabin is before it hides it.
                         float paneAhead = gPaneFar * CABIN / length(ray);
@@ -4411,7 +4465,7 @@ final class PipelineShaders {
                     if (uGlassPass < 0.5 || inCabin(out3).z < -0.3) {
                         discard;
                     }
-                    gl_FragColor = paneSeen(out3);
+                    gl_FragData[0] = paneSeen(out3);
                     gl_FragDepth = 0.0;
                     return;
                 }
@@ -4727,7 +4781,7 @@ final class PipelineShaders {
                         vec3 to = inCabin(at - uEye) / CABIN;
                         vec3 faces = inCabin(n);
                         bool ends = abs(faces.x) > abs(faces.y);
-                        gl_FragColor = pane(vec2(ends ? to.y : to.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
+                        gl_FragData[0] = pane(vec2(ends ? to.y : to.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
                         gl_FragDepth = 0.0;
                         return;
                     }
@@ -4864,7 +4918,7 @@ final class PipelineShaders {
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
                 // traces what the bonnet's lacquer shows of the world over it.
-                gl_FragColor = vec4(color, 1.0 - 0.5 * bonnet * uShines);
+                gl_FragData[0] = vec4(color, 1.0 - 0.5 * bonnet * uShines);
                 // The viewer's own body and vehicle are drawn with a depth of their own. Here
                 // it is put into the picture's depth, in the picture's own measure, so that
                 // what is worked out from depth afterwards, the shade in corners and the
@@ -5173,14 +5227,20 @@ final class PipelineShaders {
      * the thin edges of cards all change from one frame to the next, and what changes every
      * frame is seen as flicker. Each pixel is mixed with what was at the same place in the
      * world a frame ago: where that place was on the last frame's picture is worked out from
-     * the pixel's depth and where the eye then was. What the last frame had there is held to
-     * the range of colours round the pixel now, so a thing that has moved leaves no ghost.
+     * the pixel's depth and where the eye then was.
+     *
+     * What the last frame had there is only kept where it was the same thing. Two checks say
+     * so. The last frame's depth there has to be the depth the place then had: where a person
+     * has walked on, the ground behind them was not in the last frame at all, and takes
+     * nothing from it. And its colour is drawn in to the colours round the pixel now, by how
+     * much they vary, so what has changed its look where it stands goes with the new look.
      */
     static final String STEADY = """
             #version 120
             uniform sampler2D uScene;
             uniform sampler2D uBefore;
             uniform sampler2D uDepth;
+            uniform sampler2D uAheadBefore;
             uniform vec2 uSize;
             uniform vec2 uTan;
             uniform float uNear;
@@ -5193,9 +5253,21 @@ final class PipelineShaders {
             uniform vec3 uRightBefore;
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
+            uniform vec3 uAimEye;
+            uniform vec3 uAimRight;
+            uniform vec3 uAimUp;
+            uniform vec3 uAimForward;
+            uniform vec3 uAimEyeBefore;
+            uniform vec3 uAimRightBefore;
+            uniform vec3 uAimUpBefore;
+            uniform vec3 uAimForwardBefore;
             uniform float uKept;
             uniform float uOwnWithin;
             uniform float uHeldWithin;
+            uniform sampler2D uMoves;
+            uniform vec4 uMover[16];
+            uniform vec4 uMoverBefore[16];
+            uniform float uMovers;
 
             // The picture kept from before, read at a place between its pixels. Read as the
             // mean of the four pixels round the place, each frame of a moving head blurs what
@@ -5225,36 +5297,143 @@ final class PipelineShaders {
                 return max(sum, vec3(0.0));
             }
 
+            // How far ahead of the eye what a pixel shows is, in tiles.
+            float aheadAt(vec2 uv) {
+                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
+                return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+            }
+
+            // A colour as its brightness and two differences of colour, with the brightness
+            // pressed into nought to one. The scene's light has no top to it: mixed as it is,
+            // one glint outweighs everything it is mixed with, and the range of colours round
+            // a pixel with a glint in it takes anything.
+            vec3 pressed(vec3 c) {
+                c /= 1.0 + dot(c, vec3(0.25, 0.5, 0.25));
+                return vec3(dot(c, vec3(0.25, 0.5, 0.25)), dot(c, vec3(0.5, 0.0, -0.5)), dot(c, vec3(-0.25, 0.5, -0.25)));
+            }
+
+            vec3 unpressed(vec3 c) {
+                c = vec3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z);
+                return c / max(1.0 - dot(c, vec3(0.25, 0.5, 0.25)), 0.001);
+            }
+
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
+                vec2 px = 1.0 / uSize;
                 vec4 now = texture2D(uScene, uv);
-                float z = texture2D(uDepth, uv).r * 2.0 - 1.0;
-                float ahead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
-                vec2 ndc = uv * 2.0 - 1.0;
+                float own = aheadAt(uv);
+                gl_FragData[1] = vec4(own);
+                // An edge's pixel shows what is before the edge in one frame and what is behind
+                // it in the next, as the picture is drawn a fraction of a pixel aside. It goes
+                // with the nearest thing of the pixel and the four beside it, so the edge of a
+                // thing is looked for where the thing was.
+                vec2 nearest = uv;
+                float ahead = own, steep = 0.0;
+                for (int i = 0; i < 4; i++) {
+                    vec2 beside = uv + (i == 0 ? vec2(px.x, 0.0) : i == 1 ? vec2(-px.x, 0.0) : i == 2 ? vec2(0.0, px.y) : vec2(0.0, -px.y));
+                    float there = aheadAt(beside);
+                    steep = max(steep, abs(there - own));
+                    if (there < ahead) {
+                        ahead = there;
+                        nearest = beside;
+                    }
+                }
+                vec2 ndc = nearest * 2.0 - 1.0;
                 vec3 at = uEye + (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
-                // What is held in the hands goes where the eye goes. Taken for a thing that stood
-                // still while the eye moved, a weapon a hand's breadth off is looked for a dozen
-                // pixels from where it was for every millimetre of a step or a breath, and its
-                // edges come out in waves. Nearer than the hands reach, only the eye's turn counts.
-                vec3 from = at - (ahead < uHeldWithin ? uEye : uEyeBefore);
+                // What is held in the hands is not a thing of the world that stood still. It
+                // stands in the aim's view: it turns as the mouse turns the view and stays put
+                // on the picture, and it stays behind as the head turns from the aim. Where it
+                // was is where the same place of the aim's view then was.
+                vec3 stood = at;
+                float moves = texture2D(uMoves, nearest).r;
+                bool lost = false;
+                if (ahead < uHeldWithin) {
+                    vec3 inAim = at - uAimEye;
+                    stood = uAimEyeBefore + uAimRightBefore * dot(inAim, uAimRight) + uAimUpBefore * dot(inAim, uAimUp) + uAimForwardBefore * dot(inAim, uAimForward);
+                } else if (moves > 0.25) {
+                    // A person or a vehicle goes as a whole: where it stood and how it was
+                    // turned a frame ago say where this point of it then was. It is the
+                    // nearest of those noted whose reach the point is in, and with none this
+                    // is one of a crowd past the nearest sixteen, of which nothing is known.
+                    float off = moves > 0.75 ? 1.5 : 4.5;
+                    lost = true;
+                    for (int i = 0; i < 16; i++) {
+                        if (float(i) < uMovers) {
+                            float far = distance(at.xy, uMover[i].xy);
+                            if (far < off) {
+                                off = far;
+                                lost = false;
+                                float turned = uMoverBefore[i].w - uMover[i].w;
+                                vec3 limb = at - uMover[i].xyz;
+                                stood = uMoverBefore[i].xyz + vec3(cos(turned) * limb.x - sin(turned) * limb.y, sin(turned) * limb.x + cos(turned) * limb.y, limb.z);
+                            }
+                        }
+                    }
+                }
+                vec3 from = stood - uEyeBefore;
                 float was = dot(from, uForwardBefore);
-                vec2 before = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5;
+                vec2 moved = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5 - nearest;
+                vec2 before = uv + moved;
                 // The vehicle the viewer rides in goes with the eye: where it was in the world a
                 // frame ago says nothing of where it was in the picture.
-                if (uKept <= 0.0 || ahead < uOwnWithin || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
-                    gl_FragColor = now;
+                if (uKept <= 0.0 || own < uOwnWithin || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
+                    gl_FragData[0] = now;
                     return;
                 }
-                vec3 least = now.rgb, most = now.rgb;
+                // Whether the last frame showed the same thing there: one of the four pixels
+                // round the place was as far ahead of the eye then as this place was. A slope
+                // seen along its length is further off by the pixel, so the depths beside this
+                // pixel say how much is allowed.
+                float allowed = 0.03 * was + 2.0 * steep;
+                vec2 corner = floor(before * uSize - 0.5) + 0.5;
+                bool same = false;
+                for (int i = 0; i < 4; i++) {
+                    float then = texture2D(uAheadBefore, (corner + vec2(float(i / 2), float(i - i / 2 * 2))) * px).r;
+                    same = same || abs(then - was) <= allowed;
+                }
+                if (!same) {
+                    gl_FragData[0] = now;
+                    return;
+                }
+                vec3 mine = pressed(now.rgb);
+                vec3 sum = vec3(0.0), squares = vec3(0.0), least = mine, most = mine;
                 for (int x = -1; x <= 1; x++) {
                     for (int y = -1; y <= 1; y++) {
-                        vec3 near = texture2D(uScene, uv + vec2(float(x), float(y)) / uSize).rgb;
+                        vec3 near = pressed(texture2D(uScene, uv + vec2(float(x), float(y)) * px).rgb);
+                        sum += near;
+                        squares += near * near;
                         least = min(least, near);
                         most = max(most, near);
                     }
                 }
-                vec3 held = clamp(sharply(before), least, most);
-                gl_FragColor = vec4(mix(now.rgb, held, uKept), now.a);
+                // Held to the colours round the pixel now. What moves by itself also moves
+                // within itself, a leg past a leg, and is held closer: no further from the
+                // mean of those colours than they vary. Held that close, a fine line of the
+                // still world came out fainter (the picture's measure of detail fell by a
+                // tenth), so the world is given the whole range.
+                vec3 low = least, high = most;
+                if (moves > 0.25) {
+                    vec3 mean = sum / 9.0;
+                    vec3 varies = sqrt(max(squares / 9.0 - mean * mean, vec3(0.0)));
+                    low = max(least, mean - varies);
+                    high = min(most, mean + varies);
+                }
+                vec3 middle = 0.5 * (low + high), reach = 0.5 * (high - low) + 0.00001;
+                vec3 held = pressed(sharply(before)) - middle;
+                vec3 over = abs(held) / reach;
+                held = middle + held / max(1.0, max(over.x, max(over.y, over.z)));
+                // Read between its pixels the kept picture comes back a little softer, and it is
+                // read again every frame: kept at 93 parts in 100, a line three pixels wide is
+                // left with a fifth of its contrast while the view turns, and the whole
+                // picture is a blur. What one read leaves of such a line is known from how far
+                // between pixels it falls, 1 - 0.312 sin^2 of that part of a pixel each way.
+                // No more is kept than leaves the line four fifths of its contrast: with a
+                // read leaving p of it, a share k kept leaves (1 - k) / (1 - k p). Asked for
+                // nine tenths, a slow turn flickered more than with no steadying at all.
+                vec2 between = sin(3.14159265 * fract(moved * uSize));
+                float passes = (1.0 - 0.312 * between.x * between.x) * (1.0 - 0.312 * between.y * between.y);
+                float kept = min(lost ? 0.5 : uKept, 0.2 / (1.0 - 0.8 * passes));
+                gl_FragData[0] = vec4(unpressed(mix(mine, held, kept)), now.a);
             }
             """;
 
