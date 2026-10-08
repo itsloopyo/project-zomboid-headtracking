@@ -236,7 +236,7 @@ final class Decor {
             if (textures[picture] != 0) {
                 GL11.glDeleteTextures(textures[picture]);
                 textures[picture] = 0;
-                Pipeline.forgetTexels();
+                View.first().pipeline.forgetTexels();
             }
             if (waiting[picture] != null) {
                 waiting[picture].memory.free();
@@ -253,7 +253,7 @@ final class Decor {
                 Read read = waiting[picture];
                 if (textures[picture] != 0) {
                     GL11.glDeleteTextures(textures[picture]);
-                    Pipeline.forgetTexels();
+                    View.first().pipeline.forgetTexels();
                 }
                 if (read == null) {
                     // The picture was given back between a build's asking for it and this, its first drawing: it is read again here.

@@ -723,7 +723,7 @@ final class Scope {
         // A scope the eye is not behind has no picture, and the program multiplies what it reads of one by nought:
         // with none made it reads a colour of nothing, where no texture at all is the driver's to answer for.
         GL13.glActiveTexture(GL_TEXTURE0 + PICTURE_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor != 0 ? pictureColor : Pipeline.none());
+        GL11.glBindTexture(GL_TEXTURE_2D, pictureColor != 0 ? pictureColor : view.pipeline.none());
         GL13.glActiveTexture(GL_TEXTURE0 + HANDS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, handsDepth);
         GL13.glActiveTexture(GL_TEXTURE0);

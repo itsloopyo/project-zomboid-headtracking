@@ -37,23 +37,29 @@ import zombie.iso.IsoGridSquare;
  * Render thread only.
  */
 public final class Characters {
+    final View view;
+
+    Characters(View view) {
+        this.view = view;
+    }
+
     /** The model's own units to tiles: the game draws its characters at one and a half times their size. */
     private static final float CHARACTER_SCALE = 1.5f;
     /** The depth the game's model shader leaves a model at when it is not being fitted among sprites. */
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** Whether the part being drawn is being drawn by the picture, and not by the game for its own view. Render thread. */
-    private static boolean ours;
+    private boolean ours;
 
     /**
      * Whether a part the game is about to draw is one of its own view's, under a first person
      * picture that covers that view: it is then not drawn. Called from the game's code.
      */
-    public static boolean gamesOwnDrawIsCovered() {
-        return !ours && View.first().firstPerson.coversTheGamesView();
+    public boolean gamesOwnDrawIsCovered() {
+        return !ours && view.firstPerson.coversTheGamesView();
     }
 
     /** Has the game draw one part of a model for the picture. */
-    private static void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
+    private void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
         long began = TALLY ? System.nanoTime() : 0L;
         ours = true;
         try {
@@ -96,50 +102,50 @@ public final class Characters {
      * own view. Characters are drawn at one and a half times theirs.
      */
     private static final float VEHICLE_SCALE = 1f;
-    private static final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+    private final float[] IDENTITY = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
 
-    private static final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
+    private final ArrayList<ModelSlotRenderData> noted = new ArrayList<>();
     /** Where the game's own camera stood each noted model: x, y, floor level and the angle it turned it by. */
-    private static float[] stood = new float[64 * 4];
+    private float[] stood = new float[64 * 4];
     /** The frame the noted models belong to: the game reuses their render data for the next. */
-    private static Object notedIn;
+    private Object notedIn;
     /** Set on the logic thread: whether the first-person view wants the models at all. */
-    static volatile boolean wanted;
-    private static final float[] placed = new float[16];
-    private static final float[] combined = new float[16];
-    private static final float[] projection = new float[16];
-    private static final float[] eyeView = new float[16];
-    private static int drawnLast;
+    volatile boolean wanted;
+    private final float[] placed = new float[16];
+    private final float[] combined = new float[16];
+    private final float[] projection = new float[16];
+    private final float[] eyeView = new float[16];
+    private int drawnLast;
     /**
      * While set, a vehicle is drawn in another colour of paint than its own. What of it comes
      * out the same as in its own paint is not painted bodywork: its glass, its trim, its seats.
      * The game's picture of a vehicle does not otherwise say which of it is glass.
      */
-    static boolean repainted;
+    boolean repainted;
     /** Which of the models a draw takes: vehicles are painted metal and are lit apart from flesh and cloth. */
     private static final int ALL = 0, ONLY_CHARACTERS = 1, ONLY_VEHICLES = 2;
-    private static int only = ALL;
-    private static float asideX, asideY;
+    private int only = ALL;
+    private float asideX, asideY;
 
-    static void aside(float x, float y) {
+    void aside(float x, float y) {
         asideX = x;
         asideY = y;
     }
 
     /** Puts a projection the same fraction of a pixel aside as this frame's models are drawn. */
-    static void aside(float[] projection) {
+    void aside(float[] projection) {
         projection[8] += asideX;
         projection[9] += asideY;
     }
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     /** With tracing on, what the models noted last frame were. */
-    static volatile String described = "";
+    volatile String described = "";
 
     /**
      * What the game's vehicle draw asks for its matrices: it calls Begin and End on whatever
      * camera is current, where its character draw takes them from the caller.
      */
-    private static final ModelCamera EYE = new ModelCamera() {
+    private final ModelCamera EYE = new ModelCamera() {
         @Override
         public void Begin() {
             Core core = Core.getInstance();
@@ -161,19 +167,18 @@ public final class Characters {
         }
     };
     /** How many of EYE's pairs of matrices are on the game's stacks. */
-    private static int eyeBegun;
+    private int eyeBegun;
     /** The game's own model camera, while EYE stands in for it. */
-    private static ModelCamera gameCamera;
+    private ModelCamera gameCamera;
 
-    private Characters() {}
 
-    static int drawnLast() {
+    int drawnLast() {
         return drawnLast;
     }
 
     /** The kinds of pass the models are drawn in: the eye's, the sun's two maps, a lamp's, a mirror's, a scope's. */
     private static final int BY_EYE = 0, BY_NEAR = 1, BY_FAR = 2, BY_LAMP = 3, BY_MIRROR = 4, BY_SCOPE = 5;
-    private static final String[] KIND_NAMES = {"eye", "near map", "far map", "lamp map", "mirror", "scope"};
+    private final String[] KIND_NAMES = {"eye", "near map", "far map", "lamp map", "mirror", "scope"};
     private static final int TALLY_FRAMES = 240;
     private static final boolean TALLY = Boolean.getBoolean("cameraunlock.zomboid.modelTimes");
     /**
@@ -181,14 +186,14 @@ public final class Characters {
      * drew, the parts the game did, the render thread's time in the pass and how much of that was the game's draw of its parts; and
      * the render thread's time in the whole picture.
      */
-    private static final int[] talliedModels = new int[KIND_NAMES.length], talliedOurs = new int[KIND_NAMES.length], talliedGames = new int[KIND_NAMES.length];
-    private static final long[] talliedNanos = new long[KIND_NAMES.length], talliedGameNanos = new long[KIND_NAMES.length];
-    private static double talliedPicture;
-    private static int kind, talliedFrames, talliedNoted;
+    private final int[] talliedModels = new int[KIND_NAMES.length], talliedOurs = new int[KIND_NAMES.length], talliedGames = new int[KIND_NAMES.length];
+    private final long[] talliedNanos = new long[KIND_NAMES.length], talliedGameNanos = new long[KIND_NAMES.length];
+    private double talliedPicture;
+    private int kind, talliedFrames, talliedNoted;
 
-    private static void tally() {
+    private void tally() {
         talliedNoted += noted.size();
-        talliedPicture += Pipeline.lastMillis();
+        talliedPicture += view.pipeline.lastMillis();
         if (++talliedFrames < TALLY_FRAMES) {
             return;
         }
@@ -213,7 +218,7 @@ public final class Characters {
     }
 
     /** Called at the end of the game's own draw of a model, while the game's camera still holds where it stood it. */
-    public static void drawn(ModelSlotRenderData data) {
+    public void drawn(ModelSlotRenderData data) {
         // A person whose textures are still being made is not drawn by the game, though its
         // draw returns all the same, and has nothing whole to draw from yet.
         if (!wanted || data.character != null && !data.canRender()) {
@@ -249,7 +254,7 @@ public final class Characters {
      * which a later draw of the game's would read this picture's camera from, and its model
      * camera.
      */
-    static void unwind() {
+    void unwind() {
         Core core = Core.getInstance();
         for (; eyeBegun > 0; eyeBegun--) {
             core.modelViewMatrixStack.pop();
@@ -261,7 +266,7 @@ public final class Characters {
     }
 
     /** Render thread, as the picture stops being drawn: the models last noted are the game's to let go of. */
-    static void setDown() {
+    void setDown() {
         noted.clear();
         notedIn = null;
         holding = null;
@@ -269,7 +274,7 @@ public final class Characters {
     }
 
     /** Whether there is anything to draw this frame. The noted models of an earlier frame are dropped. */
-    static boolean ready() {
+    boolean ready() {
         if (noted.isEmpty() || notedIn != SpriteRenderer.instance.getRenderingState()) {
             noted.clear();
             return false;
@@ -283,7 +288,7 @@ public final class Characters {
      * wall stays behind it. The viewer's own model is left out: the eye is inside its head.
      * Returns how many were drawn.
      */
-    static int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
+    int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
         kind = scope ? BY_SCOPE : BY_EYE;
         seenHigh = tanHalfFieldOfView;
         seenWide = tanHalfFieldOfView * aspect;
@@ -300,7 +305,7 @@ public final class Characters {
         }
         // Seen from outside the viewer is one of the people in the picture.
         ViewCamera.view(camera, eyeView);
-        int drawn = draw(eyeView, Pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;
@@ -312,17 +317,17 @@ public final class Characters {
      * With -Dcameraunlock.zomboid.withoutModelCull=true every model within reach is drawn in
      * every pass, whether or not the pass can show it: for telling what the culls leave out.
      */
-    private static boolean withoutCull = Boolean.getBoolean("cameraunlock.zomboid.withoutModelCull");
+    private boolean withoutCull = Boolean.getBoolean("cameraunlock.zomboid.withoutModelCull");
     /** While the pass is a picture seen through a view of its own, the eye's or a lamp's: that view, with the tangents of half the picture's width and half its height. */
-    private static float[] seenFrom;
-    private static float seenWide, seenHigh;
+    private float[] seenFrom;
+    private float seenWide, seenHigh;
     /** A lamp's map shows nothing further from the lamp than this, or everything while it is nought. */
-    private static float seenWithin;
+    private float seenWithin;
     /** The eye's view of the frame and the tangents of half its picture, as the sun's maps are cast, and whether nothing else looks at what those maps shade. */
-    private static final float[] eyeSees = new float[16];
-    private static float eyeWide, eyeHigh;
-    private static boolean eyeAlone;
-    private static final float[] past = new float[5];
+    private final float[] eyeSees = new float[16];
+    private float eyeWide, eyeHigh;
+    private boolean eyeAlone;
+    private final float[] past = new float[5];
 
     /**
      * Said before the sun's maps are cast: what the frame's eye will see. A model whose shadow
@@ -330,7 +335,7 @@ public final class Characters {
      *
      * @param alone whether the eye's picture is the only one this frame that reads those maps: a mirror and a scope look elsewhere
      */
-    static void seenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, boolean alone) {
+    void seenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, boolean alone) {
         ViewCamera.view(camera, eyeSees);
         eyeHigh = tanHalfFieldOfView;
         eyeWide = tanHalfFieldOfView * aspect;
@@ -349,8 +354,8 @@ public final class Characters {
     /** How far behind a mirror a person is still drawn into it, and a vehicle, in tiles. */
     private static final float MIRROR_PEOPLE = 30f, MIRROR_VEHICLES = 60f;
     /** While set, only what stands before this eye, looking this way and no wider than this, is drawn: a mirror's picture. */
-    private static boolean mirrored;
-    private static float mirrorWayX, mirrorWayY, mirrorWide;
+    private boolean mirrored;
+    private float mirrorWayX, mirrorWayY, mirrorWide;
 
     /**
      * Draws the people, or the vehicles, that a mirror looking back from a vehicle takes in,
@@ -358,7 +363,7 @@ public final class Characters {
      * shows. The mirror is small: only what is near enough to be told in it is drawn, and
      * nothing of the vehicle it hangs in. Returns how many were drawn.
      */
-    static int drawBehind(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
+    int drawBehind(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
         kind = BY_MIRROR;
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
@@ -377,7 +382,7 @@ public final class Characters {
     private static final float MIRROR_MARGIN = 4f;
 
     /** The frame has drawn the models it was given. */
-    static void done() {
+    void done() {
         if (TALLY) {
             tally();
         }
@@ -391,10 +396,10 @@ public final class Characters {
      * is cut away, the head, the shoulders and the chest, and what is left is the body a
      * person sees looking down, arms and legs. False if the viewer is not among the models.
      */
-    static boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+    boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         holding = null;
-        if (Pipeline.seated) {
+        if (view.pipeline.seated) {
             return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
         for (int i = 0; i < noted.size(); i++) {
@@ -409,7 +414,7 @@ public final class Characters {
     }
 
     /** False if the vehicle sat in is not among the models. */
-    private static boolean drawOwnVehicle(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+    private boolean drawOwnVehicle(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         // Seated, what is the viewer's own is the vehicle round the eye. It is drawn here,
         // apart from the world, so that the picture can leave out what of it is in the
         // way without leaving a hole in the world behind it.
@@ -424,7 +429,7 @@ public final class Characters {
                 int at = i * 4;
                 float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-                String script = View.first().ride.seatedIn;
+                String script = view.ride.seatedIn;
                 if (script != null && !parts(data).isEmpty()) {
                     ViewCamera.view(camera, eyeView);
                     multiply(projection, eyeView, combined);
@@ -455,14 +460,14 @@ public final class Characters {
      * body is drawn without the arms that hold it only if they are then drawn
      * with the weapon.
      */
-    private static void settleTheWeapon(ModelSlotRenderData data, ViewCamera.Pose camera) {
-        ViewModel.Held hands = View.first().viewModel.held;
+    private void settleTheWeapon(ModelSlotRenderData data, ViewCamera.Pose camera) {
+        ViewModel.Held hands = view.viewModel.held;
         if (hands != null && CharacterDraw.cuts()) {
             ModelInstanceRenderData weapon = weaponOf(data);
             ViewCamera.between(aim, camera, fromAim);
             boolean own = Own.arms() && OwnArms.model() != null;
             float[] hand = hands.firearm() ? null : gameHand(data);
-            if (weapon != null && View.first().viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
+            if (weapon != null && view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
                     CHARACTER_SCALE, own, hand, fromAim, heldView)) {
                 holding = data;
                 armHands = hands;
@@ -476,7 +481,7 @@ public final class Characters {
                         armsRefused = true;
                         Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
                     }
-                    if (!View.first().viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
+                    if (!view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
                         holding = null;
                         return;
                     }
@@ -489,7 +494,7 @@ public final class Characters {
                 // A firearm with a muzzle has its left hand held on the fore-end.
                 // Anything else carried in both hands is not in both at every moment: a
                 // left hand that is off it stays with the body, where the game has it.
-                heldBoth = both && (View.first().viewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
+                heldBoth = both && (view.viewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
                 if (!arms[0] && !armless) {
                     armless = true;
                     Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
@@ -498,7 +503,7 @@ public final class Characters {
         }
     }
 
-    private static void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+    private void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         // A person's eyes are at the front of the head, ahead of the neck. The view's
         // eye is on the model's axis, so the model is stood a little behind it: looking
@@ -528,7 +533,7 @@ public final class Characters {
     }
 
     /** The game's light where the viewer stands, as their reflection was last drawn. */
-    static float reflectedLight = 1f;
+    float reflectedLight = 1f;
     /** How far above the joint of the head the eyes are, in tiles. */
     private static final float EYES_ABOVE_JOINT = 0.1f;
 
@@ -537,7 +542,7 @@ public final class Characters {
      * bound: the same model through a view that first puts every point where it is seen in
      * the glass. False if the viewer is not among the models.
      */
-    static boolean drawReflected(ViewCamera.Pose camera, OwnReflection.Glass glass, float tanHalfFieldOfView, float aspect, float near, float far) {
+    boolean drawReflected(ViewCamera.Pose camera, OwnReflection.Glass glass, float tanHalfFieldOfView, float aspect, float near, float far) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
@@ -559,7 +564,7 @@ public final class Characters {
             // eye is at a height of its own and the model's head is wherever the animation
             // has it, so the model is stood as much higher or lower as brings its eyes to the
             // view's.
-            float jointUp = View.first().modelHead.jointUp;
+            float jointUp = view.modelHead.jointUp;
             if (!Float.isNaN(jointUp)) {
                 float eyesUp = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
                 data.z += (camera.eyeUp - eyesUp) / ViewCamera.LEVEL_HEIGHT;
@@ -586,7 +591,7 @@ public final class Characters {
         return false;
     }
 
-    private static int liftSaid;
+    private int liftSaid;
 
     /** The bone the game hangs what is in the right hand from. */
     private static final String HAND_BONE = "Bip01_Prop1";
@@ -594,41 +599,41 @@ public final class Characters {
     private static final String MUZZLE = "muzzle";
 
     /** The viewer's model while its weapon is held up, from drawViewer until the frame is done. */
-    private static ModelSlotRenderData holding;
-    private static final float[] weaponPlace = new float[16], heldView = new float[16];
+    private ModelSlotRenderData holding;
+    private final float[] weaponPlace = new float[16], heldView = new float[16];
     /**
      * The aim of the frame being drawn. The weapon, the hands on it and the shoulders behind
      * them are placed in this view and drawn through the camera, so they stay on the aim
      * while the head turns and leans the picture.
      */
-    static final ViewCamera.Pose aim = new ViewCamera.Pose();
-    private static final float[] fromAim = new float[16], pole = new float[3];
+    final ViewCamera.Pose aim = new ViewCamera.Pose();
+    private final float[] fromAim = new float[16], pole = new float[3];
     /**
      * The views the hands on the weapon are drawn through, right then left: the weapon's, with
      * each hand turned about its palm to the arm behind it, and the left first moved to hold
      * its palm on the fore-end.
      */
-    private static final float[][] handViews = new float[2][16];
-    private static final float[] turn = new float[16];
+    private final float[][] handViews = new float[2][16];
+    private final float[] turn = new float[16];
     /** Whether the left hand is on the weapon held up, with the right. */
-    private static boolean heldBoth;
+    private boolean heldBoth;
     /**
      * The picture's own arms behind the hands on the weapon, right then left: whether each is
      * drawn, its wrist, elbow and shoulder as the eye sees them, the line square to both its
      * bones, the line across its cuff, and half the cuff's width across and through with how
      * far its skin stands off the elbow and the shoulder.
      */
-    private static final boolean[] arms = new boolean[2];
-    private static final float[][] joints = new float[2][9], bends = new float[2][3], cuffs = new float[2][3], wides = new float[2][4];
-    private static final float[] joined = new float[CharacterDraw.HAND_SAYS], other = new float[CharacterDraw.HAND_SAYS];
-    private static final float[] shoulder = new float[3], elbow = new float[3], wrist = new float[3], rigid = new float[3], palm = new float[3], across = new float[3];
+    private final boolean[] arms = new boolean[2];
+    private final float[][] joints = new float[2][9], bends = new float[2][3], cuffs = new float[2][3], wides = new float[2][4];
+    private final float[] joined = new float[CharacterDraw.HAND_SAYS], other = new float[CharacterDraw.HAND_SAYS];
+    private final float[] shoulder = new float[3], elbow = new float[3], wrist = new float[3], rigid = new float[3], palm = new float[3], across = new float[3];
     /**
      * For the trace, right then left, in radians: how far each wrist would be bent with the
      * hand as the game posed it, and how far it is bent as drawn. Written by the render
      * thread and read by the logic thread's trace, which may read a frame's two halves.
      */
-    private static final float[][] wristSaid = new float[2][2];
-    private static boolean armless;
+    private final float[][] wristSaid = new float[2][2];
+    private boolean armless;
     /** The upper arm against the forearm, which is the bone the model is measured by. */
     private static final float UPPER_ARM = 1.15f;
     /** An arm is never drawn quite straight: this much more than the reach, and room for the wrist to move as the hand is turned, in tiles. */
@@ -643,7 +648,7 @@ public final class Characters {
     private static final float ON_WEAPON = 0.5f;
 
     /** The light the game gives where the viewer stands, as it gave the viewer's model last drawn. */
-    static float ownLight = 1f;
+    float ownLight = 1f;
 
     /**
      * Works out one of the picture's arms for the weapon held up, and the turn of the hand it
@@ -653,7 +658,7 @@ public final class Characters {
      * forearm, which is where the arm's own measures are taken from; the hand is then drawn
      * as the game posed it.
      */
-    private static boolean reach(ModelSlotRenderData data, int side) {
+    private boolean reach(ModelSlotRenderData data, int side) {
         float[] view = handViews[side];
         System.arraycopy(heldView, 0, view, 0, 16);
         boolean found = false;
@@ -678,25 +683,25 @@ public final class Characters {
         for (int axis = 0; axis < 3; axis++) {
             across[axis] -= wrist[axis];
         }
-        ViewModel.Held hands = View.first().viewModel.held;
-        boolean laid = side == 1 && View.first().viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
-        if (side == 0 && View.first().viewModel.hasMuzzle) {
+        ViewModel.Held hands = this.view.viewModel.held;
+        boolean laid = side == 1 && this.view.viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        if (side == 0 && this.view.viewModel.hasMuzzle) {
             // The right hand's palm is on the grip, which says which way round a palm faces
             // from a hand's length and its thumb in these axes.
             palmSide = 1f;
             handAxes(false);
             float to = 0f;
             for (int axis = 0; axis < 3; axis++) {
-                to += facing[axis] * (View.first().viewModel.gripSeen[axis] - palm[axis]);
+                to += facing[axis] * (this.view.viewModel.gripSeen[axis] - palm[axis]);
             }
             palmSide = to < 0f ? -1f : 1f;
         }
         if (laid) {
             layOnForeEnd(view);
         }
-        if (side == 1 && View.first().viewModel.hasMuzzle) {
+        if (side == 1 && this.view.viewModel.hasMuzzle) {
             for (int axis = 0; axis < 3; axis++) {
-                float move = (laid ? held[axis] : View.first().viewModel.foreEnd[axis]) - palm[axis];
+                float move = (laid ? held[axis] : this.view.viewModel.foreEnd[axis]) - palm[axis];
                 wrist[axis] += move;
                 rigid[axis] += move;
                 palm[axis] += move;
@@ -707,7 +712,7 @@ public final class Characters {
         // match them. The mod's own gun is the size a gun is, and hands that size on it are a
         // giant's: they are drawn smaller about their middles, which stay where they hold,
         // and the arms behind them are as much thinner. The forearm keeps its length.
-        boolean fitted = View.first().viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        boolean fitted = this.view.viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
         if (fitted) {
             for (int i = 0; i < 16; i++) {
                 laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
@@ -770,12 +775,12 @@ public final class Characters {
     }
 
     /** For the trace: how far beside the weapon's middle the middle of the game's hand was, in tiles. */
-    private static float handAside;
+    private float handAside;
     /** Whether the arms on the weapon held up are the mod's own, and for each, right then left, where its bones are. */
-    private static boolean ownArms, armsRefused;
+    private boolean ownArms, armsRefused;
     /** How the weapon was held when its arms were placed: they are drawn for that, whatever the logic thread has said since. */
-    private static ViewModel.Held armHands;
-    private static final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
+    private ViewModel.Held armHands;
+    private final float[][] armSkins = new float[2][24 * 16], armSaid = new float[2][ArmPose.SAYS];
     /**
      * The model's metres to tiles as the game draws a person of scale one: its pump gun's grip
      * is 0.4461 of its units from its muzzle, which on the gun the mod made to the same
@@ -784,18 +789,18 @@ public final class Characters {
     private static final float ARM_SCALE = 0.4461f / 0.9015f * CHARACTER_SCALE;
 
     /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
-    private static boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
-        heldBoth = hands.bothHands() && (View.first().viewModel.hasMuzzle || !hands.firearm());
+    private boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
+        heldBoth = hands.bothHands() && (view.viewModel.hasMuzzle || !hands.firearm());
         // The weapon is held where the game's own hand has it: by the middle of that hand, which the weapon's maker put its grip in.
-        float[] grip = View.first().viewModel.gripSeen;
+        float[] grip = view.viewModel.gripSeen;
         for (int part = 0; part < parts(data).size(); part++) {
             if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
                 ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
                 // The middle of the game's hand is beside the weapon, not in it, and the mod's hand closes on the
                 // weapon's own middle: a firearm's is the plane its barrel and its top lie in, and a handle's is its length.
-                float[] off = {palm[0] - View.first().viewModel.gripSeen[0], palm[1] - View.first().viewModel.gripSeen[1], palm[2] - View.first().viewModel.gripSeen[2]};
-                float[] ahead = View.first().viewModel.pointing, side = new float[3];
-                ArmPose.cross(ahead, View.first().viewModel.over, side);
+                float[] off = {palm[0] - view.viewModel.gripSeen[0], palm[1] - view.viewModel.gripSeen[1], palm[2] - view.viewModel.gripSeen[2]};
+                float[] ahead = view.viewModel.pointing, side = new float[3];
+                ArmPose.cross(ahead, view.viewModel.over, side);
                 if (hands.firearm() && ArmPose.unit(side[0], side[1], side[2], side)) {
                     float aside = ArmPose.dot(off, side);
                     for (int axis = 0; axis < 3; axis++) {
@@ -805,7 +810,7 @@ public final class Characters {
                 } else if (!hands.firearm()) {
                     float along = ArmPose.dot(off, ahead);
                     for (int axis = 0; axis < 3; axis++) {
-                        palm[axis] = View.first().viewModel.gripSeen[axis] + ahead[axis] * along;
+                        palm[axis] = view.viewModel.gripSeen[axis] + ahead[axis] * along;
                     }
                     handAside = ArmPose.apart(off, new float[] {ahead[0] * along, ahead[1] * along, ahead[2] * along});
                 }
@@ -813,16 +818,16 @@ public final class Characters {
                 break;
             }
         }
-        ArmHolds.Parts parts = View.first().viewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
+        ArmHolds.Parts parts = view.viewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
         float[] origin = grip;
-        if (View.first().viewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
+        if (view.viewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
             parts = new ArmHolds.Parts(parts.bore(), parts.knob(), parts.lift(), OwnRifle.boltTravel(), parts.port(), parts.well(), parts.slide(), parts.slideTravel());
-            origin = View.first().viewModel.gripSeen;
-        } else if (View.first().viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
-            origin = View.first().viewModel.gripSeen;
+            origin = view.viewModel.gripSeen;
+        } else if (view.viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
+            origin = view.viewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), View.first().viewModel.handgun, grip, origin, View.first().viewModel.pointing, View.first().viewModel.over, View.first().viewModel.foreEnd, View.first().viewModel.foreSteady, parts);
-        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), View.first().viewModel.turned);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), view.viewModel.handgun, grip, origin, view.viewModel.pointing, view.viewModel.over, view.viewModel.foreEnd, view.viewModel.foreSteady, parts);
+        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), view.viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
         armsAsOf = now;
@@ -832,14 +837,14 @@ public final class Characters {
         return placed > 0;
     }
 
-    private static final ArmHolds.Carried armCarries = new ArmHolds.Carried();
-    private static final ArmHolds.Settled armSettled = new ArmHolds.Settled();
-    private static long armsAsOf;
-    private static Cabins.Wear wearSeen;
-    private static OwnArms.Worn wornSeen = OwnArms.BARE;
+    private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
+    private final ArmHolds.Settled armSettled = new ArmHolds.Settled();
+    private long armsAsOf;
+    private Cabins.Wear wearSeen;
+    private OwnArms.Worn wornSeen = OwnArms.BARE;
 
     /** What the mod's own arms wear, from what the game says the viewer has on: worked out again only when that changes. */
-    private static OwnArms.Worn wornOnArms() {
+    private OwnArms.Worn wornOnArms() {
         Cabins.Wear wear = Cabins.worn;
         if (wear != wearSeen) {
             wearSeen = wear;
@@ -862,10 +867,10 @@ public final class Characters {
     }
 
     /** 1 or -1: which way round a hand's palm faces from its length and its thumb, as the right hand on the grip shows it. */
-    private static float palmSide = 1f;
-    private static final float[] along = new float[3], thumb = new float[3], facing = new float[3], held = new float[3];
-    private static final float[] barrel = new float[3], upright = new float[3], aside = new float[3];
-    private static final float[] wantAlong = new float[3], wantThumb = new float[3], wantFacing = new float[3], laying = new float[16];
+    private float palmSide = 1f;
+    private final float[] along = new float[3], thumb = new float[3], facing = new float[3], held = new float[3];
+    private final float[] barrel = new float[3], upright = new float[3], aside = new float[3];
+    private final float[] wantAlong = new float[3], wantThumb = new float[3], wantFacing = new float[3], laying = new float[16];
     /**
      * How the hand that works a fore-end lies on it, in parts of the weapon's own axes, which
      * are its upright, the way to its right and the way to its muzzle: the palm under it and
@@ -880,15 +885,15 @@ public final class Characters {
      * an arm is can hang under the fore-end as an arm does, and comes up to it from below: out
      * to the side, it lies across the view beside the sights.
      */
-    private static final float[] FITTED_LEFT_ELBOW = {-0.55f, -1f, 0f};
-    private static final float[] across2 = new float[3];
+    private final float[] FITTED_LEFT_ELBOW = {-0.55f, -1f, 0f};
+    private final float[] across2 = new float[3];
 
     /**
      * A hand's own axes in the view, from its wrist, the elbow rigid with it, its middle and
      * the line across its wrist: along it to the fingers, towards its thumb, which is the side
      * its middle lies to, and out of its palm.
      */
-    private static void handAxes(boolean left) {
+    private void handAxes(boolean left) {
         unit(wrist[0] - rigid[0], wrist[1] - rigid[1], wrist[2] - rigid[2], along);
         float lengthwise = across[0] * along[0] + across[1] * along[1] + across[2] * along[2];
         unit(across[0] - along[0] * lengthwise, across[1] - along[1] * lengthwise, across[2] - along[2] * lengthwise, thumb);
@@ -910,11 +915,11 @@ public final class Characters {
      * the fore-end. The game poses the hand for its own gun and its own racking of it, and a
      * hand left as posed twists on the fore-end as the action is worked.
      */
-    private static void layOnForeEnd(float[] view) {
+    private void layOnForeEnd(float[] view) {
         handAxes(true);
-        unit(View.first().viewModel.muzzle[0] - View.first().viewModel.gripSeen[0], View.first().viewModel.muzzle[1] - View.first().viewModel.gripSeen[1], View.first().viewModel.muzzle[2] - View.first().viewModel.gripSeen[2], barrel);
-        float tipped = View.first().viewModel.over[0] * barrel[0] + View.first().viewModel.over[1] * barrel[1] + View.first().viewModel.over[2] * barrel[2];
-        unit(View.first().viewModel.over[0] - barrel[0] * tipped, View.first().viewModel.over[1] - barrel[1] * tipped, View.first().viewModel.over[2] - barrel[2] * tipped, upright);
+        unit(this.view.viewModel.muzzle[0] - this.view.viewModel.gripSeen[0], this.view.viewModel.muzzle[1] - this.view.viewModel.gripSeen[1], this.view.viewModel.muzzle[2] - this.view.viewModel.gripSeen[2], barrel);
+        float tipped = this.view.viewModel.over[0] * barrel[0] + this.view.viewModel.over[1] * barrel[1] + this.view.viewModel.over[2] * barrel[2];
+        unit(this.view.viewModel.over[0] - barrel[0] * tipped, this.view.viewModel.over[1] - barrel[1] * tipped, this.view.viewModel.over[2] - barrel[2] * tipped, upright);
         cross(barrel, upright, aside);
         unit(upright[0] * PALM_UP + aside[0] * PALM_RIGHT, upright[1] * PALM_UP + aside[1] * PALM_RIGHT, upright[2] * PALM_UP + aside[2] * PALM_RIGHT, wantFacing);
         float into = 0f;
@@ -943,7 +948,7 @@ public final class Characters {
         ViewModelMath.place(laying, rigid[0], rigid[1], rigid[2], rigid);
         ViewModelMath.turned(laying, across, across);
         for (int axis = 0; axis < 3; axis++) {
-            held[axis] = View.first().viewModel.foreEnd[axis] - wantFacing[axis] * PALM_OFF;
+            held[axis] = this.view.viewModel.foreEnd[axis] - wantFacing[axis] * PALM_OFF;
         }
     }
 
@@ -962,7 +967,7 @@ public final class Characters {
     }
 
     /** For the trace: how the wrists of the hands on the weapon are bent. */
-    static String describeArms() {
+    String describeArms() {
         StringBuilder said = new StringBuilder();
         if (ownArms) {
             for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
@@ -992,14 +997,14 @@ public final class Characters {
     }
 
     /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */
-    static boolean holding() {
+    boolean holding() {
         return holding != null;
     }
 
-    private static final float[] gameHand = new float[3];
+    private final float[] gameHand = new float[3];
 
     /** The middle of the game's right hand, in the axes the person is stood from at the scale it is drawn, or null if no part of the viewer's model has one. */
-    private static float[] gameHand(ModelSlotRenderData data) {
+    private float[] gameHand(ModelSlotRenderData data) {
         for (int part = 0; part < parts(data).size(); part++) {
             if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
                 System.arraycopy(joined, 6, gameHand, 0, 3);
@@ -1020,7 +1025,7 @@ public final class Characters {
         return null;
     }
 
-    private static final float[] scopePlace = new float[16];
+    private final float[] scopePlace = new float[16];
 
     /** The game's model of the scope on what the right hand holds, or null. */
     private static ModelInstanceRenderData scopeOf(ModelSlotRenderData data) {
@@ -1050,7 +1055,7 @@ public final class Characters {
      * moved with it and turned to their arms. Only after drawViewer, in a frame it left them
      * out of.
      */
-    static void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
+    void drawHeld(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ModelSlotRenderData data = holding;
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
         System.arraycopy(heldView, 0, combined, 0, 16);
@@ -1063,26 +1068,26 @@ public final class Characters {
         // and the game's model of it and of what is fixed to it is left out.
         ViewModel.Held hands = armHands;
         ModelInstanceRenderData held = weaponOf(data);
-        boolean own = held != null && View.first().viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
+        boolean own = held != null && view.viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
         if (own) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
-            View.first().ownWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+            view.ownWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside(), hands.aim());
         }
         // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
-        boolean rifle = !own && held != null && View.first().viewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
+        boolean rifle = !own && held != null && view.viewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
         if (rifle) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
-            View.first().ownRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+            view.ownRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
-        ModelInstanceRenderData glass = own || held == null || View.first().scope.fitted() == null ? null : scopeOf(data);
+        ModelInstanceRenderData glass = own || held == null || view.scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
             IsoGridSquare square = data.character.getCurrentSquare();
-            View.first().scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
+            view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
         }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
@@ -1146,10 +1151,10 @@ public final class Characters {
      * Draws the models within reach of the eye as the light sees them, into a shadow map. The
      * viewer is among them, for their shadow.
      */
-    static void cast(float[] lightMatrix) {
+    void cast(float[] lightMatrix) {
         kind = within == null ? BY_NEAR : BY_FAR;
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
-        draw(lightMatrix, true, true, lightMatrix, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        draw(lightMatrix, true, true, lightMatrix, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
     }
 
     /**
@@ -1159,13 +1164,13 @@ public final class Characters {
      * shaded from the near map. Cast into both, a crowd round the viewer was drawn a third time
      * for nothing.
      */
-    static void castBeyond(float[] farMatrix, float[] nearMatrix) {
+    void castBeyond(float[] farMatrix, float[] nearMatrix) {
         within = nearMatrix;
         cast(farMatrix);
         within = null;
     }
 
-    private static float[] within;
+    private float[] within;
     /** How far from where they stand a person and what they hold reach, in tiles. */
     private static final float PERSON_REACH = 1.5f;
     /** The world's program reads the near map up to this far from its middle, of 1: see inside in PipelineShaders. */
@@ -1188,7 +1193,7 @@ public final class Characters {
      * @param tanHalf     the tangent of half that picture's width, which is its height too
      * @param reaches     how far from the lamp the map goes, in tiles
      */
-    static void castCharacters(float[] lightMatrix, float[] lampView, float tanHalf, float reaches) {
+    void castCharacters(float[] lightMatrix, float[] lampView, float tanHalf, float reaches) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         only = ONLY_CHARACTERS;
         kind = BY_LAMP;
@@ -1196,7 +1201,7 @@ public final class Characters {
         seenWide = tanHalf;
         seenHigh = tanHalf;
         seenWithin = reaches;
-        draw(lightMatrix, true, true, null, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        draw(lightMatrix, true, true, null, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
         seenFrom = null;
         seenWithin = 0f;
         only = ALL;
@@ -1204,9 +1209,9 @@ public final class Characters {
     }
 
     /** And for the shadow map of the torch in the viewer's own hand: everyone and every vehicle but the viewer, who would stand in their own beam. */
-    static void castOthers(float[] lightMatrix) {
+    void castOthers(float[] lightMatrix) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
-        draw(lightMatrix, false, true, null, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        draw(lightMatrix, false, true, null, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
         notingRoots = false;
     }
 
@@ -1215,9 +1220,9 @@ public final class Characters {
      * picture can lay cloth and skin on them that moves as they do.
      */
     static final int ROOTS = 16;
-    static final float[] roots = new float[ROOTS * 4];
-    static int rootsFound;
-    private static boolean notingRoots;
+    final float[] roots = new float[ROOTS * 4];
+    int rootsFound;
+    private boolean notingRoots;
 
     /**
      * Read from a vehicle's model, its steering wheel comes out this much higher than the wheel
@@ -1226,13 +1231,13 @@ public final class Characters {
      */
     private static final float WHEEL_SETTLES = -0.015f;
 
-    private static boolean fromSeat;
+    private boolean fromSeat;
 
     /** The light the game gave the models last drawn, averaged over them. */
-    static float ambient = 1f;
+    float ambient = 1f;
 
     /** The light the game gives the vehicle the viewer sits in. */
-    static final float[] ownAmbient = {1f, 1f, 1f};
+    final float[] ownAmbient = {1f, 1f, 1f};
 
     /** How far from where it stands a model or its shadow's caster reaches, in tiles: a vehicle's half length and some over. */
     private static final float MODEL_REACH = 4f;
@@ -1241,7 +1246,7 @@ public final class Characters {
      * @param casting whether the models are drawn as the light sees them, into a shadow map
      * @param map     the matrix of a shadow map that looks along the sun's rays, which a model standing outside is left out of, or null
      */
-    private static int draw(float[] view, boolean withViewer, boolean casting, float[] map, float eyeX, float eyeY, float reach) {
+    private int draw(float[] view, boolean withViewer, boolean casting, float[] map, float eyeX, float eyeY, float reach) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;
         float ambientSum = 0f;
@@ -1281,7 +1286,7 @@ public final class Characters {
                 continue;
             }
             // The vehicle the viewer sits in is drawn apart, with the viewer's own body.
-            if (!withViewer && Pipeline.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
+            if (!withViewer && this.view.pipeline.seated && data.character == null && toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE) {
                 continue;
             }
             if (mirrored) {
@@ -1367,7 +1372,7 @@ public final class Characters {
      * weapon. Of anyone else the picture draws the parts it can itself and leaves the game the
      * rest, what they hold and what hangs from them.
      */
-    private static void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, boolean held, boolean bothHands) {
+    private void character(ModelSlotRenderData data, float[] view, boolean own, boolean casting, boolean held, boolean bothHands) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(view, placed, combined);
         EYE.Begin();
@@ -1409,16 +1414,16 @@ public final class Characters {
      * the room. Nothing is said of a square the viewer has not seen: the game holds no light for it.
      * The viewer's torch is not in it: its beam lights a person as it lights the wall behind them.
      */
-    private static final ColorInfo stoodIn = new ColorInfo();
+    private final ColorInfo stoodIn = new ColorInfo();
 
-    private static void lightWhere(ModelSlotRenderData data) {
+    private void lightWhere(ModelSlotRenderData data) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         IsoGridSquare square = data.character.getCurrentSquare();
         if (viewer == null || square == null || !square.isSeen(viewer.getIndex())) {
             return;
         }
-        ColorInfo light = View.first().torchLess.light(square, viewer.getIndex(), stoodIn);
-        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, WorldScene.openNow, WorldScene.daylightKeptNow), square.isOutside());
+        ColorInfo light = view.torchLess.light(square, viewer.getIndex(), stoodIn);
+        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, view.worldScene.openNow, view.worldScene.daylightKeptNow), square.isOutside());
     }
 
     /**
@@ -1427,7 +1432,7 @@ public final class Characters {
      * vehicle is turned and tipped. Here the camera stands the same place as seen from the eye,
      * and the game does its seating on top of that.
      */
-    private static void seated(ModelSlotRenderData data, int at, float[] view) {
+    private void seated(ModelSlotRenderData data, int at, float[] view) {
         place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(view, placed, combined);
@@ -1453,7 +1458,7 @@ public final class Characters {
      * its own camera having none, so that is the figure given here. With the divide the two
      * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
-    private static void vehicle(ModelSlotRenderData data, int at, float[] view) {
+    private void vehicle(ModelSlotRenderData data, int at, float[] view) {
         place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(view, placed, combined);
@@ -1500,7 +1505,7 @@ public final class Characters {
      * and z along its back; the game turns it by its angle plus half a turn, mirrors it across
      * x and scales it. In world axes (x, y, up) that comes to this.
      */
-    private static void place(float x, float y, float up, float angle, float scale) {
+    private void place(float x, float y, float up, float angle, float scale) {
         float cos = (float) Math.cos(angle + Math.PI) * scale;
         float sin = (float) Math.sin(angle + Math.PI) * scale;
         placed[0] = cos; placed[1] = sin; placed[2] = 0f; placed[3] = 0f;

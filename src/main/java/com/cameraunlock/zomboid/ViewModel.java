@@ -395,7 +395,7 @@ public final class ViewModel {
         Held now = held;
         return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f attack %d reached %.2f past %.2f struck %b, action %d cycled %.2f doing %d for %.2f of %.2f rounds %d round %.2f seated %.2f handled %.2f worked %.2f drawn %.2f clip %b out %.2f fetching %.2f of %.2f, %s",
                 now.item, now.firearm ? " (firearm)" : "", now.bothHands ? " in both hands" : "", now.aim, now.recoil, bobPhase, now.bobX, now.bobY,
-                now.lowered, now.attack, now.reached, now.past, now.struck, now.action, now.cycled, now.doing, now.done, now.pace, now.rounds, now.round, now.seated, now.handled, now.worked, now.drawn, now.clip, now.out, now.fetching, now.fetchTakes, Characters.describeArms());
+                now.lowered, now.attack, now.reached, now.past, now.struck, now.action, now.cycled, now.doing, now.done, now.pace, now.rounds, now.round, now.seated, now.handled, now.worked, now.drawn, now.clip, now.out, now.fetching, now.fetchTakes, view.characters.describeArms());
     }
 
     /** How far apart the hip crosshair's ticks stand: 0 standing still, more moving and just after a shot. */

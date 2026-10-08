@@ -245,7 +245,7 @@ public final class Agent {
                         code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, "sightVector", "(Lzombie/iso/Vector2;I)Lzombie/iso/Vector2;")), 1)),
                 new Patch(CHARACTER_DRAW, "render before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(CHARACTER_DRAW, "render", "()V"),
-                        code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Characters", "drawn",
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "drawn",
                                 "(L" + CHARACTER_DRAW + ";)V")))),
                 reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getXA", "reticleX"),
                 reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getYA", "reticleY"),
@@ -337,7 +337,7 @@ public final class Agent {
                 // camera is stood, which the picture reads, and what says a model was shown.
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/Characters", "gamesOwnDrawIsCovered", "()Z"))));
+                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))));
     }
 
     /**

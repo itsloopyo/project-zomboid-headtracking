@@ -504,7 +504,7 @@ public final class FineSkins {
         // of: that is read out of the names of every texture the recipe uses, and with a crowd
         // on the screen and no room for more skins it was read for every part of every one of
         // them on every frame, which held a frame for a fifteenth of a second.
-        if (composedFrame == Pipeline.frame() || fineBytes >= MOST_BYTES && now - fine.values().iterator().next().used < KEPT_NANOS) {
+        if (composedFrame == View.first().pipeline.frame() || fineBytes >= MOST_BYTES && now - fine.values().iterator().next().used < KEPT_NANOS) {
             return bound;
         }
         boolean any = anyPacked(recipe);
@@ -535,7 +535,7 @@ public final class FineSkins {
             TextureCombiner.instance.releaseTexture(least.texture);
         }
         Texture made = composedWithStateKept(recipe);
-        composedFrame = Pipeline.frame();
+        composedFrame = View.first().pipeline.frame();
         Fine kept = new Fine(made, System.nanoTime());
         fine.put(result, kept);
         fineBytes += kept.bytes;
@@ -702,8 +702,8 @@ public final class FineSkins {
             throw new IllegalStateException("the mod's own skin at " + path + " could not be made", read.failure);
         }
         ByteBuffer pixels = read.pixels;
-        if (pixels != null && ownMadeFrame != Pipeline.frame()) {
-            ownMadeFrame = Pipeline.frame();
+        if (pixels != null && ownMadeFrame != View.first().pipeline.frame()) {
+            ownMadeFrame = View.first().pipeline.frame();
             // The game makes the texture here and now on the render thread, and leaves it bound.
             // It copies the picture into memory of its own, so the picture as read is given back.
             int bound = GL11.glGetInteger(GL_TEXTURE_BINDING_2D), remembered = Texture.lastTextureID;

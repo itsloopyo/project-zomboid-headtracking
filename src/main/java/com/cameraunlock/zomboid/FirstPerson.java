@@ -143,7 +143,7 @@ public final class FirstPerson {
     private int paceFrames;
     /** With tracing on, the memory the logic thread took for the picture since the last pace line. */
     private long paceBuiltBytes;
-    private WorldScene paceScene;
+    private WorldScene.Frame paceScene;
     /** A frame this long is a hitch the player feels: the log says what the frame before it built and drew. */
     private static final long LONG_FRAME_NANOS = 100_000_000L;
     private boolean haveRawX, haveRawY;
@@ -251,7 +251,7 @@ public final class FirstPerson {
             return;
         }
         // With the picture already drawing the game's own view there is nothing left to make and the world is built.
-        if (!on && (Pipeline.unprepared() || Pipeline.contentWaited() || !rehearsed && !overhead())) {
+        if (!on && (view.pipeline.unprepared() || view.pipeline.contentWaited() || !rehearsed && !overhead())) {
             gettingReady = true;
             readySince = System.nanoTime();
             Log.info("first person asked for: what it is drawn with is being made");
@@ -263,11 +263,11 @@ public final class FirstPerson {
     /** One frame of getting ready: the next piece of what the picture is drawn with, then the world built once unseen, then the switch. */
     private void getReady(IsoPlayer player, long now) {
         boolean late = now - readySince > READY_WITHIN_NANOS;
-        if (!late && (Pipeline.unprepared() || Pipeline.contentWaited())) {
-            SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
+        if (!late && (view.pipeline.unprepared() || view.pipeline.contentWaited())) {
+            SpriteRenderer.instance.drawGeneric(view.pipeline.PREPARE);
             return;
         }
-        if (!late && !rehearsed && !Characters.wanted && !GameTime.isGamePaused() && !player.isDead()) {
+        if (!late && !rehearsed && !view.characters.wanted && !GameTime.isGamePaused() && !player.isDead()) {
             rehearse(player);
             return;
         }
@@ -285,7 +285,7 @@ public final class FirstPerson {
         held = false;
         rehearsed = false;
         world.look(null, 0);
-        WorldScene.letGo();
+        view.worldScene.letGo();
     }
 
     /**
@@ -304,7 +304,7 @@ public final class FirstPerson {
             lookCaptured = false;
             wasCaptured = false;
             fromTheEye = false;
-            Characters.wanted = false;
+            view.characters.wanted = false;
             MouseGrab.wanted = false;
             MouseGrab.kept = false;
             // No frame is open here, and the menu's first frame clears whatever the sprite renderer
@@ -320,11 +320,11 @@ public final class FirstPerson {
             view.flight.cut(false);
             if (pictureUp) {
                 pictureUp = false;
-                RenderThread.queueInvokeOnRenderContext(Pipeline.RELEASE::render);
+                RenderThread.queueInvokeOnRenderContext(view.pipeline.RELEASE::render);
             }
             if (held) {
                 letGo();
-                RenderThread.queueInvokeOnRenderContext(Pipeline.LET_GO::render);
+                RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
                 Log.info("the save was left: first person has given back what it held");
             }
         } catch (RuntimeException | LinkageError thrown) {
@@ -374,7 +374,7 @@ public final class FirstPerson {
         if (gap == null) {
             gap = failure;
         }
-        return gap != null ? gap : Pipeline.failure();
+        return gap != null ? gap : view.pipeline.failure();
     }
 
     /**
@@ -446,10 +446,10 @@ public final class FirstPerson {
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
         boolean overheadAsked = !Quality.plain() && failure == null && allowed(view.player());
-        overhead = overheadAsked && !Pipeline.unprepared() && !Pipeline.contentWaited();
+        overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
         if (Terrain.level != overhead()) {
             Terrain.level(overhead());
-            WorldScene.forgetAll();
+            view.worldScene.forgetAll();
         }
         IsoPlayer player = view.player();
         rideAlong(player);
@@ -501,7 +501,7 @@ public final class FirstPerson {
                     Math.toDegrees(yaw), facings(player), Math.toDegrees(mouseTurned), mouseMost));
         }
         boolean flown = on || !view.flight.home();
-        Characters.wanted = flown || overhead && allowed(player) && !player.isDead();
+        view.characters.wanted = flown || overhead && allowed(player) && !player.isDead();
         MouseGrab.wanted = lookCaptured;
         MouseGrab.kept = active && pointer.on();
         ModelHead.sayGap();
@@ -523,29 +523,29 @@ public final class FirstPerson {
             } else if (gettingReady) {
                 getReady(player, now);
             }
-            if (Characters.wanted) {
+            if (view.characters.wanted) {
                 drawOverhead(player);
             } else if (pictureUp) {
                 pictureUp = false;
-                WorldScene.setDown();
+                view.worldScene.setDown();
                 world.look(null, 0);
-                SpriteRenderer.instance.drawGeneric(Pipeline.RELEASE);
+                SpriteRenderer.instance.drawGeneric(view.pipeline.RELEASE);
             }
             // Switched off and on again within the minute, the view is there at once. Left off, it gives back
             // what it holds: the world on the graphics card and the mod's own pictures, which are most of it.
             // While the picture is drawing the game's own view it makes its own pieces, one a frame.
-            boolean making = !gettingReady && !Characters.wanted && (overheadAsked && !overhead || Pipeline.contentHalfMade());
+            boolean making = !gettingReady && !view.characters.wanted && (overheadAsked && !overhead || view.pipeline.contentHalfMade());
             if (making) {
-                SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
+                SpriteRenderer.instance.drawGeneric(view.pipeline.PREPARE);
             }
             // A mode in which the picture draws the game's own view keeps what it is drawn with while that view is not
             // being drawn, a dead player's among them: let go, it would all be made again at once, and let go again a minute later.
-            if (Characters.wanted || gettingReady || making || overheadAsked) {
+            if (view.characters.wanted || gettingReady || making || overheadAsked) {
                 held = true;
                 offSince = now;
             } else if (held && now - offSince > LET_GO_AFTER_NANOS) {
                 letGo();
-                SpriteRenderer.instance.drawGeneric(Pipeline.LET_GO);
+                SpriteRenderer.instance.drawGeneric(view.pipeline.LET_GO);
             }
             return;
         }
@@ -586,7 +586,7 @@ public final class FirstPerson {
         held = true;
         offSince = now;
         rehearsed = true;
-        WorldScene scene = WorldScene.next();
+        WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
             view.hearing.face(trackedView, 0f, 1f);
@@ -620,7 +620,7 @@ public final class FirstPerson {
      * round where they stand. From there in it is the first-person view from a little behind
      * the eye.
      */
-    private void fly(IsoPlayer player, WorldScene scene, float floorUp) {
+    private void fly(IsoPlayer player, WorldScene.Frame scene, float floorUp) {
         aimOverhead(player, floorUp);
         view.flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
                 cleanView, trackedView, yaw, pitch, view.fieldOfView.tanHalfVertical(), flightView);
@@ -718,7 +718,7 @@ public final class FirstPerson {
                     memory.maxMemory() >> 20, paceScene == null ? "no scene yet" : paceScene.describe()));
             if (TRACE) {
                 Log.info(String.format(Locale.ROOT, "first person memory taken a frame: %.1f KB building, %.1f KB drawing",
-                        paceBuiltBytes / 1024.0 / paceFrames, WorldScene.takeDrawnBytes() / 1024.0 / paceFrames));
+                        paceBuiltBytes / 1024.0 / paceFrames, view.worldScene.takeDrawnBytes() / 1024.0 / paceFrames));
                 paceBuiltBytes = 0;
             }
             paceWait = PACE_EVERY_NANOS;
@@ -759,12 +759,12 @@ public final class FirstPerson {
         view.headlights.gather(x, y);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
-        WorldScene scene = WorldScene.next();
-        WorldScene.rehearsing = true;
+        WorldScene.Frame scene = view.worldScene.next();
+        view.worldScene.rehearsing = true;
         try {
             scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
         } finally {
-            WorldScene.rehearsing = false;
+            view.worldScene.rehearsing = false;
         }
         rehearsals++;
         if (scene.waiting() == 0) {
@@ -799,7 +799,7 @@ public final class FirstPerson {
         view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
         view.ride.seated = false;
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
-        WorldScene scene = WorldScene.next();
+        WorldScene.Frame scene = view.worldScene.next();
         // The game's own view shows the ground out to twice the picture's half height along the way it looks, which is
         // 30 degrees down, and to its half width across, and each floor up a little further along.
         int screen = player.getIndex();
@@ -850,7 +850,7 @@ public final class FirstPerson {
      * another eye, and that point is no longer straight ahead of it. With nothing in reach the
      * aim is at infinity and only its direction is left to project.
      */
-    private void placeReticle(WorldScene scene, float floorUp) {
+    private void placeReticle(WorldScene.Frame scene, float floorUp) {
         pictureTanHalf = scene.tanHalfFieldOfView();
         shotDistance = world.shotDistance(aimView, floorUp, WorldScene.REACH,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
@@ -876,7 +876,7 @@ public final class FirstPerson {
             player.setAttackTargetSquare(under != null ? under : player.getCurrentSquare());
         }
 
-        float aspect = WorldScene.drawnAspect();
+        float aspect = view.worldScene.drawnAspect();
         if (aspect == 0f) {
             // No frame has been drawn yet, so the shape of the picture is not known.
             hideReticle();
@@ -908,7 +908,7 @@ public final class FirstPerson {
      * and lean included. False if it is behind the eye or no picture has been drawn.
      */
     boolean inPicture(float x, float y, float up, float[] ndc) {
-        float aspect = WorldScene.drawnAspect();
+        float aspect = view.worldScene.drawnAspect();
         return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(trackedView, pictureTanHalf, aspect, x, y, up, ndc);
     }
 
@@ -1108,7 +1108,7 @@ public final class FirstPerson {
         return move.set(move.x * cos - move.y * sin, move.x * sin + move.y * cos);
     }
 
-    private void trace(IsoPlayer player, WorldScene scene, float zoom) {
+    private void trace(IsoPlayer player, WorldScene.Frame scene, float zoom) {
         long now = System.nanoTime();
         if (now - lastTrace < TRACE_INTERVAL_NANOS) {
             return;

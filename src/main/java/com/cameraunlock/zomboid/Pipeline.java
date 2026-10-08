@@ -41,8 +41,14 @@ import zombie.core.textures.TextureDraw;
  * The game's OpenGL state is saved before the frame and put back after it.
  */
 final class Pipeline {
+    final View view;
+
+    Pipeline(View view) {
+        this.view = view;
+    }
+
     /** How many texels across the shadow maps are: see Quality.shadowSize. */
-    private static int shadowSize;
+    private int shadowSize;
     /** Half the width of the ground each shadow map covers, in tiles, and how far along the light it reaches. */
     private static final float NEAR_EXTENT = 24f, FAR_EXTENT = 96f;
     private static final float NEAR_RANGE = 120f, FAR_RANGE = 220f;
@@ -113,7 +119,7 @@ final class Pipeline {
     private static final int GL_COLOR_ARRAY = 0x8076;
     private static final int GL_TEXTURE_COORD_ARRAY = 0x8078;
     /** Index, edge flag, fog coordinate and secondary colour: the arrays this frame does not use. */
-    private static final int[] OTHER_ARRAYS = {0x8077, 0x8079, 0x8457, 0x845E};
+    private final int[] OTHER_ARRAYS = {0x8077, 0x8079, 0x8457, 0x845E};
     /** Every OpenGL has at least this many generic vertex attributes and old-style texture coordinate sets. */
     private static final int VERTEX_ATTRIBUTES = 16;
     private static final int TEXTURE_COORD_UNITS = 8;
@@ -170,77 +176,77 @@ final class Pipeline {
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
     /** Why the picture cannot be drawn on this machine, or null. Set once, on the render thread. */
-    private static volatile String failure;
-    private static volatile boolean prepared;
-    private static Program rain;
-    private static Program snow;
-    private static Program steady;
+    private volatile String failure;
+    private volatile boolean prepared;
+    private Program rain;
+    private Program snow;
+    private Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
-    private static final int[] keptColor = new int[2], keptTarget = new int[2];
-    private static int keptNow;
-    private static boolean keptAny;
-    private static final ViewCamera.Pose before = new ViewCamera.Pose();
+    private final int[] keptColor = new int[2], keptTarget = new int[2];
+    private int keptNow;
+    private boolean keptAny;
+    private final ViewCamera.Pose before = new ViewCamera.Pose();
     /** How much of the last frame's picture goes into this one. */
     private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
-    private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
-    private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
-    private static int jitterAt;
+    private final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
+    private final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
+    private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
-    private static float asideX, asideY;
-    private static Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
-    private static Program far;
+    private float asideX, asideY;
+    private Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private Program far;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
-    private static float beyond;
+    private float beyond;
     /** How many frames go by before the pixels the built world is thinned out by come round again. */
     private static final int SIEVES = 64;
-    private static int whiteTexture, noiseTexture;
+    private int whiteTexture, noiseTexture;
     /**
      * What stands in for a picture that is not made, where a program has a sampler for it: a
      * colour of nothing at all, which is what such a picture is cleared to before it is drawn
      * into, and for a shadow map a depth as far off as depth goes, which shades nothing.
      */
-    private static int noneTexture, farDepth;
-    private static int nearMap, farMap, nearTarget, farTarget;
+    private int noneTexture, farDepth;
+    private int nearMap, farMap, nearTarget, farTarget;
     /** Whether the far map and the map of what is overhead have been drawn since they were made, and whether this frame draws the far one: see drawShadows. */
-    private static boolean farDrawn, roofDrawn, castFar;
+    private boolean farDrawn, roofDrawn, castFar;
     /** What is overhead near the eye, seen from straight above: where rain cannot fall. */
-    private static int roofMap, roofTarget;
-    private static final float[] roofMatrix = new float[16];
+    private int roofMap, roofTarget;
+    private final float[] roofMatrix = new float[16];
     private static final float ROOF_EXTENT = 20f, ROOF_RANGE = 40f;
     private static final int RAIN_DROPS = 9000;
     /** The drops, on the graphics card: they are the same every frame. */
-    private static int rainDrops;
+    private int rainDrops;
     /**
      * What open ground is made of, as pictures of the stuff itself that join up with themselves
      * at their edges: tarmac, gravel, earth, grass. They are laid over the ground by where it
      * is on the map, so the game's square of ground repeated a thousand times becomes one
      * unbroken surface. Made for this mod and shipped in its jar.
      */
-    private static final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
+    private final String[] MATERIALS = {"asphalt", "gravel", "soil", "grass", "shingles", "paint", "wood", "bark", "planks", "carpet", "leaves", "vinyl", "cloth", "jersey"};
     /** Which of the materials are planed wood and carpet. */
     private static final int WOOD = 6, CARPET = 9;
     /** Bark is several pictures in one texture, one behind another in the order Flora counts them. */
     private static final int BARK = 7;
     private static final int FIRST_MATERIAL_UNIT = 3;
-    private static final int[] materialTexture = new int[MATERIALS.length];
+    private final int[] materialTexture = new int[MATERIALS.length];
     /** What each material's picture is multiplied by to be 1 on average: it changes the ground's texture, not how light it is. */
-    private static final float[] materialGain = ones(MATERIALS.length);
+    private final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
-    private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
+    private final String[] NATURE = {"litter", "rock", "frond", "ivy"};
     private static final int FIRST_NATURE_UNIT = 24;
-    private static final int[] natureTexture = new int[NATURE.length];
-    private static final float[] natureGain = ones(NATURE.length);
+    private final int[] natureTexture = new int[NATURE.length];
+    private final float[] natureGain = ones(NATURE.length);
     /** The sprigs a crown is made of, all in one picture: see Flora.addCrown. */
     private static final int SPRIG_UNIT = 28;
-    private static int sprigs, sprigForm;
+    private int sprigs, sprigForm;
     private static final int SPRIG_FORM_UNIT = 29;
-    private static int width, height;
-    private static int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
+    private int width, height;
+    private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The picture's colour as the passes after the steadying read it: the scene's, or with the frames blended the steadied one. */
-    private static int frameColor;
+    private int frameColor;
     /** Quality.shadedAndLit as the frame began: the logic thread may change the mode between two passes of a frame. */
-    private static boolean shadedAndLit;
+    private boolean shadedAndLit;
 
     /**
      * Pictures that only some frames draw into. Each set is made by the first frame that draws
@@ -262,36 +268,36 @@ final class Pipeline {
     }
 
     /** What every frame draws into, at the picture's size. */
-    private static final Lent whole = new Lent("picture");
+    private final Lent whole = new Lent("picture");
     /** The steadied pair (FrameBlending), the cabin's three (seated), the viewer in a window's glass, and the shade and lit air (High). */
-    private static final Lent steadied = new Lent("steadied pictures"), cabin = new Lent("cabin's pictures"), glassed = new Lent("picture of the viewer in the glass"),
+    private final Lent steadied = new Lent("steadied pictures"), cabin = new Lent("cabin's pictures"), glassed = new Lent("picture of the viewer in the glass"),
             shaded = new Lent("pictures of shade and lit air");
     /** The headlights' shadow map, at the shadow maps' size. */
-    private static final Lent beamed = new Lent("headlights' shadow map");
+    private final Lent beamed = new Lent("headlights' shadow map");
     /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
-    private static final Lent torched = new Lent("torch's shadow map");
-    private static final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
+    private final Lent torched = new Lent("torch's shadow map");
+    private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
-    private static Lent making;
+    private Lent making;
     /** When the frame being drawn began. */
-    private static long frameNanos;
+    private long frameNanos;
     /** The viewer's own body, drawn apart from everything else: see Characters.drawViewer. */
-    private static int ownTarget, ownColor, ownDepth;
+    private int ownTarget, ownColor, ownDepth;
     /** Beside the viewer's own body, which way each point of it faces, where the picture drew it itself. */
-    private static int ownNormal;
-    private static int repaintedTarget, repaintedColor, repaintedDepth;
+    private int ownNormal;
+    private int repaintedTarget, repaintedColor, repaintedDepth;
     private static final float OWN_NEAR = 0.3f;
-    private static int occlusionTarget, occlusionColor, softTarget, softColor;
-    private static int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
-    private static int spriteSampler;
-    private static int skinSampler;
-    private static boolean glazed;
+    private int occlusionTarget, occlusionColor, softTarget, softColor;
+    private int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
+    private int spriteSampler;
+    private int skinSampler;
+    private boolean glazed;
     private static final int SKIN_UNITS = 8;
-    private static int depthSampler;
+    private int depthSampler;
     /** How wide the sun is, as the width of a shadow's soft edge for each tile between caster and ground. Wider than the real sun's: the real one's edge is too fine to read at this scale. */
     private static final float SUN_WIDTH = 0.06f;
-    private static int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
+    private int cloudTarget, cloudColor, softCloudTarget, softCloudColor;
 
     private static final boolean TIMES = Boolean.getBoolean("cameraunlock.zomboid.gpuTimes");
     /**
@@ -301,39 +307,39 @@ final class Pipeline {
      * by its distance less rangeFrom, and what it centres on the eye (shadow maps, who is
      * near enough to draw) is centred on the place looked at.
      */
-    static boolean overhead;
+    boolean overhead;
     /** The picture is drawn by a camera outside the viewer, who is then one of the people in it. */
-    static boolean outside;
+    boolean outside;
     /** How much of the game's own picture, which is under this one, this one covers. */
-    static float opacity = 1f;
+    float opacity = 1f;
     /** The glass the viewer is shown in this frame, or null: see OwnReflection. */
-    static OwnReflection.Glass reflection;
-    private static int selfTarget, selfColor;
-    private static Program selfShown;
-    private static final ViewCamera.Pose inGlass = new ViewCamera.Pose();
-    private static final float[] selfView = new float[16], selfProjection = new float[16];
-    private static final FloatBuffer selfCorners = buffer(OwnReflection.MOST * 18);
+    OwnReflection.Glass reflection;
+    private int selfTarget, selfColor;
+    private Program selfShown;
+    private final ViewCamera.Pose inGlass = new ViewCamera.Pose();
+    private final float[] selfView = new float[16], selfProjection = new float[16];
+    private final FloatBuffer selfCorners = buffer(OwnReflection.MOST * 18);
     /**
      * Whether the viewer sat in a vehicle when the frame was built. Every pass of the frame
      * goes by this one answer: the logic thread seats the viewer and stands them up between
      * two passes of a frame as readily as between two frames.
      */
-    static boolean seated;
-    static float rangeFrom;
-    static float focusX, focusY, focusUp;
+    boolean seated;
+    float rangeFrom;
+    float focusX, focusY, focusUp;
     /**
      * The middle of the map the game has loaded and how far from it the map reaches every way,
      * in tiles: the world fades into the sky by there as well as by the picture's own sight.
      */
-    static float loadedX, loadedY, loadedWithin = Float.MAX_VALUE / 2f;
+    float loadedX, loadedY, loadedWithin = Float.MAX_VALUE / 2f;
     /** The height above which walls are left out, for a viewer indoors seen from overhead: see the world shader. */
-    static float cutAbove = Float.MAX_VALUE;
+    float cutAbove = Float.MAX_VALUE;
     /** How much of CUT_BEHIND the cut still reaches behind the viewer: all of it from overhead, none as the camera reaches the eye. */
-    static float cutBehind = 1f;
+    float cutBehind = 1f;
     /** The height above which everything in the viewer's building is left out, while the camera is above it. */
-    static float lid = Float.MAX_VALUE;
-    static final float[] cutBox = new float[4];
-    private static final float[] holeAt = new float[2];
+    float lid = Float.MAX_VALUE;
+    final float[] cutBox = new float[4];
+    private final float[] holeAt = new float[2];
     /** The window opened about the viewer: its radius as a share of the picture's height, how far before them it starts, and how far under their eye its middle is, in tiles. */
     private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
     /** The same window's radius through trees. */
@@ -351,28 +357,28 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror"};
+    private final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
             STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14;
-    private static final long[] stageNanos = new long[STAGE_NAMES.length];
-    private static int stageFrames;
-    private static final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
-    private static final int[] upTarget = new int[BLOOM_LEVELS - 1], upColor = new int[BLOOM_LEVELS - 1];
-    private static final int[] levelWidth = new int[BLOOM_LEVELS], levelHeight = new int[BLOOM_LEVELS];
+    private final long[] stageNanos = new long[STAGE_NAMES.length];
+    private int stageFrames;
+    private final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
+    private final int[] upTarget = new int[BLOOM_LEVELS - 1], upColor = new int[BLOOM_LEVELS - 1];
+    private final int[] levelWidth = new int[BLOOM_LEVELS], levelHeight = new int[BLOOM_LEVELS];
 
-    private static final float[] tint = new float[4];
+    private final float[] tint = new float[4];
     /** The chunk builds the frame draws, for the furniture standing on each. */
-    private static ArrayList<WorldScene.ChunkMeshes> drawn;
+    private ArrayList<WorldScene.ChunkMeshes> drawn;
     /** Every chunk of the frame as draws. */
-    private static final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
+    private final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
     /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
-    private static final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
+    private final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
             beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing(), torchListed = new ChunkBuffers.Listing();
     /** The chunks a vehicle's mirror can show as draws, and the listing its picture is drawn from: every chunk's when none is out of it. */
-    private static final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
-    private static ChunkBuffers.Listing shownBehind = all;
+    private final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
+    private ChunkBuffers.Listing shownBehind = all;
     /** The chunks the eye's own picture, or a scope's, can show as draws, when those are not all of them: see seenBy. */
-    private static final ChunkBuffers.Listing seenListed = new ChunkBuffers.Listing();
+    private final ChunkBuffers.Listing seenListed = new ChunkBuffers.Listing();
     /** What the world's program is told in uLaid past 1, for all that is laid: only its grass is drawn, or all of it but its grass. */
     private static final float LAID_GRASS = 2f, LAID_REST = 3f;
     /**
@@ -381,20 +387,20 @@ final class Pipeline {
      * the viewer's feet and thickens a far wire, each by far less than this.
      */
     private static final float SEEN_MARGIN = 0.5f;
-    private static boolean[] leftOut = new boolean[256];
+    private boolean[] leftOut = new boolean[256];
     /** The width and height of each texture a frame has drawn with, by its OpenGL name, and the frame each was last asked of the driver: see tellTexel. */
-    private static int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
-    private static int texelsKnown;
+    private int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
+    private int texelsKnown;
     /** A texture's size is asked again after this many frames and up to as many more, by its name, so they are not all asked in one frame. A power of two. */
     private static final int TEXEL_KEPT_FRAMES = 256;
-    private static int frameNumber;
+    private int frameNumber;
     /** How many chunks the last frame drew into the near, far, headlight, roof and torch maps, and how many it had, for the log. */
     private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4;
-    private static final int[] heldChunks = new int[5];
+    private final int[] heldChunks = new int[5];
     /** Written after heldChunks, and read before it by the logic thread. */
-    private static volatile int heldOf;
+    private volatile int heldOf;
     /** What the shadow map being drawn holds. */
-    private static final MapBounds mapBounds = new MapBounds();
+    private final MapBounds mapBounds = new MapBounds();
     /**
      * The furthest the wind moves a vertex, in tiles for each unit of the wind's strength: the
      * most the shaders' blown() leans a plant, 0.05 + 0.045 + 0.02, times the most of the wind
@@ -402,49 +408,49 @@ final class Pipeline {
      */
     private static final float BLOWN_MOST = 0.115f * 2f;
     /** Every model the mod has, on the graphics card as Models.buffer lays them out. */
-    private static int modelBuffer;
+    private int modelBuffer;
     /** Every model's triangles, as Models.corners lists them. */
-    private static int modelCorners;
+    private int modelCorners;
     private static final int MODEL_STRIDE = Models.BUFFER_FLOATS * Float.BYTES;
-    private static final float[] nearMatrix = new float[16], farMatrix = new float[16];
-    private static final float[] beamMatrix = new float[16];
-    private static int beamMap, beamTarget;
-    private static int paneColor, paneTarget;
-    private static Program paneMask;
+    private final float[] nearMatrix = new float[16], farMatrix = new float[16];
+    private final float[] beamMatrix = new float[16];
+    private int beamMap, beamTarget;
+    private int paneColor, paneTarget;
+    private Program paneMask;
     private static final int PANE_UNIT = 23;
     /**
      * What part of the cabin each pixel of the vehicle sat in is, and how far off: the body's
      * own triangles, its glass left out, each drawn in the number of its kind.
      */
-    private static int partsColor, partsDepth, partsTarget;
-    private static Program partKind;
+    private int partsColor, partsDepth, partsTarget;
+    private Program partKind;
     private static final int PARTS_UNIT = 18, PARTS_DEPTH_UNIT = 19;
     /** The game's vehicle draw binds its own textures over the low units, the wood's among them: the cabin reads the wood from here. */
     private static final int WOOD_UNIT = 17;
-    private static int figureNormal;
+    private int figureNormal;
     private static final int NORMAL_UNIT = 22;
-    private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
-    private static int mirrorColor, mirrorTarget, mirrorDepth;
+    private final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
+    private int mirrorColor, mirrorTarget, mirrorDepth;
     /** The people and vehicles the mirror shows, as the game or the picture draws them, before they are lit into the mirror's picture. */
-    private static int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal;
+    private int mirrorFigureTarget, mirrorFigureColor, mirrorFigureNormal;
     /** Nearer the mirror than this, in tiles, is the vehicle it hangs in, and is left out of its picture. */
     private static final float MIRROR_NEAR = 2.6f;
-    private static boolean inMirror;
+    private boolean inMirror;
     /**
      * How long the mirror shows one picture of the road behind before it is drawn again: thirty
      * times a second. It is a second drawing of the world, a seventh of a frame's work on the
      * graphics card, for a picture a hand's breadth across.
      */
     private static final long MIRROR_EVERY_NANOS = 33_000_000L;
-    private static long mirrorDrawnAt;
+    private long mirrorDrawnAt;
     /** While set, the world is drawn into the picture a scope's eyepiece shows. */
-    private static boolean inScope;
+    private boolean inScope;
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
     private static final int MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
     static final float MIRROR_TAN = 0.1f;
-    private static final ViewCamera.Pose behind = new ViewCamera.Pose();
-    private static final ViewCamera.Pose lamp = new ViewCamera.Pose();
+    private final ViewCamera.Pose behind = new ViewCamera.Pose();
+    private final ViewCamera.Pose lamp = new ViewCamera.Pose();
     /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */
     private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
     /**
@@ -456,20 +462,20 @@ final class Pipeline {
     private static final float TORCH_TAN = 1.6f, TORCH_NEAR = 0.08f, TORCH_PAST_REACH = 3.5f;
     /** A torch lights a room, not a road: its map is no bigger than this across, in any mode. */
     private static final int TORCH_MAP_MOST = 2048;
-    private static final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
-    private static int torchMap, torchTarget, torchSize;
-    private static final float[] sunNdc = new float[2];
-    private static final int[] samplers = new int[UNITS];
+    private final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
+    private int torchMap, torchTarget, torchSize;
+    private final float[] sunNdc = new float[2];
+    private final int[] samplers = new int[UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
-    private static final int[] asked = new int[16];
-    private static final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
-    private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
-    private static final String[] ROOT_AT = new String[Characters.ROOTS];
-    private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
-    private static final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
-    private static final float[] snowTrod = new float[6];
+    private final int[] asked = new int[16];
+    private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    private final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
+    private final String[] ROOT_AT = new String[Characters.ROOTS];
+    private final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
+    private final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
+    private final float[] snowTrod = new float[6];
 
-    static {
+    {
         for (int i = 0; i < Headlights.BEAMS; i++) {
             BEAM_AT[i] = "uBeamAt[" + i + "]";
             BEAM_WAY[i] = "uBeamWay[" + i + "]";
@@ -485,24 +491,23 @@ final class Pipeline {
             RUT_UP_AT[i] = "uSnowRutUp[" + i + "]";
         }
     }
-    private static volatile float lastMillis;
+    private volatile float lastMillis;
     /** Whether any texture unit has been found with a sampler of the game's or another mod's bound to it, and how often they are looked at until one has. */
-    private static boolean samplersSeen;
+    private boolean samplersSeen;
     private static final int SAMPLERS_ASKED_EVERY = 256;
 
-    private Pipeline() {}
 
     /** Why first person cannot be drawn here, for the log and to keep the view off, or null. */
-    static String failure() {
+    String failure() {
         return failure;
     }
 
-    static float lastMillis() {
+    float lastMillis() {
         return lastMillis;
     }
 
     /** How many of the last frame's chunks each shadow map was drawn from. */
-    static String describeShadows() {
+    String describeShadows() {
         int of = heldOf;
         return "of " + of + " chunks the shadow maps hold near " + heldChunks[NEAR_MAP] + " far " + heldChunks[FAR_MAP] + " headlights " + heldChunks[BEAM_MAP]
                 + " roof " + heldChunks[ROOF_MAP] + " torch " + heldChunks[TORCH_MAP];
@@ -516,7 +521,7 @@ final class Pipeline {
     }
 
     /** The number of the frame being drawn, for whatever is done once a frame. Render thread. */
-    static int frame() {
+    int frame() {
         return frameNumber;
     }
 
@@ -530,7 +535,7 @@ final class Pipeline {
      * @param exposure   how much light the eye is letting in: lower in the open at noon than in a room
      * @param fogEnd     the distance, in tiles, at which the world has faded into the sky
      */
-    static void draw(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
+    void draw(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
             float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport) {
         if (failure != null) {
             return;
@@ -587,7 +592,7 @@ final class Pipeline {
             // on the next. The view goes off instead, and the log has why.
             failure = "the frame's draw threw " + thrown;
             Log.error("first person cannot be drawn", thrown);
-            Characters.unwind();
+            view.characters.unwind();
         } finally {
             for (int unit = 0; unit < UNITS; unit++) {
                 GL33.glBindSampler(unit, samplers[unit]);
@@ -608,7 +613,7 @@ final class Pipeline {
         lastMillis = (System.nanoTime() - start) / 1e6f;
     }
 
-    private static void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
+    private void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
             float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
             int drawTarget) {
         while (failure == null && !prepared) {
@@ -656,22 +661,22 @@ final class Pipeline {
             all.of(chunks, null, true);
             arrays();
             stage(STAGE_LOAD);
-            boolean figures = Characters.ready();
+            boolean figures = view.characters.ready();
             glazed = false;
             // A mirror and a scope look where the eye does not, at ground the same maps shade.
-            Characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && View.first().scope.fitted() == null);
+            view.characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && view.scope.fitted() == null);
             drawShadows(state, figures);
             boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
-            float[] cabin = seated ? Cabins.wheel(View.first().ride.seatedIn) : null;
+            float[] cabin = seated ? Cabins.wheel(view.ride.seatedIn) : null;
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
             if (cabin != null && System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS) {
                 mirrorDrawnAt = System.nanoTime();
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
                 stage(STAGE_MIRROR);
             }
-            if (View.first().scope.wanted(Characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
+            if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
@@ -715,7 +720,7 @@ final class Pipeline {
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
-            View.first().crosshair.draw(viewport[2], viewport[3]);
+            view.crosshair.draw(viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
             takeBackLent();
@@ -730,7 +735,7 @@ final class Pipeline {
         }
     }
 
-    private static void drawBehind(ViewCamera.Pose camera, SkyState state, float[] cabin, float far, float fogStart, float fogEnd,
+    private void drawBehind(ViewCamera.Pose camera, SkyState state, float[] cabin, float far, float fogStart, float fogEnd,
             boolean figures) {
         // What the mirror on the screen shows: the world behind, from where the mirror
         // hangs, drawn small, and as Low draws it whatever the mode: no further than Low's
@@ -738,7 +743,7 @@ final class Pipeline {
         float sight = Math.min(fogEnd, Quality.sightBehind());
         fogStart *= sight / fogEnd;
         fogEnd = sight;
-        float aheadX = View.first().ride.aheadX, aheadY = View.first().ride.aheadY;
+        float aheadX = view.ride.aheadX, aheadY = view.ride.aheadY;
         behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
         behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
         behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
@@ -747,7 +752,7 @@ final class Pipeline {
         float[] wheelAt = VehicleMeshes.seatedWheel;
         VehicleMeshes.Parts body = VehicleMeshes.seatedParts;
         if (wheelAt != null) {
-            Cabins.mirrorAt(wheelAt, Cabins.house(View.first().ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
+            Cabins.mirrorAt(wheelAt, Cabins.house(view.ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
             behind.eyeX = mirrorPlace[0];
             behind.eyeY = mirrorPlace[1];
             behind.eyeUp = mirrorPlace[2];
@@ -776,7 +781,7 @@ final class Pipeline {
      * eye, which looks the other way, so most of them are none of the mirror's: drawn from
      * every one of them its picture took twice as long as from its own.
      */
-    private static ChunkBuffers.Listing listBehind(ViewCamera.Pose pose, SkyState state, float sight) {
+    private ChunkBuffers.Listing listBehind(ViewCamera.Pose pose, SkyState state, float sight) {
         if (leftOut.length < drawn.size()) {
             leftOut = new boolean[drawn.size() * 2];
         }
@@ -804,22 +809,22 @@ final class Pipeline {
      * lens, along its axis, as narrow as its magnification makes it, with the people in it and
      * the sky behind. It is the same light as the picture round it, and is developed with it.
      */
-    private static void drawThroughScope(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
-        float tan = View.first().scope.pictureTan();
-        View.first().scope.lendPicture(frameNanos);
+    private void drawThroughScope(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
+        float tan = view.scope.pictureTan();
+        view.scope.lendPicture(frameNanos);
         inScope = true;
-        drawWorld(View.first().scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
+        drawWorld(view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
         inScope = false;
         if (figures) {
-            drawFiguresAside(View.first().scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, View.first().scope.figureTarget, View.first().scope.figureColor, View.first().scope.figureNormal,
-                    View.first().scope.pictureTarget, View.first().scope.pictureDepth, false, state, far, fogStart, fogEnd);
+            drawFiguresAside(view.scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, view.scope.figureTarget, view.scope.figureColor, view.scope.figureNormal,
+                    view.scope.pictureTarget, view.scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
-        drawSkyInto(View.first().scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, View.first().scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
-        View.first().scope.developed();
+        drawSkyInto(view.scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, view.scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        view.scope.developed();
     }
 
     /** The developed picture, its edges smoothed, into the part of the game's own picture the frame is written to. */
-    private static void showSmoothed(int drawTarget, int[] viewport) {
+    private void showSmoothed(int drawTarget, int[] viewport) {
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         // The game's own picture has a depth of its own, with the game's vehicles in it: tested
@@ -845,7 +850,7 @@ final class Pipeline {
      * an array the frame keeps: the call that hands the answer back makes a buffer for it
      * every time.
      */
-    private static int bound(int kind) {
+    private int bound(int kind) {
         GL11.glGetIntegerv(kind, asked);
         return asked[0];
     }
@@ -858,7 +863,7 @@ final class Pipeline {
     }
 
     /** Points OpenGL at the frame's vertices. Done again after the game has drawn anything, which leaves its own arrays set. */
-    private static void arrays() {
+    private void arrays() {
         GL30.glBindVertexArray(0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         // Any other array the game left switched on would be read for every vertex drawn here,
@@ -887,7 +892,7 @@ final class Pipeline {
      * Draws the ranges telling the program the size of a texel of each one's texture and the
      * colour it is painted over in, and leaves it told that nothing is painted over.
      */
-    private static void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
+    private void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
         int texel = program.at("uTexel"), painted = program.at("uTint"), joints = program.at("uJoint");
         boolean told = false;
         int toldKey = 0;
@@ -916,7 +921,7 @@ final class Pipeline {
      * everything the driver has been handed so far, and there is a draw between each two.
      * Asked again because the game may delete a texture and give its name to another.
      */
-    private static void tellTexel(int at, int texture) {
+    private void tellTexel(int at, int texture) {
         int mask = texelOf.length - 1;
         int slot = texture * 0x9E3779B1 >>> 16 & mask;
         while (texelOf[slot] != 0 && texelOf[slot] != texture) {
@@ -956,7 +961,7 @@ final class Pipeline {
     }
 
     /** Draws the ranges but the panes of windows, which are drawn last of all: see drawPanes. */
-    private static void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
+    private void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
             if (listed.tint(i) == WallSides.PANES) {
                 continue;
@@ -978,7 +983,7 @@ final class Pipeline {
      * chunks' buffer at a model's vertex numbers, so that array is off until arrays() puts it
      * back.
      */
-    private static void modelArrays() {
+    private void modelArrays() {
         boolean made = modelBuffer != 0;
         if (!made) {
             modelBuffer = GL15.glGenBuffers();
@@ -1008,7 +1013,7 @@ final class Pipeline {
     }
 
     /** What Screens.now says of the glass of a set showing a programme. */
-    private static final float[] tube = new float[4];
+    private final float[] tube = new float[4];
 
     /**
      * Draws the furniture standing on the chunks the frame shows, each piece from the one copy
@@ -1022,7 +1027,7 @@ final class Pipeline {
      *                Models.Instances.plain. A map of shadows is always cast by the plain models, and a picture with no eye
      *                given is drawn whole.
      */
-    private static void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel) {
+    private void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel) {
         if (lit) {
             Screens.giveBack();
         }
@@ -1152,7 +1157,7 @@ final class Pipeline {
         return false;
     }
 
-    private static void drawShadows(SkyState state, boolean figures) {
+    private void drawShadows(SkyState state, boolean figures) {
         lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE);
         // The far map and the map of what is overhead are each drawn every other frame, turn about. Both are
         // of things tens of tiles off or straight overhead, and each is read through the matrix it was last
@@ -1208,7 +1213,7 @@ final class Pipeline {
     }
 
     /** The near and the far shadow map, along the light. */
-    private static void castSun(SkyState state, boolean figures) {
+    private void castSun(SkyState state, boolean figures) {
         for (int map = 0; map < (castFar ? 2 : 1); map++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
             GL11.glClearDepth(1.0);
@@ -1224,19 +1229,19 @@ final class Pipeline {
             for (int map = 0; map < (castFar ? 2 : 1); map++) {
                 GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
                 if (map == 0) {
-                    Characters.cast(nearMatrix);
+                    view.characters.cast(nearMatrix);
                 } else {
-                    Characters.castBeyond(farMatrix, nearMatrix);
+                    view.characters.castBeyond(farMatrix, nearMatrix);
                 }
             }
             resumeCasting();
         }
     }
 
-    private static void castBeams(SkyState state, boolean figures) {
+    private void castBeams(SkyState state, boolean figures) {
         // The scene as the nearest lit headlights see it, so that what stands in their beam
         // throws its shadow down the road.
-        float[] beams = View.first().headlights.beams;
+        float[] beams = view.headlights.beams;
         heldChunks[BEAM_MAP] = 0;
         if (beams[6] > 0f) {
             lamp.eyeX = beams[0];
@@ -1264,7 +1269,7 @@ final class Pipeline {
                     beamMatrix[column * 4 + row] = sum;
                 }
             }
-            lend(beamed, Pipeline::makeBeamed);
+            lend(beamed, this::makeBeamed);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, beamTarget);
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
@@ -1276,7 +1281,7 @@ final class Pipeline {
             drawRanges(held, 0, held.solidRanges());
             drawModels(shadow, false, false, null, 0f, 0f);
             if (figures) {
-                Characters.castCharacters(beamMatrix, seen, BEAM_TAN, BEAM_FAR);
+                view.characters.castCharacters(beamMatrix, seen, BEAM_TAN, BEAM_FAR);
                 resumeCasting();
             }
         }
@@ -1288,7 +1293,7 @@ final class Pipeline {
      * Everyone but the viewer is drawn into it: the torch is in the viewer's own hand, and a
      * map with the viewer's body in it would have the beam light nothing but the viewer.
      */
-    private static void castTorch(SkyState state, boolean figures) {
+    private void castTorch(SkyState state, boolean figures) {
         float[] carried = state.carried;
         heldChunks[TORCH_MAP] = 0;
         torchAt[3] = 0f;
@@ -1314,7 +1319,7 @@ final class Pipeline {
                 torchMatrix[column * 4 + row] = sum;
             }
         }
-        lend(torched, Pipeline::makeTorched);
+        lend(torched, this::makeTorched);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, torchTarget);
         GL11.glViewport(0, 0, torchSize, torchSize);
         GL11.glClearDepth(1.0);
@@ -1327,14 +1332,14 @@ final class Pipeline {
         drawRanges(held, 0, held.solidRanges());
         drawModels(shadow, false, false, null, 0f, 0f);
         if (figures) {
-            Characters.castOthers(torchMatrix);
+            view.characters.castOthers(torchMatrix);
             resumeCasting();
         }
         GL11.glViewport(0, 0, shadowSize, shadowSize);
     }
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
-    private static void castRoof(SkyState state) {
+    private void castRoof(SkyState state) {
         float texel = 2f * ROOF_EXTENT / shadowSize;
         Arrays.fill(roofMatrix, 0f);
         roofMatrix[0] = 1f / ROOF_EXTENT;
@@ -1361,7 +1366,7 @@ final class Pipeline {
      * is outside the map puts nothing in it, drawn or not, so the map is the same texels with
      * it left out. Into own when any is left out, and all of them otherwise.
      */
-    private static ChunkBuffers.Listing heldBy(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
+    private ChunkBuffers.Listing heldBy(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
         mapBounds.of(matrix);
         if (leftOut.length < drawn.size()) {
             leftOut = new boolean[drawn.size() * 2];
@@ -1391,7 +1396,7 @@ final class Pipeline {
      * a side: listed for the picture too, every vertex of theirs was worked out in each of its
      * passes to be thrown away.
      */
-    private static ChunkBuffers.Listing seenBy(ViewCamera.Pose camera, SkyState state) {
+    private ChunkBuffers.Listing seenBy(ViewCamera.Pose camera, SkyState state) {
         ViewCamera.turned(camera, viewed);
         mapBounds.ofTurned(projection, viewed);
         if (leftOut.length < drawn.size()) {
@@ -1424,8 +1429,8 @@ final class Pipeline {
         return (float) Math.sqrt(x * x + y * y + up * up);
     }
 
-    private static void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(steadied, Pipeline::makeSteadied);
+    private void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(steadied, this::makeSteadied);
         int next = 1 - keptNow;
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_BLEND);
@@ -1465,7 +1470,7 @@ final class Pipeline {
     }
 
     /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
-    private static void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         GL11.glMatrixMode(GL_PROJECTION);
@@ -1536,7 +1541,7 @@ final class Pipeline {
      * centre moves a whole texel of the map at a time, or the shadows' edges would crawl as
      * the eye moves.
      */
-    private static void lightMatrix(float[] m, SkyState state, float extent, float range) {
+    private void lightMatrix(float[] m, SkyState state, float extent, float range) {
         float lx = state.lightX, ly = state.lightY, lu = state.lightUp;
         float rx = -ly, ry = lx;
         float flat = (float) Math.sqrt(rx * rx + ry * ry);
@@ -1558,9 +1563,9 @@ final class Pipeline {
         m[3] = 0f; m[7] = 0f; m[11] = 0f; m[15] = 1f;
     }
 
-    private static void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
+    private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? View.first().scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
         GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : width, inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
         // In the mirror, where nothing is drawn is marked, and the sky is put there when the
         // glass is drawn.
@@ -1593,7 +1598,7 @@ final class Pipeline {
             }
             projection[8] += asideX;
             projection[9] += asideY;
-            Characters.aside(asideX, asideY);
+            view.characters.aside(asideX, asideY);
         }
         ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
         boolean depthFirst = !WITHOUT.contains("depth");
@@ -1684,7 +1689,7 @@ final class Pipeline {
      * The far land, wherever the picture's depth does not already have the built world before
      * it: see FarLand. Drawn after the built world, most of it is hidden and costs nothing.
      */
-    private static void drawFar(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
+    private void drawFar(ViewCamera.Pose camera, SkyState state, float fogStart, float fogEnd) {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
@@ -1719,7 +1724,7 @@ final class Pipeline {
      * the room or the street, the people in it, the sky and the rain, which is why they are
      * drawn after all of those. A pane hides nothing and so leaves the picture's depth alone.
      */
-    private static void drawPanes(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
+    private void drawPanes(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
         int first = all.solidRanges();
         while (first < all.ranges() && all.tint(first) != WallSides.PANES) {
             first++;
@@ -1758,7 +1763,7 @@ final class Pipeline {
      * shadow maps, the weather. The projection is the one drawWorld last made, so whatever is
      * drawn later in the frame lies on what was drawn first to the fraction of a pixel.
      */
-    private static void tellWorld(Program to, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
+    private void tellWorld(Program to, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
@@ -1870,7 +1875,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
     }
 
-    private static void bindMaterials(Program to) {
+    private void bindMaterials(Program to) {
         for (int material = 0; material < MATERIALS.length; material++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
             // Until the mod's own pictures are made a unit holds plain white, which leaves whatever reads it as it was.
@@ -1928,7 +1933,7 @@ final class Pipeline {
         program.set("uGlow", state.glowRed, state.glowGreen, state.glowBlue);
     }
 
-    private static void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void drawSky(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         drawSkyInto(sceneTarget, width, height, true, camera, state, tanHalfFieldOfView, aspect, near, far);
     }
 
@@ -1937,7 +1942,7 @@ final class Pipeline {
      *
      * @param soft whether the clouds' edges are softened first, against the depth of the eye's own picture
      */
-    private static void drawSkyInto(int target, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
+    private void drawSkyInto(int target, int wide, int high, boolean soft, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView,
             float aspect, float near, float far) {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_DEPTH_TEST);
@@ -1982,9 +1987,9 @@ final class Pipeline {
 
     private static final int GL_TIME_ELAPSED = 0x88BF, GL_QUERY_RESULT = 0x8866;
     /** The timer queries of a frame, in the order its stages ended, and the stage each was for. */
-    private static final int[] stageQuery = new int[32], stageOf = new int[32];
-    private static int stageQueries;
-    private static boolean stageOpen;
+    private final int[] stageQuery = new int[32], stageOf = new int[32];
+    private int stageQueries;
+    private boolean stageOpen;
 
     /**
      * With -Dcameraunlock.zomboid.gpuTimes=true, reads how long the graphics card took over
@@ -1992,7 +1997,7 @@ final class Pipeline {
      * own time, by timer queries: waiting for it to finish after each stage charged a stage
      * with the time the driver took to be handed it as well, and held the whole frame up.
      */
-    private static void beginStages() {
+    private void beginStages() {
         if (stageOpen) {
             GL15.glEndQuery(GL_TIME_ELAPSED);
             stageOpen = false;
@@ -2004,7 +2009,7 @@ final class Pipeline {
         openStage();
     }
 
-    private static void openStage() {
+    private void openStage() {
         if (stageQueries == stageQuery.length) {
             return;
         }
@@ -2016,7 +2021,7 @@ final class Pipeline {
     }
 
     /** Charges what the graphics card has done since the last stage ended to this one. */
-    private static void stage(int stage) {
+    private void stage(int stage) {
         if (!TIMES || !stageOpen) {
             return;
         }
@@ -2026,7 +2031,7 @@ final class Pipeline {
         openStage();
     }
 
-    private static void reportStages() {
+    private void reportStages() {
         if (!TIMES || ++stageFrames < 240) {
             return;
         }
@@ -2039,8 +2044,8 @@ final class Pipeline {
         Log.info(line.toString());
     }
 
-    private static void drawOcclusion(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(shaded, Pipeline::makeShaded);
+    private void drawOcclusion(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(shaded, this::makeShaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
@@ -2081,8 +2086,8 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
     }
 
-    private static void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(shaded, Pipeline::makeShaded);
+    private void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        lend(shaded, this::makeShaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, volumeTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         volume.use();
@@ -2116,7 +2121,7 @@ final class Pipeline {
      * is given the scene's depth and the planes it was drawn between every time: what an
      * earlier pass left in its uniforms is another texture and, on a session's first frame, nought.
      */
-    private static void softenInto(int target, int source, float near, float far) {
+    private void softenInto(int target, int source, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         soften.use();
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
@@ -2132,7 +2137,7 @@ final class Pipeline {
     }
 
     /** Halves the picture five times, keeping only what is too bright to show, then adds the halves back up. */
-    private static void drawBloom(float exposure) {
+    private void drawBloom(float exposure) {
         bloomDown.use();
         bloomDown.set("uSource", 0);
         for (int level = 0; level < BLOOM_LEVELS; level++) {
@@ -2162,7 +2167,7 @@ final class Pipeline {
         }
     }
 
-    private static void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
+    private void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
             float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, shownTarget);
         GL11.glViewport(0, 0, width, height);
@@ -2222,7 +2227,7 @@ final class Pipeline {
         quad();
     }
 
-    private static void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
+    private void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         // Flesh and cloth first, then painted metal, which is lit as lacquer.
         for (int pass = 0; pass < 2; pass++) {
@@ -2238,7 +2243,7 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
-            int drawn = Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1, false);
+            int drawn = view.characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1, false);
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -2280,7 +2285,7 @@ final class Pipeline {
             // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
             figureLight.set("uInside", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
-            figureLight.set("uFigureAmbient", Characters.ambient);
+            figureLight.set("uFigureAmbient", view.characters.ambient);
             GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
             GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
             GL13.glActiveTexture(GL_TEXTURE0);
@@ -2290,9 +2295,9 @@ final class Pipeline {
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uWearGain", materialGain[13], materialGain[11]);
             figureLight.set("uWornGrain", Own.textures() ? 1f : 0f);
-            figureLight.set("uRoots", pass == 0 ? (float) Characters.rootsFound : 0f);
-            for (int root = 0; root < Characters.rootsFound && pass == 0; root++) {
-                figureLight.set(ROOT_AT[root], Characters.roots[root * 4], Characters.roots[root * 4 + 1], Characters.roots[root * 4 + 2], Characters.roots[root * 4 + 3]);
+            figureLight.set("uRoots", pass == 0 ? (float) view.characters.rootsFound : 0f);
+            for (int root = 0; root < view.characters.rootsFound && pass == 0; root++) {
+                figureLight.set(ROOT_AT[root], view.characters.roots[root * 4], view.characters.roots[root * 4 + 1], view.characters.roots[root * 4 + 2], view.characters.roots[root * 4 + 3]);
             }
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
@@ -2303,7 +2308,7 @@ final class Pipeline {
         }
 
         if (seated) {
-            lend(cabin, Pipeline::makeCabin);
+            lend(cabin, this::makeCabin);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);
             GL11.glDepthMask(true);
             GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -2312,18 +2317,18 @@ final class Pipeline {
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_BLEND);
-            Characters.repainted = true;
+            view.characters.repainted = true;
             smoothSkins(true);
-            Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+            view.characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
             smoothSkins(false);
-            Characters.repainted = false;
+            view.characters.repainted = false;
         }
         // The viewer's own body, the same way: drawn by the game, lit here.
         clearOwnTarget();
         smoothSkins(seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
         CharacterDraw.bare = !seated;
-        boolean own = !outside && Characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        boolean own = !outside && view.characters.drawViewer(camera, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         FloatBuffer glass = own && seated ? VehicleMeshes.seatedPanes : null;
@@ -2379,18 +2384,18 @@ final class Pipeline {
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", seated ? 0f : 1f);
             if (!seated) {
-                figureLight.set("uFigureAmbient", Characters.ownLight);
+                figureLight.set("uFigureAmbient", view.characters.ownLight);
             }
             figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
             figureLight.set("uCloth", FIRST_MATERIAL_UNIT + 12);
             figureLight.set("uCabinGain", materialGain[11], materialGain[12]);
-            figureLight.set("uOwnAmbient", Characters.ownAmbient[0], Characters.ownAmbient[1], Characters.ownAmbient[2]);
+            figureLight.set("uOwnAmbient", view.characters.ownAmbient[0], view.characters.ownAmbient[1], view.characters.ownAmbient[2]);
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
-            figureLight.set("uInstruments", View.first().ride.instrumentsLit ? 0.9f * state.night : 0f);
-            float[] wheel = seated ? Cabins.wheel(View.first().ride.seatedIn) : null;
+            figureLight.set("uInstruments", view.ride.instrumentsLit ? 0.9f * state.night : 0f);
+            float[] wheel = seated ? Cabins.wheel(view.ride.seatedIn) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
                 figureLight.set("uSeat", 0f, 0f, 0f);
@@ -2399,12 +2404,12 @@ final class Pipeline {
             }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uGlassRain", (float) Quality.glassRain());
-            View.first().glassPull.frame(seated, state.seconds, View.first().ride.goingX, View.first().ride.goingY, View.first().ride.aheadX, View.first().ride.aheadY);
+            view.glassPull.frame(seated, state.seconds, view.ride.goingX, view.ride.goingY, view.ride.aheadX, view.ride.aheadY);
             if (FirstPerson.TRACE && seated) {
-                View.first().glassPull.say();
+                view.glassPull.say();
             }
-            figureLight.set("uGlassPull", View.first().glassPull.leanAhead, View.first().glassPull.leanAside, View.first().glassPull.front, View.first().glassPull.back);
-            figureLight.set("uGauges", View.first().ride.roadSpeed, View.first().ride.engineSpeed, View.first().ride.fuel);
+            figureLight.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
+            figureLight.set("uGauges", view.ride.roadSpeed, view.ride.engineSpeed, view.ride.fuel);
             figureLight.set("uTime", state.seconds);
             float[] axes = VehicleMeshes.seatedAxes;
             figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
@@ -2414,15 +2419,15 @@ final class Pipeline {
             glazed = seated;
             GL11.glDepthFunc(GL_LEQUAL);
             GL11.glDisable(GL_DEPTH_TEST);
-            if (Characters.holding()) {
+            if (view.characters.holding()) {
                 drawHeld(camera, state, tanHalfFieldOfView, aspect, near, far);
             }
         }
-        Characters.done();
+        view.characters.done();
         GL11.glDepthMask(true);
     }
 
-    private static void drawPaneMask(FloatBuffer glass) {
+    private void drawPaneMask(FloatBuffer glass) {
         // Which pixels are the vehicle's glass, drawn from the triangles of it that are:
         // a window's edge is then the straight edge of a triangle.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, paneTarget);
@@ -2453,7 +2458,7 @@ final class Pipeline {
         GL11.glLoadIdentity();
     }
 
-    private static void drawPartKinds(VehicleMeshes.Parts parts) {
+    private void drawPartKinds(VehicleMeshes.Parts parts) {
         // What part of the cabin each pixel is, from the body's triangles that are not
         // glass, each kind in its own number and the nearest winning.
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, partsTarget);
@@ -2496,10 +2501,10 @@ final class Pipeline {
     }
 
     /** What the cabin's shader is told of the vehicle sat in. */
-    private static void setCabin(ViewCamera.Pose camera, float[] wheel, VehicleMeshes.Parts parts) {
+    private void setCabin(ViewCamera.Pose camera, float[] wheel, VehicleMeshes.Parts parts) {
         figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
         figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
-        float[] kit = Cabins.kit(View.first().ride.seatedIn);
+        float[] kit = Cabins.kit(view.ride.seatedIn);
         figureLight.set("uKit", kit[0], kit[1], kit[2], kit[3]);
         figureLight.set("uHub", kit[4], kit[5], kit[6]);
         figureLight.set("uCluster", kit[7], kit[8], kit[9]);
@@ -2524,14 +2529,14 @@ final class Pipeline {
                     wheel[2] + (toX * axes[6] + toY * axes[7] + toUp * axes[8]) / Cabins.SCALE);
         }
         float[] measures = parts != null ? parts.measures : Cabins.STANDARD_MEASURES;
-        float[] house = Cabins.house(View.first().ride.seatedIn, measures);
+        float[] house = Cabins.house(view.ride.seatedIn, measures);
         figureLight.set("uHouse", house[0], house[1], house[2]);
         figureLight.set("uMirror", house[3], house[4], house[5]);
         figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
-        figureLight.set("uTrade", Cabins.trade(View.first().ride.seatedIn));
-        float[] skin = Cabins.skin(View.first().ride.skin);
+        figureLight.set("uTrade", Cabins.trade(view.ride.seatedIn));
+        float[] skin = Cabins.skin(view.ride.skin);
         Cabins.Wear wear = Cabins.worn;
-        figureLight.set("uArms", View.first().ride.driving ? 1f : 0f);
+        figureLight.set("uArms", view.ride.driving ? 1f : 0f);
         figureLight.set("uBare", skin[0], skin[1], skin[2]);
         if (wear.glove() == null) {
             figureLight.set("uSkin", skin[0], skin[1], skin[2]);
@@ -2551,16 +2556,16 @@ final class Pipeline {
         figureLight.set("uDoorMirror", wheel[0] + measures[6] / Cabins.SCALE, wheel[1] - Math.signum(measures[4]) * measures[7] / Cabins.SCALE,
                 wheel[2] + measures[8] / Cabins.SCALE);
         figureLight.set("uPaint", VehicleMeshes.seatedPaint[0], VehicleMeshes.seatedPaint[1], VehicleMeshes.seatedPaint[2]);
-        figureLight.set("uSteer", Cabins.wheelTurn(View.first().ride.steering));
-        figureLight.set("uLamps", View.first().ride.instrumentsLit ? 1f : 0f, View.first().ride.lampsOn ? 1f : 0f);
-        figureLight.set("uDome", View.first().ride.doorOpen ? 1f : 0f);
+        figureLight.set("uSteer", Cabins.wheelTurn(view.ride.steering));
+        figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);
+        figureLight.set("uDome", view.ride.doorOpen ? 1f : 0f);
         GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
         GL13.glActiveTexture(GL_TEXTURE0);
         figureLight.set("uBehind", MIRROR_UNIT);
     }
 
-    private static final float[] worn = new float[3], mirrorPlace = new float[3];
+    private final float[] worn = new float[3], mirrorPlace = new float[3];
 
     /**
      * The people and then the vehicles, into a second picture of the world drawn beside the
@@ -2574,7 +2579,7 @@ final class Pipeline {
      * @param worldTarget   the picture itself
      * @param mirror        whether it is a vehicle's mirror
      */
-    private static void drawFiguresAside(ViewCamera.Pose pose, float tan, float aspect, float near, int wide, int high, int figureTarget, int figureColor,
+    private void drawFiguresAside(ViewCamera.Pose pose, float tan, float aspect, float near, int wide, int high, int figureTarget, int figureColor,
             int figureNormal, int worldTarget, int worldDepth, boolean mirror, SkyState state, float far, float fogStart, float fogEnd) {
         for (int pass = 0; pass < 2; pass++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
@@ -2590,7 +2595,7 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
-            int drawn = mirror ? Characters.drawBehind(pose, tan, aspect, near, far, pass == 1) : Characters.draw(pose, tan, aspect, near, far, pass == 1, true);
+            int drawn = mirror ? view.characters.drawBehind(pose, tan, aspect, near, far, pass == 1) : view.characters.draw(pose, tan, aspect, near, far, pass == 1, true);
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -2643,7 +2648,7 @@ final class Pipeline {
             figureLight.set("uInside", 0f);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
-            figureLight.set("uFigureAmbient", Characters.ambient);
+            figureLight.set("uFigureAmbient", view.characters.ambient);
             figureLight.set("uFacing", NORMAL_UNIT);
             figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
             // In a mirror the weave of a shirt is finer than a dot of the picture, and a scope shows it from too far off.
@@ -2660,21 +2665,21 @@ final class Pipeline {
      * drawn as anyone is, from an eye on the far side of the glass, and lit by the light
      * where they really stand. False if there was nothing of them to draw.
      */
-    private static boolean drawReflection(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
+    private boolean drawReflection(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         clearOwnTarget();
         GL11.glViewport(0, 0, width, height);
         GL11.glDepthMask(true);
         smoothSkins(true);
         CharacterDraw.bare = true;
-        boolean drawn = Characters.drawReflected(camera, reflection, tanHalfFieldOfView, aspect, near, far);
+        boolean drawn = view.characters.drawReflected(camera, reflection, tanHalfFieldOfView, aspect, near, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         resumeFlat();
         if (!drawn) {
             return false;
         }
-        lend(glassed, Pipeline::makeGlassed);
+        lend(glassed, this::makeGlassed);
         // The eye that sees the real viewer where this one sees them in the glass: with it
         // the light finds where they stand, in the room and not out in the street.
         OwnReflection.mirror(camera, reflection, inGlass);
@@ -2720,7 +2725,7 @@ final class Pipeline {
         figureLight.set("uHavePanes", 0f);
         figureLight.set("uParted", 0f, 0f);
         figureLight.set("uOwnAmbient", 1f, 1f, 1f);
-        figureLight.set("uFigureAmbient", Characters.reflectedLight);
+        figureLight.set("uFigureAmbient", view.characters.reflectedLight);
         figureLight.set("uFacing", NORMAL_UNIT);
         figureLight.set("uHaveFacing", 1f);
         figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
@@ -2739,7 +2744,7 @@ final class Pipeline {
      * glass's wall. It is laid before them, so whatever stands before a pane hides it as it
      * hides the pane: a curtain, a chair, the viewer's own hands.
      */
-    private static void showReflection(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void showReflection(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         arrays();
@@ -2748,7 +2753,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, selfProjection);
-        Characters.aside(selfProjection);
+        view.characters.aside(selfProjection);
         ViewCamera.turned(camera, selfView);
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(selfProjection);
@@ -2807,7 +2812,7 @@ final class Pipeline {
     }
 
     /** The frame's arrays and depth test again, after the game's own draw of a character into a shadow map. */
-    private static void resumeCasting() {
+    private void resumeCasting() {
         arrays();
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glDisable(GL_CULL_FACE);
@@ -2830,7 +2835,7 @@ final class Pipeline {
         GL11.glDepthMask(false);
     }
 
-    private static void clearOwnTarget() {
+    private void clearOwnTarget() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, ownTarget);
         GL11.glDepthMask(true);
         GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -2848,7 +2853,7 @@ final class Pipeline {
      * its own distance. From the seat a dot is a hand across and the edge of a painted window
      * is a staircase, so there the skin is read with its dots run together.
      */
-    private static void smoothSkins(boolean smooth) {
+    private void smoothSkins(boolean smooth) {
         for (int unit = 0; unit < SKIN_UNITS; unit++) {
             GL33.glBindSampler(unit, smooth ? skinSampler : 0);
         }
@@ -2858,7 +2863,7 @@ final class Pipeline {
      * The panes of the vehicle the viewer sits in, over everything seen through them: the
      * world, the sky and the rain, which are all outside the glass.
      */
-    private static void drawGlass() {
+    private void drawGlass() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         GL11.glMatrixMode(GL_PROJECTION);
@@ -2893,8 +2898,8 @@ final class Pipeline {
     /** How bright a headlight is beside the sun at 2.1. */
     private static final float BEAM_STRENGTH = 9f;
 
-    private static void setBeams(Program program, int torchUnit) {
-        float[] beams = View.first().headlights.beams;
+    private void setBeams(Program program, int torchUnit) {
+        float[] beams = view.headlights.beams;
         for (int i = 0; i < Headlights.BEAMS; i++) {
             int at = i * Headlights.STRIDE;
             program.set(BEAM_AT[i], beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
@@ -2915,8 +2920,8 @@ final class Pipeline {
     }
 
     /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
-    private static void setFlash(Program program) {
-        View.first().muzzleFlash.light(flash);
+    private void setFlash(Program program) {
+        view.muzzleFlash.light(flash);
         program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
         program.set("uFlashColor", flash[4], flash[5], flash[6]);
     }
@@ -2927,10 +2932,10 @@ final class Pipeline {
      * is their own: the body's cuts away the head and chest, and would cut the weapon's stock
      * off in the middle of the picture.
      */
-    private static void drawHeld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void drawHeld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         clearOwnTarget();
         CharacterDraw.bare = true;
-        Characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
+        view.characters.drawHeld(tanHalfFieldOfView, aspect, HELD_NEAR, far);
         CharacterDraw.bare = false;
         // The game's draw leaves its own program, buffers and arrays bound.
         GL30.glBindVertexArray(0);
@@ -2951,32 +2956,32 @@ final class Pipeline {
         quad();
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_DEPTH_TEST);
-        if (View.first().ownWeapon.waiting()) {
+        if (view.ownWeapon.waiting()) {
             drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
         }
-        if (View.first().ownRifle.waiting() || View.first().scope.waiting()) {
-            View.first().heldDepth.begin(sceneColor, width, height, frameNanos);
+        if (view.ownRifle.waiting() || view.scope.waiting()) {
+            view.heldDepth.begin(sceneColor, width, height, frameNanos);
         }
-        if (View.first().ownRifle.waiting()) {
-            lightHeld(View.first().ownRifle.begin(), camera, state);
-            View.first().ownRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+        if (view.ownRifle.waiting()) {
+            lightHeld(view.ownRifle.begin(), camera, state);
+            view.ownRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
                     asideX, asideY);
         }
-        if (View.first().scope.waiting()) {
-            lightHeld(View.first().scope.begin(), camera, state);
-            View.first().scope.draw(camera, Characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+        if (view.scope.waiting()) {
+            lightHeld(view.scope.begin(), camera, state);
+            view.scope.draw(camera, view.characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
                     asideX, asideY);
         }
-        if (View.first().viewModel.hasMuzzle) {
-            View.first().muzzleFlash.draw(camera, View.first().viewModel.muzzle[0], View.first().viewModel.muzzle[1], View.first().viewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
+        if (view.viewModel.hasMuzzle) {
+            view.muzzleFlash.draw(camera, view.viewModel.muzzle[0], view.viewModel.muzzle[1], view.viewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
         } else {
-            View.first().muzzleFlash.none();
+            view.muzzleFlash.none();
         }
     }
 
     /** The weapon the mod has a model of its own for, over the hands that hold it, in the light of the frame. */
-    private static void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        Program program = View.first().ownWeapon.begin();
+    private void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        Program program = view.ownWeapon.begin();
         atmosphere(program, state);
         setBasis(program, camera);
         setFlash(program);
@@ -2990,7 +2995,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0);
-        View.first().ownWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
+        view.ownWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
     }
 
     /**
@@ -2998,7 +3003,7 @@ final class Pipeline {
      * the light of the frame: the sky, the sun and its two shadow maps, the eye and its axes,
      * the flash of a shot.
      */
-    private static void lightHeld(Program program, ViewCamera.Pose camera, SkyState state) {
+    private void lightHeld(Program program, ViewCamera.Pose camera, SkyState state) {
         atmosphere(program, state);
         setBasis(program, camera);
         setFlash(program);
@@ -3035,8 +3040,8 @@ final class Pipeline {
      * frame for three and a half seconds. FirstPerson has a piece made on each frame from the
      * moment first person, or a graphics mode in which the picture draws the game's own view, is asked for.
      */
-    private static int preparing;
-    private static long preparingNanos, preparingWorst;
+    private int preparing;
+    private long preparingNanos, preparingWorst;
     private static final String NOISE_AHEAD = "cloud noise";
 
     /**
@@ -3073,24 +3078,24 @@ final class Pipeline {
      * shallow water is the soil, and a vehicle's cabin is trimmed in the wood, carpet, vinyl and
      * cloth. They are made with the core.
      */
-    private static final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
+    private final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
 
     /**
      * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
      * the scope's program, the mirror, the rain and the surfaces every mode reads. Nothing of
      * it is made until first person is first asked for.
      */
-    private static final List<Piece> CORE = corePieces();
+    private final List<Piece> CORE = corePieces();
     /**
      * The pictures of the mod's own surfaces and plants and its weapon models, which only a
      * graphics mode that shows the mod's own draws from: about 135 MB on the graphics card at
      * full size, that the Low mode never reads.
      */
-    private static final List<Piece> CONTENT = contentPieces();
+    private final List<Piece> CONTENT = contentPieces();
 
-    private static List<Piece> corePieces() {
+    private List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
-        pieces.add(new Piece(Pipeline::linkPrograms));
+        pieces.add(new Piece(this::linkPrograms));
         pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -3115,13 +3120,13 @@ final class Pipeline {
         return pieces;
     }
 
-    private static Piece materialPiece(int material) {
+    private Piece materialPiece(int material) {
         String picture = "/materials/" + MATERIALS[material] + ".bc";
         return material == BARK ? Piece.ofPictures(() -> loadBarks(picture), picture)
                 : Piece.ofPictures(() -> loadPicture(picture, materialTexture, materialGain, material), picture);
     }
 
-    private static List<Piece> contentPieces() {
+    private List<Piece> contentPieces() {
         List<Piece> pieces = new ArrayList<>();
         for (int material = 0; material < MATERIALS.length; material++) {
             if (!ALWAYS_READ.contains(MATERIALS[material])) {
@@ -3146,40 +3151,40 @@ final class Pipeline {
             }
         }, SPRIGS, SPRIG_FORM));
         // The weapon and arm models are given back with the pictures and made again with them: see giveBackContent.
-        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
-        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
+        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, view.ownWeapon::prepare));
+        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, view.ownRifle::prepare));
         pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
 
     private static final String SPRIGS = "/materials/sprigs.bc", SPRIG_FORM = "/materials/sprigs-form.bc";
-    private static boolean coreBegun;
-    private static volatile boolean contentBegun;
+    private boolean coreBegun;
+    private volatile boolean contentBegun;
     /** Which list the next piece is of: set by pieceWaits, read by prepareNext. */
-    private static List<Piece> makes;
+    private List<Piece> makes;
     /** Whether the pictures on the graphics card are the half size ones, and the pieces being made again at the other size, if any are. */
-    private static volatile boolean picturesSmall;
-    private static volatile List<Piece> resized;
+    private volatile boolean picturesSmall;
+    private volatile List<Piece> resized;
     /** Whether a making of the core's surfaces at another size was given up part way, so that they are of both sizes. */
-    private static volatile boolean coreMixed;
+    private volatile boolean coreMixed;
     /**
      * Set for the rest of the session once the graphics card has had no room for the content:
      * it is not asked again, the pictures stay the half size ones, and every mode is drawn
      * with what Low is drawn with. First person needs none of the content.
      */
-    private static volatile boolean contentRefused;
+    private volatile boolean contentRefused;
     /** Set by whoever is told by the driver, while a piece is made, that it is out of memory: see noted. */
-    private static boolean noRoom;
+    private boolean noRoom;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** Dev only: the piece of the content, counted from 1, at whose making the graphics card is taken to have run out of room. */
     private static final int NO_ROOM_AT = Integer.getInteger("cameraunlock.zomboid.noRoomAt", 0);
-    private static int resizedNext;
-    private static int contentPreparing;
+    private int resizedNext;
+    private int contentPreparing;
     /** Whether every piece of CONTENT is made. Set on the render thread, read by the logic thread: see Own. */
-    private static volatile boolean contentReady;
+    private volatile boolean contentReady;
 
     /** Whether there is anything left to make before the first picture can be drawn. */
-    static boolean unprepared() {
+    boolean unprepared() {
         return !prepared && failure == null;
     }
 
@@ -3187,12 +3192,12 @@ final class Pipeline {
      * Whether the pictures of the mod's own are on the graphics card. Until they are, a mode
      * that shows the mod's own is drawn as the one that shows none is: see Own.
      */
-    static boolean contentReady() {
+    boolean contentReady() {
         return contentReady;
     }
 
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
-    static boolean contentWaited() {
+    boolean contentWaited() {
         return !Quality.plain() && !contentReady && !contentRefused && failure == null;
     }
 
@@ -3201,24 +3206,24 @@ final class Pipeline {
      * making of the content begun and not ended, and pictures that are not the size the mode
      * now reads them at.
      */
-    static boolean contentHalfMade() {
+    boolean contentHalfMade() {
         return failure == null && (contentBegun && !contentReady || resized != null || prepared && (coreMixed || picturesSmall != small()));
     }
 
     /** Whether the pictures are to be the half size ones: in a mode that reads them so, and once the graphics card has had no room for the content. */
-    private static boolean small() {
+    private boolean small() {
         return Quality.smallerPictures() || contentRefused;
     }
 
     /** Told each OpenGL error met while a piece is made, by whoever asks the driver for it: out of memory is not a fault of this build. */
-    static void noted(int error) {
+    void noted(int error) {
         if (error == GL_OUT_OF_MEMORY) {
             noRoom = true;
         }
     }
 
     /** A colour of nothing, for a sampler whose picture is not made. Render thread. */
-    static int none() {
+    int none() {
         return noneTexture;
     }
 
@@ -3227,7 +3232,7 @@ final class Pipeline {
      * next piece, or nothing on a frame where what that piece reads out of the jar is still
      * being read.
      */
-    static final TextureDraw.GenericDrawer PREPARE = new TextureDraw.GenericDrawer() {
+    final TextureDraw.GenericDrawer PREPARE = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
             if (failure == null && pieceWaits()) {
@@ -3241,7 +3246,7 @@ final class Pipeline {
      * pieces still to be made are made from: the core's the first time, and the content's the
      * first time a mode that shows the mod's own is on.
      */
-    private static boolean pieceWaits() {
+    private boolean pieceWaits() {
         if (failure != null) {
             return false;
         }
@@ -3305,7 +3310,7 @@ final class Pipeline {
     }
 
     /** Makes the next piece of the core, or of the content once the core is made. Null, or what the driver refused or the jar lacked. */
-    private static String prepareNext() {
+    private String prepareNext() {
         long start = System.nanoTime();
         noRoom = false;
         String problem;
@@ -3378,7 +3383,7 @@ final class Pipeline {
     }
 
     /** Null, or what the driver refused. */
-    private static String linkPrograms() {
+    private String linkPrograms() {
         StringBuilder problem = new StringBuilder();
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
         worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
@@ -3403,7 +3408,7 @@ final class Pipeline {
         return problem.length() > 0 ? problem.toString() : null;
     }
 
-    private static String makeNoise() {
+    private String makeNoise() {
         ByteBuffer cells;
         try {
             cells = Ahead.take(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE));
@@ -3421,7 +3426,7 @@ final class Pipeline {
         return null;
     }
 
-    private static void makeWhite() {
+    private void makeWhite() {
         // What a thing with no sprite is drawn with: the vertex colour alone.
         whiteTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
@@ -3442,7 +3447,7 @@ final class Pipeline {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     }
 
-    private static void makeSamplers() {
+    private void makeSamplers() {
         // Reads a shadow map's depth as a number, where the map's own settings compare it.
         depthSampler = sampler(GL_NEAREST, GL_CLAMP_TO_EDGE);
         GL33.glSamplerParameteri(depthSampler, GL_TEXTURE_COMPARE_MODE, GL_NONE);
@@ -3459,7 +3464,7 @@ final class Pipeline {
         return sampler;
     }
 
-    private static void giveBackShadowMaps() {
+    private void giveBackShadowMaps() {
         for (int map : new int[] {nearMap, farMap, roofMap}) {
             GL11.glDeleteTextures(map);
         }
@@ -3472,7 +3477,7 @@ final class Pipeline {
     }
 
     /** The three shadow maps every frame draws: near, far and overhead. Null, or what the driver refused. */
-    private static String makeShadowMaps() {
+    private String makeShadowMaps() {
         int[] made = new int[2];
         String near = shadowMap(made, shadowSize);
         nearMap = made[0];
@@ -3487,7 +3492,7 @@ final class Pipeline {
     }
 
     /** The headlights' shadow map, for the frames in which a headlight is lit: at High's size it is 64 MB. */
-    private static String makeBeamed() {
+    private String makeBeamed() {
         int[] made = new int[2];
         String problem = shadowMap(made, shadowSize);
         beamMap = made[0];
@@ -3498,7 +3503,7 @@ final class Pipeline {
     }
 
     /** The torch's shadow map, for the frames in which the viewer's torch throws a beam: 16 MB at its largest. */
-    private static String makeTorched() {
+    private String makeTorched() {
         int[] made = new int[2];
         torchSize = Math.min(shadowSize, TORCH_MAP_MOST);
         String problem = shadowMap(made, torchSize);
@@ -3514,7 +3519,7 @@ final class Pipeline {
      * not. A making binds a texture and a target: the pass sets its own after this. Thrown, as
      * a frame's fault, when the driver will not make them.
      */
-    private static void lend(Lent set, Supplier<String> make) {
+    private void lend(Lent set, Supplier<String> make) {
         set.usedNanos = frameNanos;
         if (set.made()) {
             return;
@@ -3545,7 +3550,7 @@ final class Pipeline {
     }
 
     /** At the end of a frame: gives back each set that no frame has drawn into for a while. */
-    private static void takeBackLent() {
+    private void takeBackLent() {
         for (Lent set : SIZED) {
             if (set != whole && set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
                 giveBack(set);
@@ -3558,11 +3563,11 @@ final class Pipeline {
                 Log.info("first person picture: the " + set.what + " given back, unused");
             }
         }
-        View.first().scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
-        View.first().heldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
+        view.scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
+        view.heldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
     }
 
-    private static String makeMirror() {
+    private String makeMirror() {
         mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
         mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         mirrorTarget = target(mirrorColor);
@@ -3580,7 +3585,7 @@ final class Pipeline {
         return problem;
     }
 
-    private static void makeRainDrops() {
+    private void makeRainDrops() {
         // Where each drop starts in its box of air, and which corner of its streak each of its
         // six vertices is. The same every run: rain needs no surprises.
         FloatBuffer drops = buffer(RAIN_DROPS * 6 * 4);
@@ -3623,10 +3628,10 @@ final class Pipeline {
      * that the game's own view would otherwise carry for the rest of the session. The next
      * frame drawn makes them again.
      */
-    static final TextureDraw.GenericDrawer RELEASE = new TextureDraw.GenericDrawer() {
+    final TextureDraw.GenericDrawer RELEASE = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
-            Characters.setDown();
+            view.characters.setDown();
             if (width == 0) {
                 return;
             }
@@ -3634,7 +3639,7 @@ final class Pipeline {
             width = 0;
             height = 0;
             giveBackShadowMaps();
-            View.first().scope.giveBackPicture();
+            view.scope.giveBackPicture();
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
         }
     };
@@ -3647,7 +3652,7 @@ final class Pipeline {
      * What is left is the programs, the cloud noise, the mirror and the rain, which are small.
      * Asked for again, the rest is made again, as it was the first time.
      */
-    static final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
+    final TextureDraw.GenericDrawer LET_GO = new TextureDraw.GenericDrawer() {
         @Override
         public void render() {
             ChunkBuffers.letGo();
@@ -3687,7 +3692,7 @@ final class Pipeline {
      * Ends a making at another size part way, after what was read ahead for it is let go. Some of the core's
      * surfaces are then at one size and some at the other: all are made again by the next piece asked for.
      */
-    private static void giveUpResize() {
+    private void giveUpResize() {
         if (resized != null) {
             resized = null;
             coreMixed = true;
@@ -3695,7 +3700,7 @@ final class Pipeline {
     }
 
     /** Gives back the pictures and models of CONTENT, made or half made, and whatever was read ahead for them. They are made again when a mode next shows them. */
-    private static void giveBackContent() {
+    private void giveBackContent() {
         Pictures.letGoOfReadAhead();
         // What was read ahead for a making at another size went with the rest, and its next piece would wait for it for good.
         giveUpResize();
@@ -3726,7 +3731,7 @@ final class Pipeline {
     }
 
     /** Forgets the size of every texture drawn with: names given back to the graphics card are handed out again for pictures of other sizes. */
-    static void forgetTexels() {
+    void forgetTexels() {
         Arrays.fill(texelOf, 0);
         texelsKnown = 0;
     }
@@ -3736,16 +3741,16 @@ final class Pipeline {
      * numbers out again for the next ones made, so whoever told a texture of these apart by its
      * number is told they are gone: a target of their own still holds the one given back.
      */
-    private static void giveBackSized() {
+    private void giveBackSized() {
         for (Lent set : SIZED) {
             giveBack(set);
         }
-        View.first().ownWeapon.forgetTarget();
-        View.first().heldDepth.forgetTarget();
+        view.ownWeapon.forgetTarget();
+        view.heldDepth.forgetTarget();
     }
 
     /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */
-    private static String resize(int newWidth, int newHeight) {
+    private String resize(int newWidth, int newHeight) {
         // The last size's are given back first. Left alone they are held until the game
         // ends, a set for every size the picture has been.
         giveBackSized();
@@ -3760,7 +3765,7 @@ final class Pipeline {
     }
 
     /** The steadied picture of the last frame and of this one: only with FrameBlending on. */
-    private static String makeSteadied() {
+    private String makeSteadied() {
         for (int i = 0; i < 2; i++) {
             keptColor[i] = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
             keptTarget[i] = target(keptColor[i]);
@@ -3770,7 +3775,7 @@ final class Pipeline {
     }
 
     /** What is drawn of the vehicle sat in: only while seated. */
-    private static String makeCabin() {
+    private String makeCabin() {
         repaintedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         repaintedDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         repaintedTarget = target(repaintedColor);
@@ -3792,14 +3797,14 @@ final class Pipeline {
     }
 
     /** The viewer as a window's glass shows them: only in High, with a window near. */
-    private static String makeGlassed() {
+    private String makeGlassed() {
         selfColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
         selfTarget = target(selfColor);
         return complete("viewer in the glass");
     }
 
     /** The shade of what stands near and the lit air, at half the picture's size: only in High. */
-    private static String makeShaded() {
+    private String makeShaded() {
         occlusionColor = texture(GL_RGBA8, levelWidth[0], levelHeight[0], GL_RGBA, GL_UNSIGNED_BYTE, GL_LINEAR);
         occlusionTarget = target(occlusionColor);
         String problem = complete("occlusion");
@@ -3816,7 +3821,7 @@ final class Pipeline {
     }
 
     /** What every frame draws into, at the picture's size. */
-    private static String makeWhole() {
+    private String makeWhole() {
         sceneColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_LINEAR);
         sceneDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         sceneTarget = target(sceneColor);
@@ -3873,7 +3878,7 @@ final class Pipeline {
         return problem;
     }
 
-    private static int texture(int internal, int w, int h, int format, int type, int filter) {
+    private int texture(int internal, int w, int h, int format, int type, int filter) {
         int texture = GL11.glGenTextures();
         if (making != null) {
             making.textures.add(texture);
@@ -3901,7 +3906,7 @@ final class Pipeline {
         return null;
     }
 
-    private static String loadBarks(String path) {
+    private String loadBarks(String path) {
         try {
             int old = materialTexture[BARK];
             materialTexture[BARK] = Pictures.loadLayers(path);
@@ -3920,7 +3925,7 @@ final class Pipeline {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
 
-    private static int target(int color) {
+    private int target(int color) {
         int target = GL30.glGenFramebuffers();
         if (making != null) {
             making.targets.add(target);

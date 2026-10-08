@@ -260,7 +260,7 @@ final class OwnWeapon {
     }
 
     /** Reads the model out of the jar and gives it to the graphics card. Null, or what went wrong. */
-    static String prepare() {
+    String prepare() {
         if (program == null) {
             StringBuilder problem = new StringBuilder();
             program = Program.link("own weapon", VERTEX, FRAGMENT, problem);
@@ -277,7 +277,7 @@ final class OwnWeapon {
         return problem;
     }
 
-    private static String make() {
+    private String make() {
         try {
             ByteBuffer mesh = ByteBuffer.wrap(read(MESH)).order(ByteOrder.LITTLE_ENDIAN);
             if (mesh.remaining() < HEAD_BYTES || mesh.getInt() != MAGIC || mesh.getInt() != VERSION) {
@@ -314,7 +314,7 @@ final class OwnWeapon {
             return e.getMessage();
         }
         int error = GL11.glGetError();
-        Pipeline.noted(error);
+        view.pipeline.noted(error);
         if (error != 0) {
             return "OpenGL error 0x" + Integer.toHexString(error) + " making the shotgun's model";
         }

@@ -280,7 +280,7 @@ final class Pictures {
         // Asked here, before the setting below whose refusal is thrown away with whatever else was refused before it:
         // a graphics card with no room for the picture says so now.
         int error = GL11.glGetError();
-        Pipeline.noted(error);
+        View.first().pipeline.noted(error);
         if (error != 0) {
             GL11.glDeleteTextures(texture);
             throw new IOException("OpenGL error 0x" + Integer.toHexString(error) + " making the texture of " + path);

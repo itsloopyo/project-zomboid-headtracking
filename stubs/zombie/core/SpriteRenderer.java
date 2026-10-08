@@ -12,5 +12,6 @@ public final class SpriteRenderer {
     public TextureDraw drawGeneric(TextureDraw.GenericDrawer drawer) {
         throw new UnsupportedOperationException("reference stub");
     }
+    public int getRenderingPlayerIndex() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.sprite.SpriteRenderState getRenderingState() { throw new UnsupportedOperationException("reference stub"); }
 }

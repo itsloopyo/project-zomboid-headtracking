@@ -48,6 +48,9 @@ final class View {
     final Scope scope = new Scope(this);
     final OwnWeapon ownWeapon = new OwnWeapon(this);
     final OwnRifle ownRifle = new OwnRifle(this);
+    final WorldScene worldScene = new WorldScene(this);
+    final Pipeline pipeline = new Pipeline(this);
+    final Characters characters = new Characters(this);
 
     private View(int index) {
         this.index = index;

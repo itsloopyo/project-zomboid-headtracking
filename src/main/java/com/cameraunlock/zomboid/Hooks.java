@@ -7,8 +7,10 @@ import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.component.CharacterInputComponent;
 import zombie.chat.ChatElement;
+import zombie.core.SpriteRenderer;
 import zombie.core.physics.BallisticsController;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
+import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObjectPicker;
@@ -20,7 +22,8 @@ import zombie.ui.TextDrawObject;
  * of these. Each hands what it was given to the view of the player it is for, and where that
  * player has no view answers as the game would have without the mod.
  *
- * Whose a call is, is told three ways. While the game draws its world it goes through its
+ * Whose a call is, is told four ways. On the thread that draws, the game says whose part of
+ * the screen it is drawing (SpriteRenderer.getRenderingPlayerIndex). On its logic thread there are three. While the game draws its world it goes through its
  * players one by one and names the one it is on (IsoPlayer.getInstance), and the hooks under
  * that drawing go by that. While it moves its players the call is made on something of one
  * player's, the player itself or its input or its ballistics, and that says whose. And the
@@ -174,6 +177,25 @@ public final class Hooks {
     /** Called with the binding the game holds under a name: the keyboard is the first player's. */
     public static zombie.core.Core.KeyBinding binding(zombie.core.Core.KeyBinding stock, String name) {
         return View.first().controls.binding(stock, name);
+    }
+
+    /** The view of the player whose part of the screen is being drawn. The thread that draws. */
+    private static View drawn() {
+        return View.of(SpriteRenderer.instance.getRenderingPlayerIndex());
+    }
+
+    /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
+    public static void drawn(ModelSlotRenderData slot) {
+        View view = drawn();
+        if (view != null) {
+            view.characters.drawn(slot);
+        }
+    }
+
+    /** Whether the game's own draw of each part of each person is left out, the picture covering the player's part of the screen it would go to. */
+    public static boolean gamesOwnDrawIsCovered() {
+        View view = drawn();
+        return view != null && view.characters.gamesOwnDrawIsCovered();
     }
 
     /** In place of the game's asking whether a thing that moves is on the screen of the player it is drawing. */
