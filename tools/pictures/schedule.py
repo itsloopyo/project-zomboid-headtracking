@@ -1,10 +1,15 @@
 """Writes which show each of the game's television broadcasts and video tapes is, for the mod to pick a set's pictures by.
 
-    python tools/pictures/schedule.py "<game>/media"
+    python tools/pictures/schedule.py "<game>/media" PATTERNS
 
 Reads the game's own radio data and tapes on this machine and the English of their lines, tells each one's show by
-shows.AIRS and shows.TAPES, and writes src/main/resources/pictures/shows.txt. That file holds the mod's names of shows
-and the game's ids of broadcasts and tapes: none of the game's words go into it.
+the patterns in the file PATTERNS, and writes src/main/resources/pictures/shows.txt. That file holds the mod's names of
+shows and the game's ids of broadcasts and tapes: none of the game's words go into it.
+
+PATTERNS is a Python file kept outside the repository, because what tells a broadcast's show is pieces of the game's
+own lines and titles. It sets NOTICE, a regular expression for a line a station says before an old programme once it
+has stopped making new ones; AIRS, a list of (regular expression for a broadcast's or a tape's first lines, show), the
+first that matches being the show; and TAPES, the same for a tape's title.
 
 A line of it is tab separated: "show", a show's name and how many shots it has, the shows in the order the mod numbers
 them; "channel", a frequency and the show of a broadcast on it the file does not list; "air", a broadcast's id and its
@@ -19,18 +24,21 @@ import re
 import sys
 import xml.etree.ElementTree as ElementTree
 
+import runpy
+
 import shows
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'pictures' / 'shows.txt'
 # How many of its first lines say what a broadcast or a tape is.
 OPENING = 5
 INTERFERENCE = re.compile(r'^(\W|<[bf]zzt>)*$')
+PATTERNS = {}
 
 
 def of(opening):
     """The show that says those first lines, or None."""
     said = ' / '.join(opening)
-    for pattern, show in shows.AIRS:
+    for pattern, show in PATTERNS['AIRS']:
         if re.search(pattern, said):
             return show
     # A broadcast most of whose opening is interference and the rest no show's is snow.
@@ -53,7 +61,7 @@ def broadcasts(media):
             if not lines:
                 continue
             # A station that has stopped making programmes says so and then shows an old one: the old one is the show.
-            shown = [line for line in lines if not re.search(shows.NOTICE, line)]
+            shown = [line for line in lines if not re.search(PATTERNS['NOTICE'], line)]
             show = of(shown[:OPENING]) if shown else None
             if show is None and len(shown) < len(lines):
                 show = shows.EMERGENCY
@@ -78,7 +86,7 @@ def tapes(media):
         if not re.search(r'category\s*=\s*"[^"]*VHS"', body):
             continue
         title = english[re.search(r'title\s*=\s*"([^"]*)"', body).group(1)]
-        show = next((show for pattern, show in shows.TAPES if re.search(pattern, title)), None)
+        show = next((show for pattern, show in PATTERNS['TAPES'] if re.search(pattern, title)), None)
         if show is None:
             show = of([title])
         if show is None:
@@ -91,16 +99,17 @@ def tapes(media):
 
 def main():
     media = pathlib.Path(sys.argv[1])
+    PATTERNS.update(runpy.run_path(sys.argv[2]))
     aired, lost = broadcasts(media)
     taped, more = tapes(media)
     if lost or more:
-        raise SystemExit('no show in shows.py for:\n  ' + '\n  '.join(lost + more))
+        raise SystemExit('no show in the patterns for:\n  ' + '\n  '.join(lost + more))
     names = [shows.ANY, shows.SNOW] + list(shows.SHOWS)
     counts = {shows.ANY: shows.ANY_SHOTS, shows.SNOW: 0, **{key: len(shots) for key, shots in shows.SHOWS.items()}}
     used = collections.Counter(list(aired.values()) + list(taped.values()) + list(shows.CHANNELS.values()))
     unknown = sorted(set(used) - set(names))
     if unknown:
-        raise SystemExit('shows.py names shows it has no shots of: ' + ' '.join(unknown))
+        raise SystemExit('the patterns name shows that shows.py has no shots of: ' + ' '.join(unknown))
     with open(OUT, 'w', encoding='utf-8', newline='\n') as out:
         for name in names:
             out.write(f'show\t{name}\t{counts[name]}\n')

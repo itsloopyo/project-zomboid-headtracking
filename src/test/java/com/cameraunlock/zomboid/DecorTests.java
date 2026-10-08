@@ -172,7 +172,7 @@ final class DecorTests {
 
     private static void aBroadcastNobodyListedIsItsChannelsShow() {
         Shows shows = shows();
-        check(shows.name(shows.aired(200, null)).equals("nnn-desk"), "a news channel with nothing said of its broadcast shows its news desk");
+        check(shows.name(shows.aired(200, null)).equals("news-desk"), "a news channel with nothing said of its broadcast shows its news desk");
         check(shows.aired(200, "no such broadcast") == shows.aired(200, null), "and so it does for a broadcast the table does not list");
         check(shows.aired(98765, null) == Shows.ANY && shows.taped("no such tape") == Shows.ANY, "a channel or a tape the table does not list is the show of no one programme");
         check(shows.shots(Shows.SNOW) == 0 && shows.shots(Shows.ANY) > 0, "interference has no shots and the show of no one programme has");
