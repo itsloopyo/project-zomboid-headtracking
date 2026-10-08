@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import zombie.GameTime;
+import zombie.characters.CharacterJoypadAxis2dBinding;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
@@ -84,6 +85,9 @@ public final class FirstPerson {
     /** A frame longer than this is a hitch, and taking it whole would snap the zoom to its target. */
     private static final float MAX_FRAME_SECONDS = 0.25f;
     private static final float PITCH_LIMIT = (float) Math.toRadians(89);
+    /** How fast a controller's stick pushed right over turns the view unzoomed, in radians a second: across, and up or down. */
+    private static final float STICK_YAW = (float) Math.toRadians(220), STICK_PITCH = (float) Math.toRadians(140);
+    private final Vector2 stick = new Vector2();
     /** How far ahead of the character the game's cursor is held, in tiles. */
     private static final float CURSOR_DISTANCE = 3f;
     /** The direction the forward key moves the character in the game's own view: up the screen. */
@@ -305,11 +309,13 @@ public final class FirstPerson {
             wasCaptured = false;
             fromTheEye = false;
             view.characters.wanted = false;
-            MouseGrab.wanted = false;
-            MouseGrab.kept = false;
+            if (view.hasMouse()) {
+                MouseGrab.wanted = false;
+                MouseGrab.kept = false;
+            }
             // No frame is open here, and the menu's first frame clears whatever the sprite renderer
             // was handed since the last one: these go by the render thread's own queue.
-            if (MouseGrab.applied || MouseGrab.keeping) {
+            if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
                 RenderThread.queueInvokeOnRenderContext(MouseGrab.DRAWER::render);
             }
             view.headTracking.rest();
@@ -360,9 +366,6 @@ public final class FirstPerson {
     private String whyNot(IsoPlayer player) {
         if (player == null) {
             return "no player";
-        }
-        if (IsoPlayer.numPlayers != 1) {
-            return "split screen";
         }
         String gap = Agent.firstPersonGap();
         if (gap == null) {
@@ -435,7 +438,9 @@ public final class FirstPerson {
             said = Tracking.aimModeLabel();
             saidAt = System.nanoTime();
         }
-        DevKeys.poll();
+        if (view.hasMouse()) {
+            DevKeys.poll();
+        }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
             said = "Graphics: " + Quality.name();
             saidAt = System.nanoTime();
@@ -485,10 +490,13 @@ public final class FirstPerson {
         active = landed && !GameTime.isGamePaused() && !player.isDead();
         if (!landed) {
             pointer.reset();
-        } else if (active) {
+        } else if (active && view.hasMouse()) {
             point();
         }
         lookCaptured = active && !pointer.on();
+        if (lookCaptured && View.onController(player)) {
+            stickLook(player, sinceLastFrame);
+        }
         if (lookCaptured && !wasCaptured) {
             capturedNanos = now;
         }
@@ -502,8 +510,10 @@ public final class FirstPerson {
         }
         boolean flown = on || !view.flight.home();
         view.characters.wanted = flown || overhead && allowed(player) && !player.isDead();
-        MouseGrab.wanted = lookCaptured;
-        MouseGrab.kept = active && pointer.on();
+        if (view.hasMouse()) {
+            MouseGrab.wanted = lookCaptured;
+            MouseGrab.kept = active && pointer.on();
+        }
         ModelHead.sayGap();
         NameTags.sayGap();
         Hearing.sayGap();
@@ -515,7 +525,7 @@ public final class FirstPerson {
             view.crosshair.hide();
             view.nameTags.lookAway();
             view.hearing.rest();
-            if (MouseGrab.applied || MouseGrab.keeping) {
+            if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
             if (gettingReady && !allowed(player)) {
@@ -941,7 +951,7 @@ public final class FirstPerson {
         }
         PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, Mouse.isButtonDown(POINT_BUTTON), panels);
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
-            Panels.showInventory(inventoryPanels == PointerMode.Inventory.OPEN);
+            Panels.showInventory(view.index, inventoryPanels == PointerMode.Inventory.OPEN);
         }
         if (TRACE && !was.equals(pointer.describe())) {
             Log.info("pointer " + pointer.describe());
@@ -976,6 +986,41 @@ public final class FirstPerson {
         }
         GameKeyboard.eatKeyPress(key);
         return true;
+    }
+
+    /**
+     * A controller's aiming stick turns the view, as the mouse does for the player who has
+     * one. The game hands the stick over with its own dead zone taken off, and says whether
+     * it is the character's at all: while the controller is working one of the game's panels
+     * it is not. The turn goes by the square of how far the stick is pushed, so a small push
+     * is a fine aim and a full one a quick turn, and by the zoom, as the mouse's does.
+     */
+    private void stickLook(IsoPlayer player, float seconds) {
+        if (!player.getCharacterInputComponent().isJoypadAimingAxisApplied()) {
+            return;
+        }
+        CharacterJoypadAxis2dBinding.Aiming.getValue(player.getJoypadBind(), stick);
+        float pushed = Math.min((float) Math.hypot(stick.x, stick.y), 1f);
+        float turn = pushed * seconds * view.fieldOfView.zoom() * view.scope.turn();
+        setLook(yaw + stick.x * turn * STICK_YAW, pitch - stick.y * turn * STICK_PITCH);
+    }
+
+    /**
+     * Called with where the game has this player's aim across their part of the screen. For a
+     * player with the mouse that is the mouse, which is held ahead of the character along the
+     * view already (cursorX). A controller's is a place the game works out from the stick, and
+     * the same point ahead is answered in its place, so the game's own aim, which runs from
+     * the character to it, is the view direction for a controller too.
+     */
+    int heldAcross(int stock) {
+        IsoPlayer player = view.player();
+        return lookCaptured() && player != null && View.onController(player) ? cursorX : stock;
+    }
+
+    /** The same, down their part of the screen. */
+    int heldDown(int stock) {
+        IsoPlayer player = view.player();
+        return lookCaptured() && player != null && View.onController(player) ? cursorY : stock;
     }
 
     /** Called where the game's reticle and aim cursor read the screen column to draw at. */

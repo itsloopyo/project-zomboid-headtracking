@@ -44,10 +44,13 @@ public final class Hooks {
         if (player == null) {
             return;
         }
-        int pressed = Tracking.pressedFor(player.getIndex());
-        View view = View.of(player.getIndex());
-        if (view != null) {
-            view.firstPerson.afterWorldRender(pressed);
+        int index = player.getIndex();
+        int pressed = Tracking.pressedFor(index);
+        if (index < View.COUNT) {
+            if (index == 1) {
+                Tracking.listenForSecond();
+            }
+            View.join(index).firstPerson.afterWorldRender(pressed);
         }
     }
 
@@ -107,6 +110,18 @@ public final class Hooks {
     /** Called at the end of the game's Mouse.update with the cursor row it read. */
     public static int cursorY(int raw) {
         return View.first().firstPerson.cursorY(raw);
+    }
+
+    /** Called with where the game has a player's aim on their part of the screen, across: the mouse, or for a controller what its stick has pushed it to. */
+    public static int heldAcross(int stock, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? stock : view.firstPerson.heldAcross(stock);
+    }
+
+    /** The same, down. */
+    public static int heldDown(int stock, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? stock : view.firstPerson.heldDown(stock);
     }
 
     private static View of(CharacterInputComponent input) {

@@ -56,8 +56,6 @@ final class CentreUse {
 
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu";
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem";
-    private static final Double PLAYER_NUMBER = Double.valueOf(0);
-
 
     /**
      * The box round what the key would act on this frame, for the picture to outline: its
@@ -145,12 +143,12 @@ final class CentreUse {
             return Outcome.NOTHING;
         }
         if (found instanceof IsoWorldInventoryObject item) {
-            return call(WORLD_MENU, GRAB, null, item, PLAYER_NUMBER) == null ? Outcome.NOTHING : Outcome.USED;
+            return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (found instanceof IsoDoor || found instanceof IsoWindow || found instanceof IsoCurtain
                 || found instanceof IsoLightSwitch || found instanceof IsoThumpable thumpable && thumpable.isDoor()) {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
-            Object[] answered = call(CLICK_HANDLER, PRESS, found, PLAYER_NUMBER, player);
+            Object[] answered = call(CLICK_HANDLER, PRESS, found, Double.valueOf(player.getIndex()), player);
             return answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]) ? Outcome.USED : Outcome.NOTHING;
         }
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
@@ -160,7 +158,7 @@ final class CentreUse {
                 && from.getZ() == at.getZ() && !from.isBlockedTo(at);
         if (inReach) {
             // Unfolded first: the click handler then puts the container in the loot panel.
-            Panels.showInventory(true);
+            Panels.showInventory(player.getIndex(), true);
         }
         if (call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null) {
             // The panels are up already where it was in reach, and the pointer is wanted for them.

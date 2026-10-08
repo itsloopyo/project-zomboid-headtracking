@@ -32,6 +32,7 @@ final class Tracking {
     private static CameraUnlock core;
     private static Config config;
     private static CameraUnlock.Settings settings;
+    private static boolean secondListening;
     /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
     static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
@@ -142,14 +143,25 @@ final class Tracking {
         core.start(port);
     }
 
+    /**
+     * A second player's tracker is listened for from the first frame the game draws them, on
+     * the port the file names as SecondPlayerUdpPort. Logic thread.
+     */
+    static void listenForSecond() {
+        if (!secondListening) {
+            secondListening = true;
+            core.viewStart(1, config.secondPlayerPort());
+        }
+    }
+
     /** One frame of core's pipeline for a view: once per rendered frame of that view, on the logic thread. */
     static void frame(int view, CameraUnlock.FrameInput input, CameraUnlock.Frame out) {
-        core.frame(input, out);
+        core.viewFrame(view, input, out);
     }
 
     /** After a view's frame that asked for a lean. */
     static void lean(int view, CameraUnlock.Obstruction found, CameraUnlock.Lean out) {
-        core.lean(found, out);
+        core.viewLean(view, found, out);
     }
 
     /** FieldOfView, Quality, Style, FrameBlending and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
@@ -201,7 +213,12 @@ final class Tracking {
             }
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE);
             owed[0] = said | pressed & Config.FIRST_PERSON;
-            owed[1] = said;
+            // Held, the first person key is the second player's.
+            boolean held = (pressed & Config.FIRST_PERSON_SECOND) != 0;
+            owed[1] = said | (held ? Config.FIRST_PERSON : 0);
+            if (held && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
+                Log.info("the first person key was held, which is a second player's, and there is none at the screen");
+            }
         }
         if (playerIndex >= View.COUNT) {
             return 0;

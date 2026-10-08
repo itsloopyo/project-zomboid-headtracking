@@ -270,6 +270,8 @@ public final class Agent {
                         new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "binding",
                                 "(" + KEY_BINDING + "Ljava/lang/String;)" + KEY_BINDING)))),
+                heldAim("getXA", "heldAcross"),
+                heldAim("getYA", "heldDown"),
                 new Patch(GAME_MOUSE, "update before its returns", classBytes -> {
                     CallSite.requireStaticInt(classBytes, "x");
                     CallSite.requireStaticInt(classBytes, "y");
@@ -569,6 +571,13 @@ public final class Agent {
     /** The game's reticle and aim cursor each read the screen position to draw at from one call, which names the player. */
     private static Patch reticle(String owner, String render, String descriptor, String read, String hook) {
         return instead(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER), hook);
+    }
+
+    /** Where the game has a player's aim on the screen is passed through a hook with the player's number. */
+    private static Patch heldAim(String read, String hook) {
+        return new Patch(RETICLE, read + " before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(RETICLE, read, INT_FILTER),
+                code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, hook, "(II)I"))));
     }
 
     /** The one call to a static method of the game's inside another goes to a hook that takes what it took. */

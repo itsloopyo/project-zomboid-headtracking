@@ -20,11 +20,17 @@ final class Config {
     static final String COLLISION_MARGIN = "0.12";
     static final float MIN_FIELD_OF_VIEW = 40f, MAX_FIELD_OF_VIEW = 110f;
 
-    /** The bits of pressed keys: core's four, then the first person view's own three. */
+    /**
+     * The bits of pressed keys: core's four, then the mod's own. The first person key is the
+     * first player's tapped and a second player's held, and a view is handed FIRST_PERSON for
+     * either.
+     */
     static final int TOGGLE = CameraUnlock.HOTKEY_TOGGLE, CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
-            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2;
+            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3;
+
+    private static final int SECOND_PLAYER_PORT = 4243;
 
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
@@ -33,7 +39,7 @@ final class Config {
     record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending) {}
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, frameBlending;
+    private final int fieldOfView, quality, style, frameBlending, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
 
@@ -41,14 +47,19 @@ final class Config {
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
      * writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
      * FrameBlending and the rows of [Content] are the mod's own, and the ones read again while
-     * the game runs. FirstPersonKey, CycleQualityKey and CycleStyleKey are the mod's own too, and
-     * read at the start.
+     * the game runs. SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey and CycleStyleKey are
+     * the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
         this.core = core;
         int writable = CameraUnlock.ROW_WRITABLE, live = CameraUnlock.ROW_LIVE;
         core.configDescribe(DISPLAY_NAME);
         core.configConcept("UdpPort", 0, null, null);
+        secondPlayerPort = core.configLocalInt("Network", "SecondPlayerUdpPort",
+                "UDP port the mod receives a second player's tracker data on, for two players at\n"
+                        + "one screen (OpenTrack protocol). The first player's tracker is on UdpPort, and the\n"
+                        + "two have to differ.",
+                0, SECOND_PLAYER_PORT, 1, 65535);
         core.configConcept("EnableOnStartup", 0, null, null);
         core.configConcept("WorldSpaceYaw", writable, null, null);
         core.configConcept("RotationEnabled", writable, null, null);
@@ -123,8 +134,10 @@ final class Config {
                         + "shadows are steadier in a still view, and what moves across the picture is\n"
                         + "softened and can smear. Read again while the game runs.",
                 live, false);
-        core.configLocalHotkey("FirstPersonKey", "Goes into the first person view and back to the game's own.", 0, "Delete",
-                FIRST_PERSON);
+        core.configLocalHotkeyHeld("FirstPersonKey",
+                "Goes into the first person view and back to the game's own. Tapped, for the first\n"
+                        + "player. Held for " + CameraUnlock.HOLD_MS + " ms, for a second player at the same screen.",
+                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND);
         core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Low, Medium, High (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
@@ -216,6 +229,11 @@ final class Config {
      */
     Live reload() {
         return core.configReload() == CameraUnlock.RELOAD_APPLIED ? live() : null;
+    }
+
+    /** The UDP port a second player's tracker is listened for on. */
+    int secondPlayerPort() {
+        return core.configGetInt(secondPlayerPort);
     }
 
     /** Each save answers whether the file holds the new value. The session keeps it either way. */

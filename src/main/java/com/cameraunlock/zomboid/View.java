@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import zombie.characters.CharacterInputMode;
 import zombie.characters.IsoPlayer;
 
 /**
@@ -16,6 +17,7 @@ final class View {
     /** How many players at one screen have a view: the first, and one who joined beside them. */
     static final int COUNT = 2;
 
+    /** Made on the game's logic thread and asked for on the thread that draws as well. */
     private static final View[] views = new View[COUNT];
 
     static {
@@ -67,6 +69,15 @@ final class View {
         return playerIndex >= 0 && playerIndex < COUNT ? views[playerIndex] : null;
     }
 
+    /** The view of the player at a number, made the first time the game draws one there. Logic thread. */
+    static View join(int playerIndex) {
+        if (views[playerIndex] == null) {
+            views[playerIndex] = new View(playerIndex);
+            Log.info("player " + (playerIndex + 1) + " is at the screen and has a first person view of their own");
+        }
+        return views[playerIndex];
+    }
+
     /** The view of a player of this machine, or null: see of(int). */
     static View of(IsoPlayer player) {
         for (int i = 0; i < COUNT; i++) {
@@ -80,5 +91,18 @@ final class View {
     /** The player this view is for, or null while there is none at its number. */
     IsoPlayer player() {
         return IsoPlayer.players[index];
+    }
+
+    /**
+     * Whether this view has the mouse and the keyboard. The first player's does, with or
+     * without a controller as well. A player who joined the screen has a controller alone.
+     */
+    boolean hasMouse() {
+        return index == 0;
+    }
+
+    /** Whether a player's aim, attack and look are a controller's. */
+    static boolean onController(IsoPlayer player) {
+        return player.getInputMode() == CharacterInputMode.GAMEPAD;
     }
 }

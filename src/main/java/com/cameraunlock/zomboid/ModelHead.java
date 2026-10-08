@@ -88,7 +88,7 @@ public final class ModelHead {
             return;
         }
         float[] head = view.headTracking.headTurn();
-        if (head != null && !player.isDead() && IsoPlayer.numPlayers == 1) {
+        if (head != null && !player.isDead()) {
             float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
             float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
             float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);

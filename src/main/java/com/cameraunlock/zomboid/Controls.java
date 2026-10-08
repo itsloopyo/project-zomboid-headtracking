@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 import zombie.GameTime;
 import zombie.characters.CharacterInputKeyBinding;
+import zombie.characters.CharacterJoypadButtonBinding;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.physics.BallisticsController;
@@ -61,14 +62,23 @@ public final class Controls {
      * character whose aim was already held. With the game's toggle to aim
      * option on, every click would flip the toggle, so the input is left alone:
      * that player has an aim that stays up already.
+     *
+     * A controller's aim is its aim button with its aiming stick pushed, the stick being
+     * where the game aims. In first person the stick turns the view and the aim is where
+     * the view looks, so the button alone is the aim.
      */
     public boolean aimKey(boolean stock) {
         boolean wasFiltered = filteredAim, wasAttack = attackDown;
-        stockAim = stock;
         IsoPlayer player = view.player();
-        if (view.firstPerson.lookCaptured() && player != null && player.getVehicle() == null
-                && !Core.getInstance().isToggleToAim()) {
-            attackDown = CharacterInputKeyBinding.Attack.isKeyDownInWorld();
+        boolean captured = view.firstPerson.lookCaptured() && player != null;
+        boolean pad = captured && View.onController(player);
+        if (pad) {
+            stock = CharacterJoypadButtonBinding.Aim.isDown(player.getJoypadBind());
+        }
+        stockAim = stock;
+        if (captured && player.getVehicle() == null && !togglesAim(player)) {
+            attackDown = pad ? CharacterJoypadButtonBinding.Attack.isDown(player.getJoypadBind())
+                    : CharacterInputKeyBinding.Attack.isKeyDownInWorld();
             filteredAim = aim.held(stock, attackDown, System.nanoTime());
         } else {
             aim.reset();
@@ -93,6 +103,11 @@ public final class Controls {
 
     private boolean turnedOnly;
 
+    /** Whether the game's toggle to aim option holds this player's aim: it is the keyboard's and the mouse's, and a controller has none. */
+    private static boolean togglesAim(IsoPlayer player) {
+        return !View.onController(player) && Core.getInstance().isToggleToAim();
+    }
+
     /**
      * Whether the game has the character aiming for no reason but to face it the way the view
      * does: the player is neither aiming nor attacking. What the player is shown then is what
@@ -108,7 +123,7 @@ public final class Controls {
      */
     public boolean attackKey(boolean stock) {
         IsoPlayer player = view.player();
-        if (!view.firstPerson.lookCaptured() || player == null || player.getVehicle() != null || Core.getInstance().isToggleToAim()) {
+        if (!view.firstPerson.lookCaptured() || player == null || player.getVehicle() != null || togglesAim(player)) {
             return stock;
         }
         return aim.attack(stock, player.isAimingFirearmEquipped());
@@ -124,7 +139,7 @@ public final class Controls {
      * aim an attack click implies, with a firearm in hand and on foot.
      */
     boolean sightsUp(IsoPlayer player) {
-        boolean aiming = stockAim || Core.getInstance().isToggleToAim() && player.isAiming();
+        boolean aiming = stockAim || togglesAim(player) && player.isAiming();
         return aiming && view.firstPerson.lookCaptured() && player.getVehicle() == null && player.isAimingFirearmEquipped();
     }
 

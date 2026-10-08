@@ -106,11 +106,11 @@ final class Panels {
      * inside the game's update of the player: a panel that is not handed over is logged and left
      * as it is.
      */
-    static void showInventory(boolean visible) {
+    static void showInventory(int playerIndex, boolean visible) {
         for (String function : INVENTORY_PANELS) {
-            Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(function), Double.valueOf(0));
+            Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(function), Double.valueOf(playerIndex));
             if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)) {
-                Log.info("the game's " + function + "(0) gave no panel, which is left as it is: " + Arrays.toString(found));
+                Log.info("the game's " + function + "(" + playerIndex + ") gave no panel, which is left as it is: " + Arrays.toString(found));
                 continue;
             }
             LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, visible);
