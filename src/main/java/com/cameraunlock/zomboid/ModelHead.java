@@ -34,42 +34,47 @@ import zombie.core.skinnedmodel.model.SkinningData;
  * Neither turns further than a neck does.
  */
 public final class ModelHead {
+    final View view;
+
+    ModelHead(View view) {
+        this.view = view;
+    }
+
     private static final String NECK = "Bip01_Neck", HEAD = "Bip01_Head";
     /** How much of the turn the neck takes, seen from outside. The head's joint, which rides on it, takes what is left. */
     private static final float NECK_SHARE = 0.4f;
     private static final float MOST_YAW = (float) Math.toRadians(80), MOST_UP = (float) Math.toRadians(50),
             MOST_DOWN = (float) Math.toRadians(45), MOST_ROLL = (float) Math.toRadians(35);
 
-    private static final Matrix4f inParent = new Matrix4f(), fromParent = new Matrix4f(), inModel = new Matrix4f(),
+    private final Matrix4f inParent = new Matrix4f(), fromParent = new Matrix4f(), inModel = new Matrix4f(),
             turned = new Matrix4f(), turn = new Matrix4f();
-    private static final Vector3f joint = new Vector3f();
-    private static final Quaternion turning = new Quaternion();
-    private static final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(),
+    private final Vector3f joint = new Vector3f();
+    private final Quaternion turning = new Quaternion();
+    private final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(),
             topScale = new Vector3f();
-    private static final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
+    private final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
     /** The skeleton whose neck and head are turned and not yet put back, between pose and posed. */
-    private static AnimationPlayer turnedIn;
-    private static int neckIndex, topIndex;
+    private AnimationPlayer turnedIn;
+    private int neckIndex, topIndex;
     /**
      * For the trace: the least and the most each bone was turned in its parent as the game
      * left it, since the last line. The animations hold both within a few degrees. A turn
      * of the mod's that the game had mixed back into its pose would show here.
      */
-    private static float neckLeast = Float.MAX_VALUE, neckMost, topLeast = Float.MAX_VALUE, topMost;
+    private float neckLeast = Float.MAX_VALUE, neckMost, topLeast = Float.MAX_VALUE, topMost;
     private static boolean gapSaid, bonesSaid;
-    private static long said;
+    private long said;
     /**
      * How high the joint of the player's head stood above their feet when they were last
      * posed, in the model's own measure, or not a number before the first pose. Written by
      * the thread that poses and read by the one that draws.
      */
-    static volatile float jointUp = Float.NaN;
+    volatile float jointUp = Float.NaN;
 
-    private ModelHead() {}
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
-    public static void pose(AnimationPlayer animation) {
-        IsoPlayer player = IsoPlayer.getInstance();
+    public void pose(AnimationPlayer animation) {
+        IsoPlayer player = view.player();
         if (player == null || player.getAnimationPlayer() != animation) {
             return;
         }
@@ -82,12 +87,12 @@ public final class ModelHead {
             }
             return;
         }
-        float[] head = HeadTracking.headTurn();
+        float[] head = view.headTracking.headTurn();
         if (head != null && !player.isDead() && IsoPlayer.numPlayers == 1) {
             float yaw = Math.clamp(head[0], -MOST_YAW, MOST_YAW);
             float pitch = Math.clamp(head[1], -MOST_DOWN, MOST_UP);
             float roll = Math.clamp(head[2], -MOST_ROLL, MOST_ROLL);
-            float neckShare = FirstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
+            float neckShare = view.firstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
             animation.getBoneTransformAt(neck.index).getPRS(neckPlace, neckTurn, neckScale);
             animation.getBoneTransformAt(top.index).getPRS(topPlace, topTurn, topScale);
             neckIndex = neck.index;
@@ -123,12 +128,12 @@ public final class ModelHead {
         }
     }
 
-    private static float angle(Quaternion turn) {
+    private float angle(Quaternion turn) {
         return (float) Math.toDegrees(2.0 * Math.acos(Math.min(1f, Math.abs(turn.w))));
     }
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
-    public static void posed(AnimationPlayer animation) {
+    public void posed(AnimationPlayer animation) {
         if (turnedIn != animation) {
             return;
         }
@@ -152,7 +157,7 @@ public final class ModelHead {
      * Turns one bone about its own joint, in the model's axes: yaw about straight up, then
      * pitch about the turned side, then roll about the way the head then faces.
      */
-    private static void turn(AnimationPlayer animation, SkinningBone bone, float yaw, float pitch, float roll) {
+    private void turn(AnimationPlayer animation, SkinningBone bone, float yaw, float pitch, float roll) {
         if (Matrix4f.invert(animation.getBoneModelTransform(bone.parent.index, inParent), fromParent) == null) {
             return;
         }

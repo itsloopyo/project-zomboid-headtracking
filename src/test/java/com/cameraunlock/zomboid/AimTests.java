@@ -38,14 +38,14 @@ final class AimTests {
         int[] order = {CameraUnlock.AIM_FREE_LOOK_MARKER, CameraUnlock.AIM_STOCK_SIGHTS, CameraUnlock.AIM_SIGHTS_LOCKED};
         String[] labels = {"Aim mode: free look with marker", "Aim mode: stock sights", "Aim mode: sights locked"};
         for (int step = 0; step < order.length; step++) {
-            mode = HeadTracking.aimModeAfter(mode);
+            mode = Tracking.aimModeAfter(mode);
             check(mode == order[step], "the cycle's step " + step + " is core's mode " + order[step]);
             check(core.aimModeLabel(mode).equals(labels[step]), "which core calls " + labels[step]);
         }
-        check(HeadTracking.AIM_MODES.length == 3, "and there is no fourth");
+        check(Tracking.AIM_MODES.length == 3, "and there is no fourth");
         boolean refused = false;
         try {
-            HeadTracking.aimModeAfter(CameraUnlock.AIM_TRUE_FREE_LOOK);
+            Tracking.aimModeAfter(CameraUnlock.AIM_TRUE_FREE_LOOK);
         } catch (IllegalArgumentException notCycled) {
             refused = true;
         }

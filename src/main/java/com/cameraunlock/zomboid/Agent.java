@@ -19,7 +19,7 @@ public final class Agent {
     private static final String DISPLAY = "org/lwjglx/opengl/Display";
     private static final String GLFW = "org/lwjgl/glfw/GLFW";
     private static final String WINDOW_PLACEMENT = "com/cameraunlock/zomboid/WindowPlacement";
-    private static final String FIRST_PERSON = "com/cameraunlock/zomboid/FirstPerson";
+    private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
     private static final String EXCEPTION_LOGGER = "zombie/core/logger/ExceptionLogger";
@@ -29,7 +29,6 @@ public final class Agent {
     private static final String COMBINER = "zombie/core/textures/TextureCombiner";
     private static final String TEXTURE = "Lzombie/core/textures/Texture;";
     private static final String FINE_SKINS = "com/cameraunlock/zomboid/FineSkins";
-    private static final String CONTROLS = "com/cameraunlock/zomboid/Controls";
     private static final String PLAYER = "zombie/characters/IsoPlayer";
     private static final String UI = "zombie/ui/UIManager";
     private static final String KEY_BINDING = "Lzombie/core/Core$KeyBinding;";
@@ -164,7 +163,7 @@ public final class Agent {
         }
         Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
 
-        HeadTracking.start(gameDirectory);
+        Tracking.start(gameDirectory);
 
         instrumentation.addTransformer(new PatchTransformer(basePatches()));
         firstPerson = new PatchTransformer(firstPersonPatches());
@@ -212,7 +211,7 @@ public final class Agent {
                 new Patch(TORCH, "set after getLookVector", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method(TORCH, "set", "(L" + PLAYER + ";Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
                         new CallSite.Method(PLAYER, "getLookVector", VECTOR2_FILTER),
-                        code -> CallSite.passFirstArgument(code, new CallSite.Method("com/cameraunlock/zomboid/HeadFollowLight", "direction",
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "lightDirection",
                                 "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;")), 1)),
                 // The one method every exception the game catches or lets a thread end on is logged by.
                 new Patch(EXCEPTION_LOGGER, "logException before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
@@ -225,21 +224,25 @@ public final class Agent {
     private static List<Patch> firstPersonPatches() {
         CallSite.Method mouseUpdate = new CallSite.Method(GAME_MOUSE, "update", "()V");
         CallSite.Method aiming = new CallSite.Method(PLAYER, "isAiming", "()Z");
-        CallSite.Method clickAiming = new CallSite.Method(CONTROLS, "aimingForWorldClicks", BOOLEAN_FILTER);
+        CallSite.Method clickAiming = new CallSite.Method(HOOKS, "aimingForWorldClicks", BOOLEAN_FILTER);
+        String input = "zombie/characters/component/CharacterInputComponent", inputFilter = "(ZL" + input + ";)Z";
+        String byPlayer = "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;";
         CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
         return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
-                        new CallSite.Method(FIRST_PERSON, "afterWorldRender", "()V")),
-                after(new CallSite.Method("zombie/characters/IsoPlayer", "getInputMoveVector", VECTOR2_FILTER),
+                        new CallSite.Method(HOOKS, "afterWorldRender", "()V")),
+                new Patch(PLAYER, "getInputMoveVector after getInputMoveVector", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(PLAYER, "getInputMoveVector", VECTOR2_FILTER),
                         new CallSite.Method("zombie/characters/IsoLivingCharacter", "getInputMoveVector", VECTOR2_FILTER),
-                        new CallSite.Method(FIRST_PERSON, "moveVector", VECTOR2_FILTER)),
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "moveVector", byPlayer)), 1)),
                 new Patch("org/lwjglx/opengl/Display", "updateMouseCursor left alone while the look has the mouse",
                         classBytes -> CallSite.returnAtOnceIf(classBytes, new CallSite.Method("org/lwjglx/opengl/Display", "updateMouseCursor", "()V"),
-                                new CallSite.Method(FIRST_PERSON, "holdsMouse", "()Z"))),
-                after(new CallSite.Method("zombie/iso/LightingJNI", "updatePlayer", "(I)V"),
-                        new CallSite.Method("zombie/characters/IsoPlayer", "getLookVector", VECTOR2_FILTER),
-                        new CallSite.Method(FIRST_PERSON, "sightVector", VECTOR2_FILTER)),
+                                new CallSite.Method(HOOKS, "holdsMouse", "()Z"))),
+                new Patch("zombie/iso/LightingJNI", "updatePlayer after getLookVector", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method("zombie/iso/LightingJNI", "updatePlayer", "(I)V"),
+                        new CallSite.Method(PLAYER, "getLookVector", VECTOR2_FILTER),
+                        code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, "sightVector", "(Lzombie/iso/Vector2;I)Lzombie/iso/Vector2;")), 1)),
                 new Patch(CHARACTER_DRAW, "render before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(CHARACTER_DRAW, "render", "()V"),
                         code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/Characters", "drawn",
@@ -248,31 +251,31 @@ public final class Agent {
                 reticle("zombie/iso/sprite/IsoReticle", "render", "()V", "getYA", "reticleY"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getXA", "reticleX"),
                 reticle("zombie/iso/sprite/IsoCursor", "render", "(I)V", "getYA", "reticleY"),
-                returning("zombie/characters/component/CharacterInputComponent", "isAimKeyDownInternal", "()Z", "aimKey", BOOLEAN_FILTER),
-                returning("zombie/characters/component/CharacterInputComponent", "isAttackButtonDown", "()Z", "attackKey", BOOLEAN_FILTER),
-                returning("zombie/characters/component/CharacterInputComponent", "isInteractButtonDownInternal", "()Z", "interactKey", BOOLEAN_FILTER),
+                returningWithThis(input, "isAimKeyDownInternal", "()Z", "aimKey", inputFilter),
+                returningWithThis(input, "isAttackButtonDown", "()Z", "attackKey", inputFilter),
+                returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
                 // Once where a right press reaches the object under the cursor and once where its release does.
                 new Patch(UI, "updateMouseButtons after isAiming", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method(UI, "updateMouseButtons", "(II)I"), aiming, clickAiming, 2)),
-                returning(PLAYER, "calculateAimVector", VECTOR2_FILTER, "aimVector", VECTOR2_FILTER),
-                after(ballistics, new CallSite.Method(RETICLE, "getX", INT_FILTER), new CallSite.Method(CONTROLS, "aimPointX", INT_FILTER)),
-                after(ballistics, new CallSite.Method(RETICLE, "getY", INT_FILTER), new CallSite.Method(CONTROLS, "aimPointY", INT_FILTER)),
+                returningWithThis(PLAYER, "calculateAimVector", VECTOR2_FILTER, "aimVector", byPlayer),
+                instead(ballistics, new CallSite.Method(RETICLE, "getX", INT_FILTER), "aimPointX"),
+                instead(ballistics, new CallSite.Method(RETICLE, "getY", INT_FILTER), "aimPointY"),
                 new Patch(ballistics.owner(), "update after calculateMuzzlePosition", classBytes -> CallSite.insertAfterEach(classBytes,
                         ballistics, new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(Lzombie/iso/Vector3;Lzombie/iso/Vector3;)F"),
-                        code -> CallSite.passThis(code, new CallSite.Method(CONTROLS, "muzzle", "(L" + ballistics.owner() + ";)V")), 1)),
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";)V")), 1)),
                 new Patch("zombie/core/Core", "getKeyBinding before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
-                        code -> CallSite.passFirstArgument(code, new CallSite.Method(CONTROLS, "binding",
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "binding",
                                 "(" + KEY_BINDING + "Ljava/lang/String;)" + KEY_BINDING)))),
                 new Patch(GAME_MOUSE, "update before its returns", classBytes -> {
                     CallSite.requireStaticInt(classBytes, "x");
                     CallSite.requireStaticInt(classBytes, "y");
                     return CallSite.insertBeforeReturns(classBytes, mouseUpdate, code -> {
-                        CallSite.filterStaticInt(code, GAME_MOUSE, "x", new CallSite.Method(FIRST_PERSON, "cursorX", "(I)I"));
-                        CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(FIRST_PERSON, "cursorY", "(I)I"));
+                        CallSite.filterStaticInt(code, GAME_MOUSE, "x", new CallSite.Method(HOOKS, "cursorX", "(I)I"));
+                        CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(HOOKS, "cursorY", "(I)I"));
                     });
                 }));
     }
@@ -290,7 +293,7 @@ public final class Agent {
     private static List<Patch> coveredPatches() {
         String world = "zombie/iso/IsoWorld", cell = "zombie/iso/fboRenderChunk/FBORenderCell";
         String cutaways = "zombie/iso/fboRenderChunk/FBORenderCutaways";
-        CallSite.Method covered = new CallSite.Method(FIRST_PERSON, "coversTheGamesView", "()Z");
+        CallSite.Method covered = new CallSite.Method(HOOKS, "coversTheGamesView", "()Z");
         return List.of(
                 new Patch(world, "renderWeatherFX left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(world, "renderWeatherFX", "()V"), covered)),
@@ -352,19 +355,19 @@ public final class Agent {
                 new Patch(cell, "renderMovingObject asks the picture whether a vehicle is in view", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(cell, "renderMovingObject", "(Lzombie/iso/IsoMovingObject;)V"),
                         new CallSite.Method("zombie/iso/IsoMovingObject", "isOnScreen", "()Z"),
-                        new CallSite.Method("com/cameraunlock/zomboid/FarModels", "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
+                        new CallSite.Method(HOOKS, "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
                 new Patch(vehicle, "a vehicle's render asks the picture whether it is seen", classBytes -> {
                     CallSite.Method render = new CallSite.Method(vehicle, "render", "(FFFLzombie/core/textures/ColorInfo;ZZLzombie/core/opengl/Shader;)V");
-                    CallSite.Method seen = new CallSite.Method("com/cameraunlock/zomboid/FarModels", "seen", "(Z)Z");
+                    CallSite.Method seen = new CallSite.Method(HOOKS, "seen", "(Z)Z");
                     classBytes = CallSite.insertAfter(classBytes, render, new CallSite.Method("zombie/iso/IsoGridSquare$ILighting", "bSeen", "()Z"), seen);
                     return CallSite.insertAfter(classBytes, render, new CallSite.Method(vehicle, "couldSeeIntersectedSquare", "(I)Z"), seen);
                 }),
                 new Patch(world, "sceneCullZombies asks the picture where a zombie is on the screen", classBytes -> {
                     CallSite.Method cull = new CallSite.Method(world, "sceneCullZombies", "()V");
                     classBytes = CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperX", "(I)I"),
-                            new CallSite.Method("com/cameraunlock/zomboid/FarModels", "screenAcross", "(L" + zombie + ";I)I"), 1);
+                            new CallSite.Method(HOOKS, "screenAcross", "(L" + zombie + ";I)I"), 1);
                     return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
-                            new CallSite.Method("com/cameraunlock/zomboid/FarModels", "screenDown", "(L" + zombie + ";I)I"), 1);
+                            new CallSite.Method(HOOKS, "screenDown", "(L" + zombie + ";I)I"), 1);
                 }));
     }
 
@@ -376,7 +379,7 @@ public final class Agent {
         String state = "zombie/gameStates/IngameState";
         return List.of(new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(state, "exit", "()V"),
-                code -> CallSite.passThis(code, new CallSite.Method(FIRST_PERSON, "leftSave", "(Ljava/lang/Object;)V")))));
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "leftSave", "(Ljava/lang/Object;)V")))));
     }
 
     /**
@@ -387,7 +390,7 @@ public final class Agent {
      * one method. See Hearing.
      */
     private static List<Patch> hearingPatches() {
-        String listener = "fmod/fmod/SoundListener", zoom = "zombie/audio/parameters/ParameterCameraZoom", hearing = "com/cameraunlock/zomboid/Hearing";
+        String listener = "fmod/fmod/SoundListener", zoom = "zombie/audio/parameters/ParameterCameraZoom", hearing = HOOKS;
         String set = "(IFFFFFFFFFFFF)V";
         return List.of(
                 new Patch(listener, "tick setting the listener", classBytes -> CallSite.replaceEach(classBytes,
@@ -508,10 +511,11 @@ public final class Agent {
      */
     private static List<Patch> shotPatches() {
         return List.of(
-                after(new CallSite.Method("zombie/CombatManager", "attackCollisionCheck",
+                new Patch("zombie/CombatManager", "attackCollisionCheck starting the muzzle flash", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method("zombie/CombatManager", "attackCollisionCheck",
                                 "(Lzombie/characters/IsoGameCharacter;Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
                         new CallSite.Method("zombie/EffectsManager", "startMuzzleFlash", "(Lzombie/characters/IsoGameCharacter;I)V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/ViewModel", "shot", "()V")));
+                        new CallSite.Method(HOOKS, "muzzleFlash", "(Lzombie/EffectsManager;Lzombie/characters/IsoGameCharacter;I)V"), 1)));
     }
 
     /**
@@ -525,10 +529,10 @@ public final class Agent {
         CallSite.Method posing = new CallSite.Method(player, "updateAnimation_StandardAnimation", "(F)V");
         return List.of(new Patch(player, "updateAnimation_StandardAnimation after updateTwistBone", classBytes -> CallSite.insertAfterEach(classBytes,
                 posing, new CallSite.Method(player, "updateTwistBone", "()V"),
-                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "pose", "(L" + player + ";)V")), 1)),
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "pose", "(L" + player + ";)V")), 1)),
                 new Patch(player, "updateAnimation_StandardAnimation after updateModelTransforms", classBytes -> CallSite.insertAfterEach(classBytes,
                 posing, new CallSite.Method(player, "updateModelTransforms", "()V"),
-                code -> CallSite.passThis(code, new CallSite.Method("com/cameraunlock/zomboid/ModelHead", "posed", "(L" + player + ";)V")), 1)));
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "posed", "(L" + player + ";)V")), 1)));
     }
 
     /**
@@ -537,7 +541,7 @@ public final class Agent {
      * writes over a person, and that place is what is changed.
      */
     private static List<Patch> nameTagPatches() {
-        String character = "zombie/characters/IsoGameCharacter", tags = "com/cameraunlock/zomboid/NameTags";
+        String character = "zombie/characters/IsoGameCharacter", tags = HOOKS;
         String vector = "Lzombie/iso/Vector2;", picker = "zombie/iso/IsoObjectPicker";
         CallSite.Method writing = new CallSite.Method(character, "renderlast", "()V");
         Consumer<CodeBuilder> place = code -> {
@@ -562,16 +566,28 @@ public final class Agent {
                         new CallSite.Method(tags, "underPointer", "(L" + picker + ";II)L" + picker + "$ClickObject;"), 1)));
     }
 
-    /** The game's reticle and aim cursor each read the screen position to draw at from one call. */
-    private static Patch reticle(String owner, String render, String descriptor, String read, String filter) {
-        return after(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER),
-                new CallSite.Method(FIRST_PERSON, filter, INT_FILTER));
+    /** The game's reticle and aim cursor each read the screen position to draw at from one call, which names the player. */
+    private static Patch reticle(String owner, String render, String descriptor, String read, String hook) {
+        return instead(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER), hook);
     }
 
-    /** What a method returns is passed through one of the hooks in Controls. */
+    /** The one call to a static method of the game's inside another goes to a hook that takes what it took. */
+    private static Patch instead(CallSite.Method within, CallSite.Method call, String hook) {
+        return new Patch(within.owner(), within.name() + " calling " + call.name(), classBytes -> CallSite.replaceEach(classBytes,
+                within, call, new CallSite.Method(HOOKS, hook, call.descriptor()), 1));
+    }
+
+    /** What a method returns is passed through a hook. */
     private static Patch returning(String owner, String method, String descriptor, String filter, String filterDescriptor) {
         return new Patch(owner, method + " before its returns", classBytes -> CallSite.filterReturn(classBytes,
-                new CallSite.Method(owner, method, descriptor), new CallSite.Method(CONTROLS, filter, filterDescriptor)));
+                new CallSite.Method(owner, method, descriptor), new CallSite.Method(HOOKS, filter, filterDescriptor)));
+    }
+
+    /** What a method of an object returns is passed through a hook with the object, which says whose it is. */
+    private static Patch returningWithThis(String owner, String method, String descriptor, String filter, String filterDescriptor) {
+        return new Patch(owner, method + " before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(owner, method, descriptor),
+                code -> CallSite.passThis(code, new CallSite.Method(HOOKS, filter, filterDescriptor))));
     }
 
     private static Patch after(CallSite.Method within, CallSite.Method call, CallSite.Method hook) {

@@ -13,7 +13,6 @@ import org.lwjgl.opengl.GL20;
  * The logic thread says where it is and the render thread draws it over the finished picture.
  */
 final class Crosshair {
-    private Crosshair() {}
 
     /** In pixels on a screen 1080 high: a tick's length and width, and how far from the middle it starts. */
     private static final int LENGTH = 7, WIDTH = 2, GAP = 5;
@@ -36,18 +35,18 @@ final class Crosshair {
     private static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
     /** Where it is, -1 to 1 across the picture and up it, and how spread, or null when it is not shown. */
-    private static volatile float[] shown;
+    private volatile float[] shown;
 
-    static void show(float x, float y, float spread) {
+    void show(float x, float y, float spread) {
         shown = new float[] {x, y, spread};
     }
 
-    static void hide() {
+    void hide() {
         shown = null;
     }
 
     /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
-    static void draw(int width, int height) {
+    void draw(int width, int height) {
         float[] where = shown;
         if (where == null || !flat.use()) {
             return;
@@ -78,7 +77,7 @@ final class Crosshair {
     }
 
     /** A box between whole pixels, so its edges are sharp. */
-    private static void box(int left, int bottom, int right, int top, int width, int height) {
+    private void box(int left, int bottom, int right, int top, int width, int height) {
         float x0 = left * 2f / width - 1f, x1 = right * 2f / width - 1f;
         float y0 = bottom * 2f / height - 1f, y1 = top * 2f / height - 1f;
         GL11.glBegin(GL_TRIANGLE_STRIP);

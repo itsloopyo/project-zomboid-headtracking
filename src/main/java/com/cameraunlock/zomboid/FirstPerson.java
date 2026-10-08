@@ -42,19 +42,25 @@ import zombie.vehicles.BaseVehicle;
  * which the render thread asks as well.
  */
 public final class FirstPerson {
+    final View view;
+
+    FirstPerson(View view) {
+        this.view = view;
+    }
+
     /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
-    private static long saidAt;
-    private static String said;
+    private long saidAt;
+    private String said;
     /** How far off the overhead camera stands, in tiles: far enough that the picture has next to no perspective. */
     private static final float OVERHEAD_AWAY = 6000f;
     private static final float OVERHEAD_YAW = (float) (-0.75 * Math.PI), OVERHEAD_PITCH = (float) Math.toRadians(-30);
-    private static boolean overhead;
-    private static int overheadSaid;
-    private static final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
+    private boolean overhead;
+    private int overheadSaid;
+    private final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
     /** What the overhead camera last took in above and below the place it looks at, in tiles. */
-    private static float overheadHalfHigh;
-    private static final ViewCamera.Pose flightView = new ViewCamera.Pose();
+    private float overheadHalfHigh;
+    private final ViewCamera.Pose flightView = new ViewCamera.Pose();
     /**
      * How near the eye the camera is when the viewer stops being one of the people in the
      * picture and becomes the one it is seen by: the distance their own head is cut away within.
@@ -71,7 +77,7 @@ public final class FirstPerson {
     private static final int AIM_BUTTON = 1;
     /** How long after the aim button is let go the game may still be opening what it opens on a right click. */
     private static final long AFTER_AIM_NANOS = 400_000_000L;
-    private static long aimedAt = Long.MIN_VALUE / 2;
+    private long aimedAt = Long.MIN_VALUE / 2;
 
     /** How far a pixel of mouse travel turns the view unzoomed. Zoomed it turns the view less, to move the picture as far. */
     private static final float RADIANS_PER_PIXEL = 0.0025f;
@@ -83,10 +89,10 @@ public final class FirstPerson {
     /** The direction the forward key moves the character in the game's own view: up the screen. */
     private static final float STOCK_FORWARD_YAW = (float) Math.toRadians(-135);
     /** The movement keys ask for a way that is not ahead of the view: sideways or back. */
-    private static boolean movingAside;
+    private boolean movingAside;
 
     /** Whether the character is being walked sideways or backwards from the way the view faces. */
-    static boolean movingAside() {
+    boolean movingAside() {
         return movingAside && lookCaptured();
     }
 
@@ -95,34 +101,34 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SITTING = 0.9f;
     /** The eye goes from one of those heights to another over a few of these, where set at once the whole picture cut half a tile in a frame. */
     private static final float EYE_HEIGHT_SECONDS = 0.1f;
-    private static float eyeHigh;
-    private static final float[] eye = new float[3];
+    private float eyeHigh;
+    private final float[] eye = new float[3];
     static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
     /** The view the player has asked for. The camera may still be on its way there. */
-    private static volatile boolean on;
+    private volatile boolean on;
     /** The camera is at the eye, and the view is played in. */
-    private static volatile boolean landed;
+    private volatile boolean landed;
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
-    private static boolean fromTheEye;
-    private static boolean wasRiding;
+    private boolean fromTheEye;
+    private boolean wasRiding;
     /** The way the vehicle the player is in faced on the last frame. */
-    private static float rideHeading;
+    private float rideHeading;
     /** The view is played in, the game is running and the character is alive. */
-    private static boolean active;
-    private static boolean lookCaptured;
+    private boolean active;
+    private boolean lookCaptured;
     /** Whether a frame of the picture has been queued since its targets were last given back. */
-    private static boolean pictureUp;
-    private static final PointerMode pointer = new PointerMode();
+    private boolean pictureUp;
+    private final PointerMode pointer = new PointerMode();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
      * the game goes on reading its keys there.
      */
     private static final long CAPTURE_LASTS_NANOS = 500_000_000L;
-    private static long lastFrameNanos;
-    private static float yaw;
-    private static float pitch;
+    private long lastFrameNanos;
+    private float yaw;
+    private float pitch;
 
     /**
      * How the picture is keeping up, said whoever is playing: a report of a slow game is of no
@@ -132,86 +138,85 @@ public final class FirstPerson {
      */
     private static final long PACE_FIRST_NANOS = 5_000_000_000L;
     private static final long PACE_EVERY_NANOS = TRACE ? PACE_FIRST_NANOS : 60_000_000_000L;
-    private static long paceWait = PACE_FIRST_NANOS;
-    private static long paceSince, paceWorst;
-    private static int paceFrames;
+    private long paceWait = PACE_FIRST_NANOS;
+    private long paceSince, paceWorst;
+    private int paceFrames;
     /** With tracing on, the memory the logic thread took for the picture since the last pace line. */
-    private static long paceBuiltBytes;
-    private static WorldScene paceScene;
+    private long paceBuiltBytes;
+    private WorldScene paceScene;
     /** A frame this long is a hitch the player feels: the log says what the frame before it built and drew. */
     private static final long LONG_FRAME_NANOS = 100_000_000L;
-    private static boolean haveRawX, haveRawY;
-    private static int lastRawX, lastRawY;
-    private static int cursorX, cursorY;
+    private boolean haveRawX, haveRawY;
+    private int lastRawX, lastRawY;
+    private int cursorX, cursorY;
 
     /** Where the reticle is drawn when the aim point is not in the picture: off the screen. */
     private static final int RETICLE_HIDDEN = -100_000;
 
-    private static final ViewCamera.Pose cleanView = new ViewCamera.Pose();
-    private static final ViewCamera.Pose trackedView = new ViewCamera.Pose();
+    private final ViewCamera.Pose cleanView = new ViewCamera.Pose();
+    private final ViewCamera.Pose trackedView = new ViewCamera.Pose();
     /**
      * The aim: the clean view from where the shot starts, which is the clean eye moved by
      * whatever of a lean the weapon has. The weapon is drawn in this view and the shot is
      * traced from it.
      */
-    private static final ViewCamera.Pose aimView = new ViewCamera.Pose();
-    private static final WorldQuery world = new WorldQuery();
-    private static final float[] ndc = new float[2];
-    private static int reticleX, reticleY;
-    private static float shotDistance;
+    private final ViewCamera.Pose aimView = new ViewCamera.Pose();
+    private final WorldQuery world = new WorldQuery();
+    private final float[] ndc = new float[2];
+    private int reticleX, reticleY;
+    private float shotDistance;
 
-    private static final Vector2 forward = new Vector2();
-    private static final Stride stride = new Stride();
+    private final Vector2 forward = new Vector2();
+    private final Stride stride = new Stride();
     /** A read of the mouse this soon after the look takes it may be of a cursor the window has just moved, not of the hand. */
     private static final long LOOK_SETTLES_NANOS = 150_000_000L;
-    private static long capturedNanos;
-    private static boolean wasCaptured;
+    private long capturedNanos;
+    private boolean wasCaptured;
     /** For the line said a second after a landing: when it was, and what the mouse has turned the view by since, in all and the most in one read. */
-    private static long landedNanos;
-    private static boolean landingSaid = true;
-    private static float mouseTurned;
-    private static int mouseMost;
-    private static final Vector2 drawn = new Vector2();
-    private static final Vector2 traceAim = new Vector2();
-    private static float traceMoveX, traceMoveY;
-    private static long lastTrace;
+    private long landedNanos;
+    private boolean landingSaid = true;
+    private float mouseTurned;
+    private int mouseMost;
+    private final Vector2 drawn = new Vector2();
+    private final Vector2 traceAim = new Vector2();
+    private float traceMoveX, traceMoveY;
+    private long lastTrace;
 
-    private FirstPerson() {}
 
-    static boolean isOn() {
+    boolean isOn() {
         return on;
     }
 
     /** Whether the viewer's own body is being drawn as it is seen from their own eye. */
-    static boolean seenFromTheEye() {
+    boolean seenFromTheEye() {
         return fromTheEye;
     }
 
     /** Whether the picture is drawing the game's own view, with the camera at rest there. */
-    static boolean overhead() {
-        return overhead && !on && Flight.home();
+    boolean overhead() {
+        return overhead && !on && view.flight.home();
     }
 
     /** The clean view direction: where the mouse has turned the view, with nothing else mixed in. */
-    static float yaw() {
+    float yaw() {
         return yaw;
     }
 
-    static float pitch() {
+    float pitch() {
         return pitch;
     }
 
     /** Whether the mouse is turning the view, for what the game asks between frames. */
-    static boolean lookCaptured() {
+    boolean lookCaptured() {
         return lookCaptured && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
     }
 
     /** Whether the first person view is being played in, with the mouse turning the view or out as a pointer. */
-    static boolean active() {
+    boolean active() {
         return active && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
     }
 
-    static void setLook(float newYaw, float newPitch) {
+    void setLook(float newYaw, float newPitch) {
         // Turning one way all session would otherwise grow the yaw until a float no longer
         // holds a pixel's worth of turn.
         yaw = (float) Math.IEEEremainder(newYaw, 2 * Math.PI);
@@ -225,17 +230,17 @@ public final class FirstPerson {
      * Made a piece a frame it takes a second or so, where made on the frame of the switch it
      * held that frame for seconds.
      */
-    private static boolean gettingReady;
-    private static long readySince;
+    private boolean gettingReady;
+    private long readySince;
     /** Whether the view holds anything on the graphics card that letting go would give back, and when it was last in use. */
-    private static boolean held;
-    private static long offSince;
+    private boolean held;
+    private long offSince;
     private static final long LET_GO_AFTER_NANOS = 60_000_000_000L;
     /** A PC on which the making and the rehearsal take longer than this goes on to first person without the rest of them. */
     private static final long READY_WITHIN_NANOS = 4_000_000_000L;
 
-    static void toggle() {
-        IsoPlayer player = IsoPlayer.getInstance();
+    void toggle() {
+        IsoPlayer player = view.player();
         if (!on && !allowed(player)) {
             Log.info("first person stays off: " + whyNot(player));
             return;
@@ -256,7 +261,7 @@ public final class FirstPerson {
     }
 
     /** One frame of getting ready: the next piece of what the picture is drawn with, then the world built once unseen, then the switch. */
-    private static void getReady(IsoPlayer player, long now) {
+    private void getReady(IsoPlayer player, long now) {
         boolean late = now - readySince > READY_WITHIN_NANOS;
         if (!late && (Pipeline.unprepared() || Pipeline.contentWaited())) {
             SpriteRenderer.instance.drawGeneric(Pipeline.PREPARE);
@@ -276,7 +281,7 @@ public final class FirstPerson {
      * first person gets ready again, as the first of the session did. The caller hands
      * Pipeline.LET_GO to the render thread, which gives back the graphics card's share.
      */
-    private static void letGo() {
+    private void letGo() {
         held = false;
         rehearsed = false;
         world.look(null, 0);
@@ -289,12 +294,11 @@ public final class FirstPerson {
      * game has let go of. Nor would anything come to let go of the mouse: a save can be left with
      * the look still holding it, by a server that stops or drops the player.
      */
-    public static void leftSave(Object state) {
+    void leftSave() {
         try {
             SnowPrints.forget();
             on = false;
             gettingReady = false;
-            outOfSave = true;
             landed = false;
             active = false;
             lookCaptured = false;
@@ -308,12 +312,12 @@ public final class FirstPerson {
             if (MouseGrab.applied || MouseGrab.keeping) {
                 RenderThread.queueInvokeOnRenderContext(MouseGrab.DRAWER::render);
             }
-            HeadTracking.rest();
-            ViewModel.rest();
-            Crosshair.hide();
-            NameTags.lookAway();
-            Hearing.rest();
-            Flight.cut(false);
+            view.headTracking.rest();
+            view.viewModel.rest();
+            view.crosshair.hide();
+            view.nameTags.lookAway();
+            view.hearing.rest();
+            view.flight.cut(false);
             if (pictureUp) {
                 pictureUp = false;
                 RenderThread.queueInvokeOnRenderContext(Pipeline.RELEASE::render);
@@ -329,10 +333,10 @@ public final class FirstPerson {
         }
     }
 
-    private static void switchView(IsoPlayer player) {
+    private void switchView(IsoPlayer player) {
         on = !on;
         if (on && player.getVehicle() != null) {
-            setLook(Ride.heading(player.getVehicle()), 0f);
+            setLook(view.ride.heading(player.getVehicle()), 0f);
         } else if (on) {
             Vector2 facing = player.getForwardDirection();
             setLook((float) Math.atan2(facing.y, facing.x), 0f);
@@ -342,18 +346,18 @@ public final class FirstPerson {
     }
 
     /** The ways the game has of saying which way a character faces, in degrees on the map: a landing that looks wrong is read off these. */
-    private static String facings(IsoPlayer player) {
+    private String facings(IsoPlayer player) {
         Vector2 facing = player.getForwardDirection();
         player.getAnimForwardDirection(drawn);
         return String.format(Locale.ROOT, "character facing %.0f and drawn facing %.0f",
                 Math.toDegrees(Math.atan2(facing.y, facing.x)), Math.toDegrees(Math.atan2(drawn.y, drawn.x)));
     }
 
-    private static boolean allowed(IsoPlayer player) {
+    private boolean allowed(IsoPlayer player) {
         return whyNot(player) == null;
     }
 
-    private static String whyNot(IsoPlayer player) {
+    private String whyNot(IsoPlayer player) {
         if (player == null) {
             return "no player";
         }
@@ -373,15 +377,19 @@ public final class FirstPerson {
         return gap != null ? gap : Pipeline.failure();
     }
 
-    /** Called from IngameState.renderFrameInternal straight after the game has drawn its world. */
-    public static void afterWorldRender() {
+    /**
+     * Called from IngameState.renderFrameInternal straight after the game has drawn this player's world.
+     *
+     * @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say
+     */
+    void afterWorldRender(int pressed) {
         long before = TRACE ? Allocation.byThisThread() : 0L;
-        Controls.frame();
+        view.controls.frame();
         try {
-            frame();
-            IsoPlayer player = IsoPlayer.getInstance();
+            frame(pressed);
+            IsoPlayer player = view.player();
             if (player != null && GameTime.isGamePaused()) {
-                Hearing.whilePaused(player);
+                view.hearing.whilePaused(player);
             }
             // After the picture, which would cover it.
             String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
@@ -406,8 +414,8 @@ public final class FirstPerson {
             }
             on = false;
             overhead = false;
-            Flight.cut(false);
-            Hearing.rest();
+            view.flight.cut(false);
+            view.hearing.rest();
         }
         if (TRACE) {
             paceBuiltBytes += Allocation.byThisThread() - before;
@@ -415,73 +423,59 @@ public final class FirstPerson {
     }
 
     /** Why the picture can no longer be built this session, or null. */
-    private static String failure;
-    private static final Set<String> thrownAt = new HashSet<>();
-    /**
-     * No frame of a save has run since the game started or the last save was left. The hotkeys
-     * are listened for all the while, in the menus too, and what was pressed there is not acted on.
-     */
-    private static boolean outOfSave = true;
+    private String failure;
+    private final Set<String> thrownAt = new HashSet<>();
 
-    private static void frame() {
-        int pressed = 0;
-        // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
-        if (outOfSave || Core.getInstance().isDoingTextEntry()) {
-            outOfSave = false;
-            HeadTracking.dropHotkeys();
-        } else {
-            pressed = HeadTracking.pollHotkeys();
-        }
+    /** @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say */
+    private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             toggle();
         }
         if ((pressed & Config.AIM_MODE) != 0) {
-            said = HeadTracking.aimModeLabel();
+            said = Tracking.aimModeLabel();
             saidAt = System.nanoTime();
         }
         DevKeys.poll();
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            HeadTracking.cycleGraphicsMode();
             said = "Graphics: " + Quality.name();
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
-            HeadTracking.cycleStyle();
             said = "Style: " + Style.current().label;
             saidAt = System.nanoTime();
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
-        boolean overheadAsked = !Quality.plain() && failure == null && allowed(IsoPlayer.getInstance());
+        boolean overheadAsked = !Quality.plain() && failure == null && allowed(view.player());
         overhead = overheadAsked && !Pipeline.unprepared() && !Pipeline.contentWaited();
         if (Terrain.level != overhead()) {
             Terrain.level(overhead());
             WorldScene.forgetAll();
         }
-        IsoPlayer player = IsoPlayer.getInstance();
+        IsoPlayer player = view.player();
         rideAlong(player);
         tread(player);
-        if ((on || !Flight.home()) && !allowed(player)) {
+        if ((on || !view.flight.home()) && !allowed(player)) {
             if (on) {
                 Log.info("first person off: " + whyNot(player));
             }
             on = false;
-            Flight.cut(false);
+            view.flight.cut(false);
         }
         long now = System.nanoTime();
         long frameNanos = now - lastFrameNanos;
         float sinceLastFrame = Math.min(frameNanos / 1e9f, MAX_FRAME_SECONDS);
         notePace(now, frameNanos);
         lastFrameNanos = now;
-        Flight.advance(on, sinceLastFrame, !overhead);
+        view.flight.advance(on, sinceLastFrame, !overhead);
         boolean wasLanded = landed;
-        landed = on && Flight.landed();
+        landed = on && view.flight.landed();
         if (landed && !wasLanded) {
             landedNanos = now;
             landingSaid = false;
             mouseTurned = 0f;
             mouseMost = 0;
             Log.info(String.format(Locale.ROOT, "first person landed looking %.0f, %s, movement keys (%.2f, %.2f), %s",
-                    Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, HeadTracking.describe()));
+                    Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, view.headTracking.describe()));
         }
         if (landed && !wasLanded) {
             stride.landed(now);
@@ -506,7 +500,7 @@ public final class FirstPerson {
             Log.info(String.format(Locale.ROOT, "a second after landing: looking %.0f, %s, the mouse turned the view %.1f degrees in all and %d pixels at most in one read",
                     Math.toDegrees(yaw), facings(player), Math.toDegrees(mouseTurned), mouseMost));
         }
-        boolean flown = on || !Flight.home();
+        boolean flown = on || !view.flight.home();
         Characters.wanted = flown || overhead && allowed(player) && !player.isDead();
         MouseGrab.wanted = lookCaptured;
         MouseGrab.kept = active && pointer.on();
@@ -515,12 +509,12 @@ public final class FirstPerson {
         Hearing.sayGap();
         fromTheEye = landed;
         if (!flown) {
-            FieldOfView.rest();
-            HeadTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
-            ViewModel.rest();
-            Crosshair.hide();
-            NameTags.lookAway();
-            Hearing.rest();
+            view.fieldOfView.rest();
+            view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
+            view.viewModel.rest();
+            view.crosshair.hide();
+            view.nameTags.lookAway();
+            view.hearing.rest();
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
@@ -564,26 +558,27 @@ public final class FirstPerson {
         // Eased from where the last frame at the eye had it. The first of them has none before it.
         eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, eyeHeight(player), sinceLastFrame, EYE_HEIGHT_SECONDS) : eyeHeight(player);
         eye[2] = floorUp + eyeHigh;
-        Headlights.gather(eye[0], eye[1]);
+        view.headlights.gather(eye[0], eye[1]);
         BaseVehicle vehicle = player.getVehicle();
-        Ride.note(player, vehicle, floorUp, eye);
-        boolean sightsUp = Controls.sightsUp(player);
-        FieldOfView.ease(sightsUp, sinceLastFrame);
-        ViewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
+        view.ride.note(player, vehicle, floorUp, eye);
+        boolean sightsUp = view.controls.sightsUp(player);
+        view.fieldOfView.ease(sightsUp, sinceLastFrame);
+        view.viewModel.update(player, yaw, pitch, sinceLastFrame, sightsUp, shotDistance);
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         if (lookCaptured && vehicle == null) {
-            CentreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
+            view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         } else {
-            CentreUse.marked = null;
+            view.centreUse.marked = null;
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
-        HeadTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp, vehicle == null, vehicle != null, trackedView);
+        view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp,
+                vehicle == null && Online.leanCarriesTheShot(player), view.viewModel.forwardStop(), vehicle != null, trackedView);
         // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.
-        double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + HeadFollowLight.turn();
+        double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
         float beamFlat = (float) Math.sqrt(Math.max(1f - trackedView.forwardUp * trackedView.forwardUp, 0f));
-        CarriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, trackedView.forwardUp);
-        float[] carried = HeadTracking.carried();
+        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, trackedView.forwardUp);
+        float[] carried = view.headTracking.carried();
         aimView.set(cleanView);
         aimView.eyeX += carried[0];
         aimView.eyeY += carried[1];
@@ -593,8 +588,8 @@ public final class FirstPerson {
         rehearsed = true;
         WorldScene scene = WorldScene.next();
         if (landed) {
-            scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
-            Hearing.face(trackedView, 0f, 1f);
+            scene.build(player, trackedView, aimView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            view.hearing.face(trackedView, 0f, 1f);
         } else {
             fly(player, scene, floorUp);
         }
@@ -603,15 +598,15 @@ public final class FirstPerson {
         pictureUp = true;
         placeReticle(scene, floorUp);
         if (Online.joined()) {
-            NameTags.look(cleanView, IsoWorld.instance.currentCell, player);
+            view.nameTags.look(cleanView, IsoWorld.instance.currentCell, player);
         } else {
-            NameTags.lookAway();
+            view.nameTags.lookAway();
         }
         // The game draws its own reticle while the aim is held, and nothing while it is not.
-        if (reticleX != RETICLE_HIDDEN && lookCaptured && ViewModel.held != null && (!player.isAiming() || Controls.turnedOnly())) {
-            Crosshair.show(ndc[0], ndc[1], ViewModel.spread());
+        if (reticleX != RETICLE_HIDDEN && lookCaptured && view.viewModel.held != null && (!player.isAiming() || view.controls.turnedOnly())) {
+            view.crosshair.show(ndc[0], ndc[1], view.viewModel.spread());
         } else {
-            Crosshair.hide();
+            view.crosshair.hide();
         }
 
         if (TRACE) {
@@ -625,35 +620,35 @@ public final class FirstPerson {
      * round where they stand. From there in it is the first-person view from a little behind
      * the eye.
      */
-    private static void fly(IsoPlayer player, WorldScene scene, float floorUp) {
+    private void fly(IsoPlayer player, WorldScene scene, float floorUp) {
         aimOverhead(player, floorUp);
-        Flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
-                cleanView, trackedView, yaw, pitch, FieldOfView.tanHalfVertical(), flightView);
-        Hearing.face(flightView, -OVERHEAD_PITCH * (1f - Flight.share()), Flight.share());
-        if (Flight.away() > OWN_FROM) {
+        view.flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
+                cleanView, trackedView, yaw, pitch, view.fieldOfView.tanHalfVertical(), flightView);
+        view.hearing.face(flightView, -OVERHEAD_PITCH * (1f - view.flight.share()), view.flight.share());
+        if (view.flight.away() > OWN_FROM) {
             standingView.set(flightView);
             standingView.eyeX = eye[0];
             standingView.eyeY = eye[1];
             standingView.eyeUp = eye[2];
-            Ride.seated = false;
-            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
-            scene.seenFrom(flightView, Flight.tanHalfFieldOfView(), Flight.away(), Flight.share());
+            view.ride.seated = false;
+            scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
+            scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
         } else {
             fromTheEye = true;
-            scene.build(player, flightView, aimView, Flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
+            scene.build(player, flightView, aimView, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
         }
-        scene.mixed(Flight.shown());
+        scene.mixed(view.flight.shown());
     }
 
-    private static int treadSaid;
-    private static float treadUp;
+    private int treadSaid;
+    private float treadUp;
 
     /**
      * Says where the player walks or drives, for lying snow to show the marks of it: see
      * SnowPrints. Only while snow lies, or the next fall would come down already trodden, and
      * only out of doors, or pacing a room would use up the marks kept from the street.
      */
-    private static void tread(IsoPlayer player) {
+    private void tread(IsoPlayer player) {
         if (player == null || ClimateManager.getInstance().getSnowFracNow() <= 0f) {
             SnowPrints.forget();
             return;
@@ -685,10 +680,10 @@ public final class FirstPerson {
      * the vehicle, as a head does with the seat under it, and the mouse turns it from there. In
      * the game's own view nothing changes.
      */
-    private static void rideAlong(IsoPlayer player) {
+    private void rideAlong(IsoPlayer player) {
         BaseVehicle vehicle = player == null ? null : player.getVehicle();
         if (vehicle != null) {
-            float heading = Ride.heading(vehicle);
+            float heading = view.ride.heading(vehicle);
             if (on) {
                 setLook(wasRiding ? yaw + heading - rideHeading : heading, wasRiding ? pitch : 0f);
             }
@@ -697,7 +692,7 @@ public final class FirstPerson {
         wasRiding = vehicle != null;
     }
 
-    private static void notePace(long now, long frameNanos) {
+    private void notePace(long now, long frameNanos) {
         if (!on) {
             Quality.rest();
             paceWait = PACE_FIRST_NANOS;
@@ -737,7 +732,7 @@ public final class FirstPerson {
      * The game aims from its aim origin to the point under the cursor at the origin's own
      * height, so that is the height the cursor's point is taken at.
      */
-    private static void holdTheCursorAhead(IsoPlayer player, float zoom) {
+    private void holdTheCursorAhead(IsoPlayer player, float zoom) {
         float cursorAtX = player.getAimOriginPosX() + (float) Math.cos(yaw) * CURSOR_DISTANCE;
         float cursorAtY = player.getAimOriginPosY() + (float) Math.sin(yaw) * CURSOR_DISTANCE;
         float aimHeight = player.getAimOriginPosZ();
@@ -746,8 +741,8 @@ public final class FirstPerson {
     }
 
     /** Whether the world round the player has been built, seen or unseen, since the view last gave back what it held. */
-    private static boolean rehearsed;
-    private static int rehearsals;
+    private boolean rehearsed;
+    private int rehearsals;
 
     /**
      * Builds the world as first person would see it from where the player stands, a few
@@ -756,18 +751,18 @@ public final class FirstPerson {
      * code Java has not yet made fast: left to the frame that switches to first person, the
      * chunks round the player alone held that frame for a fifth of a second.
      */
-    private static void rehearse(IsoPlayer player) {
+    private void rehearse(IsoPlayer player) {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         Vector2 facing = player.getForwardDirection();
         ViewCamera.clean(standingView, x, y, level * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, level) + eyeHeight(player),
                 (float) Math.atan2(facing.y, facing.x), 0f);
-        Headlights.gather(x, y);
+        view.headlights.gather(x, y);
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
-        CarriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
+        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
         WorldScene scene = WorldScene.next();
         WorldScene.rehearsing = true;
         try {
-            scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
         } finally {
             WorldScene.rehearsing = false;
         }
@@ -785,7 +780,7 @@ public final class FirstPerson {
      * a long way off with a very narrow field of view has next to none, and everything the
      * picture does works with it as it stands.
      */
-    private static void drawOverhead(IsoPlayer player) {
+    private void drawOverhead(IsoPlayer player) {
         float x = player.getX(), y = player.getY(), level = player.getZ();
         float floorUp = level * ViewCamera.LEVEL_HEIGHT;
         aimOverhead(player, floorUp);
@@ -798,11 +793,11 @@ public final class FirstPerson {
                     (ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index), (0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index),
                     Terrain.lift(x, y, level)));
         }
-        Headlights.gather(x, y);
+        view.headlights.gather(x, y);
         Vector2 facing = player.getForwardDirection();
         float facingLength = Math.max((float) Math.hypot(facing.x, facing.y), 1e-3f);
-        CarriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
-        Ride.seated = false;
+        view.carriedLight.gather(player, standingView.eyeX, standingView.eyeY, standingView.eyeUp, facing.x / facingLength, facing.y / facingLength, 0f);
+        view.ride.seated = false;
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(level));
         WorldScene scene = WorldScene.next();
         // The game's own view shows the ground out to twice the picture's half height along the way it looks, which is
@@ -813,7 +808,7 @@ public final class FirstPerson {
         scene.seenOnly(overheadView.eyeX + overheadView.forwardX * OVERHEAD_AWAY, overheadView.eyeY + overheadView.forwardY * OVERHEAD_AWAY,
                 overheadView.forwardX / flat, overheadView.forwardY / flat, halfWide, (float) (overheadHalfHigh / Math.sin(-OVERHEAD_PITCH)),
                 (float) (ViewCamera.LEVEL_HEIGHT / Math.tan(-OVERHEAD_PITCH)));
-        scene.build(player, standingView, standingView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
+        scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
@@ -824,7 +819,7 @@ public final class FirstPerson {
      * Puts the overhead camera where the game's own view is drawn from: looking at the place
      * that is at the middle of the screen, at the height the player's floor is drawn at.
      */
-    private static void aimOverhead(IsoPlayer player, float floorUp) {
+    private void aimOverhead(IsoPlayer player, float floorUp) {
         int index = player.getIndex();
         float zoom = Core.getInstance().getZoom(index);
         float x = player.getX(), y = player.getY(), level = player.getZ();
@@ -855,7 +850,7 @@ public final class FirstPerson {
      * another eye, and that point is no longer straight ahead of it. With nothing in reach the
      * aim is at infinity and only its direction is left to project.
      */
-    private static void placeReticle(WorldScene scene, float floorUp) {
+    private void placeReticle(WorldScene scene, float floorUp) {
         pictureTanHalf = scene.tanHalfFieldOfView();
         shotDistance = world.shotDistance(aimView, floorUp, WorldScene.REACH,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters);
@@ -866,10 +861,10 @@ public final class FirstPerson {
         float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
         float aimedX = aimView.eyeX + aimView.forwardX * aimed, aimedY = aimView.eyeY + aimView.forwardY * aimed;
         float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
-        IsoPlayer player = IsoPlayer.getInstance();
+        IsoPlayer player = view.player();
         float level = player.getZ();
         float aimedLevel = (aimedUp - Terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
-        Controls.aimAt(aimedX, aimedY, aimedLevel);
+        view.controls.aimAt(aimedX, aimedY, aimedLevel);
         // The game takes the square an attack is made at from what its own view has under the
         // pointer, and under this picture that is nothing. A shot that hits nobody is told
         // to the server by that square, and one with no square is thrown away there: nobody
@@ -900,24 +895,24 @@ public final class FirstPerson {
             hideReticle();
             return;
         }
-        int index = IsoPlayer.getInstance().getIndex();
+        int index = view.player().getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
     }
 
     /** Half the height of the picture's field of view, as a tangent, as it was last drawn. */
-    private static float pictureTanHalf;
+    private float pictureTanHalf;
 
     /**
      * Where a place in the world falls in the picture as it was last drawn, the head's turn
      * and lean included. False if it is behind the eye or no picture has been drawn.
      */
-    static boolean inPicture(float x, float y, float up, float[] ndc) {
+    boolean inPicture(float x, float y, float up, float[] ndc) {
         float aspect = WorldScene.drawnAspect();
         return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(trackedView, pictureTanHalf, aspect, x, y, up, ndc);
     }
 
-    private static void hideReticle() {
+    private void hideReticle() {
         reticleX = RETICLE_HIDDEN;
         reticleY = RETICLE_HIDDEN;
     }
@@ -927,7 +922,7 @@ public final class FirstPerson {
      * the game's own handler, which only flips the panels between shown and hidden: they are
      * shown folded from the start, so its first press would hide them.
      */
-    private static void point() {
+    private void point() {
         Core.KeyBinding inventory = Core.getInstance().getKeyBinding(INVENTORY_BINDING);
         boolean inventoryKey = pressed(inventory.keyValue()) | pressed(inventory.altKey());
         boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY);
@@ -958,13 +953,13 @@ public final class FirstPerson {
      * middle of the clean view is on, and says whether anything was there for it. In a
      * vehicle the key is the game's, which gets out with it.
      */
-    static boolean useAtCentre() {
-        IsoPlayer player = IsoPlayer.getInstance();
+    boolean useAtCentre() {
+        IsoPlayer player = view.player();
         if (player.getVehicle() != null) {
             return false;
         }
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(player.getX(), player.getY(), player.getZ());
-        CentreUse.Outcome outcome = CentreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell);
+        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
@@ -975,7 +970,7 @@ public final class FirstPerson {
     }
 
     /** Whether a key of a binding went down this frame. The game eats the press, so its own handlers never see the key come up. */
-    private static boolean pressed(int key) {
+    private boolean pressed(int key) {
         if (key == 0 || !GameKeyboard.isKeyPressed(key)) {
             return false;
         }
@@ -984,16 +979,16 @@ public final class FirstPerson {
     }
 
     /** Called where the game's reticle and aim cursor read the screen column to draw at. */
-    public static int reticleX(int stock) {
-        return landed ? Scope.hidesReticle() || Controls.turnedOnly() ? RETICLE_HIDDEN : reticleX : stock;
+    public int reticleX(int stock) {
+        return landed ? view.scope.hidesReticle() || view.controls.turnedOnly() ? RETICLE_HIDDEN : reticleX : stock;
     }
 
     /** Called where the game's reticle and aim cursor read the screen row to draw at, counted from the top. */
-    public static int reticleY(int stock) {
-        return landed ? Scope.hidesReticle() || Controls.turnedOnly() ? RETICLE_HIDDEN : reticleY : stock;
+    public int reticleY(int stock) {
+        return landed ? view.scope.hidesReticle() || view.controls.turnedOnly() ? RETICLE_HIDDEN : reticleY : stock;
     }
 
-    private static float eyeHeight(IsoPlayer player) {
+    private float eyeHeight(IsoPlayer player) {
         if (player.isSitOnGround() || player.isSittingOnFurniture()) {
             return EYE_HEIGHT_SITTING;
         }
@@ -1008,7 +1003,7 @@ public final class FirstPerson {
      * the logic thread built a moment before: on the one frame where the two differ the picture
      * is as good as whole.
      */
-    public static boolean coversTheGamesView() {
+    public boolean coversTheGamesView() {
         return landed && !WITHOUT_COVER;
     }
 
@@ -1022,12 +1017,12 @@ public final class FirstPerson {
      * has moved, took that for a turn and jumped. While the look has the mouse the window's
      * cursor is the look's alone.
      */
-    public static boolean holdsMouse() {
+    public boolean holdsMouse() {
         return !MouseGrab.ISOLATED && (MouseGrab.applied || MouseGrab.keeping);
     }
 
     /** Called at the end of the game's Mouse.update with the cursor column it read. */
-    public static int cursorX(int raw) {
+    public int cursorX(int raw) {
         if (!lookCaptured) {
             haveRawX = false;
             return raw;
@@ -1036,7 +1031,7 @@ public final class FirstPerson {
             haveRawX = false;
         }
         if (haveRawX && !MouseGrab.ISOLATED) {
-            float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn();
+            float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn();
             mouseTurned += turn;
             mouseMost = Math.max(mouseMost, Math.abs(raw - lastRawX));
             setLook(yaw + turn, pitch);
@@ -1047,7 +1042,7 @@ public final class FirstPerson {
     }
 
     /** Called at the end of the game's Mouse.update with the cursor row it read, counted from the top. */
-    public static int cursorY(int raw) {
+    public int cursorY(int raw) {
         if (!lookCaptured) {
             haveRawY = false;
             return raw;
@@ -1060,7 +1055,7 @@ public final class FirstPerson {
             haveRawY = false;
         }
         if (haveRawY && !MouseGrab.ISOLATED) {
-            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * FieldOfView.zoom() * Scope.turn());
+            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn());
         }
         lastRawY = raw;
         haveRawY = true;
@@ -1074,7 +1069,7 @@ public final class FirstPerson {
      * view, an arm's length off, was gone and back again as the body turned. In first person
      * what the player can see is what the view faces.
      */
-    public static Vector2 sightVector(Vector2 look) {
+    public Vector2 sightVector(Vector2 look) {
         if (!landed) {
             return look;
         }
@@ -1087,14 +1082,14 @@ public final class FirstPerson {
      * faces. With no key down and no aim held the character is turned to face
      * the view, since nothing else in the game does that without the cursor.
      */
-    public static Vector2 moveVector(Vector2 move) {
+    public Vector2 moveVector(Vector2 move) {
         traceMoveX = move.x;
         traceMoveY = move.y;
         // The keys are the view's from the moment first person is asked for, not from the landing: see Stride.
         if (!on) {
             return move;
         }
-        IsoPlayer player = IsoPlayer.getInstance();
+        IsoPlayer player = view.player();
         if (player == null || player.getVehicle() != null) {
             return move;
         }
@@ -1113,7 +1108,7 @@ public final class FirstPerson {
         return move.set(move.x * cos - move.y * sin, move.x * sin + move.y * cos);
     }
 
-    private static void trace(IsoPlayer player, WorldScene scene, float zoom) {
+    private void trace(IsoPlayer player, WorldScene scene, float zoom) {
         long now = System.nanoTime();
         if (now - lastTrace < TRACE_INTERVAL_NANOS) {
             return;
@@ -1127,8 +1122,8 @@ public final class FirstPerson {
                         + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
-                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), HeadTracking.describe(),
+                cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), view.headTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
-                scene.describe(), Controls.describe(), ViewModel.describe()));
+                scene.describe(), view.controls.describe(), view.viewModel.describe()));
     }
 }

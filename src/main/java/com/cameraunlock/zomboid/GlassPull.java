@@ -32,15 +32,14 @@ final class GlassPull {
     static final float HOUR = 3600f;
 
     /** How far a run leans for each tile it falls: to the front of the vehicle on a side window, and to its side on a screen, the side Ride.aheadY, -Ride.aheadX turned about is counted to. */
-    static float leanAhead, leanAside;
+    float leanAhead, leanAside;
     /** The clocks the runs on the front and the back screen go by, in seconds, beginning again every hour. */
-    static float front, back;
+    float front, back;
 
-    private static boolean known;
-    private static float lastSeconds, lastX, lastY, along, across, frontAhead, backAhead;
-    private static int said;
+    private boolean known;
+    private float lastSeconds, lastX, lastY, along, across, frontAhead, backAhead;
+    private int said;
 
-    private GlassPull() {}
 
     /**
      * Once a frame.
@@ -50,7 +49,7 @@ final class GlassPull {
      * @param goingX  the vehicle's speed on the map
      * @param aheadX  the way the vehicle faces on the map
      */
-    static void frame(boolean seated, float seconds, float goingX, float goingY, float aheadX, float aheadY) {
+    void frame(boolean seated, float seconds, float goingX, float goingY, float aheadX, float aheadY) {
         float passed = Math.min(((seconds - lastSeconds) % HOUR + HOUR) % HOUR, MOST_A_FRAME);
         lastSeconds = seconds;
         if (!seated) {
@@ -82,7 +81,7 @@ final class GlassPull {
     }
 
     /** With trace on: what the vehicle's speed was last read as and what the glass makes of it, now and then. */
-    static void say() {
+    void say() {
         if ((said++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "glass pull: going (%.2f, %.2f), speed changing %.2f ahead and %.2f aside a second, runs lean %.2f and %.2f",
                     lastX, lastY, along, across, leanAhead, leanAside));

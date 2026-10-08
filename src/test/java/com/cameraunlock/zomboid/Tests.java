@@ -23,6 +23,11 @@ import java.util.Map;
 import java.util.zip.GZIPOutputStream;
 
 public final class Tests {
+    private static final FieldOfView fieldOfView = new FieldOfView();
+    private static final Flight flight = new Flight();
+    private static final MuzzleFlash muzzleFlash = new MuzzleFlash();
+    private static final HeadFollowLight headFollowLight = new HeadFollowLight();
+
     public static int hookCalls;
 
     public static void hook() {
@@ -550,11 +555,11 @@ public final class Tests {
     }
 
     private static void flashIsBrightestAtTheShotAndGoneAfterItsTime() {
-        check(MuzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
-        check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
-        check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
+        check(muzzleFlash.left(0f) == 1f, "a flash is whole at the shot");
+        check(near(muzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
+        check(muzzleFlash.left(MuzzleFlash.SECONDS) == 0f && muzzleFlash.left(1f) == 0f, "and gone after its time");
         float[] light = {9f, 9f, 9f, 9f, 9f, 9f, 9f};
-        MuzzleFlash.light(light);
+        muzzleFlash.light(light);
         check(light[0] == 0f && light[3] == 0f && light[4] > 0f, "with no weapon drawn there is no light, only its colour");
     }
 
@@ -1493,21 +1498,21 @@ public final class Tests {
         ViewCamera.turn(tracked, radians(25), radians(-8), radians(5), true);
         ViewCamera.Pose out = new ViewCamera.Pose();
 
-        Flight.cut(false);
-        Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+        flight.cut(false);
+        flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
         check(apart(out, overhead) < 1e-2f && turnedApart(out, overhead) < 1e-5f, "before it sets off the camera is the overhead one, whatever the head is doing");
-        check(Flight.tanHalfFieldOfView() == OVERHEAD_TAN && near(Flight.away(), OVERHEAD_AWAY), "with its field of view and its distance");
+        check(flight.tanHalfFieldOfView() == OVERHEAD_TAN && near(flight.away(), OVERHEAD_AWAY), "with its field of view and its distance");
 
-        Flight.cut(true);
-        Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+        flight.cut(true);
+        flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
         check(apart(out, tracked) < 1e-4f && turnedApart(out, tracked) < 1e-5f, "landed it is the tracked view, the head's turn and lean in it");
-        check(Flight.tanHalfFieldOfView() == TAN_HALF_FOV && Flight.away() == 0f, "with the first-person field of view, at the eye");
+        check(flight.tanHalfFieldOfView() == TAN_HALF_FOV && flight.away() == 0f, "with the first-person field of view, at the eye");
 
-        Flight.cut(false);
+        flight.cut(false);
         float wasAway = OVERHEAD_AWAY, wasTan = OVERHEAD_TAN;
-        while (!Flight.landed()) {
-            Flight.advance(true, Flight.SECONDS / 20f, false);
-            Flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
+        while (!flight.landed()) {
+            flight.advance(true, Flight.SECONDS / 20f, false);
+            flight.camera(overhead, OVERHEAD_TAN, OVERHEAD_AWAY, yawFrom, pitchFrom, clean, tracked, yawTo, pitchTo, TAN_HALF_FOV, out);
             check(near(out.rightX * out.rightX + out.rightY * out.rightY + out.rightUp * out.rightUp, 1f)
                     && near(out.upX * out.upX + out.upY * out.upY + out.upUp * out.upUp, 1f)
                     && near(out.forwardX * out.forwardX + out.forwardY * out.forwardY + out.forwardUp * out.forwardUp, 1f), "on the way its axes are each a unit long");
@@ -1517,63 +1522,63 @@ public final class Tests {
             float cross = (out.rightY * out.upUp - out.rightUp * out.upY) * out.forwardX + (out.rightUp * out.upX - out.rightX * out.upUp) * out.forwardY
                     + (out.rightX * out.upY - out.rightY * out.upX) * out.forwardUp;
             check(cross > 0.99f, "and of the same hand as a clean view's, so the picture is never mirrored");
-            check(Flight.away() < wasAway && Flight.tanHalfFieldOfView() > wasTan, "it only comes nearer, and its field of view only opens");
-            wasAway = Flight.away();
-            wasTan = Flight.tanHalfFieldOfView();
-            float s = Flight.share();
-            float lookedX = out.eyeX + out.forwardX * Flight.away(), lookedY = out.eyeY + out.forwardY * Flight.away();
+            check(flight.away() < wasAway && flight.tanHalfFieldOfView() > wasTan, "it only comes nearer, and its field of view only opens");
+            wasAway = flight.away();
+            wasTan = flight.tanHalfFieldOfView();
+            float s = flight.share();
+            float lookedX = out.eyeX + out.forwardX * flight.away(), lookedY = out.eyeY + out.forwardY * flight.away();
             check(Math.abs(lookedX - (atX + (tracked.eyeX - atX) * s)) < 1e-2f && Math.abs(lookedY - (atY + (tracked.eyeY - atY) * s)) < 1e-2f,
                     "and the place it looks at goes straight from the middle of the screen to the eye");
         }
-        Flight.cut(false);
+        flight.cut(false);
     }
 
     private static void flightTakesItsTimeWhateverTheFrames() {
-        Flight.cut(false);
-        Flight.advance(true, 5f, false);
-        check(Flight.share() < 0.1f, "a frame many times too long does not carry the camera half way");
-        check(Flight.shown() == 1f, "over a view the renderer draws already, its picture is whole from the first frame");
+        flight.cut(false);
+        flight.advance(true, 5f, false);
+        check(flight.share() < 0.1f, "a frame many times too long does not carry the camera half way");
+        check(flight.shown() == 1f, "over a view the renderer draws already, its picture is whole from the first frame");
         int frames = 1;
-        while (!Flight.landed()) {
-            Flight.advance(true, 1f / 60f, false);
+        while (!flight.landed()) {
+            flight.advance(true, 1f / 60f, false);
             frames++;
         }
         check(Math.abs(frames / 60f - Flight.SECONDS) < 0.1f, "at sixty frames a second the way in takes the time it is given");
-        check(Flight.share() == 1f, "and ends at the eye");
-        Flight.advance(false, 1f / 60f, false);
-        check(!Flight.landed() && !Flight.home(), "turned back, it is on its way out from where it was");
-        while (Flight.share() > 0f) {
-            Flight.advance(false, 1f / 60f, false);
+        check(flight.share() == 1f, "and ends at the eye");
+        flight.advance(false, 1f / 60f, false);
+        check(!flight.landed() && !flight.home(), "turned back, it is on its way out from where it was");
+        while (flight.share() > 0f) {
+            flight.advance(false, 1f / 60f, false);
         }
-        check(Flight.home(), "and is home as soon as it is back overhead");
+        check(flight.home(), "and is home as soon as it is back overhead");
     }
 
     private static void flightMixesThePicturesOnlyWhileTheCameraIsStill() {
-        Flight.cut(false);
+        flight.cut(false);
         float was = 0f;
         int frames = 0;
-        while (Flight.shown() < 1f) {
-            Flight.advance(true, 1f / 60f, true);
-            check(Flight.shown() > was && Flight.share() == 0f, "over the game's own picture the renderer's comes in with the camera still overhead");
-            was = Flight.shown();
+        while (flight.shown() < 1f) {
+            flight.advance(true, 1f / 60f, true);
+            check(flight.shown() > was && flight.share() == 0f, "over the game's own picture the renderer's comes in with the camera still overhead");
+            was = flight.shown();
             frames++;
         }
         check(Math.abs(frames / 60f - Flight.MIX_SECONDS) < 0.05f, "in the time the mix is given");
-        Flight.advance(true, 1f / 60f, true);
-        check(Flight.share() > 0f, "and only then does the camera set off");
-        while (!Flight.landed()) {
-            Flight.advance(true, 1f / 60f, true);
+        flight.advance(true, 1f / 60f, true);
+        check(flight.share() > 0f, "and only then does the camera set off");
+        while (!flight.landed()) {
+            flight.advance(true, 1f / 60f, true);
         }
-        while (Flight.share() > 0f) {
-            check(Flight.shown() == 1f, "on the way out the picture is whole until the camera is back overhead");
-            Flight.advance(false, 1f / 60f, true);
+        while (flight.share() > 0f) {
+            check(flight.shown() == 1f, "on the way out the picture is whole until the camera is back overhead");
+            flight.advance(false, 1f / 60f, true);
         }
-        check(Flight.shown() == 1f && !Flight.home(), "where it is still whole, and the game's view is not back yet");
+        check(flight.shown() == 1f && !flight.home(), "where it is still whole, and the game's view is not back yet");
         was = 1f;
-        while (!Flight.home()) {
-            Flight.advance(false, 1f / 60f, true);
-            check(Flight.shown() < was && Flight.share() == 0f, "and goes out over the game's own picture with the camera still");
-            was = Flight.shown();
+        while (!flight.home()) {
+            flight.advance(false, 1f / 60f, true);
+            check(flight.shown() < was && flight.share() == 0f, "and goes out over the game's own picture with the camera still");
+            was = flight.shown();
         }
     }
 
@@ -1736,8 +1741,8 @@ public final class Tests {
         float before = FieldOfView.degrees();
         check(before == FieldOfView.DEFAULT_DEGREES, "with no file read the field of view is the row's default");
         FieldOfView.set(90f);
-        check(near(FieldOfView.tanHalfVertical(), 1f), "a field of view of 90 degrees has a half tangent of 1");
-        check(near(FieldOfView.drawnDegrees(), 90f), "and is the angle the picture is drawn with");
+        check(near(fieldOfView.tanHalfVertical(), 1f), "a field of view of 90 degrees has a half tangent of 1");
+        check(near(fieldOfView.drawnDegrees(), 90f), "and is the angle the picture is drawn with");
         FieldOfView.set(before);
     }
 
@@ -1763,10 +1768,10 @@ public final class Tests {
         check(near(HeadFollowLight.headingTurn(down, radians(25), radians(10), radians(15), false), viewTurn),
                 "given the view's own angles the beam has the heading of the view");
 
-        HeadFollowLight.follow(level, radians(90), 0f, 0f, true);
-        check(near(HeadFollowLight.turn(), radians(90)), "a followed head turns the beam");
-        HeadFollowLight.release();
-        check(HeadFollowLight.turn() == 0f, "and a released beam is the game's");
+        headFollowLight.follow(level, radians(90), 0f, 0f, true);
+        check(near(headFollowLight.turn(), radians(90)), "a followed head turns the beam");
+        headFollowLight.release();
+        check(headFollowLight.turn() == 0f, "and a released beam is the game's");
         check(HeadFollowLight.headingTurn(level, 0f, 0f, 0f, true) == 0f, "angles of nought, which a multiplier of 0 gives, leave the beam on the aim");
     }
 
@@ -2206,35 +2211,35 @@ public final class Tests {
     }
 
     private static void fieldOfViewEasesToTheAimedZoomAndBack() {
-        FieldOfView.rest();
+        fieldOfView.rest();
         float set = FieldOfView.setTanHalfVertical();
-        check(FieldOfView.zoom() == 1f && FieldOfView.tanHalfVertical() == set, "unaimed, the picture is drawn at the field of view that was set");
-        FieldOfView.ease(false, 0.016f);
-        check(FieldOfView.zoom() == 1f, "and stays there");
-        FieldOfView.ease(true, FieldOfView.ZOOM_SECONDS);
-        float afterOne = FieldOfView.zoom();
+        check(fieldOfView.zoom() == 1f && fieldOfView.tanHalfVertical() == set, "unaimed, the picture is drawn at the field of view that was set");
+        fieldOfView.ease(false, 0.016f);
+        check(fieldOfView.zoom() == 1f, "and stays there");
+        fieldOfView.ease(true, FieldOfView.ZOOM_SECONDS);
+        float afterOne = fieldOfView.zoom();
         check(near(afterOne, FieldOfView.AIMED_ZOOM + (1f - FieldOfView.AIMED_ZOOM) / (float) Math.E),
                 "one time constant covers all but 1/e of the way");
-        FieldOfView.rest();
+        fieldOfView.rest();
         for (int i = 0; i < 7; i++) {
-            FieldOfView.ease(true, FieldOfView.ZOOM_SECONDS / 7f);
+            fieldOfView.ease(true, FieldOfView.ZOOM_SECONDS / 7f);
         }
-        check(near(FieldOfView.zoom(), afterOne), "the easing does not depend on the frame rate");
+        check(near(fieldOfView.zoom(), afterOne), "the easing does not depend on the frame rate");
         for (int i = 0; i < 120; i++) {
-            FieldOfView.ease(true, 0.016f);
+            fieldOfView.ease(true, 0.016f);
         }
-        check(FieldOfView.zoom() == FieldOfView.AIMED_ZOOM, "it settles on the aimed zoom exactly");
-        check(near(FieldOfView.tanHalfVertical(), set * FieldOfView.AIMED_ZOOM), "which narrows the tangent the picture is drawn with");
+        check(fieldOfView.zoom() == FieldOfView.AIMED_ZOOM, "it settles on the aimed zoom exactly");
+        check(near(fieldOfView.tanHalfVertical(), set * FieldOfView.AIMED_ZOOM), "which narrows the tangent the picture is drawn with");
         check(near(FieldOfView.setTanHalfVertical(), set), "and leaves the field of view that was set");
-        FieldOfView.ease(false, 0.016f);
-        check(FieldOfView.zoom() > FieldOfView.AIMED_ZOOM && FieldOfView.zoom() < 1f, "lowering the sights eases back, never at once");
+        fieldOfView.ease(false, 0.016f);
+        check(fieldOfView.zoom() > FieldOfView.AIMED_ZOOM && fieldOfView.zoom() < 1f, "lowering the sights eases back, never at once");
         for (int i = 0; i < 120; i++) {
-            FieldOfView.ease(false, 0.016f);
+            fieldOfView.ease(false, 0.016f);
         }
-        check(FieldOfView.zoom() == 1f, "and settles on exactly 1");
-        FieldOfView.ease(true, 0.016f);
-        FieldOfView.rest();
-        check(FieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
+        check(fieldOfView.zoom() == 1f, "and settles on exactly 1");
+        fieldOfView.ease(true, 0.016f);
+        fieldOfView.rest();
+        check(fieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
     }
 
     private static void firstPersonKeysReplaceTheStockOnes() {

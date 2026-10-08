@@ -336,6 +336,12 @@ final class CallSite {
         invokeStatic(code, hook);
     }
 
+    /** Calls the static method {@code hook} with whatever the static method being rewritten has on its stack and then its first argument, an int. */
+    static void passFirstStaticInt(CodeBuilder code, Method hook) {
+        code.iload(0);
+        invokeStatic(code, hook);
+    }
+
     private static void invokeStatic(CodeBuilder code, Method method) {
         code.invoke(Opcode.INVOKESTATIC, ClassDesc.ofInternalName(method.owner()), method.name(),
                 MethodTypeDesc.ofDescriptor(method.descriptor()), false);

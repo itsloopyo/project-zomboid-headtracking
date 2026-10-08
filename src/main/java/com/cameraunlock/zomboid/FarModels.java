@@ -16,9 +16,14 @@ import zombie.vehicles.BaseVehicle;
  * Where players can fight, all of it is shown as the game shows it to everyone.
  */
 public final class FarModels {
-    private FarModels() {}
+    final View view;
 
-    private static final Vector3f ahead = new Vector3f();
+    FarModels(View view) {
+        this.view = view;
+    }
+
+
+    private final Vector3f ahead = new Vector3f();
 
     /**
      * In place of the game's asking whether a thing that moves is on its screen, as it goes
@@ -27,7 +32,7 @@ public final class FarModels {
      * vehicle the viewer rides in, which is shown whole: see screenAcross. The game draws a model in the light of the square it stands
      * on, which it keeps to hand only for the squares on its screen, so that is fetched here.
      */
-    public static boolean onScreen(IsoMovingObject moving) {
+    public boolean onScreen(IsoMovingObject moving) {
         if (moving instanceof IsoZombie zombie && aheadOfTheRide(zombie)) {
             zombie.setAlphaAndTarget(1f);
         } else if (moving.isOnScreen()) {
@@ -52,7 +57,7 @@ public final class FarModels {
      * 78 tiles off at 100 km/h) and came back beside it. From a vehicle the picture hides a
      * zombie ahead by what stands between it and the eye, and by nothing else.
      */
-    public static int screenAcross(IsoZombie zombie, int playerIndex) {
+    public int screenAcross(IsoZombie zombie, int playerIndex) {
         if (!aheadOfTheRide(zombie)) {
             return zombie.getScreenProperX(playerIndex);
         }
@@ -60,7 +65,7 @@ public final class FarModels {
         return 0;
     }
 
-    public static int screenDown(IsoZombie zombie, int playerIndex) {
+    public int screenDown(IsoZombie zombie, int playerIndex) {
         return aheadOfTheRide(zombie) ? 0 : zombie.getScreenProperY(playerIndex);
     }
 
@@ -73,20 +78,20 @@ public final class FarModels {
      * sight reached it, 36 to 56 tiles off at 107 km/h. Under the picture what stands between
      * the eye and a vehicle hides it, and nothing else does.
      */
-    public static boolean seen(boolean byTheGame) {
+    public boolean seen(boolean byTheGame) {
         return byTheGame || shownWhole();
     }
 
     /** Whether vehicles are drawn by where they are and not by what the game's own view shows of them. */
-    private static boolean shownWhole() {
-        return FirstPerson.coversTheGamesView() && !Online.contested();
+    private boolean shownWhole() {
+        return view.firstPerson.coversTheGamesView() && !Online.contested(view.player());
     }
 
-    private static boolean withinSight(IsoMovingObject moving) {
+    private boolean withinSight(IsoMovingObject moving) {
         if (!shownWhole()) {
             return false;
         }
-        IsoPlayer viewer = IsoPlayer.getInstance();
+        IsoPlayer viewer = view.player();
         float toX = moving.getX() - viewer.getX(), toY = moving.getY() - viewer.getY();
         float reach = ChunkBuffers.drawnWithin(Quality.sight());
         return toX * toX + toY * toY <= reach * reach;
@@ -97,11 +102,11 @@ public final class FarModels {
      * side the vehicle faces. What is behind shows only in a mirror, which takes in less than
      * the game's own screen does.
      */
-    private static boolean aheadOfTheRide(IsoMovingObject moving) {
+    private boolean aheadOfTheRide(IsoMovingObject moving) {
         if (!withinSight(moving)) {
             return false;
         }
-        IsoPlayer viewer = IsoPlayer.getInstance();
+        IsoPlayer viewer = view.player();
         BaseVehicle ride = viewer.getVehicle();
         if (ride == null) {
             return false;

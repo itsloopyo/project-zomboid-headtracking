@@ -29,6 +29,12 @@ import zombie.ui.TextDrawObject;
  * Everything runs on the game's logic thread.
  */
 public final class NameTags {
+    final View view;
+
+    NameTags(View view) {
+        this.view = view;
+    }
+
     /** How far above the feet a name is written: just clear of the head, which stands 1.45 high in the picture (measured against a player 2.6 and 4.4 tiles off). */
     private static final float ABOVE = 1.5f;
     /** Where the game is given for a name that is not in the picture. */
@@ -36,39 +42,38 @@ public final class NameTags {
     /** How far to either side of the middle of a person the view may pass and still be on them, how tall they are, and how far off they may be. */
     private static final float BODY_HALF_WIDE = 0.6f, BODY_HIGH = 2f, LOOK_REACH = 40f;
 
-    private static final float[] ndc = new float[2];
+    private final float[] ndc = new float[2];
     /** The person the game is writing over now is the viewer, seen from their own eye. */
-    private static boolean own;
+    private boolean own;
     /** The person the game is writing over now has been given a place in the picture, and how far down the window it is. */
-    private static boolean placed;
-    private static float placedY;
+    private boolean placed;
+    private float placedY;
     /** How far above that place the top of a name is written, in pixels: the height of its one line. */
     private static final float NAME_HIGH = 22f;
     /** The player the middle of the clean view is on, or null. */
-    private static IsoPlayer lookedAt;
+    private IsoPlayer lookedAt;
     private static boolean gapSaid;
 
-    private NameTags() {}
 
     /**
      * Called where the game has worked out where on the screen to write over a person.
      *
      * @param at the place, in pixels of the window
      */
-    public static void place(IsoGameCharacter character, Vector2 at) {
+    public void place(IsoGameCharacter character, Vector2 at) {
         own = false;
         placed = false;
-        if (!FirstPerson.coversTheGamesView()) {
+        if (!view.firstPerson.coversTheGamesView()) {
             return;
         }
-        IsoPlayer viewer = IsoPlayer.getInstance();
+        IsoPlayer viewer = view.player();
         if (character == viewer) {
             own = true;
             return;
         }
         float x = character.getX(), y = character.getY();
         float up = character.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, character.getZ()) + ABOVE;
-        if (!FirstPerson.inPicture(x, y, up, ndc)) {
+        if (!view.firstPerson.inPicture(x, y, up, ndc)) {
             at.set(NOWHERE, NOWHERE);
             return;
         }
@@ -83,7 +88,7 @@ public final class NameTags {
      * number of pixels above the place it worked out, which over a person seen small and far
      * off in the picture is a long way over their head: there it is written just above.
      */
-    public static void writeName(TextDrawObject name, double x, double y, boolean outlined) {
+    public void writeName(TextDrawObject name, double x, double y, boolean outlined) {
         if (own) {
             return;
         }
@@ -91,7 +96,7 @@ public final class NameTags {
     }
 
     /** Called in place of the game's writing of what a person has said. */
-    public static void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines) {
+    public void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines) {
         if (!own) {
             speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
         }
@@ -103,8 +108,8 @@ public final class NameTags {
      * answer stands on. Under the first person picture its own view is not drawn and has
      * nothing under the pointer, which is held ahead of the viewer and points at nothing.
      */
-    public static IsoObjectPicker.ClickObject underPointer(IsoObjectPicker picker, int x, int y) {
-        if (!FirstPerson.coversTheGamesView()) {
+    public IsoObjectPicker.ClickObject underPointer(IsoObjectPicker picker, int x, int y) {
+        if (!view.firstPerson.coversTheGamesView()) {
             return picker.ContextPick(x, y);
         }
         IsoPlayer on = lookedAt;
@@ -121,13 +126,13 @@ public final class NameTags {
     }
 
     /** The answer handed back, made when first needed: the class is the game's, and there is none where the mod is tested. */
-    private static IsoObjectPicker.ClickObject looked;
+    private IsoObjectPicker.ClickObject looked;
 
     /**
      * Once a frame of the first person view on a server: finds the nearest other player the
      * clean view passes through, feet to head.
      */
-    static void look(ViewCamera.Pose clean, IsoCell cell, IsoPlayer viewer) {
+    void look(ViewCamera.Pose clean, IsoCell cell, IsoPlayer viewer) {
         IsoPlayer found = null;
         float nearest = LOOK_REACH;
         for (IsoMovingObject mover : cell.getObjectList()) {
@@ -165,7 +170,7 @@ public final class NameTags {
     }
 
     /** The view is on nobody: first person is off, or the game is not joined to a server. */
-    static void lookAway() {
+    void lookAway() {
         lookedAt = null;
         if (looked != null) {
             looked.tile = null;

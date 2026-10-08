@@ -904,7 +904,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         litAt[slot] = pass;
         litByGame[slot] = chunk.lightingUpdateCounter;
         FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
-        boolean gameAsks = !FirstPerson.coversTheGamesView();
+        boolean gameAsks = !View.first().firstPerson.coversTheGamesView();
         for (int z = Math.max(lowest, chunk.getMinLevel()); z <= chunk.getMaxLevel(); z++) {
             tollPulls++;
             if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
@@ -1095,7 +1095,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 + String.format(Locale.ROOT, ", builds are filled from %d meshes with room for %.0f MB", solid.kept() + laid.kept(), (solid.room() + laid.room()) * Float.BYTES / 1048576f)
                 + " | noted " + Characters.described + " | steepest roof " + steepestSaid + " | roofs folded " + roofsFolded
                 + " | gables faced " + gablesFaced + " painted " + gablesPainted + " bare " + gablesBare
-                + " | " + CarriedLight.describe() + String.format(Locale.ROOT, " open light (%.2f, %.2f, %.2f)", floorRed, floorGreen, floorBlue);
+                + " | " + View.first().carriedLight.describe() + String.format(Locale.ROOT, " open light (%.2f, %.2f, %.2f)", floorRed, floorGreen, floorBlue);
     }
 
     static float drawnAspect() {
@@ -1130,7 +1130,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         aim.set(aimed);
         outside = false;
         opacity = 1f;
-        seated = Ride.seated;
+        seated = View.first().ride.seated;
         this.tanHalfFieldOfView = tanHalfFieldOfView;
         this.tanHalfSet = tanHalfSet;
         float flat = (float) Math.sqrt(view.forwardX * view.forwardX + view.forwardY * view.forwardY);
@@ -1191,8 +1191,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         openNow = gameOpen;
         daylightKeptNow = sky.daylightKept;
         // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
-        sky.carried = CarriedLight.light;
-        sky.marked = CentreUse.marked;
+        sky.carried = View.first().carriedLight.light;
+        sky.marked = View.first().centreUse.marked;
         sky.facedX = facedX;
         sky.facedY = facedY;
         sky.layersFromX = view.eyeX;
@@ -1314,8 +1314,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         float cosCone = fromOutside ? -1f : cosDrawnCone(view, flat);
         // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
-        boolean mirrored = !fromOutside && seated && Cabins.wheel(Ride.seatedIn) != null;
-        float behindX = -Ride.aheadX, behindY = -Ride.aheadY;
+        boolean mirrored = !fromOutside && seated && Cabins.wheel(View.first().ride.seatedIn) != null;
+        float behindX = -View.first().ride.aheadX, behindY = -View.first().ride.aheadY;
         // Looking straight up or down the view faces no way along the ground, and nothing is left out.
         float forwardX = cosCone > -1f ? view.forwardX / flat : 0f, forwardY = cosCone > -1f ? view.forwardY / flat : 0f;
 
@@ -2910,7 +2910,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // Without the viewer's own torch. The game has the torch on the square the character
             // has just stepped onto and takes it off again half a second later, so an eye that
             // went by the square's whole light shut and opened once for every tile walked.
-            ColorInfo light = TorchLess.light(under, player.getIndex(), torchless);
+            ColorInfo light = View.first().torchLess.light(under, player.getIndex(), torchless);
             here = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept), 2.2);
         }
         // By day an eye indoors opens up to a dim room. At night it has less to open with: an
@@ -2962,7 +2962,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // Read from the lighting engine, which holds every loaded square. getLightInfo is
                 // a copy the game's own render takes of it, and only for the squares its camera
                 // has on screen.
-                ColorInfo light = TorchLess.light(square, playerIndex, torchless);
+                ColorInfo light = View.first().torchLess.light(square, playerIndex, torchless);
                 boolean outside = square.isOutside();
                 if (!square.isSeen(playerIndex)) {
                     light = unseenLight;
@@ -5795,7 +5795,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         for (int under = z - 1; under >= 0 && ground == null; under--) {
             ground = cell.getGridSquare(x, y, under);
         }
-        ColorInfo light = ground != null && ground.isSeen(playerIndex) ? TorchLess.light(ground, playerIndex, torchless) : unseenLight;
+        ColorInfo light = ground != null && ground.isSeen(playerIndex) ? View.first().torchLess.light(ground, playerIndex, torchless) : unseenLight;
         boolean lit = mainsOn || here.haveElectricity();
         float red = lit ? Soffits.under(light.r, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(light.g, Soffits.GLOW_GREEN) : light.g;
         float blue = lit ? Soffits.under(light.b, Soffits.GLOW_BLUE) : light.b;
@@ -5878,7 +5878,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
         System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
         System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
-        ColorInfo light = below != null && below.isSeen(playerIndex) ? TorchLess.light(below, playerIndex, torchless) : unseenLight;
+        ColorInfo light = below != null && below.isSeen(playerIndex) ? View.first().torchLess.light(below, playerIndex, torchless) : unseenLight;
         frame.light(light.r, light.g, light.b);
         frame.open = 0f;
         layers.lie(SpriteGeometry.LAYERS_UP, -1f);
@@ -7943,7 +7943,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView)),
                     Math.toDegrees(2 * Math.atan(tanHalfFieldOfView * aspect)), aspect, viewport[2], viewport[3],
                     Math.toDegrees(2 * Math.atan(tanHalfSet)),
-                    HeadTracking.zoomFactor(), near));
+                    View.first().headTracking.zoomFactor(), near));
         }
         Characters.aim.set(aim);
         // What the picture does without for an eye thousands of tiles off, it has again once

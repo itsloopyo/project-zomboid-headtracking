@@ -49,7 +49,7 @@ public final class Characters {
      * picture that covers that view: it is then not drawn. Called from the game's code.
      */
     public static boolean gamesOwnDrawIsCovered() {
-        return !ours && FirstPerson.coversTheGamesView();
+        return !ours && View.first().firstPerson.coversTheGamesView();
     }
 
     /** Has the game draw one part of a model for the picture. */
@@ -424,7 +424,7 @@ public final class Characters {
                 int at = i * 4;
                 float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + Terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-                String script = Ride.seatedIn;
+                String script = View.first().ride.seatedIn;
                 if (script != null && !parts(data).isEmpty()) {
                     ViewCamera.view(camera, eyeView);
                     multiply(projection, eyeView, combined);
@@ -456,13 +456,13 @@ public final class Characters {
      * with the weapon.
      */
     private static void settleTheWeapon(ModelSlotRenderData data, ViewCamera.Pose camera) {
-        ViewModel.Held hands = ViewModel.held;
+        ViewModel.Held hands = View.first().viewModel.held;
         if (hands != null && CharacterDraw.cuts()) {
             ModelInstanceRenderData weapon = weaponOf(data);
             ViewCamera.between(aim, camera, fromAim);
             boolean own = Own.arms() && OwnArms.model() != null;
             float[] hand = hands.firearm() ? null : gameHand(data);
-            if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
+            if (weapon != null && View.first().viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
                     CHARACTER_SCALE, own, hand, fromAim, heldView)) {
                 holding = data;
                 armHands = hands;
@@ -476,7 +476,7 @@ public final class Characters {
                         armsRefused = true;
                         Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
                     }
-                    if (!ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
+                    if (!View.first().viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
                         holding = null;
                         return;
                     }
@@ -489,7 +489,7 @@ public final class Characters {
                 // A firearm with a muzzle has its left hand held on the fore-end.
                 // Anything else carried in both hands is not in both at every moment: a
                 // left hand that is off it stays with the body, where the game has it.
-                heldBoth = both && (ViewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
+                heldBoth = both && (View.first().viewModel.hasMuzzle || !(arms[0] && arms[1] && apart(joints[0], joints[1]) > ON_WEAPON));
                 if (!arms[0] && !armless) {
                     armless = true;
                     Log.info("the hands on the weapon are drawn without arms: no part of the viewer's model has a right hand and a forearm");
@@ -559,7 +559,7 @@ public final class Characters {
             // eye is at a height of its own and the model's head is wherever the animation
             // has it, so the model is stood as much higher or lower as brings its eyes to the
             // view's.
-            float jointUp = ModelHead.jointUp;
+            float jointUp = View.first().modelHead.jointUp;
             if (!Float.isNaN(jointUp)) {
                 float eyesUp = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
                 data.z += (camera.eyeUp - eyesUp) / ViewCamera.LEVEL_HEIGHT;
@@ -678,25 +678,25 @@ public final class Characters {
         for (int axis = 0; axis < 3; axis++) {
             across[axis] -= wrist[axis];
         }
-        ViewModel.Held hands = ViewModel.held;
-        boolean laid = side == 1 && ViewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
-        if (side == 0 && ViewModel.hasMuzzle) {
+        ViewModel.Held hands = View.first().viewModel.held;
+        boolean laid = side == 1 && View.first().viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        if (side == 0 && View.first().viewModel.hasMuzzle) {
             // The right hand's palm is on the grip, which says which way round a palm faces
             // from a hand's length and its thumb in these axes.
             palmSide = 1f;
             handAxes(false);
             float to = 0f;
             for (int axis = 0; axis < 3; axis++) {
-                to += facing[axis] * (ViewModel.gripSeen[axis] - palm[axis]);
+                to += facing[axis] * (View.first().viewModel.gripSeen[axis] - palm[axis]);
             }
             palmSide = to < 0f ? -1f : 1f;
         }
         if (laid) {
             layOnForeEnd(view);
         }
-        if (side == 1 && ViewModel.hasMuzzle) {
+        if (side == 1 && View.first().viewModel.hasMuzzle) {
             for (int axis = 0; axis < 3; axis++) {
-                float move = (laid ? held[axis] : ViewModel.foreEnd[axis]) - palm[axis];
+                float move = (laid ? held[axis] : View.first().viewModel.foreEnd[axis]) - palm[axis];
                 wrist[axis] += move;
                 rigid[axis] += move;
                 palm[axis] += move;
@@ -707,7 +707,7 @@ public final class Characters {
         // match them. The mod's own gun is the size a gun is, and hands that size on it are a
         // giant's: they are drawn smaller about their middles, which stay where they hold,
         // and the arms behind them are as much thinner. The forearm keeps its length.
-        boolean fitted = ViewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
+        boolean fitted = View.first().viewModel.hasMuzzle && hands != null && OwnWeapon.standsFor(hands.item());
         if (fitted) {
             for (int i = 0; i < 16; i++) {
                 laying[i] = i % 5 == 0 ? HAND_FITS : 0f;
@@ -785,17 +785,17 @@ public final class Characters {
 
     /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
     private static boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
-        heldBoth = hands.bothHands() && (ViewModel.hasMuzzle || !hands.firearm());
+        heldBoth = hands.bothHands() && (View.first().viewModel.hasMuzzle || !hands.firearm());
         // The weapon is held where the game's own hand has it: by the middle of that hand, which the weapon's maker put its grip in.
-        float[] grip = ViewModel.gripSeen;
+        float[] grip = View.first().viewModel.gripSeen;
         for (int part = 0; part < parts(data).size(); part++) {
             if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
                 ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
                 // The middle of the game's hand is beside the weapon, not in it, and the mod's hand closes on the
                 // weapon's own middle: a firearm's is the plane its barrel and its top lie in, and a handle's is its length.
-                float[] off = {palm[0] - ViewModel.gripSeen[0], palm[1] - ViewModel.gripSeen[1], palm[2] - ViewModel.gripSeen[2]};
-                float[] ahead = ViewModel.pointing, side = new float[3];
-                ArmPose.cross(ahead, ViewModel.over, side);
+                float[] off = {palm[0] - View.first().viewModel.gripSeen[0], palm[1] - View.first().viewModel.gripSeen[1], palm[2] - View.first().viewModel.gripSeen[2]};
+                float[] ahead = View.first().viewModel.pointing, side = new float[3];
+                ArmPose.cross(ahead, View.first().viewModel.over, side);
                 if (hands.firearm() && ArmPose.unit(side[0], side[1], side[2], side)) {
                     float aside = ArmPose.dot(off, side);
                     for (int axis = 0; axis < 3; axis++) {
@@ -805,7 +805,7 @@ public final class Characters {
                 } else if (!hands.firearm()) {
                     float along = ArmPose.dot(off, ahead);
                     for (int axis = 0; axis < 3; axis++) {
-                        palm[axis] = ViewModel.gripSeen[axis] + ahead[axis] * along;
+                        palm[axis] = View.first().viewModel.gripSeen[axis] + ahead[axis] * along;
                     }
                     handAside = ArmPose.apart(off, new float[] {ahead[0] * along, ahead[1] * along, ahead[2] * along});
                 }
@@ -813,16 +813,16 @@ public final class Characters {
                 break;
             }
         }
-        ArmHolds.Parts parts = ViewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
+        ArmHolds.Parts parts = View.first().viewModel.handgun ? ArmHolds.HAND : ArmHolds.LONG;
         float[] origin = grip;
-        if (ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
+        if (View.first().viewModel.hasMuzzle && OwnRifle.standsFor(hands.item())) {
             parts = new ArmHolds.Parts(parts.bore(), parts.knob(), parts.lift(), OwnRifle.boltTravel(), parts.port(), parts.well(), parts.slide(), parts.slideTravel());
-            origin = ViewModel.gripSeen;
-        } else if (ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
-            origin = ViewModel.gripSeen;
+            origin = View.first().viewModel.gripSeen;
+        } else if (View.first().viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item())) {
+            origin = View.first().viewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), ViewModel.handgun, grip, origin, ViewModel.pointing, ViewModel.over, ViewModel.foreEnd, ViewModel.foreSteady, parts);
-        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), ViewModel.turned);
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), View.first().viewModel.handgun, grip, origin, View.first().viewModel.pointing, View.first().viewModel.over, View.first().viewModel.foreEnd, View.first().viewModel.foreSteady, parts);
+        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), View.first().viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
         armsAsOf = now;
@@ -912,9 +912,9 @@ public final class Characters {
      */
     private static void layOnForeEnd(float[] view) {
         handAxes(true);
-        unit(ViewModel.muzzle[0] - ViewModel.gripSeen[0], ViewModel.muzzle[1] - ViewModel.gripSeen[1], ViewModel.muzzle[2] - ViewModel.gripSeen[2], barrel);
-        float tipped = ViewModel.over[0] * barrel[0] + ViewModel.over[1] * barrel[1] + ViewModel.over[2] * barrel[2];
-        unit(ViewModel.over[0] - barrel[0] * tipped, ViewModel.over[1] - barrel[1] * tipped, ViewModel.over[2] - barrel[2] * tipped, upright);
+        unit(View.first().viewModel.muzzle[0] - View.first().viewModel.gripSeen[0], View.first().viewModel.muzzle[1] - View.first().viewModel.gripSeen[1], View.first().viewModel.muzzle[2] - View.first().viewModel.gripSeen[2], barrel);
+        float tipped = View.first().viewModel.over[0] * barrel[0] + View.first().viewModel.over[1] * barrel[1] + View.first().viewModel.over[2] * barrel[2];
+        unit(View.first().viewModel.over[0] - barrel[0] * tipped, View.first().viewModel.over[1] - barrel[1] * tipped, View.first().viewModel.over[2] - barrel[2] * tipped, upright);
         cross(barrel, upright, aside);
         unit(upright[0] * PALM_UP + aside[0] * PALM_RIGHT, upright[1] * PALM_UP + aside[1] * PALM_RIGHT, upright[2] * PALM_UP + aside[2] * PALM_RIGHT, wantFacing);
         float into = 0f;
@@ -943,7 +943,7 @@ public final class Characters {
         ViewModelMath.place(laying, rigid[0], rigid[1], rigid[2], rigid);
         ViewModelMath.turned(laying, across, across);
         for (int axis = 0; axis < 3; axis++) {
-            held[axis] = ViewModel.foreEnd[axis] - wantFacing[axis] * PALM_OFF;
+            held[axis] = View.first().viewModel.foreEnd[axis] - wantFacing[axis] * PALM_OFF;
         }
     }
 
@@ -1063,26 +1063,26 @@ public final class Characters {
         // and the game's model of it and of what is fixed to it is left out.
         ViewModel.Held hands = armHands;
         ModelInstanceRenderData held = weaponOf(data);
-        boolean own = held != null && ViewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
+        boolean own = held != null && View.first().viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
         if (own) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
-            OwnWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+            View.first().ownWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside(), hands.aim());
         }
         // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
-        boolean rifle = !own && held != null && ViewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
+        boolean rifle = !own && held != null && View.first().viewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
         if (rifle) {
             Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
             IsoGridSquare square = data.character.getCurrentSquare();
-            OwnRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
+            View.first().ownRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
                     ownLight, square != null && square.isOutside());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
-        ModelInstanceRenderData glass = own || held == null || Scope.fitted() == null ? null : scopeOf(data);
+        ModelInstanceRenderData glass = own || held == null || View.first().scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
             IsoGridSquare square = data.character.getCurrentSquare();
-            Scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
+            View.first().scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
         }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
@@ -1417,7 +1417,7 @@ public final class Characters {
         if (viewer == null || square == null || !square.isSeen(viewer.getIndex())) {
             return;
         }
-        ColorInfo light = TorchLess.light(square, viewer.getIndex(), stoodIn);
+        ColorInfo light = View.first().torchLess.light(square, viewer.getIndex(), stoodIn);
         CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, WorldScene.openNow, WorldScene.daylightKeptNow), square.isOutside());
     }
 

@@ -32,20 +32,19 @@ final class Flight {
     static final float MIX_SECONDS = SECONDS * 2f / 3f;
 
     /** 0 in the game's view, 1 in the first-person view, and even in time between. */
-    private static float at;
+    private float at;
     /** How much of the game's own picture the renderer's covers: all of it whenever the camera is off its place overhead. */
-    private static float shown;
-    private static float tan, away;
-    private static final float[] axis = new float[3];
+    private float shown;
+    private float tan, away;
+    private final float[] axis = new float[3];
 
-    private Flight() {}
 
     /**
      * Moves the camera towards the first-person view or away from it over a frame of the given length.
      *
      * @param mixes the game's own view is the game's own picture, which the renderer's is mixed over
      */
-    static void advance(boolean in, float seconds, boolean mixes) {
+    void advance(boolean in, float seconds, boolean mixes) {
         float time = Math.min(seconds, MOST_A_FRAME);
         if (!mixes) {
             shown = in || at > 0f ? 1f : 0f;
@@ -63,38 +62,38 @@ final class Flight {
     }
 
     /** Puts the camera at one end with no way between. */
-    static void cut(boolean in) {
+    void cut(boolean in) {
         at = in ? 1f : 0f;
         shown = at;
     }
 
     /** Whether the camera is at the eye. */
-    static boolean landed() {
+    boolean landed() {
         return at == 1f;
     }
 
     /** Whether the camera is back where the game's own view is drawn from, and the renderer's picture is off the game's. */
-    static boolean home() {
+    boolean home() {
         return at == 0f && shown == 0f;
     }
 
     /** How much of the game's own picture the renderer's covers. */
-    static float shown() {
+    float shown() {
         return shown;
     }
 
     /** How much of the way the camera has come, 0 in the game's view: it sets off and arrives slowly. */
-    static float share() {
+    float share() {
         return at * at * (3f - 2f * at);
     }
 
     /** The tangent of half the vertical field of view the camera last had. */
-    static float tanHalfFieldOfView() {
+    float tanHalfFieldOfView() {
         return tan;
     }
 
     /** How far the camera last was from the place it looks at, in tiles. */
-    static float away() {
+    float away() {
         return away;
     }
 
@@ -108,7 +107,7 @@ final class Flight {
      * @param tracked      the first-person view the frame would be drawn from: clean, with the head in it
      * @param tanTo        the tangent of half the first-person view's vertical field of view
      */
-    static void camera(ViewCamera.Pose overhead, float overheadTan, float overheadAway, float yawFrom, float pitchFrom,
+    void camera(ViewCamera.Pose overhead, float overheadTan, float overheadAway, float yawFrom, float pitchFrom,
             ViewCamera.Pose clean, ViewCamera.Pose tracked, float yawTo, float pitchTo, float tanTo, ViewCamera.Pose out) {
         float s = share();
         float turn = (float) Math.IEEEremainder(yawTo - yawFrom, 2 * Math.PI);
@@ -153,7 +152,7 @@ final class Flight {
      * the clean view's axes and set out again in the camera's, mixed with the camera's own by
      * how far the camera has come.
      */
-    private static void headed(ViewCamera.Pose camera, ViewCamera.Pose clean, float x, float y, float up,
+    private void headed(ViewCamera.Pose camera, ViewCamera.Pose clean, float x, float y, float up,
             float ownX, float ownY, float ownUp, float share, float[] out) {
         float right = x * clean.rightX + y * clean.rightY + up * clean.rightUp;
         float above = x * clean.upX + y * clean.upY + up * clean.upUp;

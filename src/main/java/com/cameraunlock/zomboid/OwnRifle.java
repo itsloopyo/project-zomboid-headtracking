@@ -28,7 +28,12 @@ import org.lwjgl.opengl.GL30;
  * All of it is the render thread's.
  */
 final class OwnRifle {
-    private OwnRifle() {}
+    final View view;
+
+    OwnRifle(View view) {
+        this.view = view;
+    }
+
 
     /** The one item of the game's that the model stands for. */
     private static final String ITEM = "Base.HuntingRifle";
@@ -253,9 +258,9 @@ final class OwnRifle {
     /** Where the hand under the fore-end holds it, as a share of the way from the grip to the muzzle. */
     static float foreEnd;
 
-    private static final float[] model = new float[16], projection = new float[16];
-    private static boolean placed;
-    private static float handed, stood, outdoors;
+    private final float[] model = new float[16], projection = new float[16];
+    private boolean placed;
+    private float handed, stood, outdoors;
 
     /**
      * How far the handle is turned up to open the bolt, as tools/models/rifle.py makes it, and
@@ -272,8 +277,8 @@ final class OwnRifle {
         return travel;
     }
     private static final float NOT_WORKING = -1f;
-    private static boolean caseThrown;
-    private static long workedAsOf;
+    private boolean caseThrown;
+    private long workedAsOf;
 
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
@@ -440,7 +445,7 @@ final class OwnRifle {
      * @param light       the game's light where the viewer stands
      * @param outside     whether the viewer stands out of doors
      */
-    static void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside) {
+    void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside) {
         // The model is sized so that its muzzle is where the game's is.
         float size = finalScale * gameMuzzle / muzzleFar;
         for (int column = 0; column < 3; column++) {
@@ -463,7 +468,7 @@ final class OwnRifle {
     }
 
     /** Whether the rifle was placed this frame and is still to be drawn. */
-    static boolean waiting() {
+    boolean waiting() {
         return placed;
     }
 
@@ -471,7 +476,7 @@ final class OwnRifle {
      * Begins the drawing: the program is in use, for the picture to give it the light of the
      * frame under the names its own programs know it by.
      */
-    static Program begin() {
+    Program begin() {
         program.use();
         return program;
     }
@@ -494,7 +499,7 @@ final class OwnRifle {
      * @param asideX     the fraction of a dot the world is drawn aside this frame, as a part of
      *                   the picture's width, and asideY of its height
      */
-    static void draw(ViewCamera.Pose camera, int scene, int wide, int high, int handsDepth, float tanHalfFieldOfView, float aspect, float near, float far,
+    void draw(ViewCamera.Pose camera, int scene, int wide, int high, int handsDepth, float tanHalfFieldOfView, float aspect, float near, float far,
             float sceneNear, float asideX, float asideY) {
         placed = false;
         long now = System.nanoTime();
@@ -503,7 +508,7 @@ final class OwnRifle {
         // The bolt is worked a moment after the shot, by the clock the hand that works it goes by:
         // the clock here counts no more than a twentieth of a second a frame, so on long frames it
         // runs slow, and by it the hand would leave an open bolt.
-        ViewModel.Held held = ViewModel.held;
+        ViewModel.Held held = view.viewModel.held;
         float working = held == null || held.cycled() < 0f ? NOT_WORKING : held.cycled() - ArmActs.BOLT_AFTER;
         if (working < 0f || working > WORKED_FOR) {
             bolt[0] = 0f;
@@ -552,7 +557,7 @@ final class OwnRifle {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
 
-        HeldDepth.bind();
+        view.heldDepth.bind();
         program.set("uWriteNear", Scope.NEAREST);
         program.set("uBehindHands", 1f);
         program.set("uDepthOnly", 0f);
@@ -571,9 +576,9 @@ final class OwnRifle {
         GL20.glUseProgram(0);
     }
 
-    private static final float[] bolt = new float[2];
+    private final float[] bolt = new float[2];
 
-    private static void parts() {
+    private void parts() {
         program.set("uModel", model);
         program.set("uTurn", 1f, 0f);
         program.set("uSlide", 0f);
@@ -604,15 +609,15 @@ final class OwnRifle {
      * radians a second.
      */
     private static final float THROWN_RIGHT = 1.3f, THROWN_UP = 0.9f, THROWN_BACK = 0.3f, FALLS = 7.5f, TUMBLES = 21f;
-    private static final float[] caseAge = {CASE_LASTS, CASE_LASTS};
+    private final float[] caseAge = {CASE_LASTS, CASE_LASTS};
     /** Each case in the world: where it is, how it moves, and the rifle's own axes as they were when it left. */
-    private static final float[][] caseAt = new float[CASES][3], caseGoes = new float[CASES][3], caseAxes = new float[CASES][9];
-    private static final float[][] caseModel = new float[CASES][16];
-    private static final float[] seenAt = new float[3], tumbled = new float[3];
-    private static int nextCase;
+    private final float[][] caseAt = new float[CASES][3], caseGoes = new float[CASES][3], caseAxes = new float[CASES][9];
+    private final float[][] caseModel = new float[CASES][16];
+    private final float[] seenAt = new float[3], tumbled = new float[3];
+    private int nextCase;
 
     /** Throws a case as the bolt comes back, moves those in the air, and works out where the eye sees each. */
-    private static void throwCases(ViewCamera.Pose camera, float seconds, boolean thrown) {
+    private void throwCases(ViewCamera.Pose camera, float seconds, boolean thrown) {
         if (thrown) {
             int flying = nextCase;
             nextCase = (nextCase + 1) % CASES;
@@ -658,14 +663,14 @@ final class OwnRifle {
     }
 
     /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */
-    private static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
+    private void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
         out[0] = camera.rightX * x + camera.upX * y - camera.forwardX * z;
         out[1] = camera.rightY * x + camera.upY * y - camera.forwardY * z;
         out[2] = camera.rightUp * x + camera.upUp * y - camera.forwardUp * z;
     }
 
     /** A direction of the world's in the view's axes, written into a matrix at a column's first place. */
-    private static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
+    private void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
         out[at] = camera.rightX * x + camera.rightY * y + camera.rightUp * z;
         out[at + 1] = camera.upX * x + camera.upY * y + camera.upUp * z;
         out[at + 2] = -(camera.forwardX * x + camera.forwardY * y + camera.forwardUp * z);

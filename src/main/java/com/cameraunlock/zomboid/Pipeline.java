@@ -659,19 +659,19 @@ final class Pipeline {
             boolean figures = Characters.ready();
             glazed = false;
             // A mirror and a scope look where the eye does not, at ground the same maps shade.
-            Characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && Scope.fitted() == null);
+            Characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && View.first().scope.fitted() == null);
             drawShadows(state, figures);
             boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
-            float[] cabin = seated ? Cabins.wheel(Ride.seatedIn) : null;
+            float[] cabin = seated ? Cabins.wheel(View.first().ride.seatedIn) : null;
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
             if (cabin != null && System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS) {
                 mirrorDrawnAt = System.nanoTime();
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
                 stage(STAGE_MIRROR);
             }
-            if (Scope.wanted(Characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
+            if (View.first().scope.wanted(Characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
@@ -715,7 +715,7 @@ final class Pipeline {
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
-            Crosshair.draw(viewport[2], viewport[3]);
+            View.first().crosshair.draw(viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
             takeBackLent();
@@ -738,7 +738,7 @@ final class Pipeline {
         float sight = Math.min(fogEnd, Quality.sightBehind());
         fogStart *= sight / fogEnd;
         fogEnd = sight;
-        float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
+        float aheadX = View.first().ride.aheadX, aheadY = View.first().ride.aheadY;
         behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
         behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
         behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
@@ -747,7 +747,7 @@ final class Pipeline {
         float[] wheelAt = VehicleMeshes.seatedWheel;
         VehicleMeshes.Parts body = VehicleMeshes.seatedParts;
         if (wheelAt != null) {
-            Cabins.mirrorAt(wheelAt, Cabins.house(Ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
+            Cabins.mirrorAt(wheelAt, Cabins.house(View.first().ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
             behind.eyeX = mirrorPlace[0];
             behind.eyeY = mirrorPlace[1];
             behind.eyeUp = mirrorPlace[2];
@@ -805,17 +805,17 @@ final class Pipeline {
      * the sky behind. It is the same light as the picture round it, and is developed with it.
      */
     private static void drawThroughScope(SkyState state, float far, float fogStart, float fogEnd, boolean figures) {
-        float tan = Scope.pictureTan();
-        Scope.lendPicture(frameNanos);
+        float tan = View.first().scope.pictureTan();
+        View.first().scope.lendPicture(frameNanos);
         inScope = true;
-        drawWorld(Scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
+        drawWorld(View.first().scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far, fogStart, fogEnd);
         inScope = false;
         if (figures) {
-            drawFiguresAside(Scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, Scope.figureTarget, Scope.figureColor, Scope.figureNormal,
-                    Scope.pictureTarget, Scope.pictureDepth, false, state, far, fogStart, fogEnd);
+            drawFiguresAside(View.first().scope.sees, tan, 1f, Scope.PICTURE_NEAR, Scope.PICTURE, Scope.PICTURE, View.first().scope.figureTarget, View.first().scope.figureColor, View.first().scope.figureNormal,
+                    View.first().scope.pictureTarget, View.first().scope.pictureDepth, false, state, far, fogStart, fogEnd);
         }
-        drawSkyInto(Scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, Scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
-        Scope.developed();
+        drawSkyInto(View.first().scope.pictureTarget, Scope.PICTURE, Scope.PICTURE, false, View.first().scope.sees, state, tan, 1f, Scope.PICTURE_NEAR, far);
+        View.first().scope.developed();
     }
 
     /** The developed picture, its edges smoothed, into the part of the game's own picture the frame is written to. */
@@ -1236,7 +1236,7 @@ final class Pipeline {
     private static void castBeams(SkyState state, boolean figures) {
         // The scene as the nearest lit headlights see it, so that what stands in their beam
         // throws its shadow down the road.
-        float[] beams = Headlights.beams;
+        float[] beams = View.first().headlights.beams;
         heldChunks[BEAM_MAP] = 0;
         if (beams[6] > 0f) {
             lamp.eyeX = beams[0];
@@ -1560,7 +1560,7 @@ final class Pipeline {
 
     private static void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? Scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? View.first().scope.pictureTarget : inMirror ? mirrorTarget : sceneTarget);
         GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : width, inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
         // In the mirror, where nothing is drawn is marked, and the sky is put there when the
         // glass is drawn.
@@ -2389,8 +2389,8 @@ final class Pipeline {
             GL11.glDepthFunc(GL_ALWAYS);
             GL11.glDepthMask(true);
             figureLight.set("uGlassPass", 0f);
-            figureLight.set("uInstruments", Ride.instrumentsLit ? 0.9f * state.night : 0f);
-            float[] wheel = seated ? Cabins.wheel(Ride.seatedIn) : null;
+            figureLight.set("uInstruments", View.first().ride.instrumentsLit ? 0.9f * state.night : 0f);
+            float[] wheel = seated ? Cabins.wheel(View.first().ride.seatedIn) : null;
             if (wheel == null) {
                 figureLight.set("uWheel", 0f, 0f, 0f, 0f);
                 figureLight.set("uSeat", 0f, 0f, 0f);
@@ -2399,12 +2399,12 @@ final class Pipeline {
             }
             figureLight.set("uRaining", state.rain);
             figureLight.set("uGlassRain", (float) Quality.glassRain());
-            GlassPull.frame(seated, state.seconds, Ride.goingX, Ride.goingY, Ride.aheadX, Ride.aheadY);
+            View.first().glassPull.frame(seated, state.seconds, View.first().ride.goingX, View.first().ride.goingY, View.first().ride.aheadX, View.first().ride.aheadY);
             if (FirstPerson.TRACE && seated) {
-                GlassPull.say();
+                View.first().glassPull.say();
             }
-            figureLight.set("uGlassPull", GlassPull.leanAhead, GlassPull.leanAside, GlassPull.front, GlassPull.back);
-            figureLight.set("uGauges", Ride.roadSpeed, Ride.engineSpeed, Ride.fuel);
+            figureLight.set("uGlassPull", View.first().glassPull.leanAhead, View.first().glassPull.leanAside, View.first().glassPull.front, View.first().glassPull.back);
+            figureLight.set("uGauges", View.first().ride.roadSpeed, View.first().ride.engineSpeed, View.first().ride.fuel);
             figureLight.set("uTime", state.seconds);
             float[] axes = VehicleMeshes.seatedAxes;
             figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
@@ -2499,7 +2499,7 @@ final class Pipeline {
     private static void setCabin(ViewCamera.Pose camera, float[] wheel, VehicleMeshes.Parts parts) {
         figureLight.set("uWheel", wheel[0], wheel[1], wheel[2], wheel[3]);
         figureLight.set("uWheelAxis", wheel[4], wheel[5], wheel[6]);
-        float[] kit = Cabins.kit(Ride.seatedIn);
+        float[] kit = Cabins.kit(View.first().ride.seatedIn);
         figureLight.set("uKit", kit[0], kit[1], kit[2], kit[3]);
         figureLight.set("uHub", kit[4], kit[5], kit[6]);
         figureLight.set("uCluster", kit[7], kit[8], kit[9]);
@@ -2524,14 +2524,14 @@ final class Pipeline {
                     wheel[2] + (toX * axes[6] + toY * axes[7] + toUp * axes[8]) / Cabins.SCALE);
         }
         float[] measures = parts != null ? parts.measures : Cabins.STANDARD_MEASURES;
-        float[] house = Cabins.house(Ride.seatedIn, measures);
+        float[] house = Cabins.house(View.first().ride.seatedIn, measures);
         figureLight.set("uHouse", house[0], house[1], house[2]);
         figureLight.set("uMirror", house[3], house[4], house[5]);
         figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
-        figureLight.set("uTrade", Cabins.trade(Ride.seatedIn));
-        float[] skin = Cabins.skin(Ride.skin);
+        figureLight.set("uTrade", Cabins.trade(View.first().ride.seatedIn));
+        float[] skin = Cabins.skin(View.first().ride.skin);
         Cabins.Wear wear = Cabins.worn;
-        figureLight.set("uArms", Ride.driving ? 1f : 0f);
+        figureLight.set("uArms", View.first().ride.driving ? 1f : 0f);
         figureLight.set("uBare", skin[0], skin[1], skin[2]);
         if (wear.glove() == null) {
             figureLight.set("uSkin", skin[0], skin[1], skin[2]);
@@ -2551,9 +2551,9 @@ final class Pipeline {
         figureLight.set("uDoorMirror", wheel[0] + measures[6] / Cabins.SCALE, wheel[1] - Math.signum(measures[4]) * measures[7] / Cabins.SCALE,
                 wheel[2] + measures[8] / Cabins.SCALE);
         figureLight.set("uPaint", VehicleMeshes.seatedPaint[0], VehicleMeshes.seatedPaint[1], VehicleMeshes.seatedPaint[2]);
-        figureLight.set("uSteer", Cabins.wheelTurn(Ride.steering));
-        figureLight.set("uLamps", Ride.instrumentsLit ? 1f : 0f, Ride.lampsOn ? 1f : 0f);
-        figureLight.set("uDome", Ride.doorOpen ? 1f : 0f);
+        figureLight.set("uSteer", Cabins.wheelTurn(View.first().ride.steering));
+        figureLight.set("uLamps", View.first().ride.instrumentsLit ? 1f : 0f, View.first().ride.lampsOn ? 1f : 0f);
+        figureLight.set("uDome", View.first().ride.doorOpen ? 1f : 0f);
         GL13.glActiveTexture(GL_TEXTURE0 + MIRROR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, mirrorColor);
         GL13.glActiveTexture(GL_TEXTURE0);
@@ -2894,7 +2894,7 @@ final class Pipeline {
     private static final float BEAM_STRENGTH = 9f;
 
     private static void setBeams(Program program, int torchUnit) {
-        float[] beams = Headlights.beams;
+        float[] beams = View.first().headlights.beams;
         for (int i = 0; i < Headlights.BEAMS; i++) {
             int at = i * Headlights.STRIDE;
             program.set(BEAM_AT[i], beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);
@@ -2916,7 +2916,7 @@ final class Pipeline {
 
     /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
     private static void setFlash(Program program) {
-        MuzzleFlash.light(flash);
+        View.first().muzzleFlash.light(flash);
         program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
         program.set("uFlashColor", flash[4], flash[5], flash[6]);
     }
@@ -2951,32 +2951,32 @@ final class Pipeline {
         quad();
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDisable(GL_DEPTH_TEST);
-        if (OwnWeapon.waiting()) {
+        if (View.first().ownWeapon.waiting()) {
             drawOwnWeapon(camera, state, tanHalfFieldOfView, aspect, near, far);
         }
-        if (OwnRifle.waiting() || Scope.waiting()) {
-            HeldDepth.begin(sceneColor, width, height, frameNanos);
+        if (View.first().ownRifle.waiting() || View.first().scope.waiting()) {
+            View.first().heldDepth.begin(sceneColor, width, height, frameNanos);
         }
-        if (OwnRifle.waiting()) {
-            lightHeld(OwnRifle.begin(), camera, state);
-            OwnRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+        if (View.first().ownRifle.waiting()) {
+            lightHeld(View.first().ownRifle.begin(), camera, state);
+            View.first().ownRifle.draw(camera, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
                     asideX, asideY);
         }
-        if (Scope.waiting()) {
-            lightHeld(Scope.begin(), camera, state);
-            Scope.draw(camera, Characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
+        if (View.first().scope.waiting()) {
+            lightHeld(View.first().scope.begin(), camera, state);
+            View.first().scope.draw(camera, Characters.aim, sceneTarget, width, height, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near,
                     asideX, asideY);
         }
-        if (ViewModel.hasMuzzle) {
-            MuzzleFlash.draw(camera, ViewModel.muzzle[0], ViewModel.muzzle[1], ViewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
+        if (View.first().viewModel.hasMuzzle) {
+            View.first().muzzleFlash.draw(camera, View.first().viewModel.muzzle[0], View.first().viewModel.muzzle[1], View.first().viewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
         } else {
-            MuzzleFlash.none();
+            View.first().muzzleFlash.none();
         }
     }
 
     /** The weapon the mod has a model of its own for, over the hands that hold it, in the light of the frame. */
     private static void drawOwnWeapon(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        Program program = OwnWeapon.begin();
+        Program program = View.first().ownWeapon.begin();
         atmosphere(program, state);
         setBasis(program, camera);
         setFlash(program);
@@ -2990,7 +2990,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + OwnWeapon.SHADOW_NEAR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0);
-        OwnWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
+        View.first().ownWeapon.draw(camera, sceneTarget, sceneColor, ownDepth, tanHalfFieldOfView, aspect, HELD_NEAR, far, near);
     }
 
     /**
@@ -3558,8 +3558,8 @@ final class Pipeline {
                 Log.info("first person picture: the " + set.what + " given back, unused");
             }
         }
-        Scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
-        HeldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
+        View.first().scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
+        View.first().heldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
     }
 
     private static String makeMirror() {
@@ -3634,7 +3634,7 @@ final class Pipeline {
             width = 0;
             height = 0;
             giveBackShadowMaps();
-            Scope.giveBackPicture();
+            View.first().scope.giveBackPicture();
             Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
         }
     };
@@ -3740,8 +3740,8 @@ final class Pipeline {
         for (Lent set : SIZED) {
             giveBack(set);
         }
-        OwnWeapon.forgetTarget();
-        HeldDepth.forgetTarget();
+        View.first().ownWeapon.forgetTarget();
+        View.first().heldDepth.forgetTarget();
     }
 
     /** Makes the pictures the frame is drawn through, at the size of the game's own. Null, or what the driver refused. */

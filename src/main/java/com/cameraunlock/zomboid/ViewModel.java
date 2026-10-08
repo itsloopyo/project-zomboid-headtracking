@@ -25,7 +25,12 @@ import zombie.scripting.objects.ModelScript;
  * reads the last of it whole.
  */
 public final class ViewModel {
-    private ViewModel() {}
+    final View view;
+
+    ViewModel(View view) {
+        this.view = view;
+    }
+
 
     /**
      * How the weapon is held this frame.
@@ -70,7 +75,7 @@ public final class ViewModel {
             boolean clip, float out, float fetching, float fetchTakes) {}
 
     /** What is held, or null with no weapon in hand. */
-    static volatile Held held;
+    volatile Held held;
 
     /** The muzzle's attachment in the game's model scripts. Its own z axis runs along the barrel. */
     private static final String MUZZLE = "muzzle";
@@ -99,18 +104,18 @@ public final class ViewModel {
     /** Nearer than this the aim point is taken to be this far off: a muzzle against a wall does not point across the view. */
     private static final float NEAREST_AIM = 1.5f;
 
-    private static float nearness;
-    private static float aim, lowered, swayYaw, swayPitch, bobAmount, bobPhase, recoil, dipTo, dip;
-    private static final AttackClock swing = new AttackClock();
-    private static int attack;
-    private static boolean struck, unshown;
-    private static final float[] swingNow = new float[2];
-    private static int kicks;
-    private static boolean placed, wasSneaking, wasFalling;
-    private static float lastYaw, lastPitch, lastX, lastY;
-    private static final float[] bob = new float[2];
+    private float nearness;
+    private float aim, lowered, swayYaw, swayPitch, bobAmount, bobPhase, recoil, dipTo, dip;
+    private final AttackClock swing = new AttackClock();
+    private int attack;
+    private boolean struck, unshown;
+    private final float[] swingNow = new float[2];
+    private int kicks;
+    private boolean placed, wasSneaking, wasFalling;
+    private float lastYaw, lastPitch, lastX, lastY;
+    private final float[] bob = new float[2];
     private static boolean gapSaid;
-    private static int wearAsked;
+    private int wearAsked;
 
     /**
      * A pump action is worked after every shot: the hand on the fore-end draws it back and
@@ -119,21 +124,21 @@ public final class ViewModel {
      */
     private static final float PUMP_AFTER = 0.16f, PUMP_BACK = 0.14f, PUMP_FORWARD = 0.16f;
     private static final float NOT_PUMPING = -1f;
-    private static boolean racked;
-    private static float sinceShot = NOT_PUMPING, cycled = NOT_PUMPING, done;
-    private static int doing, roundsBefore;
-    private static float round, handled, seated = ArmActs.NOT_SEATING, sinceRound, roundTakes = ArmActs.ROUND_TAKES;
-    private static int actionBefore, roundsIn;
-    private static boolean clipBefore;
-    private static float out = ArmActs.NOT_SEATING, fetching = ArmActs.NOT_SEATING;
+    private boolean racked;
+    private float sinceShot = NOT_PUMPING, cycled = NOT_PUMPING, done;
+    private int doing, roundsBefore;
+    private float round, handled, seated = ArmActs.NOT_SEATING, sinceRound, roundTakes = ArmActs.ROUND_TAKES;
+    private int actionBefore, roundsIn;
+    private boolean clipBefore;
+    private float out = ArmActs.NOT_SEATING, fetching = ArmActs.NOT_SEATING;
     /** For each kind of action, how long the game last took to bring a magazine to the weapon. */
-    private static final float[] fetchTakes = new float[9];
-    static {
+    private final float[] fetchTakes = new float[9];
+    {
         java.util.Arrays.fill(fetchTakes, ArmActs.FETCH_TAKES);
     }
     /** For each kind of action and each thing done to a weapon, how long the game last took over it. */
-    private static final float[][] took = new float[9][];
-    static {
+    private final float[][] took = new float[9][];
+    {
         for (int kind = 0; kind < took.length; kind++) {
             took[kind] = ArmActs.TAKES.clone();
         }
@@ -141,15 +146,15 @@ public final class ViewModel {
     private static final float HANDLE_SECONDS = 0.09f;
     /** A weapon is up, to within a twentieth, in three of these. */
     private static final float DRAW_SECONDS = 0.07f;
-    private static float drawn, worked;
+    private float drawn, worked;
     private static final float WORK_SECONDS = 0.07f;
-    private static InventoryItem inHand;
+    private InventoryItem inHand;
 
-    private static boolean isSet(IsoPlayer player, String variable) {
+    private boolean isSet(IsoPlayer player, String variable) {
         return "true".equalsIgnoreCase(player.GetVariable(variable));
     }
     /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
-    static volatile float pumped;
+    volatile float pumped;
 
     /** How far back the hand is at a time after the shot: still, then back, then forward. */
     static float pumpAt(float seconds) {
@@ -159,13 +164,13 @@ public final class ViewModel {
     }
 
     /** Called by the game straight after it starts its own muzzle flash, which is where a firearm's shot is taken. */
-    public static void shot() {
+    public void shot() {
         if (FirstPerson.TRACE) {
-            Controls.sayShot();
+            view.controls.sayShot();
         }
         if (held != null) {
             kicks++;
-            MuzzleFlash.fire();
+            view.muzzleFlash.fire();
             if (racked) {
                 sinceShot = 0f;
                 cycled = 0f;
@@ -182,13 +187,13 @@ public final class ViewModel {
      * @param sightsUp whether a firearm's sights are up
      * @param aimedAt  how far off the aim meets the world, in tiles, or infinity
      */
-    static void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
+    void update(IsoPlayer player, float yaw, float pitch, float seconds, boolean sightsUp, float aimedAt) {
         InventoryItem item = player.getVehicle() == null ? player.getPrimaryHandItem() : null;
         if (!(item instanceof HandWeapon weapon)) {
             rest();
             return;
         }
-        Scope.fitted(weapon);
+        view.scope.fitted(weapon);
         // What is worn changes seldom, and asking makes a list for every garment.
         if ((wearAsked++ & 31) == 0) {
             Cabins.noteWear(player);
@@ -352,8 +357,8 @@ public final class ViewModel {
     }
 
     /** Nothing is held up: the next weapon starts from the hip, still. */
-    static void rest() {
-        Scope.fitted(null);
+    void rest() {
+        view.scope.fitted(null);
         wearAsked = 0;
         sinceShot = NOT_PUMPING;
         cycled = NOT_PUMPING;
@@ -386,7 +391,7 @@ public final class ViewModel {
     }
 
     /** For the trace. */
-    static String describe() {
+    String describe() {
         Held now = held;
         return now == null ? "held nothing" : String.format(Locale.ROOT, "held %s%s%s aim %.2f recoil %.2f bob phase %.2f at (%.3f, %.3f) lowered %.2f attack %d reached %.2f past %.2f struck %b, action %d cycled %.2f doing %d for %.2f of %.2f rounds %d round %.2f seated %.2f handled %.2f worked %.2f drawn %.2f clip %b out %.2f fetching %.2f of %.2f, %s",
                 now.item, now.firearm ? " (firearm)" : "", now.bothHands ? " in both hands" : "", now.aim, now.recoil, bobPhase, now.bobX, now.bobY,
@@ -394,7 +399,7 @@ public final class ViewModel {
     }
 
     /** How far apart the hip crosshair's ticks stand: 0 standing still, more moving and just after a shot. */
-    static float spread() {
+    float spread() {
         Held now = held;
         return now == null ? 0f : Math.min(bobAmount, 1f) * 0.6f + Math.min(now.recoil, 1f);
     }
@@ -448,10 +453,10 @@ public final class ViewModel {
      * it on over the receiver, with nothing of the gun in its way, as far as the lean goes.
      * Behind a scope the eye is stopped short of the eyepiece's glass.
      */
-    static float forwardStop() {
+    float forwardStop() {
         Held now = held;
-        if (now != null && now.firearm && Scope.fitted() != null) {
-            return Scope.forwardStop();
+        if (now != null && now.firearm && view.scope.fitted() != null) {
+            return view.scope.forwardStop();
         }
         // The rifle's rear sight is on its barrel, further off than a lean reaches.
         return now != null && (OwnWeapon.standsFor(now.item) || OwnRifle.standsFor(now.item)) ? Float.POSITIVE_INFINITY : FORWARD_STOP;
@@ -486,11 +491,11 @@ public final class ViewModel {
     /** Along a firearm's mesh the barrel is y and its top is z; what is swung is taken to be made the same way. */
     private static final float[] MESH_ALONG = {0f, 1f, 0f}, MESH_TOP = {0f, 0f, 1f};
 
-    private static final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
-    private static final float[] along = new float[3], grip = new float[3], swung = new float[ViewModelMath.HOLD], sighted = new float[2];
-    private static final float[] swungHold = {0f, SWUNG_YAW, SWUNG_ROLL, SWUNG_X, SWUNG_Y, SWUNG_AHEAD, 0f};
+    private final float[] origin = new float[3], forward = new float[3], top = new float[3], end = new float[3];
+    private final float[] along = new float[3], grip = new float[3], swung = new float[ViewModelMath.HOLD], sighted = new float[2];
+    private final float[] swungHold = {0f, SWUNG_YAW, SWUNG_ROLL, SWUNG_X, SWUNG_Y, SWUNG_AHEAD, 0f};
     /** How far the body is turned to the right behind the weapon last placed, in radians. */
-    static float turned;
+    float turned;
     /**
      * Where the left palm is held on a firearm: this far from the grip to the muzzle, and this
      * far under that line, in tiles. The game's animation moves the left hand about against
@@ -506,16 +511,16 @@ public final class ViewModel {
      * Where the left palm is held on the weapon last placed, in the view, and where it would be with the weapon held still and its
      * fore-end forward, without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke: only with a muzzle.
      */
-    static final float[] foreEnd = new float[3], foreSteady = new float[3];
-    private static final float[] still = new float[16], stillTop = new float[3];
+    final float[] foreEnd = new float[3], foreSteady = new float[3];
+    private final float[] still = new float[16], stillTop = new float[3];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
-    static final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
+    final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
-    static final float[] muzzle = new float[3];
-    static boolean hasMuzzle;
+    final float[] muzzle = new float[3];
+    boolean hasMuzzle;
     /** Whether the weapon last placed is a firearm held by one hand's grip with its muzzle just ahead of it. */
-    static boolean handgun;
-    private static String noMuzzleSaidOf;
+    boolean handgun;
+    private String noMuzzleSaidOf;
     /** A firearm whose muzzle is nearer its grip than this, in the game's units, is a handgun. */
     private static final float HANDGUN_WITHIN = 0.25f;
     /**
@@ -543,9 +548,9 @@ public final class ViewModel {
      * @param out        the matrix, from the model's axes to the view's
      * @return false while the game has no pose for the weapon
      */
-    static boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, float[] fromAim, float[] out) {
+    boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, float[] fromAim, float[] out) {
         // Read once: the logic thread may write it again while the weapon is placed.
-        float pumped = ViewModel.pumped;
+        float pumped = view.viewModel.pumped;
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;
@@ -609,7 +614,7 @@ public final class ViewModel {
             aimedAhead = OwnRifle.eyeBehind * long3 * scale / OwnRifle.muzzleFar;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
-        if (hasMuzzle && Scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
+        if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
             aimedY = sighted[0];
             aimedAhead = sighted[1];
         }
@@ -719,7 +724,7 @@ public final class ViewModel {
     }
 
     /** A direction of the weapon's own, in its character's axes. */
-    private static void turned(float[] weapon, float[] direction, float[] out) {
+    private void turned(float[] weapon, float[] direction, float[] out) {
         out[0] = weapon[0] * direction[0] + weapon[1] * direction[1] + weapon[2] * direction[2];
         out[1] = weapon[4] * direction[0] + weapon[5] * direction[1] + weapon[6] * direction[2];
         out[2] = weapon[8] * direction[0] + weapon[9] * direction[1] + weapon[10] * direction[2];

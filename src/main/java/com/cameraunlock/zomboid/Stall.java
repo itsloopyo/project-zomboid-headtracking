@@ -41,7 +41,7 @@ final class Stall {
                 return;
             }
             long since = System.nanoTime() - beatNanos;
-            if (since < STALLED_NANOS || !FirstPerson.isOn()) {
+            if (since < STALLED_NANOS || !View.first().firstPerson.isOn()) {
                 said = false;
             } else if (!said) {
                 // Once a stall: the frames also stop for good when a save is left, and that is said once too.

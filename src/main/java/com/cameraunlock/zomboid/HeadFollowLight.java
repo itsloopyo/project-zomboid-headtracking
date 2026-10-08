@@ -23,9 +23,8 @@ import zombie.iso.Vector2;
 public final class HeadFollowLight {
     private static final ViewCamera.Pose scaled = new ViewCamera.Pose();
     /** Radians. Written on the logic thread, read wherever the game updates its lights. */
-    private static volatile float turn;
+    private volatile float turn;
 
-    private HeadFollowLight() {}
 
     /**
      * How far the heading of a view turns when the light's angles are composed
@@ -41,27 +40,25 @@ public final class HeadFollowLight {
     }
 
     /** The beam follows this frame's angles for a light, in radians, over the clean view. */
-    static void follow(ViewCamera.Pose clean, float lightYaw, float lightPitch, float lightRoll, boolean worldYaw) {
+    void follow(ViewCamera.Pose clean, float lightYaw, float lightPitch, float lightRoll, boolean worldYaw) {
         turn = headingTurn(clean, lightYaw, lightPitch, lightRoll, worldYaw);
     }
 
     /** The beam goes back to where the game points it. */
-    static void release() {
+    void release() {
         turn = 0f;
     }
 
-    static float turn() {
+    float turn() {
         return turn;
     }
 
-    /** Called where the game reads the look direction a torch shines along, with the player who carries it. */
-    public static Vector2 direction(Vector2 look, IsoPlayer carrier) {
-        // On a server the game fills in every player's torch here. Only the viewer's is turned.
-        if (carrier != IsoPlayer.getInstance()) {
-            return look;
-        }
-        // The game's look is the body's, and in first person the body faces the way it walks.
-        FirstPerson.sightVector(look);
+    /**
+     * Turns the direction the torch this view's player carries shines along.
+     *
+     * @param look the way the view faces on the ground: the game's own look is the body's, and in first person the body faces the way it walks
+     */
+    Vector2 direction(Vector2 look) {
         float by = turn;
         if (by == 0f) {
             return look;
@@ -71,7 +68,7 @@ public final class HeadFollowLight {
         return look.set(look.x * cos - look.y * sin, look.x * sin + look.y * cos);
     }
 
-    static String describe() {
-        return String.format(Locale.ROOT, "light turned %.2f at %.2fx", Math.toDegrees(turn), HeadTracking.lightMultiplier());
+    String describe() {
+        return String.format(Locale.ROOT, "light turned %.2f at %.2fx", Math.toDegrees(turn), Tracking.lightMultiplier());
     }
 }

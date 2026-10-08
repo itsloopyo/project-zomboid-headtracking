@@ -31,6 +31,12 @@ import zombie.util.list.PZArrayList;
  * Logic thread only: it reads the map and calls the game's Lua.
  */
 final class CentreUse {
+    final View view;
+
+    CentreUse(View view) {
+        this.view = view;
+    }
+
     /** What a press of the key came to. */
     enum Outcome {
         /** Nothing the game would take a click on is at the middle of the view: the key is the game's. */
@@ -52,14 +58,13 @@ final class CentreUse {
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem";
     private static final Double PLAYER_NUMBER = Double.valueOf(0);
 
-    private CentreUse() {}
 
     /**
      * The box round what the key would act on this frame, for the picture to outline: its
      * least x, y and height and its greatest, in tiles. Null when the view is on nothing the
      * key acts on. Replaced whole each frame, never written to.
      */
-    static volatile float[] marked;
+    volatile float[] marked;
     /** How far either side of an edge a door or a window is taken to reach, and how far in from a square's edges its furniture is. */
     private static final float EDGE_HALF = 0.16f, INSET = 0.07f;
     /** How high above the floor things are taken to stand, as parts of a storey. */
@@ -68,12 +73,12 @@ final class CentreUse {
     private static final float OFF_THE_FLOOR = 0.04f, ITEM_HALF = 0.2f, ITEM_HIGH = 0.3f, BODY_HIGH = 0.45f;
 
     /** Notes what the key would act on with the view as it is, or that there is nothing. */
-    static void mark(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+    void mark(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
         IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
         marked = found == null ? null : boxOf(found);
     }
 
-    private static float[] boxOf(IsoObject found) {
+    private float[] boxOf(IsoObject found) {
         if (found instanceof IsoWorldInventoryObject item) {
             float x = item.getWorldPosX(), y = item.getWorldPosY();
             float up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, (int) Math.floor(item.getWorldPosZ()));
@@ -108,7 +113,7 @@ final class CentreUse {
     }
 
     /** The box of what stands on a square's north or west edge, or on its far one. */
-    private static float[] onEdge(float x, float y, boolean north, boolean far, float foot, float top) {
+    private float[] onEdge(float x, float y, boolean north, boolean far, float foot, float top) {
         float at = (north ? y : x) + (far ? 1f : 0f);
         return north ? new float[] {x + INSET, at - EDGE_HALF, foot, x + 1f - INSET, at + EDGE_HALF, top}
                 : new float[] {at - EDGE_HALF, y + INSET, foot, at + EDGE_HALF, y + 1f - INSET, top};
@@ -134,7 +139,7 @@ final class CentreUse {
      * @param view    the clean view
      * @param floorUp the height of the floor the player stands on, in tiles above level 0
      */
-    static Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
         IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()));
         if (found == null) {
             return Outcome.NOTHING;
@@ -169,7 +174,7 @@ final class CentreUse {
      * error. That Lua is the game's and any mod's that wraps it, and this runs inside the
      * game's update of the player: the error is logged and the key is left to the game.
      */
-    private static Object[] call(String table, String function, Object... arguments) {
+    private Object[] call(String table, String function, Object... arguments) {
         Object[] result = LuaManager.caller.pcall(UIManager.getDefaultThread(), ((KahluaTable) LuaManager.env.rawget(table)).rawget(function), arguments);
         if (result.length == 0 || !Boolean.TRUE.equals(result[0])) {
             Log.info("the game's " + table + "." + function + " failed, and Interact is left to the game: " + Arrays.toString(result));
@@ -183,7 +188,7 @@ final class CentreUse {
      * squares with walls on their edges: a door, a window or a curtain is met where the view
      * crosses an edge, and everything else on the square it stands on.
      */
-    private static IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level) {
+    private IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level) {
         float reach = REACH;
         if (view.forwardUp < 0f) {
             reach = Math.min(reach, (floorUp - view.eyeUp) / view.forwardUp + PAST_THE_FLOOR);
@@ -247,7 +252,7 @@ final class CentreUse {
      * @param other the square on the far side of it
      * @param north whether it is the owner's north edge
      */
-    private static IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north) {
+    private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north) {
         IsoObject window = null;
         IsoCurtain curtain = null;
         PZArrayList<IsoObject> objects = owner.getObjects();
@@ -280,7 +285,7 @@ final class CentreUse {
      * What is on a square for the key: the thing lying nearest the view's line, else a body
      * or a piece of furniture that holds things.
      */
-    private static IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach) {
+    private IsoObject onSquare(IsoGridSquare square, ViewCamera.Pose view, float reach) {
         IsoObject nearest = null;
         float nearestOff = ITEM_RADIUS;
         ArrayList<IsoWorldInventoryObject> items = square.getWorldObjects();
@@ -319,7 +324,7 @@ final class CentreUse {
         return null;
     }
 
-    private static IsoObject switchOn(IsoGridSquare square) {
+    private IsoObject switchOn(IsoGridSquare square) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoLightSwitch) {

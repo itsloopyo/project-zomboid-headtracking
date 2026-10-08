@@ -41,7 +41,6 @@ import zombie.iso.LightingJNI;
  * that changes.
  */
 final class TorchLess {
-    private TorchLess() {}
 
     /** The squares are read this far past the torch's reach, so that the fan has known squares round it. */
     private static final int MARGIN = 2;
@@ -79,14 +78,14 @@ final class TorchLess {
         }
     }
 
-    private static volatile Taken taken;
+    private volatile Taken taken;
 
     /**
      * Reads the squares round the character, on the logic thread, before the scene is built.
      *
      * @param reach how far the torch that throws the beam reaches, in tiles, or 0 when the viewer carries none that does
      */
-    static void gather(IsoCell cell, IsoPlayer player, float reach) {
+    void gather(IsoCell cell, IsoPlayer player, float reach) {
         if (reach <= 0f) {
             if (taken != null) {
                 retell(taken, null);
@@ -161,7 +160,7 @@ final class TorchLess {
      * for it: told for every such square, every chunk under the torch was built again at
      * every step and every turn of the head.
      */
-    private static void retell(Taken of, Taken against) {
+    private void retell(Taken of, Taken against) {
         for (int j = 0; j < of.span; j++) {
             for (int i = 0; i < of.span; i++) {
                 int at = j * of.span + i;
@@ -185,7 +184,7 @@ final class TorchLess {
     }
 
     /** Where the square at (x, y) is in what was taken, or -1 when it is outside it. */
-    private static int at(Taken of, int x, int y) {
+    private int at(Taken of, int x, int y) {
         int i = x - of.fromX, j = y - of.fromY;
         return i < 0 || j < 0 || i >= of.span || j >= of.span ? -1 : j * of.span + i;
     }
@@ -318,7 +317,7 @@ final class TorchLess {
      * the square, that light without the torch, written into the answer given and returned.
      * For either thread.
      */
-    static ColorInfo light(IsoGridSquare square, int playerIndex, ColorInfo answer) {
+    ColorInfo light(IsoGridSquare square, int playerIndex, ColorInfo answer) {
         ColorInfo with = square.lighting[playerIndex].lightInfo();
         Taken now = taken;
         if (now == null) {

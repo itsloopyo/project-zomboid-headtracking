@@ -29,9 +29,8 @@ final class FieldOfView {
     private static final float ZOOM_SETTLED = 1e-4f;
 
     private static volatile float degrees = DEFAULT_DEGREES;
-    private static float zoom = 1f;
+    private float zoom = 1f;
 
-    private FieldOfView() {}
 
     static float degrees() {
         return degrees;
@@ -47,7 +46,7 @@ final class FieldOfView {
     }
 
     /** Moves the zoom towards aimed or unaimed over a frame of the given length. */
-    static void ease(boolean aimed, float seconds) {
+    void ease(boolean aimed, float seconds) {
         float target = aimed ? AIMED_ZOOM : 1f;
         zoom = target + (zoom - target) * (float) Math.exp(-seconds / ZOOM_SECONDS);
         if (Math.abs(zoom - target) < ZOOM_SETTLED) {
@@ -56,17 +55,17 @@ final class FieldOfView {
     }
 
     /** Unzoomed at once, for when no picture is being drawn to ease in. */
-    static void rest() {
+    void rest() {
         zoom = 1f;
     }
 
     /** The tangent the picture is drawn with over the tangent the player set: 1 unzoomed. */
-    static float zoom() {
+    float zoom() {
         return zoom;
     }
 
     /** The angle the picture is drawn with this frame, in degrees. */
-    static float drawnDegrees() {
+    float drawnDegrees() {
         return (float) Math.toDegrees(2.0 * Math.atan(tanHalfVertical()));
     }
 
@@ -79,7 +78,7 @@ final class FieldOfView {
      * The tangent of half the angle the picture is drawn with: how far the top of the picture
      * is from its centre, one unit ahead of the eye.
      */
-    static float tanHalfVertical() {
+    float tanHalfVertical() {
         return setTanHalfVertical() * zoom;
     }
 }

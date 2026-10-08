@@ -9,7 +9,6 @@ import zombie.vehicles.BaseVehicle;
  * game's logic thread gathers them and the render thread reads the last gathering whole.
  */
 final class Headlights {
-    private Headlights() {}
 
     static final int BEAMS = 2;
     /** For each beam: where its lamps are (x, y, up), the way it shines (x, y, up), and 1 if it is lit. */
@@ -22,10 +21,10 @@ final class Headlights {
     private static final float DIP = 0.045f;
     private static final float REACH = 45f;
 
-    static volatile float[] beams = new float[BEAMS * STRIDE];
-    private static final Vector3f facing = new Vector3f();
+    volatile float[] beams = new float[BEAMS * STRIDE];
+    private final Vector3f facing = new Vector3f();
 
-    static void gather(float eyeX, float eyeY) {
+    void gather(float eyeX, float eyeY) {
         float[] found = new float[BEAMS * STRIDE];
         float nearest = Float.MAX_VALUE, second = Float.MAX_VALUE;
         for (BaseVehicle vehicle : IsoWorld.instance.currentCell.getVehicles()) {

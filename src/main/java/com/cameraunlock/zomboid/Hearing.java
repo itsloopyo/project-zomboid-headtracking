@@ -27,19 +27,18 @@ public final class Hearing {
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
     /** How far the camera has come from the game's view, 0 there and 1 at the eye. */
-    private static float share;
-    static float forwardX, forwardY, forwardUp;
-    static float upX, upY, upUp;
+    private float share;
+    float forwardX, forwardY, forwardUp;
+    float upX, upY, upUp;
     /** How far in the camera was when the game's listener was last set. */
-    private static float heardAt;
-    private static boolean turned;
-    private static long lastTrace;
+    private float heardAt;
+    private boolean turned;
+    private long lastTrace;
     private static boolean gapSaid;
 
-    private Hearing() {}
 
     /** The ears face the game's own way. */
-    static void rest() {
+    void rest() {
         share = 0f;
     }
 
@@ -51,7 +50,7 @@ public final class Hearing {
      *               ears do not: the game's own face level. Nothing once the camera is at the eye.
      * @param in     how far the camera has come from the game's view
      */
-    static void face(ViewCamera.Pose view, float tipped, float in) {
+    void face(ViewCamera.Pose view, float tipped, float in) {
         float c = (float) Math.cos(tipped), s = (float) Math.sin(tipped);
         forwardX = view.forwardX * c + view.upX * s;
         forwardY = view.forwardY * c + view.upY * s;
@@ -67,7 +66,7 @@ public final class Hearing {
      * view can still be switched then, and the camera flies: the listener is set from here, so
      * what is still sounding turns with it.
      */
-    static void whilePaused(IsoPlayer player) {
+    void whilePaused(IsoPlayer player) {
         if (share != heardAt && player.soundListener != null) {
             player.soundListener.tick();
         }
@@ -89,7 +88,7 @@ public final class Hearing {
      * would have set. The way it faces and its up are the picture's while the camera is off
      * the game's view. Both are in the game's map axes, as the game's own are.
      */
-    public static void listener(int index, float x, float y, float z, float goingX, float goingY, float goingZ,
+    public void listener(int index, float x, float y, float z, float goingX, float goingY, float goingZ,
             float gameForwardX, float gameForwardY, float gameForwardZ, float gameUpX, float gameUpY, float gameUpZ) {
         heardAt = share;
         if (share == 0f) {
@@ -118,7 +117,7 @@ public final class Hearing {
      * Called with how far out the game takes its camera to be, 0 at its nearest and 1 at its
      * furthest, as it hands that to its sounds. From the eye the camera is no way out at all.
      */
-    public static float zoomedOut(float games) {
+    public float zoomedOut(float games) {
         return games * (1f - share);
     }
 }

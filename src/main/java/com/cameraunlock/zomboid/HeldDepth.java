@@ -16,21 +16,20 @@ import org.lwjgl.opengl.GL30;
  * Render thread only.
  */
 final class HeldDepth {
-    private HeldDepth() {}
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_FLOAT = 0x1406, GL_DEPTH_COMPONENT = 0x1902, GL_DEPTH_COMPONENT24 = 0x81A6;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_NEAREST = 0x2600;
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_ATTACHMENT = 0x8D00, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     private static final int GL_DEPTH_BUFFER_BIT = 0x0100;
 
-    private static int target, color, depth, wide, high;
-    private static long usedNanos;
+    private int target, color, depth, wide, high;
+    private long usedNanos;
 
     /**
      * The picture's colour was given back. The target goes with it: a texture deleted while it
      * is attached to a framebuffer keeps its memory until the framebuffer lets go of it.
      */
-    static void forgetTarget() {
+    void forgetTarget() {
         GL30.glDeleteFramebuffers(target);
         GL11.glDeleteTextures(depth);
         target = 0;
@@ -39,7 +38,7 @@ final class HeldDepth {
     }
 
     /** Gives the target and its depth back if no frame has drawn a held thing since before: a rifle put away needs neither. */
-    static void takeBack(long before) {
+    void takeBack(long before) {
         if (target != 0 && usedNanos < before) {
             forgetTarget();
         }
@@ -51,7 +50,7 @@ final class HeldDepth {
      * @param sceneColor the picture's colour, sceneWide by sceneHigh
      * @param now        when the frame began
      */
-    static void begin(int sceneColor, int sceneWide, int sceneHigh, long now) {
+    void begin(int sceneColor, int sceneWide, int sceneHigh, long now) {
         usedNanos = now;
         if (sceneColor != color || sceneWide != wide || sceneHigh != high) {
             if (target == 0) {
@@ -81,7 +80,7 @@ final class HeldDepth {
     }
 
     /** Draws into the target from here on. */
-    static void bind() {
+    void bind() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
     }
 }

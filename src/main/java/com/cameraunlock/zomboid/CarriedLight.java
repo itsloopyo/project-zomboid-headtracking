@@ -19,18 +19,23 @@ import zombie.iso.IsoWorld;
  * that gathering whole for the render thread.
  */
 final class CarriedLight {
-    private CarriedLight() {}
+    final View view;
+
+    CarriedLight(View view) {
+        this.view = view;
+    }
+
 
     /** Where it is held (x, y, up), the way it shines (x, y, up), how far it reaches in tiles, 0 when none is lit, and 1 if it shines as a cone. */
     static final int HELD = 0, WAY = 3, REACH = 6, CONE = 7;
     /** A torch is held at the chest, this far under the eye. */
     private static final float BELOW_EYE = 0.25f;
 
-    static volatile float[] light = new float[8];
-    private static final ArrayList<InventoryItem> items = new ArrayList<>();
+    volatile float[] light = new float[8];
+    private final ArrayList<InventoryItem> items = new ArrayList<>();
 
     /** The eye is the character's own, and the way is a unit vector: the way the game's beam is turned on the ground, and as far up or down as the view. */
-    static void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp) {
+    void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp) {
         player.getActiveLightItems(items);
         float[] found = new float[8];
         for (int i = 0; i < items.size(); i++) {
@@ -49,10 +54,10 @@ final class CarriedLight {
         found[WAY + 1] = wayY;
         found[WAY + 2] = wayUp;
         light = found;
-        TorchLess.gather(IsoWorld.instance.currentCell, player, found[CONE] > 0f ? found[REACH] : 0f);
+        view.torchLess.gather(IsoWorld.instance.currentCell, player, found[CONE] > 0f ? found[REACH] : 0f);
     }
 
-    static String describe() {
+    String describe() {
         float[] now = light;
         return String.format(java.util.Locale.ROOT, "carried light reach %.0f cone %.0f held (%.2f, %.2f, %.2f) way (%.2f, %.2f, %.2f)",
                 now[REACH], now[CONE], now[HELD], now[HELD + 1], now[HELD + 2], now[WAY], now[WAY + 1], now[WAY + 2]);

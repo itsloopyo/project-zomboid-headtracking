@@ -29,7 +29,12 @@ import zombie.inventory.types.WeaponPart;
  * The game's logic thread says which scope is fitted. Everything else is the render thread's.
  */
 final class Scope {
-    private Scope() {}
+    final View view;
+
+    Scope(View view) {
+        this.view = view;
+    }
+
 
     /** The part of a firearm the game keeps its sight under. */
     private static final String PART = "Scope";
@@ -359,11 +364,11 @@ final class Scope {
             """;
 
     /** The scope on the firearm in the viewer's hands, or null. Written by the game's logic thread. */
-    private static volatile ScopeOptics.Glass fitted;
+    private volatile ScopeOptics.Glass fitted;
     /** How far a lean along the aim may take the eye towards the scope, in tiles: read by the logic thread. */
-    private static volatile float forwardStop = Float.POSITIVE_INFINITY;
+    private volatile float forwardStop = Float.POSITIVE_INFINITY;
     /** How many times larger the eyepiece's picture was in the frame last drawn for the eye's being near: read by the logic thread. */
-    private static volatile float grown = 1f;
+    private volatile float grown = 1f;
 
     private static Program program;
     private static final int[] arrays = new int[ScopeOptics.KNOWN.length];
@@ -374,44 +379,44 @@ final class Scope {
      * lit. Four textures 1024 square, made by the first frame that draws a picture for an
      * eyepiece and given back when none has for a while: zero while they are not made.
      */
-    static int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal;
-    private static long picturedNanos;
+    int pictureTarget, pictureColor, pictureDepth, figureTarget, figureColor, figureNormal;
+    private long picturedNanos;
     private static final int HANDS_UNIT = 3;
 
-    private static final float[] model = new float[16], projection = new float[16];
+    private final float[] model = new float[16], projection = new float[16];
     /** From the scope's axes, in metres, to those of the weapon's model: as the game fixed the one to the other in the frame last drawn. */
-    private static final float[] mount = new float[16];
-    private static ScopeOptics.Glass placed, mounted;
-    private static float stood, outdoors;
+    private final float[] mount = new float[16];
+    private ScopeOptics.Glass placed, mounted;
+    private float stood, outdoors;
     /**
      * Where the last frame drawn left the scope, against the aim it was held in: the
      * objective's place and the scope's side, top and axis, each as its parts to the right of
      * the aim, above it and along it.
      */
-    private static final float[] held = new float[12];
+    private final float[] held = new float[12];
     /** Where the eye was from the eyepiece then: across the axis and behind the glass, in the scope's metres, and tiles to one of those. */
-    private static float eyeAcrossX, eyeAcrossY, eyeBehind, drawnAt;
-    private static boolean leftHeld, pictured;
-    private static float power, pictureTan;
+    private float eyeAcrossX, eyeAcrossY, eyeBehind, drawnAt;
+    private boolean leftHeld, pictured;
+    private float power, pictureTan;
     /** Where this frame's picture for the eyepiece is drawn from. */
-    static final ViewCamera.Pose sees = new ViewCamera.Pose();
-    private static final float[] a = new float[3], b = new float[3], c = new float[3], d = new float[3];
-    private static String said;
+    final ViewCamera.Pose sees = new ViewCamera.Pose();
+    private final float[] a = new float[3], b = new float[3], c = new float[3], d = new float[3];
+    private String said;
 
     /** Logic thread: the firearm in the viewer's hands, or null with none. */
-    static void fitted(HandWeapon weapon) {
+    void fitted(HandWeapon weapon) {
         WeaponPart part = weapon == null ? null : weapon.getWeaponPart(PART);
         fitted = part == null || !Own.weapons() ? null : ScopeOptics.of(part.getFullType());
     }
 
     /** The scope the firearm in hand is fitted with, or null. */
-    static ScopeOptics.Glass fitted() {
+    ScopeOptics.Glass fitted() {
         return fitted;
     }
 
     /** Logic thread: how much of a turn of the mouse reaches the aim this frame. See ScopeOptics.turn. */
-    static float turn() {
-        return ScopeOptics.turn(fitted, FieldOfView.zoom(), FieldOfView.AIMED_ZOOM, grown);
+    float turn() {
+        return ScopeOptics.turn(fitted, view.fieldOfView.zoom(), FieldOfView.AIMED_ZOOM, grown);
     }
 
     /**
@@ -421,12 +426,12 @@ final class Scope {
      * is true only from behind the scope, and the game's stays as the mark of where the
      * rounds go.
      */
-    static boolean hidesReticle() {
-        return fitted != null && !HeadTracking.freeLook();
+    boolean hidesReticle() {
+        return fitted != null && !Tracking.freeLook();
     }
 
     /** How far a lean along the aim may take the eye towards the eyepiece with the sights up, in tiles. */
-    static float forwardStop() {
+    float forwardStop() {
         return forwardStop;
     }
 
@@ -443,7 +448,7 @@ final class Scope {
      *
      * @param now when the frame began
      */
-    static void lendPicture(long now) {
+    void lendPicture(long now) {
         picturedNanos = now;
         if (pictureTarget != 0) {
             return;
@@ -472,7 +477,7 @@ final class Scope {
     }
 
     /** Gives the picture's targets back if no frame has drawn into them since before. */
-    static void takeBackPicture(long before) {
+    void takeBackPicture(long before) {
         if (pictureTarget != 0 && picturedNanos < before) {
             giveBackPicture();
             Log.info("first person picture: the scope's picture given back, unused");
@@ -480,7 +485,7 @@ final class Scope {
     }
 
     /** Gives the picture's targets back to the graphics card. The next frame to draw a picture for an eyepiece makes them again. */
-    static void giveBackPicture() {
+    void giveBackPicture() {
         GL30.glDeleteFramebuffers(pictureTarget);
         GL30.glDeleteFramebuffers(figureTarget);
         GL11.glDeleteTextures(pictureColor);
@@ -495,7 +500,7 @@ final class Scope {
         figureNormal = 0;
     }
 
-    private static int texture(int kept, int format, int type, int smaller, int larger) {
+    private int texture(int kept, int format, int type, int smaller, int larger) {
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, kept, PICTURE, PICTURE, 0, format, type, (ByteBuffer) null);
@@ -506,7 +511,7 @@ final class Scope {
         return texture;
     }
 
-    private static int arrayOf(ScopeOptics.Glass glass) {
+    private int arrayOf(ScopeOptics.Glass glass) {
         int which = 0;
         while (ScopeOptics.KNOWN[which] != glass) {
             which++;
@@ -530,7 +535,7 @@ final class Scope {
         return which;
     }
 
-    private static void attribute(String name, int size, int offset) {
+    private void attribute(String name, int size, int offset) {
         int at = GL20.glGetAttribLocation(program.id, name);
         GL20.glEnableVertexAttribArray(at);
         GL20.glVertexAttribPointer(at, size, GL_FLOAT, false, ScopeModel.FLOATS * Float.BYTES, (long) offset * Float.BYTES);
@@ -546,7 +551,7 @@ final class Scope {
      * @param light      the game's light where the viewer stands
      * @param outside    whether the viewer stands out of doors
      */
-    static void place(float[] heldView, float[] part, float[] weapon, float finalScale, float light, boolean outside) {
+    void place(float[] heldView, float[] part, float[] weapon, float finalScale, float light, boolean outside) {
         ScopeOptics.Glass glass = fitted;
         if (glass == null || program == null) {
             return;
@@ -575,7 +580,7 @@ final class Scope {
      * relief behind the eyepiece: ScopeOptics.sighted, from where the game had the scope on
      * the rifle in the frame last drawn. The first frame a scoped rifle is held has no answer.
      */
-    static boolean sighted(float[] weapon, float finalScale, float[] origin, float[] forward, float[] top, float[] end, float scale, float[] out) {
+    boolean sighted(float[] weapon, float finalScale, float[] origin, float[] forward, float[] top, float[] end, float scale, float[] out) {
         if (fitted == null || mounted != fitted) {
             return false;
         }
@@ -584,7 +589,7 @@ final class Scope {
     }
 
     /** Whether the scope was placed this frame and is still to be drawn. */
-    static boolean waiting() {
+    boolean waiting() {
         return placed != null;
     }
 
@@ -597,7 +602,7 @@ final class Scope {
      * @param aim  the aim this frame's weapon is held in
      * @param zoom the tangent the frame is drawn with over the tangent the player set
      */
-    static boolean wanted(ViewCamera.Pose aim, float zoom) {
+    boolean wanted(ViewCamera.Pose aim, float zoom) {
         boolean left = leftHeld;
         leftHeld = false;
         pictured = false;
@@ -624,12 +629,12 @@ final class Scope {
     }
 
     /** The tangent of half the angle this frame's picture for the eyepiece is drawn with. */
-    static float pictureTan() {
+    float pictureTan() {
         return pictureTan;
     }
 
     /** The picture for the eyepiece is drawn: it is read smaller than it is towards the edge of the field. */
-    static void developed() {
+    void developed() {
         GL13.glActiveTexture(GL_TEXTURE0 + PICTURE_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, pictureColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
@@ -640,7 +645,7 @@ final class Scope {
      * Begins the drawing: the program is in use, for the picture to give it the light of the
      * frame under the names its own programs know it by.
      */
-    static Program begin() {
+    Program begin() {
         program.use();
         return program;
     }
@@ -659,7 +664,7 @@ final class Scope {
      *                   the picture's width, and asideY of its height: the scope is drawn the same
      *                   way aside, so that its edges are smoothed over the frames as the world's are
      */
-    static void draw(ViewCamera.Pose camera, ViewCamera.Pose aim, int scene, int wide, int high, int handsDepth, float tanHalfFieldOfView,
+    void draw(ViewCamera.Pose camera, ViewCamera.Pose aim, int scene, int wide, int high, int handsDepth, float tanHalfFieldOfView,
             float aspect, float near, float far, float sceneNear, float asideX, float asideY) {
         ScopeOptics.Glass glass = placed;
         placed = null;
@@ -730,7 +735,7 @@ final class Scope {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
 
-        HeldDepth.bind();
+        view.heldDepth.bind();
         program.set("uWriteNear", NEAREST);
         program.set("uBehindHands", 1f);
         program.set("uDepthOnly", 0f);
@@ -759,7 +764,7 @@ final class Scope {
 
     private static final float[] AXIS = {0f, 1f, 0f}, TOP = {0f, 0f, 1f};
 
-    private static void parts(ScopeModel shape, ScopeOptics.Glass glass) {
+    private void parts(ScopeModel shape, ScopeOptics.Glass glass) {
         for (int part = 0; part < ScopeModel.PARTS; part++) {
             program.set("uGlass", (float) part);
             if (part != ScopeModel.BODY) {
@@ -770,7 +775,7 @@ final class Scope {
         }
     }
 
-    private static float unit(float[] v) {
+    private float unit(float[] v) {
         float length = (float) Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
         v[0] /= length;
         v[1] /= length;
@@ -779,7 +784,7 @@ final class Scope {
     }
 
     /** A point or a direction of the drawn view's, as its parts to the right of the aim, above it and along it. */
-    private static void against(ViewCamera.Pose camera, ViewCamera.Pose aim, float[] seen, boolean point, int at) {
+    private void against(ViewCamera.Pose camera, ViewCamera.Pose aim, float[] seen, boolean point, int at) {
         float x = camera.rightX * seen[0] + camera.upX * seen[1] - camera.forwardX * seen[2];
         float y = camera.rightY * seen[0] + camera.upY * seen[1] - camera.forwardY * seen[2];
         float up = camera.rightUp * seen[0] + camera.upUp * seen[1] - camera.forwardUp * seen[2];

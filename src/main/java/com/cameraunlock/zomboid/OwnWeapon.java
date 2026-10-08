@@ -26,7 +26,12 @@ import org.lwjgl.opengl.GL30;
  * All of it is the render thread's.
  */
 final class OwnWeapon {
-    private OwnWeapon() {}
+    final View view;
+
+    OwnWeapon(View view) {
+        this.view = view;
+    }
+
 
     /** The one item of the game's that the model stands for. */
     private static final String ITEM = "Base.Shotgun";
@@ -241,11 +246,11 @@ final class OwnWeapon {
     static float foreEnd, pumpTravel;
 
     /** The picture's colour with the depth of the viewer's own hands, which the weapon is drawn against. */
-    private static int target, targetColor, targetDepth;
+    private int target, targetColor, targetDepth;
 
-    private static final float[] model = new float[16], projection = new float[16];
-    private static boolean placed;
-    private static float handed, stood, outdoors, cut;
+    private final float[] model = new float[16], projection = new float[16];
+    private boolean placed;
+    private float handed, stood, outdoors, cut;
     /** How far from the eye the stock is first drawn with the sights up, in the model's metres. */
     private static final float NOT_DRAWN_WITHIN = 0.13f;
 
@@ -416,7 +421,7 @@ final class OwnWeapon {
      * @param outside     whether the viewer stands out of doors
      * @param aim         0 at the hip, 1 with the sights up
      */
-    static void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim) {
+    void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim) {
         // The model is sized so that its muzzle is where the game's is.
         float size = finalScale * gameMuzzle / muzzleFar;
         for (int column = 0; column < 3; column++) {
@@ -445,7 +450,7 @@ final class OwnWeapon {
     }
 
     /** Whether the weapon was placed this frame and is still to be drawn. */
-    static boolean waiting() {
+    boolean waiting() {
         return placed;
     }
 
@@ -454,7 +459,7 @@ final class OwnWeapon {
      * next ones. The target goes with them: a texture given back while a target still holds it
      * keeps its memory on the graphics card until that target lets go of it.
      */
-    static void forgetTarget() {
+    void forgetTarget() {
         GL30.glDeleteFramebuffers(target);
         target = 0;
         targetColor = 0;
@@ -466,7 +471,7 @@ final class OwnWeapon {
      * frame under the names its own programs know it by (the sky, the sun and its two shadow
      * maps, the eye and its axes, the flash of a shot).
      */
-    static Program begin() {
+    Program begin() {
         program.use();
         return program;
     }
@@ -480,7 +485,7 @@ final class OwnWeapon {
      * @param handsDepth the depth the viewer's hands were drawn with, whose near plane is near
      * @param sceneNear  the near plane the picture's own depth is measured from
      */
-    static void draw(ViewCamera.Pose camera, int scene, int sceneColor, int handsDepth, float tanHalfFieldOfView, float aspect, float near, float far,
+    void draw(ViewCamera.Pose camera, int scene, int sceneColor, int handsDepth, float tanHalfFieldOfView, float aspect, float near, float far,
             float sceneNear) {
         placed = false;
         throwShells(camera);
@@ -541,11 +546,11 @@ final class OwnWeapon {
         GL20.glUseProgram(0);
     }
 
-    private static void parts() {
+    private void parts() {
         program.set("uModel", model);
         program.set("uCut", 0f);
         for (int part = 0; part < SHELL; part++) {
-            program.set("uSlide", part == FIXED ? 0f : ViewModel.pumped * travel);
+            program.set("uSlide", part == FIXED ? 0f : view.viewModel.pumped * travel);
             GL11.glDrawElements(GL_TRIANGLES, indexCount[part], GL_UNSIGNED_INT, (long) firstIndex[part] * Integer.BYTES);
         }
         program.set("uSlide", 0f);
@@ -571,21 +576,21 @@ final class OwnWeapon {
      * radians a second.
      */
     private static final float THROWN_RIGHT = 1.5f, THROWN_UP = 1.1f, THROWN_BACK = 0.35f, FALLS = 7.5f, TUMBLES = 17f;
-    private static final float[] shellAge = {SHELL_LASTS, SHELL_LASTS, SHELL_LASTS};
+    private final float[] shellAge = {SHELL_LASTS, SHELL_LASTS, SHELL_LASTS};
     /** Each shell in the world: where it is, how it moves, and the gun's own axes as they were when it left. */
-    private static final float[][] shellAt = new float[SHELLS][3], shellGoes = new float[SHELLS][3], shellAxes = new float[SHELLS][9];
-    private static final float[][] shellModel = new float[SHELLS][16];
-    private static final float[] portSeen = new float[3];
-    private static float pumpedBefore;
-    private static long shellsAsOf;
-    private static int nextShell;
+    private final float[][] shellAt = new float[SHELLS][3], shellGoes = new float[SHELLS][3], shellAxes = new float[SHELLS][9];
+    private final float[][] shellModel = new float[SHELLS][16];
+    private final float[] portSeen = new float[3];
+    private float pumpedBefore;
+    private long shellsAsOf;
+    private int nextShell;
 
     /** Throws a shell as the bolt comes back, moves those in the air, and works out where the eye sees each. */
-    private static void throwShells(ViewCamera.Pose camera) {
+    private void throwShells(ViewCamera.Pose camera) {
         long now = System.nanoTime();
         float seconds = Math.min((now - shellsAsOf) / 1e9f, 0.05f);
         shellsAsOf = now;
-        float pumped = ViewModel.pumped;
+        float pumped = view.viewModel.pumped;
         if (pumped >= THROWN_AT && pumpedBefore < THROWN_AT) {
             int shell = nextShell;
             nextShell = (nextShell + 1) % SHELLS;
@@ -631,17 +636,17 @@ final class OwnWeapon {
         }
     }
 
-    private static final float[] tumbled = new float[3];
+    private final float[] tumbled = new float[3];
 
     /** A direction of the view's, x to the right, y up and z towards the viewer, in the world's axes. */
-    private static void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
+    private void inWorld(ViewCamera.Pose camera, float x, float y, float z, float[] out) {
         out[0] = camera.rightX * x + camera.upX * y - camera.forwardX * z;
         out[1] = camera.rightY * x + camera.upY * y - camera.forwardY * z;
         out[2] = camera.rightUp * x + camera.upUp * y - camera.forwardUp * z;
     }
 
     /** A direction of the world's in the view's axes, written into a matrix at a column's first place. */
-    private static void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
+    private void seenFrom(ViewCamera.Pose camera, float x, float y, float z, float[] out, int at) {
         out[at] = camera.rightX * x + camera.rightY * y + camera.rightUp * z;
         out[at + 1] = camera.upX * x + camera.upY * y + camera.upUp * z;
         out[at + 2] = -(camera.forwardX * x + camera.forwardY * y + camera.forwardUp * z);

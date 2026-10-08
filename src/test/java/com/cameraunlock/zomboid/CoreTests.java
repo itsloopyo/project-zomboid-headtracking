@@ -34,6 +34,10 @@ import java.util.stream.Stream;
  * Every check runs, and the tally is printed once at the end.
  */
 public final class CoreTests {
+    private static final FieldOfView fieldOfView = new FieldOfView();
+    private static final HeadFollowLight headFollowLight = new HeadFollowLight();
+    private static final HeadTracking headTracking = new HeadTracking(0, fieldOfView, headFollowLight);
+
     /**
      * A port the system says nothing holds, asked for just before core listens on it. Not 4242,
      * where a tracker may be sending, and not one fixed number: another run of these tests on
@@ -62,7 +66,7 @@ public final class CoreTests {
     public static void main(String[] arguments) throws Exception {
         if (arguments.length > 0 && arguments[0].equals("start")) {
             Log.open(Path.of(arguments[3]));
-            HeadTracking.open(Path.of(arguments[1]), Path.of(arguments[2]));
+            Tracking.open(Path.of(arguments[1]), Path.of(arguments[2]));
             System.out.println(started());
             return;
         }
@@ -118,7 +122,7 @@ public final class CoreTests {
 
     /** What a start left the session and the mod's own settings on, as one line. */
     private static String started() {
-        return HeadTracking.describe() + " | field of view " + FieldOfView.degrees() + " | own " + Own.described(Own.rows()) + " | graphics "
+        return headTracking.describe() + " | field of view " + FieldOfView.degrees() + " | own " + Own.described(Own.rows()) + " | graphics "
                 + Quality.name() + " | style " + Style.current().label + " | frame blending " + FrameBlending.on();
     }
 
@@ -154,7 +158,7 @@ public final class CoreTests {
      */
     private static void savesMade() throws InterruptedException {
         CountDownLatch made = new CountDownLatch(1);
-        HeadTracking.saver.execute(made::countDown);
+        Tracking.saver.execute(made::countDown);
         made.await();
     }
 
@@ -217,7 +221,7 @@ public final class CoreTests {
     }
 
     private static void firstStartCreatesTheCommittedFileAndRunsOnItsValues() throws IOException {
-        int port = HeadTracking.open(game, defaults);
+        int port = Tracking.open(game, defaults);
         check(Files.readString(game.resolve(Log.FILE_NAME)).contains(Config.FILE_NAME + ": created"), "a first start with no file creates it");
         check(Arrays.equals(Files.readAllBytes(file), Files.readAllBytes(Path.of("config", Config.FILE_NAME))),
                 "the file a first start creates is config/CameraUnlock.ini byte for byte");
@@ -228,7 +232,7 @@ public final class CoreTests {
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
         check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Low | style Vivid | frame blending false"),
                 "65 degrees, everything of the mod's own on, the Low graphics mode, the Vivid style, no frame blending: " + start);
-        check(HeadTracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
+        check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.TOGGLE | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
                         | Config.CYCLE_QUALITY | Config.CYCLE_STYLE) == 7,
                 "the seven actions have a bit each");
@@ -325,8 +329,8 @@ public final class CoreTests {
 
     private static void frame() throws InterruptedException {
         Thread.sleep((long) (FRAME_SECONDS * 1000));
-        // Not on foot: whether a lean may carry the weapon there is asked of the game, which no test has.
-        HeadTracking.view(true, clean, cleanYaw, noMap, sightsUp, false, inVehicle, out);
+        // No weapon is in hand, and the lean is not handed to one.
+        headTracking.view(true, clean, cleanYaw, noMap, sightsUp, false, ViewModel.FORWARD_STOP, inVehicle, out);
     }
 
     private static boolean within(int milliseconds, BooleanSupplier reached) throws InterruptedException {
@@ -357,32 +361,32 @@ public final class CoreTests {
     }
 
     private static String eye() {
-        return "(" + (out.eyeX - clean.eyeX) + ", " + (out.eyeY - clean.eyeY) + ", " + (out.eyeUp - clean.eyeUp) + ") " + HeadTracking.describe();
+        return "(" + (out.eyeX - clean.eyeX) + ", " + (out.eyeY - clean.eyeY) + ", " + (out.eyeUp - clean.eyeUp) + ") " + headTracking.describe();
     }
 
     private static void poseTurnsAndMovesTheView() throws IOException, InterruptedException {
         try (DatagramSocket free = new DatagramSocket(0)) {
             port = free.getLocalPort();
         }
-        HeadTracking.listen(port);
+        Tracking.listen(port);
         cleanYaw = 0f;
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
         frame();
-        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && HeadTracking.headTurn() == null && HeadTracking.describe().startsWith("tracking idle"),
+        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && headTracking.headTurn() == null && headTracking.describe().startsWith("tracking idle"),
                 "before a tracker sends anything the view is the clean one");
 
         send(20, 10, 12, 0.10, 0.05, -0.20);
-        check(within(3000, () -> looks(20f, 10f, 12f)), "a pose of yaw 20, pitch 10 and roll 12 turns the view by them: " + HeadTracking.describe());
+        check(within(3000, () -> looks(20f, 10f, 12f)), "a pose of yaw 20, pitch 10 and roll 12 turns the view by them: " + headTracking.describe());
         check(within(1000, () -> eyeMoved(0.20f, -0.10f, 0.05f)),
                 "and a head 10 cm to its left, 5 cm up and 20 cm in moves the eye 20 cm ahead, 10 cm against the view's right and 5 cm up: " + eye());
-        float[] head = HeadTracking.headTurn();
+        float[] head = headTracking.headTurn();
         check(head != null && near(head[0], radians(20)) && near(head[1], radians(10)) && near(head[2], radians(12)),
                 "the character's head is given the same turn, in radians");
-        float[] carried = HeadTracking.carried();
+        float[] carried = headTracking.carried();
         check(carried[0] == 0f && carried[1] == 0f && carried[2] == 0f, "at the hip the weapon is moved by none of the lean");
-        check(HeadTracking.describe().startsWith("tracking applied") && HeadTracking.describe().contains("remote false"),
+        check(headTracking.describe().startsWith("tracking applied") && headTracking.describe().contains("remote false"),
                 "tracking says it is applied, from a tracker on this machine");
-        check(near(HeadFollowLight.turn(), HeadFollowLight.headingTurn(clean, radians(30), radians(15), radians(18), true)),
+        check(near(headFollowLight.turn(), HeadFollowLight.headingTurn(clean, radians(30), radians(15), radians(18), true)),
                 "and the carried light is turned by core's angles for it, one and a half times the head's");
         check(Files.readString(game.resolve(Log.FILE_NAME)).contains("the lean is not held off walls: there is no map to measure it against"),
                 "with no map to measure the lean against, the log says the lean is not held off walls");
@@ -394,16 +398,16 @@ public final class CoreTests {
         cleanYaw = 0f;
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
 
-        HeadTracking.follow(true);
-        head = HeadTracking.headTurn();
-        check(head != null && near(head[0], radians(20)) && HeadFollowLight.turn() == 0f,
+        headTracking.follow(true);
+        head = headTracking.headTurn();
+        check(head != null && near(head[0], radians(20)) && headFollowLight.turn() == 0f,
                 "in the game's own view the head's turn is kept up for the character's head, and the light is the game's");
-        HeadTracking.follow(false);
-        check(HeadTracking.headTurn() == null, "and is not while the game is paused");
+        headTracking.follow(false);
+        check(headTracking.headTurn() == null, "and is not while the game is paused");
         frame();
         check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "the first frame tracking applies again is at the tracker's pose: " + eye());
-        HeadTracking.rest();
-        check(HeadTracking.headTurn() == null && HeadTracking.describe().startsWith("tracking idle"), "a save that is left puts tracking at rest");
+        headTracking.rest();
+        check(headTracking.headTurn() == null && headTracking.describe().startsWith("tracking idle"), "a save that is left puts tracking at rest");
         frame();
     }
 
@@ -415,13 +419,13 @@ public final class CoreTests {
         }
         check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "a jump to a pose that then repeats bit for bit does not swing the view: " + eye());
         moveTo(20.5, 10, 12, 0.10, 0.05, -0.20);
-        check(looks(20.5f, 10f, 12f), "and the head found again is followed: " + HeadTracking.describe());
+        check(looks(20.5f, 10f, 12f), "and the head found again is followed: " + headTracking.describe());
         moveTo(20, 10, 12, 0.10, 0.05, -0.20);
     }
 
     private static void zoomLeavesTheHeadsTurnTheSameSizeOnScreen() throws IOException, InterruptedException {
         moveTo(25, 0, 0, 0.10, 0, -0.20);
-        check(looks(25f, 0f, 0f), "a yaw of 25 degrees alone: " + HeadTracking.describe());
+        check(looks(25f, 0f, 0f), "a yaw of 25 degrees alone: " + headTracking.describe());
         float base = FieldOfView.setTanHalfVertical();
         float aheadX = clean.eyeX + clean.forwardX * 8f, aheadY = clean.eyeY + clean.forwardY * 8f;
         float[] hip = new float[2], aimed = new float[2];
@@ -431,46 +435,46 @@ public final class CoreTests {
         turned.eyeY = clean.eyeY;
         turned.eyeUp = clean.eyeUp;
         ViewCamera.project(turned, base, ASPECT, aheadX, aheadY, clean.eyeUp, hip);
-        check(HeadTracking.zoomFactor() == 1f, "unzoomed, core's zoom factor is exactly 1");
+        check(headTracking.zoomFactor() == 1f, "unzoomed, core's zoom factor is exactly 1");
 
-        FieldOfView.ease(true, 10f);
+        fieldOfView.ease(true, 10f);
         frame();
-        check(near(HeadTracking.zoomFactor(), FieldOfView.AIMED_ZOOM), "with a firearm aimed it is the ratio of the tangents");
+        check(near(headTracking.zoomFactor(), FieldOfView.AIMED_ZOOM), "with a firearm aimed it is the ratio of the tangents");
         turned.set(out);
         turned.eyeX = clean.eyeX;
         turned.eyeY = clean.eyeY;
         turned.eyeUp = clean.eyeUp;
-        ViewCamera.project(turned, FieldOfView.tanHalfVertical(), ASPECT, aheadX, aheadY, clean.eyeUp, aimed);
+        ViewCamera.project(turned, fieldOfView.tanHalfVertical(), ASPECT, aheadX, aheadY, clean.eyeUp, aimed);
         check(near(hip[0], aimed[0]) && Math.abs(hip[0]) > 0.3f, "and the head's yaw moves the picture as far as it did unzoomed: " + hip[0] + " and " + aimed[0]);
         check(eyeMoved(0.20f, -0.10f * FieldOfView.AIMED_ZOOM, 0f), "the lean in is whole and the lean across the view is scaled with the picture: " + eye());
-        FieldOfView.rest();
+        fieldOfView.rest();
         moveTo(20, 10, 12, 0.10, 0.05, -0.20);
-        check(looks(20f, 10f, 12f), "back to the first pose: " + HeadTracking.describe());
+        check(looks(20f, 10f, 12f), "back to the first pose: " + headTracking.describe());
     }
 
     private static void hotkeyActionsActAndSave() throws IOException, InterruptedException {
         int others = Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_STYLE;
         byte[] before = bytes();
-        int handedBack = HeadTracking.act(others);
-        String modes = HeadTracking.describe();
+        int handedBack = Tracking.act(others);
+        String modes = headTracking.describe();
         check(handedBack == others && Arrays.equals(bytes(), before) && modes.contains("mode rotation and position yaw about world up")
                         && modes.contains("Aim mode: sights locked"),
                 "the first person view's three actions are handed back for it to act on, and change and save nothing here");
 
-        check(HeadTracking.act(Config.CYCLE_TRACKING_MODE) == Config.CYCLE_TRACKING_MODE && HeadTracking.describe().contains("mode rotation only"),
+        check(Tracking.act(Config.CYCLE_TRACKING_MODE) == Config.CYCLE_TRACKING_MODE && headTracking.describe().contains("mode rotation only"),
                 "the tracking mode key goes to rotation only");
         check(saved("RotationEnabled=true", "PositionEnabled=false"), "and saves it");
         frame();
         check(looks(20f, 10f, 12f) && eyeMoved(0f, 0f, 0f), "rotation only turns the view and moves nothing: " + eye());
-        HeadTracking.act(Config.CYCLE_TRACKING_MODE);
+        Tracking.act(Config.CYCLE_TRACKING_MODE);
         check(saved("RotationEnabled=false", "PositionEnabled=true"), "then position only, saved");
         frame();
-        check(looks(0f, 0f, 0f) && eyeMoved(0.20f, -0.10f, 0.05f) && HeadTracking.headTurn() == null, "which moves the eye and turns nothing: " + eye());
-        HeadTracking.act(Config.CYCLE_TRACKING_MODE);
-        check(saved("RotationEnabled=true", "PositionEnabled=true") && HeadTracking.describe().contains("mode rotation and position"), "then both again, saved");
+        check(looks(0f, 0f, 0f) && eyeMoved(0.20f, -0.10f, 0.05f) && headTracking.headTurn() == null, "which moves the eye and turns nothing: " + eye());
+        Tracking.act(Config.CYCLE_TRACKING_MODE);
+        check(saved("RotationEnabled=true", "PositionEnabled=true") && headTracking.describe().contains("mode rotation and position"), "then both again, saved");
 
-        HeadTracking.act(Config.YAW_MODE);
-        check(saved("WorldSpaceYaw=false") && HeadTracking.describe().contains("yaw about view up"), "the yaw mode key goes to the view's own up and saves it");
+        Tracking.act(Config.YAW_MODE);
+        check(saved("WorldSpaceYaw=false") && headTracking.describe().contains("yaw about view up"), "the yaw mode key goes to the view's own up and saves it");
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, radians(-50));
         frame();
         ViewCamera.Pose aboutItsOwnUp = new ViewCamera.Pose();
@@ -479,36 +483,36 @@ public final class CoreTests {
         check(near(out.forwardX, aboutItsOwnUp.forwardX) && near(out.forwardY, aboutItsOwnUp.forwardY) && !looks(20f, 10f, 12f),
                 "and a view looking down is turned about its own up");
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
-        HeadTracking.act(Config.YAW_MODE);
-        check(saved("WorldSpaceYaw=true") && HeadTracking.describe().contains("yaw about world up"), "and back, saved");
+        Tracking.act(Config.YAW_MODE);
+        check(saved("WorldSpaceYaw=true") && headTracking.describe().contains("yaw about world up"), "and back, saved");
 
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, radians(-50));
         inVehicle = true;
         frame();
         check(near(out.forwardX, aboutItsOwnUp.forwardX) && near(out.forwardY, aboutItsOwnUp.forwardY)
-                        && HeadTracking.describe().contains("yaw about view up"),
+                        && headTracking.describe().contains("yaw about view up"),
                 "from a vehicle's seat the view is turned about its own up, with yaw about straight up saved");
         byte[] seated = bytes();
-        HeadTracking.act(Config.YAW_MODE);
+        Tracking.act(Config.YAW_MODE);
         frame();
         check(Arrays.equals(bytes(), seated) && near(out.forwardX, aboutItsOwnUp.forwardX) && near(out.forwardY, aboutItsOwnUp.forwardY),
                 "where the yaw mode key changes and saves nothing");
         inVehicle = false;
         frame();
-        check(HeadTracking.describe().contains("yaw about world up") && !near(out.forwardX, aboutItsOwnUp.forwardX),
+        check(headTracking.describe().contains("yaw about world up") && !near(out.forwardX, aboutItsOwnUp.forwardX),
                 "and out of the vehicle the yaw is about straight up again");
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
 
-        HeadTracking.act(Config.AIM_MODE);
-        check(HeadTracking.aimModeLabel().equals("Aim mode: free look with marker") && HeadTracking.freeLook(), "the aim mode key goes to free look with a marker");
+        Tracking.act(Config.AIM_MODE);
+        check(Tracking.aimModeLabel().equals("Aim mode: free look with marker") && Tracking.freeLook(), "the aim mode key goes to free look with a marker");
         check(saved("TrueFreeLook=true", "FreeLookMarker=true"), "saved with its marker");
-        HeadTracking.act(Config.AIM_MODE);
-        check(HeadTracking.aimModeLabel().equals("Aim mode: stock sights") && !HeadTracking.freeLook(), "then to stock sights, with no free look without a marker between");
+        Tracking.act(Config.AIM_MODE);
+        check(Tracking.aimModeLabel().equals("Aim mode: stock sights") && !Tracking.freeLook(), "then to stock sights, with no free look without a marker between");
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
-        HeadTracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode();
         check(Quality.name().equals("Medium") && saved("Quality=Medium"), "the graphics mode's action goes to Medium and saves it");
-        HeadTracking.cycleStyle();
+        Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
         check(holds("UdpPort=default") && holds("ToggleKey=default") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
     }
@@ -520,27 +524,27 @@ public final class CoreTests {
         sightsUp = true;
         check(within(2000, () -> looks(0f, 0f, 12f) && eyeMoved(0f, 0f, 0f)),
                 "with the sights up, a pose of yaw 20, pitch 10 and roll 12 turns the view 0, 0 and 12 and moves the eye nowhere: " + eye());
-        float[] head = HeadTracking.headTurn();
+        float[] head = headTracking.headTurn();
         check(head != null && near(head[0], 0f) && near(head[1], 0f) && near(head[2], radians(12)), "and the character's head with it");
         sightsUp = false;
         check(within(2000, () -> looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f)), "the sights down, the pose eases back whole: " + eye());
-        HeadTracking.act(Config.AIM_MODE);
-        check(HeadTracking.aimModeLabel().equals("Aim mode: sights locked") && saved("StockSights=false"), "and the key comes round to sights locked, saved");
-        HeadTracking.act(Config.AIM_MODE);
-        HeadTracking.act(Config.AIM_MODE);
+        Tracking.act(Config.AIM_MODE);
+        check(Tracking.aimModeLabel().equals("Aim mode: sights locked") && saved("StockSights=false"), "and the key comes round to sights locked, saved");
+        Tracking.act(Config.AIM_MODE);
+        Tracking.act(Config.AIM_MODE);
         check(saved("StockSights=true"), "stock sights again, for the next start");
     }
 
     private static void toggleSwitchesTrackingOffForTheSessionAndWritesNothing() throws IOException, InterruptedException {
         byte[] before = bytes();
-        HeadTracking.act(Config.TOGGLE);
+        Tracking.act(Config.TOGGLE);
         frame();
-        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && HeadTracking.headTurn() == null && HeadTracking.describe().startsWith("tracking off"),
+        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && headTracking.headTurn() == null && headTracking.describe().startsWith("tracking off"),
                 "the toggle key leaves the view the clean one");
-        HeadTracking.act(Config.TOGGLE);
+        Tracking.act(Config.TOGGLE);
         frame();
         check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "and pressed again puts it at the tracker's pose at once: " + eye());
-        HeadTracking.act(Config.TOGGLE);
+        Tracking.act(Config.TOGGLE);
         check(Arrays.equals(bytes(), before), "neither press writes the file");
     }
 
@@ -562,28 +566,28 @@ public final class CoreTests {
     }
 
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {
-        HeadTracking.watchSettings();
+        Tracking.watchSettings();
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
                 .replace("FrameBlending=false", "FrameBlending=true").replace("UdpPort=default", "UdpPort=5555"));
-        HeadTracking.watchSettings();
+        Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
         check(Quality.name().equals("High") && Style.current() == Style.BLEAK && FrameBlending.on(), "and the graphics mode, the picture style and frame blending");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
-        HeadTracking.watchSettings();
+        Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
                         && !FrameBlending.on(),
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
-        HeadTracking.cycleStyle();
+        Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
         check(saved("Style=Bleak", "OwnArms=false"), "and leaves the edited row in the file");
 
         edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
-        HeadTracking.cycleStyle();
+        Tracking.cycleStyle();
         check(saved("Style=Vivid", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
-        HeadTracking.watchSettings();
+        Tracking.watchSettings();
         check(FieldOfView.degrees() == 80f && Style.current() == Style.VIVID, "and the watch still reads the edit: " + FieldOfView.degrees());
     }
 

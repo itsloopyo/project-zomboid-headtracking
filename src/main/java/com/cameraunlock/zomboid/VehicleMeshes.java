@@ -116,8 +116,8 @@ final class VehicleMeshes {
         seatedPanes = null;
         seatedParts = null;
         seatedWheel = null;
-        float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
-        float[] faces = Ride.stands;
+        float aheadX = View.first().ride.aheadX, aheadY = View.first().ride.aheadY;
+        float[] faces = View.first().ride.stands;
         Cabins.level(aheadX, aheadY, seatedAxes);
         if (!(body.modelInstance instanceof VehicleModelInstance instance) || body.modelInstance.model == null) {
             return;
@@ -279,7 +279,7 @@ final class VehicleMeshes {
                 at[i * 3 + row] = place;
             }
         }
-        float[] seats = Ride.seats;
+        float[] seats = View.first().ride.seats;
         int[] ring = CabinParts.wheelOf(at, elements, seats == null || seats.length < 3 ? null : new float[] {frame[3] + seats[2], Math.abs(seats[0])}, frame[7]);
         if (ring == null) {
             Log.info("the vehicle model " + name + " has no steering wheel the picture can find (" + elements.length / 3 + " triangles, none a piece of " + WHEEL_TRIANGLES
@@ -410,7 +410,7 @@ final class VehicleMeshes {
         for (int row = 0; row < 3; row++) {
             middle[row] = frame[row * 4] * wheel[0] + frame[row * 4 + 1] * wheel[1] + frame[row * 4 + 2] * wheel[2] + frame[row * 4 + 3];
         }
-        float[] seats = CabinParts.seats(Ride.seats, frame[3], frame[7], middle[1]);
+        float[] seats = CabinParts.seats(View.first().ride.seats, frame[3], frame[7], middle[1]);
         CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),

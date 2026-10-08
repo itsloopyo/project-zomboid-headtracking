@@ -28,27 +28,32 @@ import zombie.iso.Vector3;
  * Everything runs on the game's logic thread.
  */
 public final class Controls {
-    private static final AimInput aim = new AimInput();
-    private static boolean stockAim, filteredAim, attackDown;
-    private static boolean interactDown, interactTaken;
+    final View view;
+
+    Controls(View view) {
+        this.view = view;
+    }
+
+    private final AimInput aim = new AimInput();
+    private boolean stockAim, filteredAim, attackDown;
+    private boolean interactDown, interactTaken;
 
     /** Where the clean aim meets the world, in the game's own axes: tiles and floor levels. */
-    private static float aimPointX, aimPointY, aimPointLevel;
+    private float aimPointX, aimPointY, aimPointLevel;
 
     /** A binding the game holds and what first person answers with in its place. */
     private static final class Substituted {
         Core.KeyBinding from, to;
     }
 
-    private static final Map<String, Substituted> substituted = new HashMap<>();
+    private final Map<String, Substituted> substituted = new HashMap<>();
 
-    static {
+    {
         for (String name : KeySubstitutions.NAMES) {
             substituted.put(name, new Substituted());
         }
     }
 
-    private Controls() {}
 
     /**
      * Called with what the game's aim input reads. The attack button holds
@@ -57,11 +62,11 @@ public final class Controls {
      * option on, every click would flip the toggle, so the input is left alone:
      * that player has an aim that stays up already.
      */
-    public static boolean aimKey(boolean stock) {
+    public boolean aimKey(boolean stock) {
         boolean wasFiltered = filteredAim, wasAttack = attackDown;
         stockAim = stock;
-        IsoPlayer player = IsoPlayer.getInstance();
-        if (FirstPerson.lookCaptured() && player != null && player.getVehicle() == null
+        IsoPlayer player = view.player();
+        if (view.firstPerson.lookCaptured() && player != null && player.getVehicle() == null
                 && !Core.getInstance().isToggleToAim()) {
             attackDown = CharacterInputKeyBinding.Attack.isKeyDownInWorld();
             filteredAim = aim.held(stock, attackDown, System.nanoTime());
@@ -82,18 +87,18 @@ public final class Controls {
      * aiming stance, which faces it the way the view does: see Online.bodyFacesTheView. The
      * sights stay down. They follow the player's own aim input alone.
      */
-    private static boolean turnedToTheView(IsoPlayer player) {
-        return player != null && player.getVehicle() == null && FirstPerson.movingAside() && Online.bodyFacesTheView();
+    private boolean turnedToTheView(IsoPlayer player) {
+        return player != null && player.getVehicle() == null && view.firstPerson.movingAside() && Online.bodyFacesTheView(player);
     }
 
-    private static boolean turnedOnly;
+    private boolean turnedOnly;
 
     /**
      * Whether the game has the character aiming for no reason but to face it the way the view
      * does: the player is neither aiming nor attacking. What the player is shown then is what
      * they are shown at the hip, the mod's own mark and not the game's aiming cursor.
      */
-    static boolean turnedOnly() {
+    boolean turnedOnly() {
         return turnedOnly;
     }
 
@@ -101,16 +106,16 @@ public final class Controls {
      * Called with what the game's attack button reads. A firearm's shot is held back until
      * the game has had the aim long enough to find what the shot is on: see AimInput.
      */
-    public static boolean attackKey(boolean stock) {
-        IsoPlayer player = IsoPlayer.getInstance();
-        if (!FirstPerson.lookCaptured() || player == null || player.getVehicle() != null || Core.getInstance().isToggleToAim()) {
+    public boolean attackKey(boolean stock) {
+        IsoPlayer player = view.player();
+        if (!view.firstPerson.lookCaptured() || player == null || player.getVehicle() != null || Core.getInstance().isToggleToAim()) {
             return stock;
         }
         return aim.attack(stock, player.isAimingFirearmEquipped());
     }
 
     /** Once a frame of the game's logic. */
-    static void frame() {
+    void frame() {
         aim.frame();
     }
 
@@ -118,9 +123,9 @@ public final class Controls {
      * Whether a firearm's sights are up: the player's own aim input, never the
      * aim an attack click implies, with a firearm in hand and on foot.
      */
-    static boolean sightsUp(IsoPlayer player) {
+    boolean sightsUp(IsoPlayer player) {
         boolean aiming = stockAim || Core.getInstance().isToggleToAim() && player.isAiming();
-        return aiming && FirstPerson.lookCaptured() && player.getVehicle() == null && player.isAimingFirearmEquipped();
+        return aiming && view.firstPerson.lookCaptured() && player.getVehicle() == null && player.isAimingFirearmEquipped();
     }
 
     /**
@@ -130,8 +135,8 @@ public final class Controls {
      * picture, which does not show what the game's own view has under it. So
      * nothing is: the world is acted on through the middle of the view.
      */
-    public static boolean picked(boolean stock) {
-        return !FirstPerson.active() && stock;
+    public boolean picked(boolean stock) {
+        return !view.firstPerson.active() && stock;
     }
 
     /**
@@ -141,7 +146,7 @@ public final class Controls {
      * let go, or its own handler would act a second time on whatever the
      * character's body faces.
      */
-    public static boolean interactKey(boolean stock) {
+    public boolean interactKey(boolean stock) {
         if (!stock) {
             interactDown = false;
             interactTaken = false;
@@ -149,7 +154,7 @@ public final class Controls {
         }
         if (!interactDown) {
             interactDown = true;
-            interactTaken = FirstPerson.lookCaptured() && FirstPerson.useAtCentre();
+            interactTaken = view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre();
         }
         return !interactTaken;
     }
@@ -159,8 +164,8 @@ public final class Controls {
      * a click to the object under the cursor, which it does not do for someone
      * aiming.
      */
-    public static boolean aimingForWorldClicks(boolean stock) {
-        return FirstPerson.lookCaptured() || stock;
+    public boolean aimingForWorldClicks(boolean stock) {
+        return view.firstPerson.lookCaptured() || stock;
     }
 
     /**
@@ -168,11 +173,11 @@ public final class Controls {
      * cursor at the height of the character's chest. The aim is the clean
      * view's direction, whatever height the view meets the world at.
      */
-    public static Vector2 aimVector(Vector2 stock) {
-        if (!FirstPerson.lookCaptured()) {
+    public Vector2 aimVector(Vector2 stock) {
+        if (!view.firstPerson.lookCaptured()) {
             return stock;
         }
-        float yaw = FirstPerson.yaw();
+        float yaw = view.firstPerson.yaw();
         return stock.set((float) Math.cos(yaw), (float) Math.sin(yaw));
     }
 
@@ -181,7 +186,7 @@ public final class Controls {
      *
      * @param level the game's own height: floor levels above level 0
      */
-    static void aimAt(float x, float y, float level) {
+    void aimAt(float x, float y, float level) {
         aimPointX = x;
         aimPointY = y;
         aimPointLevel = level;
@@ -194,13 +199,13 @@ public final class Controls {
      * point falls in that view, worked out with the camera as it is at the
      * moment they ask.
      */
-    public static int aimPointX(int stock) {
-        return FirstPerson.lookCaptured() ? Math.round(IsoUtils.XToScreenExact(aimPointX, aimPointY, aimPointLevel, 0)) : stock;
+    public int aimPointX(int stock) {
+        return view.firstPerson.lookCaptured() ? Math.round(IsoUtils.XToScreenExact(aimPointX, aimPointY, aimPointLevel, 0)) : stock;
     }
 
     /** Called where the game's ballistics read the screen row of the reticle. */
-    public static int aimPointY(int stock) {
-        return FirstPerson.lookCaptured() ? Math.round(IsoUtils.YToScreenExact(aimPointX, aimPointY, aimPointLevel, 0)) : stock;
+    public int aimPointY(int stock) {
+        return view.firstPerson.lookCaptured() ? Math.round(IsoUtils.YToScreenExact(aimPointX, aimPointY, aimPointLevel, 0)) : stock;
     }
 
     /**
@@ -216,15 +221,15 @@ public final class Controls {
      * aim, and some degrees off it when it is up. The weapon the view draws points at the
      * aim point at the hip and with the sights up alike, so that is the way the shot goes.
      */
-    public static void muzzle(BallisticsController ballistics) {
-        IsoPlayer player = IsoPlayer.getInstance();
-        if (!FirstPerson.lookCaptured() || player == null || player.getBallisticsController() != ballistics) {
+    public void muzzle(BallisticsController ballistics) {
+        IsoPlayer player = view.player();
+        if (!view.firstPerson.lookCaptured() || player == null || player.getBallisticsController() != ballistics) {
             return;
         }
         if (FirstPerson.TRACE && filteredAim) {
             sayBallistics(ballistics);
         }
-        float[] carried = HeadTracking.carried();
+        float[] carried = view.headTracking.carried();
         Vector3 muzzle = ballistics.getMuzzlePosition();
         muzzle.x += carried[0];
         muzzle.y += carried[1];
@@ -242,9 +247,9 @@ public final class Controls {
      * paused under the menu. On a server nothing pauses, and the menu itself
      * is asked for.
      */
-    public static Core.KeyBinding binding(Core.KeyBinding stock, String name) {
+    public Core.KeyBinding binding(Core.KeyBinding stock, String name) {
         Substituted held = substituted.get(name);
-        if (held == null || !FirstPerson.active() || GameTime.isGamePaused() || Panels.menuOpen()) {
+        if (held == null || !view.firstPerson.active() || GameTime.isGamePaused() || Panels.menuOpen()) {
             return stock;
         }
         if (held.from != stock) {
@@ -257,8 +262,8 @@ public final class Controls {
         return held.to;
     }
 
-    private static Field[] ballisticsFields;
-    private static long ballisticsSaid;
+    private Field[] ballisticsFields;
+    private long ballisticsSaid;
 
     /**
      * For the trace, four times a second while the aim is held: where the game's ballistics
@@ -266,7 +271,7 @@ public final class Controls {
      * targets they have. A shot that misses what the view is on is one of these being off,
      * and which one cannot be told from the picture.
      */
-    private static void sayBallistics(BallisticsController ballistics) {
+    private void sayBallistics(BallisticsController ballistics) {
         long now = System.nanoTime();
         if (now - ballisticsSaid < 250_000_000L) {
             return;
@@ -303,8 +308,8 @@ public final class Controls {
      * made its list of what the shot can hit by now, each with its chance out of 100, and
      * the aiming delay is the part of that sum that falls while the aim is held.
      */
-    static void sayShot() {
-        IsoPlayer player = IsoPlayer.getInstance();
+    void sayShot() {
+        IsoPlayer player = view.player();
         try {
             Object delay = IsoPlayer.class.getMethod("getAimingDelay").invoke(player);
             Object moving = IsoPlayer.class.getMethod("getBeenMovingFor").invoke(player);
@@ -325,8 +330,8 @@ public final class Controls {
     }
 
     /** The inputs as the game was last given them, for the trace. */
-    static String describe() {
+    String describe() {
         return String.format(Locale.ROOT, "aim stock %b filtered %b attack %b sights zoom %.4f fov %.2f",
-                stockAim, filteredAim, attackDown, FieldOfView.zoom(), FieldOfView.drawnDegrees());
+                stockAim, filteredAim, attackDown, view.fieldOfView.zoom(), view.fieldOfView.drawnDegrees());
     }
 }

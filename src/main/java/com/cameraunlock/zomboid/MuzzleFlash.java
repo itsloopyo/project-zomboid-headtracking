@@ -12,7 +12,6 @@ import org.lwjgl.opengl.GL20;
  * is, having just drawn the weapon, and draws the burst.
  */
 final class MuzzleFlash {
-    private MuzzleFlash() {}
 
     /** How long a flash lasts. */
     static final float SECONDS = 0.05f;
@@ -73,24 +72,24 @@ final class MuzzleFlash {
 
     private static final SmallProgram burst = new SmallProgram("muzzle flash", SmallProgram.FLAT_VERTEX, BURST_FRAGMENT);
 
-    private static volatile long firedAt;
-    private static volatile int shots;
+    private volatile long firedAt;
+    private volatile int shots;
     /** Where the light is in the world (x, y, up), once a weapon with a muzzle has been drawn. Render thread. */
-    private static final float[] at = new float[3];
-    private static boolean placed;
+    private final float[] at = new float[3];
+    private boolean placed;
 
     /** A shot has been taken. Logic thread. */
-    static void fire() {
+    void fire() {
         firedAt = System.nanoTime();
         shots++;
     }
 
     /** How much of a flash is left this long after its shot: 1 at the shot, 0 from SECONDS on. */
-    static float left(float seconds) {
+    float left(float seconds) {
         return seconds < 0f || seconds >= SECONDS ? 0f : 1f - seconds / SECONDS;
     }
 
-    private static float left() {
+    private float left() {
         return shots == 0 ? 0f : left((System.nanoTime() - firedAt) / 1e9f);
     }
 
@@ -98,7 +97,7 @@ final class MuzzleFlash {
      * The light of the flash as the picture's shaders take it, into out: x, y, up and strength
      * for uFlashAt, then red, green and blue for uFlashColor. The strength is 0 with no flash.
      */
-    static void light(float[] out) {
+    void light(float[] out) {
         out[0] = placed ? at[0] : 0f;
         out[1] = placed ? at[1] : 0f;
         out[2] = placed ? at[2] : 0f;
@@ -109,7 +108,7 @@ final class MuzzleFlash {
     }
 
     /** The weapon drawn this frame has no muzzle: nothing flashes. */
-    static void none() {
+    void none() {
         placed = false;
     }
 
@@ -118,7 +117,7 @@ final class MuzzleFlash {
      * is for the frame's shaders. The muzzle is given in the view's axes: x to the right, y up
      * and z towards the viewer.
      */
-    static void draw(ViewCamera.Pose camera, float x, float y, float z, float tanHalfFieldOfView, float aspect, int width, int height) {
+    void draw(ViewCamera.Pose camera, float x, float y, float z, float tanHalfFieldOfView, float aspect, int width, int height) {
         float ahead = -z + LIGHT_AHEAD;
         at[0] = camera.eyeX + camera.rightX * x + camera.upX * y + camera.forwardX * ahead;
         at[1] = camera.eyeY + camera.rightY * x + camera.upY * y + camera.forwardY * ahead;

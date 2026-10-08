@@ -24,51 +24,50 @@ final class Ride {
     private static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
 
     /** Whether the viewer is in a vehicle. */
-    static volatile boolean seated;
+    volatile boolean seated;
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
-    static volatile boolean driving;
-    static volatile int skin;
+    volatile boolean driving;
+    volatile int skin;
     /** Whether a door of the cabin the viewer sits in stands open. */
-    static volatile boolean doorOpen;
+    volatile boolean doorOpen;
     /** Whether the vehicle the viewer sits in has its engine running, and so its instruments lit. */
-    static volatile boolean instrumentsLit;
+    volatile boolean instrumentsLit;
     /** What the instruments of the vehicle the viewer sits in show, each as a part of its gauge's full scale. */
-    static volatile float roadSpeed, engineSpeed, fuel;
+    volatile float roadSpeed, engineSpeed, fuel;
     /** How far the vehicle the viewer sits in is steered, as the game counts it (0.9 at full lock standing still), to the right positive. */
-    static volatile float steering;
+    volatile float steering;
     /** Whether the vehicle the viewer sits in has its headlights on. */
-    static volatile boolean lampsOn;
+    volatile boolean lampsOn;
     /**
      * Where the vehicle the viewer sits in seats its passengers: across, up and along for each,
      * from the middle of its model, in tiles, as its script has them. The driver is the first.
      */
-    static volatile float[] seats;
+    volatile float[] seats;
     /**
      * The script name of the vehicle the viewer sits in, or last sat in: null before the first.
      * The picture reads it after it has seen seated, on another thread, so it is set before
      * seated on the way in and kept on the way out.
      */
-    static volatile String seatedIn;
+    volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
-    static volatile float aheadX, aheadY;
+    volatile float aheadX, aheadY;
     /**
      * The way the viewer's vehicle faces, the side to the left of that and its own up, in the
      * world, as the game's physics has it: nose up or down, on its side or on its roof. The
      * picture reads them on another thread, so a new array is set whole each time.
      */
-    static volatile float[] stands = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
+    volatile float[] stands = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
     /** How fast the viewer's vehicle is going on the map, as the game's physics has it. */
-    static volatile float goingX, goingY;
+    volatile float goingX, goingY;
 
-    private static String seatsOf;
-    private static final Vector3f seatAt = new Vector3f();
-    private static final Vector3f facing = new Vector3f();
-    private static final Vector3f above = new Vector3f();
-    private static final Vector3f going = new Vector3f();
-    private static int seatSaid;
-    private static int wearAsked;
+    private String seatsOf;
+    private final Vector3f seatAt = new Vector3f();
+    private final Vector3f facing = new Vector3f();
+    private final Vector3f above = new Vector3f();
+    private final Vector3f going = new Vector3f();
+    private int seatSaid;
+    private int wearAsked;
 
-    private Ride() {}
 
     /**
      * Notes the vehicle the player sits in, or that there is none, and moves the eye to the
@@ -79,7 +78,7 @@ final class Ride {
      * @param floorUp how high the floor under the player is
      * @param eye     the eye's x, y and height, which a seat replaces
      */
-    static void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, float[] eye) {
+    void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, float[] eye) {
         // The picture reads the seats as soon as it sees the viewer seated: they are set first.
         if (vehicle != null && !vehicle.getScriptName().equals(seatsOf)) {
             seatsOf = vehicle.getScriptName();
@@ -128,12 +127,12 @@ final class Ride {
     }
 
     /** The way the vehicle faces on the map, as a yaw. The game gives its forward vector with y as up. */
-    static float heading(BaseVehicle vehicle) {
+    float heading(BaseVehicle vehicle) {
         vehicle.getForwardVector(facing);
         return (float) Math.atan2(facing.z, facing.x);
     }
 
-    private static void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
+    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across
         // the vehicle. Which way the vehicle faces the game gives with y as up.
@@ -169,7 +168,7 @@ final class Ride {
     }
 
     /** A seat a passenger is never inside, on a trailer or a roof, has no place in the cabin and is left out. */
-    private static float[] seatsOf(VehicleScript script) {
+    private float[] seatsOf(VehicleScript script) {
         float[] found = new float[script.getPassengerCount() * 3];
         int seats = 0;
         for (int i = 0; i < script.getPassengerCount(); i++) {

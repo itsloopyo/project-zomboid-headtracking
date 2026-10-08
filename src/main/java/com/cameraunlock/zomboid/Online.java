@@ -27,7 +27,7 @@ final class Online {
      * has no safety for players to keep on or the viewer's own is off. Asked of the game
      * every time, since a player switches their safety as they play.
      */
-    static boolean contested() {
+    static boolean contested(IsoPlayer viewer) {
         if (!joined()) {
             return false;
         }
@@ -38,7 +38,6 @@ final class Online {
         if (!options.safetySystem.getValue()) {
             return true;
         }
-        IsoPlayer viewer = IsoPlayer.getInstance();
         return viewer != null && !viewer.getSafety().isEnabled();
     }
 
@@ -49,8 +48,8 @@ final class Online {
      * round a corner the body has not passed, so the lean across the aim eases out as the
      * sights come up.
      */
-    static boolean leanCarriesTheShot() {
-        return !contested();
+    static boolean leanCarriesTheShot(IsoPlayer viewer) {
+        return !contested(viewer);
     }
 
     /**
@@ -62,8 +61,8 @@ final class Online {
      * that moves any way but ahead is put in the game's own aiming stance, which is the one
      * way the game has of facing one way and moving another, at the pace it gives that.
      */
-    static boolean bodyFacesTheView() {
-        return contested();
+    static boolean bodyFacesTheView(IsoPlayer viewer) {
+        return contested(viewer);
     }
 
     /** The cosine of how far from straight ahead the movement keys may ask and still count as ahead: forward with a sideways key is. */
