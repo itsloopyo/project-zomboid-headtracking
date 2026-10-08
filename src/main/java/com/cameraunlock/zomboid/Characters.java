@@ -54,11 +54,15 @@ public final class Characters {
 
     /** Has the game draw one part of a model for the picture. */
     private static void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
+        long began = TALLY ? System.nanoTime() : 0L;
         ours = true;
         try {
             model.RenderCharacter(data);
         } finally {
             ours = false;
+        }
+        if (TALLY) {
+            talliedGameNanos[kind] += System.nanoTime() - began;
         }
     }
 
@@ -167,6 +171,47 @@ public final class Characters {
         return drawnLast;
     }
 
+    /** The kinds of pass the models are drawn in: the eye's, the sun's two maps, a lamp's, a mirror's, a scope's. */
+    private static final int BY_EYE = 0, BY_NEAR = 1, BY_FAR = 2, BY_LAMP = 3, BY_MIRROR = 4, BY_SCOPE = 5;
+    private static final String[] KIND_NAMES = {"eye", "near map", "far map", "lamp map", "mirror", "scope"};
+    private static final int TALLY_FRAMES = 240;
+    private static final boolean TALLY = Boolean.getBoolean("cameraunlock.zomboid.modelTimes");
+    /**
+     * With -Dcameraunlock.zomboid.modelTimes=true, for each kind of pass since the last line: the models drawn, the parts the picture
+     * drew, the parts the game did, the render thread's time in the pass and how much of that was the game's draw of its parts; and
+     * the render thread's time in the whole picture.
+     */
+    private static final int[] talliedModels = new int[KIND_NAMES.length], talliedOurs = new int[KIND_NAMES.length], talliedGames = new int[KIND_NAMES.length];
+    private static final long[] talliedNanos = new long[KIND_NAMES.length], talliedGameNanos = new long[KIND_NAMES.length];
+    private static double talliedPicture;
+    private static int kind, talliedFrames, talliedNoted;
+
+    private static void tally() {
+        talliedNoted += noted.size();
+        talliedPicture += Pipeline.lastMillis();
+        if (++talliedFrames < TALLY_FRAMES) {
+            return;
+        }
+        StringBuilder line = new StringBuilder(String.format(Locale.ROOT, "first person models a frame: the picture %.2f ms, noted %.1f", talliedPicture / talliedFrames,
+                (float) talliedNoted / talliedFrames));
+        for (int each = 0; each < KIND_NAMES.length; each++) {
+            if (talliedModels[each] > 0 || talliedNanos[each] > 0) {
+                line.append(String.format(Locale.ROOT, " | %s %.1f, parts %.1f ours %.1f the game's, %.2f ms of which the game's %.2f", KIND_NAMES[each],
+                        (float) talliedModels[each] / talliedFrames, (float) talliedOurs[each] / talliedFrames, (float) talliedGames[each] / talliedFrames,
+                        talliedNanos[each] / 1e6 / talliedFrames, talliedGameNanos[each] / 1e6 / talliedFrames));
+            }
+            talliedModels[each] = 0;
+            talliedOurs[each] = 0;
+            talliedGames[each] = 0;
+            talliedNanos[each] = 0;
+            talliedGameNanos[each] = 0;
+        }
+        talliedFrames = 0;
+        talliedNoted = 0;
+        talliedPicture = 0;
+        Log.info(line.toString());
+    }
+
     /** Called at the end of the game's own draw of a model, while the game's camera still holds where it stood it. */
     public static void drawn(ModelSlotRenderData data) {
         // A person whose textures are still being made is not drawn by the game, though its
@@ -236,8 +281,13 @@ public final class Characters {
      * Draws the models the game drew this frame through the first-person camera, into
      * whatever target is bound. The target's depth has to be the world's, so a zombie behind a
      * wall stays behind it. The viewer's own model is left out: the eye is inside its head.
+     * Returns how many were drawn.
      */
-    static void draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
+    static int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
+        kind = scope ? BY_SCOPE : BY_EYE;
+        seenHigh = tanHalfFieldOfView;
+        seenWide = tanHalfFieldOfView * aspect;
+        seenFrom = eyeView;
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         // Drawn the same fraction of a pixel aside as the world is this frame, so the models'
         // edges are smoothed over time with everything else's.
@@ -254,7 +304,47 @@ public final class Characters {
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         only = ALL;
         notingRoots = false;
+        seenFrom = null;
+        return drawn;
     }
+
+    /**
+     * With -Dcameraunlock.zomboid.withoutModelCull=true every model within reach is drawn in
+     * every pass, whether or not the pass can show it: for telling what the culls leave out.
+     */
+    private static boolean withoutCull = Boolean.getBoolean("cameraunlock.zomboid.withoutModelCull");
+    /** While the pass is a picture seen through a view of its own, the eye's or a lamp's: that view, with the tangents of half the picture's width and half its height. */
+    private static float[] seenFrom;
+    private static float seenWide, seenHigh;
+    /** A lamp's map shows nothing further from the lamp than this, or everything while it is nought. */
+    private static float seenWithin;
+    /** The eye's view of the frame and the tangents of half its picture, as the sun's maps are cast, and whether nothing else looks at what those maps shade. */
+    private static final float[] eyeSees = new float[16];
+    private static float eyeWide, eyeHigh;
+    private static boolean eyeAlone;
+    private static final float[] past = new float[5];
+
+    /**
+     * Said before the sun's maps are cast: what the frame's eye will see. A model whose shadow
+     * cannot fall where the eye sees is then left out of them.
+     *
+     * @param alone whether the eye's picture is the only one this frame that reads those maps: a mirror and a scope look elsewhere
+     */
+    static void seenBy(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, boolean alone) {
+        ViewCamera.view(camera, eyeSees);
+        eyeHigh = tanHalfFieldOfView;
+        eyeWide = tanHalfFieldOfView * aspect;
+        eyeAlone = alone;
+    }
+
+    /**
+     * How far from the middle of their height a person is taken to reach, in tiles: lying at
+     * full length or with a spear held out is about two, and the rest is over, in case an
+     * animation carries a model off the spot the game gives for it. PERSON_MIDDLE is how far
+     * above the feet that middle is.
+     */
+    private static final float PERSON_ROUND = 3f;
+    private static final float PERSON_MIDDLE = 0.9f;
 
     /** How far behind a mirror a person is still drawn into it, and a vehicle, in tiles. */
     private static final float MIRROR_PEOPLE = 30f, MIRROR_VEHICLES = 60f;
@@ -269,6 +359,7 @@ public final class Characters {
      * nothing of the vehicle it hangs in. Returns how many were drawn.
      */
     static int drawBehind(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles) {
+        kind = BY_MIRROR;
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         only = vehicles ? ONLY_VEHICLES : ONLY_CHARACTERS;
         mirrored = true;
@@ -287,6 +378,9 @@ public final class Characters {
 
     /** The frame has drawn the models it was given. */
     static void done() {
+        if (TALLY) {
+            tally();
+        }
         noted.clear();
         holding = null;
     }
@@ -1053,6 +1147,7 @@ public final class Characters {
      * viewer is among them, for their shadow.
      */
     static void cast(float[] lightMatrix) {
+        kind = within == null ? BY_NEAR : BY_FAR;
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         draw(lightMatrix, true, true, lightMatrix, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
     }
@@ -1085,11 +1180,25 @@ public final class Characters {
         return Math.abs(across) + acrossReach < NEAR_MAP_READ && Math.abs(along) + alongReach < NEAR_MAP_READ;
     }
 
-    /** The same for a lamp's shadow map, and people only: a vehicle would stand in its own headlights. */
-    static void castCharacters(float[] lightMatrix) {
+    /**
+     * The same for a lamp's shadow map, and people only: a vehicle would stand in its own
+     * headlights. Nobody the lamp's own picture has no room for is drawn into it.
+     *
+     * @param lampView    the view from the lamp, which the map's matrix is a projection of
+     * @param tanHalf     the tangent of half that picture's width, which is its height too
+     * @param reaches     how far from the lamp the map goes, in tiles
+     */
+    static void castCharacters(float[] lightMatrix, float[] lampView, float tanHalf, float reaches) {
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
         only = ONLY_CHARACTERS;
+        kind = BY_LAMP;
+        seenFrom = lampView;
+        seenWide = tanHalf;
+        seenHigh = tanHalf;
+        seenWithin = reaches;
         draw(lightMatrix, true, true, null, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        seenFrom = null;
+        seenWithin = 0f;
         only = ALL;
         notingRoots = false;
     }
@@ -1136,6 +1245,7 @@ public final class Characters {
         IsoPlayer viewer = IsoPlayer.getInstance();
         int drawn = 0;
         float ambientSum = 0f;
+        long began = TALLY ? System.nanoTime() : 0L;
         if (!withViewer && TRACE) {
             StringBuilder said = new StringBuilder();
             for (int i = 0; i < noted.size(); i++) {
@@ -1181,14 +1291,22 @@ public final class Characters {
                 if (toX * toX + toY * toY < OWN_VEHICLE * OWN_VEHICLE || behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
                     continue;
                 }
-            } else if (!casting) {
-                // A model wholly behind the eye is in no picture, however wide the view and
-                // however the head is rolled. The view's third row is how far towards the viewer
-                // a point is from the eye, in tiles, and the place is where the draw stands the model.
+            } else if (!withoutCull && (seenFrom != null || map != null && eyeAlone)) {
+                // The place is where the draw stands the model, and the ball round it is what it cannot reach out of.
                 boolean stands = data.character != null && !data.inVehicle;
                 float x = stands ? data.x : stood[i * 4], y = stands ? data.y : stood[i * 4 + 1], z = stands ? data.z : stood[i * 4 + 2];
-                float up = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z);
-                if (view[2] * x + view[6] * y + view[10] * up + view[14] > MODEL_REACH) {
+                float up = z * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, z) + (stands ? PERSON_MIDDLE : 0f);
+                float round = stands ? PERSON_ROUND : MODEL_REACH;
+                if (seenFrom != null) {
+                    // Left out when the ball lies wholly behind the pass's eye, wholly past one edge of
+                    // its picture, or wholly further than a lamp's map goes. A scope's narrow picture
+                    // is the same test with its own tangents.
+                    PictureEdges.outsideOf(seenFrom, seenWide, seenHigh, x, y, up, past);
+                    if (past[0] > round || past[1] > round || past[2] > round || past[3] > round || past[4] > round
+                            || seenWithin > 0f && -past[0] > seenWithin + round) {
+                        continue;
+                    }
+                } else if (PictureEdges.shadesNothingSeen(eyeSees, eyeWide, eyeHigh, map, x, y, up, round)) {
                     continue;
                 }
             }
@@ -1221,6 +1339,10 @@ public final class Characters {
         }
         if (drawn > 0) {
             ambient = ambientSum / drawn;
+        }
+        if (TALLY) {
+            talliedModels[kind] += drawn;
+            talliedNanos[kind] += System.nanoTime() - began;
         }
         return drawn;
     }
@@ -1263,7 +1385,13 @@ public final class Characters {
                     continue;
                 }
             } else if (!own && CharacterDraw.part(model)) {
+                if (TALLY) {
+                    talliedOurs[kind]++;
+                }
                 continue;
+            }
+            if (TALLY) {
+                talliedGames[kind]++;
             }
             unshifted(model.modelInstance);
             // The game's draw ends by putting its own remembered state back, which has depth

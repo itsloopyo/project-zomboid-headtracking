@@ -139,6 +139,7 @@ public final class Tests {
         MarkTests.run();
         OnlineTests.run();
         HearingTests.run();
+        CrowdTests.run();
         TailorTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         theBuildThatShipsHasNoDevelopmentKeys();

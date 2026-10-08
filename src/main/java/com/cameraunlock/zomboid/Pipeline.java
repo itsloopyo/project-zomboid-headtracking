@@ -636,6 +636,8 @@ final class Pipeline {
             stage(STAGE_LOAD);
             boolean figures = Characters.ready();
             glazed = false;
+            // A mirror and a scope look where the eye does not, at ground the same maps shade.
+            Characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && Scope.fitted() == null);
             drawShadows(state, figures);
             boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
@@ -1252,7 +1254,7 @@ final class Pipeline {
             drawRanges(held, 0, held.solidRanges());
             drawModels(shadow, false, false, null, 0f, 0f);
             if (figures) {
-                Characters.castCharacters(beamMatrix);
+                Characters.castCharacters(beamMatrix, seen, BEAM_TAN, BEAM_FAR);
                 resumeCasting();
             }
         }
@@ -2105,7 +2107,7 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
-            Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1);
+            int drawn = Characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1, false);
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
@@ -2162,7 +2164,10 @@ final class Pipeline {
             }
             atmosphere(figureLight, state);
             figureLight.set("uPainted", pass == 1 ? 1f : 0f);
-            quad();
+            // With nothing drawn there is nothing to light. What the program was told stays told: the viewer's own body is lit by it next.
+            if (drawn > 0) {
+                quad();
+            }
         }
 
         if (seated) {
@@ -2453,12 +2458,7 @@ final class Pipeline {
             GL11.glDisable(GL_BLEND);
             smoothSkins(true);
             CharacterDraw.bare = true;
-            int drawn = 1;
-            if (mirror) {
-                drawn = Characters.drawBehind(pose, tan, aspect, near, far, pass == 1);
-            } else {
-                Characters.draw(pose, tan, aspect, near, far, pass == 1);
-            }
+            int drawn = mirror ? Characters.drawBehind(pose, tan, aspect, near, far, pass == 1) : Characters.draw(pose, tan, aspect, near, far, pass == 1, true);
             CharacterDraw.bare = false;
             smoothSkins(false);
             // The game's draw leaves its own program, buffers and arrays bound.
