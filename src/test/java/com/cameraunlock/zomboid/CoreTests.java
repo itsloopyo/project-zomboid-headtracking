@@ -321,11 +321,12 @@ public final class CoreTests {
     private static final WorldQuery noMap = new WorldQuery();
     private static float cleanYaw;
     private static boolean sightsUp;
+    private static boolean inVehicle;
 
     private static void frame() throws InterruptedException {
         Thread.sleep((long) (FRAME_SECONDS * 1000));
         // Not on foot: whether a lean may carry the weapon there is asked of the game, which no test has.
-        HeadTracking.view(true, clean, cleanYaw, noMap, sightsUp, false, out);
+        HeadTracking.view(true, clean, cleanYaw, noMap, sightsUp, false, inVehicle, out);
     }
 
     private static boolean within(int milliseconds, BooleanSupplier reached) throws InterruptedException {
@@ -480,6 +481,23 @@ public final class CoreTests {
         ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
         HeadTracking.act(Config.YAW_MODE);
         check(saved("WorldSpaceYaw=true") && HeadTracking.describe().contains("yaw about world up"), "and back, saved");
+
+        ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, radians(-50));
+        inVehicle = true;
+        frame();
+        check(near(out.forwardX, aboutItsOwnUp.forwardX) && near(out.forwardY, aboutItsOwnUp.forwardY)
+                        && HeadTracking.describe().contains("yaw about view up"),
+                "from a vehicle's seat the view is turned about its own up, with yaw about straight up saved");
+        byte[] seated = bytes();
+        HeadTracking.act(Config.YAW_MODE);
+        frame();
+        check(Arrays.equals(bytes(), seated) && near(out.forwardX, aboutItsOwnUp.forwardX) && near(out.forwardY, aboutItsOwnUp.forwardY),
+                "where the yaw mode key changes and saves nothing");
+        inVehicle = false;
+        frame();
+        check(HeadTracking.describe().contains("yaw about world up") && !near(out.forwardX, aboutItsOwnUp.forwardX),
+                "and out of the vehicle the yaw is about straight up again");
+        ViewCamera.clean(clean, 3f, 4f, 1.6f, cleanYaw, 0f);
 
         HeadTracking.act(Config.AIM_MODE);
         check(HeadTracking.aimModeLabel().equals("Aim mode: free look with marker") && HeadTracking.freeLook(), "the aim mode key goes to free look with a marker");

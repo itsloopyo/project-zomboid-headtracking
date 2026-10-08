@@ -58,6 +58,8 @@ final class HeadTracking {
 
     private static boolean enabled = true;
     private static boolean worldYaw = true;
+    /** The view rides a vehicle, which turns and tilts under it: the head's yaw is about the view's own up there, whatever is saved. */
+    private static boolean seated;
     private static int trackingMode = CameraUnlock.TRACKING_ROTATION_AND_POSITION;
     private static volatile int aimMode = CameraUnlock.AIM_SIGHTS_LOCKED;
 
@@ -243,6 +245,10 @@ final class HeadTracking {
     }
 
     static void toggleWorldYaw() {
+        if (seated) {
+            Log.info("the yaw mode key does nothing from a vehicle's seat, where head yaw turns about the view's own up");
+            return;
+        }
         worldYaw = !worldYaw;
         Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
         boolean saved = worldYaw;
@@ -357,7 +363,7 @@ final class HeadTracking {
             HeadFollowLight.release();
         } else {
             HeadFollowLight.follow(clean, (float) Math.toRadians(frame.lightYaw), (float) Math.toRadians(frame.lightPitch),
-                    (float) Math.toRadians(frame.lightRoll), worldYaw);
+                    (float) Math.toRadians(frame.lightRoll), yawAboutWorldUp());
         }
     }
 
@@ -368,6 +374,7 @@ final class HeadTracking {
      * @param inGameplay the game is running and the character is alive
      */
     static void follow(boolean inGameplay) {
+        ride(false);
         ask(inGameplay && enabled, 0);
         if ((frame.flags & CameraUnlock.STATE_POSE) == 0) {
             atRest();
@@ -386,9 +393,11 @@ final class HeadTracking {
      * @param cleanYaw   the yaw the clean view was built from, which the lean follows
      * @param sightsUp   whether a firearm's sights are up this frame
      * @param onFoot     whether the weapon can be moved with the eye: not from a vehicle's seat
+     * @param inVehicle  whether the view is from a vehicle's seat
      */
     static void view(boolean inGameplay, ViewCamera.Pose clean, float cleanYaw, WorldQuery world, boolean sightsUp,
-            boolean onFoot, ViewCamera.Pose out) {
+            boolean onFoot, boolean inVehicle, ViewCamera.Pose out) {
+        ride(inVehicle);
         out.set(clean);
         input.forwardStop = ViewModel.forwardStop();
         input.aimForward[0] = clean.forwardX;
@@ -403,7 +412,7 @@ final class HeadTracking {
         }
         applied = true;
         if ((frame.flags & CameraUnlock.STATE_ROTATION) != 0) {
-            turn(out, frame.yaw, frame.pitch, frame.roll, worldYaw);
+            turn(out, frame.yaw, frame.pitch, frame.roll, yawAboutWorldUp());
         }
         takeTheTurn(clean);
         if ((frame.flags & CameraUnlock.STATE_LEAN) == 0) {
@@ -450,6 +459,7 @@ final class HeadTracking {
      * rationing the lean.
      */
     static void rest() {
+        ride(false);
         ask(false, 0);
         atRest();
     }
@@ -472,13 +482,27 @@ final class HeadTracking {
         }
     }
 
+    private static boolean yawAboutWorldUp() {
+        return worldYaw && !seated;
+    }
+
+    private static void ride(boolean inVehicle) {
+        if (inVehicle == seated) {
+            return;
+        }
+        seated = inVehicle;
+        if (worldYaw) {
+            Log.info(seated ? "in a vehicle's seat: head yaw turns about the view's own up" : "out of the vehicle: head yaw turns about straight up again");
+        }
+    }
+
     /** One line with every term of the frame's pose, for the trace. */
     static String describe() {
         return String.format(Locale.ROOT,
                 "tracking %s mode %s yaw about %s fresh %b remote %b head (yaw %.2f pitch %.2f roll %.2f)"
                         + " tracker position (%.3f, %.3f, %.3f) lean asked %.3f given %.3f wall %b"
                         + " %s stock share %.3f zoom %.4f view has (%.3f, %.3f, %.3f) weapon has (%.3f, %.3f, %.3f) %s",
-                applied ? "applied" : enabled ? "idle" : "off", TRACKING_MODE_LABEL[trackingMode], worldYaw ? "world up" : "view up",
+                applied ? "applied" : enabled ? "idle" : "off", TRACKING_MODE_LABEL[trackingMode], yawAboutWorldUp() ? "world up" : "view up",
                 (frame.flags & CameraUnlock.STATE_FRESH) != 0, (frame.flags & CameraUnlock.STATE_REMOTE) != 0,
                 frame.headYaw, frame.headPitch, frame.headRoll, frame.headX, frame.headY, frame.headZ, lean.asked, lean.given,
                 (lean.flags & CameraUnlock.LEAN_CONTACT) != 0, aimModeLabel(), frame.poseShare, frame.zoomFactor,

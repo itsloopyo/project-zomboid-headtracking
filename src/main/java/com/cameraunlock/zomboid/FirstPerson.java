@@ -578,7 +578,7 @@ public final class FirstPerson {
             CentreUse.marked = null;
         }
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
-        HeadTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp, vehicle == null, trackedView);
+        HeadTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, world, sightsUp, vehicle == null, vehicle != null, trackedView);
         // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + HeadFollowLight.turn();
         float beamFlat = (float) Math.sqrt(Math.max(1f - trackedView.forwardUp * trackedView.forwardUp, 0f));

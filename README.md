@@ -195,6 +195,8 @@ Project Zomboid acts on a letter key whatever is held with it, and on `End`. Wit
 
 Every key here is a row of `[Hotkeys]` in `CameraUnlock.ini`: change a row to move an action to other keys, or leave it empty to take its keys away. The rows are read when the game starts. A key pressed while you are typing in one of the game's text boxes, or in its menus, does nothing.
 
+From a seat in a vehicle head yaw always turns about the view's own up, whatever the yaw mode is, and `Page Down` does nothing until you get out. The yaw mode you chose applies again on foot.
+
 The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved when you change them. Turning tracking off with `End` lasts until the game closes, and so does the first person view: each save starts in the game's own view.
 
 ### Head tracking
