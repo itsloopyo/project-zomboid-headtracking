@@ -188,6 +188,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         private boolean plain;
         /** What ChunkMarks had counted round the chunk when the build was made or last found unchanged, and what every build went by then: see epoch. */
         private int marks, told;
+        /** Of those marks, the ones for anything but light: see ChunkMarks.thingsAround. */
+        private int things;
         private long epoch;
         /** The heights the build was made on, and which chunks round its own it took any from: see landOf. */
         private int land, heightsRound;
@@ -948,6 +950,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
     /** How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES} wait for the next. */
     private static final long BUILD_NANOS_A_FRAME = 5_000_000L;
+    /**
+     * How long a frame reads and builds chunks for before one whose only news is its light
+     * waits for the next, and how long such a chunk waits at most. The game's light for a
+     * square changes with where the character stands, on every level of the map at once, so a
+     * step indoors marks every chunk round the character together, and a chunk of a tall
+     * building is thirty levels to read and to build: all made on the frame of the step they
+     * were a frame of 40 to 50 ms at every step, on the tenth floor of a building of 27.
+     */
+    private static final long LIT_NANOS_A_FRAME = 2_000_000L, LIT_WAITS_NANOS = 150_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
     private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
 
@@ -1351,6 +1362,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 }
                 // Read before the chunk is: a mark made from another thread while it is read is then one more than the build remembers.
                 int marks = ChunkMarks.around(chunk.wx, chunk.wy);
+                int things = ChunkMarks.thingsAround(chunk.wx, chunk.wy);
                 int toldSoFar = ChunkMarks.told(chunk.wx, chunk.wy);
                 // The map has loaded or let go of a chunk since: whether one beside this chunk, the same asking says.
                 boolean ringAsItWas = missing || current.loaded == loadedNow;
@@ -1394,6 +1406,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 if (due && stands && (frames < current.summedFrom || start < current.summedFromNanos)
                         && start - current.bornNanos < SETTLES_IN_NANOS
                         && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
+                    due = false;
+                }
+                // Nothing but light has been marked on it since it was last read, and the frame has
+                // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
+                if (due && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
+                        && System.nanoTime() - start > LIT_NANOS_A_FRAME) {
                     due = false;
                 }
                 // What the build of a chunk that is due would read of the map is summed first,
@@ -1462,6 +1480,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         current.checkedFrame = frames;
                         current.checkedNanos = start;
                         current.marks = marks;
+                        current.things = things;
                         current.land = land;
                         current.ring = ring;
                         current.loaded = loadedNow;
@@ -1504,6 +1523,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.summedFromNanos = summedFromNanos;
                     fresh.plain = true;
                     fresh.marks = marks;
+                    fresh.things = things;
                     fresh.epoch = epoch;
                     fresh.ring = ring;
                     fresh.loaded = loadedNow;

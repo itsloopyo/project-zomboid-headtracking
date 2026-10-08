@@ -167,6 +167,17 @@ public final class ChunkMarks {
         return sum;
     }
 
+    /** The marks on a chunk and the eight round it for anything but light, as one number that is another once any is marked so again. */
+    static int thingsAround(int wx, int wy) {
+        int sum = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                sum += things.get(slot(wx + dx, wy + dy));
+            }
+        }
+        return sum;
+    }
+
     /** How many times the chunk has been told. */
     static int told(int wx, int wy) {
         return told[slot(wx, wy)];
