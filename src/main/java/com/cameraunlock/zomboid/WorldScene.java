@@ -883,8 +883,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         if (AUDIT_STALE) {
-            told += String.format(Locale.ROOT, ", chunks left alone built beside %d and found stale %d", tollStaleAsked, tollStale);
-            tollStaleAsked = tollStale = 0;
+            told += String.format(Locale.ROOT, ", chunks left alone built beside %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleDue, tollStale);
+            tollStaleAsked = tollStale = tollStaleDue = 0;
         }
         tollQuiet = tollPulls = tollPulled = 0;
         if (AUDIT_MARKS) {
@@ -1844,11 +1844,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * of it, is built again beside its standing build, and a line says so when the two differ
      * in any float: something a build reads became otherwise with no mark, no telling and no
      * change of the chunk's sum, and shows stale until the chunk is next built for another
-     * reason. The line says what of the chunk does differ now, to find what it was.
+     * reason. The line says what of the chunk does differ now, to find what it was. A chunk
+     * whose sum has changed, or that the build beside got told, is only counted: it is due
+     * to be read and built as it is.
      */
     private static final boolean AUDIT_STALE = Boolean.getBoolean("cameraunlock.zomboid.auditStale");
     private static final int AUDIT_STALE_EVERY = 240;
-    private static long tollStaleAsked, tollStale;
+    private static long tollStaleAsked, tollStale, tollStaleDue;
 
     private void auditStale(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes standing, float distance, long now, int toldNow, int landNow) {
         boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
@@ -1877,7 +1879,12 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         squaresLoaded = loaded;
         sprites = counted;
         tollStaleAsked++;
-        if (floats != standing.auditFloats) {
+        // A build beside may itself be the asking that reads a roof again, which then tells the chunk: that is the signal working.
+        if (floats != standing.auditFloats && (ChunkMarks.told(chunk.wx, chunk.wy) != toldNow || signed && sum != standing.signature)) {
+            tollStaleDue++;
+            standing.auditFloats = floats;
+            standing.auditMeshes = meshesOf();
+        } else if (floats != standing.auditFloats) {
             tollStale++;
             Log.info(String.format(Locale.ROOT, "stale build: the chunk at %d, %d (%d, %d), %.0f tiles off, band %d, built %.1f s ago and %.1f s old, would be built otherwise now: its sum %s, told %s, heights %s, map round it %s, plain %b, this build asked for what is not read yet %b",
                     chunk.wx, chunk.wy, chunkX, chunkY, distance, standing.band, (now - standing.builtNanos) / 1e9, (now - standing.bornNanos) / 1e9,

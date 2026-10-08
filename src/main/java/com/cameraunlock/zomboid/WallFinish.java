@@ -223,7 +223,10 @@ final class WallFinish {
         Level[] levels = known.computeIfAbsent(building, unused -> new Level[LEVELS]);
         int slot = z & (LEVELS - 1);
         Level level = levels[slot];
-        if (level == null || frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
+        // With the game telling, a level is read again by tend alone, which tells the building's chunks when it comes out
+        // otherwise. Read again here for whichever wall asked, it came out otherwise for that wall's chunk only, and tend,
+        // finding it read with the map as it now is, told nobody: the rest of the building kept the finish it had.
+        if (level == null || !ChunkMarks.live && frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
             if (level == null && ChunkMarks.live) {
                 tendedLevels.add(new Read(new java.lang.ref.WeakReference<>(building), z));
             }
