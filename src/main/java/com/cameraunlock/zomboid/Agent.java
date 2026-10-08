@@ -289,6 +289,7 @@ public final class Agent {
      */
     private static List<Patch> coveredPatches() {
         String world = "zombie/iso/IsoWorld", cell = "zombie/iso/fboRenderChunk/FBORenderCell";
+        String cutaways = "zombie/iso/fboRenderChunk/FBORenderCutaways";
         CallSite.Method covered = new CallSite.Method(FIRST_PERSON, "coversTheGamesView", "()Z");
         return List.of(
                 new Patch(world, "renderWeatherFX left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
@@ -317,6 +318,16 @@ public final class Agent {
                     return CallSite.returnAtOnceIf(classBytes,
                             new CallSite.Method(cell, "renderOneChunk", "(Lzombie/iso/IsoChunk;Lzombie/iso/IsoCell$PerPlayerRender;IJLzombie/core/opengl/Shader;Lzombie/core/opengl/Shader;)V"), covered);
                 }),
+                // What the game works out for each chunk's texture before it draws one: which walls
+                // of each level are cut away, and every square's light. It does both for every level
+                // whose texture is due its drawing, and under the picture that drawing never comes,
+                // so every level in view was worked out afresh every frame: on the fifteenth floor
+                // of a building of 27 that was two fifths of the game's logic thread. The levels
+                // stay due, and are worked out when the game's own view is next shown.
+                new Patch(cell, "the chunks' textures not prepared under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(cell, "prepareChunksForUpdating", "(I)V"), covered)),
+                new Patch(cutaways, "the levels' cut away walls not worked out under the first person picture", classBytes -> CallSite.falseAtOnceIf(classBytes,
+                        new CallSite.Method(cutaways, "checkExteriorWalls", "(Ljava/util/ArrayList;)Z"), covered)),
                 // The game's own draw of each part of each person into its own view, which the
                 // picture then covers: the picture draws every one of them again itself, by this
                 // same method. Everything round the draw runs as it did: where the model's

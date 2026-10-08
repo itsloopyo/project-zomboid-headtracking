@@ -101,6 +101,23 @@ final class CallSite {
         return transform(classBytes, within, insert);
     }
 
+    /** As returnAtOnceIf, for a method that answers yes or no: where the condition holds it answers no. */
+    static byte[] falseAtOnceIf(byte[] classBytes, Method within, Method condition) {
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                invokeStatic(code, condition);
+                code.ifThen(Opcode.IFNE, held -> {
+                    held.iconst_0();
+                    held.ireturn();
+                });
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
+    }
+
     /**
      * Inserts {@code code} before the first instruction of {@code within}, which has to be a
      * method of an object and not a static one: what is inserted loads the object. A static
