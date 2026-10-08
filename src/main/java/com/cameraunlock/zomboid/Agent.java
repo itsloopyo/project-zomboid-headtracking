@@ -196,6 +196,7 @@ public final class Agent {
         instrumentation.addTransformer(new PatchTransformer(coveredPatches()));
         instrumentation.addTransformer(new PatchTransformer(farVehiclePatches()));
         instrumentation.addTransformer(new PatchTransformer(leftSavePatches()));
+        instrumentation.addTransformer(new PatchTransformer(luaLoadedPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
         instrumentation.addTransformer(chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
@@ -382,6 +383,14 @@ public final class Agent {
                     return CallSite.replaceEach(classBytes, cull, new CallSite.Method(zombie, "getScreenProperY", "(I)I"),
                             new CallSite.Method(HOOKS, "screenDown", "(L" + zombie + ";I)I"), 1);
                 }));
+    }
+
+    /** Apart from everything else: without it the mod's settings are in CameraUnlock.ini and on its keys, as they are in any game. */
+    private static List<Patch> luaLoadedPatches() {
+        String lua = "zombie/Lua/LuaManager";
+        return List.of(new Patch(lua, "LoadDirBase before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(lua, "LoadDirBase", "()V"),
+                code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "luaLoaded", "()V")))));
     }
 
     /**

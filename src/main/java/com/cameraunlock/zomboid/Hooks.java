@@ -68,6 +68,16 @@ public final class Hooks {
         }
     }
 
+    /** Called when the game has loaded its Lua: at its start, and each time it loads it again. */
+    public static void luaLoaded() {
+        try {
+            OptionsPage.register();
+        } catch (RuntimeException failure) {
+            // Thrown on, it would stop the game inside its own loading of its Lua.
+            Log.error("the mod's settings are not on the game's options screen", failure);
+        }
+    }
+
     /** Called as the game leaves a save for its menu. */
     public static void leftSave(Object state) {
         Tracking.leftSave();

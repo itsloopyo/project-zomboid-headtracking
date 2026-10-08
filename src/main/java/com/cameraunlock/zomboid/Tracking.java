@@ -42,7 +42,7 @@ final class Tracking {
 
     private static volatile boolean enabled = true;
     private static volatile boolean worldYaw = true;
-    private static int trackingMode = CameraUnlock.TRACKING_ROTATION_AND_POSITION;
+    private static volatile int trackingMode = CameraUnlock.TRACKING_ROTATION_AND_POSITION;
     private static volatile int aimMode = CameraUnlock.AIM_SIGHTS_LOCKED;
 
     /**
@@ -169,26 +169,77 @@ final class Tracking {
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
-            if (live == null) {
-                return;
-            }
-            if (live.fieldOfView() != FieldOfView.degrees()) {
-                FieldOfView.set(live.fieldOfView());
-                Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
-            }
-            Quality.set(live.quality());
-            Style.set(live.style());
-            FrameBlending.set(live.frameBlending());
-            SplitScreen.set(live.splitScreen());
-            if (live.own() != Own.rows()) {
-                Own.set(live.own());
-                Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
+            if (live != null) {
+                take(live);
             }
         } catch (RuntimeException failure) {
             // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
             // Thrown on, it ends the watch, so a fault that stays is logged once and not every second.
             Log.error(Config.FILE_NAME + " is no longer watched for changes", failure);
             throw failure;
+        }
+    }
+
+    /** Puts the rows read again while the game runs on the mod's running settings. The config thread. */
+    private static void take(Config.Live live) {
+        if (live.fieldOfView() != FieldOfView.degrees()) {
+            FieldOfView.set(live.fieldOfView());
+            Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
+        }
+        Quality.set(live.quality());
+        Style.set(live.style());
+        FrameBlending.set(live.frameBlending());
+        SplitScreen.set(live.splitScreen());
+        if (live.own() != Own.rows()) {
+            Own.set(live.own());
+            Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
+        }
+    }
+
+    /** The settings the game's options screen shows. Logic thread, once the file is read. */
+    static CameraUnlock.Option[] options() {
+        return config.options();
+    }
+
+    static double optionValue(int option) {
+        return config.optionValue(option);
+    }
+
+    private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
+
+    /** Whether applyOption has somewhere to put an option's value. */
+    static boolean takes(CameraUnlock.Option described) {
+        return described.source != CameraUnlock.OPTION_ROW || described.id.equals(YAW_MODE_OPTION) || config.takes(described.id);
+    }
+
+    /**
+     * A setting the player applied on the game's options screen, by its place in options(). As
+     * with a key, the session takes it at once and its save follows on the config thread, each
+     * setting's by itself, so a key pressed a moment later is neither undone nor saved over.
+     * The modes are saved as the session's, which is how their keys save them. Logic thread.
+     */
+    static void applyOption(int option, CameraUnlock.Option described, double value) {
+        if (described.source == CameraUnlock.OPTION_TRACKING_MODE) {
+            trackingMode = (int) value;
+            // The session has no call that sets this mode alone.
+            settings.trackingMode = trackingMode;
+            settings.aimMode = aimMode;
+            core.configure(settings);
+            Log.info("head tracking mode: " + TRACKING_MODE_LABEL[trackingMode]);
+            save(config::saveTrackingMode);
+        } else if (described.source == CameraUnlock.OPTION_AIM_MODE) {
+            aimMode = (int) value;
+            core.setAimMode(aimMode);
+            Log.info(aimModeLabel());
+            save(config::saveAimMode);
+        } else {
+            if (described.id.equals(YAW_MODE_OPTION)) {
+                worldYaw = value != 0;
+                Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
+            } else {
+                config.put(described.id, value);
+            }
+            save(() -> config.saveOption(option, value));
         }
     }
 

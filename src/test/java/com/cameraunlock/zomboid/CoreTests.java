@@ -98,6 +98,7 @@ public final class CoreTests {
         nextStartRunsOnWhatWasSaved();
         freeLookWithNoMarkerIsReadAsFreeLookWithOne();
         rowsReadAgainWhileTheGameRuns();
+        settingsOfTheGamesOptionsScreenAreSavedAndTaken();
         gameRunsUnmoddedBesideALibraryOfAnotherBuild();
 
         System.out.println(failures == 0 ? "core tests: all " + checks + " passed" : "core tests: " + failures + " of " + checks + " FAILED");
@@ -593,6 +594,64 @@ public final class CoreTests {
         check(saved("Style=Vivid", "FieldOfView=80", "OwnArms=false"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 80f && Style.current() == Style.VIVID, "and the watch still reads the edit: " + FieldOfView.degrees());
+    }
+
+    private static int optionNamed(CameraUnlock.Option[] options, String id) {
+        for (int option = 0; option < options.length; option++) {
+            if (options[option].id.equals(id)) {
+                return option;
+            }
+        }
+        throw new IllegalArgumentException(id);
+    }
+
+    private static void settingsOfTheGamesOptionsScreenAreSavedAndTaken() throws IOException, InterruptedException {
+        CameraUnlock.Option[] options = Tracking.options();
+        StringBuilder ids = new StringBuilder();
+        for (CameraUnlock.Option option : options) {
+            ids.append(option.id).append(' ');
+        }
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending SplitScreen OwnWeapons OwnFurniture "
+                        + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
+                "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
+        int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
+                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), blending = optionNamed(options, "FrameBlending");
+        boolean taken = true;
+        for (CameraUnlock.Option option : options) {
+            taken &= Tracking.takes(option);
+        }
+        check(taken, "the session has somewhere to put each of them");
+        check(options[fov].kind == CameraUnlock.OPTION_FLOAT && options[fov].min == 40 && options[fov].max == 110 && options[fov].step == 1
+                        && options[fov].label.equals("Field of view") && options[aim].source == CameraUnlock.OPTION_AIM_MODE,
+                "the field of view is a slider from 40 to 110 in whole degrees");
+        check(Tracking.optionValue(fov) == FieldOfView.degrees() && Tracking.optionValue(aim) == Tracking.aimMode()
+                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(blending) != 0) == FrameBlending.on(),
+                "each reads as the session has it");
+
+        boolean world = !Tracking.worldYaw(), blended = !FrameBlending.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
+        int[] applied = {fov, yaw, tracking, aim, arms, blending};
+        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, blended ? 1 : 0};
+        for (int i = 0; i < applied.length; i++) {
+            Tracking.applyOption(applied[i], options[applied[i]], values[i]);
+        }
+        check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended,
+                "what is applied there the session takes at once, before any of it is saved: " + started());
+        Tracking.toggleWorldYaw();
+        Tracking.cycleGraphicsMode();
+        check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
+        Tracking.toggleWorldYaw();
+        check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
+                        "OwnArms=" + ownArms, "FrameBlending=" + blended),
+                "what is applied there is saved as its row, or the rows of its mode");
+        check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended,
+                "and the session still runs on it once the saves are made: " + started());
+        check(Tracking.optionValue(fov) == 72 && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_POSITION_ONLY,
+                "and the screen reads it back when it next opens");
+        Tracking.cycleMode();
+        check(Tracking.trackingModeLabel().equals("rotation and position") && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_ROTATION_AND_POSITION,
+                "a mode the key cycles after that goes on from it, and is what the screen then reads");
     }
 
     /**

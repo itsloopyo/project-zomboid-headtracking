@@ -451,7 +451,7 @@ final class CallSite {
         invokeStatic(code, hook);
     }
 
-    private static void invokeStatic(CodeBuilder code, Method method) {
+    static void invokeStatic(CodeBuilder code, Method method) {
         code.invoke(Opcode.INVOKESTATIC, ClassDesc.ofInternalName(method.owner()), method.name(),
                 MethodTypeDesc.ofDescriptor(method.descriptor()), false);
     }

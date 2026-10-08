@@ -2,6 +2,9 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.DoubleConsumer;
 
 /**
  * CameraUnlock.ini: its rows, as the mod describes them to cameraunlock-core, which reads and
@@ -43,12 +46,15 @@ final class Config {
     private final int fieldOfView, quality, style, frameBlending, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
+    /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
+    private final Map<String, DoubleConsumer> puts = new HashMap<>();
 
     /**
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
      * writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
      * FrameBlending, SplitScreen and the rows of [Content] are the mod's own, and the ones read
-     * again while the game runs. SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
+     * again while the game runs. They are writable too, and a writable row that is not a key
+     * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
      * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
@@ -100,7 +106,7 @@ final class Config {
                         + "field of view setting of its own. Aiming a firearm still narrows the view by the\n"
                         + "same ratio. Read again while the game runs, so a change shows as soon as the file\n"
                         + "is saved.",
-                live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
+                writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality = core.configLocalEnum("General", "Quality",
                 "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey\n"
                         + "goes from one to the next, Low, Medium, High, and saves it here. Low is as near\n"
@@ -112,8 +118,8 @@ final class Config {
                         + "the mod made. High: the whole picture. Medium: the game's own grass, trees,\n"
                         + "bushes and rocks whatever OwnPlants says, no shading of corners, lit air,\n"
                         + "reflections or depth in surfaces either, four fifths of the pixels each way,\n"
-                        + "sight to 64 tiles and smaller shadow maps. Automatic, which only this file can\n"
-                        + "set: begins at High and draws less, as Medium and then Low do but still with\n"
+                        + "sight to 64 tiles and smaller shadow maps. Automatic, which the key never goes\n"
+                        + "to: begins at High and draws less, as Medium and then Low do but still with\n"
                         + "everything the mod made, each time the picture is drawn fewer than 45 times a\n"
                         + "second for three seconds, until the game is closed. Read again while the game\n"
                         + "runs.",
@@ -134,7 +140,7 @@ final class Config {
                         + "or walk as it is standing still. true: fine edges, leaves and the grain of soft\n"
                         + "shadows are steadier in a still view, and what moves across the picture is\n"
                         + "softened and can smear. Read again while the game runs.",
-                live, false);
+                writable | live, false);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it. SplitScreenKey goes from one to the other\n"
                         + "and saves it here. Vertical: side by side, each half the width and the whole\n"
@@ -165,49 +171,77 @@ final class Config {
                             + "the mod draws there.\n"
                             + "true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.\n"
                             + "false: the game's own weapon and scope models, and no picture through the scope.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnFurniture",
                     "true: the mod's models of furniture, appliances, street lamps, clocks and picture\n"
                             + "frames. false: the game's sprites of them.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnPictures",
                     "true: the mod's photographs, paintings and posters on walls, and programmes on a\n"
                             + "television that is on. false: the game's pictures, and only colour bars on a\n"
                             + "television.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnPlants",
                     "true: the mod's leaves, tree trunks, boulders, grass, ferns, flowers and fallen\n"
                             + "leaves. false: the game's sprites of trees, bushes and grass.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnTextures",
                     "true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,\n"
                             + "paint, carpet, cloth and wallpaper. false: the colours of the game's sprites alone.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
                     "true: windows, doors and curtains built by the mod, and the outside of a wall\n"
                             + "finished as its building is. false: the game's sprites of them, on both sides of\n"
                             + "the wall.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
                     "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"
                             + "false: the game's own painted skins.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnPeople",
                     "true: the mod's own skins for your character and the other living, in the game's\n"
                             + "five skin tones, each with a lifelike face. false: the game's own painted skins.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnArms",
                     "true: arms and hands of the mod's own on a held weapon, with fingers that close on\n"
                             + "it and go to its bolt, slide, magazine and loading port as it is worked and loaded,\n"
                             + "in the skin, sleeves and gloves your character has. false: the game's own arms.",
-                    live, true),
+                    writable | live, true),
             core.configLocalBool("Content", "OwnClothes",
                     "true: what people and zombies wear is made finer near the eye: the game's picture\n"
                             + "of each garment and head of hair enlarged with its outline smoothed, and the weave,\n"
                             + "knit, grain or strands of what it is made of laid on from the mod's own photographs.\n"
                             + "false: the game's own pictures as they are.",
-                    live, true),
+                    writable | live, true),
         };
+
+        puts.put("FieldOfView", value -> {
+            FieldOfView.set((float) value);
+            Log.info("first person field of view set to " + (float) value + " degrees vertical");
+        });
+        puts.put("Quality", value -> Quality.set((int) value));
+        puts.put("Style", value -> Style.set((int) value));
+        puts.put("FrameBlending", value -> FrameBlending.set(value != 0));
+        puts.put("SplitScreen", value -> SplitScreen.set((int) value));
+        String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
+            "OwnArms", "OwnClothes"};
+        for (int i = 0; i < ownKeys.length; i++) {
+            int bit = 1 << i;
+            puts.put(ownKeys[i], value -> {
+                Own.set(value != 0 ? Own.rows() | bit : Own.rows() & ~bit);
+                Log.info("the mod's own in first person: " + Own.described(Own.rows()));
+            });
+        }
+    }
+
+    /** Whether put has somewhere to put a row's value. */
+    boolean takes(String key) {
+        return puts.containsKey(key);
+    }
+
+    /** Puts a value of one of the mod's own rows, as an option's number, on the running game. */
+    void put(String key, double value) {
+        puts.get(key).accept(value);
     }
 
     /** Writes the file a first start creates, which the build keeps as config/CameraUnlock.ini. */
@@ -248,6 +282,24 @@ final class Config {
     /** The UDP port a second player's tracker is listened for on. */
     int secondPlayerPort() {
         return core.configGetInt(secondPlayerPort);
+    }
+
+    /** The settings the game's options screen shows, in core's order, which is the file's. */
+    CameraUnlock.Option[] options() {
+        CameraUnlock.Option[] options = new CameraUnlock.Option[core.configOptionCount()];
+        for (int option = 0; option < options.length; option++) {
+            options[option] = core.configOption(option);
+        }
+        return options;
+    }
+
+    /** What core holds for an option now, as one number: the last value the file gave it or a save put there. */
+    double optionValue(int option) {
+        return core.configOptionGet(option);
+    }
+
+    boolean saveOption(int option, double value) {
+        return saved(core.configOption(option).id + " " + value + " from the game's options screen", core.configOptionSave(option, value));
     }
 
     /** Each save answers whether the file holds the new value. The session keeps it either way. */
