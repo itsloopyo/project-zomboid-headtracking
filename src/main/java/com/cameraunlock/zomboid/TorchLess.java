@@ -52,11 +52,17 @@ final class TorchLess {
     /** A square of no room and one that is not there or has not been seen. Rooms are numbered from 0, and -1 is out of doors. */
     static final long NOT_THERE = Long.MIN_VALUE;
 
-    /** What one gathering found, never written again once it is handed over: a block of squares of the character's level, the light of each without the torch, and which of them the torch is on. */
+    /**
+     * What one gathering found, never written again once it is handed over: a block of squares
+     * of the character's level, the light of each without the torch, which is the game's own
+     * light for a square the torch is not on, and which of them the torch is on.
+     */
     private static final class Taken {
         final int fromX, fromY, level, span, counter;
         final float[] light;
         final boolean[] lit;
+        /** Whether the square was there to be read and had been seen. */
+        final boolean[] read;
         /** Whether a square's light here is one it was known to have, now or when it was last known, and not one taken from the squares round it. */
         final boolean[] met;
 
@@ -69,6 +75,7 @@ final class TorchLess {
             light = new float[span * span * 3];
             lit = new boolean[span * span];
             met = new boolean[span * span];
+            read = new boolean[span * span];
         }
     }
 
@@ -110,6 +117,7 @@ final class TorchLess {
                     continue;
                 }
                 room[at] = square.getRoomID();
+                next.read[at] = true;
                 IsoGridSquare.ILighting lighting = square.lighting[index];
                 ColorInfo with = lighting.lightInfo();
                 float red = 0f, green = 0f, blue = 0f;
@@ -127,6 +135,11 @@ final class TorchLess {
                 without(with.r, red, next.light, known, least, at * 3);
                 without(with.g, green, next.light, known, least, at * 3 + 1);
                 without(with.b, blue, next.light, known, least, at * 3 + 2);
+                if (!next.lit[at]) {
+                    // The game's own light, to the bit: it is what the picture is given for this square.
+                    next.met[at] = true;
+                    continue;
+                }
                 int before = now == null || now.level != level ? -1 : at(now, fromX + i, fromY + j);
                 next.met[at] = keep(next.light, known, least, at * 3, before >= 0 && now.met[before] ? now.light : null, before * 3);
             }
@@ -143,8 +156,10 @@ final class TorchLess {
      * Has the chunks built again whose squares the picture was given one light for and would
      * now be given another. The game marks a chunk when a square's own light changes, and a
      * square whose sum is stopped at 1 before and after has not changed for the game, while
-     * what it takes from the squares round it has; nor has one the torch has just left at a
-     * light it already had.
+     * what it takes from the squares round it has. A square the torch has come onto or gone
+     * off with its light what it was is the same square to the picture, and nothing is told
+     * for it: told for every such square, every chunk under the torch was built again at
+     * every step and every turn of the head.
      */
     private static void retell(Taken of, Taken against) {
         for (int j = 0; j < of.span; j++) {
@@ -157,7 +172,7 @@ final class TorchLess {
                 boolean same = false;
                 if (against != null && against.level == of.level) {
                     int oi = x - against.fromX, oj = y - against.fromY;
-                    if (oi >= 0 && oj >= 0 && oi < against.span && oj < against.span && against.lit[oj * against.span + oi]) {
+                    if (oi >= 0 && oj >= 0 && oi < against.span && oj < against.span && against.read[oj * against.span + oi]) {
                         int other = (oj * against.span + oi) * 3;
                         same = of.light[at * 3] == against.light[other] && of.light[at * 3 + 1] == against.light[other + 1] && of.light[at * 3 + 2] == against.light[other + 2];
                     }
@@ -212,8 +227,10 @@ final class TorchLess {
     /** One of a square's red, green or blue: exactly what it is without the torch where the sum was not stopped at 1, and otherwise the least it can be. */
     static void without(float with, float share, float[] light, boolean[] known, float[] least, int at) {
         known[at] = share <= 0f || with < STOPPED;
-        least[at] = Math.max(with - share, 0f);
-        light[at] = least[at];
+        least[at] = share <= 0f ? with : Math.max(with - share, 0f);
+        // On the engine's own steps, as the square's light is with no torch on it: left as the
+        // subtraction gives it, the same square was one light under the torch and another, in its last bits, beside it.
+        light[at] = share <= 0f ? with : Math.round(least[at] * 255f) / 255f;
     }
 
     /** A square is not made more than this many times as bright as the squares round it to fit the part of its light that is known. */
