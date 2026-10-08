@@ -601,8 +601,6 @@ final class WorldScene {
     /** The map the kept builds were read from, and the one everything every view keeps by place or by sprite was. */
     private WeakReference<IsoCell> builtIn = new WeakReference<>(null);
     private static WeakReference<IsoCell> readIn = new WeakReference<>(null);
-    /** The rows of [Content] the kept builds were made with: see Own. */
-    private int builtWith = -1;
     /** How thick an overhead wire is drawn, in tiles: thicker than one is, or a street away it is finer than a pixel and comes and goes. */
     private static final float WIRE_THICK = 0.03f;
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
@@ -2098,9 +2096,8 @@ final class WorldScene {
             exposure = adaptEye(player, fromOutside);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
-            if (Own.on() != builtWith) {
+            if (Own.taken(view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were.
-                builtWith = Own.on();
                 forgetAll();
             }
             if (cell != builtIn.get()) {

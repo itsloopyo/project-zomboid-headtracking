@@ -12,6 +12,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **Redrawn graphics in both views** - in the `Medium` and `High` graphics modes the mod draws the isometric view as well as first person, with its own lighting, shadows, textures and models. `F9` cycles the modes, and `Low` leaves the isometric view as the game draws it
 - **Multiplayer** - works when you join a server, and only you need the mod
+- **Two players at one screen** - each has a first person view and a head tracker of their own. Tap `Delete` for the first player, hold it for the second
 
 ## Requirements
 
@@ -158,6 +159,20 @@ The inventory, crafting, the health panel, the map and the game's menus all need
 - `Tab` and every other key are as the game has them.
 - If you have bound something to the middle mouse button, it does both.
 
+### Two players at one screen
+
+A second player joins the screen with a controller, as the game has it, and has a first person view of their own. Each view is switched by itself: one player can be in first person while the other stays in the game's own view.
+
+- **`Delete` tapped** switches the first player's view. **`Delete` held** for 0.4 seconds switches the second player's.
+- **The second player's tracker** sends the OpenTrack UDP protocol to port `4243`, where the first player's sends to `4242`. Run a second tracker, or a second output, pointed at `127.0.0.1:4243`. The port is `SecondPlayerUdpPort` in [Configuration](#configuration).
+- **On a controller in first person** the aiming stick turns the view, and the movement stick walks the way the view faces. The right trigger attacks. With a firearm in hand the left trigger raises the sights, and does not shove while it does: without one it is the game's shove as before. The controller works the game's panels as it does in the game's own view.
+- **The modes are shared.** Turning tracking on and off, the tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are one setting for both players, on the keys above.
+- **`F7`** turns the screen between side by side and one above the other. Side by side each picture is half the screen's width and all of its height, with the same field of view up and down, so less shows to either side. One above the other each has the whole width.
+
+Two players can ride in one vehicle, each seeing it from their own seat.
+
+A third and a fourth player are drawn in the game's own view, and have no first person view.
+
 ### On a server
 
 The first person view and head tracking work when you join a multiplayer server. Only you need the mod. The server does not, and neither do the other players, who see your character as they see anyone's.
@@ -182,7 +197,7 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Cycle tracking mode | `Page Up` | `Ctrl+Shift+G` |
 | Toggle yaw mode | `Page Down` | `Ctrl+Shift+H` |
 | Cycle aim mode | `Insert` | `Ctrl+Shift+U` |
-| Toggle first person view | `Delete` | - |
+| Toggle first person view | `Delete` tapped, held for a second player | - |
 | Cycle graphics mode | `F9` | - |
 | Cycle picture style | `F8` | - |
 | Turn split screen | `F7` | - |
@@ -205,7 +220,7 @@ The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture
 
 Tracking moves the view while the first person view is on, the game is not paused and your character is alive.
 
-Your character's head turns with yours in both views, alone or on a server, but not in split screen. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
+Your character's head turns with yours in both views, alone, on a server and with two players at one screen. In the game's own view that is all tracking does: the view stays where the game has it. In first person it shows in your character's shadow. The head turns as far as a neck does, 80 degrees to either side, and a lean does not move it. The tracking mode's rotation setting switches it with the rest of the rotation.
 
 In `High`, a window in first person also shows your character in its glass, with their head turned as yours is and their eyes level with yours. It shows in a shut, unbroken window on the floor you are on that you stand square in front of, faintly by day and plainly at night. A mirror hung on a wall shows you the same way.
 
@@ -293,6 +308,10 @@ ConfigFormat=1
 [Network]
 ; UDP port the mod receives tracker data on (OpenTrack protocol).
 UdpPort=default
+; UDP port the mod receives a second player's tracker data on, for two players at
+; one screen (OpenTrack protocol). The first player's tracker is on UdpPort, and the
+; two have to differ.
+SecondPlayerUdpPort=4243
 
 [General]
 ; true: head tracking is on when the game starts. ToggleKey turns it on and off.
@@ -401,7 +420,8 @@ YawModeKey=default
 ; Cycles the aim mode: sights locked, free look with a marker, stock sights
 ; (TrueFreeLook, FreeLookMarker, StockSights).
 TrueFreeLookKey=default
-; Goes into the first person view and back to the game's own.
+; Goes into the first person view and back to the game's own. Tapped, for the first
+; player. Held for 400 ms, for a second player at the same screen.
 FirstPersonKey=Delete
 ; Goes to the next graphics mode: Low, Medium, High (Quality).
 CycleQualityKey=F9
