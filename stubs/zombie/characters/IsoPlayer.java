@@ -3,7 +3,9 @@ package zombie.characters;
 import zombie.iso.Vector2;
 
 public class IsoPlayer extends IsoLivingCharacter {
+    public zombie.AttackType getAttackType() { throw new UnsupportedOperationException("reference stub"); }
     public static int numPlayers;
+    public fmod.fmod.BaseSoundListener soundListener;
 
     public static IsoPlayer getInstance() { throw new UnsupportedOperationException("reference stub"); }
     public final int getIndex() { throw new UnsupportedOperationException("reference stub"); }

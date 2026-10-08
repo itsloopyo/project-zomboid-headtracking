@@ -33,7 +33,9 @@ final class VehicleMeshes {
     private static final IdentityHashMap<ModelMesh, float[]> middles = new IdentityHashMap<>();
     /**
      * For each vehicle script the viewer has sat in: the wheel's middle from where the vehicle
-     * stands, along it, across it and up from the ground under it, in tiles.
+     * stands on the ground, along the vehicle, across it and up it, by its own axes as it is
+     * tipped this frame, in tiles, and then how far across it is from the body's own middle,
+     * which says which side of the vehicle the wheel is on however it lies.
      */
     static final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
 
@@ -84,6 +86,15 @@ final class VehicleMeshes {
     static Parts seatedParts;
     /** Where the wheel of the vehicle the viewer sits in is in the world this frame, or null: x, y and up. */
     static float[] seatedWheel;
+    /**
+     * The way the vehicle the viewer sits in faces, the side to the left of that and its own
+     * up, in the world, as its body is drawn this frame. On its springs a vehicle tips and
+     * rolls, a crash throws it on its side or its roof, and what the picture builds in its
+     * cabin is laid out along these.
+     */
+    static final float[] seatedAxes = new float[9];
+    private static String turnedSaid;
+    private static int tipSaid;
     private static final float[] wheelNow = new float[3];
     /** The paint of the vehicle the viewer sits in. */
     static final float[] seatedPaint = new float[3];
@@ -105,6 +116,9 @@ final class VehicleMeshes {
         seatedPanes = null;
         seatedParts = null;
         seatedWheel = null;
+        float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
+        float[] faces = Ride.stands;
+        Cabins.level(aheadX, aheadY, seatedAxes);
         if (!(body.modelInstance instanceof VehicleModelInstance instance) || body.modelInstance.model == null) {
             return;
         }
@@ -120,7 +134,17 @@ final class VehicleMeshes {
         }
         multiply(shifted, xfrm, stands);
         multiply(eye, stands, paneMatrix);
-        float aheadX = Ride.aheadX, aheadY = Ride.aheadY;
+        if (!Cabins.axes(stands, faces, seatedAxes) && !script.equals(turnedSaid)) {
+            turnedSaid = script;
+            Log.info("the body of " + script + " does not lie along the way its vehicle faces: its cabin is laid out by the vehicle as the physics has it, not by the body as it is drawn");
+        }
+        float[] axes = seatedAxes;
+        if (FirstPerson.TRACE && (tipSaid++ & 7) == 0) {
+            Log.info(String.format(Locale.ROOT, "body of %s: nose up %.2f, left side up %.2f, its up %.2f off straight up; off the vehicle's own as the physics has it, the nose %.2f and the up %.2f, in degrees",
+                    script, Math.toDegrees(Math.asin(axes[2])), Math.toDegrees(Math.asin(axes[5])), Math.toDegrees(Math.acos(Math.clamp(axes[8], -1f, 1f))),
+                    Math.toDegrees(Math.acos(Math.clamp(axes[0] * faces[0] + axes[1] * faces[1] + axes[2] * faces[2], -1f, 1f))),
+                    Math.toDegrees(Math.acos(Math.clamp(axes[6] * faces[6] + axes[7] * faces[7] + axes[8] * faces[8], -1f, 1f)))));
+        }
         float[] middle = middles.get(mesh);
         if (middle == null) {
             // A mask still on its way from the disc reads as empty, and no glass would be the
@@ -130,9 +154,10 @@ final class VehicleMeshes {
             }
             for (int column = 0; column < 4; column++) {
                 float shift = column == 3 ? 1f : 0f;
-                frame[column] = (stands[column * 4] - standsX * shift) * aheadX + (stands[column * 4 + 1] - standsY * shift) * aheadY;
-                frame[4 + column] = -(stands[column * 4] - standsX * shift) * aheadY + (stands[column * 4 + 1] - standsY * shift) * aheadX;
-                frame[8 + column] = stands[column * 4 + 2] - groundUp * shift;
+                float x = stands[column * 4] - standsX * shift, y = stands[column * 4 + 1] - standsY * shift, up = stands[column * 4 + 2] - groundUp * shift;
+                for (int axis = 0; axis < 3; axis++) {
+                    frame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
+                }
             }
             middle = find(mesh, instance, body.modelInstance.model.name);
             middles.put(mesh, middle);
@@ -157,15 +182,19 @@ final class VehicleMeshes {
         wheelNow[1] = y;
         wheelNow[2] = up;
         seatedWheel = wheelNow;
-        float along = (x - standsX) * aheadX + (y - standsY) * aheadY;
-        float across = -(x - standsX) * aheadY + (y - standsY) * aheadX;
+        float toX = x - standsX, toY = y - standsY, toUp = up - groundUp;
+        float along = toX * axes[0] + toY * axes[1] + toUp * axes[2];
+        float across = toX * axes[3] + toY * axes[4] + toUp * axes[5];
+        float above = toX * axes[6] + toY * axes[7] + toUp * axes[8];
+        float side = (x - stands[12]) * axes[3] + (y - stands[13]) * axes[4] + (up + lowered - stands[14]) * axes[5];
         float[] known = wheels.get(script);
         if (known == null) {
-            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up", script, body.modelInstance.model.name, along, across, up - groundUp));
+            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up, %.3f from the body's middle", script, body.modelInstance.model.name, along,
+                    across, above, side));
         }
-        // The logic thread reads the three together, so they are never written into the array it may hold.
-        if (known == null || known[0] != along || known[1] != across || known[2] != up - groundUp) {
-            wheels.put(script, new float[] {along, across, up - groundUp});
+        // The logic thread reads them together, so they are never written into the array it may hold.
+        if (known == null || known[0] != along || known[1] != across || known[2] != above || known[3] != side) {
+            wheels.put(script, new float[] {along, across, above, side});
         }
     }
 

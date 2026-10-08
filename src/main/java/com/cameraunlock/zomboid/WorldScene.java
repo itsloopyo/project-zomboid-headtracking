@@ -567,6 +567,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
     static volatile float openNow, daylightKeptNow = 1f;
     private final ColorInfo unseenLight = new ColorInfo();
+    /** Where TorchLess writes a square's light when the viewer's torch is on the square. */
+    private final ColorInfo torchless = new ColorInfo();
     private final float[] box = new float[4];
     private int overLayer;
     private int remakes;
@@ -1043,7 +1045,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             ViewCamera.Pose from, boolean opened) {
         long start = System.nanoTime();
         Stall.beat();
-        Screens.readAhead();
+        Screens.tick();
         boolean fromOutside = from != null;
         boolean screenOnly = seenOnly;
         seenOnly = false;
@@ -2459,9 +2461,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         }
                         if (object instanceof IsoTelevision set) {
                             // The game marks the chunk when a set goes on or off or between the bars and a programme, each of
-                            // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel.
+                            // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel or a tape.
                             int showing = Screens.showing(set);
-                            sum = sum(sum, showing == Screens.PROGRAMME ? Screens.PROGRAMME + set.getDeviceData().getChannel() : showing);
+                            sum = sum(sum, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
                         }
                         if (object instanceof IsoDoor door) {
                             thing = sum(thing, door.IsOpen() ? 2 : 1);
@@ -2749,7 +2751,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 // Read from the lighting engine, which holds every loaded square. getLightInfo is
                 // a copy the game's own render takes of it, and only for the squares its camera
                 // has on screen.
-                ColorInfo light = square.lighting[playerIndex].lightInfo();
+                ColorInfo light = TorchLess.light(square, playerIndex, torchless);
                 boolean outside = square.isOutside();
                 if (!square.isSeen(playerIndex)) {
                     light = unseenLight;
@@ -3191,8 +3193,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             if (geometry.kerb != null && geometry.onStreet(a, b)) {
                 continue;
             }
-            Flora.addFlower(cards, x + a, y + b, geometry.liftAt(a, b) + lowest + taller * Flora.unit(seed, 16), least * (1f + 0.65f * Flora.unit(seed, 24)),
-                    Flora.unit(seed, 4) * 2.0 * Math.PI, Flora.flowerKind(x, y, flower), frame);
+            Flora.addFlower(cards, x + a, y + b, geometry.liftAt(a, b), lowest + taller * Flora.unit(seed, 16), least * (1f + 0.65f * Flora.unit(seed, 24)),
+                    Flora.unit(seed, 4) * 2.0 * Math.PI, Flora.flowerKind(x, y, flower), (seed >>> 12) % Flora.FLOWER_THINNINGS, frame);
         }
     }
 
@@ -3443,7 +3445,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS, vigour);
         }
         if (away < FLOWER_REACH) {
-            // Flowers in long grass stand as tall as it does, on stems lost among the blades.
+            // Flowers in long grass stand as tall as it does.
             addFlowers(laid.get(PLAIN), x, y, 0.4f, 0.35f, 0.03f);
         }
         frame.originU = originU;
@@ -5035,7 +5037,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             // that is on shows the bars, which is what the game's sprite is a picture of.
             int showing = Screens.showing(set);
             if (showing != Screens.DARK) {
-                addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), x, y, foot);
+                addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
             }
         }
         return true;
@@ -5043,13 +5045,17 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
 
     private final float[] screenAt = new float[2];
 
-    /** Stands a picture just proud of the glass of a set that is on, as wide and as high as the glass. held is what Screens.held gives for it. */
-    private void addLitScreen(Furniture piece, Models.Model set, int held, int x, int y, float foot) {
+    /**
+     * Stands a picture just proud of the glass of a set that is on, as wide and as high as the glass. held is what
+     * Screens.held gives for it. Whether the tube has colour goes where a piece's second dye is looked up, which a
+     * sheet has none of: a programme's picture is in colour in the jar, and the picture's program takes it out.
+     */
+    private void addLitScreen(Furniture piece, Models.Model set, int held, boolean inGrey, int x, int y, float foot) {
         float[] glass = Screens.glass(set);
         float wide = (glass[1] - glass[0]) * piece.scale, high = (glass[3] - glass[2]) * piece.scaleUp;
         Models.turn(piece.turns, (glass[0] + glass[1]) / 2f * piece.scale, (glass[4] - Screens.PROUD) * piece.scale, screenAt);
         placed.add(Models.get("lit_screen"), frame, x, y, x + piece.centreX + screenAt[0], y + piece.centreY + screenAt[1], foot + glass[2] * piece.scaleUp,
-                piece.turns, wide, high, held, 1 << Models.SCREEN, 0f, 0f, 0, 0f, 0f);
+                piece.turns, wide, high, held, 1 << Models.SCREEN, 0f, 0f, 0, inGrey ? Screens.IN_GREY : Screens.IN_COLOUR, 0f);
         Decor.lay(-0.5f, 0.5f, 0f, 1f, wide, high, 0f, Screens.WIDE_FOR_HIGH, hungShows);
         placed.picture(hungShows);
     }
@@ -5575,7 +5581,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         for (int under = z - 1; under >= 0 && ground == null; under--) {
             ground = cell.getGridSquare(x, y, under);
         }
-        ColorInfo light = ground != null && ground.isSeen(playerIndex) ? ground.lighting[playerIndex].lightInfo() : unseenLight;
+        ColorInfo light = ground != null && ground.isSeen(playerIndex) ? TorchLess.light(ground, playerIndex, torchless) : unseenLight;
         boolean lit = mainsOn || here.haveElectricity();
         float red = lit ? Soffits.under(light.r, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(light.g, Soffits.GLOW_GREEN) : light.g;
         float blue = lit ? Soffits.under(light.b, Soffits.GLOW_BLUE) : light.b;
@@ -5658,7 +5664,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
         System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
         System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
-        ColorInfo light = below != null && below.isSeen(playerIndex) ? below.lighting[playerIndex].lightInfo() : unseenLight;
+        ColorInfo light = below != null && below.isSeen(playerIndex) ? TorchLess.light(below, playerIndex, torchless) : unseenLight;
         frame.light(light.r, light.g, light.b);
         frame.open = 0f;
         layers.lie(SpriteGeometry.LAYERS_UP, -1f);

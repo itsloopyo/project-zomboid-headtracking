@@ -86,6 +86,16 @@ Copyright (c) 2026 itsloopyo
 
 ---
 
+## FMOD
+
+- **Version:** the copy Project Zomboid ships
+- **License:** proprietary, Firelight Technologies
+- **Upstream:** https://www.fmod.com
+- **Usage:** The agent calls the game's own binding to it, `fmod.javafmod`, at the one place the game sets its listener, to hand over the way the first person view faces in place of the way the game's own view does.
+- **Bundled:** no. The name resolves to the class inside the game's jar at run time, which calls the copy of FMOD in the game's folder.
+
+---
+
 ## Generated material textures
 
 - **Files:** every `materials/*.bc` inside the mod's jar but `paint.bc` and `sprigs-form.bc`, each packed by `tools/textures/compress.py` from the picture of its name in `src/textures/materials` (the eight barks into the one `bark.bc`): asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, litter, rock, frond, ivy and sprigs
@@ -220,7 +230,7 @@ jar as shader source text.
 - **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; and `facHash` in the world shader of `PipelineShaders.java`, its `hash12`
 - **License:** MIT
 - **Upstream:** https://www.shadertoy.com/view/4djSRW
-- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, and the difference in shade from one brick or board of a wall to the next.
+- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, the difference in shade from one brick or board of a wall to the next, and the lie of settled snow and the crystals that glint in it.
 - **Bundled:** yes.
 
 Copyright (c) 2014 David Hoskins.

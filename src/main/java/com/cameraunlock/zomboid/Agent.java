@@ -110,6 +110,14 @@ public final class Agent {
         return windowMarks.gap();
     }
 
+    /** The patches that have Hearing say which way the game's listener faces and how far out its camera is. */
+    private static PatchTransformer hearing;
+
+    /** Why first person is heard as the game's own view is on this build of the game, or null once both patches are in. */
+    static String hearingGap() {
+        return hearing.gap();
+    }
+
     private static volatile boolean loaded;
 
     /** Called where the game has just logged an exception of any kind. */
@@ -185,6 +193,8 @@ public final class Agent {
         instrumentation.addTransformer(chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
         instrumentation.addTransformer(windowMarks);
+        hearing = new PatchTransformer(hearingPatches());
+        instrumentation.addTransformer(hearing);
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -356,6 +366,26 @@ public final class Agent {
         return List.of(new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(state, "exit", "()V"),
                 code -> CallSite.passThis(code, new CallSite.Method(FIRST_PERSON, "leftSave", "(Ljava/lang/Object;)V")))));
+    }
+
+    /**
+     * Apart again, and each from the other: without the first, first person is heard as the
+     * game's own view is, facing north-west on the map whichever way the view faces; without
+     * the second its sounds are mixed for however far out the game's own view was left. The
+     * game sets its listener at one call, and hands its sounds how far out its camera is from
+     * one method. See Hearing.
+     */
+    private static List<Patch> hearingPatches() {
+        String listener = "fmod/fmod/SoundListener", zoom = "zombie/audio/parameters/ParameterCameraZoom", hearing = "com/cameraunlock/zomboid/Hearing";
+        String set = "(IFFFFFFFFFFFF)V";
+        return List.of(
+                new Patch(listener, "tick setting the listener", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(listener, "tick", "()V"),
+                        new CallSite.Method("fmod/javafmod", "FMOD_Studio_Listener3D", set),
+                        new CallSite.Method(hearing, "listener", set), 1)),
+                new Patch(zoom, "calculateCurrentValue before its returns", classBytes -> CallSite.filterReturn(classBytes,
+                        new CallSite.Method(zoom, "calculateCurrentValue", "()F"),
+                        new CallSite.Method(hearing, "zoomedOut", "(F)F"))));
     }
 
     /**

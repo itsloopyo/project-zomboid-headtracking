@@ -14,7 +14,11 @@ package com.cameraunlock.zomboid;
  * pupil, which is the objective lens made small by the magnification and stands the eye
  * relief behind the last lens. A line of sight that misses that disc shows the black inside of
  * the tube. With the eye on the disc the whole field is lit. Off to one side a shadow comes in
- * from the other, and too near or too far the field closes to a tunnel.
+ * from the other, and too far back the field closes to a tunnel.
+ *
+ * Too near is where this scope parts from a real one, whose field closes there as well. A
+ * viewer who leans in to the eyepiece is looking closer, so nearer than the eye relief the
+ * picture is whole and grows with the glass it is seen in.
  *
  * Lengths are metres and angles are tangents. The game's rifles are drawn smaller than life,
  * and a scope on one is drawn to match, so there are two measures: the scope's own, in which
@@ -90,16 +94,20 @@ final class ScopeOptics {
      * the reticle as far across what it is on as it carries the crosshair at the hip. It
      * comes in as the sights come up, with the zoom.
      *
+     * An eye nearer than the eye relief sees the picture larger again, and the turn is that
+     * much smaller.
+     *
      * @param glass the scope fitted, or null
      * @param zoom  the tangent the frame is drawn with over the tangent the player set
      * @param aimed that ratio with the sights fully up
+     * @param grown how many times larger the picture is for the eye's being near: see grown
      */
-    static float turn(Glass glass, float zoom, float aimed) {
+    static float turn(Glass glass, float zoom, float aimed, float grown) {
         if (glass == null) {
             return 1f;
         }
         float raised = Math.clamp((1f - zoom) / (1f - aimed), 0f, 1f);
-        return 1f + (1f / (glass.power * aimed) - 1f) * raised;
+        return 1f + (1f / (glass.power * aimed * grown) - 1f) * raised;
     }
 
     /** Half the angle of the world the scope's picture is drawn with, top to bottom and side to side alike. */
@@ -107,9 +115,28 @@ final class ScopeOptics {
         return FIELD * MARGIN / magnification(glass, zoom);
     }
 
+    /** An eye is never counted nearer the eyepiece's glass than this, nor one in front of it as anything else. */
+    static final float NEAREST_EYE = 0.001f;
+
+    /**
+     * How many times larger the picture is to an eye this far behind the eyepiece's glass, in
+     * the scope's measure, than it is from the eye relief. From there and further back, once.
+     * Nearer, it grows as the glass does, so that the picture fills as much of the glass as
+     * it does from the eye relief.
+     */
+    static float grown(float behind) {
+        return Math.max(RELIEF / Math.max(behind, NEAREST_EYE), 1f);
+    }
+
+    /** Half the angle the picture fills at an eye this far behind the eyepiece's glass: the field stop's, grown. */
+    static float field(float behind) {
+        return FIELD * grown(behind);
+    }
+
     /**
      * How much of the light of one line of sight reaches the eye: 1 with the line through the
-     * middle of the exit pupil, 0 once the eye's own pupil is clear of it.
+     * middle of the exit pupil, 0 once the eye's own pupil is clear of it. An eye nearer than
+     * the eye relief loses none for being near.
      *
      * @param acrossX how far from the axis the eye is, to one side, and acrossY the other way across, in the scope's measure
      * @param behind  how far behind the eyepiece's glass the eye is, in the scope's measure
@@ -117,7 +144,8 @@ final class ScopeOptics {
      * @param drawn   the world's metres to one of the scope's
      */
     static float lit(Glass glass, float acrossX, float acrossY, float behind, float slopeX, float slopeY, float drawn) {
-        float atX = acrossX + slopeX * (behind - RELIEF), atY = acrossY + slopeY * (behind - RELIEF);
+        float back = Math.max(behind - RELIEF, 0f);
+        float atX = acrossX + slopeX * back, atY = acrossY + slopeY * back;
         float off = (float) Math.sqrt(atX * atX + atY * atY) * drawn;
         float whole = Math.abs(glass.exitPupil() - PUPIL), none = glass.exitPupil() + PUPIL;
         float t = Math.clamp((off - whole) / (none - whole), 0f, 1f);
@@ -135,24 +163,19 @@ final class ScopeOptics {
         // The line of sight nearest the middle of the exit pupil is the one that leans most
         // towards it, and no line leans more than the field or the eyepiece's rim lets it.
         float most = Math.min(FIELD, (EYE_LENS + (float) Math.hypot(acrossX, acrossY)) / behind);
-        float off = (float) Math.hypot(acrossX, acrossY) - most * Math.abs(behind - RELIEF);
+        float off = (float) Math.hypot(acrossX, acrossY) - most * Math.max(behind - RELIEF, 0f);
         return off * drawn < glass.exitPupil() + PUPIL;
     }
 
     /**
      * How far a lean along the aim may take the eye towards the eyepiece, in the world's
-     * measure. A scope's rear sight is its exit pupil: nearer than that the field closes in
-     * from its edge, and the eye is stopped where half the field's width is left, or short of
-     * the glass if that comes first.
+     * measure: from the eye relief to short of the glass.
      *
      * @param drawn the world's metres to one of the scope's
      * @param clear how near the glass the eye may come, in the world's measure
      */
-    static float forwardStop(Glass glass, float drawn, float clear) {
-        // Half the light of a line is lost with the line as far off the middle of the exit
-        // pupil as the wider of the two pupils reaches.
-        float halfLit = Math.max(glass.exitPupil(), PUPIL);
-        return Math.max(Math.min(halfLit / (0.5f * FIELD), RELIEF * drawn - clear), 0f);
+    static float forwardStop(float drawn, float clear) {
+        return Math.max(RELIEF * drawn - clear, 0f);
     }
 
     /**

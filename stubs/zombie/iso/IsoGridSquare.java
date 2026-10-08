@@ -6,6 +6,18 @@ import zombie.util.list.PZArrayList;
 public final class IsoGridSquare {
     public interface ILighting {
         ColorInfo lightInfo();
+        boolean bCanSee();
+        int resultLightCount();
+        ResultLight getResultLight(int index);
+    }
+
+    public static final class ResultLight {
+        public static final int RLF_TORCH = 2;
+        public int id;
+        public float r;
+        public float g;
+        public float b;
+        public int flags;
     }
 
     public final ILighting[] lighting = null;

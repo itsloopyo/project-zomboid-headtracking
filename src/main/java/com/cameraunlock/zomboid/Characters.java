@@ -367,8 +367,9 @@ public final class Characters {
             ModelInstanceRenderData weapon = weaponOf(data);
             ViewCamera.between(aim, camera, fromAim);
             boolean own = Own.arms() && OwnArms.model() != null;
+            float[] hand = hands.firearm() ? null : gameHand(data);
             if (weapon != null && ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands,
-                    CHARACTER_SCALE, own, fromAim, heldView)) {
+                    CHARACTER_SCALE, own, hand, fromAim, heldView)) {
                 holding = data;
                 armHands = hands;
                 ownArms = own && reachOwn(data, hands);
@@ -381,7 +382,7 @@ public final class Characters {
                         armsRefused = true;
                         Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
                     }
-                    if (!ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, fromAim, heldView)) {
+                    if (!ViewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, fromAim, heldView)) {
                         holding = null;
                         return;
                     }
@@ -727,7 +728,7 @@ public final class Characters {
             origin = ViewModel.gripSeen;
         }
         ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), ViewModel.handgun, grip, origin, ViewModel.pointing, ViewModel.over, ViewModel.foreEnd, ViewModel.foreSteady, parts);
-        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes());
+        ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), ViewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
         armsAsOf = now;
@@ -899,6 +900,19 @@ public final class Characters {
     /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */
     static boolean holding() {
         return holding != null;
+    }
+
+    private static final float[] gameHand = new float[3];
+
+    /** The middle of the game's right hand, in the axes the person is stood from at the scale it is drawn, or null if no part of the viewer's model has one. */
+    private static float[] gameHand(ModelSlotRenderData data) {
+        for (int part = 0; part < parts(data).size(); part++) {
+            if (CharacterDraw.hand(parts(data).get(part), false, data.finalScale, joined)) {
+                System.arraycopy(joined, 6, gameHand, 0, 3);
+                return gameHand;
+            }
+        }
+        return null;
     }
 
     /** What is in the viewer's right hand, or null: the one part the game hangs from the hand's bone. */
@@ -1080,6 +1094,13 @@ public final class Characters {
         notingRoots = false;
     }
 
+    /** And for the shadow map of the torch in the viewer's own hand: everyone and every vehicle but the viewer, who would stand in their own beam. */
+    static void castOthers(float[] lightMatrix) {
+        System.arraycopy(IDENTITY, 0, projection, 0, 16);
+        draw(lightMatrix, false, true, null, Pipeline.focusX, Pipeline.focusY, SHADOW_REACH);
+        notingRoots = false;
+    }
+
     /**
      * Where each person drawn into the view stands and the way they are turned, so that the
      * picture can lay cloth and skin on them that moves as they do.
@@ -1258,14 +1279,17 @@ public final class Characters {
      * Says to the picture's draw of a person what the game's light is on the square they stand
      * on, read as the world's own squares are, so that a person in a dark room is as dark as
      * the room. Nothing is said of a square the viewer has not seen: the game holds no light for it.
+     * The viewer's torch is not in it: its beam lights a person as it lights the wall behind them.
      */
+    private static final ColorInfo stoodIn = new ColorInfo();
+
     private static void lightWhere(ModelSlotRenderData data) {
         IsoPlayer viewer = IsoPlayer.getInstance();
         IsoGridSquare square = data.character.getCurrentSquare();
         if (viewer == null || square == null || !square.isSeen(viewer.getIndex())) {
             return;
         }
-        ColorInfo light = square.lighting[viewer.getIndex()].lightInfo();
+        ColorInfo light = TorchLess.light(square, viewer.getIndex(), stoodIn);
         CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, WorldScene.openNow, WorldScene.daylightKeptNow), square.isOutside());
     }
 

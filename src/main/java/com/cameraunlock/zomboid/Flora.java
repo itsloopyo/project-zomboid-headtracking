@@ -20,8 +20,14 @@ final class Flora {
 
     /** Which leaf a LEAF card is. The card's texture coordinate across carries it in the twos above the 0 to 1 it runs over. */
     static final int WEED = 0, FALLEN_ORANGE = 1, FALLEN_BROWN = 2, FALLEN_YELLOW = 3, TWIG = 4;
-    /** Which flower a FLOWER card is, carried the same way. */
-    static final int WHITE = 0, YELLOW = 1, PURPLE = 2;
+    /** Which flower a FLOWER card is, carried the same way, or that it is a flower's stalk. */
+    static final int WHITE = 0, YELLOW = 1, PURPLE = 2, STALK = 3;
+    /**
+     * Flowers are left out of the picture with distance, each from one of this many steps of
+     * it. A FLOWER card's texture coordinate up carries which, in the twos above the 0 to 1 it
+     * runs over. The world shader has the same number.
+     */
+    static final int FLOWER_THINNINGS = 8;
     private static final float PICK_STEP = 2f;
 
     /** How far from a tree its fallen leaves reach, in tiles. */
@@ -699,27 +705,55 @@ final class Flora {
     }
 
     /**
-     * A flower's head over (x, y) at height up: a square card tipped to face half upward and
-     * half the way turn points, since it is looked down on from one side or another. It has no
-     * stem: that is in among the grass. Two triangles.
+     * A flower standing tall high on ground at height ground, its head over (x, y): a square
+     * card tipped to face half upward and half against the way turn points, since it is looked
+     * down on from one side or another, on a stalk that leans the way the head nods. The stalk
+     * is a card that turns to the eye, with the stalk drawn down its middle. Four triangles.
+     *
+     * thinned is which of the FLOWER_THINNINGS steps of distance the flower is left out of the
+     * picture from. Head and stalk carry it, so the two go together.
      */
-    static void addFlower(Mesh mesh, float x, float y, float up, float half, double turn, int kind, SpriteGeometry.Frame frame) {
+    static void addFlower(Mesh mesh, float x, float y, float ground, float tall, float half, double turn, int kind, int thinned,
+            SpriteGeometry.Frame frame) {
         float wayX = (float) Math.cos(turn), wayY = (float) Math.sin(turn);
         float acrossX = -wayY * half, acrossY = wayX * half;
         float tipX = wayX * half * TIPPED_ALONG, tipY = wayY * half * TIPPED_ALONG, tipUp = half * TIPPED_UP;
+        float up = ground + tall;
         mark(mesh, frame.open, SpriteGeometry.CARD, FLOWER);
         mesh.face(-wayX * TIPPED_UP, -wayY * TIPPED_UP, TIPPED_ALONG);
         mesh.sway = 1f;
-        float pick = PICK_STEP * kind;
+        float pick = PICK_STEP * kind, thins = PICK_STEP * thinned;
         for (int corner : QUAD) {
             float a = corner == 1 || corner == 2 ? 1f : -1f, b = corner >= 2 ? 1f : -1f;
-            mesh.add(x + acrossX * a + tipX * b, y + acrossY * a + tipY * b, up + tipUp * b, pick + (a + 1f) / 2f, (b + 1f) / 2f,
+            mesh.add(x + acrossX * a + tipX * b, y + acrossY * a + tipY * b, up + tipUp * b, pick + (a + 1f) / 2f, thins + (b + 1f) / 2f,
                     frame.red, frame.green, frame.blue);
         }
+        float footX = x + wayX * tall * STALK_LEANS, footY = y + wayY * tall * STALK_LEANS;
+        mesh.faces = true;
+        for (int corner : QUAD) {
+            boolean top = corner >= 2;
+            float a = corner == 1 || corner == 2 ? 1f : -1f;
+            mesh.sway = top ? 1f : 0f;
+            mesh.along = a * half * STALK_CARD;
+            mesh.add(top ? x : footX, top ? y : footY, top ? up : ground - STALK_SUNK, PICK_STEP * STALK + (a + 1f) / 2f, thins + (top ? 1f : 0f),
+                    frame.red, frame.green, frame.blue);
+        }
+        mesh.faces = false;
+        mesh.along = 0f;
         mesh.sway = 0f;
     }
 
     private static final float TIPPED_ALONG = 0.766f, TIPPED_UP = 0.643f;
+    /** How far a stalk's foot stands from under its head, as a share of the flower's height. */
+    static final float STALK_LEANS = 0.12f;
+    /**
+     * Half the width of a stalk's card, as a share of half the head's: the stalk itself is the
+     * middle quarter of it, and the world shader draws it wider than that where a quarter of
+     * the card is finer than the picture can draw.
+     */
+    static final float STALK_CARD = 0.4f;
+    /** How far below the ground a stalk starts, in tiles: the ground under it slopes. */
+    static final float STALK_SUNK = 0.02f;
 
     /**
      * One leaf growing out from (x, y) at height up the way turn points, rising at the angle

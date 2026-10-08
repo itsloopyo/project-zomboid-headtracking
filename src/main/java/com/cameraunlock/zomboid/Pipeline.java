@@ -144,6 +144,13 @@ final class Pipeline {
     private static final int UNITS = 32;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
     private static final int BEAM_UNIT = 20;
+    /**
+     * The units the torch's shadow map is bound to: one for the world's program, which has a
+     * texture of its own on every unit but the few the people's pass uses, and one for the
+     * other programs the torch lights, which leave the world's last units alone. Each pass
+     * that has its own texture on either binds it there again before it draws.
+     */
+    private static final int TORCH_UNIT_IN_WORLD = 21, TORCH_UNIT = UNITS - 1;
 
     /**
      * The shaders the off-line harnesses read from this class by name. The two longest are
@@ -153,7 +160,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
@@ -251,6 +258,8 @@ final class Pipeline {
             shaded = new Lent("pictures of shade and lit air");
     /** The headlights' shadow map, at the shadow maps' size. */
     private static final Lent beamed = new Lent("headlights' shadow map");
+    /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
+    private static final Lent torched = new Lent("torch's shadow map");
     private static final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
     /** The set whose pictures are being made, which texture and target note them in, or null. */
@@ -348,7 +357,7 @@ final class Pipeline {
     private static final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
     /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
     private static final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
-            beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing();
+            beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing(), torchListed = new ChunkBuffers.Listing();
     /** The chunks a vehicle's mirror can show as draws, and the listing its picture is drawn from: every chunk's when none is out of it. */
     private static final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
     private static ChunkBuffers.Listing shownBehind = all;
@@ -359,9 +368,9 @@ final class Pipeline {
     /** A texture's size is asked again after this many frames and up to as many more, by its name, so they are not all asked in one frame. A power of two. */
     private static final int TEXEL_KEPT_FRAMES = 256;
     private static int frameNumber;
-    /** How many chunks the last frame drew into the near, far, headlight and roof maps, and how many it had, for the log. */
-    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3;
-    private static final int[] heldChunks = new int[4];
+    /** How many chunks the last frame drew into the near, far, headlight, roof and torch maps, and how many it had, for the log. */
+    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4;
+    private static final int[] heldChunks = new int[5];
     /** Written after heldChunks, and read before it by the logic thread. */
     private static volatile int heldOf;
     /** What the shadow map being drawn holds. */
@@ -418,6 +427,17 @@ final class Pipeline {
     private static final ViewCamera.Pose lamp = new ViewCamera.Pose();
     /** Half the angle the headlights' shadow map takes in, as a tangent, and how near and far it sees. */
     private static final float BEAM_TAN = 0.84f, BEAM_NEAR = 0.35f, BEAM_FAR = 32f;
+    /**
+     * The same for the torch's. Its beam lights nothing further off its middle than 57 degrees
+     * (torchAt's cone ends at a cosine of 0.55), and the map takes in a little more than that.
+     * It sees from nearer than the hand is to what the hand holds up, and past the torch's
+     * reach by as far as the beam takes to die away.
+     */
+    private static final float TORCH_TAN = 1.6f, TORCH_NEAR = 0.08f, TORCH_PAST_REACH = 3.5f;
+    /** A torch lights a room, not a road: its map is no bigger than this across, in any mode. */
+    private static final int TORCH_MAP_MOST = 2048;
+    private static final float[] torchMatrix = new float[16], torchAt = new float[4], torchWay = new float[3];
+    private static int torchMap, torchTarget, torchSize;
     private static final float[] sunNdc = new float[2];
     private static final int[] samplers = new int[UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
@@ -425,6 +445,9 @@ final class Pipeline {
     private static final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
     private static final String[] BEAM_AT = new String[Headlights.BEAMS], BEAM_WAY = new String[Headlights.BEAMS];
     private static final String[] ROOT_AT = new String[Characters.ROOTS];
+    private static final String[] PRINT_AT = new String[SnowPrints.PRINTS], RUT_AT = new String[SnowPrints.RUTS], RUT_UP_AT = new String[SnowPrints.RUTS];
+    private static final float[] snowPrints = new float[SnowPrints.PRINTS * 4], snowRuts = new float[SnowPrints.RUTS * 4], snowRutsUp = new float[SnowPrints.RUTS];
+    private static final float[] snowTrod = new float[6];
 
     static {
         for (int i = 0; i < Headlights.BEAMS; i++) {
@@ -433,6 +456,13 @@ final class Pipeline {
         }
         for (int i = 0; i < ROOT_AT.length; i++) {
             ROOT_AT[i] = "uRoot[" + i + "]";
+        }
+        for (int i = 0; i < PRINT_AT.length; i++) {
+            PRINT_AT[i] = "uSnowPrint[" + i + "]";
+        }
+        for (int i = 0; i < RUT_AT.length; i++) {
+            RUT_AT[i] = "uSnowRut[" + i + "]";
+            RUT_UP_AT[i] = "uSnowRutUp[" + i + "]";
         }
     }
     private static volatile float lastMillis;
@@ -455,7 +485,7 @@ final class Pipeline {
     static String describeShadows() {
         int of = heldOf;
         return "of " + of + " chunks the shadow maps hold near " + heldChunks[NEAR_MAP] + " far " + heldChunks[FAR_MAP] + " headlights " + heldChunks[BEAM_MAP]
-                + " roof " + heldChunks[ROOF_MAP];
+                + " roof " + heldChunks[ROOF_MAP] + " torch " + heldChunks[TORCH_MAP];
     }
 
     /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
@@ -953,6 +983,9 @@ final class Pipeline {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
+    /** What Screens.now says of the glass of a set showing a programme. */
+    private static final float[] tube = new float[4];
+
     /**
      * Draws the furniture standing on the chunks the frame shows, each piece from the one copy
      * of its model the graphics card holds, and leaves the frame's own arrays set as it found
@@ -966,9 +999,15 @@ final class Pipeline {
      *                given is drawn whole.
      */
     private static void drawModels(Program program, boolean lit, boolean shaded, ViewCamera.Pose within, float far, float pixel) {
+        if (lit) {
+            Screens.giveBack();
+        }
         boolean any = false;
         int bound = 0;
         int placeAt = 0, footAt = 0, turnAt = 0, litAt = 0, alongAt = 0, downAt = 0, acrossAt = 0, surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0;
+        // Whether the program was last told of a tube showing part of its picture, which the next piece is not.
+        int tubeAt = 0;
+        boolean tubed = false;
         // The piece whose turn, surfaces, dye and picture the program was last told, none yet: a
         // row of one kind of shelf shares all four, and telling the program what it already
         // holds is a call into the driver for nothing.
@@ -1012,6 +1051,8 @@ final class Pipeline {
                         dyeAt = program.at("uDye");
                         pictureAt = program.at("uPicture");
                         texelAt = program.at("uTexel");
+                        tubeAt = program.at("uTube");
+                        GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
                     } else {
                         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
                     }
@@ -1042,6 +1083,20 @@ final class Pipeline {
                     }
                     // A number below zero is one of the mod's own pictures: see Decor.held.
                     int named = whole[ints + Models.Instances.TEXTURE];
+                    boolean live = named < 0 && Screens.live(named);
+                    if (live) {
+                        // The glass of a set showing a programme: which shot it shows and what part of the shot is
+                        // worked out now, and the picture is laid so that the part fills the glass.
+                        named = Screens.now(named, tube);
+                        float of = tube[2];
+                        GL20.glUniform4f(dyeAt, tube[0] + (f[dye] - 0.5f) * of, tube[1] + (f[dye + 1] - 0.5f) * of, f[dye + 2], f[dye + 3]);
+                        GL20.glUniform4f(pictureAt, f[picture] * of, f[picture + 1] * of, f[picture + 2] * of, f[picture + 3] * of);
+                        GL20.glUniform4f(tubeAt, tube[0], tube[1], of, tube[3] == Screens.SNOW ? Screens.SNOW : f[dye + 2]);
+                        tubed = true;
+                    } else if (tubed) {
+                        GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
+                        tubed = false;
+                    }
                     int texture = named == 0 ? whiteTexture : named < 0 ? Decor.texture(named) : named;
                     if (texture != bound) {
                         bound = texture;
@@ -1049,7 +1104,8 @@ final class Pipeline {
                         tellTexel(texelAt, texture);
                     }
                 }
-                toldOf = f;
+                // What a tube was told of its dye and its picture is not what the piece holds: the next piece is told its own.
+                toldOf = tubed ? null : f;
                 told = at;
                 GL11.glDrawElements(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
                         (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES);
@@ -1116,6 +1172,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + BEAM_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, beamed.made() ? beamMap : farDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
+        castTorch(state, figures);
         if (castRoof) {
             castRoof(state);
             roofDrawn = true;
@@ -1198,6 +1255,57 @@ final class Pipeline {
                 resumeCasting();
             }
         }
+    }
+
+    /**
+     * The scene as the torch the viewer carries sees it, so that the beam stops at whatever
+     * stands in it: a wall, a banister, the floor of the landing above, a zombie in a doorway.
+     * Everyone but the viewer is drawn into it: the torch is in the viewer's own hand, and a
+     * map with the viewer's body in it would have the beam light nothing but the viewer.
+     */
+    private static void castTorch(SkyState state, boolean figures) {
+        float[] carried = state.carried;
+        heldChunks[TORCH_MAP] = 0;
+        torchAt[3] = 0f;
+        if (carried[CarriedLight.REACH] <= 0f || carried[CarriedLight.CONE] <= 0f) {
+            return;
+        }
+        float wayX = carried[CarriedLight.WAY], wayY = carried[CarriedLight.WAY + 1], wayUp = carried[CarriedLight.WAY + 2];
+        System.arraycopy(carried, CarriedLight.HELD, torchAt, 0, 3);
+        torchAt[3] = carried[CarriedLight.REACH];
+        torchWay[0] = wayX;
+        torchWay[1] = wayY;
+        torchWay[2] = wayUp;
+        ViewCamera.clean(lamp, torchAt[0], torchAt[1], torchAt[2], (float) Math.atan2(wayY, wayX), (float) Math.asin(Math.clamp(wayUp, -1f, 1f)));
+        float[] seen = viewed, cast = projection;
+        ViewCamera.view(lamp, seen);
+        ViewCamera.projection(TORCH_TAN, 1f, TORCH_NEAR, torchAt[3] + TORCH_PAST_REACH, cast);
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 4; row++) {
+                float sum = 0f;
+                for (int k = 0; k < 4; k++) {
+                    sum += cast[k * 4 + row] * seen[column * 4 + k];
+                }
+                torchMatrix[column * 4 + row] = sum;
+            }
+        }
+        lend(torched, Pipeline::makeTorched);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, torchTarget);
+        GL11.glViewport(0, 0, torchSize, torchSize);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_DEPTH_BUFFER_BIT);
+        shadow.use();
+        shadow.set("uMatrix", torchMatrix);
+        shadow.set("uSunWay", 0f, 0f, 1f);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        ChunkBuffers.Listing held = heldBy(torchMatrix, state, torchListed, TORCH_MAP);
+        drawRanges(held, 0, held.solidRanges());
+        drawModels(shadow, false, false, null, 0f, 0f);
+        if (figures) {
+            Characters.castOthers(torchMatrix);
+            resumeCasting();
+        }
+        GL11.glViewport(0, 0, shadowSize, shadowSize);
     }
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
@@ -1327,7 +1435,7 @@ final class Pipeline {
             rain.set("uAir", state.airX, state.airY);
             rain.set("uRain", state.rain);
             rain.set("uSeated", seated ? 1f : 0f);
-            setBeams(rain);
+            setBeams(rain, TORCH_UNIT);
             // A drop shows the sky it falls through.
             rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
                     1.6f * (float) Math.pow(state.horizonBlue, 2.2));
@@ -1344,7 +1452,7 @@ final class Pipeline {
             snow.set("uAir", state.airX, state.airY);
             snow.set("uSnow", state.snow);
             snow.set("uSeated", seated ? 1f : 0f);
-            setBeams(snow);
+            setBeams(snow, TORCH_UNIT);
             // A flake is lit by the whole sky, and by the sun or the moon when there is one.
             snow.set("uTint", (float) Math.pow(0.5f * (state.horizonRed + state.zenithRed) + 0.35f * state.lightRed, 2.2),
                     (float) Math.pow(0.5f * (state.horizonGreen + state.zenithGreen) + 0.35f * state.lightGreen, 2.2),
@@ -1577,10 +1685,11 @@ final class Pipeline {
         world.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
         world.set("uLid", lid);
         world.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(world);
+        setBeams(world, TORCH_UNIT_IN_WORLD);
         float[] carried = state.carried;
-        world.set("uTorch", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2], carried[CarriedLight.REACH]);
-        world.set("uTorchWay", carried[CarriedLight.WAY], carried[CarriedLight.WAY + 1], carried[CarriedLight.WAY + 2], carried[CarriedLight.CONE]);
+        // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.
+        world.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],
+                carried[CarriedLight.CONE] > 0f ? 0f : carried[CarriedLight.REACH]);
         world.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
         world.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         setFlash(world);
@@ -1597,6 +1706,17 @@ final class Pipeline {
         world.set("uSeconds", state.seconds);
         world.set("uRaining", state.rain);
         world.set("uSnowLying", state.snowLying);
+        // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
+        SnowPrints.placed(camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
+        for (int i = 0; i < snowTrod[0]; i++) {
+            world.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
+        }
+        for (int i = 0; i < snowTrod[1]; i++) {
+            world.set(RUT_AT[i], snowRuts[i * 4], snowRuts[i * 4 + 1], snowRuts[i * 4 + 2], snowRuts[i * 4 + 3]);
+            world.set(RUT_UP_AT[i], snowRutsUp[i]);
+        }
+        world.set("uSnowTrod", snowTrod[0], snowTrod[1]);
+        world.set("uSnowTrodBox", snowTrod[2], snowTrod[3], snowTrod[4], snowTrod[5]);
         world.set("uDark", state.night);
         atmosphere(world, state);
         world.set("uCut", SOLID_CUT);
@@ -1849,7 +1969,7 @@ final class Pipeline {
         volume.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         setBasis(volume, camera);
         volume.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(volume);
+        setBeams(volume, TORCH_UNIT);
         volume.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         volume.set("uMist", state.mist);
         quad();
@@ -2013,7 +2133,7 @@ final class Pipeline {
             figureLight.set("uRangeFrom", rangeFrom);
             setBasis(figureLight, camera);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-            setBeams(figureLight);
+            setBeams(figureLight, TORCH_UNIT);
             figureLight.set("uShines", shadedAndLit ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
@@ -2147,7 +2267,10 @@ final class Pipeline {
             figureLight.set("uGlassPull", GlassPull.leanAhead, GlassPull.leanAside, GlassPull.front, GlassPull.back);
             figureLight.set("uGauges", Ride.roadSpeed, Ride.engineSpeed, Ride.fuel);
             figureLight.set("uTime", state.seconds);
-            figureLight.set("uAhead", Ride.aheadX, Ride.aheadY);
+            float[] axes = VehicleMeshes.seatedAxes;
+            figureLight.set("uBodyAhead", axes[0], axes[1], axes[2]);
+            figureLight.set("uBodyAside", axes[3], axes[4], axes[5]);
+            figureLight.set("uBodyAbove", axes[6], axes[7], axes[8]);
             quad();
             glazed = seated;
             GL11.glDepthFunc(GL_LEQUAL);
@@ -2249,14 +2372,17 @@ final class Pipeline {
         figureLight.set("uTrim", kit[22], kit[23], kit[24], kit[25]);
         figureLight.set("uFittings", kit[26]);
         // The driver's place is laid out round the wheel. Where the body's own wheel
-        // is this frame says where the eye is in it, the head leaning or not.
+        // is this frame, and how the body is tipped, says where the eye is in it, the
+        // head leaning or not.
         float[] at = VehicleMeshes.seatedWheel;
         if (at == null) {
             figureLight.set("uSeat", 0f, 0f, 0f);
         } else {
-            float toX = camera.eyeX - at[0], toY = camera.eyeY - at[1];
-            figureLight.set("uSeat", wheel[0] + (toX * Ride.aheadX + toY * Ride.aheadY) / Cabins.SCALE,
-                    wheel[1] + (toY * Ride.aheadX - toX * Ride.aheadY) / Cabins.SCALE, wheel[2] + (camera.eyeUp - at[2]) / Cabins.SCALE);
+            float[] axes = VehicleMeshes.seatedAxes;
+            float toX = camera.eyeX - at[0], toY = camera.eyeY - at[1], toUp = camera.eyeUp - at[2];
+            figureLight.set("uSeat", wheel[0] + (toX * axes[0] + toY * axes[1] + toUp * axes[2]) / Cabins.SCALE,
+                    wheel[1] + (toX * axes[3] + toY * axes[4] + toUp * axes[5]) / Cabins.SCALE,
+                    wheel[2] + (toX * axes[6] + toY * axes[7] + toUp * axes[8]) / Cabins.SCALE);
         }
         float[] measures = parts != null ? parts.measures : Cabins.STANDARD_MEASURES;
         float[] house = Cabins.house(Ride.seatedIn, measures);
@@ -2371,7 +2497,7 @@ final class Pipeline {
             figureLight.set("uRangeFrom", 0f);
             setBasis(figureLight, pose);
             figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-            setBeams(figureLight);
+            setBeams(figureLight, TORCH_UNIT);
             figureLight.set("uShines", shadedAndLit && !mirror ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
@@ -2445,7 +2571,7 @@ final class Pipeline {
         figureLight.set("uRangeFrom", 0f);
         setBasis(figureLight, inGlass);
         figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(figureLight);
+        setBeams(figureLight, TORCH_UNIT);
         figureLight.set("uShines", shadedAndLit ? 1f : 0f);
         setFlash(figureLight);
         figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
@@ -2631,7 +2757,7 @@ final class Pipeline {
     /** How bright a headlight is beside the sun at 2.1. */
     private static final float BEAM_STRENGTH = 9f;
 
-    private static void setBeams(Program program) {
+    private static void setBeams(Program program, int torchUnit) {
         float[] beams = Headlights.beams;
         for (int i = 0; i < Headlights.BEAMS; i++) {
             int at = i * Headlights.STRIDE;
@@ -2640,6 +2766,16 @@ final class Pipeline {
         }
         program.set("uBeamShadow", BEAM_UNIT);
         program.set("uBeamMatrix", beamMatrix);
+        program.set("uTorchAt", torchAt[0], torchAt[1], torchAt[2], torchAt[3]);
+        program.set("uTorchWay", torchWay[0], torchWay[1], torchWay[2]);
+        // Bound here and not once a frame: no unit is free in every program the torch lights.
+        GL13.glActiveTexture(GL_TEXTURE0 + torchUnit);
+        GL33.glBindSampler(torchUnit, 0);
+        GL11.glBindTexture(GL_TEXTURE_2D, torched.made() ? torchMap : farDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        program.set("uTorchShadow", torchUnit);
+        program.set("uTorchMatrix", torchMatrix);
+        program.set("uTorchTexel", torchSize == 0 ? 0f : 1f / torchSize);
     }
 
     /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
@@ -3194,18 +3330,19 @@ final class Pipeline {
         }
         nearMap = 0;
         giveBack(beamed);
+        giveBack(torched);
     }
 
     /** The three shadow maps every frame draws: near, far and overhead. Null, or what the driver refused. */
     private static String makeShadowMaps() {
         int[] made = new int[2];
-        String near = shadowMap(made);
+        String near = shadowMap(made, shadowSize);
         nearMap = made[0];
         nearTarget = made[1];
-        String far = shadowMap(made);
+        String far = shadowMap(made, shadowSize);
         farMap = made[0];
         farTarget = made[1];
-        String roof = shadowMap(made);
+        String roof = shadowMap(made, shadowSize);
         roofMap = made[0];
         roofTarget = made[1];
         return near != null ? near : far != null ? far : roof;
@@ -3214,11 +3351,23 @@ final class Pipeline {
     /** The headlights' shadow map, for the frames in which a headlight is lit: at High's size it is 64 MB. */
     private static String makeBeamed() {
         int[] made = new int[2];
-        String problem = shadowMap(made);
+        String problem = shadowMap(made, shadowSize);
         beamMap = made[0];
         beamTarget = made[1];
         beamed.textures.add(beamMap);
         beamed.targets.add(beamTarget);
+        return problem;
+    }
+
+    /** The torch's shadow map, for the frames in which the viewer's torch throws a beam: 16 MB at its largest. */
+    private static String makeTorched() {
+        int[] made = new int[2];
+        torchSize = Math.min(shadowSize, TORCH_MAP_MOST);
+        String problem = shadowMap(made, torchSize);
+        torchMap = made[0];
+        torchTarget = made[1];
+        torched.textures.add(torchMap);
+        torched.targets.add(torchTarget);
         return problem;
     }
 
@@ -3265,9 +3414,11 @@ final class Pipeline {
                 Log.info("first person picture: the " + set.what + " given back, unused");
             }
         }
-        if (beamed.made() && frameNanos - beamed.usedNanos > LENT_FOR_NANOS) {
-            giveBack(beamed);
-            Log.info("first person picture: the " + beamed.what + " given back, unused");
+        for (Lent set : new Lent[] {beamed, torched}) {
+            if (set.made() && frameNanos - set.usedNanos > LENT_FOR_NANOS) {
+                giveBack(set);
+                Log.info("first person picture: the " + set.what + " given back, unused");
+            }
         }
         Scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
         HeldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
@@ -3309,10 +3460,10 @@ final class Pipeline {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 
-    private static String shadowMap(int[] made) {
+    private static String shadowMap(int[] made, int size) {
         int map = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, map);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, shadowSize, shadowSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, size, size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
         filter(GL_LINEAR);
         // The texture answers "is this point nearer the light than what the map holds" itself,
         // and blends the four answers around a sample, which is what softens the shadow's edge.

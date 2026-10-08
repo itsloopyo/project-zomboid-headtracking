@@ -120,6 +120,7 @@ While the mouse is turning the first person view, these work differently from th
 - **Clicks** do not act on the doors, switches and containers of the game's own view, and a right click does not open its menu: there is no pointer to use them with while the mouse turns the view. Bring the pointer out for those (see [The pointer](#the-pointer)).
 - **Crouch** keeps your own key if you moved it, and gains `Left Ctrl`.
 - Reload, rack, shove, the weapon slots, the light and interact are on your own bindings, as in the game's own view.
+- **Sound** is heard the way the view faces: what is to your left in the picture is heard on the left, and turning the mouse or your head turns it with the view. The game's own view hears a sound by where it is on the screen, and as the camera flies between the two views what you hear turns with it. In first person the game's sounds are given a camera zoomed all the way in, whatever zoom the game's own view was left at. Where your character hears from is the game's own.
 - `Left Alt` is also the game's default for an attack aimed at the ground, so an attack made with the jog held is aimed down.
 
 None of this is written to your key bindings. The game's own view, a paused game and the options screen all have your bindings as you saved them. If the game's **toggle to aim** option is on, the left mouse button works as it does in the game: set the aim first, then click.
@@ -129,7 +130,7 @@ None of this is written to your key bindings. The game's own view, a paused game
 With a weapon in hand and on foot, first person draws it and the arms that hold it before the eye instead of where the game's animation carries them. The shotgun, the hunting rifle, the scope and the arms and hands described below are the mod's own and are drawn in `Medium` and `High`. In `Low`, which the mod starts in, the game's own weapon and arms are drawn there, and a scope shows no picture of its own.
 
 - **A firearm** sits low and to the right at the hip, pointing at the place the shot will land. Holding the aim brings it up onto your aim as the view narrows. It stays on your aim when you turn your head: look away and it is off to one side, still pointing at the reticle. Your left arm comes with it when the weapon is held in both hands.
-- **A melee weapon** is held up at the lower right. A swing is the game's own attack animation, seen from the eye.
+- **A melee weapon** is held up at the lower right. An attack is drawn for the eye, in time with the game's own: the weapon is drawn back, comes round and lands at the moment the game lands the hit. What it landed on stops it and it springs back, and a miss goes on through. Which attack you see is the one the game chose: a swing across from the right shoulder, one brought down from overhead, one brought up from the hip, one onto something lying on the ground, a thrust with a knife or a spear, and a shove.
 - **The pump action shotgun** has a model of the mod's own, made to be seen from a hand's breadth away: walnut and blued steel, lit by the sun, the sky and the room. After each shot the fore-end is worked back and forward, the bolt opens and the spent shell is thrown out to the right. The sawn-off shotgun and every other weapon are the game's own models, and a scope, recoil pad or choke fitted to the shotgun does not show on it.
 - **The hunting rifle** has a model of the mod's own too: a bolt action sporting rifle with a walnut stock checkered at the grip and the fore-end, a dark fore-end tip, a blued barrel and receiver and open sights. After each shot the bolt is worked: its handle turns up, the bolt comes back, the fired case is thrown out to the right, and the bolt shuts again. A scope fitted to it is drawn on it. A recoil pad or a sling fitted to it does not show.
 - **A rifle scope**: the game's x2, x4 and x8 scopes are drawn as a scope of the mod's own, and you look through it. Its eyepiece shows the world a second time, drawn from the scope's front lens along the scope's own axis, with the reticle in it. The power is counted from your unaided view: through the x8 a thing is eight times as large as it is with nothing aimed. While the sights are up the mouse turns your aim by one over the power, so the reticle crosses what it is on as fast as the crosshair does at the hip. See [Through a scope](#through-a-scope). A red dot and the tritium sights are the game's own models.
@@ -224,7 +225,7 @@ The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture
 
 `LocalSmoothing` applies to a tracker sending from `127.0.0.1` and `RemoteSmoothing` to one sending from any other address, this PC's own network address included. Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.
 
-A flashlight you carry follows your head and not your aim, and turns a little further than the view does. When you turn your head your eyes end up past the center of the screen, so a beam matched to the view alone lands short of what you are looking at.
+A flashlight you carry throws a beam in the mod's view, which stops at whatever stands in it. It follows your head and not your aim, and turns a little further than the view does. When you turn your head your eyes end up past the center of the screen, so a beam matched to the view alone lands short of what you are looking at.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -479,9 +480,9 @@ The mode is shown on the screen and logged each time it changes, as `Aim mode: s
 
 #### Through a scope
 
-A scope shows its whole picture only to an eye on its axis, a fixed distance
-behind the eyepiece. What you see through it depends on where your eye is, as it
-does behind a real one:
+A scope shows its whole picture only to an eye on its axis, behind the
+eyepiece and no further back than a fixed distance. What you see through it
+depends on where your eye is:
 
 - **Sights locked** keeps your eye there. Lean and turn your head as you like:
   the rifle comes with your eye and the picture stays whole. With your head
@@ -489,19 +490,21 @@ does behind a real one:
   your rounds go to.
 - **In free look** the rifle stays put and your head has to be
   behind the scope. To one side of the axis the picture dims and then goes
-  dark. Too near or too far back, a shadow closes in from its edge, from one
-  side first if your head is off to that side as well. What is dark is the
-  inside of the tube.
+  dark. Too far back, a shadow closes in from its edge, from one side first
+  if your head is off to that side as well. What is dark is the inside of the
+  tube.
 - **Stock sights** puts your eye on the axis whenever the sights are up.
 
 A weaker scope forgives more. The picture is whole with your head within about
 3 mm of the axis of the x2, 1 mm of the x4 and a quarter of a millimetre of the
 x8, and gone at 9 mm, 7 mm and 6 mm.
 
-Leaning in does not make the picture larger: a scope's power is fixed. It brings
-the eyepiece nearer and its shadow in, and is stopped where the shadow has
-closed half the width of the picture, about 5 cm in with the x2, 4 cm with the
-x4 and 3 cm with the x8.
+Leaning in brings the eyepiece nearer, and the picture grows with it: it stays
+whole, fills the glass as it did before, and shows what is in it larger. The
+lean is stopped about 5 cm in, just short of the glass, where the picture is a
+little over three times as large as it was. The mouse turns your aim that much
+less, so the reticle still crosses what it is on as fast as it did. No shadow
+closes in for being near.
 
 The reticle is in the same plane as the picture, so moving your eye does not
 move it across the target. In sights locked and in stock sights the game's own reticle
@@ -542,7 +545,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 
 - **The weapon is off to one side when I aim down sights.** Your head is turned: the weapon stays on your aim and you are looking past it. Turn back to it, or move your aim to where you are looking.
 - **I can't see down the sights, they are misaligned.** You are in free look and your head is leaned off them. Move your head back behind them, or press `Insert` / `Ctrl+Shift+U` until the screen says sights locked.
-- **The scope is black, or has a shadow down one side.** You are in free look and your eye is off the scope's axis, or too near or too far behind it. Move your head until the picture is whole, or press `Insert` / `Ctrl+Shift+U` until the screen says sights locked. A kick or a quick turn takes the scope off your eye for a moment in any mode.
+- **The scope is black, or has a shadow down one side.** You are in free look and your eye is off the scope's axis, or too far behind it. Move your head until the picture is whole, or press `Insert` / `Ctrl+Shift+U` until the screen says sights locked. A kick or a quick turn takes the scope off your eye for a moment in any mode.
 - **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` / `Ctrl+Shift+U` for another mode if you want head tracking to carry on through the aim.
 - **I lean round a corner and nobody is there.** The game shows you a zombie only when your character can see it from where it stands, and leaning moves your eye and your weapon, not your character. Step out until your character is past the corner.
 
@@ -592,7 +595,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - [OpenTrack](https://github.com/opentrack/opentrack) - the head tracking software and UDP protocol the mod reads
 - [LWJGL](https://www.lwjgl.org) - the OpenGL and window bindings the game ships, which the first person view draws through
 - [cameraunlock-core](https://github.com/itsloopyo/cameraunlock-core) - the tracker receiver, the pose pipeline, the settings file and the hotkeys, as the `CameraUnlockCore.dll` the mod loads, and the shared installer scripts
-- [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth and the shade of each brick
+- [Hash without Sine](https://www.shadertoy.com/view/4djSRW) by David Hoskins (MIT) - the hash functions behind the grain of skin, hair and cloth, the shade of each brick and the lie of settled snow
 - [glsl-fxaa](https://github.com/mattdesl/glsl-fxaa) (BSD-3-Clause) - the FXAA pass that smooths edges in the first person picture
 - [Stable Diffusion XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) - the model the surface textures and the pictures on walls were generated with, from text prompts alone
 

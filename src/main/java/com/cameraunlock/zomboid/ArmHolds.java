@@ -42,8 +42,12 @@ final class ArmHolds {
     static final float PISTOL_RAKE = (float) Math.toRadians(-6), STOCK_RAKE = (float) Math.toRadians(-15);
     /** How far above the middle of the game's hand, and ahead of it, a pistol is held, in metres. */
     static final float[] PISTOL_HIGHER = {0.006f, 0.004f};
-    /** How far the far end of a handle leans from square to the fingers that hold it, in radians. */
-    static final float HANDLE_SLANT = (float) Math.toRadians(18);
+    /**
+     * How far the far end of a handle leans from square to the fingers that hold it, in radians, at the least
+     * and at the most. It lies the more aslant in the fist the nearer it points along the arm that holds it:
+     * a fist at the end of a straight arm has what it swings lying on from the arm, not square across it.
+     */
+    static final float HANDLE_SLANT = (float) Math.toRadians(18), HANDLE_SLANT_MOST = (float) Math.toRadians(55);
     /**
      * The hand under a fore-end is turned to meet its arm. Its palm faces the fore-end from
      * the side that lays the arm's line flat in it, from under it this much besides, in parts
@@ -53,6 +57,8 @@ final class ArmHolds {
      * in radians.
      */
     static final float PALM_UNDER = 0.6f, PALM_ASIDE = 0.35f, FINGERS_LEAN = (float) Math.toRadians(50);
+    /** How far behind the eye the line is that a body turns about, in metres. */
+    static final float SPINE_BEHIND = 0.1f;
     /** How far down a handle from the right fist the left one is, in metres. */
     static final float LOWER_FIST = 0.095f;
     /** Where the left hand is when it is off the weapon, fetching a round or a magazine: below the picture, in metres from the eye. */
@@ -97,9 +103,10 @@ final class ArmHolds {
      * @param out    how long ago the magazine left the weapon while it is being loaded or unloaded, in seconds, or less than nought if none has
      * @param fetching how long a magazine has been on its way to the weapon, in seconds, or less than nought
      * @param fetchTakes how long the game is taken to be over that, in seconds
+     * @param turned how far the body is turned to the right behind what it swings, in radians: the shoulders go round with it
      */
     record Doing(float aim, boolean both, int action, float cycled, int doing, float done, float round, float pace, float seated,
-            boolean clip, float out, float fetching, float fetchTakes) {}
+            boolean clip, float out, float fetching, float fetchTakes, float turned) {}
 
     /** What the left hand carries to the weapon or away from it: nothing, a magazine, a shotgun's shell or a cartridge. */
     static final int NOTHING = 0, MAGAZINE = 1, SHELL = 2, CARTRIDGE = 3;
@@ -274,8 +281,8 @@ final class ArmHolds {
             return 0;
         }
         ArmPose.cross(axes.ahead, axes.up, axes.right);
-        Hold right = right(model, weapon, axes, doing);
-        if (!solve(model, weapon, scale, right, fromAim, 0, skins, said)) {
+        Hold right = right(model, weapon, axes, doing, fromAim);
+        if (!solve(model, weapon, scale, doing.turned(), right, fromAim, 0, skins, said)) {
             return 0;
         }
         carried.what = NOTHING;
@@ -329,7 +336,7 @@ final class ArmHolds {
             carried.at[15] = 1f;
             carried.what = carries;
         }
-        return solve(model, weapon, scale, left, fromAim, 1, skins, said) ? 2 : 0;
+        return solve(model, weapon, scale, doing.turned(), left, fromAim, 1, skins, said) ? 2 : 0;
     }
 
     /** How long a magazine is, and how far behind where it is pinched a round's base is, in metres. */
@@ -357,7 +364,7 @@ final class ArmHolds {
     }
 
     /** The right hand: on the grip or the handle, and on a rifle's bolt or its lever while that is worked. */
-    private static Hold right(ArmModel model, Weapon weapon, Axes axes, Doing doing) {
+    private static Hold right(ArmModel model, Weapon weapon, Axes axes, Doing doing, float[] fromAim) {
         Hold hold = new Hold(model);
         System.arraycopy(weapon.grip(), 0, hold.at, 0, 3);
         if (weapon.handgun()) {
@@ -368,7 +375,8 @@ final class ArmHolds {
         }
         if (!weapon.firearm()) {
             // A fist holds a handle a little aslant, its far end leaning on towards the fingers.
-            float cos = (float) Math.cos(HANDLE_SLANT), sin = (float) Math.sin(HANDLE_SLANT);
+            float slant = slant(weapon, axes, hold.at, 0, doing.turned(), fromAim);
+            float cos = (float) Math.cos(slant), sin = (float) Math.sin(slant);
             float[] fingers = new float[3];
             ArmPose.cross(axes.ahead, axes.right, fingers);
             for (int axis = 0; axis < 3; axis++) {
@@ -435,7 +443,8 @@ final class ArmHolds {
         Hold hold = null;
         if (doing.both() && !weapon.firearm()) {
             // Something swung in both hands: the left fist is on the handle under the right, the same way round.
-            float cos = (float) Math.cos(HANDLE_SLANT), sin = (float) Math.sin(HANDLE_SLANT);
+            float slant = slant(weapon, axes, axes.at(-LOWER_FIST, 0f, 0f), 1, doing.turned(), fromAim);
+            float cos = (float) Math.cos(slant), sin = (float) Math.sin(slant);
             float[] fingers = new float[3], slanted = new float[3];
             ArmPose.cross(axes.ahead, axes.right, fingers);
             for (int axis = 0; axis < 3; axis++) {
@@ -530,7 +539,7 @@ final class ArmHolds {
     /** Lays the left hand under a fore-end, where the hold is, turned to meet the arm that comes to it from its shoulder. */
     private static void underForeEnd(ArmModel model, Weapon weapon, Axes axes, Hold hold, float[] fromAim) {
         float[] shoulder = new float[3], from = new float[3], arm = new float[3], palm = new float[3], square = new float[3], fingers = new float[3];
-        starts(weapon, 1, axes.scale, fromAim, shoulder, from);
+        starts(weapon, 1, axes.scale, 0f, fromAim, shoulder, from);
         ArmPose.unit(hold.at[0] - shoulder[0], hold.at[1] - shoulder[1], hold.at[2] - shoulder[2], arm);
         // Square to the barrel and to the arm, on the side that is under the fore-end. An arm along the barrel is square to it every way round.
         ArmPose.cross(axes.ahead, arm, palm);
@@ -568,7 +577,7 @@ final class ArmHolds {
      */
     private static void withinReach(ArmModel model, Weapon weapon, Axes axes, Hold hold, float[] fromAim) {
         float[] shoulder = new float[3], from = new float[3], wrist = new float[3];
-        starts(weapon, 1, axes.scale, fromAim, shoulder, from);
+        starts(weapon, 1, axes.scale, 0f, fromAim, shoulder, from);
         if (!ArmPose.wrist(model, axes.scale, hold.weights, hold.at, hold.across, hold.out, from, true, hold.round, wrist)) {
             return;
         }
@@ -590,13 +599,30 @@ final class ArmHolds {
         }
     }
 
+    /** How far aslant a handle lies in the fist that holds it at a place, by how nearly it points along the arm that comes to it there. */
+    private static float slant(Weapon weapon, Axes axes, float[] at, int side, float turned, float[] fromAim) {
+        float[] shoulder = new float[3], from = new float[3], arm = new float[3];
+        starts(weapon, side, axes.scale, turned, fromAim, shoulder, from);
+        if (!ArmPose.unit(at[0] - from[0], at[1] - from[1], at[2] - from[2], arm)) {
+            return HANDLE_SLANT;
+        }
+        return Math.clamp((float) (Math.PI / 2 - Math.acos(Math.clamp(ArmPose.dot(arm, axes.ahead), -1f, 1f))), HANDLE_SLANT, HANDLE_SLANT_MOST);
+    }
+
     /** Where an arm on this weapon starts and where its forearm is to seem to come from, in the view. */
-    private static void starts(Weapon weapon, int side, float scale, float[] fromAim, float[] shoulder, float[] from) {
+    private static void starts(Weapon weapon, int side, float scale, float turned, float[] fromAim, float[] shoulder, float[] from) {
         float sign = side == 1 ? -1f : 1f;
         boolean longGun = weapon.firearm() && !weapon.handgun();
         float[] at = longGun ? LONG_SHOULDERS[side] : new float[] {SHOULDER[0] * sign, SHOULDER[1], SHOULDER[2]};
-        ViewModelMath.place(fromAim, at[0] * scale, at[1] * scale, at[2] * scale, shoulder);
-        ViewModelMath.place(fromAim, FROM[side][0] * scale, FROM[side][1] * scale, FROM[side][2] * scale, from);
+        turnedPlace(at, turned, scale, fromAim, shoulder);
+        turnedPlace(FROM[side], turned, scale, fromAim, from);
+    }
+
+    /** A place of the body's, in metres from the eye, with the body turned to the right about its spine, in the view. */
+    private static void turnedPlace(float[] at, float turned, float scale, float[] fromAim, float[] out) {
+        float cos = (float) Math.cos(turned), sin = (float) Math.sin(turned);
+        float x = at[0], z = at[2] - SPINE_BEHIND;
+        ViewModelMath.place(fromAim, (x * cos - z * sin) * scale, at[1] * scale, (SPINE_BEHIND + x * sin + z * cos) * scale, out);
     }
 
     private static Hold copy(Hold into, Hold from) {
@@ -608,9 +634,9 @@ final class ArmHolds {
         return into;
     }
 
-    private static boolean solve(ArmModel model, Weapon weapon, float scale, Hold hold, float[] fromAim, int side, float[][] skins, float[][] said) {
+    private static boolean solve(ArmModel model, Weapon weapon, float scale, float turned, Hold hold, float[] fromAim, int side, float[][] skins, float[][] said) {
         float[] shoulder = new float[3], from = new float[3];
-        starts(weapon, side, scale, fromAim, shoulder, from);
+        starts(weapon, side, scale, turned, fromAim, shoulder, from);
         return ArmPose.solve(model, scale, hold.weights, hold.at, hold.across, hold.out, shoulder, from, side == 1, hold.round, skins[side], said[side]);
     }
 }

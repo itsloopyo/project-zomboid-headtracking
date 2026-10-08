@@ -13,10 +13,15 @@ package com.cameraunlock.zomboid;
  * firearm the game is not told of the attack button until it has had the aim for
  * FRAMES_TO_BEAR frames, and a click that was let go before then is still passed on, held
  * down for the FRAMES_PRESSED frames the game needs to take it.
+ *
+ * What is swung needs no target found first, only the aim held on the frame before: the
+ * game is told of the attack button from FRAMES_TO_SWING frames after the aim went up, and
+ * a click let go before then is passed on the same way. A click shorter than two of the
+ * game's frames, which at thirty frames a second is any quick one, would else do nothing.
  */
 final class AimInput {
     static final long TAIL_NANOS = 250_000_000L;
-    static final int FRAMES_TO_BEAR = 3, FRAMES_PRESSED = 2;
+    static final int FRAMES_TO_BEAR = 3, FRAMES_TO_SWING = 1, FRAMES_PRESSED = 2;
 
     private boolean tailStarted;
     private long tailEnds;
@@ -64,12 +69,7 @@ final class AimInput {
      * @param firearm    whether what is in hand is a firearm
      */
     boolean attack(boolean attackDown, boolean firearm) {
-        if (!firearm) {
-            owed = false;
-            pressedFrames = 0;
-            return attackDown;
-        }
-        if (aimedFrames < FRAMES_TO_BEAR) {
+        if (aimedFrames < (firearm ? FRAMES_TO_BEAR : FRAMES_TO_SWING)) {
             return false;
         }
         if (owed) {

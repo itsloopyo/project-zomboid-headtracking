@@ -10,6 +10,8 @@ the same name. SHAPED is how many times as wide as it is high a painting that ha
 wall, inside its frame: it is cut to that. LETTERED says what is written on a poster. SEEDS is the seed of each picture not made with 1993.
 """
 
+import shows
+
 NO_TEXT = 'text, letters, words, caption, watermark, signature, logo, frame, border'
 PHOTO_NEGATIVE = NO_TEXT + ', illustration, painting, cartoon, 3d render, deformed, extra fingers, blurry, modern, smartphone'
 PAINT_NEGATIVE = NO_TEXT + ', photograph, 3d render, wall, room, gallery, museum, easel'
@@ -398,3 +400,14 @@ PROGRAMMES = [
 SCREENS = ['screen-%02d' % _i for _i in range(len(PROGRAMMES))]
 for _name, _prompt in zip(SCREENS, PROGRAMMES):
     art(_name, _prompt, SCREEN_NEGATIVE, STOUT)
+
+# The shots of each show a set can tell it is showing (shows.py). SHOTS is each packed picture's name with the art it is
+# cut from: screen-<show>-<n>, and the dozen above again as the show of no one programme, screen-any-<n>.
+# A shot is packed at 640 by 480: it is made at three quarters of the pixels a picture for a wall is.
+TUBE = (1024, 768)
+SHOTS = {'screen-%s-%d' % (shows.ANY, _i): _name for _i, _name in enumerate(SCREENS)}
+for _show, _shots in shows.SHOWS.items():
+    for _i, _prompt in enumerate(_shots):
+        _name = 'screen-%s-%d' % (_show, _i)
+        art(_name, _prompt, SCREEN_NEGATIVE, TUBE)
+        SHOTS[_name] = _name

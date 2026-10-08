@@ -10,11 +10,11 @@ final class ScopeTests {
         pictureIsDrawnWideEnoughForTheWholeField();
         wholeFieldIsLitFromTheExitPupil();
         eyeOffTheAxisLosesThePicture();
-        eyeTooNearSeesATunnel();
+        eyeTooNearKeepsTheWholePicture();
         shadowComesInFromOneSide();
         noPictureIsDrawnForAnEyeThatCannotSeeOne();
         eyeBoxIsMeasuredInTheHeadsOwnMillimetres();
-        leanInStopsWhereHalfTheFieldIsLeft();
+        leanInStopsShortOfTheGlass();
         mouseMovesTheScopesPictureAsFarAsTheHipsView();
         shapeIsWholeAndStandsOnTheRifle();
         eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece();
@@ -66,11 +66,31 @@ final class ScopeTests {
                 "a weaker scope forgives an eye more off its axis");
     }
 
-    private static void eyeTooNearSeesATunnel() {
+    private static void eyeTooNearKeepsTheWholePicture() {
+        for (ScopeOptics.Glass glass : ScopeOptics.KNOWN) {
+            for (float near = 0.02f; near < ScopeOptics.RELIEF; near += 0.01f) {
+                float edge = ScopeOptics.field(near);
+                check(ScopeOptics.lit(glass, 0f, 0f, near, 0f, 0f, 1f) == 1f && ScopeOptics.lit(glass, 0f, 0f, near, edge, 0f, 1f) == 1f,
+                        "the picture of " + glass.part() + " is lit from its middle to its edge with the eye " + near + " behind the glass");
+                check(Math.abs(edge * near - ScopeOptics.FIELD * ScopeOptics.RELIEF) < 1e-6f && edge * near < ScopeOptics.EYE_LENS,
+                        "and fills as much of the glass there as it does from the eye relief");
+            }
+        }
+        check(ScopeOptics.field(ScopeOptics.RELIEF) == ScopeOptics.FIELD && ScopeOptics.field(ScopeOptics.RELIEF + 0.05f) == ScopeOptics.FIELD,
+                "from the eye relief and further back the picture is as wide as the field stop");
         ScopeOptics.Glass glass = ScopeOptics.of("Base.x8Scope");
-        float near = ScopeOptics.RELIEF - 0.045f;
-        check(ScopeOptics.lit(glass, 0f, 0f, near, 0f, 0f, 1f) == 1f, "the middle of the field is lit from too near");
-        check(ScopeOptics.lit(glass, 0f, 0f, near, ScopeOptics.FIELD, 0f, 1f) == 0f, "and its edge is dark");
+        check(ScopeOptics.lit(glass, 0f, 0f, ScopeOptics.RELIEF + 0.045f, ScopeOptics.FIELD, 0f, 1f) == 0f, "too far back the edge of the field is still dark");
+        check(Math.abs(ScopeOptics.grown(0.03f) - 3f) < 1e-5f && Math.abs(ScopeOptics.grown(0.045f) - 2f) < 1e-5f, "a third of the eye relief behind the glass the picture is three times as large, and half of it twice");
+        check(ScopeOptics.grown(0f) == ScopeOptics.grown(-0.01f) && ScopeOptics.grown(0f) == ScopeOptics.RELIEF / ScopeOptics.NEAREST_EYE,
+                "and an eye at the glass or past it is counted as one a millimetre behind it");
+        // To one side of the axis an eye loses what it loses from the eye relief, however near it is.
+        ScopeOptics.Glass weak = ScopeOptics.of("Base.x2Scope");
+        for (float across = 0.001f; across < 0.012f; across += 0.001f) {
+            for (float near = 0.02f; near < ScopeOptics.RELIEF; near += 0.01f) {
+                check(ScopeOptics.lit(weak, across, 0f, near, 0.3f, -0.1f, 1f) == ScopeOptics.lit(weak, across, 0f, ScopeOptics.RELIEF, 0f, 0f, 1f),
+                        "an eye " + across + " off the axis and " + near + " behind the glass sees the picture as bright as from the eye relief");
+            }
+        }
     }
 
     private static void shadowComesInFromOneSide() {
@@ -111,31 +131,32 @@ final class ScopeTests {
                 "and the picture is gone 7 mm of the head off the axis of a scope whose exit pupil is 4 mm");
     }
 
-    private static void leanInStopsWhereHalfTheFieldIsLeft() {
+    private static void leanInStopsShortOfTheGlass() {
+        float drawn = 0.7436f, clear = 0.02f;
+        float stop = ScopeOptics.forwardStop(drawn, clear);
+        check(Math.abs(stop - (ScopeOptics.RELIEF * drawn - clear)) < 1e-6f && stop > 0.04f, "the eye is stopped short of the glass and nowhere sooner: " + stop);
+        float behind = ScopeOptics.RELIEF - stop / drawn;
         for (ScopeOptics.Glass glass : ScopeOptics.KNOWN) {
-            float drawn = 0.7436f, clear = 0.02f;
-            float stop = ScopeOptics.forwardStop(glass, drawn, clear);
-            check(stop > 0f && stop <= ScopeOptics.RELIEF * drawn - clear + 1e-6f, "the eye of " + glass.part() + " is stopped short of the glass");
-            float behind = ScopeOptics.RELIEF - stop / drawn;
-            check(ScopeOptics.lit(glass, 0f, 0f, behind, 0f, 0f, drawn) == 1f, "at the stop the middle of the field is whole");
-            float half = ScopeOptics.lit(glass, 0f, 0f, behind, 0.5f * ScopeOptics.FIELD, 0f, drawn);
-            check(half >= 0.5f - 1e-3f, "and half way out it has half its light or more, not " + half);
+            check(ScopeOptics.lit(glass, 0f, 0f, behind, ScopeOptics.field(behind), 0f, drawn) == 1f, "at the stop the picture of " + glass.part() + " is whole to its edge");
         }
-        check(ScopeOptics.forwardStop(ScopeOptics.of("Base.x8Scope"), 0.7436f, 0.02f) < ScopeOptics.forwardStop(ScopeOptics.of("Base.x2Scope"), 0.7436f, 0.02f),
-                "a stronger scope has the shorter lean in");
+        check(ScopeOptics.forwardStop(0.1f, 0.02f) == 0f, "a scope drawn so small that its eye relief is inside the clearance has no lean in");
     }
 
     private static void mouseMovesTheScopesPictureAsFarAsTheHipsView() {
         float aimed = FieldOfView.AIMED_ZOOM;
-        check(ScopeOptics.turn(null, aimed, aimed) == 1f, "with no scope the mouse is left alone");
+        check(ScopeOptics.turn(null, aimed, aimed, 1f) == 1f, "with no scope the mouse is left alone");
         for (ScopeOptics.Glass glass : ScopeOptics.KNOWN) {
-            check(ScopeOptics.turn(glass, 1f, aimed) == 1f, "at the hip the mouse is left alone");
+            check(ScopeOptics.turn(glass, 1f, aimed, 1f) == 1f, "at the hip the mouse is left alone");
             // A turn of the mouse is made smaller by the zoom already. Behind the scope the
             // picture it aims with is larger than the unaided view by the scope's power.
-            float carried = aimed * ScopeOptics.turn(glass, aimed, aimed) * glass.power();
+            float carried = aimed * ScopeOptics.turn(glass, aimed, aimed, 1f) * glass.power();
             check(Math.abs(carried - 1f) < 1e-5f, "the mouse carries the picture in " + glass.part() + " " + carried + " times as far as the view at the hip");
-            float between = ScopeOptics.turn(glass, 0.5f * (1f + aimed), aimed);
-            check(between < 1f && between > ScopeOptics.turn(glass, aimed, aimed), "and it comes in with the zoom");
+            float between = ScopeOptics.turn(glass, 0.5f * (1f + aimed), aimed, 1f);
+            check(between < 1f && between > ScopeOptics.turn(glass, aimed, aimed, 1f), "and it comes in with the zoom");
+            // Leaned in, the picture is larger again by how near the eye is, and the turn smaller by as much.
+            float near = ScopeOptics.grown(0.03f);
+            carried = aimed * ScopeOptics.turn(glass, aimed, aimed, near) * glass.power() * near;
+            check(Math.abs(carried - 1f) < 1e-5f, "leaned in, the mouse carries the picture in " + glass.part() + " " + carried + " times as far as the view at the hip");
         }
     }
 

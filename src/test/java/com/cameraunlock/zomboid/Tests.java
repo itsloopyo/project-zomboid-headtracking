@@ -64,6 +64,8 @@ public final class Tests {
         gridTraceFindsTheFirstBlockedEdge();
         CabinTests.run();
         GlassPullTests.run();
+        SnowPrintTests.run();
+        TorchLessTests.run();
         AimTests.run();
         ArmTests.run();
         OwnArmTests.run();
@@ -136,6 +138,7 @@ public final class Tests {
         GameFixTests.run();
         MarkTests.run();
         OnlineTests.run();
+        HearingTests.run();
         TailorTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();
         theBuildThatShipsHasNoDevelopmentKeys();
@@ -161,8 +164,13 @@ public final class Tests {
         pumpGoesBackAndComesForwardAgain();
         armTooShortToReachBringsItsShoulderWithIt();
         armWithNoWayForItsElbowToDropHasNone();
-        swingDrawsBackSweepsAcrossAndComesBackToWhereItStarted();
-        swingMovesWithoutAJump();
+        attackStartsAndEndsWhereTheWeaponIsHeld();
+        swingDrawsBackToTheRightAndSweepsAcrossToTheLeft();
+        attackComesInFasterAndFasterUntilItLands();
+        attackMovesWithoutAJump();
+        attackIsShownAFrameBehindAndLandsOnce();
+        attacksHeldOneAfterAnotherEachBegin();
+        attackLetGoOfRunsOnAndOnePausedStandsStill();
         raiseLeavesTheStraightLineOnlyBetweenItsEnds();
         meshSaysWhereItsWristAndElbowAreAndWhatItsSleeveWears();
         ShaderTests.run();
@@ -220,43 +228,161 @@ public final class Tests {
         check(elbow[0] == 7f && shoulder[1] == 0f, "and nothing is changed");
     }
 
-    private static void swingDrawsBackSweepsAcrossAndComesBackToWhereItStarted() {
-        float[] at = new float[6];
-        ViewModelMath.swing(0f, at);
-        for (float part : at) {
-            check(part == 0f, "a swing starts from where the weapon is held");
+    private static final float[] HELD = {1.0f, -0.2f, -0.17f, 0.2f, -0.22f, 0.38f, 0f};
+
+    private static void attackStartsAndEndsWhereTheWeaponIsHeld() {
+        float[] at = new float[ViewModelMath.HOLD];
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.SHOVED; way++) {
+            for (boolean struck : new boolean[] {false, true}) {
+                ViewModelMath.attack(way, 0f, 0f, struck, HELD, at);
+                for (int part = 0; part < ViewModelMath.HOLD; part++) {
+                    check(at[part] == HELD[part], "an attack starts from where the weapon is held");
+                }
+                ViewModelMath.attack(way, 1f, 1f, struck, HELD, at);
+                for (int part = 0; part < ViewModelMath.HOLD; part++) {
+                    check(Math.abs(at[part] - HELD[part]) < 1e-6f, "and ends there");
+                }
+                ViewModelMath.attack(way, 1f, 3f, struck, HELD, at);
+                check(Math.abs(at[1] - HELD[1]) < 1e-6f, "and stays there after");
+            }
         }
-        ViewModelMath.swing(1f, at);
-        for (float part : at) {
-            check(part == 0f, "and ends there");
-        }
-        ViewModelMath.swing(ViewModelMath.SWING_WOUND, at);
-        check(at[1] > 0.3f && at[3] > 0.03f && at[5] > 0.03f, "drawn back it is turned and moved to the right, and towards the viewer");
-        float wasRight = at[3], wasYaw = at[1];
-        for (float progress = ViewModelMath.SWING_WOUND + 0.02f; progress <= ViewModelMath.SWING_SWEPT; progress += 0.02f) {
-            ViewModelMath.swing(progress, at);
-            check(at[3] < wasRight && at[1] < wasYaw, "the sweep goes from right to left all the way");
-            wasRight = at[3];
-            wasYaw = at[1];
-        }
-        ViewModelMath.swing(ViewModelMath.SWING_SWEPT, at);
-        check(at[1] < -1f && at[3] < -0.25f && at[5] < -0.05f, "swept it is turned and moved well to the left, and away from the viewer");
-        check(at[0] < 0f, "with its end brought down");
     }
 
-    private static void swingMovesWithoutAJump() {
-        float[] at = new float[6], before = new float[6];
-        for (int step = 1; step <= 500; step++) {
-            ViewModelMath.swing(step / 500f, at);
-            for (int part = 0; part < 6; part++) {
-                check(Math.abs(at[part] - before[part]) < 0.02f, "no part of a swing moves far in a five-hundredth of it");
-            }
-            System.arraycopy(at, 0, before, 0, 6);
+    private static void swingDrawsBackToTheRightAndSweepsAcrossToTheLeft() {
+        float[] at = new float[ViewModelMath.HOLD];
+        ViewModelMath.attack(ViewModelMath.SWUNG, ViewModelMath.WINDS, 0f, false, HELD, at);
+        check(at[1] > 0.6f && at[3] > HELD[3] && at[5] < HELD[5] && at[6] > 0.3f,
+                "drawn back it is turned and moved to the right and towards the viewer, and the body is turned with it");
+        float wasRight = at[3], woundYaw = at[1], wasTurned = at[6], trailed = at[1];
+        for (float reached = ViewModelMath.WINDS + 0.02f; reached <= 1f; reached += 0.02f) {
+            ViewModelMath.attack(ViewModelMath.SWUNG, reached, 0f, false, HELD, at);
+            check(at[3] < wasRight && at[6] < wasTurned, "the hands and the body come round from right to left all the way to landing");
+            wasRight = at[3];
+            wasTurned = at[6];
+            trailed = Math.max(trailed, at[1]);
         }
-        ViewModelMath.swing(-3f, at);
-        check(at[1] == 0f, "before a swing there is none");
-        ViewModelMath.swing(3f, at);
-        check(at[1] == 0f, "nor after it");
+        float landedYaw = at[1];
+        check(trailed > woundYaw + 0.2f && landedYaw < woundYaw - 1.5f, "the far end trails behind the hands as they start round, and is across to the left as it lands");
+        ViewModelMath.attack(ViewModelMath.SWUNG, 1f, ViewModelMath.FOLLOWS, false, HELD, at);
+        check(at[1] < landedYaw - 0.8f && at[3] < 0f && at[0] < 0f, "landed on nothing it goes on through, well to the left with its end brought down");
+        ViewModelMath.attack(ViewModelMath.SWUNG, 1f, ViewModelMath.SPRINGS, true, HELD, at);
+        check(at[1] > landedYaw && at[3] > 0f, "landed on something it is stopped there and springs back the way it came");
+    }
+
+    private static void attackComesInFasterAndFasterUntilItLands() {
+        float[] at = new float[ViewModelMath.HOLD], before = new float[ViewModelMath.HOLD];
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.SHOVED; way++) {
+            float slow = 0f, fast = 0f;
+            for (int step = 0; step <= 100; step++) {
+                float reached = ViewModelMath.WINDS + (1f - ViewModelMath.WINDS) * step / 100f;
+                ViewModelMath.attack(way, reached, 0f, false, HELD, at);
+                float moved = 0f;
+                for (int part = 0; part < ViewModelMath.HOLD; part++) {
+                    moved += Math.abs(at[part] - before[part]);
+                }
+                if (step >= 1 && step <= 10) {
+                    slow += moved;
+                } else if (step > 90) {
+                    fast += moved;
+                }
+                System.arraycopy(at, 0, before, 0, ViewModelMath.HOLD);
+            }
+            check(fast > slow * 3f, "the last tenth of the way in covers several times what the first does");
+        }
+    }
+
+    private static void attackMovesWithoutAJump() {
+        float[] at = new float[ViewModelMath.HOLD], before = new float[ViewModelMath.HOLD];
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.SHOVED; way++) {
+            for (boolean struck : new boolean[] {false, true}) {
+                System.arraycopy(HELD, 0, before, 0, ViewModelMath.HOLD);
+                for (int step = 1; step <= 2000; step++) {
+                    float reached = Math.min(step / 1000f, 1f), past = Math.max(step / 1000f - 1f, 0f);
+                    ViewModelMath.attack(way, reached, past, struck, HELD, at);
+                    for (int part = 0; part < ViewModelMath.HOLD; part++) {
+                        check(Math.abs(at[part] - before[part]) < 0.04f, "no part of an attack moves far in a thousandth of the way in or the way back");
+                    }
+                    System.arraycopy(at, 0, before, 0, ViewModelMath.HOLD);
+                }
+            }
+        }
+        ViewModelMath.attack(ViewModelMath.SWUNG, -3f, 0f, false, HELD, at);
+        check(at[1] == HELD[1], "before an attack there is none");
+    }
+
+    private static void attackIsShownAFrameBehindAndLandsOnce() {
+        AttackClock clock = new AttackClock();
+        float frame = 1f / 60f;
+        clock.step(false, 0f, 0f, frame);
+        check(clock.reached() == 0f && clock.past() == 0f && !clock.began, "with no attack there is none");
+        clock.step(true, 0.05f, 0.25f, frame);
+        check(clock.began && clock.reached() == 0f, "an attack begins from where the weapon is held");
+        int landings = 0;
+        float shown = 0f;
+        for (float fraction = 0.1f; fraction < 0.99f; fraction += 0.05f) {
+            float before = fraction - 0.05f;
+            clock.step(true, fraction, 0.25f, frame);
+            check(!clock.began, "and begins once");
+            check(Math.abs(clock.reached() - Math.min(before / 0.25f, 1f)) < 1e-4f, "the picture is where the animation was the frame before");
+            if (clock.landed) {
+                landings++;
+                check(before >= 0.25f && before - 0.05f < 0.25f, "it lands on the frame after the animation passed its landing, which is the frame the game lands it");
+            }
+            check(clock.past() >= shown, "and goes one way only");
+            shown = clock.past();
+        }
+        check(landings == 1, "it lands once");
+        check(clock.past() == 1f, "and what was swung is held again before the animation is over");
+    }
+
+    private static void attacksHeldOneAfterAnotherEachBegin() {
+        AttackClock clock = new AttackClock();
+        float frame = 1f / 60f;
+        for (float fraction = 0f; fraction < 0.95f; fraction += 0.1f) {
+            clock.step(true, fraction, 0.25f, frame);
+        }
+        clock.step(true, 0.02f, 0.25f, frame);
+        check(clock.began && clock.reached() == 0f && clock.past() == 0f, "an animation that starts again is a new attack, from the start");
+        clock.step(true, 0.12f, 0.25f, frame);
+        check(!clock.began && !clock.landed && clock.reached() > 0f, "which goes on as the first did");
+        clock.reset();
+        check(clock.reached() == 0f, "and a clock that is reset has no attack");
+        clock.step(true, 0.5f, 0.25f, frame);
+        check(clock.began, "so the next thing it sees is one beginning");
+    }
+
+    private static void attackLetGoOfRunsOnAndOnePausedStandsStill() {
+        AttackClock clock = new AttackClock();
+        float frame = 1f / 60f;
+        clock.step(true, 0f, 0.25f, frame);
+        clock.step(true, 0.1f, 0.25f, frame);
+        clock.step(true, 0.2f, 0.25f, frame);
+        clock.step(true, 0.3f, 0.25f, frame);
+        check(!clock.landed, "the animation is past its landing and the picture is not yet");
+        float before = clock.reached();
+        for (int i = 0; i < 5; i++) {
+            clock.step(true, 0.3f, 0.25f, frame);
+        }
+        check(clock.reached() == before && !clock.landed, "while the game is paused the picture stands still and nothing lands");
+        clock.step(true, 0.4f, 0.25f, frame);
+        check(clock.landed, "and it lands on the frame the game goes on");
+        float past = clock.past();
+        boolean over = false;
+        for (int i = 0; i < 60 && !over; i++) {
+            clock.step(false, 0f, 0f, frame);
+            check(!clock.landed && !clock.began, "let go of, it neither begins nor lands again");
+            over = clock.reached() == 0f;
+            check(over || clock.past() > past, "and runs on at the pace it had");
+            past = clock.past();
+        }
+        check(over, "to its end");
+        clock.step(true, 0f, 0.25f, frame);
+        clock.step(true, 0.1f, 0.25f, frame);
+        clock.step(false, 0f, 0f, frame);
+        for (int i = 0; i < 60; i++) {
+            clock.step(false, 0f, 0f, frame);
+            check(!clock.landed, "an attack let go of before it landed never lands");
+        }
     }
 
     private static void raiseLeavesTheStraightLineOnlyBetweenItsEnds() {
@@ -458,6 +584,41 @@ public final class Tests {
         check(flowered > 500 && bare > 3000, "flowers are on some squares and most have none");
         check(weeds > 300 && weeds < 1500, "a weed grows on about one square in eight");
         check(ferned > 3000 && ferned < 5000, "ferns grow on over half the squares of a wood, and not on all");
+        aFlowerStandsOnAStalk();
+    }
+
+    private static void aFlowerStandsOnAStalk() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        float ground = 0.3f, tall = 0.5f, half = 0.04f;
+        Flora.addFlower(mesh, 10.5f, 20.5f, ground, tall, half, 0.0, Flora.PURPLE, 5, frame);
+        int each = SpriteGeometry.VERTEX_FLOATS;
+        check(mesh.triangles() == 4, "a flower is its head and its stalk, two triangles each");
+        float[] v = mesh.vertices;
+        boolean foot = false, top = false;
+        for (int vertex = 0; vertex < 12; vertex++) {
+            int at = vertex * each;
+            boolean stalk = vertex >= 6;
+            check(Math.floor(v[at + 3] / 2f) == (stalk ? Flora.STALK : Flora.PURPLE), "the head's card says which flower and the stalk's that it is a stalk");
+            check(Math.floor((v[at + 4] + 0.5f) / 2f) == 5f, "and both say the same step of distance to be left out from");
+            check(v[at + 14] == (stalk ? 1f : 0f), "the stalk's card turns to the eye and the head's does not");
+            float sway = (float) Math.sqrt(v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11]) - 1f;
+            if (!stalk) {
+                check(near(sway, 1f), "the head moves whole with the wind");
+                continue;
+            }
+            check(near(Math.abs(v[at + 12]), half * Flora.STALK_CARD), "the stalk's card is narrower than the head");
+            if (v[at + 2] > ground) {
+                top = true;
+                check(v[at] == 10.5f && v[at + 1] == 20.5f && near(v[at + 2], ground + tall) && near(sway, 1f),
+                        "the stalk's top is at the middle of the head and moves with it");
+            } else {
+                foot = true;
+                check(near(v[at], 10.5f + tall * Flora.STALK_LEANS) && v[at + 1] == 20.5f && near(v[at + 2], ground - Flora.STALK_SUNK) && near(sway, 0f),
+                        "its foot is in the ground, a little way off the way the head nods from, and stays put");
+            }
+        }
+        check(foot && top, "a stalk has a foot and a top");
     }
 
     private static void fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner() {
@@ -1933,13 +2094,28 @@ public final class Tests {
         check(!aim.held(false, false, start), "nothing pressed is no aim");
         check(aim.held(true, false, start), "the game's own aim input is passed on");
         // What is in hand is not a firearm, and the game reads its attack button after its aim input.
-        check(aim.held(false, true, start) && aim.attack(true, false), "the attack button holds the aim");
-        check(aim.held(false, false, start + frame), "the aim stays held on the frame after a one frame click");
-        check(aim.held(false, false, start + AimInput.TAIL_NANOS - 1), "and to the end of the tail, across the clock's wrap");
-        check(!aim.held(false, false, start + AimInput.TAIL_NANOS), "and no longer");
+        check(aim.held(false, true, start) && !aim.attack(true, false), "the attack button holds the aim");
+        aim.frame();
+        // The click is passed on over the frames after it, and the tail runs from the last of them.
+        long passed = start;
+        for (int i = 0; i <= AimInput.FRAMES_PRESSED; i++) {
+            passed = start + (i + 1) * frame;
+            check(aim.held(false, false, passed), "the aim stays held on the frames after a one frame click");
+            aim.attack(false, false);
+            aim.frame();
+        }
+        check(aim.held(false, false, passed + AimInput.TAIL_NANOS - 1), "and to the end of the tail, across the clock's wrap");
+        check(!aim.held(false, false, passed + AimInput.TAIL_NANOS), "and no longer");
+        aim = new AimInput();
         aim.held(false, true, start);
         aim.attack(true, false);
+        aim.frame();
         aim.held(false, true, start + 10 * frame);
+        aim.attack(true, false);
+        aim.frame();
+        aim.attack(true, false);
+        aim.frame();
+        aim.attack(true, false);
         check(aim.held(false, false, start + 10 * frame + AimInput.TAIL_NANOS - 1), "the tail runs from the last frame the button was down");
         aim.held(false, true, start);
         aim.reset();
@@ -1997,13 +2173,25 @@ public final class Tests {
         aim.held(true, true, now);
         check(aim.attack(true, true), "with the aim long held a click is an attack at once");
 
-        // Not a firearm: as the button reads.
+        // Not a firearm: the game takes the attack on the frame after the aim went up, and a click of one frame is still passed on.
         aim = new AimInput();
-        aim.held(false, true, now);
-        check(aim.attack(true, false), "what is not a firearm attacks on the frame of the click");
+        check(aim.held(false, true, now) && !aim.attack(true, false), "what is swung is not an attack on the frame of the click, when the game would not take it");
         aim.frame();
-        aim.held(false, false, now + frame);
-        check(!aim.attack(false, false), "and a click of it is not held down after it");
+        for (int i = 0; i < AimInput.FRAMES_PRESSED; i++) {
+            check(aim.held(false, false, now + frame) && aim.attack(false, false), "a click of one frame is passed on the frame after, held down, frame " + i);
+            aim.frame();
+        }
+        check(!aim.attack(false, false), "and is then over");
+        aim = new AimInput();
+        aim.held(true, false, now);
+        aim.frame();
+        aim.held(true, true, now);
+        check(aim.attack(true, false), "with the aim already held a click of what is swung is an attack at once");
+        aim.frame();
+        aim.frame();
+        aim.frame();
+        aim.held(true, true, now);
+        check(aim.attack(true, false), "and the button held down goes on being one");
 
         // A game that is not taking attacks does not have its aim held for good.
         aim = new AimInput();

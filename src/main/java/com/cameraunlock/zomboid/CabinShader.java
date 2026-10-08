@@ -637,9 +637,8 @@ final class CabinShader {
             // sun is on the pad and the pad is pale. The other panes are told by which way
             // the line of sight goes.
             vec4 paneBuilt(vec3 out3) {
-                vec2 side = vec2(-uAhead.y, uAhead.x);
                 float toward = uDash.x < 0.0 ? -1.0 : 1.0;
-                vec3 d = vec3(dot(out3.xy, uAhead), dot(out3.xy, side) * toward, out3.z);
+                vec3 d = inCabin(out3) * vec3(1.0, toward, 1.0);
                 vec3 o = vec3(uSeat.x, (uSeat.y - uWheel.y) * toward, uSeat.z);
                 float mid = abs(uDash.x);
                 // A pane at the side stands just outside the roll of its door's top, and
@@ -663,12 +662,12 @@ final class CabinShader {
                 }
                 gPaneFar = reach;
                 gScreenHalf = widths().x * CABIN;
-                vec4 glass = pane(vec2((hit.y - mid) * CABIN, high * CABIN - 0.3), vec3(uAhead * face.x, face.z), -out3, 1.0);
+                vec4 glass = pane(vec2((hit.y - mid) * CABIN, high * CABIN - 0.3), fromCabin(vec3(face.x, 0.0, face.z)), -out3, 1.0);
                 float day = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
                 vec3 thrown = reflect(d, face);
                 vec3 land = hit + thrown * ((padTop - hit.z) / min(thrown.z, -0.01));
                 if (land.x > padFrom() - 0.03 && land.x < uScreen.x + 0.1) {
-                    vec3 sunWay = vec3(dot(uLight.xy, uAhead), dot(uLight.xy, side) * toward, uLight.z);
+                    vec3 sunWay = inCabin(uLight) * vec3(1.0, toward, 1.0);
                     vec3 pad = (pow(uDashColor, vec3(2.2)) * 0.92 + 0.014)
                             * (skyFrom(0.8) * (1.2 * day) + pow(uLightColor, vec3(2.2)) * (1.9 * sunInside(land + vec3(0.0, 0.0, 0.03), sunWay) * max(sunWay.z, 0.0)));
                     float veil = 0.7 * (0.04 + 0.96 * pow(clamp(1.0 + leaving, 0.0, 1.0), 5.0));

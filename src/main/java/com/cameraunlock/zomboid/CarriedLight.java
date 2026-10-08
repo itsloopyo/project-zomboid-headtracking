@@ -3,14 +3,17 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import zombie.characters.IsoPlayer;
 import zombie.inventory.InventoryItem;
+import zombie.iso.IsoWorld;
 
 /**
  * The light the character carries, as the picture needs it: where it is held, the way it
  * shines and how far it reaches. The game lights whole squares with it, by where they lie on
  * the ground and nothing else, and a square lit like that is lit from top to bottom from no
- * side: a wood in a torch's cone looks as it does at noon. The picture takes what a square
- * has over the open ground's own light as having come from here, and gives it the shape of
- * a beam.
+ * side: a wood in a torch's cone looks as it does at noon. A torch that throws a beam is
+ * thrown by the picture itself, from here, past whatever stands in it, and the game's light
+ * for the squares is read without it (TorchLess). Of a light that throws none, a lantern,
+ * the picture takes what a square has over the open ground's own light as having come from
+ * here.
  *
  * The game's logic thread gathers it before it builds a picture's scene, and the scene keeps
  * that gathering whole for the render thread.
@@ -46,6 +49,7 @@ final class CarriedLight {
         found[WAY + 1] = wayY;
         found[WAY + 2] = wayUp;
         light = found;
+        TorchLess.gather(IsoWorld.instance.currentCell, player, found[CONE] > 0f ? found[REACH] : 0f);
     }
 
     static String describe() {

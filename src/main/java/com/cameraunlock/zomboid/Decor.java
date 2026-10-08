@@ -227,11 +227,27 @@ final class Decor {
                 }
             }
         }
+        Screens.letGo();
+    }
+
+    /** Render thread: gives one picture back to the graphics card. What shows it next reads it again. */
+    static void forget(int picture) {
+        synchronized (Decor.class) {
+            if (textures[picture] != 0) {
+                GL11.glDeleteTextures(textures[picture]);
+                textures[picture] = 0;
+                Pipeline.forgetTexels();
+            }
+            if (waiting[picture] != null) {
+                waiting[picture].memory.free();
+                waiting[picture] = null;
+            }
+        }
     }
 
     /** The texture of the picture a piece carries as held left it, made the first time it is drawn. On the render thread. */
     static int texture(int held) {
-        int picture = Screens.live(held) ? Screens.now(held) : -1 - held;
+        int picture = -1 - held;
         synchronized (Decor.class) {
             if (textures[picture] == 0 || waiting[picture] != null) {
                 Read read = waiting[picture];

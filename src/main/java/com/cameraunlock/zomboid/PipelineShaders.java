@@ -11,12 +11,53 @@ package com.cameraunlock.zomboid;
 final class PipelineShaders {
     private PipelineShaders() {}
 
-    /** The headlights that are on, for every shader they light: the world, the figures, the air and the rain. */
+    /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
     private static final String BEAMS = """
             uniform vec4 uBeamAt[2];
             uniform vec3 uBeamWay[2];
             uniform sampler2DShadow uBeamShadow;
             uniform mat4 uBeamMatrix;
+            // Where the viewer's torch is held and how far it reaches, 0 when none throws a
+            // beam, the way it points, and the scene as the torch sees it.
+            uniform vec4 uTorchAt;
+            uniform vec3 uTorchWay;
+            uniform sampler2DShadow uTorchShadow;
+            uniform mat4 uTorchMatrix;
+            uniform float uTorchTexel;
+
+            // How bright the torch makes what the middle of its beam is on at arm's length.
+            const float TORCH_GIVES = 1.6;
+
+            // What the torch gives p: a hot middle and a dim spill round it, less with the
+            // square of the distance, and nothing past what stands in the beam. The game
+            // lights whole squares with a torch, by where they lie on the ground of the
+            // level the character is on: none of that is in the picture (see TorchLess).
+            float torchAt(vec3 p, out vec3 dir) {
+                vec3 to = p - uTorchAt.xyz;
+                float far2 = dot(to, to);
+                dir = to * inversesqrt(max(far2, 0.0001));
+                float within = dot(dir, uTorchWay);
+                float far = sqrt(far2);
+                // The torch is in the viewer's hand, and what the same arms hold beside it,
+                // a weapon, the other hand, is not in the beam, whichever way it points, but
+                // in a little that comes back off the room: the beam itself begins past them.
+                float cone = mix(0.12, 0.14 * smoothstep(0.55, 0.8, within) + 0.86 * smoothstep(0.8, 0.965, within), smoothstep(0.3, 0.7, far));
+                float given = cone / (1.0 + 0.035 * far2) * (1.0 - smoothstep(uTorchAt.w, uTorchAt.w + 3.0, far));
+                if (given <= 0.0) {
+                    return 0.0;
+                }
+                // Asked a little way back towards the torch: a surface is not in its own shadow.
+                // The map takes in more than the cone, so what the cone lights is in front of
+                // it, and what is beside the hand is not asked of it at all.
+                vec4 c = uTorchMatrix * vec4(p - dir * 0.06, 1.0);
+                if (far < 0.7 || c.w <= 0.0) {
+                    return given;
+                }
+                vec3 s = c.xyz / c.w * 0.5 + 0.5;
+                float e = 1.5 * uTorchTexel;
+                return given * 0.25 * (shadow2D(uTorchShadow, s + vec3(e, e, 0.0)).r + shadow2D(uTorchShadow, s + vec3(-e, e, 0.0)).r
+                        + shadow2D(uTorchShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uTorchShadow, s + vec3(-e, -e, 0.0)).r);
+            }
 
             // How much of the nearest vehicle's headlights reaches p past what stands in the
             // beam, from a picture of the scene drawn from the lamps.
@@ -68,6 +109,11 @@ final class PipelineShaders {
                         float given = beamAt(i, p, dir);
                         sum += vec3(1.0, 0.92, 0.76) * (given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
                     }
+                }
+                if (uTorchAt.w > 0.0) {
+                    vec3 dir;
+                    float given = torchAt(p, dir);
+                    sum += vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * given * mix(0.12 + 0.88 * max(dot(n, -dir), 0.0), 0.7, leafy));
                 }
                 return sum;
             }
@@ -352,7 +398,7 @@ final class PipelineShaders {
             """;
 
     /**
-     * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF and
+     * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF, SnowShader.GLSL and
      * WORLD_FRAGMENT_MAIN on after it: as one constant the shader is longer than a class file can hold.
      *
      * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
@@ -380,6 +426,9 @@ final class PipelineShaders {
             uniform float uFogEnd;
             uniform vec3 uLoaded;
             uniform float uSeconds;
+            // For the glass of a set that is on: where across and down its picture the middle of the glass
+            // is and how much of the picture the glass shows, and 1 for a tube with no colour, 2 for snow.
+            uniform vec4 uTube;
             uniform float uCut;
             uniform vec2 uTexel;
             uniform vec4 uTint;
@@ -429,8 +478,6 @@ final class PipelineShaders {
             }
 
             const float RELIEF = 0.05;
-            // How bright a carried torch makes what its beam is on at arm's length, against what the game gives the square.
-            const float TORCH_GIVES = 1.6;
             // A leaf of a crown: what it has of the crown's sun when turned edge on to it, and what more
             // when turned full to it; how much of the sun on its back shows through, and how
             // much more of it looking straight towards the sun; and how smooth its skin is.
@@ -464,8 +511,7 @@ final class PipelineShaders {
             }
             uniform float uRaining;
             uniform float uDark;
-            uniform vec4 uTorch;
-            uniform vec4 uTorchWay;
+            uniform vec4 uLantern;
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             """ + BEAMS + MuzzleFlash.GLSL + """
@@ -1664,21 +1710,38 @@ final class PipelineShaders {
                                 texel = vec4(own * (0.75 + 0.25 * smoothstep(0.0, 0.07, off)) * (0.9 + 0.1 * sin((q.y - off * 0.3) * 38.0)), 1.0);
                             }
                         } else {
-                            // A flower: petals round a heart. They are small, and from far off
-                            // would be specks that come and go, so with distance fewer are
-                            // drawn. Which are left out is told by where each stands.
-                            if ((length(uEye - vWorld) - uRangeFrom) > 9.0 + 5.0 * grain(floor(vWorld.xy * 3.0))) {
+                            // A flower: petals round a heart, on a stalk. They are small, and
+                            // from far off would be specks that come and go, so with distance
+                            // fewer are drawn. Which step of it a flower is left out from, head
+                            // and stalk together, its card's coordinate up says, in the twos
+                            // above the 0 to 1 it runs over: Flora.FLOWER_THINNINGS of them.
+                            float thinned = floor((vUv.y + 0.5) / 2.0);
+                            q.y = clamp(vUv.y - 2.0 * thinned, 0.0, 1.0);
+                            if ((length(uEye - vWorld) - uRangeFrom) > 9.0 + 5.0 * (thinned + 0.5) / 8.0) {
                                 discard;
                             }
-                            vec2 c = (q - 0.5) * 2.0;
-                            float r = length(c);
-                            bool yellow = pick > 0.5 && pick < 1.5;
-                            if (r > 0.55 + 0.45 * abs(cos(atan(c.y, c.x) * (yellow ? 5.0 : 3.0)))) {
-                                discard;
+                            if (pick > 2.5) {
+                                // The stalk is the middle quarter of its card, and never finer
+                                // than a pixel: finer, it would be a row of dashes.
+                                float off = abs(q.x - 0.5) * 2.0;
+                                float thick = max(0.25, 0.6 * fwidth(off));
+                                if (off > thick) {
+                                    discard;
+                                }
+                                // Round, so darker to either side.
+                                float side = off / thick;
+                                texel = vec4(vec3(0.24, 0.4, 0.13) * (1.0 - 0.3 * side * side), 1.0);
+                            } else {
+                                vec2 c = (q - 0.5) * 2.0;
+                                float r = length(c);
+                                bool yellow = pick > 0.5 && pick < 1.5;
+                                if (r > 0.55 + 0.45 * abs(cos(atan(c.y, c.x) * (yellow ? 5.0 : 3.0)))) {
+                                    discard;
+                                }
+                                vec3 own = pick < 0.5 ? vec3(0.95, 0.95, 0.9) : yellow ? vec3(0.95, 0.8, 0.12) : vec3(0.55, 0.38, 0.8);
+                                vec3 heart = yellow ? vec3(0.9, 0.6, 0.05) : vec3(0.95, 0.78, 0.15);
+                                texel = vec4(mix(heart, own * (0.85 + 0.15 * r), smoothstep(0.22, 0.3, r)), 1.0);
                             }
-                            vec3 own = pick < 0.5 ? vec3(0.95, 0.95, 0.9) : yellow ? vec3(0.95, 0.8, 0.12) : vec3(0.55, 0.38, 0.8);
-                            vec3 heart = yellow ? vec3(0.9, 0.6, 0.05) : vec3(0.95, 0.78, 0.15);
-                            texel = vec4(mix(heart, own * (0.85 + 0.15 * r), smoothstep(0.22, 0.3, r)), 1.0);
                         }
                     }
                     small = false;
@@ -2198,6 +2261,60 @@ final class PipelineShaders {
                     vec3 body = mix(vec3(0.16, 0.3, 0.33), bed, smoothstep(0.3, 1.0, bank) * 0.85);
                     texel.rgb = mix(body, vec3(0.95), foam) / 0.74;
                 }
+                bool card = !water && vKind > 1.5;
+                float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
+                // How much of the sky's light gets to the place. Under trees it is thinned and
+                // green, not gone. A crown is the leaves the sky is seen through, not something under them.
+                float skyOver = open > 0.5 && range < 40.0 && !crown ? mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range)) : 1.0;
+                // Snow that has settled. It lies on whatever is under the open sky and faces up:
+                // the ground, a roof, the top of a wall or a car, and it is a surface of its
+                // own there, with a shape and a depth: see SnowShader. It comes in patches that
+                // spread and join as more of it lies, and goes the same way. Grass stands up
+                // through thin snow and is buried by deep, and a crown carries a dusting on
+                // what of it faces the sky.
+                float snowed = 0.0;
+                // How much ground a pixel covers here: what is finer than that is not drawn.
+                float snowFoot = max(length(dFdx(vPlace.xy)), length(dFdy(vPlace.xy)));
+                if (uSnowLying > 0.0 && open > 0.5 && !water && !model) {
+                    // Less of it gets under a tree or the eaves of a house than falls in the open.
+                    snowShelter = (1.0 - skyOver) / 0.62;
+                    if (strip || grass) {
+                        // A blade stands in the snow to the snow's depth and is white that far
+                        // up. What shows over the snow is winter grass, bleached by the frost,
+                        // with snow caught on a blade here and there.
+                        float lies = snowCover(vPlace.xy, snowFoot);
+                        float depth = lies * (0.15 + 0.6 * uSnowLying);
+                        float buried = (1.0 - smoothstep(depth - 0.1, depth + 0.1, bladeUp)) * min(lies * 4.0, 1.0);
+                        float caught = lies * uSnowLying * smoothstep(0.55, 0.8, snowNoise(vPlace.xy * 14.0, vec2(840.0), 12.0).x) * snowDrawn(snowFoot, 14.0);
+                        texel.rgb = mix(texel.rgb, vec3(1.15, 1.05, 0.8) * dot(texel.rgb, vec3(0.299, 0.587, 0.114)), 0.6 * lies);
+                        snowed = clamp(max(buried, 0.85 * caught), 0.0, 1.0);
+                        texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                    } else if (crown || core) {
+                        // More of it on a leaf that lies open to the sky than on one that hangs.
+                        snowed = snowCover(vPlace.xy, snowFoot) * smoothstep(0.35, 0.8, n.z) * (crown ? mix(0.3, 0.9, smoothstep(0.2, 0.75, leafFace.z)) : 0.55);
+                        texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                    } else if (!card) {
+                        // The way the surface itself faces: what it is made of has bent n by now, a stone at a time.
+                        vec3 level = normalize(vNormal);
+                        if (dot(level, view) < 0.0) {
+                            level = -level;
+                        }
+                        // Over grass and rough ground snow lies in lumps, over a road or a roof nearly smooth.
+                        float most = max(texel.r, max(texel.g, texel.b));
+                        float lumpy = 1.0 + 1.4 * smoothstep(0.1, 0.3, (texel.g - max(texel.r, texel.b)) / max(most, 0.001));
+                        vec2 lain = vPlace.xy;
+                        if (uRelief > 0.5 && level.z > 0.9) {
+                            lain += snowSunk(lain, view, lumpy, 1.0 - smoothstep(6.0, 10.0, range));
+                        }
+                        float up = smoothstep(0.35, 0.8, level.z);
+                        snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
+                        // The ground just clear of the lip is wet from it, and dark.
+                        texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
+                        // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
+                        n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
+                        grit *= 1.0 - snowed;
+                    }
+                }
                 // A sprite is paint on a flat sheet. Its light and dark say where the thing it
                 // shows stands proud and where it is sunk, the mortar between bricks, the gaps
                 // between boards, the blades of grass, so the sheet is lit as if it were
@@ -2205,7 +2322,7 @@ final class PipelineShaders {
                 // a wall or a lawn stops being a photograph of one. It fades with distance,
                 // where it would only shimmer.
                 // Less of it where relieve has tilted the surface by its real height.
-                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear);
+                float relief = water || grass || crown ? 0.0 : RELIEF * (1.0 - smoothstep(14.0, 38.0, range)) * (1.0 - 0.6 * timbered) * (1.0 - 0.75 * reliefNear) * (1.0 - snowed);
                 // A boulder's faces are flat only because it is built of few of them: the rock's
                 // own cracks and ledges stand out of each far more than paint does from a wall.
                 if (vMaterial > 58.5 && vMaterial < 59.5) {
@@ -2223,9 +2340,11 @@ final class PipelineShaders {
                         n = normalize(n - slope * (relief * min(1.0, 0.7 / max(steep, 1e-4))));
                     }
                 }
-                bool card = !water && vKind > 1.5;
-                float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 float facing = clamp(dot(n, uLight), 0.0, 1.0);
+                if (snowed > 0.0 && !card) {
+                    // Snow lets the sun a little way in and passes it round: a slope of it turned from the sun goes dim by degrees and not at a line.
+                    facing = mix(facing, clamp((dot(n, uLight) + 0.25) / 1.25, 0.0, 1.0), snowed);
+                }
                 // How much sun a leaf of a crown passes from its far side to the one seen.
                 float leafBehind = 0.0;
                 if (crown) {
@@ -2299,11 +2418,7 @@ final class PipelineShaders {
                     // A leaf turned up has more of the sky on it than one turned down.
                     fromSky *= 0.88 + 0.16 * leafFace.z;
                 }
-                // A crown is the leaves the sky is seen through, not something under them.
-                if (open > 0.5 && range < 40.0 && !crown) {
-                    // Under trees the sky's light is thinned and green, not gone.
-                    fromSky *= mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(25.0, 40.0, range));
-                }
+                fromSky *= skyOver;
                 if (model) {
                     // The game's light for a square comes from no direction, and a sprite needs
                     // none: its shading is painted on. A model lit the same from every side is
@@ -2314,28 +2429,27 @@ final class PipelineShaders {
                 }
                 vec3 given = pow(vColor.rgb, vec3(2.2));
                 vec3 held = vec3(0.0);
-                if (uTorch.w > 0.0 && (open > 0.5 || uDaylightKept < 1.0)) {
-                    // A torch the character carries. The game lights every square in its cone
-                    // by where the square lies on the ground, the same from the grass to the
-                    // top of a tree and from no side, and lit as the sky lights it a wood at
-                    // midnight is a wood at noon. What a square within the torch's reach has
-                    // over the open ground's own light came from the torch: it falls from the
-                    // hand, on what the beam is turned to and on the side that faces it, less
-                    // with distance, and a little spills round the beam. A lantern has no beam.
-                    float within = 1.0 - smoothstep(uTorch.w, uTorch.w + 3.0, length(vWorld.xy - uTorch.xy));
+                if (uLantern.w > 0.0 && (open > 0.5 || uDaylightKept < 1.0)) {
+                    // A light the character carries that throws no beam: a lantern, a candle.
+                    // The game lights every square round it by where the square lies on the
+                    // ground, the same from the grass to the top of a tree and from no side,
+                    // and lit as the sky lights it a wood at midnight is a wood at noon. What
+                    // a square within the light's reach has over the open ground's own light
+                    // came from it: it falls from the hand, on the side that faces it, less
+                    // with distance. A torch that throws a beam is not this: see torchAt.
+                    float within = 1.0 - smoothstep(uLantern.w, uLantern.w + 3.0, length(vWorld.xy - uLantern.xy));
                     vec3 over = open > 0.5 ? max(given - pow(uOpenLight, vec3(2.2)), 0.0) * within : vec3(0.0);
                     // In the evening and before dawn the game still has every square at full
-                    // daylight, in the beam and out of it, and the picture has taken that
-                    // daylight down (see Evening): nothing is left over for the torch to be
-                    // read from. By as much as the daylight is held back, the torch lights
-                    // whatever is within its reach, with nothing known of what stands in its way.
+                    // daylight, in the light and out of it, and the picture has taken that
+                    // daylight down (see Evening): nothing is left over for the lantern to be
+                    // read from. By as much as the daylight is held back, it lights whatever
+                    // is within its reach, with nothing known of what stands in its way.
                     vec3 lit = max(over, vec3((1.0 - uDaylightKept) * within));
-                    vec3 to = vWorld - uTorch.xyz;
+                    vec3 to = vWorld - uLantern.xyz;
                     float far2 = dot(to, to);
                     vec3 dir = to * inversesqrt(max(far2, 0.0001));
-                    float beam = mix(1.0, 0.1 + 0.9 * smoothstep(0.62, 0.95, dot(dir, uTorchWay.xyz)), uTorchWay.w);
                     float turned = card ? 0.75 : 0.2 + 0.8 * max(dot(n, -dir), 0.0);
-                    held = lit * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * beam * turned / (1.0 + 0.035 * far2));
+                    held = lit * vec3(1.0, 0.93, 0.8) * (TORCH_GIVES * turned / (1.0 + 0.035 * far2));
                     given -= over;
                 }
                 // The game holds its daylight at full until dusk, when the picture's sun is
@@ -2347,23 +2461,6 @@ final class PipelineShaders {
                 // wall turned from the sun is lit by the street in front of it, and without
                 // that the shaded side of every building is a flat dark slab.
                 lightHere += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - abs(n.z)) * open);
-                // Snow that has settled. It lies on whatever is under the open sky and faces up:
-                // the ground, a roof, the top of a wall or a car. It comes in patches that
-                // spread and join as more of it lies, and goes the same way. Grass stands up
-                // through thin snow and is buried by deep, and a crown carries a dusting on
-                // what of it faces the sky.
-                if (uSnowLying > 0.0 && open > 0.5 && !water && !model) {
-                    float patchy = patches(vWorld.xy * 0.7) * 0.6 + patches(vWorld.xy * 3.1 + 9.0) * 0.4;
-                    float lies = smoothstep(patchy - 0.2, patchy + 0.2, uSnowLying * 1.4 - 0.2) * smoothstep(0.35, 0.8, n.z);
-                    if (strip || grass) {
-                        lies *= 0.35 + 0.65 * uSnowLying - 0.3 * bladeUp * (1.0 - uSnowLying);
-                    } else if (crown || core) {
-                        lies *= 0.55;
-                    } else if (card) {
-                        lies = 0.0;
-                    }
-                    texel.rgb = mix(texel.rgb, vec3(0.9, 0.92, 0.96) * (0.94 + 0.06 * grain(floor(vWorld.xy * 40.0))), clamp(lies, 0.0, 1.0));
-                }
                 vec3 color = pow(texel.rgb, vec3(2.2)) * lightHere;
                 if (card) {
                     // A leaf lets the sun through. Looked at against the light, foliage and
@@ -2409,7 +2506,9 @@ final class PipelineShaders {
                 // Water, and ground that rain has wetted, show the sky: little of it looking
                 // straight down, nearly all of it at a glancing angle, and the sun as a streak
                 // of light. Wet ground is darker than dry, and holds the most water where it
-                // pools.
+                // pools, which is in a hollow here and there and not over a third of a street.
+                // Snow that lies has no water standing on it: it is wet only where the ground
+                // shows through.
                 float shine = 0.0;
                 float ripple = 0.0;
                 if (water) {
@@ -2417,10 +2516,11 @@ final class PipelineShaders {
                     ripple = 0.05;
                     color *= 0.55;
                 } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
-                    float pool = smoothstep(0.52, 0.7, patches(vWorld.xy * 0.45));
-                    shine = uWet * (0.22 + 0.78 * pool);
+                    float bare = uWet * (1.0 - snowed);
+                    float pool = smoothstep(0.66, 0.8, patches(vWorld.xy * 0.45));
+                    shine = bare * (0.1 + 0.7 * pool);
                     ripple = 0.012 * pool;
-                    color *= 1.0 - 0.3 * uWet;
+                    color *= 1.0 - 0.3 * bare;
                 }
                 vec2 rings = vec2(0.0);
                 if (uRaining > 0.0 && shine > 0.0 && range < 30.0) {
@@ -2462,8 +2562,14 @@ final class PipelineShaders {
                         mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06
                                 : surface > 15.5 && surface < 16.5 && !pictured ? 0.9 : 0.04;
                     }
+                    // Snow is pale and nearly as dull as anything is: taken for pale paint, a field of it had a sheen.
+                    rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
+                    if (snowed > 0.0 && uLight.z > 0.0) {
+                        // And it glitters: see snowGlints.
+                        color += pow(uLightColor, vec3(2.2)) * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
+                    }
                 }
                 color += pow(texel.rgb, vec3(2.2)) * beams(vWorld, n, card ? 1.0 : 0.0);
                 color += pow(texel.rgb, vec3(2.2)) * flashLight(vWorld, n);
@@ -2479,8 +2585,25 @@ final class PipelineShaders {
                 }
                 // A set that is on is seen by the light of its own tube, by day and in the dark
                 // alike, and the room's light on its glass is next to nothing beside it.
+                // What a set shows is a tube's picture: lines across it, a band of hum rolling up it, no colour
+                // on a set that has none, and snow where what comes in is interference. glass is the place on
+                // the glass, where vUv is the place on the part of the picture the glass shows.
+                vec2 glass = (vUv - uTube.xy) / uTube.z + 0.5;
+                float lineWide = fwidth(glass.y) * 240.0;
                 if (showing) {
-                    color = 0.1 * color + pow(texel.rgb, vec3(2.2)) * 1.2;
+                    vec3 tube = texel.rgb;
+                    if (uTube.w > 1.5) {
+                        vec2 speck = floor(glass * vec2(213.0, 160.0)) + mod(floor(uSeconds * 30.0), 64.0) * vec2(17.0, 29.0);
+                        float snow = fract(sin(dot(speck, vec2(12.9898, 78.233))) * 43758.5453);
+                        tube = vec3(0.08 + 0.8 * snow * snow);
+                    } else if (uTube.w > 0.5) {
+                        tube = vec3(dot(tube, vec3(0.299, 0.587, 0.114)));
+                    }
+                    // The lines are left out where they are finer than the pixels that would show them.
+                    float lines = 0.5 + 0.5 * cos(glass.y * 480.0 * 3.14159265);
+                    tube *= 1.0 - 0.24 * lines * clamp(1.0 - 1.6 * lineWide, 0.0, 1.0);
+                    tube *= 1.0 + 0.05 * sin((glass.y * 1.3 - uSeconds * 0.6) * 6.2831853);
+                    color = 0.1 * color + pow(tube, vec3(2.2)) * 1.2;
                 }
                 if (grit > 0.0 && sun > 0.0) {
                     // Grit glints: each stone has a face or two that throws the sun at the eye.
@@ -2761,6 +2884,9 @@ final class PipelineShaders {
                         lit += beamAt(i, vWorld, dir);
                     }
                 }
+                if (uTorchAt.w > 0.0) {
+                    lit += TORCH_GIVES * torchAt(vWorld, dir);
+                }
                 gl_FragColor = vec4(uTint + vec3(1.0, 0.94, 0.82) * (lit * 1.6), body * open * 0.9);
             }
             """;
@@ -2794,6 +2920,9 @@ final class PipelineShaders {
                     if (uBeamAt[i].w > 0.0) {
                         lit += beamAt(i, vWorld, dir);
                     }
+                }
+                if (uTorchAt.w > 0.0) {
+                    lit += TORCH_GIVES * torchAt(vWorld, dir);
                 }
                 gl_FragColor = vec4(uTint + vec3(1.0, 0.92, 0.76) * (lit * 1.4), body * open * 0.55);
             }
@@ -3086,6 +3215,10 @@ final class PipelineShaders {
                             beamed += beamInAir(b, p.xyz);
                         }
                     }
+                    if (uTorchAt.w > 0.0) {
+                        vec3 dir;
+                        beamed += TORCH_GIVES * torchAt(p.xyz, dir);
+                    }
                 }
                 float along = length(ray);
                 float mu = max(dot(ray / along, uLight), 0.0);
@@ -3219,9 +3352,24 @@ final class PipelineShaders {
             uniform float uRaining;
             uniform float uTime;
             """ + BEAMS + MuzzleFlash.GLSL + """
-            uniform vec2 uAhead;
+            // The vehicle sat in as its body is drawn this frame, in the world: the way it
+            // faces, the side to the left of that and its own up. On its springs it tips
+            // and rolls, and what the picture builds in it tips and rolls with the body.
+            uniform vec3 uBodyAhead;
+            uniform vec3 uBodyAside;
+            uniform vec3 uBodyAbove;
             uniform sampler2D uRepainted;
             uniform float uWriteNear;
+
+            // A way in the world as the vehicle sat in has it, along it, across it and up
+            // it, and such a way back in the world.
+            vec3 inCabin(vec3 v) {
+                return vec3(dot(v, uBodyAhead), dot(v, uBodyAside), dot(v, uBodyAbove));
+            }
+
+            vec3 fromCabin(vec3 v) {
+                return uBodyAhead * v.x + uBodyAside * v.y + uBodyAbove * v.z;
+            }
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
@@ -3707,13 +3855,13 @@ final class PipelineShaders {
             // The pane a line of sight from the seat leaves the cabin by, told by which way
             // the line goes: the screens lean back and the side windows stand nearly upright.
             vec4 paneSeen(vec3 out3) {
-                vec2 side = vec2(-uAhead.y, uAhead.x);
-                float along = dot(out3.xy, uAhead), across = dot(out3.xy, side);
+                vec3 line = inCabin(out3);
+                float along = line.x, across = line.y;
                 bool ends = abs(along) > abs(across);
-                vec3 faces = ends ? normalize(vec3(-sign(along) * uAhead, 0.75)) : normalize(vec3(-sign(across) * side, 0.12));
+                vec3 faces = fromCabin(ends ? normalize(vec3(-sign(along), 0.0, 0.75)) : normalize(vec3(0.0, -sign(across), 0.12)));
                 float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
-                vec3 to = out3 * reach;
-                return pane(vec2(ends ? dot(to.xy, side) : dot(to.xy, uAhead) + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+                vec3 to = line * reach;
+                return pane(vec2(ends ? to.y : to.x + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
             }
 
             vec4 paneBuilt(vec3 out3);
@@ -3803,8 +3951,7 @@ final class PipelineShaders {
             vec3 behindAt(vec2 on) {
                 vec3 seen = texture2D(uBehind, on).rgb;
                 if (seen.r < -0.5) {
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    seen = atmosphere(normalize(vec3(-uAhead + side * ((0.5 - on.x) * 0.6), (on.y - 0.5) * 0.17 + 0.02)));
+                    seen = atmosphere(normalize(fromCabin(vec3(-1.0, (0.5 - on.x) * 0.6, (on.y - 0.5) * 0.17 + 0.02))));
                 }
                 // One pixel of the small picture gone wrong would be a spark in the glass.
                 return min(max(seen, vec3(0.0)), vec3(6.0)) * 0.82;
@@ -3955,8 +4102,7 @@ final class PipelineShaders {
                 bool traced = uInside > 0.5 && uWheel.w > 0.0 && uGlassPass < 0.5;
                 if (traced) {
                     vec3 d = normalize(ray);
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
+                    vec3 line = inCabin(d);
                     vec3 rise = cross(uWheelAxis, vec3(0.0, 1.0, 0.0));
                     vec3 middle = uWheel.xyz + uWheelAxis * 0.25 + rise * 0.106;
                     float towards = dot(line, uWheelAxis);
@@ -4033,8 +4179,7 @@ final class PipelineShaders {
                 vec3 wheelFaces = vec3(0.0);
                 if (traced) {
                     vec3 d = normalize(ray);
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    vec3 line = vec3(dot(d.xy, uAhead), dot(d.xy, side), d.z);
+                    vec3 line = inCabin(d);
                     float t = 0.05;
                     float most = cabinReach(uSeat, line) * CABIN;
                     gSteered = vec2(cos(uSteer), sin(uSteer));
@@ -4086,7 +4231,7 @@ final class PipelineShaders {
                             slope += e * wheelAt(p + e);
                         }
                         slope = normalize(slope);
-                        wheelFaces = vec3(uAhead * slope.x + side * slope.y, slope.z);
+                        wheelFaces = fromCabin(slope);
                         wheelFar = t;
                         wheelPlace = p;
                         wheelPart = met;
@@ -4111,7 +4256,7 @@ final class PipelineShaders {
                     }
                     if (uGlassPass > 0.5) {
                         vec3 out3 = normalize(ray);
-                        if (!open && kind < 3.5 || out3.z < -0.3 && open) {
+                        if (!open && kind < 3.5 || inCabin(out3).z < -0.3 && open) {
                             discard;
                         }
                         gl_FragColor = paneBuilt(out3);
@@ -4149,7 +4294,7 @@ final class PipelineShaders {
                     // From a seat the vehicle is all round the eye, so where the game drew
                     // none of it above the sills there is an opening with a pane in it.
                     vec3 out3 = normalize(ray);
-                    if (uGlassPass < 0.5 || out3.z < -0.3) {
+                    if (uGlassPass < 0.5 || inCabin(out3).z < -0.3) {
                         discard;
                     }
                     gl_FragColor = paneSeen(out3);
@@ -4221,8 +4366,7 @@ final class PipelineShaders {
                 }
                 bool ghost = false;
                 if (dial) {
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    n = -vec3(uAhead * uWheelAxis.x + side * uWheelAxis.y, uWheelAxis.z);
+                    n = -fromCabin(uWheelAxis);
                     close = 1.0;
                     figure = vec4(dialRight < -1.5 ? litFace(dialAt, dialGlow) : dialRight < -0.5 ? stripFace(dialAt, dialGlow) : dialFace(dialAt, dialRight, dialGlow), 1.0);
                 } else if (wheel) {
@@ -4234,7 +4378,7 @@ final class PipelineShaders {
                     // round one drawn over it. Where it shows it is painted out as the dark
                     // of the footwell behind it.
                     vec3 to = at - uEye;
-                    vec3 q = uSeat + vec3(dot(to.xy, uAhead), dot(to.xy, vec2(-uAhead.y, uAhead.x)), to.z) / CABIN - uWheel.xyz;
+                    vec3 q = uSeat + inCabin(to) / CABIN - uWheel.xyz;
                     float deep = dot(q, uWheelAxis);
                     float outward = length(q - uWheelAxis * deep);
                     ghost = abs(deep) < 0.07 && outward > uWheel.w - 0.07 && outward < uWheel.w + 0.07 && outward > uWheel.w * uKit.x - 0.1;
@@ -4274,9 +4418,8 @@ final class PipelineShaders {
                     // them, fixed to the vehicle: grained vinyl on the dash, the doors and the
                     // wheel, woven cloth on the seats.
                     vec3 to = (at - uEye) / CABIN;
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    vec3 local = uSeat + vec3(dot(to.xy, uAhead), dot(to.xy, side), to.z);
-                    vec3 faces = abs(vec3(dot(n.xy, uAhead), dot(n.xy, side), n.z));
+                    vec3 local = uSeat + inCabin(to);
+                    vec3 faces = abs(inCabin(n));
                     vec2 lie = faces.z > faces.x && faces.z > faces.y ? local.xy : faces.x > faces.y ? local.yz : local.xz;
                     float most = max(figure.r, max(figure.g, figure.b)), least = min(figure.r, min(figure.g, figure.b));
                     // Pale parts are painted metal, the pillars and the door tops, and have no grain.
@@ -4325,7 +4468,7 @@ final class PipelineShaders {
                         }
                         // The floor and the sills are trimmed like the dash where they are
                         // dark. The pillars and the roof stay as they are.
-                        float low = uParted.x > 0.5 ? step(local.z, uScreen.y - 0.02) : step(at.z, uEye.z - 0.06);
+                        float low = uParted.x > 0.5 ? step(local.z, uScreen.y - 0.02) : step(dot(at - uEye, uBodyAbove), -0.06);
                         figure.rgb = mix(figure.rgb, uDashColor * (0.35 + most * 3.2), (1.0 - woven) * dark * 0.6 * low);
                         grained = mix(0.9 * dark, 0.45, woven);
                     }
@@ -4426,7 +4569,7 @@ final class PipelineShaders {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && !builtCabin && (uHavePanes > 0.5 || at.z > uEye.z - 0.23) && !wheel && !dial && !bonnetSeen) {
+                if (cabin > 0.5 && !builtCabin && (uHavePanes > 0.5 || dot(at - uEye, uBodyAbove) > -0.23) && !wheel && !dial && !bonnetSeen) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.
@@ -4467,11 +4610,10 @@ final class PipelineShaders {
                         // The glass itself, over the world seen through it: the sky it mirrors,
                         // more at a glancing angle, and the dust and dried rain on it, which
                         // stay put on the pane as the car moves.
-                        vec3 to = (at - uEye) / CABIN;
-                        vec2 side = vec2(-uAhead.y, uAhead.x);
-                        float along = dot(to.xy, uAhead);
-                        bool ends = abs(dot(n.xy, uAhead)) > abs(dot(n.xy, side));
-                        gl_FragColor = pane(vec2(ends ? dot(to.xy, side) : along + 7.0, to.z), n, view, ends && along > 0.0 ? 1.0 : 0.0);
+                        vec3 to = inCabin(at - uEye) / CABIN;
+                        vec3 faces = inCabin(n);
+                        bool ends = abs(faces.x) > abs(faces.y);
+                        gl_FragColor = pane(vec2(ends ? to.y : to.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
                         gl_FragDepth = 0.0;
                         return;
                     }
@@ -4503,21 +4645,19 @@ final class PipelineShaders {
                         }
                     }
                     vec3 to = (at - uEye) / CABIN;
-                    vec2 side = vec2(-uAhead.y, uAhead.x);
-                    vec3 place = uSeat + vec3(dot(to.xy, uAhead), dot(to.xy, side), to.z);
-                    vec3 turned = vec3(dot(n.xy, uAhead), dot(n.xy, side), n.z);
+                    vec3 place = uSeat + inCabin(to);
+                    vec3 turned = inCabin(n);
                     float shade = 1.0;
                     if (wheel) {
                         // What stands close before a built part keeps the light off it.
-                        vec3 out3 = vec3(dot(wheelFaces.xy, uAhead), dot(wheelFaces.xy, side), wheelFaces.z);
+                        vec3 out3 = inCabin(wheelFaces);
                         shade = 0.4;
                         for (int probe = 0; probe < 2; probe++) {
                             float off = probe == 0 ? 0.025 : 0.08;
                             shade += 0.3 * clamp(wheelAt(wheelPlace + out3 * off) / off, 0.0, 1.0);
                         }
                     }
-                    color = cabinLit(place, turned, vec3(dot(view.xy, uAhead), dot(view.xy, side), view.z), pow(figure.rgb, vec3(2.2)), sheen, skyGives, sunOut, shade,
-                            sunLight, vec3(dot(uLight.xy, uAhead), dot(uLight.xy, side), uLight.z));
+                    color = cabinLit(place, turned, inCabin(view), pow(figure.rgb, vec3(2.2)), sheen, skyGives, sunOut, shade, sunLight, inCabin(uLight));
                     if (uDome > 0.0) {
                         color += (pow(figure.rgb, vec3(2.2)) * 0.92 + 0.014) * domeLit(place, turned) * shade + domeLamp(place, wheel ? wheelPart : 0.0);
                     }
@@ -4566,7 +4706,7 @@ final class PipelineShaders {
                 if (roofed > 0.5 && uInstruments > 0.0) {
                     // With the engine running the instruments are lit, and in the dark their
                     // green light is on the wheel, the dash round them and the driver's knees.
-                    vec3 dials = uEye + vec3(uAhead * 0.62, -0.46) * CABIN;
+                    vec3 dials = uEye + fromCabin(vec3(0.62, 0.0, -0.46)) * CABIN;
                     vec3 to = dials - at;
                     float far2 = dot(to, to);
                     float given = 0.022 / (0.009 + far2) * (0.25 + 0.75 * max(dot(n, to * inversesqrt(max(far2, 0.0001))), 0.0));

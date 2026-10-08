@@ -15,6 +15,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
+import zombie.iso.weather.ClimateManager;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
@@ -290,6 +291,7 @@ public final class FirstPerson {
      */
     public static void leftSave(Object state) {
         try {
+            SnowPrints.forget();
             on = false;
             gettingReady = false;
             outOfSave = true;
@@ -310,6 +312,7 @@ public final class FirstPerson {
             ViewModel.rest();
             Crosshair.hide();
             NameTags.lookAway();
+            Hearing.rest();
             Flight.cut(false);
             if (pictureUp) {
                 pictureUp = false;
@@ -376,9 +379,12 @@ public final class FirstPerson {
         Controls.frame();
         try {
             frame();
+            IsoPlayer player = IsoPlayer.getInstance();
+            if (player != null && GameTime.isGamePaused()) {
+                Hearing.whilePaused(player);
+            }
             // After the picture, which would cover it.
             String shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
-            IsoPlayer player = IsoPlayer.getInstance();
             if (shown != null && player != null) {
                 int index = player.getIndex();
                 TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
@@ -401,6 +407,7 @@ public final class FirstPerson {
             on = false;
             overhead = false;
             Flight.cut(false);
+            Hearing.rest();
         }
         if (TRACE) {
             paceBuiltBytes += Allocation.byThisThread() - before;
@@ -452,6 +459,7 @@ public final class FirstPerson {
         }
         IsoPlayer player = IsoPlayer.getInstance();
         rideAlong(player);
+        tread(player);
         if ((on || !Flight.home()) && !allowed(player)) {
             if (on) {
                 Log.info("first person off: " + whyNot(player));
@@ -504,6 +512,7 @@ public final class FirstPerson {
         MouseGrab.kept = active && pointer.on();
         ModelHead.sayGap();
         NameTags.sayGap();
+        Hearing.sayGap();
         fromTheEye = landed;
         if (!flown) {
             FieldOfView.rest();
@@ -511,6 +520,7 @@ public final class FirstPerson {
             ViewModel.rest();
             Crosshair.hide();
             NameTags.lookAway();
+            Hearing.rest();
             if (MouseGrab.applied || MouseGrab.keeping) {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
@@ -584,6 +594,7 @@ public final class FirstPerson {
         WorldScene scene = WorldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, FieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            Hearing.face(trackedView, 0f, 1f);
         } else {
             fly(player, scene, floorUp);
         }
@@ -618,6 +629,7 @@ public final class FirstPerson {
         aimOverhead(player, floorUp);
         Flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
                 cleanView, trackedView, yaw, pitch, FieldOfView.tanHalfVertical(), flightView);
+        Hearing.face(flightView, -OVERHEAD_PITCH * (1f - Flight.share()), Flight.share());
         if (Flight.away() > OWN_FROM) {
             standingView.set(flightView);
             standingView.eyeX = eye[0];
@@ -631,6 +643,40 @@ public final class FirstPerson {
             scene.build(player, flightView, aimView, Flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
         }
         scene.mixed(Flight.shown());
+    }
+
+    private static int treadSaid;
+    private static float treadUp;
+
+    /**
+     * Says where the player walks or drives, for lying snow to show the marks of it: see
+     * SnowPrints. Only while snow lies, or the next fall would come down already trodden, and
+     * only out of doors, or pacing a room would use up the marks kept from the street.
+     */
+    private static void tread(IsoPlayer player) {
+        if (player == null || ClimateManager.getInstance().getSnowFracNow() <= 0f) {
+            SnowPrints.forget();
+            return;
+        }
+        // The square is asked of the map by where the walker or the vehicle is: someone seated in a vehicle is on no square of their own.
+        BaseVehicle vehicle = player.getVehicle();
+        float x = vehicle == null ? player.getX() : vehicle.getX(), y = vehicle == null ? player.getY() : vehicle.getY();
+        IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(player.getZ()));
+        if (player.isDead() || square == null || !square.isOutside()) {
+            SnowPrints.lifted();
+        } else {
+            treadUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(x, y, player.getZ());
+            float floorUp = treadUp;
+            if (vehicle == null) {
+                SnowPrints.walked(x, y, floorUp);
+            } else {
+                SnowPrints.drove(x, y, floorUp);
+            }
+        }
+        if (TRACE && (treadSaid++ & 255) == 0) {
+            Log.info("snow marks: " + SnowPrints.said() + (square == null ? ", on no square" : square.isOutside() ? ", out of doors" : ", indoors")
+                    + (vehicle == null ? ", on foot" : ", in a vehicle") + String.format(Locale.ROOT, " at (%.2f, %.2f) on ground %.3f up, level %.3f", x, y, treadUp, player.getZ()));
+        }
     }
 
     /**

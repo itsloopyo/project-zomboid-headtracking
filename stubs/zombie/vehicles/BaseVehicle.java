@@ -11,6 +11,7 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public String getScriptName() { throw new UnsupportedOperationException("reference stub"); }
     public float getY() { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getForwardVector(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
+    public Vector3f getUpVector(Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public int getSeat(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
     public Vector3f getPassengerWorldPos(int seat, Vector3f out) { throw new UnsupportedOperationException("reference stub"); }
     public void repair() { throw new UnsupportedOperationException("reference stub"); }

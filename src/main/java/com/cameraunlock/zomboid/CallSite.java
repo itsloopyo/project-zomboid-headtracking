@@ -56,7 +56,8 @@ final class CallSite {
     /**
      * Has each of the {@code expected} calls to {@code call} inside {@code within}, which is
      * made on an object, go to the static method {@code hook} instead. The hook takes that
-     * object and then what the call took, and returns what the call returned.
+     * object and then what the call took, and returns what the call returned. A call made on
+     * no object goes to a hook that takes what it took.
      */
     static byte[] replaceEach(byte[] classBytes, Method within, Method call, Method hook, int expected) {
         int[] matches = {0};

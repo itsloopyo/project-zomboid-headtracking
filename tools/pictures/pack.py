@@ -6,9 +6,8 @@ Each picture catalogue.py hangs somewhere is cut to its shape, lettered where it
 larger than it is worth at the size it hangs, and saved as src/main/resources/pictures/<name>.jpg. With --partial the
 pictures not made yet are left out, and the sprites that would show them keep the game's own painting.
 
-What a television shows (catalogue.SCREENS) is cut four wide for three high, and saved again in black and white as
-screen-grey-NN for a set with no colour. The bars a set shows with nothing coming in, screen-bars and
-screen-grey-bars, are drawn here.
+What a television shows (catalogue.SHOTS) is cut four wide for three high. The bars a set shows with nothing coming
+in, screen-bars and for a set with no colour screen-grey-bars, are drawn here.
 
 The lettering is set in fonts of this machine's Windows (Impact and Georgia). Only the letters' shapes as
 drawn go into a picture.
@@ -30,6 +29,8 @@ SMALL = 768
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
 # A television's picture, in pixels: more than a tube of 1993 could show.
 SCREEN = (640, 480)
+# A tube's picture is soft and is seen through its lines: it is kept smaller in the jar than a print on a wall.
+SCREEN_QUALITY = 78
 
 
 def font(name, size):
@@ -158,12 +159,10 @@ def screens(folder):
     full, most = 255, 191
     shown = {'screen-bars': bars([(most, most, most), (most, most, 0), (0, most, most), (0, most, 0), (most, 0, most), (most, 0, 0), (0, 0, most)], 4)}
     shown['screen-grey-bars'] = bars([(tone, tone, tone) for tone in (full, most, 128, 64, 0)], 4)
-    for name in catalogue.SCREENS:
-        art = made(folder, name)
+    for name, source in catalogue.SHOTS.items():
+        art = made(folder, source)
         if art is not None:
-            still = cut(art, SCREEN[0] / SCREEN[1]).resize(SCREEN, Image.LANCZOS)
-            shown[name] = still
-            shown[name.replace('screen-', 'screen-grey-')] = still.convert('L').convert('RGB')
+            shown[name] = cut(art, SCREEN[0] / SCREEN[1]).resize(SCREEN, Image.LANCZOS)
     return shown
 
 
@@ -210,9 +209,9 @@ def main():
         total += (OUT / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
     shown = screens(folder)
-    missing += [name for name in catalogue.SCREENS if name not in shown]
+    missing += [name for name in catalogue.SHOTS if name not in shown]
     for name, image in shown.items():
-        image.save(OUT / f'{name}.jpg', quality=QUALITY)
+        image.save(OUT / f'{name}.jpg', quality=SCREEN_QUALITY)
         total += (OUT / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
     if missing and not partial:

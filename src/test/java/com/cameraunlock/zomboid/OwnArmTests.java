@@ -73,7 +73,7 @@ final class OwnArmTests {
     }
 
     private static ArmHolds.Doing holding(float raised) {
-        return new ArmHolds.Doing(raised, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        return new ArmHolds.Doing(raised, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
     }
 
     /** Whether a place, with `clear` metres round it, is out of the picture of an eye that looks the way the aim does: behind the eye, or past an edge of the picture. */
@@ -325,8 +325,8 @@ final class OwnArmTests {
         ArmHolds.Carried carried = new ArmHolds.Carried();
         ArmHolds.Settled settled = new ArmHolds.Settled();
         settled.seconds = 0.02f;
-        ArmHolds.Doing ready = new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
-        ArmHolds.Doing loading = new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 0.5f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        ArmHolds.Doing ready = new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
+        ArmHolds.Doing loading = new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 0.5f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, gun, ready, SAME, skins, said, carried, settled) == 2, "a gun held ready is placed");
         float[] on = {said[1][ArmPose.WRIST], said[1][ArmPose.WRIST + 1], said[1][ArmPose.WRIST + 2]};
         check(ArmHolds.place(model, SCALE, gun, loading, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "and the same gun being loaded");
@@ -352,9 +352,9 @@ final class OwnArmTests {
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] handle = model.holds[model.pose("handle")];
-        check(ArmHolds.place(model, SCALE, bat, new ArmHolds.Doing(0f, false, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 1,
+        check(ArmHolds.place(model, SCALE, bat, new ArmHolds.Doing(0f, false, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 1,
                 "something swung in one hand has one arm");
-        check(ArmHolds.place(model, SCALE, bat, new ArmHolds.Doing(0f, true, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2,
+        check(ArmHolds.place(model, SCALE, bat, new ArmHolds.Doing(0f, true, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2,
                 "and in both hands, two");
         float[] right = placed(skins[0], model.wrist, handle), left = placed(skins[1], model.wrist, handle);
         check(ArmPose.apart(right, grip) < 1e-4f, "the right fist is where it is held");
@@ -398,12 +398,12 @@ final class OwnArmTests {
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] grip = model.holds[model.pose("grip")], pinch = model.holds[model.pose("knob")];
-        ArmHolds.Doing held = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        ArmHolds.Doing held = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, held, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "a rifle held in both hands has both arms");
         check(ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "with the right hand on its grip");
         // Half way through working the bolt it is drawn right back, with its handle turned up.
         float back = ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR / 2f;
-        ArmHolds.Doing working = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        ArmHolds.Doing working = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, working, SAME, skins, said, carried, new ArmHolds.Settled()) == 2, "while its bolt is worked it still has both");
         ArmHolds.Parts parts = rifle.parts();
         float turned = parts.lift(), right = parts.knob()[2], up = parts.knob()[1] - parts.bore();
@@ -412,11 +412,11 @@ final class OwnArmTests {
             rifle.grip()[2] - (parts.knob()[0] - parts.travel()) * SCALE};
         check(ArmPose.apart(placed(skins[0], model.wrist, pinch), knob) < 1e-4f, "and the right hand is on the knob, where the knob then is: up and back");
         check(knob[1] > rifle.grip()[1] + parts.knob()[1] * SCALE && knob[2] > rifle.grip()[2], "which is higher than it rests and nearer the eye");
-        ArmHolds.Doing over = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR + ArmActs.BOLT_LEFT_IN + 0.01f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        ArmHolds.Doing over = new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, ArmActs.BOLT_AFTER + OwnRifle.WORKED_FOR + ArmActs.BOLT_LEFT_IN + 0.01f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, over, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "when the bolt is shut the hand is back on the grip");
         // A pump's action is the other hand's: the right stays where it is.
-        ArmHolds.Doing pumped = new ArmHolds.Doing(0f, true, ArmActs.PUMP, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f);
+        ArmHolds.Doing pumped = new ArmHolds.Doing(0f, true, ArmActs.PUMP, back, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, rifle, pumped, SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && ArmPose.apart(placed(skins[0], model.wrist, grip), rifle.grip()) < 1e-4f, "a pump gun's right hand never leaves its grip");
     }
@@ -425,33 +425,33 @@ final class OwnArmTests {
         ArmHolds.Weapon pistol = weapon(true);
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 1
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 1
                 && carried.what == ArmHolds.NOTHING, "a pistol held in one hand has one arm, carrying nothing");
         // A pistol with nothing in it, being loaded: a magazine has been on its way for a tenth of a second, then for longer than the game was taken to take.
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "while it is loaded the left hand comes to it with a magazine");
         float[] well = pistol.parts().well(), magazine = model.holds[model.pose("magazine")];
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 5f, 0f, 1f, -1f, false, -1f, 5f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 5f, 0f, 1f, -1f, false, -1f, 5f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "which it still has however long the game takes over it");
         float[] under = {pistol.grip()[0] + well[2] * SCALE, pistol.grip()[1] + (well[1] - ArmActs.MAGAZINE_DRAWN) * SCALE, pistol.grip()[2] - well[0] * SCALE};
         check(ArmPose.apart(placed(skins[1], model.wrist, magazine), under) < 1e-3f, "held under the well");
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, 0.15f, true, -1f, -1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, 0.15f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.NOTHING, "once the game has loaded it the magazine is in the pistol");
         float[] at = {pistol.grip()[0] + well[2] * SCALE, pistol.grip()[1] + well[1] * SCALE, pistol.grip()[2] - well[0] * SCALE};
         check(ArmPose.apart(placed(skins[1], model.wrist, magazine), at) < 1e-3f, "the hand then at the well it went into");
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 1, "and gone again when that is over");
         // A pistol with a magazine in it, being unloaded: the hand goes to the magazine, and has it once the game says it is out.
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.UNLOADING, 0.4f, 0f, 1f, -1f, true, -1f, -1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.UNLOADING, 0.4f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.NOTHING, "to unload it the left hand comes with nothing");
         check(ArmPose.apart(placed(skins[1], model.wrist, magazine), at) < 1e-3f, "and takes hold of the magazine where it is, in the well");
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.UNLOADING, 0.6f, 0f, 1f, -1f, false, 0.2f, -1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.UNLOADING, 0.6f, 0f, 1f, -1f, false, 0.2f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.MAGAZINE, "and goes off with it when the game says it is out");
         check(placed(skins[1], model.wrist, magazine)[1] < at[1] - 0.05f, "downwards");
-        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.RACKING, 0.3f, 0f, 1f, -1f, true, -1f, -1f, 2f), SAME, skins, said,
+        check(ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.RACKING, 0.3f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f), SAME, skins, said,
                 carried, new ArmHolds.Settled()) == 2 && carried.what == ArmHolds.NOTHING, "it comes empty to draw the slide back");
         // The magazine stands in the fist the size it is.
-        ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled());
+        ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled());
         float long3 = (float) Math.sqrt(carried.at[4] * carried.at[4] + carried.at[5] * carried.at[5] + carried.at[6] * carried.at[6]);
         check(near(long3, SCALE, 1e-4f), "and is drawn the size the arm is");
     }
@@ -461,18 +461,18 @@ final class OwnArmTests {
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Carried carried = new ArmHolds.Carried();
         float[] fore = model.holds[model.pose("fore")];
-        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
+        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd()) < 1e-4f, "a pump gun held ready has the left hand under its fore-end");
-        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.3f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
+        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.3f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && carried.what == ArmHolds.SHELL, "being loaded, the left hand carries a shell");
         float away = ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd());
         check(away > 0.05f, "and is off the fore-end");
-        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.8f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
+        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.LOADING, 1f, 0.8f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && carried.what == ArmHolds.NOTHING, "the shell is in the gun once it has been pushed in");
-        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.LOADING, 1f, 0.3f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
+        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.LOADING, 1f, 0.3f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && carried.what == ArmHolds.CARTRIDGE, "a rifle loaded round by round is fed cartridges");
         // Racking a pump is done by the hand that is on the fore-end, where it is.
-        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.RACKING, 0.2f, 0f, 1f, -1f, false, -1f, -1f, 2f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
+        check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.RACKING, 0.2f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && ArmPose.apart(placed(skins[1], model.wrist, fore), gun.foreEnd()) < 1e-4f, "to rack it the left hand stays under the fore-end");
     }
 

@@ -17,6 +17,8 @@ final class CabinTests {
         passengersSitWhereTheScriptSeatsThemFromTheDriver();
         mirrorHangsFromTheVehicleWhicheverWayItFaces();
         mirrorLeavesOutWhatItCannotShow();
+        cabinTipsAndRollsWithItsBody();
+        eyeIsSeatedAlongTheVehiclesOwnAxes();
         wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack();
     }
 
@@ -92,6 +94,84 @@ final class CabinTests {
         check(Cabins.outOfMirror(20f, 13f, reach, tan, near, sight) && Cabins.outOfMirror(20f, -13f, reach, tan, near, sight),
                 "one to either side of what it takes in is out");
         check(!Cabins.outOfMirror(20f, 12f, reach, tan, near, sight), "and one whose corner crosses the edge is not");
+    }
+
+    /** A body's matrix: its side, its up and its length in the world, each this long, column by column. */
+    private static float[] stood(float[] side, float[] up, float[] length, float scale) {
+        float[] stands = new float[16];
+        for (int k = 0; k < 3; k++) {
+            stands[k] = side[k] * scale;
+            stands[4 + k] = up[k] * scale;
+            stands[8 + k] = length[k] * scale;
+        }
+        stands[15] = 1f;
+        return stands;
+    }
+
+    private static boolean are(float[] axes, float... wanted) {
+        for (int k = 0; k < 9; k++) {
+            if (!near(axes[k], wanted[k])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void cabinTipsAndRollsWithItsBody() {
+        float[] axes = new float[9];
+        float[] east = {1f, 0f, 0f}, north = {0f, 1f, 0f}, up = {0f, 0f, 1f}, west = {-1f, 0f, 0f}, south = {0f, -1f, 0f}, down = {0f, 0f, -1f};
+        check(Cabins.axes(stood(south, up, east, 1.82f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f),
+                "a level body facing east: ahead east, its left north, up straight up, whatever size it is drawn");
+        check(Cabins.axes(stood(south, up, west, 1f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "a body whose length runs to its back is the same");
+        check(Cabins.axes(stood(north, up, east, 1f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "and a body mirrored side to side");
+        check(Cabins.axes(stood(east, up, north, 1f), faced(0f, 1f, 0f), axes) && are(axes, 0f, 1f, 0f, -1f, 0f, 0f, 0f, 0f, 1f), "facing north its left is west");
+        // Nose down by 5 degrees, facing east.
+        float c = (float) Math.cos(Math.toRadians(5)), s = (float) Math.sin(Math.toRadians(5));
+        check(Cabins.axes(stood(south, new float[] {s, 0f, c}, new float[] {c, 0f, -s}, 1.82f), faced(c, 0f, -s), axes) && are(axes, c, 0f, -s, 0f, 1f, 0f, s, 0f, c),
+                "braking, the nose dips: ahead points down and the cabin's up leans forward with the body");
+        // Rolled 5 degrees onto its right side, facing east: the left comes up.
+        check(Cabins.axes(stood(new float[] {0f, -c, -s}, new float[] {0f, -s, c}, east, 1f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, c, s, 0f, -s, c),
+                "in a bend the body rolls: the cabin's left rises and its up leans over, and ahead is as it was");
+        // The physics is read a frame apart from the body: a few degrees between them is the same vehicle.
+        check(Cabins.axes(stood(south, up, east, 1f), faced(c, s, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "the body's own length is taken, not the physics' word, where the two are a little apart");
+        check(!Cabins.axes(stood(east, up, north, 1f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f),
+                "a body turned across its vehicle is not taken for the vehicle: the cabin goes by the vehicle as the physics has it");
+        // A crash turns a vehicle a long way between the physics being read and the body being drawn.
+        float c40 = (float) Math.cos(Math.toRadians(40)), s40 = (float) Math.sin(Math.toRadians(40));
+        check(Cabins.axes(stood(south, up, east, 1f), faced(c40, s40, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "forty degrees apart is still the body's own length");
+        // A crash: on its right side, on its roof, and standing on its nose, where it has no heading on the map.
+        check(Cabins.axes(stood(down, south, east, 1.82f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 0f, 1f, 0f, -1f, 0f),
+                "on its right side: the cabin's up lies flat along the ground and its left is straight up");
+        check(Cabins.axes(stood(north, down, east, 1.82f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, -1f, 0f, 0f, 0f, -1f), "on its roof: the cabin's up is straight down and its left is to the south");
+        check(Cabins.axes(stood(south, east, down, 1.82f), faced(0f, 0f, -1f), axes) && are(axes, 0f, 0f, -1f, 0f, 1f, 0f, 1f, 0f, 0f), "on its nose: ahead is straight down and the cabin's up is to the east");
+        check(Cabins.axes(stood(south, east, up, 1.82f), faced(0f, 0f, -1f), axes) && are(axes, 0f, 0f, -1f, 0f, 1f, 0f, 1f, 0f, 0f), "the same for a body whose length runs to its back");
+    }
+
+    /** A vehicle facing this way with its up straight up, as the physics would have it: only the way it faces is read of it here. */
+    private static float[] faced(float x, float y, float up) {
+        float[] faces = new float[9];
+        Cabins.axes(x, y, up, 0f, 0f, 1f, faces);
+        return faces;
+    }
+
+    private static void eyeIsSeatedAlongTheVehiclesOwnAxes() {
+        float[] axes = new float[9];
+        Cabins.axes(1f, 0f, 0f, 0f, 0f, 1f, axes);
+        check(are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "a vehicle facing east and standing level: its left is north");
+        Cabins.axes(0f, 1f, 0f, 0f, 0f, 1f, axes);
+        check(are(axes, 0f, 1f, 0f, -1f, 0f, 0f, 0f, 0f, 1f), "facing north its left is west");
+        Cabins.axes(1f, 0f, 0f, 0f, 0f, -1f, axes);
+        check(are(axes, 1f, 0f, 0f, 0f, -1f, 0f, 0f, 0f, -1f), "on its roof, facing east, its left is south");
+        Cabins.axes(1f, 0f, 0f, 0f, -1f, 0f, axes);
+        check(are(axes, 1f, 0f, 0f, 0f, 0f, 1f, 0f, -1f, 0f), "on its right side its left is straight up");
+        // What the body's matrix gives and what the physics gives are the same three for the same vehicle.
+        float[] body = new float[9];
+        float c = (float) Math.cos(Math.toRadians(40)), s = (float) Math.sin(Math.toRadians(40));
+        float[] length = {c, 0f, s}, high = {-s * c, s, c * c};
+        float[] left = {high[1] * length[2] - high[2] * length[1], high[2] * length[0] - high[0] * length[2], high[0] * length[1] - high[1] * length[0]};
+        Cabins.axes(length[0], length[1], length[2], high[0], high[1], high[2], axes);
+        check(Cabins.axes(stood(new float[] {-left[0], -left[1], -left[2]}, high, length, 1.5f), axes, body) && are(body, axes),
+                "nose up and rolled at once, the body's matrix and the physics give the same axes");
     }
 
     private static void check(boolean condition, String what) {

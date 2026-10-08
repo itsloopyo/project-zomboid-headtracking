@@ -366,35 +366,84 @@ final class ViewModelMath {
     }
 
     /**
-     * How a swing moves what is swung, over and above where it is held: drawn back to the
-     * right, swept across the view to the left, and brought back to where it was.
-     *
-     * @param progress 0 as the swing starts, 1 as it ends
-     * @param out      pitch, yaw and roll in radians as `turn` takes them, then how far to the
-     *                 right, up and towards the viewer, in tiles
+     * The ways something held is hit with: swung across from the right shoulder, brought down from over the head, brought up from by
+     * the right hip, brought down on what lies on the ground, thrust straight ahead, and shoved out with both arms.
      */
-    static void swing(float progress, float[] out) {
-        float p = Math.clamp(progress, 0f, 1f);
-        float wound, swept;
-        if (p < SWING_WOUND) {
-            wound = smooth(p / SWING_WOUND);
-            swept = 0f;
-        } else if (p < SWING_SWEPT) {
-            swept = smooth((p - SWING_WOUND) / (SWING_SWEPT - SWING_WOUND));
-            wound = 1f - swept;
-        } else {
-            wound = 0f;
-            swept = 1f - smooth((p - SWING_SWEPT) / (1f - SWING_SWEPT));
+    static final int SWUNG = 0, CHOPPED = 1, RAISED = 2, FLOORED = 3, THRUST = 4, SHOVED = 5;
+    /**
+     * What a hold is given by: how far the far end is raised, swung to the right and the top tipped to the left, in radians as `turn`
+     * takes them, where the grip is to the right, up and ahead of the eye, in tiles, and how far the body is turned to the right behind it.
+     */
+    static final int HOLD = 7;
+
+    /**
+     * Where an attack has what is held. It is drawn back, comes round faster and faster until it lands, and
+     * from there either goes on through and is brought back to where it is held, or, landed on something,
+     * is stopped by it, springs back a little and is brought back.
+     *
+     * @param kind    one of the ways something is hit with
+     * @param reached how far it is to landing: 0 as the attack starts, 1 as it lands
+     * @param past    how far past landing: 0 until it lands, 1 when it is held again
+     * @param struck  whether it landed on something
+     * @param hold    how it is held with no attack
+     * @param out     how it is held at that moment
+     */
+    static void attack(int kind, float reached, float past, boolean struck, float[] hold, float[] out) {
+        float[][] keys = ATTACKS[kind];
+        if (!(past > 0f)) {
+            float r = Math.clamp(reached, 0f, 1f);
+            if (r < WINDS) {
+                between(hold, keys[WOUND], smooth(r / WINDS), out);
+                return;
+            }
+            // Half way round it passes through the place on the way.
+            float t = (r - WINDS) / (1f - WINDS);
+            t *= t;
+            for (int i = 0; i < HOLD; i++) {
+                float bend = 2f * keys[WAY][i] - (keys[WOUND][i] + keys[LANDS][i]) / 2f;
+                out[i] = (1f - t) * (1f - t) * keys[WOUND][i] + 2f * t * (1f - t) * bend + t * t * keys[LANDS][i];
+            }
+            return;
         }
-        for (int i = 0; i < 6; i++) {
-            out[i] = WOUND[i] * wound + SWEPT[i] * swept;
+        float p = Math.min(past, 1f), turns = struck ? SPRINGS : FOLLOWS;
+        float[] end = keys[struck ? SPRUNG : THROUGH];
+        if (p < turns) {
+            float left = 1f - p / turns;
+            between(keys[LANDS], end, 1f - left * left, out);
+        } else {
+            between(end, hold, smooth((p - turns) / (1f - turns)), out);
         }
     }
 
-    /** The parts of a swing's time at which it is drawn all the way back, and swept all the way across. */
-    static final float SWING_WOUND = 0.24f, SWING_SWEPT = 0.56f;
-    private static final float[] WOUND = {(float) Math.toRadians(16), (float) Math.toRadians(26), (float) Math.toRadians(-14), 0.05f, 0.05f, 0.05f};
-    private static final float[] SWEPT = {(float) Math.toRadians(-24), (float) Math.toRadians(-64), (float) Math.toRadians(50), -0.3f, -0.07f, -0.1f};
+    private static void between(float[] from, float[] to, float share, float[] out) {
+        for (int i = 0; i < HOLD; i++) {
+            out[i] = from[i] + (to[i] - from[i]) * share;
+        }
+    }
+
+    /** How much of the time before it lands an attack is being drawn back, and how much of the time after it goes on through, or springs back. */
+    static final float WINDS = 0.5f, FOLLOWS = 0.3f, SPRINGS = 0.2f;
+    private static final int WOUND = 0, WAY = 1, LANDS = 2, THROUGH = 3, SPRUNG = 4;
+
+    private static float[] key(float pitch, float yaw, float roll, float x, float y, float ahead, float turned) {
+        return new float[] {(float) Math.toRadians(pitch), (float) Math.toRadians(yaw), (float) Math.toRadians(roll), x, y, ahead, (float) Math.toRadians(turned)};
+    }
+
+    /** For each way of hitting: drawn back, on the way, landing, gone through, and sprung back off what it landed on. */
+    private static final float[][][] ATTACKS = {
+        {key(70, 50, -30, 0.28f, -0.10f, 0.22f, 25), key(30, 70, 20, 0.22f, -0.12f, 0.32f, 10), key(12, -50, 60, 0.10f, -0.15f, 0.36f, -14),
+            key(-8, -115, 80, -0.12f, -0.20f, 0.26f, -34), key(16, -32, 50, 0.12f, -0.14f, 0.35f, -8)},
+        {key(110, 5, 0, 0.10f, 0.00f, 0.22f, 0), key(70, 0, 0, 0.08f, -0.04f, 0.30f, 0), key(30, -6, 0, 0.05f, -0.16f, 0.36f, 0),
+            key(-10, 4, 0, 0.00f, -0.21f, 0.27f, 8), key(24, -6, 0, 0.05f, -0.12f, 0.34f, 0)},
+        {key(-25, 35, -20, 0.22f, -0.25f, 0.18f, 20), key(-8, 10, 10, 0.17f, -0.23f, 0.27f, 5), key(25, -18, 30, 0.06f, -0.16f, 0.36f, -10),
+            key(65, -45, 40, -0.04f, -0.06f, 0.30f, -22), key(15, -10, 25, 0.08f, -0.18f, 0.34f, -5)},
+        {key(115, 0, 0, 0.08f, 0.02f, 0.20f, 0), key(60, -2, 0, 0.06f, -0.05f, 0.30f, 0), key(10, 4, 0, 0.00f, -0.17f, 0.34f, 8),
+            key(-15, 4, 0, 0.00f, -0.22f, 0.28f, 10), key(18, 2, 0, 0.01f, -0.16f, 0.33f, 6)},
+        {key(10, -5, -10, 0.20f, -0.16f, 0.16f, 15), key(6, -9, -10, 0.13f, -0.14f, 0.34f, 0), key(2, -12, -10, 0.07f, -0.12f, 0.44f, -15),
+            key(2, -12, -10, 0.07f, -0.12f, 0.45f, -17), key(3, -11, -10, 0.09f, -0.13f, 0.38f, -10)},
+        {key(20, -60, 0, 0.12f, -0.20f, 0.18f, 0), key(15, -65, 0, 0.11f, -0.17f, 0.32f, 0), key(10, -70, 0, 0.10f, -0.14f, 0.44f, 0),
+            key(10, -70, 0, 0.10f, -0.14f, 0.45f, 0), key(12, -68, 0, 0.10f, -0.15f, 0.38f, 0)},
+    };
 
     /** 0 to 1 as its argument goes 0 to 1, leaving and arriving without a jerk. */
     static float smooth(float t) {

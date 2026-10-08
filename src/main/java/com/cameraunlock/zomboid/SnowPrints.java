@@ -1,0 +1,151 @@
+package com.cameraunlock.zomboid;
+
+/**
+ * Where the viewer has walked and driven while snow lay, for SnowShader to press into it: a
+ * footprint at every stride, left and right by turns, and a rut under each side of a vehicle
+ * along the way it went.
+ *
+ * Only the newest are kept, {@link #PRINTS} footprints and {@link #RUTS} stretches of rut: the
+ * oldest goes as a new one is made. Whoever says where the viewer is forgets them all when
+ * no snow lies any more, so the next fall is unmarked.
+ *
+ * The game's logic thread says where the viewer is and the picture's thread reads the marks.
+ */
+final class SnowPrints {
+    /** How many footprints and how many stretches of rut are kept: the lengths of SnowShader's uSnowPrint and uSnowRut. */
+    static final int PRINTS = 48, RUTS = 32;
+    /** A stride, and how far to either side of the walker's middle a foot lands, in tiles. */
+    static final float STRIDE = 0.5f, STANCE = 0.07f;
+    /** How long a stretch of rut is, in tiles: short enough that a bend is made of straight pieces without showing it. */
+    static final float RUT = 0.625f;
+    /** Further than this from where the viewer last was, in tiles, the viewer did not walk or drive there: a new save, a jump across the map. */
+    static final float JUMP = 4f;
+    /** How far from its place a footprint reaches, and how far from its middle line a rut does, in tiles, each with room to spare. */
+    private static final float REACH_OF_PRINT = 0.3f, REACH_OF_RUT = 0.9f;
+
+    /** A footprint is its place on the map, the way the foot pointed in radians and how high the ground stands. */
+    private static final float[] prints = new float[PRINTS * 4];
+    /** A stretch of rut is the place it runs from and the place it runs to, down the middle of the vehicle. */
+    private static final float[] ruts = new float[RUTS * 4];
+    /** How high the ground under each stretch of rut stands. */
+    private static final float[] rutsUp = new float[RUTS];
+    private static int printNext, printCount, rutNext, rutCount;
+    private static boolean leftFoot, afoot, awheel;
+    private static float lastX, lastY;
+
+    private SnowPrints() {}
+
+    /** The viewer is on foot at that place, on ground that high. */
+    static synchronized void walked(float x, float y, float floorUp) {
+        if (!afoot || Math.hypot(x - lastX, y - lastY) > JUMP) {
+            afoot = true;
+            awheel = false;
+            lastX = x;
+            lastY = y;
+            return;
+        }
+        float alongX = x - lastX, alongY = y - lastY;
+        float gone = (float) Math.hypot(alongX, alongY);
+        if (gone < STRIDE) {
+            return;
+        }
+        float side = leftFoot ? STANCE : -STANCE;
+        int at = printNext * 4;
+        prints[at] = x - alongY / gone * side;
+        prints[at + 1] = y + alongX / gone * side;
+        prints[at + 2] = (float) Math.atan2(alongY, alongX);
+        prints[at + 3] = floorUp;
+        printNext = (printNext + 1) % PRINTS;
+        printCount = Math.min(printCount + 1, PRINTS);
+        leftFoot = !leftFoot;
+        lastX = x;
+        lastY = y;
+    }
+
+    /** The viewer is in a vehicle whose middle is at that place, on ground that high. */
+    static synchronized void drove(float x, float y, float floorUp) {
+        if (!awheel || Math.hypot(x - lastX, y - lastY) > JUMP) {
+            awheel = true;
+            afoot = false;
+            lastX = x;
+            lastY = y;
+            return;
+        }
+        if (Math.hypot(x - lastX, y - lastY) < RUT) {
+            return;
+        }
+        int at = rutNext * 4;
+        ruts[at] = lastX;
+        ruts[at + 1] = lastY;
+        ruts[at + 2] = x;
+        ruts[at + 3] = y;
+        rutsUp[rutNext] = floorUp;
+        rutNext = (rutNext + 1) % RUTS;
+        rutCount = Math.min(rutCount + 1, RUTS);
+        lastX = x;
+        lastY = y;
+    }
+
+    /** How many marks are kept, in words, for the log. */
+    static synchronized String said() {
+        return printCount + " footprints and " + rutCount + " stretches of rut";
+    }
+
+    /** There is no viewer to leave a mark: the next place one is at begins a new walk. */
+    static synchronized void lifted() {
+        afoot = false;
+        awheel = false;
+    }
+
+    /** Every mark is gone: the save was left, or the snow has gone. */
+    static synchronized void forget() {
+        printCount = 0;
+        printNext = 0;
+        rutCount = 0;
+        rutNext = 0;
+        lifted();
+    }
+
+    /**
+     * The marks as the world's shader takes them, for a picture drawn from that eye: places are
+     * counted from the corner the shader's vPlace is, which moves sixty tiles at a time.
+     *
+     * @param printsOut  PRINTS times x, y, the foot's way and the ground's height
+     * @param rutsOut    RUTS times the x and y a stretch runs from and the x and y it runs to
+     * @param rutsUpOut  RUTS times how high the ground under a stretch stands
+     * @param rest       how many footprints, how many stretches of rut, and the least x and y
+     *                   and the greatest x and y of a box that holds every mark, the least
+     *                   over the greatest when there are none
+     */
+    static synchronized void placed(float eyeX, float eyeY, float[] printsOut, float[] rutsOut, float[] rutsUpOut, float[] rest) {
+        float cornerX = eyeX % 60f - eyeX, cornerY = eyeY % 60f - eyeY;
+        float leastX = Float.MAX_VALUE, leastY = Float.MAX_VALUE, mostX = -Float.MAX_VALUE, mostY = -Float.MAX_VALUE;
+        for (int i = 0; i < printCount * 4; i += 4) {
+            float x = prints[i] + cornerX, y = prints[i + 1] + cornerY;
+            printsOut[i] = x;
+            printsOut[i + 1] = y;
+            printsOut[i + 2] = prints[i + 2];
+            printsOut[i + 3] = prints[i + 3];
+            leastX = Math.min(leastX, x - REACH_OF_PRINT);
+            leastY = Math.min(leastY, y - REACH_OF_PRINT);
+            mostX = Math.max(mostX, x + REACH_OF_PRINT);
+            mostY = Math.max(mostY, y + REACH_OF_PRINT);
+        }
+        for (int i = 0; i < rutCount * 4; i += 2) {
+            float x = ruts[i] + cornerX, y = ruts[i + 1] + cornerY;
+            rutsOut[i] = x;
+            rutsOut[i + 1] = y;
+            leastX = Math.min(leastX, x - REACH_OF_RUT);
+            leastY = Math.min(leastY, y - REACH_OF_RUT);
+            mostX = Math.max(mostX, x + REACH_OF_RUT);
+            mostY = Math.max(mostY, y + REACH_OF_RUT);
+        }
+        System.arraycopy(rutsUp, 0, rutsUpOut, 0, rutCount);
+        rest[0] = printCount;
+        rest[1] = rutCount;
+        rest[2] = leastX;
+        rest[3] = leastY;
+        rest[4] = mostX;
+        rest[5] = mostY;
+    }
+}

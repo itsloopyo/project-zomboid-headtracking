@@ -1,0 +1,80 @@
+package com.cameraunlock.zomboid;
+
+/**
+ * How far through an attack the picture is, from how far through its own animation of it the
+ * game is, frame by frame.
+ *
+ * The game lands an attack by how far through its animation was the frame before, so the
+ * picture is that one frame behind what the animation reads: it lands on the frame the game
+ * does, with what the game hit known. The game lets go of its animation before it is over,
+ * and the picture then runs on at the pace it had: cut off part way, what is swung would
+ * jump back to where it is held.
+ */
+final class AttackClock {
+    /**
+     * How far through the game's animation of an attack what was swung is held again. The game
+     * takes no new attack until its animation is over, so the picture's is over a little before.
+     */
+    static final float HELD_AGAIN = 0.85f;
+    private static final float NONE = -1f;
+
+    private float at = NONE, seen = NONE, lands, pace;
+    /** Whether the frame last stepped is the one an attack began on, and the one it landed on. */
+    boolean began, landed;
+
+    /**
+     * A frame of the game's logic.
+     *
+     * @param playing  whether the game is playing an attack's animation
+     * @param fraction how far through it the animation is, 0 to 1
+     * @param landsAt  how far through it the attack lands
+     * @param seconds  the length of the frame
+     */
+    void step(boolean playing, float fraction, float landsAt, float seconds) {
+        began = false;
+        landed = false;
+        if (playing && (seen == NONE || fraction < seen)) {
+            began = true;
+            pace = 0f;
+            at = 0f;
+            lands = landsAt;
+            seen = fraction;
+        } else if (playing) {
+            // An animation that has not moved on has fired nothing new: the game is paused.
+            if (fraction > seen) {
+                boolean before = at >= lands;
+                if (seconds > 1e-4f) {
+                    pace = (seen - at) / seconds;
+                }
+                at = seen;
+                seen = fraction;
+                landed = !before && at >= lands;
+            }
+        } else if (at != NONE) {
+            // Let go of before it landed, the game's attack never lands: nothing is hit.
+            seen = NONE;
+            at += pace * seconds;
+            if (!(pace > 0f) || at >= HELD_AGAIN) {
+                at = NONE;
+            }
+        }
+    }
+
+    /** No attack is under way. */
+    void reset() {
+        at = NONE;
+        seen = NONE;
+        began = false;
+        landed = false;
+    }
+
+    /** How far the attack is to landing: 0 with none, 1 as it lands. */
+    float reached() {
+        return at == NONE ? 0f : Math.min(at / lands, 1f);
+    }
+
+    /** How far past landing it is: 0 until it lands, 1 when what was swung is held again. */
+    float past() {
+        return at == NONE ? 0f : Math.clamp((at - lands) / (HELD_AGAIN - lands), 0f, 1f);
+    }
+}

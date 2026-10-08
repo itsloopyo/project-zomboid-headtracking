@@ -21,9 +21,10 @@ import zombie.inventory.types.WeaponPart;
  * what a real scope would show the eye along that line: the part of the world at that angle
  * to the axis, if the line passes through the scope's exit pupil, and the black inside of the
  * tube if it does not (ScopeOptics). So the picture is whole only from behind the scope at
- * the right distance, a shadow comes in from the side as the eye drifts off the axis, and the
- * field closes down as the eye comes too near. The reticle is in the same plane as the
- * picture and stays on the same point of the world wherever the eye is.
+ * the scope: a shadow comes in from the side as the eye drifts off the axis, and the field
+ * closes down as the eye falls too far back. Nearer than the eye relief the picture is whole
+ * and grows with the glass. The reticle is in the same plane as the picture and stays on the
+ * same point of the world wherever the eye is.
  *
  * The game's logic thread says which scope is fitted. Everything else is the render thread's.
  */
@@ -40,7 +41,11 @@ final class Scope {
      */
     static final float UNITS_PER_METRE = 0.4469f / 0.9015f;
 
-    /** The picture in the eyepiece, in dots each way. On the screen the eyepiece is under half the picture's height across. */
+    /**
+     * The picture in the eyepiece, in dots each way. From the eye relief the eyepiece is under
+     * half the picture's height across on the screen. Leaned in to, it is wider than the
+     * screen is high, and the picture is drawn larger than it was made.
+     */
     static final int PICTURE = 1024;
     /** Nearer the objective than this, in tiles, is the rifle the scope is on, and is left out of its picture. */
     static final float PICTURE_NEAR = 0.6f;
@@ -91,7 +96,8 @@ final class Scope {
             const float EYE_LENS = %f;
             const float FIELD = %f;
             const float PUPIL = %f;
-            """, ScopeOptics.RELIEF, ScopeOptics.EYE_LENS, ScopeOptics.FIELD, ScopeOptics.PUPIL) + """
+            const float NEAREST_EYE = %f;
+            """, ScopeOptics.RELIEF, ScopeOptics.EYE_LENS, ScopeOptics.FIELD, ScopeOptics.PUPIL, ScopeOptics.NEAREST_EYE) + """
             uniform sampler2D uPicture;
             uniform sampler2DShadow uShadowNear;
             uniform sampler2DShadow uShadowFar;
@@ -278,25 +284,27 @@ final class Scope {
             // The eyepiece. A line of sight at an angle to the axis shows the world at that
             // angle over the scope's power, whatever part of the glass it passes through, and
             // only if it also passes through the exit pupil, which stands the eye relief
-            // behind the glass.
+            // behind the glass. An eye nearer than that loses nothing for it, and the picture
+            // fills as much of the glass as it does from the eye relief (ScopeOptics.field).
             vec3 eyepiece(vec3 at, vec3 view) {
                 vec3 ray = normalize(vSeen);
                 vec2 slope = vec2(dot(ray, uSide), dot(ray, uTop)) / max(dot(ray, uAxis), 0.05);
                 float behind = dot(uLens, uAxis) / uMetre;
                 vec2 across = -vec2(dot(uLens, uSide), dot(uLens, uTop)) / uMetre;
                 // How far off the exit pupil the eye may be is counted in the world's measure, which is the head's.
-                float off = length(across + slope * (behind - RELIEF)) * uMetre;
+                float off = length(across + slope * max(behind - RELIEF, 0.0)) * uMetre;
                 float lit = 1.0 - smoothstep(abs(uExit - PUPIL), uExit + PUPIL, off);
 
                 // Across the field: the middle at nought, the field stop's edge at one.
-                vec2 g = slope / FIELD;
+                float field = FIELD * max(RELIEF / max(behind, NEAREST_EYE), 1.0);
+                vec2 g = slope / field;
                 float out2 = dot(g, g);
                 float dot1 = fwidth(g.x) + fwidth(g.y) + 1e-5;
                 float stop = 1.0 - smoothstep(1.0 - dot1, 1.0, sqrt(out2));
 
                 // The picture, as the glass passes it: drawn a little larger towards the edge
                 // of the field, its colours a hair apart there and its edge softer than its middle.
-                vec2 world = slope / uPower * (1.0 + 0.035 * out2);
+                vec2 world = g * FIELD / uPower * (1.0 + 0.035 * out2);
                 vec2 uv = world / uPictureTan * 0.5;
                 float soft = 1.2 * out2 * out2;
                 vec3 seen = vec3(texture2D(uPicture, 0.5 + uv * (1.0 - 0.006 * out2), soft).r, texture2D(uPicture, 0.5 + uv, soft).g,
@@ -354,6 +362,8 @@ final class Scope {
     private static volatile ScopeOptics.Glass fitted;
     /** How far a lean along the aim may take the eye towards the scope, in tiles: read by the logic thread. */
     private static volatile float forwardStop = Float.POSITIVE_INFINITY;
+    /** How many times larger the eyepiece's picture was in the frame last drawn for the eye's being near: read by the logic thread. */
+    private static volatile float grown = 1f;
 
     private static Program program;
     private static final int[] arrays = new int[ScopeOptics.KNOWN.length];
@@ -401,7 +411,7 @@ final class Scope {
 
     /** Logic thread: how much of a turn of the mouse reaches the aim this frame. See ScopeOptics.turn. */
     static float turn() {
-        return ScopeOptics.turn(fitted, FieldOfView.zoom(), FieldOfView.AIMED_ZOOM);
+        return ScopeOptics.turn(fitted, FieldOfView.zoom(), FieldOfView.AIMED_ZOOM, grown);
     }
 
     /**
@@ -674,7 +684,8 @@ final class Scope {
         eyeAcrossX = -(d[0] * c[0] + d[1] * c[1] + d[2] * c[2]) / metre;
         eyeAcrossY = -(d[0] * b[0] + d[1] * b[1] + d[2] * b[2]) / metre;
         drawnAt = metre;
-        forwardStop = ScopeOptics.forwardStop(glass, metre, EYE_CLEAR);
+        forwardStop = ScopeOptics.forwardStop(metre, EYE_CLEAR);
+        grown = ScopeOptics.grown(eyeBehind);
         if (!glass.part().equals(said)) {
             said = glass.part();
             Log.info(String.format(Locale.ROOT, "scope %s: %.0f times, drawn at %.4f tiles to the metre, the eye %.1f mm behind its eyepiece and %.1f mm off its axis",

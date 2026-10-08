@@ -173,6 +173,75 @@ final class Cabins {
     }
 
     /**
+     * How nearly a body's length has to lie along the way its vehicle faces for the body's axes
+     * to be taken as the vehicle's. The two are read a frame apart, and in a crash a vehicle
+     * turns a long way in a frame: only a body laid across its vehicle is under this.
+     */
+    private static final float LENGTHWISE = 0.5f;
+
+    /**
+     * The way a vehicle faces, the side to the left of that and its own up, in the world, each
+     * of length one, from the matrix that stands its body there. A body's own axes are x to
+     * its side, y up and z along its length, and the matrix has in it the whole of how the
+     * vehicle is turned, tipped and rolled, on its springs or on its side or its roof. Which
+     * end of the body is the front is told by faces, the same three as the game's physics
+     * has them for the vehicle, nose up or down with it.
+     *
+     * False, with the physics' own three, for a body whose length does not lie along its
+     * vehicle: one its script has turned on it.
+     */
+    static boolean axes(float[] stands, float[] faces, float[] out) {
+        float alongX = stands[8], alongY = stands[9], alongUp = stands[10];
+        float length = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
+        float agree = (alongX * faces[0] + alongY * faces[1] + alongUp * faces[2]) / length;
+        if (Math.abs(agree) < LENGTHWISE) {
+            System.arraycopy(faces, 0, out, 0, 9);
+            return false;
+        }
+        float long1 = Math.copySign(1f / length, agree);
+        float high1 = 1f / (float) Math.sqrt(stands[4] * stands[4] + stands[5] * stands[5] + stands[6] * stands[6]);
+        out[0] = alongX * long1;
+        out[1] = alongY * long1;
+        out[2] = alongUp * long1;
+        out[6] = stands[4] * high1;
+        out[7] = stands[5] * high1;
+        out[8] = stands[6] * high1;
+        out[3] = out[7] * out[2] - out[8] * out[1];
+        out[4] = out[8] * out[0] - out[6] * out[2];
+        out[5] = out[6] * out[1] - out[7] * out[0];
+        return true;
+    }
+
+    /**
+     * The same three from what the game's physics says of a vehicle: the way it faces and its
+     * own up, each of length one, in the world.
+     */
+    static void axes(float noseX, float noseY, float noseUp, float highX, float highY, float highUp, float[] out) {
+        out[0] = noseX;
+        out[1] = noseY;
+        out[2] = noseUp;
+        out[3] = highY * noseUp - highUp * noseY;
+        out[4] = highUp * noseX - highX * noseUp;
+        out[5] = highX * noseY - highY * noseX;
+        out[6] = highX;
+        out[7] = highY;
+        out[8] = highUp;
+    }
+
+    /** The same three for a vehicle standing level, heading this way on the map. */
+    static void level(float aheadX, float aheadY, float[] out) {
+        out[0] = aheadX;
+        out[1] = aheadY;
+        out[2] = 0f;
+        out[3] = -aheadY;
+        out[4] = aheadX;
+        out[5] = 0f;
+        out[6] = 0f;
+        out[7] = 0f;
+        out[8] = 1f;
+    }
+
+    /**
      * Where the mirror on the screen hangs in the world, into out as x, y and up, for the
      * picture of the road behind to be taken from. It is fixed to the vehicle: it does not
      * move with the head, nor with the seat the viewer is in.

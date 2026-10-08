@@ -51,12 +51,19 @@ final class Ride {
     static volatile String seatedIn;
     /** The way the viewer's vehicle faces, on the map. */
     static volatile float aheadX, aheadY;
+    /**
+     * The way the viewer's vehicle faces, the side to the left of that and its own up, in the
+     * world, as the game's physics has it: nose up or down, on its side or on its roof. The
+     * picture reads them on another thread, so a new array is set whole each time.
+     */
+    static volatile float[] stands = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
     /** How fast the viewer's vehicle is going on the map, as the game's physics has it. */
     static volatile float goingX, goingY;
 
     private static String seatsOf;
     private static final Vector3f seatAt = new Vector3f();
     private static final Vector3f facing = new Vector3f();
+    private static final Vector3f above = new Vector3f();
     private static final Vector3f going = new Vector3f();
     private static int seatSaid;
     private static int wearAsked;
@@ -93,7 +100,16 @@ final class Ride {
         // The game counts a turn to the left as positive: with the right key held it read -0.9 at full lock.
         steering = -vehicle.getCurrentSteering();
         lampsOn = vehicle.getHeadlightsOn();
-        // The game gives a vehicle's speed, like the way it faces, with y as up.
+        // The seats are fixed in the vehicle, which the game's physics tips and rolls and
+        // in a crash throws on its side or its roof. The game gives the way a vehicle
+        // faces, its up and its speed with y as up.
+        vehicle.getForwardVector(facing);
+        vehicle.getUpVector(above);
+        float nose = (float) Math.sqrt(facing.x * facing.x + facing.y * facing.y + facing.z * facing.z);
+        float high = (float) Math.sqrt(above.x * above.x + above.y * above.y + above.z * above.z);
+        float[] axes = new float[9];
+        Cabins.axes(facing.x / nose, facing.z / nose, facing.y / nose, above.x / high, above.z / high, above.y / high, axes);
+        stands = axes;
         vehicle.getLinearVelocity(going);
         goingX = going.x;
         goingY = going.z;
@@ -134,14 +150,17 @@ final class Ride {
         eye[2] = floorUp + EYE_HEIGHT_IN_VEHICLE;
         // Where the vehicle's own wheel has been found the driver sits behind it: a
         // pickup's seat is higher than a saloon's and a van's further forward.
-        // A passenger sits where the script seats them from the driver.
+        // A passenger sits where the script seats them from the driver. The eye goes
+        // with the vehicle however it is thrown.
+        float[] axes = stands;
         float[] wheel = VehicleMeshes.wheels.get(vehicle.getScriptName());
-        float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[1]);
+        float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[3]);
         if (fromDriver != null) {
-            float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1];
-            eye[0] = vehicle.getX() + aheadX * back - aheadY * across;
-            eye[1] = vehicle.getY() + aheadY * back + aheadX * across;
-            eye[2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + wheel[2] + Cabins.EYE_ABOVE;
+            float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;
+            eye[0] = vehicle.getX() + axes[0] * back + axes[3] * across + axes[6] * raised;
+            eye[1] = vehicle.getY() + axes[1] * back + axes[4] * across + axes[7] * raised;
+            eye[2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + Terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + axes[2] * back + axes[5] * across
+                    + axes[8] * raised;
         }
         if (FirstPerson.TRACE && (seatSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,

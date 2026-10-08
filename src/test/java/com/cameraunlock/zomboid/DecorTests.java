@@ -13,7 +13,8 @@ final class DecorTests {
         everyFrameHasAPaneInsideItsMoulding();
         everyTelevisionHasGlassTheShapeOfATubeOnItsFront();
         jarHoldsAPictureForEverythingATelevisionShows();
-        setsOnOneChannelShowOneProgrammeWhichChanges();
+        aShowCutsRoundItsShotsAndMovesAcrossEachOne();
+        aBroadcastNobodyListedIsItsChannelsShow();
     }
 
     private static float u(float[] laid, float x) {
@@ -97,37 +98,84 @@ final class DecorTests {
         check(sheet.first[Models.SCREEN + 1] - sheet.first[Models.SCREEN] == sheet.surface.length, "and all of it is screen");
     }
 
-    private static void jarHoldsAPictureForEverythingATelevisionShows() {
-        for (boolean inGrey : new boolean[] {false, true}) {
-            for (int programme = -1; programme < Screens.PROGRAMMES; programme++) {
-                String name = Screens.named(programme < 0 ? Screens.BARS : Screens.PROGRAMME, Math.max(programme, 0), inGrey);
-                check(Math.abs(Decor.wideForHigh(Decor.named(name)) - Screens.WIDE_FOR_HIGH) < 1e-3f, name + " is four wide for three high in the jar's index");
-                check(Decor.class.getResource("/pictures/" + name + ".jpg") != null, "the jar holds " + name + ".jpg");
-            }
+    private static Shows shows() {
+        try (java.io.InputStream in = Decor.class.getResourceAsStream("/pictures/shows.txt")) {
+            return Shows.read(new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)), "shows.txt");
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
         }
     }
 
-    private static void setsOnOneChannelShowOneProgrammeWhichChanges() {
-        boolean[] seen = new boolean[Screens.PROGRAMMES];
-        int changes = 0;
-        for (int i = 0; i < 400; i++) {
-            long from = i * Screens.PICTURE_NANOS;
-            int programme = Screens.programme(98000, from);
-            check(programme >= 0 && programme < Screens.PROGRAMMES, "a programme is one of those the jar has");
-            check(programme == Screens.programme(98000, from + Screens.PICTURE_NANOS - 1), "a picture stays for as long as one is shown");
-            changes += programme != Screens.programme(98000, from + Screens.PICTURE_NANOS) ? 1 : 0;
-            seen[programme] = true;
+    private static void jarHoldsAPictureForEverythingATelevisionShows() {
+        Shows shows = shows();
+        java.util.List<String> names = new java.util.ArrayList<>(java.util.List.of("screen-bars", "screen-grey-bars"));
+        for (int show = 0; show < shows.count(); show++) {
+            check(show == Shows.SNOW || shows.shots(show) > 0, "the show " + shows.name(show) + " has a shot");
+            for (int shot = 0; shot < shows.shots(show); shot++) {
+                names.add(shows.picture(show, shot));
+            }
         }
-        for (boolean one : seen) {
-            check(one, "a channel shows every programme in time");
+        check(shows.count() > 80 && names.size() > 400, "the jar's table has the game's shows in it: " + shows.count() + " shows, " + names.size() + " pictures");
+        for (String name : names) {
+            check(Math.abs(Decor.wideForHigh(Decor.named(name)) - Screens.WIDE_FOR_HIGH) < 1e-3f, name + " is four wide for three high in the jar's index");
+            check(Decor.class.getResource("/pictures/" + name + ".jpg") != null, "the jar holds " + name + ".jpg");
         }
-        check(changes > 300, "and goes on to another when one has had its time, " + changes + " times in 400");
-        check(Screens.programme(98000, -1L) == Screens.programme(98000, -Screens.PICTURE_NANOS), "the clock's sign is no seam in a picture's time");
-        int same = 0;
-        for (int i = 0; i < 400; i++) {
-            same += Screens.programme(98000, i * Screens.PICTURE_NANOS) == Screens.programme(101200, i * Screens.PICTURE_NANOS) ? 1 : 0;
+    }
+
+    private static void aShowCutsRoundItsShotsAndMovesAcrossEachOne() {
+        Shows shows = shows();
+        float[] cut = new float[Shows.CUT_FLOATS], next = new float[Shows.CUT_FLOATS];
+        long step = 10_000_000L;
+        for (int show = 0; show < shows.count(); show++) {
+            int shots = shows.shots(show);
+            if (shots == 0) {
+                continue;
+            }
+            String name = shows.name(show);
+            boolean[] seen = new boolean[shots];
+            long held = 0, moved = 0, frames = 0;
+            int cuts = 0;
+            // From before the clock's nought to after it: its sign is no seam in a show's time.
+            long from = -100_000_000_000L;
+            shows.cut(show, from, cut);
+            for (long at = from + step; at < 100_000_000_000L; at += step) {
+                shows.cut(show, at, next);
+                int shot = (int) next[Shows.SHOT];
+                check(shot >= 0 && shot < shots, name + " shows one of its own shots");
+                seen[shot] = true;
+                float of = next[Shows.OF];
+                check(of >= Shows.CLOSEST - 1e-4f && of <= 1f + 1e-4f, name + "'s picture is of no less of a shot than the closest and no more than all of it");
+                check(next[Shows.ACROSS] >= of / 2f - 1e-4f && next[Shows.ACROSS] <= 1f - of / 2f + 1e-4f && next[Shows.DOWN] >= of / 2f - 1e-4f
+                        && next[Shows.DOWN] <= 1f - of / 2f + 1e-4f, name + "'s picture never looks past the edge of its shot");
+                boolean jumped = Math.abs(next[Shows.OF] - cut[Shows.OF]) > 0.02f || Math.abs(next[Shows.ACROSS] - cut[Shows.ACROSS]) > 0.02f
+                        || Math.abs(next[Shows.DOWN] - cut[Shows.DOWN]) > 0.02f;
+                if (shot != (int) cut[Shows.SHOT] || jumped) {
+                    check(shots == 1 || shot != (int) cut[Shows.SHOT], name + " cuts to another shot where it has one");
+                    check(cuts == 0 || held >= Shows.SHORTEST_NANOS - step && held <= Shows.LONGEST_NANOS + step, name + " holds a shot for two seconds to four and a half, and held one "
+                            + held / 1e9);
+                    cuts++;
+                    held = 0;
+                } else {
+                    frames++;
+                    moved += next[Shows.OF] != cut[Shows.OF] || next[Shows.ACROSS] != cut[Shows.ACROSS] || next[Shows.DOWN] != cut[Shows.DOWN] ? 1 : 0;
+                }
+                held += step;
+                System.arraycopy(next, 0, cut, 0, cut.length);
+            }
+            for (boolean one : seen) {
+                check(one, name + " shows every one of its shots in time");
+            }
+            check(cuts > 40, name + " goes on cutting, " + cuts + " times in 200 seconds");
+            check(moved > frames * 0.98, name + "'s picture moves between one hundredth of a second and the next all the while a shot is held: " + moved + " of " + frames);
         }
-        check(same < 100, "two channels show their own programmes, and agreed " + same + " times in 400");
+    }
+
+    private static void aBroadcastNobodyListedIsItsChannelsShow() {
+        Shows shows = shows();
+        check(shows.name(shows.aired(200, null)).equals("nnn-desk"), "a news channel with nothing said of its broadcast shows its news desk");
+        check(shows.aired(200, "no such broadcast") == shows.aired(200, null), "and so it does for a broadcast the table does not list");
+        check(shows.aired(98765, null) == Shows.ANY && shows.taped("no such tape") == Shows.ANY, "a channel or a tape the table does not list is the show of no one programme");
+        check(shows.shots(Shows.SNOW) == 0 && shows.shots(Shows.ANY) > 0, "interference has no shots and the show of no one programme has");
     }
 
     private static boolean near(float a, float b) {

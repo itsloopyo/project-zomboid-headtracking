@@ -1,49 +1,82 @@
 package com.cameraunlock.zomboid;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLongArray;
 import zombie.iso.objects.IsoTelevision;
 import zombie.radio.devices.DeviceData;
+import zombie.radio.media.MediaData;
+import zombie.radio.scripting.RadioBroadCast;
+import zombie.radio.scripting.RadioChannel;
+import zombie.radio.scripting.RadioScriptManager;
 
 /**
  * What a television that is switched on shows. The game lays a sprite of colour bars over a
  * set that is on, a dozen pixels across, and that is how a set that is on is told here. A set
- * with a channel coming in or a tape playing shows a programme, one of the pictures in the
- * jar made with tools/pictures, and every set on one channel shows the same one, which
- * changes every few seconds. A set with nothing coming in shows the bars, as the game's does.
+ * with nothing coming in shows the bars, as the game's does. A set with a channel coming in or
+ * a tape playing shows the show that is on: the game says which broadcast a channel is airing
+ * and which tape is in a set, Shows says which show each is, and the jar has a handful of
+ * shots of every show, made with tools/pictures. Every set on one channel shows the same.
  *
- * A chunk is not built again for a programme's next picture. The sheet on a set's glass
- * carries its channel where another piece carries its texture, and which picture that is
- * now is worked out when the sheet is drawn.
+ * A chunk is not built again as the picture changes. The sheet on a set's glass carries
+ * where its picture comes from, a channel or a tape, where another piece carries its texture,
+ * and which shot of which show that is now, and what part of the shot, is worked out when the
+ * sheet is drawn.
  */
 final class Screens {
     /** What a set shows: nothing, the bars, or a programme. */
     static final int DARK = -1, BARS = 0, PROGRAMME = 1;
-    /** How many programmes the jar has: screen-00 and on, and each again in black and white as screen-grey-00. */
-    static final int PROGRAMMES = 12;
-    /** How long a set shows one picture of a programme. */
-    static final long PICTURE_NANOS = 2_000_000_000L;
     /** How far in front of its glass a set's picture stands, in the set's metres. */
     static final float PROUD = 0.004f;
     /** How many times as wide as it is high every picture a set shows is. */
     static final float WIDE_FOR_HIGH = 4f / 3f;
+    /** What the picture's program is told of a tube beside its picture: one in colour, one with none, one showing snow. */
+    static final float IN_COLOUR = 0f, IN_GREY = 1f, SNOW = 2f;
     /**
-     * What a sheet showing a programme carries is this or less: this, less twice the channel,
-     * less one for a set with no colour. Decor's own pictures are the numbers from -1 down to
-     * the count of them, nowhere near it.
+     * What a sheet showing a programme carries is this or less: this, less the number of where
+     * its picture comes from. Decor's own pictures are the numbers from -1 down to the count
+     * of them, nowhere near it.
      */
     private static final int LIVE = -(1 << 24);
-    private static final int COLOUR = 0, GREY = 1;
+    /** How long after a set showing it was last drawn a channel is still asked what is on it, and its show's shots are kept read. */
+    private static final long WATCHED_NANOS = 10_000_000_000L;
+    /** How long after the last set showing it was drawn a show's shots are given back to the graphics card. */
+    private static final long KEPT_NANOS = 60_000_000_000L;
+    /** How often a watched channel is asked what is on it, and how often the shots to give back are looked for. */
+    private static final long ASKED_NANOS = 250_000_000L, SWEPT_NANOS = 1_000_000_000L;
+    private static final String TABLE = "/pictures/shows.txt";
 
-    /**
-     * Each picture's number in Decor, in colour and in black and white: the bars, then the
-     * programmes. Made by the logic thread the first time a set is on, read by the render
-     * thread after.
-     */
-    private static volatile int[][] pictures;
-    /** How many of the programmes, in colour and in black and white, the logic thread has still to ask Decor to read. */
-    private static final int[] toRead = new int[2];
+    /** The show each source shows and when a set showing each was last drawn, by the source's number. */
+    private record Sources(AtomicIntegerArray show, AtomicLongArray drawn) {}
+
+    /** Read by the logic thread the first time a set shows a programme. */
+    private static volatile Shows shows;
+    /** Each shot's picture in Decor by its show, and the bars in colour and with none. Made with shows. */
+    private static int[][] shots;
+    private static volatile int[] bars;
+    /** How many of each show's shots the logic thread has asked Decor to read: none once the render thread has given them back. */
+    private static AtomicIntegerArray asked;
+
+    /** Logic thread: the number of each source, a channel's frequency or a tape's id, and each one's key by its number. */
+    private static final Map<Object, Integer> numbers = new HashMap<>();
+    private static final List<Object> keys = new ArrayList<>();
+    private static volatile Sources sources = new Sources(new AtomicIntegerArray(16), new AtomicLongArray(16));
+    private static long askedAt = System.nanoTime(), sweptAt = askedAt;
+
     /** Where each set's glass is on its model: the least and greatest x, the least and greatest z, and the y of its front. */
     private static final IdentityHashMap<Models.Model, float[]> glasses = new IdentityHashMap<>();
+    /** What Shows.cut fills, one for each thread. */
+    private static final float[] built = new float[Shows.CUT_FLOATS], cut = new float[Shows.CUT_FLOATS];
 
     private Screens() {}
 
@@ -56,72 +89,223 @@ final class Screens {
         return device.isReceivingSignal() || device.isPlayingMedia() ? PROGRAMME : BARS;
     }
 
-    /** Which programme a channel shows at a time: the same for every set tuned to it, and another every PICTURE_NANOS. */
-    static int programme(int channel, long nanos) {
-        long mixed = (channel * 0x9E3779B97F4A7C15L ^ Math.floorDiv(nanos, PICTURE_NANOS)) * 0xBF58476D1CE4E5B9L;
-        return (int) Math.floorMod(mixed ^ mixed >>> 31, (long) PROGRAMMES);
+    /** Where the programme of a set showing one comes from: the id of the tape it plays, or its channel's frequency. */
+    private static Object source(DeviceData device) {
+        // A set a server says is playing can have no tape this machine knows of: it is on its channel then.
+        MediaData tape = device.isPlayingMedia() ? device.getMediaData() : null;
+        return tape != null ? tape.getId() : (Object) device.getChannel();
     }
 
-    /** The name in the jar of the bars, or of a programme, in colour or in black and white. */
-    static String named(int showing, int programme, boolean inGrey) {
-        String tint = inGrey ? "screen-grey-" : "screen-";
-        return showing == BARS ? tint + "bars" : tint + String.format("%02d", programme);
+    /** A number that is another when a set showing a programme takes it from somewhere else, for a chunk's sum. */
+    static int from(IsoTelevision set) {
+        return source(set.getDeviceData()).hashCode();
     }
 
-    private static int[][] pictures() {
-        int[][] made = pictures;
-        if (made == null) {
-            made = new int[2][1 + PROGRAMMES];
-            for (int tint = COLOUR; tint <= GREY; tint++) {
-                made[tint][0] = Decor.named(named(BARS, 0, tint == GREY));
-                for (int i = 0; i < PROGRAMMES; i++) {
-                    made[tint][1 + i] = Decor.named(named(PROGRAMME, i, tint == GREY));
+    private static Shows shows() {
+        Shows read = shows;
+        if (read == null) {
+            try (InputStream in = Screens.class.getResourceAsStream(TABLE)) {
+                if (in == null) {
+                    throw new IOException("the jar has no " + TABLE);
+                }
+                read = Shows.read(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)), TABLE);
+            } catch (IOException e) {
+                throw new UncheckedIOException("the jar's table of television shows could not be read", e);
+            }
+            int[][] pictures = new int[read.count()][];
+            for (int show = 0; show < pictures.length; show++) {
+                pictures[show] = new int[read.shots(show)];
+                for (int shot = 0; shot < pictures[show].length; shot++) {
+                    pictures[show][shot] = Decor.named(read.picture(show, shot));
                 }
             }
-            pictures = made;
+            shots = pictures;
+            asked = new AtomicIntegerArray(read.count());
+            shows = read;
+        }
+        return read;
+    }
+
+    private static int[] bars() {
+        int[] made = bars;
+        if (made == null) {
+            bars = made = new int[] {Decor.named("screen-bars"), Decor.named("screen-grey-bars")};
         }
         return made;
     }
 
-    /**
-     * Logic thread: what the sheet on the glass of a set that is on carries where another piece
-     * carries its texture, for the bars or for a programme, which Decor.texture turns into the
-     * picture's texture. The picture the set shows now is read from the jar here, and
-     * readAhead reads the rest of a channel's.
-     */
-    static int held(IsoTelevision set, int showing, boolean inGrey) {
-        int tint = inGrey ? GREY : COLOUR;
-        if (showing == BARS) {
-            return Decor.held(pictures()[tint][0]);
+    /** The show a source is showing now, by what the game says is on. */
+    private static int showOf(Object source) {
+        if (source instanceof String tape) {
+            return shows().taped(tape);
         }
-        int channel = set.getDeviceData().getChannel();
-        Decor.held(pictures()[tint][1 + programme(channel, System.nanoTime())]);
-        toRead[tint] = PROGRAMMES;
-        return LIVE - (channel * 2 + tint);
+        int frequency = (Integer) source;
+        RadioChannel channel = RadioScriptManager.getInstance().getChannels().get(frequency);
+        if (channel == null) {
+            // A channel the game keeps no script of on this machine: one a server airs, or another mod's.
+            return shows().aired(frequency, null);
+        }
+        // Between a broadcast's last line and the set's losing the signal the channel has nothing airing: the set still shows what was.
+        RadioBroadCast airing = channel.getAiringBroadcast();
+        return shows().aired(frequency, airing != null ? airing.getID() : channel.getLastBroadcastID());
     }
 
     /**
-     * Logic thread, once a frame: reads one more of the programmes a set in a build shows, so
-     * that the render thread finds each one read when its time comes and has only to hand it
-     * to the graphics card.
+     * Logic thread: what the sheet on the glass of a set that is on carries where another piece
+     * carries its texture, for the bars or for a programme, which the picture's program turns
+     * into a texture with now. The shot a set showing a programme shows first is read from
+     * the jar here, and tick reads the rest of its show's.
      */
-    static void readAhead() {
-        for (int tint = COLOUR; tint <= GREY; tint++) {
-            if (toRead[tint] > 0) {
-                Decor.held(pictures[tint][toRead[tint]--]);
+    static int held(IsoTelevision set, int showing, boolean inGrey) {
+        if (showing == BARS) {
+            return Decor.held(bars()[inGrey ? 1 : 0]);
+        }
+        shows();
+        Object source = source(set.getDeviceData());
+        Integer number = numbers.get(source);
+        long now = System.nanoTime();
+        if (number == null) {
+            number = keys.size();
+            int show = showOf(source);
+            Sources known = sources;
+            Sources grown = number < known.show.length() ? known : new Sources(new AtomicIntegerArray(number * 2), new AtomicLongArray(number * 2));
+            for (int i = 0; grown != known && i < number; i++) {
+                grown.show.set(i, known.show.get(i));
+                grown.drawn.set(i, known.drawn.get(i));
+            }
+            // The render thread is shown the source with its show and its time on it, so that it never gives back a show it is about to draw.
+            grown.show.set(number, show);
+            grown.drawn.set(number, now);
+            sources = grown;
+            said(source, show);
+            numbers.put(source, number);
+            keys.add(source);
+        }
+        // A set in a build is about to be drawn: its source is watched from now.
+        sources.drawn.set(number, now);
+        read(sources.show.get(number), now);
+        return LIVE - number;
+    }
+
+    /** Logic thread: reads the picture a show shows at a time, for the render thread to find read. */
+    private static void read(int show, long now) {
+        if (shots[show].length == 0) {
+            Decor.held(bars()[0]);
+            return;
+        }
+        shows.cut(show, now, built);
+        Decor.held(shots[show][(int) built[Shows.SHOT]]);
+    }
+
+    /**
+     * Logic thread, once a frame: asks each channel a set in view is on what it is airing, and
+     * reads one more shot of a show in view, so that the render thread finds each one read
+     * when its time comes and has only to hand it to the graphics card.
+     */
+    static void tick() {
+        if (shows == null) {
+            return;
+        }
+        long now = System.nanoTime();
+        Sources known = sources;
+        boolean ask = now - askedAt >= ASKED_NANOS;
+        if (ask) {
+            askedAt = now;
+        }
+        boolean read = false;
+        for (int number = 0; number < keys.size(); number++) {
+            if (now - known.drawn.get(number) > WATCHED_NANOS) {
+                continue;
+            }
+            if (ask) {
+                int was = known.show.get(number), is = showOf(keys.get(number));
+                if (is != was) {
+                    known.show.set(number, is);
+                    said(keys.get(number), is);
+                }
+            }
+            int show = known.show.get(number), done = asked.get(show);
+            // The shot showing now first, whichever it is: a show that has just come on is drawn this frame.
+            read(show, now);
+            if (!read && done < shots[show].length) {
+                Decor.held(shots[show][done]);
+                // Left as it is where the render thread gave the show's shots back meanwhile: they are asked for again from the first.
+                asked.compareAndSet(show, done, done + 1);
+                read = true;
             }
         }
     }
 
-    /** Whether what a piece carries is a channel, and not one picture. */
+    private static void said(Object source, int show) {
+        Log.info("a television " + (source instanceof String ? "playing the tape " : "on channel ") + source + " shows " + shows.name(show));
+    }
+
+    /** Whether what a piece carries is where a programme comes from, and not one picture. */
     static boolean live(int held) {
         return held <= LIVE;
     }
 
-    /** Render thread: the picture in Decor that a sheet carrying a channel shows now. */
-    static int now(int held) {
-        int coded = LIVE - held;
-        return pictures[coded & 1][1 + programme(coded >> 1, System.nanoTime())];
+    /**
+     * Render thread: what a sheet carrying where its programme comes from shows now, as Decor
+     * holds a picture, and into tube the part of that picture the glass shows: where across
+     * and down the picture its middle is, how much of the picture's width and height it is of,
+     * and SNOW for a show that is interference, whose picture is not looked at.
+     */
+    static int now(int held, float[] tube) {
+        int number = LIVE - held;
+        long now = System.nanoTime();
+        Sources known = sources;
+        known.drawn.set(number, now);
+        int show = known.show.get(number);
+        if (shows.shots(show) == 0) {
+            tube[0] = tube[1] = 0.5f;
+            tube[2] = 1f;
+            tube[3] = SNOW;
+            return -1 - bars[0];
+        }
+        shows.cut(show, now, cut);
+        tube[0] = cut[Shows.ACROSS];
+        tube[1] = cut[Shows.DOWN];
+        tube[2] = cut[Shows.OF];
+        tube[3] = IN_COLOUR;
+        return -1 - shots[show][(int) cut[Shows.SHOT]];
+    }
+
+    /**
+     * Render thread, once a frame before any set is drawn: gives back to the graphics card the
+     * shots of every show no set drawn in the last while shows.
+     */
+    static void giveBack() {
+        long now = System.nanoTime();
+        if (shows == null || now - sweptAt < SWEPT_NANOS) {
+            return;
+        }
+        sweptAt = now;
+        Sources known = sources;
+        for (int show = 0; show < asked.length(); show++) {
+            if (asked.get(show) == 0) {
+                continue;
+            }
+            boolean kept = false;
+            for (int number = 0; number < known.show.length() && !kept; number++) {
+                kept = known.show.get(number) == show && known.drawn.get(number) != 0 && now - known.drawn.get(number) < KEPT_NANOS;
+            }
+            if (!kept) {
+                asked.set(show, 0);
+                for (int picture : shots[show]) {
+                    Decor.forget(picture);
+                }
+            }
+        }
+    }
+
+    /** Render thread, when Decor gives every picture back: no show's shots are read any more. */
+    static void letGo() {
+        if (shows != null) {
+            for (int show = 0; show < asked.length(); show++) {
+                asked.set(show, 0);
+            }
+        }
     }
 
     /** Where a set's glass is on its model: see glasses. Thrown for a model that has none. */
