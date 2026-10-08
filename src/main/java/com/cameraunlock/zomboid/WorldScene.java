@@ -145,6 +145,18 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
          */
         float minX, minY, minUp, maxX, maxY, maxUp;
         /**
+         * How far past the box, along the map, the picture may draw a vertex of the runs: a card
+         * that turns to the camera is held as its middle line, and each vertex says how far along
+         * the card it is drawn. The greatest of those.
+         */
+        float turned;
+        /**
+         * The most layers any vertex of the runs is stood clear of its plane or laid off it by,
+         * which the picture also moves it by as it draws: how far a layer is grows with how far
+         * off the vertex is. See PipelineShaders.FACED.
+         */
+        float layered;
+        /**
          * The vertices themselves, on loan from VertexLoans, until the graphics card has them:
          * null from then on, and for a build with no triangles. The logic thread sets it when
          * it has filled the loan, and the render thread gives the loan back and clears it.
@@ -276,6 +288,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             floats = 0;
             minX = minY = minUp = Float.POSITIVE_INFINITY;
             maxX = maxY = maxUp = Float.NEGATIVE_INFINITY;
+            turned = 0f;
+            layered = 0f;
             note(solid);
             solidRuns = runs;
             note(laid);
@@ -306,9 +320,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 runs++;
                 floats = Math.addExact(floats, mesh.floats);
                 float[] from = mesh.vertices;
-                float lowX = minX, lowY = minY, lowUp = minUp, highX = maxX, highY = maxY, highUp = maxUp;
+                float lowX = minX, lowY = minY, lowUp = minUp, highX = maxX, highY = maxY, highUp = maxUp, along = turned, layers = layered;
                 for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float x = from[at], y = from[at + 1], up = from[at + 2];
+                    float moved = from[at + SpriteGeometry.VERTEX_FLOATS - 1];
+                    if (moved == SpriteGeometry.FACES) {
+                        along = Math.max(along, Math.abs(from[at + SpriteGeometry.VERTEX_FLOATS - 3]));
+                    } else if (moved != 0f) {
+                        layers = Math.max(layers, Math.abs(from[at + SpriteGeometry.VERTEX_FLOATS - 3]));
+                    }
                     lowX = Math.min(lowX, x);
                     highX = Math.max(highX, x);
                     lowY = Math.min(lowY, y);
@@ -322,6 +342,8 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 maxX = highX;
                 maxY = highY;
                 maxUp = highUp;
+                turned = along;
+                layered = layers;
             }
         }
 

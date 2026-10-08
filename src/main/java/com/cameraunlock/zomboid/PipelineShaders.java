@@ -315,8 +315,13 @@ final class PipelineShaders {
             }
             """;
 
+    /** How the world's fragment shader says it draws colour, and what Pipeline puts in its place for the program that draws depth alone. */
+    static final String DEPTH_ONLY_ASKED = "const bool depthOnly = false;";
+    static final String DEPTH_ONLY_ALWAYS = "const bool depthOnly = true;";
+
     static final String WORLD_VERTEX = """
             #version 120
+            invariant gl_Position;
             varying vec2 vUv;
             varying vec4 vColor;
             varying vec3 vNormal;
@@ -412,6 +417,12 @@ final class PipelineShaders {
                 // thirty-twos above that what it is made of.
                 vMaterial = floor((vColor.a + 0.5) / 32.0);
                 vKind = vColor.a - 32.0 * vMaterial;
+                // What is laid may be drawn in two parts, its grass and the rest: see
+                // Pipeline.drawWorld. A vertex of the part not being drawn is in no picture.
+                if (uLaid > 1.5 && (vKind > 7.5) == (uLaid > 2.5)) {
+                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+                    return;
+                }
                 // What stands only to throw a crown's shadow is in no picture but the sun's.
                 if (vMaterial > 79.5 && vMaterial < 80.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -500,7 +511,7 @@ final class PipelineShaders {
             uniform vec4 uTint;
             uniform vec3 uJoint;
             uniform float uLaid;
-            uniform float uDepthOnly;
+            const bool depthOnly = false;
             uniform float uWet;
             // How much of the ground snow lies on, 0 to 1.
             uniform float uSnowLying;
@@ -1908,7 +1919,7 @@ final class PipelineShaders {
                 bool showing = false;
                 // A model is solid all over: what follows gives it its colour and leaves no pixel
                 // of it out, so the pass that keeps only depth goes round it.
-                if (model && uDepthOnly < 0.5) {
+                if (model && !depthOnly) {
                     bool dyed = vMaterial > 33.5;
                     surface = vMaterial - (dyed ? 34.0 : 16.0);
                     vec3 own = vec3(0.66, 0.5, 0.32);
@@ -2043,11 +2054,22 @@ final class PipelineShaders {
                 if (thinnedOut(-toEye.xy)) {
                     discard;
                 }
-                // Every pixel of the solid world that is left out has been left out by here: the
-                // one cut after this is of what is laid over the ground, which is never drawn
-                // for its depth alone. Asked only where the solid world is, the program stops:
-                // what follows is the light, which is most of its work. See Pipeline.drawWorld.
-                if (uDepthOnly > 0.5) {
+                // Ground spreading over its neighbour thins out towards its edge, and the edge
+                // is ragged: tufts and patches, not a ruled fade.
+                float shown = 1.0;
+                if (uLaid > 0.5 && !grass && vMaterial < 56.5 && vCover < 0.999) {
+                    float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
+                    shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
+                    // Where no fallen leaves show, nothing is drawn: left in, they would still
+                    // hide whatever is laid on the same ground after them.
+                    if (litter && shown < 0.03) {
+                        discard;
+                    }
+                }
+                // Every pixel that is left out has been left out by here. Asked only where
+                // things are, the program stops: what follows is the light, which is most of
+                // its work. See Pipeline.drawWorld.
+                if (depthOnly) {
                     gl_FragColor = vec4(0.0);
                     return;
                 }
@@ -2722,18 +2744,6 @@ final class PipelineShaders {
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(toEye.xy + uLoaded.xy)));
                 if (ends > 0.0) {
                     color = mix(color, ridges(-view, air), ends);
-                }
-                // Ground spreading over its neighbour thins out towards its edge, and the edge
-                // is ragged: tufts and patches, not a ruled fade.
-                float shown = 1.0;
-                if (uLaid > 0.5 && !grass && vMaterial < 56.5 && vCover < 0.999) {
-                    float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
-                    shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
-                    // Where no fallen leaves show, nothing is drawn: left in, they would still
-                    // hide whatever is laid on the same ground after them.
-                    if (litter && shown < 0.03) {
-                        discard;
-                    }
                 }
                 // What is laid over the ground is mixed in by its alpha. For everything else the
                 // alpha says how much of a mirror the surface is, 1 for none, which the last

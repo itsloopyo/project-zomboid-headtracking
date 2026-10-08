@@ -19,6 +19,7 @@ final class MapBounds {
      * far inside it is.
      */
     private final double[] planes = new double[24];
+    private final float[] fromEye = new float[16];
 
     /** Takes the bounds of the picture a matrix makes: column-major, as OpenGL loads one, from the map's tiles to clip space. */
     void of(float[] m) {
@@ -32,6 +33,27 @@ final class MapBounds {
             planes[plane * 4 + 2] = up / length;
             planes[plane * 4 + 3] = d / length;
         }
+    }
+
+    /**
+     * Takes the bounds of the picture a projection makes of what an eye's turn leaves before it,
+     * for boxes given by where they are from the eye and not by where they are on the map: the
+     * world's vertex program takes the eye's place off a vertex before it turns it, and a box
+     * is asked of the same way.
+     *
+     * @param turned what ViewCamera.turned made of the eye
+     */
+    void ofTurned(float[] projection, float[] turned) {
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 4; row++) {
+                float sum = 0f;
+                for (int k = 0; k < 4; k++) {
+                    sum += projection[k * 4 + row] * turned[column * 4 + k];
+                }
+                fromEye[column * 4 + row] = sum;
+            }
+        }
+        of(fromEye);
     }
 
     /** Whether a box, given by its middle and how far it reaches each way, is wholly outside the picture. */

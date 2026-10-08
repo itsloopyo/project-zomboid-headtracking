@@ -161,6 +161,11 @@ final class Pipeline {
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
     private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    /**
+     * The same program told at compile time that only depth is wanted, so the driver leaves out
+     * every sum that only colours a pixel: see drawWorld.
+     */
+    private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
     private static final String FIGURE_LIGHT = PipelineShaders.FIGURE_LIGHT_PARTS.concat(CabinShader.SOLIDS).concat(CabinShader.LIGHT).concat(CabinShader.GLASS)
             .concat(CharacterDraw.LIT).concat(PipelineShaders.FIGURE_LIGHT_MAIN);
 
@@ -183,7 +188,7 @@ final class Pipeline {
     private static int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private static float asideX, asideY;
-    private static Program world, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
+    private static Program world, worldDepth, shadow, figureLight, sky, clouds, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth;
     private static Program far;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private static float beyond;
@@ -344,7 +349,7 @@ final class Pipeline {
      * and changes by degrees.
      */
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
-    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world drawn once with no pass for its depth first. */
+    /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
     private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
@@ -366,6 +371,16 @@ final class Pipeline {
     /** The chunks a vehicle's mirror can show as draws, and the listing its picture is drawn from: every chunk's when none is out of it. */
     private static final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
     private static ChunkBuffers.Listing shownBehind = all;
+    /** The chunks the eye's own picture, or a scope's, can show as draws, when those are not all of them: see seenBy. */
+    private static final ChunkBuffers.Listing seenListed = new ChunkBuffers.Listing();
+    /** What the world's program is told in uLaid past 1, for all that is laid: only its grass is drawn, or all of it but its grass. */
+    private static final float LAID_GRASS = 2f, LAID_REST = 3f;
+    /**
+     * How much further than the wind's reach a chunk's bounds are taken to go, in tiles, when it
+     * is asked whether a picture can show the chunk: the program presses down the grass round
+     * the viewer's feet and thickens a far wire, each by far less than this.
+     */
+    private static final float SEEN_MARGIN = 0.5f;
     private static boolean[] leftOut = new boolean[256];
     /** The width and height of each texture a frame has drawn with, by its OpenGL name, and the frame each was last asked of the driver: see tellTexel. */
     private static int[] texelOf = new int[1024], texelWide = new int[1024], texelHigh = new int[1024], texelRead = new int[1024];
@@ -1369,6 +1384,46 @@ final class Pipeline {
         return own;
     }
 
+    /**
+     * The frame's chunks that can put a pixel in the picture the projection makes from an eye,
+     * as draws. The frame holds every chunk near the eye whichever way it looks, since what is
+     * behind it still casts a shadow into the picture, and most of them are behind it or off to
+     * a side: listed for the picture too, every vertex of theirs was worked out in each of its
+     * passes to be thrown away.
+     */
+    private static ChunkBuffers.Listing seenBy(ViewCamera.Pose camera, SkyState state) {
+        ViewCamera.turned(camera, viewed);
+        mapBounds.ofTurned(projection, viewed);
+        if (leftOut.length < drawn.size()) {
+            leftOut = new boolean[drawn.size() * 2];
+        }
+        float blown = BLOWN_MOST * (float) Math.hypot(state.windX, state.windY) + SEEN_MARGIN;
+        int left = 0;
+        for (int i = 0; i < drawn.size(); i++) {
+            WorldScene.ChunkMeshes build = drawn.get(i);
+            float midX = (build.minX + build.maxX) / 2f, midY = (build.minY + build.maxY) / 2f, midUp = (build.minUp + build.maxUp) / 2f;
+            float halfX = (build.maxX - build.minX) / 2f, halfY = (build.maxY - build.minY) / 2f, halfUp = (build.maxUp - build.minUp) / 2f;
+            // A layer of cards as the program works it out for the vertex of the chunk furthest from where layers are counted from, which is the widest any is.
+            float furthest = length(midX - state.layersFromX, midY - state.layersFromY, midUp - state.layersFromUp) + length(halfX, halfY, halfUp);
+            float card = WorldScene.CARD_LAYER + 4f * (WorldScene.STAND_OFF + WorldScene.STAND_OFF_PER_TILE_SQUARED * furthest * furthest);
+            float reach = blown + build.layered * card;
+            leftOut[i] = mapBounds.outside(midX - camera.eyeX, midY - camera.eyeY, midUp - camera.eyeUp, halfX + reach + build.turned,
+                    halfY + reach + build.turned, halfUp + reach);
+            if (leftOut[i]) {
+                left++;
+            }
+        }
+        if (left == 0) {
+            return all;
+        }
+        seenListed.of(drawn, leftOut, true);
+        return seenListed;
+    }
+
+    private static float length(float x, float y, float up) {
+        return (float) Math.sqrt(x * x + y * y + up * up);
+    }
+
     private static void drawSteady(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         lend(steadied, Pipeline::makeSteadied);
         int next = 1 - keptNow;
@@ -1540,25 +1595,31 @@ final class Pipeline {
             projection[9] += asideY;
             Characters.aside(asideX, asideY);
         }
-        tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
+        boolean depthFirst = !WITHOUT.contains("depth");
+        tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         // The solid world is drawn twice. The first time only its depth is kept, and the
         // program stops once it knows whether a pixel is left out. The second time a pixel is
         // worked out only where it is the nearest thing there: the program leaves pixels out,
         // so drawn once the graphics card worked every pixel of every surface out in full
         // before finding most of them hidden, which was three quarters of the pass's time.
-        // One program does both, so the two agree to the bit on which pixels there are.
-        ChunkBuffers.Listing listed = inMirror ? shownBehind : all;
-        boolean depthFirst = !WITHOUT.contains("depth");
+        // The first is drawn by a program of its own, the same text told as it is compiled
+        // that depth is all that is wanted, so the driver leaves out every sum that only
+        // colours. A vertex's place is invariant, so the two agree to the bit on how deep a
+        // pixel is. Which pixels are left out they agree on as far as one driver compiles the
+        // same lines the same way twice: a pixel one kept and the other left out would be a
+        // pinhole, and without=depth is the picture to hold a capture against.
         // The same in both drawings of the solid world, which must agree on which model of a piece is there.
         float pixel = 2f * tanHalfFieldOfView / (inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height);
         if (depthFirst) {
-            world.set("uDepthOnly", 1f);
+            tellWorld(worldDepth, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            worldDepth.set("uLaid", 0f);
             GL11.glColorMask(false, false, false, false);
-            drawRanges(listed, 0, listed.solidRanges(), world);
-            drawModels(world, true, false, camera, far, pixel);
+            drawRanges(listed, 0, listed.solidRanges(), worldDepth);
+            drawModels(worldDepth, true, false, camera, far, pixel);
             GL11.glColorMask(true, true, true, true);
-            world.set("uDepthOnly", 0f);
+            world.use();
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
@@ -1583,6 +1644,30 @@ final class Pipeline {
         world.set("uCut", 0.02f);
         world.set("uLaid", 1f);
         world.set("uTexel", 0f, 0f);
+        // Grass is blade behind blade, and each pixel of each was lit in full to be drawn over
+        // by the next. It is drawn by itself before the rest of what is laid: its depth first,
+        // as the solid world's is, and then a pixel is lit only for the blade nearest the eye
+        // there. The rest lies on the ground in layers that are mixed each over the last, and
+        // is drawn once, in the order listed, as it always was.
+        if (depthFirst) {
+            GL11.glDisable(GL_BLEND);
+            worldDepth.use();
+            worldDepth.set("uCut", 0.02f);
+            worldDepth.set("uLaid", LAID_GRASS);
+            worldDepth.set("uTexel", 0f, 0f);
+            GL11.glColorMask(false, false, false, false);
+            drawRanges(listed, listed.solidRanges(), listed.ranges());
+            GL11.glColorMask(true, true, true, true);
+            world.use();
+            world.set("uLaid", LAID_GRASS);
+            GL11.glEnable(GL_BLEND);
+            GL11.glDepthFunc(GL_EQUAL);
+            GL11.glDepthMask(false);
+            drawRanges(listed, listed.solidRanges(), listed.ranges());
+            GL11.glDepthFunc(GL_LEQUAL);
+            GL11.glDepthMask(true);
+            world.set("uLaid", LAID_REST);
+        }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
         if (own) {
             stage(STAGE_LAID);
@@ -1652,7 +1737,7 @@ final class Pipeline {
         GL11.glEnable(GL_BLEND);
         // The picture's alpha says how much of a mirror each pixel is, and stays what lies behind the pane.
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-        tellWorld(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         world.set("uTexel", 0f, 0f);
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
@@ -1669,11 +1754,11 @@ final class Pipeline {
     }
 
     /**
-     * Makes the world's program the one in use and tells it the frame: the eye, the sun, the
+     * Makes one of the world's two programs the one in use and tells it the frame: the eye, the sun, the
      * shadow maps, the weather. The projection is the one drawWorld last made, so whatever is
      * drawn later in the frame lies on what was drawn first to the fraction of a pixel.
      */
-    private static void tellWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
+    private static void tellWorld(Program to, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
         GL11.glMatrixMode(GL_PROJECTION);
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
@@ -1681,95 +1766,95 @@ final class Pipeline {
         ViewCamera.turned(camera, viewed);
         GL11.glLoadMatrixf(viewed);
 
-        world.use();
-        world.set("uTexture", 0);
-        world.set("uShadowNear", 1);
-        world.set("uShadowFar", 2);
-        bindMaterials();
+        to.use();
+        to.set("uTexture", 0);
+        to.set("uShadowNear", 1);
+        to.set("uShadowFar", 2);
+        bindMaterials(to);
         GL13.glActiveTexture(GL_TEXTURE0 + 1);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0 + 2);
         GL11.glBindTexture(GL_TEXTURE_2D, farMap);
         GL13.glActiveTexture(GL_TEXTURE0);
-        world.set("uNearMatrix", nearMatrix);
-        world.set("uFarMatrix", farMatrix);
-        world.set("uShadowTexel", 1f / shadowSize);
+        to.set("uNearMatrix", nearMatrix);
+        to.set("uFarMatrix", farMatrix);
+        to.set("uShadowTexel", 1f / shadowSize);
         GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 2);
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL33.glBindSampler(UNITS - 2, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
-        world.set("uShadowDepth", UNITS - 2);
+        to.set("uShadowDepth", UNITS - 2);
         GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
         GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
         GL33.glBindSampler(UNITS - 1, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
-        world.set("uHeights", UNITS - 1);
-        world.set("uRoofMatrix", roofMatrix);
-        world.set("uCover", state.cover);
-        world.set("uDrift", state.driftX, state.driftY);
+        to.set("uHeights", UNITS - 1);
+        to.set("uRoofMatrix", roofMatrix);
+        to.set("uCover", state.cover);
+        to.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
-        world.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
-        world.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        to.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
+        to.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         // How much of its distance from the eye a pixel of this picture takes in, up and down.
-        world.set("uPixel", 2f * tanHalfFieldOfView / (inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height));
-        world.set("uRangeFrom", rangeFrom);
-        world.set("uCutAbove", cutAbove);
-        world.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
+        to.set("uPixel", 2f * tanHalfFieldOfView / (inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : height));
+        to.set("uRangeFrom", rangeFrom);
+        to.set("uCutAbove", cutAbove);
+        to.set("uCutBox", cutBox[0], cutBox[1], cutBox[2], cutBox[3]);
         if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, focusX, focusY, focusUp - HOLE_BELOW_EYE, holeAt)) {
-            world.set("uHole", (holeAt[0] * 0.5f + 0.5f) * width, (holeAt[1] * 0.5f + 0.5f) * height, HOLE_OF_HEIGHT * height);
+            to.set("uHole", (holeAt[0] * 0.5f + 0.5f) * width, (holeAt[1] * 0.5f + 0.5f) * height, HOLE_OF_HEIGHT * height);
             float along = camera.forwardX * focusX + camera.forwardY * focusY + camera.forwardUp * focusUp;
             // The ground they stand on is not in the way.
-            world.set("uHoleUp", focusUp - HOLE_FLOOR_BELOW_EYE);
-            world.set("uHoleTrees", HOLE_OF_HEIGHT_TREES * height);
-            world.set("uHoleFrom", camera.forwardX, camera.forwardY, camera.forwardUp, along - HOLE_BEFORE);
+            to.set("uHoleUp", focusUp - HOLE_FLOOR_BELOW_EYE);
+            to.set("uHoleTrees", HOLE_OF_HEIGHT_TREES * height);
+            to.set("uHoleFrom", camera.forwardX, camera.forwardY, camera.forwardUp, along - HOLE_BEFORE);
         } else {
-            world.set("uHole", 0f, 0f, 0f);
+            to.set("uHole", 0f, 0f, 0f);
         }
         // Nearer the camera, along the ground. The overhead eye is to the south-east, where
         // that is a greater x and y together, and the lengths here are in those units.
         float flat = (float) Math.sqrt((camera.forwardX * camera.forwardX + camera.forwardY * camera.forwardY) / 2f);
         float nearerX = -camera.forwardX / flat, nearerY = -camera.forwardY / flat;
-        world.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
-        world.set("uLid", lid);
-        world.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(world, TORCH_UNIT_IN_WORLD);
+        to.set("uCutNear", nearerX, nearerY, nearerX * focusX + nearerY * focusY - CUT_BEHIND * cutBehind);
+        to.set("uLid", lid);
+        to.set("uLight", state.lightX, state.lightY, state.lightUp);
+        setBeams(to, TORCH_UNIT_IN_WORLD);
         float[] carried = state.carried;
         // A carried light that throws a beam is the torch of setBeams: what is said here is one that throws none.
-        world.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],
+        to.set("uLantern", carried[CarriedLight.HELD], carried[CarriedLight.HELD + 1], carried[CarriedLight.HELD + 2],
                 carried[CarriedLight.CONE] > 0f ? 0f : carried[CarriedLight.REACH]);
-        world.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
-        world.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
-        setFlash(world);
-        world.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        world.set("uFogStart", fogStart);
-        world.set("uFogEnd", fogEnd);
-        world.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        to.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        setFlash(to);
+        to.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        to.set("uFogStart", fogStart);
+        to.set("uFogEnd", fogEnd);
+        to.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
         // A scope's picture is not mixed with the one before it: there the built world is thinned out by the same pixels every frame.
-        world.set("uBeyond", inMirror ? 0f : inScope ? Math.min(beyond, 1f) : beyond);
-        world.set("uWind", state.windX, state.windY, state.seconds);
-        world.set("uGust", state.gustX, state.gustY, state.flutter);
-        world.set("uFaced", state.facedX, state.facedY);
-        world.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
-        world.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
-        world.set("uAcross", state.acrossX, state.acrossY);
-        world.set("uWet", state.wet);
-        world.set("uSeconds", state.seconds);
-        world.set("uRaining", state.rain);
-        world.set("uSnowLying", state.snowLying);
+        to.set("uBeyond", inMirror ? 0f : inScope ? Math.min(beyond, 1f) : beyond);
+        to.set("uWind", state.windX, state.windY, state.seconds);
+        to.set("uGust", state.gustX, state.gustY, state.flutter);
+        to.set("uFaced", state.facedX, state.facedY);
+        to.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
+        to.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
+        to.set("uAcross", state.acrossX, state.acrossY);
+        to.set("uWet", state.wet);
+        to.set("uSeconds", state.seconds);
+        to.set("uRaining", state.rain);
+        to.set("uSnowLying", state.snowLying);
         // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
         SnowPrints.placed(camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         for (int i = 0; i < snowTrod[0]; i++) {
-            world.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
+            to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
         }
         for (int i = 0; i < snowTrod[1]; i++) {
-            world.set(RUT_AT[i], snowRuts[i * 4], snowRuts[i * 4 + 1], snowRuts[i * 4 + 2], snowRuts[i * 4 + 3]);
-            world.set(RUT_UP_AT[i], snowRutsUp[i]);
+            to.set(RUT_AT[i], snowRuts[i * 4], snowRuts[i * 4 + 1], snowRuts[i * 4 + 2], snowRuts[i * 4 + 3]);
+            to.set(RUT_UP_AT[i], snowRutsUp[i]);
         }
-        world.set("uSnowTrod", snowTrod[0], snowTrod[1]);
-        world.set("uSnowTrodBox", snowTrod[2], snowTrod[3], snowTrod[4], snowTrod[5]);
-        world.set("uDark", state.night);
-        atmosphere(world, state);
-        world.set("uCut", SOLID_CUT);
+        to.set("uSnowTrod", snowTrod[0], snowTrod[1]);
+        to.set("uSnowTrodBox", snowTrod[2], snowTrod[3], snowTrod[4], snowTrod[5]);
+        to.set("uDark", state.night);
+        atmosphere(to, state);
+        to.set("uCut", SOLID_CUT);
     }
 
     /** Leaves the arrays and the samplers of the world's program unbound, as every pass that uses it must. */
@@ -1785,48 +1870,48 @@ final class Pipeline {
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
     }
 
-    private static void bindMaterials() {
+    private static void bindMaterials(Program to) {
         for (int material = 0; material < MATERIALS.length; material++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_MATERIAL_UNIT + material);
             // Until the mod's own pictures are made a unit holds plain white, which leaves whatever reads it as it was.
             GL11.glBindTexture(material == BARK ? Pictures.GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D,
                     material == BARK || materialTexture[material] != 0 ? materialTexture[material] : whiteTexture);
         }
-        world.set("uAsphalt", FIRST_MATERIAL_UNIT);
-        world.set("uGravel", FIRST_MATERIAL_UNIT + 1);
-        world.set("uSoil", FIRST_MATERIAL_UNIT + 2);
-        world.set("uLawn", FIRST_MATERIAL_UNIT + 3);
-        world.set("uMaterialGain", materialGain[0], materialGain[1], materialGain[2], materialGain[3]);
-        world.set("uShingles", FIRST_MATERIAL_UNIT + 4);
-        world.set("uPaint", FIRST_MATERIAL_UNIT + 5);
-        world.set("uWood", FIRST_MATERIAL_UNIT + 6);
-        world.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
-        world.set("uBark", FIRST_MATERIAL_UNIT + 7);
-        world.set("uPlanks", FIRST_MATERIAL_UNIT + 8);
-        world.set("uCarpet", FIRST_MATERIAL_UNIT + 9);
-        world.set("uTimberGain", materialGain[7], materialGain[8], materialGain[9]);
-        world.set("uLeaves", FIRST_MATERIAL_UNIT + 10);
-        world.set("uLeafGain", materialGain[10]);
-        world.set("uCloth", FIRST_MATERIAL_UNIT + 12);
-        world.set("uClothGain", materialGain[12]);
+        to.set("uAsphalt", FIRST_MATERIAL_UNIT);
+        to.set("uGravel", FIRST_MATERIAL_UNIT + 1);
+        to.set("uSoil", FIRST_MATERIAL_UNIT + 2);
+        to.set("uLawn", FIRST_MATERIAL_UNIT + 3);
+        to.set("uMaterialGain", materialGain[0], materialGain[1], materialGain[2], materialGain[3]);
+        to.set("uShingles", FIRST_MATERIAL_UNIT + 4);
+        to.set("uPaint", FIRST_MATERIAL_UNIT + 5);
+        to.set("uWood", FIRST_MATERIAL_UNIT + 6);
+        to.set("uSurfaceGain", materialGain[4], materialGain[5], materialGain[6]);
+        to.set("uBark", FIRST_MATERIAL_UNIT + 7);
+        to.set("uPlanks", FIRST_MATERIAL_UNIT + 8);
+        to.set("uCarpet", FIRST_MATERIAL_UNIT + 9);
+        to.set("uTimberGain", materialGain[7], materialGain[8], materialGain[9]);
+        to.set("uLeaves", FIRST_MATERIAL_UNIT + 10);
+        to.set("uLeafGain", materialGain[10]);
+        to.set("uCloth", FIRST_MATERIAL_UNIT + 12);
+        to.set("uClothGain", materialGain[12]);
         for (int nature = 0; nature < NATURE.length; nature++) {
             GL13.glActiveTexture(GL_TEXTURE0 + FIRST_NATURE_UNIT + nature);
             GL11.glBindTexture(GL_TEXTURE_2D, natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture);
         }
-        world.set("uLitter", FIRST_NATURE_UNIT);
-        world.set("uRock", FIRST_NATURE_UNIT + 1);
-        world.set("uFrond", FIRST_NATURE_UNIT + 2);
-        world.set("uIvy", FIRST_NATURE_UNIT + 3);
-        world.set("uNatureGain", natureGain[0], natureGain[1]);
+        to.set("uLitter", FIRST_NATURE_UNIT);
+        to.set("uRock", FIRST_NATURE_UNIT + 1);
+        to.set("uFrond", FIRST_NATURE_UNIT + 2);
+        to.set("uIvy", FIRST_NATURE_UNIT + 3);
+        to.set("uNatureGain", natureGain[0], natureGain[1]);
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigs != 0 ? sprigs : whiteTexture);
-        world.set("uSprigs", SPRIG_UNIT);
+        to.set("uSprigs", SPRIG_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0 + SPRIG_FORM_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
-        world.set("uSprigForm", SPRIG_FORM_UNIT);
-        world.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror ? 0f : 1f);
-        world.set("uMirrors", shadedAndLit ? 1f : 0f);
-        world.set("uOwnTextures", Own.textures() ? 1f : 0f);
+        to.set("uSprigForm", SPRIG_FORM_UNIT);
+        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror ? 0f : 1f);
+        to.set("uMirrors", shadedAndLit ? 1f : 0f);
+        to.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
     private static void setBasis(Program program, ViewCamera.Pose pose) {
@@ -3296,6 +3381,7 @@ final class Pipeline {
     private static String linkPrograms() {
         StringBuilder problem = new StringBuilder();
         world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem);
+        worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem);
         paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
         selfShown = Program.link("viewer in the glass", PipelineShaders.PANE_VERTEX, OwnReflection.SHOWN, problem);
         partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);

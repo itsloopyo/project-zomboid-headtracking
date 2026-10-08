@@ -22,6 +22,7 @@ final class BufferTests {
         loansGoRoundAndTheIdleOnesAreCapped();
         aBuildKnowsTheBoxItsVerticesAreIn();
         aBoxIsLeftOutOfAMapOnlyWhenNoneOfItIsInIt();
+        aBoxIsLeftOutOfTheEyesPictureOnlyWhenNoneOfItIsInIt();
         aBufferJustMadeIsNeverMostlyEmpty();
         everyChunkThatCanBeDrawnIsKept();
         aPictureHalvedIsTheMeanOfItsDotsInFours();
@@ -227,6 +228,27 @@ final class BufferTests {
         build.fill(solid, laid);
         check(build.minX == 3f && build.maxX == 7f && build.minY == -2f && build.maxY == 9f && build.minUp == -1f && build.maxUp == 6f,
                 "the box runs from the least to the greatest of every run's vertices");
+        check(build.turned == 0f && build.layered == 0f, "and with no card that turns and nothing in layers, nothing is drawn past it");
+        build.scrap();
+        SpriteGeometry.Mesh card = laid.get(3);
+        card.faces = true;
+        card.along = -1.75f;
+        card.add(5f, 5f, 0f, 0f, 0f, 1f, 1f, 1f);
+        card.along = 0.5f;
+        card.add(5f, 5f, 2f, 0f, 0f, 1f, 1f, 1f);
+        card.faces = false;
+        // Held as the count of layers it stands clear by, which is not a length along the map.
+        card.clears = true;
+        card.along = 4f;
+        card.add(5f, 5f, 2f, 0f, 0f, 1f, 1f, 1f);
+        card.clears = false;
+        build.fill(solid, laid);
+        check(build.turned == 1.75f, "a card that turns is drawn as far past the box as its furthest vertex is along it: " + build.turned);
+        check(build.layered == 4f, "and what stands clear of its plane by layers says the most of them: " + build.layered);
+        build.scrap();
+        laid.get(3).clear();
+        build.fill(solid, laid);
+        check(build.turned == 0f && build.layered == 0f, "a build filled again without them forgets both");
         build.scrap();
     }
 
@@ -292,6 +314,46 @@ final class BufferTests {
             }
         }
         check(leftOut > 10000, "and most boxes scattered that widely are left out");
+    }
+
+    private static void aBoxIsLeftOutOfTheEyesPictureOnlyWhenNoneOfItIsInIt() {
+        MapBounds seen = new MapBounds();
+        ViewCamera.Pose eye = new ViewCamera.Pose();
+        Random random = new Random(23);
+        int leftOut = 0, kept = 0;
+        for (int pose = 0; pose < 400; pose++) {
+            float eyeX = 40f + random.nextFloat() * 20f, eyeY = 60f + random.nextFloat() * 20f, eyeUp = random.nextFloat() * 30f;
+            ViewCamera.clean(eye, eyeX, eyeY, eyeUp, (random.nextFloat() - 0.5f) * 6.3f, (random.nextFloat() - 0.5f) * 2.6f);
+            // The picture as the world is drawn: 16 to 9, and shifted a fraction of a pixel as each frame's is.
+            float[] cast = ViewCamera.projection(0.6371f, 16f / 9f, 0.05f, 80f);
+            cast[8] += (random.nextFloat() - 0.5f) / 1920f;
+            cast[9] += (random.nextFloat() - 0.5f) / 1080f;
+            seen.ofTurned(cast, ViewCamera.turned(eye));
+            // What the same eye pictures counted from the map, by the matrix that takes its place off as well as turning.
+            float[] placed = ViewCamera.view(eye), whole = new float[16];
+            for (int column = 0; column < 4; column++) {
+                for (int row = 0; row < 4; row++) {
+                    for (int k = 0; k < 4; k++) {
+                        whole[column * 4 + row] += cast[k * 4 + row] * placed[column * 4 + k];
+                    }
+                }
+            }
+            for (int box = 0; box < 100; box++) {
+                float x = eyeX + (random.nextFloat() - 0.5f) * 120f, y = eyeY + (random.nextFloat() - 0.5f) * 120f, up = eyeUp + (random.nextFloat() - 0.5f) * 60f;
+                float halfX = random.nextFloat() * 6f, halfY = random.nextFloat() * 6f, halfUp = random.nextFloat() * 6f;
+                if (!seen.outside(x - eyeX, y - eyeY, up - eyeUp, halfX, halfY, halfUp)) {
+                    kept++;
+                    continue;
+                }
+                leftOut++;
+                for (int point = 0; point < 40; point++) {
+                    double a = point < 8 ? (point & 1) * 2 - 1 : random.nextDouble() * 2 - 1, b = point < 8 ? (point >> 1 & 1) * 2 - 1 : random.nextDouble() * 2 - 1;
+                    double c = point < 8 ? (point >> 2 & 1) * 2 - 1 : random.nextDouble() * 2 - 1;
+                    check(!pictured(whole, x + a * halfX, y + b * halfY, up + c * halfUp), "a box left out of the eye's picture has no point in it");
+                }
+            }
+        }
+        check(leftOut > 20000 && kept > 2000, "most boxes all round an eye are left out and those before it are kept: " + leftOut + " out, " + kept + " kept");
     }
 
     private static SpriteGeometry.Mesh triangles(SpriteGeometry.Mesh mesh, int count, float mark) {

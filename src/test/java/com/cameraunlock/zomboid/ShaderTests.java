@@ -67,6 +67,12 @@ final class ShaderTests {
 
     static void run() {
         List<Linked> programs = programs();
+        // The depth program is the world's text with one line put in place of another. Were the line reworded in the
+        // shader and not where it is looked for, it would be the world's whole program: the same picture, slower.
+        String whole = fragment(programs, "world"), depth = fragment(programs, "world depth");
+        if (whole.equals(depth) || !depth.contains("const bool depthOnly = true;")) {
+            throw new AssertionError("the world depth program is not the world's program told to draw depth alone");
+        }
         try {
             if (Files.exists(OUT)) {
                 try (Stream<Path> old = Files.list(OUT)) {
@@ -105,6 +111,15 @@ final class ShaderTests {
             throw new AssertionError(e);
         }
         System.out.println("shader tests: " + programs.size() + " programs pass " + VALIDATOR);
+    }
+
+    private static String fragment(List<Linked> programs, String name) {
+        for (Linked program : programs) {
+            if (program.name.equals(name)) {
+                return program.stages.get("frag");
+            }
+        }
+        throw new AssertionError("no program is linked as \"" + name + "\"");
     }
 
     private static List<Linked> programs() {
