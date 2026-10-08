@@ -153,8 +153,8 @@ final class Roofs {
      * frame are looked at here in turn: one whose chunks the game has marked for an object
      * since it was read is read again, and so is one read while some of the ground round it
      * was not loaded, once the map has loaded more. A roof that comes out otherwise has the
-     * chunks it lies on told (see read). One not due is kept as fresh as if it had been
-     * read, and one whose ground the map has unloaded is let go.
+     * chunks it lies on told (see read). One neither due nor waiting to be is kept as fresh
+     * as if it had been read, and one whose ground the map has unloaded is let go.
      */
     static void tend(IsoCell cell, int now, float scale, int loaded) {
         loadedNow = loaded;
@@ -167,8 +167,7 @@ final class Roofs {
                 drop(roof);
                 continue;
             }
-            // One read short of loaded ground waits out its frames from when it was read: kept fresh while it waited,
-            // as one not due is, it was never due where the roofs are few enough to come round sooner than that.
+            // One read short of loaded ground waits out its frames from when it was read, however often it comes round here.
             boolean waits = !roof.whole && roof.loaded != loaded;
             boolean due = roof.whole ? ChunkMarks.structuresIn(roof.minWx, roof.minWy, roof.maxWx, roof.maxWy) != roof.structures : waits && now - roof.stamp >= RETRIED;
             if (!due) {

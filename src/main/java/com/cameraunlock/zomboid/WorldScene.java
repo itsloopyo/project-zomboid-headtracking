@@ -89,7 +89,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * further off they are, by the square of the distance, so the gap grows the same way: at 80
      * tiles it is about a pixel wide. A build only counts the layers (SpriteGeometry.Layers).
      * The picture makes them this thick as it draws, vertex by vertex, from how far off each
-     * is: baked into the build, every chunk was built again as the eye drew away from it.
+     * is, so a build is the same from any distance.
      */
     static final float STAND_OFF = 0.004f;
     static final float STAND_OFF_PER_TILE_SQUARED = 1e-5f;
@@ -478,7 +478,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * face. Seen from outside that is not the eye the scene is built round: turned to the
      * viewer, every card in the game's own view swung round as the viewer walked past it.
      */
-    private float facedX, facedY, facedUp;
+    private float facedX, facedY;
     private float tanHalfFieldOfView;
     private float tanHalfSet;
 
@@ -885,8 +885,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         if (AUDIT_STALE) {
-            told += String.format(Locale.ROOT, ", chunks left alone built beside %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleDue, tollStale);
-            tollStaleAsked = tollStale = tollStaleDue = 0;
+            told += String.format(Locale.ROOT, ", chunks left alone built beside %d and what grows on them %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleGrownAsked,
+                    tollStaleDue, tollStale);
+            tollStaleAsked = tollStale = tollStaleDue = tollStaleGrownAsked = 0;
         }
         tollQuiet = tollPulls = tollPulled = 0;
         if (AUDIT_MARKS) {
@@ -1052,7 +1053,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         camera.set(view);
         facedX = fromOutside ? from.eyeX : view.eyeX;
         facedY = fromOutside ? from.eyeY : view.eyeY;
-        facedUp = fromOutside ? from.eyeUp : view.eyeUp;
         aim.set(aimed);
         outside = false;
         opacity = 1f;
@@ -1121,7 +1121,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         sky.marked = CentreUse.marked;
         sky.facedX = facedX;
         sky.facedY = facedY;
-        sky.facedUp = facedUp;
+        sky.layersFromX = view.eyeX;
+        sky.layersFromY = view.eyeY;
+        sky.layersFromUp = view.eyeUp;
         sky.acrossX = rightX;
         sky.acrossY = rightY;
         exposure = adaptEye(player, fromOutside);
@@ -1373,7 +1375,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     chunksQuiet++;
                     if (AUDIT_STALE && (frames + slot) % AUDIT_STALE_EVERY == 0) {
                         surround(map, chunk, gridX, gridY, side);
-                        auditStale(chunk, chunkX, chunkY, lowest, current, distance, start, toldSoFar, land);
+                        auditStale(chunk, chunkX, chunkY, lowest, slot, current, distance, start, toldSoFar, land);
                     }
                 }
                 // Dev only: what has a chunk read that would have been left alone, for the audit's line.
@@ -1527,8 +1529,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     fresh.plain &= !canopied;
                     // As it was before the build. A build may itself tell its own chunk, part way through: the roof first
                     // read from one of its squares lays slopes over squares the build has already passed, which asked
-                    // while there was none. Remembered as told, that build stood without them until its chunk was next
-                    // marked; remembered as not, the chunk is built once more.
+                    // while there was none. The chunk is then told still, and is built once more.
                     fresh.told = toldSoFar;
                     fresh.heightsRound = heightsRound;
                     fresh.land = landOf(chunk.wx, chunk.wy, heightsRound);
@@ -1629,6 +1630,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     addSquares(chunk, chunkX, chunkY, 0);
                     growing = false;
                     noKerb();
+                    if (AUDIT_STALE) {
+                        fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                    }
                     fresh.fill(solid, laid);
                     slowed(began);
                     tollGrown++;
@@ -1848,15 +1852,20 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * change of the chunk's sum, and shows stale until the chunk is next built for another
      * reason. The line says what of the chunk does differ now, to find what it was. A chunk
      * whose sum has changed, or that the build beside got told, is only counted: it is due
-     * to be read and built as it is.
+     * to be read and built as it is. The crowns the build beside writes down are set against
+     * the chunk's own, and what grows on its ground is built beside as well where it stands
+     * made from where the eye still is: with a head that moves that is seldom, so a run that
+     * is to cover it holds the head still. The standing build is left as it was.
      */
     private static final boolean AUDIT_STALE = Boolean.getBoolean("cameraunlock.zomboid.auditStale");
     private static final int AUDIT_STALE_EVERY = 240;
-    private static long tollStaleAsked, tollStale, tollStaleDue;
+    private static long tollStaleAsked, tollStale, tollStaleDue, tollStaleGrownAsked;
+    private final byte[] auditLayers = new byte[CHUNK_TILES * CHUNK_TILES];
 
-    private void auditStale(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes standing, float distance, long now, int toldNow, int landNow) {
+    private void auditStale(IsoChunk chunk, int chunkX, int chunkY, int lowest, int slot, ChunkMeshes standing, float distance, long now, int toldNow, int landNow) {
         boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
         int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
+        System.arraycopy(standing.groundLayers, 0, auditLayers, 0, auditLayers.length);
         long sum = signature(chunk, chunkX, chunkY, lowest);
         solid.clear();
         laid.clear();
@@ -1874,6 +1883,31 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         geometry.afresh = false;
         long floats = floatsOf(solid) * 31 + floatsOf(laid);
         boolean asked = !standing.signed;
+        // The crowns the build beside writes down against those the chunk has standing or out being made, and what
+        // grows on its ground, built beside too where it stands made from where the eye still is.
+        Crowns.Work waited = crownsWaited[slot];
+        ChunkMeshes crowned = latestCrowned[slot];
+        Crowns written = waited != null && waited.into.wx == chunk.wx && waited.into.wy == chunk.wy ? waited.from
+                : crowned != null && crowned.wx == chunk.wx && crowned.wy == chunk.wy ? crowned.crowns : null;
+        boolean crownsStale = written == null ? !crownsChecked.isEmpty() : !written.same(crownsChecked);
+        ChunkMeshes grown = latestGrown[slot];
+        boolean grownStale = false;
+        if (grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy && grown.builtFrame >= standing.builtFrame && grown.eyeX == camera.eyeX
+                && grown.eyeY == camera.eyeY && grown.eyeUp == camera.eyeUp && floats == standing.auditFloats) {
+            // The sets are not read again below: the chunk's own build beside came out as its standing one.
+            solid.clear();
+            laid.clear();
+            growing = true;
+            addSquares(chunk, chunkX, chunkY, 0);
+            growing = false;
+            noKerb();
+            grownStale = floatsOf(solid) * 31 + floatsOf(laid) != grown.auditFloats;
+            tollStaleGrownAsked++;
+            if (grownStale) {
+                grown.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+            }
+        }
+        System.arraycopy(auditLayers, 0, standing.groundLayers, 0, auditLayers.length);
         standing.signed = signed;
         standing.plain = plain;
         standing.grows = grows;
@@ -1882,7 +1916,13 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         sprites = counted;
         tollStaleAsked++;
         // A build beside may itself be the asking that reads a roof again, which then tells the chunk: that is the signal working.
-        if (floats != standing.auditFloats && (ChunkMarks.told(chunk.wx, chunk.wy) != toldNow || signed && sum != standing.signature)) {
+        boolean due = ChunkMarks.told(chunk.wx, chunk.wy) != toldNow || signed && sum != standing.signature;
+        if ((crownsStale || grownStale) && !due) {
+            tollStale++;
+            Log.info(String.format(Locale.ROOT, "stale build: the chunk at %d, %d (%d, %d), %.0f tiles off, band %d, built %.1f s ago, would have other %s now, with its sum, what it was told and its heights the same",
+                    chunk.wx, chunk.wy, chunkX, chunkY, distance, standing.band, (now - standing.builtNanos) / 1e9, crownsStale ? "crowns written down" : "things growing on its ground"));
+        }
+        if (floats != standing.auditFloats && due) {
             tollStaleDue++;
             standing.auditFloats = floats;
             standing.auditMeshes = meshesOf();
@@ -2411,6 +2451,15 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         restless = false;
         tallying = true;
         reading.clear();
+        lampsNear.clear();
+        Stack<IsoLightSource> lamps = cell.getLamppostPositions();
+        for (int i = 0; i < lamps.size(); i++) {
+            IsoLightSource lamp = lamps.get(i);
+            if (lamp.active && lamp.x + lamp.radius >= chunkX - 1 && lamp.x - lamp.radius <= chunkX + CHUNK_TILES && lamp.y + lamp.radius >= chunkY - 1
+                    && lamp.y - lamp.radius <= chunkY + CHUNK_TILES) {
+                lampsNear.add(lamp);
+            }
+        }
         for (int z = from; z <= to; z++) {
             readLights(chunkX, chunkY, z);
             System.arraycopy(lightRed, 0, keptRed, (z - from) * span, span);
@@ -2443,7 +2492,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                         thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                     }
                     IsoGridSquare square = lightSquare[at];
-                    thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurns(cell, square) ? 1 : 0);
+                    thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurns(cell, square, lampsNear) ? 1 : 0);
                     PZArrayList<IsoObject> objects = square.getObjects();
                     thing = sum(thing, objects.size());
                     for (int k = 0; k < objects.size(); k++) {
@@ -3619,13 +3668,16 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
     /**
      * Before the build takes the ground's height at a point that may be over the next chunk: a
      * wire's end at the insulator of a pole that stands there, the corner of a body's picture.
-     * That chunk's heights are worked out here if they are not yet, where the height read 0
-     * until whatever first built that chunk had, and the build remembers that it goes by them
-     * (landOf): when they come out otherwise this chunk is built again, which nothing told it
-     * to be before.
+     * A chunk's heights read as none until they are first worked out, so that chunk's are
+     * worked out here if they are not yet, and the build remembers that it goes by them
+     * (landOf): when they come out otherwise this chunk is built again.
      */
     private void heightsAt(float x, float y) {
         int wx = Math.floorDiv((int) Math.floor(x), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(y), CHUNK_TILES);
+        if (Math.abs(wx - building.wx) > 1 || Math.abs(wy - building.wy) > 1) {
+            throw new IllegalArgumentException("the build of the chunk at " + building.wx + ", " + building.wy + " asked the ground's height at " + x + ", " + y
+                    + ", which is over no chunk beside it");
+        }
         if (wx != building.wx || wy != building.wy) {
             Terrain.corners(cell, wx, wy);
             heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
@@ -5720,7 +5772,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         if (!wall) {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
             // drawn through each other.
-            // More of it the further off, where the picture's depth is coarser: three layers.
             geometry.shownA = inX + db * HUNG_CLEAR;
             geometry.shownB = inY + da * HUNG_CLEAR;
             float material = frame.material;
@@ -5737,6 +5788,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                     return;
                 }
             }
+            // And three layers more, which are thicker the further off: there the picture's depth is coarser.
             layers.lie(way, layer + 3f);
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
@@ -6622,7 +6674,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
      * lamps and switches both with no mark on the room's chunks, and in daylight no square's
      * light changes with them either, so nothing else says that a window's pane is now lit.
      */
-    private static boolean lampBurns(IsoCell cell, IsoGridSquare square) {
+    private static boolean lampBurns(IsoCell cell, IsoGridSquare square, java.util.List<IsoLightSource> lamps) {
         IsoRoom room = square.getRoom();
         if (room == null) {
             return false;
@@ -6632,7 +6684,6 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
                 return true;
             }
         }
-        Stack<IsoLightSource> lamps = cell.getLamppostPositions();
         for (int i = 0; i < lamps.size(); i++) {
             IsoLightSource lamp = lamps.get(i);
             if (!lamp.active || lamp.z != square.getZ() || Math.abs(lamp.x - square.getX()) > lamp.radius || Math.abs(lamp.y - square.getY()) > lamp.radius) {
@@ -6645,6 +6696,9 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         return false;
     }
+
+    /** The lamps that burn within reach of the chunk being summed, found once a sum: a square of a room asks only these. */
+    private final ArrayList<IsoLightSource> lampsNear = new ArrayList<>();
 
     /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
     private static final float LAMPLIT = 0.55f;
@@ -6660,7 +6714,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
             return false;
         }
         ColorInfo light = square.lighting[playerIndex].lightInfo();
-        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square);
+        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, cell.getLamppostPositions());
     }
 
     /**
@@ -7032,8 +7086,7 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         }
         float[] colour = SpriteColours.of(shows);
         // The picture reads a sprite's colour and how it is laid on the next frame drawn, and tells nobody when it has:
-        // a build that went without either is made again when next due. Left signed, it stood painted in the wrong
-        // colour, or as boards where the wall is brick, until its chunk was next marked.
+        // a build that went without either is made again when next due.
         this.building.signed &= !SpriteColours.unread(shows) && (far != -1L || !Masonry.unread(shows));
         if (colour == null) {
             return 0;

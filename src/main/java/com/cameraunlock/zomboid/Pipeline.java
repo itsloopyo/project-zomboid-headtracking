@@ -1159,7 +1159,8 @@ final class Pipeline {
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uFaced", state.facedX, state.facedY, state.facedUp);
+        shadow.set("uFaced", state.facedX, state.facedY);
+        shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
         shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
         shadow.set("uAcross", state.acrossX, state.acrossY);
         shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
@@ -1699,7 +1700,8 @@ final class Pipeline {
         world.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
         world.set("uWind", state.windX, state.windY, state.seconds);
         world.set("uGust", state.gustX, state.gustY, state.flutter);
-        world.set("uFaced", state.facedX, state.facedY, state.facedUp);
+        world.set("uFaced", state.facedX, state.facedY);
+        world.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
         world.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
         world.set("uAcross", state.acrossX, state.acrossY);
         world.set("uWet", state.wet);

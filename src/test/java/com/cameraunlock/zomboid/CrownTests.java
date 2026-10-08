@@ -194,11 +194,20 @@ final class CrownTests {
         moved.mesh(apart, PLAIN, new SpriteGeometry.Frame());
         threeInTheBuild(inBuild, 30f);
         same(apart, inBuild);
-        // Into one that held more, and into one that has held nothing.
+        // Into one that held more.
         Crowns one = new Crowns();
         one.add(LEAVES, frame(), PLACES, 1.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3);
         one.copyTo(moved, 6f);
         check(moved.same(one) && !moved.same(near), "and take the place of whatever was written there before");
+        // And more than a new one has room for: nine, where it starts with room for eight.
+        Crowns many = new Crowns(), room = new Crowns();
+        for (int i = 0; i < 9; i++) {
+            many.add(LEAVES, frame(), PLACES, i + 0.5f, 2.5f, 0f, FOOT_U, FOOT_V, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, i);
+        }
+        many.copyTo(room, 6f);
+        check(room.same(many), "nine crowns written into one that has held none are the same nine");
+        many.copyTo(room, 20f);
+        check(!room.same(many), "and from further off they are others");
     }
 
     private static void crownsMadeFromTheSameAreKnownForTheSame() {

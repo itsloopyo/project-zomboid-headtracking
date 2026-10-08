@@ -52,6 +52,8 @@ final class WallFinish {
     private static final class Level {
         int stamp;
         boolean whole = true;
+        /** Whether tend has the level in its list. */
+        boolean listed;
         Texture outside;
         Facing south, east;
         final HashMap<Long, Texture> rooms = new HashMap<>();
@@ -102,7 +104,8 @@ final class WallFinish {
      * are looked at here in turn: one whose building's chunks the game has marked for an
      * object since it was read is read again, and so is one read while part of the building
      * was not loaded, once the map has loaded more. Where it comes out otherwise the chunks
-     * the building stands on are told. One not due is kept as fresh as if it had been read.
+     * the building stands on are told. One neither due nor waiting to be is kept as fresh as
+     * if it had been read.
      */
     static void tend(IsoCell cell, int frame, int loaded) {
         loadedNow = loaded;
@@ -120,9 +123,7 @@ final class WallFinish {
             }
             tended++;
             BuildingDef def = building.getDef();
-            // One read while part of the building was not loaded waits out its frames from when it was read: kept fresh
-            // while it waited, as one not due is, it was never due where the levels are few enough to come round sooner
-            // than that, and the building stood in whatever finish its first reading gave it.
+            // One read while part of the building was not loaded waits out its frames from when it was read, however often it comes round here.
             boolean waits = !level.whole && level.loaded != loaded;
             boolean due = level.whole ? structuresOn(def) != level.structures : waits && frame - level.stamp >= RETRIED;
             if (!due) {
@@ -132,6 +133,7 @@ final class WallFinish {
                 continue;
             }
             Level fresh = read(cell, building, one.z);
+            fresh.listed = true;
             fresh.stamp = frame;
             levels[one.z & (LEVELS - 1)] = fresh;
             if (fresh.print() != level.print()) {
@@ -229,16 +231,17 @@ final class WallFinish {
         Level[] levels = known.computeIfAbsent(building, unused -> new Level[LEVELS]);
         int slot = z & (LEVELS - 1);
         Level level = levels[slot];
-        // With the game telling, a level is read again by tend alone, which tells the building's chunks when it comes out
-        // otherwise. Read again here for whichever wall asked, it came out otherwise for that wall's chunk only, and tend,
-        // finding it read with the map as it now is, told nobody: the rest of the building kept the finish it had.
+        // With the game telling, a level is read again by tend alone, which tells every chunk the building stands on
+        // when it comes out otherwise: a reading made here is for the one wall that asked.
         if (level == null || !ChunkMarks.live && frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
-            if (level == null && ChunkMarks.live) {
-                tendedLevels.add(new Read(new java.lang.ref.WeakReference<>(building), z));
-            }
             level = read(cell, building, z);
             level.stamp = frame;
             levels[slot] = level;
+        }
+        // Whenever the game is telling, not only at a first reading: it may begin to tell after the level was read.
+        if (ChunkMarks.live && !level.listed) {
+            tendedLevels.add(new Read(new java.lang.ref.WeakReference<>(building), z));
+            level.listed = true;
         }
         return level;
     }

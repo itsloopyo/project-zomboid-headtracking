@@ -57,7 +57,9 @@ final class SkyState {
     /** The box round what the Interact key would act on in this picture, or null: see CentreUse.marked. */
     float[] marked;
     /** Where on the map the camera the picture is drawn from stands, which a card turns to face, and the way a card on that very square lies. */
-    float facedX, facedY, facedUp, acrossX = 1f, acrossY;
+    float facedX, facedY, acrossX = 1f, acrossY;
+    /** The eye the scene is built round, the player's own whichever camera draws the picture: how thick a layer is goes by how far off it is. See PipelineShaders.FACED. */
+    float layersFromX, layersFromY, layersFromUp;
     float cover;
     float driftX, driftY;
     float seconds;

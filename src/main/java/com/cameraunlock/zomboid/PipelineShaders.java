@@ -209,25 +209,31 @@ final class PipelineShaders {
      * card it is or how many layers it lies off, how many layers of cards it stands towards the
      * camera, and which of those it is: see SpriteGeometry.VERTEX_FLOATS.
      *
-     * A layer is as thick as the depth buffer needs to tell two surfaces apart that far from
-     * the eye, which grows by the square of the distance (uLayer: the least, and how much more
-     * for each tile squared; then how far a layer of cards stands apart besides). It is worked
-     * out here, from where the vertex is given, so the same numbers come out in every pass
-     * that draws the vertex: the sun's pictures, the mirror, a scope and the view all take
-     * uFaced as the viewer's eye. What lies off its plane is moved in lies, which the caller
-     * adds once the eye's place has been taken off: added to a place on the map, a move this
-     * small is rounded to the map's millimetre.
+     * A layer is as thick as the first person camera's depth buffer needs to tell two
+     * surfaces apart that far from it, which grows by the square of the distance (uLayer: the
+     * least, and how much more for each tile squared; then how far a layer of cards stands
+     * apart besides). The distance is from uLayerFrom, the eye the scene is built round, the
+     * player's own, in every pass that draws the vertex: the view, the mirror and a scope,
+     * which look from there or beside it; the sun's and the lamps' pictures, so that what
+     * casts a shadow is where the view has it; and the picture seen from outside and on the
+     * flight down to the eye. That camera is thousands of tiles off behind a near plane of
+     * its own, tells surfaces apart far finer than the eye's does, and is not what the square
+     * of a distance stands for: measured from it, a layer would be hundreds of tiles thick.
+     * A card turns to uFaced, the camera the picture is drawn from. What lies off its plane
+     * is moved in lies, which the caller adds once the eye's place has been taken off: added
+     * to a place on the map, a move this small is rounded to the map's millimetre.
      */
     static final String FACED = """
-            uniform vec3 uFaced;
+            uniform vec2 uFaced;
             uniform vec2 uAcross;
             uniform vec3 uLayer;
+            uniform vec3 uLayerFrom;
             vec4 faced(vec4 at, out vec2 right, out vec3 lies) {
-                vec2 from = at.xy - uFaced.xy;
+                vec2 from = at.xy - uFaced;
                 float off = length(from);
                 // On the camera's own square there is no way to it, and a card lies across the view.
                 right = off > 0.5 ? vec2(-from.y, from.x) / off : uAcross;
-                vec3 away = at.xyz - uFaced;
+                vec3 away = at.xyz - uLayerFrom;
                 float layer = uLayer.x + uLayer.y * dot(away, away);
                 float card = uLayer.z + 4.0 * layer;
                 float kind = gl_MultiTexCoord1.z;
