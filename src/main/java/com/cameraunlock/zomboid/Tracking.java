@@ -127,6 +127,7 @@ final class Tracking {
         Quality.set(live.quality());
         Style.set(live.style());
         FrameBlending.set(live.frameBlending());
+        SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
@@ -164,7 +165,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, Style, FrameBlending and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style, FrameBlending, SplitScreen and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
@@ -178,6 +179,7 @@ final class Tracking {
             Quality.set(live.quality());
             Style.set(live.style());
             FrameBlending.set(live.frameBlending());
+            SplitScreen.set(live.splitScreen());
             if (live.own() != Own.rows()) {
                 Own.set(live.own());
                 Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
@@ -210,8 +212,17 @@ final class Tracking {
                 if ((pressed & Config.CYCLE_STYLE) != 0) {
                     cycleStyle();
                 }
+                if ((pressed & Config.SPLIT_SCREEN) != 0) {
+                    if (IsoPlayer.numPlayers == 2) {
+                        turnSplitScreen();
+                    } else {
+                        pressed &= ~Config.SPLIT_SCREEN;
+                        Log.info("the split screen key turns the split of two players and does nothing with " + IsoPlayer.numPlayers + " at the screen");
+                    }
+                }
             }
-            int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE);
+            SplitScreen.frame();
+            int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN);
             owed[0] = said | pressed & Config.FIRST_PERSON;
             // Held, the first person key is the second player's.
             boolean held = (pressed & Config.FIRST_PERSON_SECOND) != 0;
@@ -318,6 +329,13 @@ final class Tracking {
         Style next = Style.current().next();
         Style.set(next.ordinal());
         save(() -> config.saveStyle(next));
+    }
+
+    /** The other way for two players to share the screen, kept for the next start. */
+    static void turnSplitScreen() {
+        int next = SplitScreen.row() == SplitScreen.VERTICAL ? SplitScreen.HORIZONTAL : SplitScreen.VERTICAL;
+        SplitScreen.set(next);
+        save(() -> config.saveSplitScreen(next));
     }
 
     static void cycleAimMode() {

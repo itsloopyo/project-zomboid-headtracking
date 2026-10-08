@@ -6,6 +6,8 @@ public final class Core {
     public final zombie.core.opengl.MatrixStack modelViewMatrixStack = null;
 
     public static Core getInstance() { throw new UnsupportedOperationException("reference stub"); }
+    public int getScreenWidth() { throw new UnsupportedOperationException("reference stub"); }
+    public int getScreenHeight() { throw new UnsupportedOperationException("reference stub"); }
     public float getZoom(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public KeyBinding getKeyBinding(String name) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isToggleToAim() { throw new UnsupportedOperationException("reference stub"); }

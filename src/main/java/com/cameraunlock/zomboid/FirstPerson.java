@@ -449,6 +449,10 @@ public final class FirstPerson {
             said = "Style: " + Style.current().label;
             saidAt = System.nanoTime();
         }
+        if ((pressed & Config.SPLIT_SCREEN) != 0) {
+            said = "Split screen: " + SplitScreen.name();
+            saidAt = System.nanoTime();
+        }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
         boolean overheadAsked = !Quality.plain() && failure == null && allowed(view.player());
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();

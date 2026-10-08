@@ -28,27 +28,28 @@ final class Config {
     static final int TOGGLE = CameraUnlock.HOTKEY_TOGGLE, CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
-            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3;
+            CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3,
+            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4;
 
     private static final int SECOND_PLAYER_PORT = 4243;
 
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
-    /** What the rows read again while the game runs hold: the field of view in degrees, Own's bits, the Quality row, the Style row and the FrameBlending row. */
-    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending) {}
+    /** What the rows read again while the game runs hold: the field of view in degrees, Own's bits, the Quality row, the Style row, the FrameBlending row and the SplitScreen row. */
+    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, int splitScreen) {}
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, frameBlending, secondPlayerPort;
+    private final int fieldOfView, quality, style, frameBlending, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
 
     /**
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
      * writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
-     * FrameBlending and the rows of [Content] are the mod's own, and the ones read again while
-     * the game runs. SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey and CycleStyleKey are
-     * the mod's own too, and read at the start.
+     * FrameBlending, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * again while the game runs. SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
+     * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
         this.core = core;
@@ -134,6 +135,14 @@ final class Config {
                         + "shadows are steadier in a still view, and what moves across the picture is\n"
                         + "softened and can smear. Read again while the game runs.",
                 live, false);
+        splitScreen = core.configLocalEnum("General", "SplitScreen",
+                "How two players at one screen share it. SplitScreenKey goes from one to the other\n"
+                        + "and saves it here. Vertical: side by side, each half the width and the whole\n"
+                        + "height, as the game has it. Horizontal: player 1 above player 2, each the whole\n"
+                        + "width and half the height. One player has the whole screen and three or four have\n"
+                        + "a quarter each, as the game has it, whichever this says. Read again while the game\n"
+                        + "runs.",
+                writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         core.configLocalHotkeyHeld("FirstPersonKey",
                 "Goes into the first person view and back to the game's own. Tapped, for the first\n"
                         + "player. Held for " + CameraUnlock.HOLD_MS + " ms, for a second player at the same screen.",
@@ -142,6 +151,10 @@ final class Config {
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);
+        core.configLocalHotkey("SplitScreenKey",
+                "With two players at the screen, goes between side by side and one above the other\n"
+                        + "(SplitScreen). Does nothing with any other number of players.", 0, "F7",
+                SPLIT_SCREEN);
         own = new int[] {
             core.configLocalBool("Content", "OwnWeapons",
                     "What the mod made itself and shows in place of the game's own. Set a row to false\n"
@@ -219,7 +232,7 @@ final class Config {
             rows |= core.configGetInt(own[i]) << i;
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetInt(frameBlending) != 0);
+                core.configGetInt(frameBlending) != 0, core.configGetInt(splitScreen));
     }
 
     /**
@@ -255,6 +268,10 @@ final class Config {
 
     boolean saveStyle(Style row) {
         return saved("picture style", core.configSaveInt(style, row.ordinal()));
+    }
+
+    boolean saveSplitScreen(int row) {
+        return saved("split screen", core.configSaveInt(splitScreen, row));
     }
 
     private static boolean saved(String what, int status) {

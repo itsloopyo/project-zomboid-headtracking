@@ -145,6 +145,7 @@ public final class Tests {
         FarLandTests.run();
         OnlineTests.run();
         HearingTests.run();
+        SplitScreenTests.run();
         CrowdTests.run();
         TailorTests.run();
         usualColourIsWhatMostOfTheSpriteIsPaintedIn();

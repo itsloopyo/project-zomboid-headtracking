@@ -6,7 +6,11 @@ import java.lang.classfile.ClassTransform;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeTransform;
 import java.lang.classfile.FieldModel;
+import java.lang.classfile.Instruction;
 import java.lang.classfile.Opcode;
+import java.lang.classfile.instruction.BranchInstruction;
+import java.lang.classfile.instruction.ConstantInstruction;
+import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.constant.ClassDesc;
@@ -312,6 +316,111 @@ final class CallSite {
         code.getstatic(ownerDesc, field, intDesc);
         invokeStatic(code, filter);
         code.putstatic(ownerDesc, field, intDesc);
+    }
+
+    /**
+     * Passes each read of the static int {@code field} of the class {@code owner} inside
+     * {@code within} that is compared with the constant {@code against} through the static
+     * method {@code filter}, which takes the value read and returns its replacement. Such a
+     * read is the field, then the constant, then a branch on the two. A read used any other
+     * way is left alone, and one followed by the constant and anything but that branch throws.
+     */
+    static byte[] filterStaticIntCompared(byte[] classBytes, Method within, String owner, String field, int against, Method filter, int expected) {
+        int[] matches = {0};
+        // 0 between reads, 1 with the field read and nothing after it yet, 2 with the constant after it.
+        int[] stage = {0};
+        CodeTransform insert = (code, element) -> {
+            if (!(element instanceof Instruction instruction)) {
+                code.with(element);
+                return;
+            }
+            if (stage[0] == 2) {
+                if (!(instruction instanceof BranchInstruction branch) || !comparesTwoInts(branch.opcode())) {
+                    throw new IllegalStateException(owner + "." + field + " and " + against + " are followed by " + instruction.opcode()
+                            + " in " + within + ", not by a branch on the two");
+                }
+                matches[0]++;
+                stage[0] = 0;
+            } else if (stage[0] == 1) {
+                stage[0] = 0;
+                if (instruction instanceof ConstantInstruction constant && constant.constantValue() instanceof Integer value && value == against) {
+                    invokeStatic(code, filter);
+                    stage[0] = 2;
+                }
+            }
+            if (instruction instanceof FieldInstruction read && read.opcode() == Opcode.GETSTATIC && read.owner().asInternalName().equals(owner)
+                    && read.name().equalsString(field) && read.type().equalsString("I")) {
+                stage[0] = 1;
+            }
+            code.with(element);
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of " + owner + "." + field + " compared with " + against + " in " + within
+                    + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
+    private static boolean comparesTwoInts(Opcode opcode) {
+        return switch (opcode) {
+            case IF_ICMPEQ, IF_ICMPNE, IF_ICMPLT, IF_ICMPGE, IF_ICMPGT, IF_ICMPLE -> true;
+            default -> false;
+        };
+    }
+
+    /**
+     * Passes the first of the two ints each {@code operation} inside {@code within} takes
+     * through the static method {@code filter}, which takes the value and returns its
+     * replacement. The operation is one that takes two ints off the stack: a remainder, a
+     * branch on two ints.
+     */
+    static byte[] filterFirstOperandOfEach(byte[] classBytes, Method within, Opcode operation, Method filter, int expected) {
+        if (operation != Opcode.IREM && !comparesTwoInts(operation)) {
+            throw new IllegalArgumentException(operation + " does not take two ints");
+        }
+        int[] matches = {0};
+        CodeTransform insert = (code, element) -> {
+            if (element instanceof Instruction instruction && instruction.opcode() == operation) {
+                matches[0]++;
+                code.swap();
+                invokeStatic(code, filter);
+                code.swap();
+            }
+            code.with(element);
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of " + operation + " in " + within + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
+    /**
+     * Passes the first argument of {@code within}, a static method whose first argument is an
+     * int, through the static method {@code filter} before anything else in it runs.
+     */
+    static byte[] filterFirstStaticIntArgument(byte[] classBytes, Method within, Method filter) {
+        if (!within.descriptor().startsWith("(I")) {
+            throw new IllegalStateException(within + " does not take an int first");
+        }
+        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
+                    && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
+                throw new IllegalStateException(within + " is not static or has no body");
+            }
+        }
+        boolean[] begun = {false};
+        CodeTransform insert = (code, element) -> {
+            if (!begun[0]) {
+                begun[0] = true;
+                code.iload(0);
+                invokeStatic(code, filter);
+                code.istore(0);
+            }
+            code.with(element);
+        };
+        return transform(classBytes, within, insert);
     }
 
     /** Calls the static method {@code hook} with the object the method being rewritten belongs to. */

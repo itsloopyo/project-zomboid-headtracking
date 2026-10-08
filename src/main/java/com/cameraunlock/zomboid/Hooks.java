@@ -141,6 +141,12 @@ public final class Hooks {
         return view == null ? stock : view.controls.attackKey(stock);
     }
 
+    /** Called with what a character's shove input reads. */
+    public static boolean meleeKey(boolean stock, CharacterInputComponent input) {
+        View view = of(input);
+        return view == null ? stock : view.controls.meleeKey(stock);
+    }
+
     /** Called with whether a character's Interact button is down. */
     public static boolean interactKey(boolean stock, CharacterInputComponent input) {
         View view = of(input);

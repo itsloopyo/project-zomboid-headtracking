@@ -117,6 +117,14 @@ public final class Agent {
         return hearing.gap();
     }
 
+    /** The patches that lay two players' parts of the screen out one above the other. */
+    private static PatchTransformer splitScreen;
+
+    /** Why two players stay side by side on this build of the game, or null once every patch of the other layout is in. */
+    static String splitScreenGap() {
+        return splitScreen.gap();
+    }
+
     private static volatile boolean loaded;
 
     /** Called where the game has just logged an exception of any kind. */
@@ -194,6 +202,8 @@ public final class Agent {
         instrumentation.addTransformer(windowMarks);
         hearing = new PatchTransformer(hearingPatches());
         instrumentation.addTransformer(hearing);
+        splitScreen = new PatchTransformer(splitScreenPatches());
+        instrumentation.addTransformer(splitScreen);
     }
 
     /** The patches for the window's place, the carried light and the log. */
@@ -254,6 +264,7 @@ public final class Agent {
                 returningWithThis(input, "isAimKeyDownInternal", "()Z", "aimKey", inputFilter),
                 returningWithThis(input, "isAttackButtonDown", "()Z", "attackKey", inputFilter),
                 returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
+                returningWithThis(input, "isMeleeButtonDownInternal", "()Z", "meleeKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
@@ -382,6 +393,68 @@ public final class Agent {
         return List.of(new Patch(state, "exit before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(state, "exit", "()V"),
                 code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "leftSave", "(Ljava/lang/Object;)V")))));
+    }
+
+    /**
+     * Apart from everything else and all or none: with only some of them in, parts of the
+     * screen would be laid out one way and parts the other, so SplitScreen changes nothing
+     * until every one is. These are the places the game works a player's part of the screen
+     * out from its count of players and the player's number. IsoCamera's eight answers are
+     * what most of the game and all of its Lua ask. The rest do the sum themselves: where a
+     * player's picture is drawn in the one offscreen buffer and how large (Core), the scissor
+     * the two atlases put back after drawing a body or an item of their own, and the size the
+     * view cone's blur is told. UIManager.resize places the moodles by a sum of another shape,
+     * and SplitScreen moves them after it.
+     */
+    private static List<Patch> splitScreenPatches() {
+        String camera = "zombie/iso/IsoCamera", core = "zombie/core/Core", split = "com/cameraunlock/zomboid/SplitScreen";
+        String bodies = "zombie/core/skinnedmodel/DeadBodyAtlas", items = "zombie/core/skinnedmodel/model/WorldItemAtlas$RenderJob";
+        String startFrame = "(IIFIZZZ)V", ofPlayer = "(I)I";
+        CallSite.Method seat = new CallSite.Method(split, "seat", INT_FILTER);
+        CallSite.Method drawing = new CallSite.Method("zombie/core/SpriteRenderer", "getRenderingPlayerIndex", "()I");
+        CallSite.Method startingFrame = new CallSite.Method(core, "DoStartFrameStuffInternal", startFrame);
+        CallSite.Method toBodyAtlas = new CallSite.Method(bodies, "toBodyAtlas", "(L" + bodies + "$RenderJob;)V");
+        CallSite.Method restoreStencil = new CallSite.Method(items, "restoreScreenStencil", "()V");
+        return List.of(
+                halved(new CallSite.Method(camera, "getScreenWidth", ofPlayer), 1, 0),
+                halved(new CallSite.Method(camera, "getScreenHeight", ofPlayer), 0, 1),
+                seated(new CallSite.Method(camera, "getScreenLeft", ofPlayer), seat),
+                seated(new CallSite.Method(camera, "getScreenTop", ofPlayer), seat),
+                seated(new CallSite.Method(camera, "getOffscreenLeft", ofPlayer), seat),
+                seated(new CallSite.Method(camera, "getOffscreenTop", ofPlayer), seat),
+                halved(new CallSite.Method(core, "getOffscreenWidth", ofPlayer), 1, 0),
+                halved(new CallSite.Method(core, "getOffscreenHeight", ofPlayer), 0, 1),
+                halved(startingFrame, 2, 2),
+                new Patch(core, "DoStartFrameStuffInternal taking the player's column", classBytes -> CallSite.filterFirstOperandOfEach(classBytes,
+                        startingFrame, java.lang.classfile.Opcode.IREM, seat, 1)),
+                new Patch(core, "DoStartFrameStuffInternal taking the player's row", classBytes -> CallSite.filterFirstOperandOfEach(classBytes,
+                        startingFrame, java.lang.classfile.Opcode.IF_ICMPLT, seat, 1)),
+                halved(new CallSite.Method(core, "DoStartFrameNoZoom", startFrame), 1, 1),
+                halved(new CallSite.Method("zombie/vispoly/VisibilityPolygon2$Drawer", "renderToScreen", "()V"), 1, 1),
+                halved(toBodyAtlas, 1, 1),
+                after(toBodyAtlas, drawing, seat),
+                halved(restoreStencil, 1, 1),
+                after(restoreStencil, drawing, seat),
+                new Patch(UI, "resize before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(UI, "resize", "()V"),
+                        code -> code.invokestatic(ClassDesc.ofInternalName(split), "afterResize", MethodTypeDesc.ofDescriptor("()V")))));
+    }
+
+    /**
+     * Where {@code within} asks whether more than one player shares the width, {@code widths}
+     * times, and whether more than two share the height, {@code heights} times, SplitScreen
+     * says how many to count.
+     */
+    private static Patch halved(CallSite.Method within, int widths, int heights) {
+        String split = "com/cameraunlock/zomboid/SplitScreen";
+        return new Patch(within.owner(), within.name() + " counting the players across and down", classBytes -> CallSite.filterStaticIntCompared(
+                CallSite.filterStaticIntCompared(classBytes, within, PLAYER, "numPlayers", 1, new CallSite.Method(split, "across", INT_FILTER), widths),
+                within, PLAYER, "numPlayers", 2, new CallSite.Method(split, "down", INT_FILTER), heights));
+    }
+
+    /** {@code within} takes a player's column or row from the number it is handed, and nothing else. */
+    private static Patch seated(CallSite.Method within, CallSite.Method seat) {
+        return new Patch(within.owner(), within.name() + " taking the player's place", classBytes -> CallSite.filterFirstStaticIntArgument(classBytes, within, seat));
     }
 
     /**

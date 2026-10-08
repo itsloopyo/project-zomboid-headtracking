@@ -185,13 +185,15 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 | Toggle first person view | `Delete` | - |
 | Cycle graphics mode | `F9` | - |
 | Cycle picture style | `F8` | - |
+| Turn split screen | `F7` | - |
 
 - **Tracking mode** cycles rotation and position, rotation only, then position only. Rotation only is how you turn the positional lean off.
 - **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up.
 - **Aim mode** is how head tracking behaves while a firearm's sights are up. See [Aiming down sights](#aiming-down-sights).
 - **Graphics mode** and **picture style** are `Quality` and `Style` in [Configuration](#configuration).
+- **Split screen** is for two players at one screen: the key goes between side by side, as the game has them, and player 1 above player 2, each with the whole width and half the height, says on the screen which it went to and saves it as `SplitScreen`. With one, three or four players the key does nothing and the screen is laid out as the game lays it out.
 
-Project Zomboid acts on a letter key whatever is held with it, and on `End`. With the game's default bindings `Ctrl+Shift+Y` also brings up its walk-to cursor, `Ctrl+Shift+H` its health panel and `Ctrl+Shift+U` its vehicle mechanics from the driver's seat, and `End` also switches its search mode. `Page Up`, `Page Down`, `Insert`, `Delete`, `F8` and `F9` do nothing in the game. The last three actions have no chord for that reason: every letter a chord could use is one the game acts on.
+Project Zomboid acts on a letter key whatever is held with it, and on `End`. With the game's default bindings `Ctrl+Shift+Y` also brings up its walk-to cursor, `Ctrl+Shift+H` its health panel and `Ctrl+Shift+U` its vehicle mechanics from the driver's seat, and `End` also switches its search mode. `Page Up`, `Page Down`, `Insert`, `Delete`, `F7`, `F8` and `F9` do nothing in the game. The last four actions have no chord for that reason: every letter a chord could use is one the game acts on.
 
 Every key here is a row of `[Hotkeys]` in `CameraUnlock.ini`: change a row to move an action to other keys, or leave it empty to take its keys away. The rows are read when the game starts. A key pressed while you are typing in one of the game's text boxes, or in its menus, does nothing.
 
@@ -340,6 +342,13 @@ Style=Vivid
 ; shadows are steadier in a still view, and what moves across the picture is
 ; softened and can smear. Read again while the game runs.
 FrameBlending=false
+; How two players at one screen share it. SplitScreenKey goes from one to the other
+; and saves it here. Vertical: side by side, each half the width and the whole
+; height, as the game has it. Horizontal: player 1 above player 2, each the whole
+; width and half the height. One player has the whole screen and three or four have
+; a quarter each, as the game has it, whichever this says. Read again while the game
+; runs.
+SplitScreen=Vertical
 
 [Smoothing]
 ; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
@@ -398,6 +407,9 @@ FirstPersonKey=Delete
 CycleQualityKey=F9
 ; Goes to the next picture style: Vivid, Natural, Bleak (Style).
 CycleStyleKey=F8
+; With two players at the screen, goes between side by side and one above the other
+; (SplitScreen). Does nothing with any other number of players.
+SplitScreenKey=F7
 
 [Light]
 ; How far the light turns for each degree your head turns.

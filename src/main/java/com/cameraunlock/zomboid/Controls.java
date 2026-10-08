@@ -63,9 +63,11 @@ public final class Controls {
      * option on, every click would flip the toggle, so the input is left alone:
      * that player has an aim that stays up already.
      *
-     * A controller's aim is its aim button with its aiming stick pushed, the stick being
-     * where the game aims. In first person the stick turns the view and the aim is where
-     * the view looks, so the button alone is the aim.
+     * A controller's aim is its aiming stick pushed: the stick is where the game aims. In
+     * first person the stick turns the view and the aim is where the view looks, so the stick
+     * is no aim. With a firearm in hand the sights are raised by the left trigger, as in
+     * other first person games: by whatever the player has the game's shove on, which is
+     * the left trigger, and which is kept from shoving for as long (see meleeKey).
      */
     public boolean aimKey(boolean stock) {
         boolean wasFiltered = filteredAim, wasAttack = attackDown;
@@ -73,7 +75,7 @@ public final class Controls {
         boolean captured = view.firstPerson.lookCaptured() && player != null;
         boolean pad = captured && View.onController(player);
         if (pad) {
-            stock = CharacterJoypadButtonBinding.Aim.isDown(player.getJoypadBind());
+            stock = sightsOnTheShove(player);
         }
         stockAim = stock;
         if (captured && player.getVehicle() == null && !togglesAim(player)) {
@@ -102,6 +104,21 @@ public final class Controls {
     }
 
     private boolean turnedOnly;
+
+    /** Whether a controller's shove input is raising a firearm's sights. */
+    private boolean sightsOnTheShove(IsoPlayer player) {
+        ViewModel.Held held = view.viewModel.held;
+        return held != null && held.firearm() && CharacterJoypadButtonBinding.Melee.isDown(player.getJoypadBind());
+    }
+
+    /**
+     * Called with what the game's shove input reads. A controller's raises a firearm's
+     * sights in first person, and is not a shove as well.
+     */
+    public boolean meleeKey(boolean stock) {
+        IsoPlayer player = view.player();
+        return stock && !(view.firstPerson.lookCaptured() && player != null && View.onController(player) && sightsOnTheShove(player));
+    }
 
     /** Whether the game's toggle to aim option holds this player's aim: it is the keyboard's and the mouse's, and a controller has none. */
     private static boolean togglesAim(IsoPlayer player) {

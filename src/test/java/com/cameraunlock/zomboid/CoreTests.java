@@ -234,8 +234,8 @@ public final class CoreTests {
                 "65 degrees, everything of the mod's own on, the Low graphics mode, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.TOGGLE | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
-                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE) == 7,
-                "the seven actions have a bit each");
+                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) == 8,
+                "the eight actions have a bit each");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
@@ -453,13 +453,13 @@ public final class CoreTests {
     }
 
     private static void hotkeyActionsActAndSave() throws IOException, InterruptedException {
-        int others = Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_STYLE;
+        int others = Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN;
         byte[] before = bytes();
         int handedBack = Tracking.act(others);
         String modes = headTracking.describe();
         check(handedBack == others && Arrays.equals(bytes(), before) && modes.contains("mode rotation and position yaw about world up")
                         && modes.contains("Aim mode: sights locked"),
-                "the first person view's three actions are handed back for it to act on, and change and save nothing here");
+                "the first person view's four actions are handed back for it to act on, and change and save nothing here");
 
         check(Tracking.act(Config.CYCLE_TRACKING_MODE) == Config.CYCLE_TRACKING_MODE && headTracking.describe().contains("mode rotation only"),
                 "the tracking mode key goes to rotation only");
@@ -514,6 +514,9 @@ public final class CoreTests {
         check(Quality.name().equals("Medium") && saved("Quality=Medium"), "the graphics mode's action goes to Medium and saves it");
         Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
+        check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
+        Tracking.turnSplitScreen();
+        check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
         check(holds("UdpPort=default") && holds("ToggleKey=default") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
     }
 
@@ -570,15 +573,16 @@ public final class CoreTests {
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
-                .replace("FrameBlending=false", "FrameBlending=true").replace("UdpPort=default", "UdpPort=5555"));
+                .replace("FrameBlending=false", "FrameBlending=true").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
         check(Quality.name().equals("High") && Style.current() == Style.BLEAK && FrameBlending.on(), "and the graphics mode, the picture style and frame blending");
+        check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
-                        && !FrameBlending.on(),
+                        && !FrameBlending.on() && SplitScreen.row() == SplitScreen.HORIZONTAL,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
