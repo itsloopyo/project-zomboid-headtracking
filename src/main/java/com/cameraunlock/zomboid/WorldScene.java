@@ -2768,7 +2768,10 @@ final class WorldScene extends TextureDraw.GenericDrawer implements Grass.Ground
         outdoors *= 1f - NIGHT_HELD_BACK * sky.night;
         float here = 1f;
         if (under != null) {
-            ColorInfo light = under.lighting[player.getIndex()].lightInfo();
+            // Without the viewer's own torch. The game has the torch on the square the character
+            // has just stepped onto and takes it off again half a second later, so an eye that
+            // went by the square's whole light shut and opened once for every tile walked.
+            ColorInfo light = TorchLess.light(under, player.getIndex(), torchless);
             here = (float) Math.pow(Evening.dimmed((light.r + light.g + light.b) / 3f, gameOpen, sky.daylightKept), 2.2);
         }
         // By day an eye indoors opens up to a dim room. At night it has less to open with: an
