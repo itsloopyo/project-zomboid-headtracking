@@ -81,16 +81,12 @@ final class ShopFittings {
      * its corner at the middle of the table is the square's corner the table's middle is at. Null for anything else.
      */
     static Furniture unnamed(IsoSprite sprite, String name) {
-        if (!name.startsWith(MALL) || sprite.getSpriteGrid() != null) {
-            return null;
-        }
-        String place = name.substring(MALL.length());
-        if (place.length() != 2 || !place.chars().allMatch(Character::isDigit)) {
+        if (sprite.getSpriteGrid() != null) {
             return null;
         }
         // The model's middle of the table is its square's corner at -X, +Y: the map's south east turned none, south
         // west turned once, north west twice and north east three times.
-        int turns = switch (Integer.parseInt(place) - MALL_TABLE) {
+        int turns = switch (Sheets.place(name, MALL) - MALL_TABLE) {
             case 0 -> 0;
             case 1 -> 1;
             case 2 -> 3;
@@ -199,6 +195,12 @@ final class ShopFittings {
         };
     }
 
+    /** Whether the game paints a container's square with its many things, and not its fewer. */
+    static boolean many(IsoObject object) {
+        ItemContainer held = object.getContainer();
+        return held != null && held.getItems().size() >= MANY;
+    }
+
     /**
      * Stands goods or clothes on one square of a fitting while the game paints what the square holds over it, many or
      * few as the game paints them. x and y are the square, foot the floor under it.
@@ -208,8 +210,7 @@ final class ShopFittings {
             return;
         }
         Stock stock = stockOf(piece);
-        ItemContainer held = object.getContainer();
-        Models.Model goods = Models.get(held != null && held.getItems().size() >= MANY ? stock.many : stock.few);
+        Models.Model goods = Models.get(many(object) ? stock.many : stock.few);
         float up = (stock.hung ? stock.at - goods.height() : stock.at) * piece.scaleUp;
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);
@@ -223,35 +224,29 @@ final class ShopFittings {
      * under it.
      */
     static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
-        SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
-        glass.sway = 0f;
-        glass.open = build.frame.open + 32f * WorldScene.PANE;
-        float in = COUNTER_HALF - COUNTER_POST / 2f, low = COUNTER_GLASS_FOOT, high = COUNTER_GLASS_TOP;
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
+        float in = COUNTER_HALF - COUNTER_POST / 2f, low = COUNTER_GLASS_FOOT, high = COUNTER_GLASS_TOP, top = high + 0.01f;
         float side = COUNTER_HALF - COUNTER_POST, back = COUNTER_BACK;
-        face(glass, piece, 0f, 0f, 1f);
-        pane(glass, build, piece, x, y, foot, new float[] {-side, -side, high + 0.01f, side, -side, high + 0.01f, side, back, high + 0.01f, -side, back, high + 0.01f});
-        face(glass, piece, 0f, -1f, 0f);
-        pane(glass, build, piece, x, y, foot, new float[] {-side, -in, low, side, -in, low, side, -in, high, -side, -in, high});
-        for (float end : new float[] {-in, in}) {
-            face(glass, piece, Math.signum(end), 0f, 0f);
-            pane(glass, build, piece, x, y, foot, new float[] {end, -side, low, end, back, low, end, back, high, end, -side, high});
+        glass.face(0f, 0f, 1f);
+        pane(glass, -side, -side, top, side, -side, top, side, back, top, -side, back, top);
+        glass.face(0f, -1f, 0f);
+        pane(glass, -side, -in, low, side, -in, low, side, -in, high, -side, -in, high);
+        for (float way = -1f; way <= 1f; way += 2f) {
+            float end = way * in;
+            glass.face(way, 0f, 0f);
+            pane(glass, end, -side, low, end, back, low, end, back, high, end, -side, high);
         }
-    }
-
-    private static void face(SpriteGeometry.Mesh glass, Furniture piece, float x, float y, float up) {
-        float[] turned = new float[2];
-        Models.turn(piece.turns, x, y, turned);
-        glass.face(turned[0], turned[1], up);
     }
 
     /** A sheet of glass through four corners given in the model as x, y and height, round its edge. */
-    private static void pane(SpriteGeometry.Mesh glass, WorldScene.Frame build, Furniture piece, int x, int y, float foot, float[] corners) {
-        float[] turned = new float[2];
-        for (int corner : new int[] {0, 1, 2, 0, 2, 3}) {
-            Models.turn(piece.turns, corners[3 * corner], corners[3 * corner + 1], turned);
-            glass.add(x + piece.centreX + turned[0] * piece.scale, y + piece.centreY + turned[1] * piece.scale, foot + corners[3 * corner + 2] * piece.scaleUp,
-                    corner == 1 || corner == 2 ? 1f : 0f, corner >= 2 ? 1f : 0f, build.frame.red, build.frame.green, build.frame.blue);
-        }
+    private static void pane(Furniture.Glass glass, float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2,
+            float x3, float y3, float z3) {
+        glass.corner(x0, y0, z0, 0f, 0f);
+        glass.corner(x1, y1, z1, 1f, 0f);
+        glass.corner(x2, y2, z2, 1f, 1f);
+        glass.corner(x0, y0, z0, 0f, 0f);
+        glass.corner(x2, y2, z2, 1f, 1f);
+        glass.corner(x3, y3, z3, 0f, 1f);
     }
 
     /**

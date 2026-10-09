@@ -216,10 +216,11 @@ final class Outdoors {
                 return sign;
             }
             // A storey of a substation gantry's narrow lattice column, the lowest on its pad, and a radio mast's in white.
-            if (Sheets.place(name, PYLONS) == 176) {
+            int pylon = Sheets.place(name, PYLONS);
+            if (pylon == 176) {
                 return new Piece("lattice_post", 0);
             }
-            if (Sheets.place(name, PYLONS) == 181) {
+            if (pylon == 181) {
                 return new Piece("lattice_post_foot", 0);
             }
             if (Sheets.place(name, MASTS) == 81) {

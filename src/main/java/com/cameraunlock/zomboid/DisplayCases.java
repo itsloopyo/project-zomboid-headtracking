@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
-import zombie.inventory.ItemContainer;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
@@ -27,18 +26,33 @@ final class DisplayCases {
     static final int ARC_STEPS = 12;
     /** How far inside the front edge of the ends the glass is. */
     private static final float GLASS_IN = 0.02f;
+    /**
+     * The front's glass in the model, from the rail at its foot up its curve to the top board: at each step its y and
+     * its height, and how far up its pane it is.
+     */
+    private static final float[] ARC_Y = new float[ARC_STEPS + 2], ARC_Z = new float[ARC_STEPS + 2], ARC_V = new float[ARC_STEPS + 2];
+
+    static {
+        float deep = CURVE_Y - FRONT - GLASS_IN, rise = UNDER - ARC_FOOT;
+        float[] lengths = new float[ARC_STEPS + 2];
+        ARC_Y[0] = FRONT + GLASS_IN;
+        ARC_Z[0] = KICK;
+        for (int step = 0; step <= ARC_STEPS; step++) {
+            double angle = Math.PI / 2 * step / ARC_STEPS;
+            ARC_Y[step + 1] = CURVE_Y - deep * (float) Math.cos(angle);
+            ARC_Z[step + 1] = ARC_FOOT + rise * (float) Math.sin(angle);
+            lengths[step + 1] = lengths[step] + (float) Math.hypot(ARC_Y[step + 1] - ARC_Y[step], ARC_Z[step + 1] - ARC_Z[step]);
+        }
+        for (int step = 0; step < lengths.length; step++) {
+            ARC_V[step] = lengths[step] / lengths[ARC_STEPS + 1];
+        }
+    }
 
     /**
      * Where the far end of the case gives its colour, in metres of the model: low on its end, a little in from the back,
      * where every case's sprite paints its end panel; and its top, from over the middle of the top board on the far square.
      */
     private static final float END_DYE_UP = 0.2f, END_DYE_IN = 0.15f, TOP_DYE_IN = 0.45f;
-
-    /**
-     * ContainerOverlays.updateContainerOverlaySprite paints a case's square with its fewer cakes while it holds less
-     * than this many things.
-     */
-    static final int MANY = 7;
 
     private static final String[] STOCK = {"pastries_few_a", "pastries_few_b", "pastries_many_a", "pastries_many_b"};
 
@@ -80,70 +94,39 @@ final class DisplayCases {
      * x and y are the case's first square, foot the floor under it.
      */
     static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
-        SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
-        glass.sway = 0f;
-        glass.open = build.frame.open + 32f * WorldScene.PANE;
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
         float side = HALF - END;
-        float deep = CURVE_Y - FRONT - GLASS_IN, rise = UNDER - ARC_FOOT;
-        float[] lengths = new float[ARC_STEPS + 2];
-        float[] ys = new float[ARC_STEPS + 2], zs = new float[ARC_STEPS + 2];
-        ys[0] = FRONT + GLASS_IN;
-        zs[0] = KICK;
-        for (int step = 0; step <= ARC_STEPS; step++) {
-            double angle = Math.PI / 2 * step / ARC_STEPS;
-            ys[step + 1] = CURVE_Y - deep * (float) Math.cos(angle);
-            zs[step + 1] = ARC_FOOT + rise * (float) Math.sin(angle);
-            lengths[step + 1] = lengths[step] + (float) Math.hypot(ys[step + 1] - ys[step], zs[step + 1] - zs[step]);
-        }
-        float whole = lengths[ARC_STEPS + 1];
         for (int strip = 0; strip <= ARC_STEPS; strip++) {
-            float dy = ys[strip + 1] - ys[strip], dz = zs[strip + 1] - zs[strip];
-            face(glass, piece, 0f, -dz, dy);
-            pane(glass, build, piece, x, y, foot, -side, side, ys[strip], zs[strip], ys[strip + 1], zs[strip + 1],
-                    lengths[strip] / whole, lengths[strip + 1] / whole);
+            float dy = ARC_Y[strip + 1] - ARC_Y[strip], dz = ARC_Z[strip + 1] - ARC_Z[strip];
+            glass.face(0f, -dz, dy);
+            pane(glass, -side, side, ARC_Y[strip], ARC_Z[strip], ARC_Y[strip + 1], ARC_Z[strip + 1], ARC_V[strip], ARC_V[strip + 1]);
         }
-        face(glass, piece, 0f, 0f, 1f);
-        flat(glass, build, piece, x, y, foot, -side, side, SHELF_FRONT, BACK - 0.06f, SHELF);
+        glass.face(0f, 0f, 1f);
+        flat(glass, -side, side, SHELF_FRONT, BACK - 0.06f, SHELF);
         // Two doors, one sliding behind the other.
-        face(glass, piece, 0f, 1f, 0f);
-        pane(glass, build, piece, x, y, foot, -side, 0.02f, BACK - 0.025f, DECK + 0.04f, BACK - 0.025f, UNDER - 0.05f, 0f, 1f);
-        pane(glass, build, piece, x, y, foot, -0.02f, side, BACK - 0.012f, DECK + 0.04f, BACK - 0.012f, UNDER - 0.05f, 0f, 1f);
-    }
-
-    private static void face(SpriteGeometry.Mesh glass, Furniture piece, float x, float y, float up) {
-        float[] turned = new float[2];
-        Models.turn(piece.turns, x, y, turned);
-        glass.face(turned[0], turned[1], up);
+        glass.face(0f, 1f, 0f);
+        pane(glass, -side, 0.02f, BACK - 0.025f, DECK + 0.04f, BACK - 0.025f, UNDER - 0.05f, 0f, 1f);
+        pane(glass, -0.02f, side, BACK - 0.012f, DECK + 0.04f, BACK - 0.012f, UNDER - 0.05f, 0f, 1f);
     }
 
     /** A sheet of glass across the case from x0 to x1 and from (y0, z0) to (y1, z1) in the model, v0 to v1 of its pane up it. */
-    private static void pane(SpriteGeometry.Mesh glass, WorldScene.Frame build, Furniture piece, int x, int y, float foot, float x0, float x1,
-            float y0, float z0, float y1, float z1, float v0, float v1) {
-        corner(glass, build, piece, x, y, foot, x0, y0, z0, 0f, v0);
-        corner(glass, build, piece, x, y, foot, x1, y0, z0, 1f, v0);
-        corner(glass, build, piece, x, y, foot, x1, y1, z1, 1f, v1);
-        corner(glass, build, piece, x, y, foot, x0, y0, z0, 0f, v0);
-        corner(glass, build, piece, x, y, foot, x1, y1, z1, 1f, v1);
-        corner(glass, build, piece, x, y, foot, x0, y1, z1, 0f, v1);
+    private static void pane(Furniture.Glass glass, float x0, float x1, float y0, float z0, float y1, float z1, float v0, float v1) {
+        glass.corner(x0, y0, z0, 0f, v0);
+        glass.corner(x1, y0, z0, 1f, v0);
+        glass.corner(x1, y1, z1, 1f, v1);
+        glass.corner(x0, y0, z0, 0f, v0);
+        glass.corner(x1, y1, z1, 1f, v1);
+        glass.corner(x0, y1, z1, 0f, v1);
     }
 
     /** A level sheet of glass from x0 to x1 and y0 to y1 at height z in the model. */
-    private static void flat(SpriteGeometry.Mesh glass, WorldScene.Frame build, Furniture piece, int x, int y, float foot, float x0, float x1,
-            float y0, float y1, float z) {
-        corner(glass, build, piece, x, y, foot, x0, y0, z, 0f, 0f);
-        corner(glass, build, piece, x, y, foot, x1, y0, z, 1f, 0f);
-        corner(glass, build, piece, x, y, foot, x1, y1, z, 1f, 1f);
-        corner(glass, build, piece, x, y, foot, x0, y0, z, 0f, 0f);
-        corner(glass, build, piece, x, y, foot, x1, y1, z, 1f, 1f);
-        corner(glass, build, piece, x, y, foot, x0, y1, z, 0f, 1f);
-    }
-
-    private static void corner(SpriteGeometry.Mesh glass, WorldScene.Frame build, Furniture piece, int x, int y, float foot,
-            float modelX, float modelY, float modelZ, float u, float v) {
-        float[] turned = new float[2];
-        Models.turn(piece.turns, modelX, modelY, turned);
-        glass.add(x + piece.centreX + turned[0] * piece.scale, y + piece.centreY + turned[1] * piece.scale, foot + modelZ * piece.scaleUp, u, v,
-                build.frame.red, build.frame.green, build.frame.blue);
+    private static void flat(Furniture.Glass glass, float x0, float x1, float y0, float y1, float z) {
+        glass.corner(x0, y0, z, 0f, 0f);
+        glass.corner(x1, y0, z, 1f, 0f);
+        glass.corner(x1, y1, z, 1f, 1f);
+        glass.corner(x0, y0, z, 0f, 0f);
+        glass.corner(x1, y1, z, 1f, 1f);
+        glass.corner(x0, y1, z, 0f, 1f);
     }
 
     /**
@@ -155,9 +138,7 @@ final class DisplayCases {
         if (object.getOverlaySprite() == null) {
             return;
         }
-        ItemContainer held = object.getContainer();
-        boolean many = held != null && held.getItems().size() >= MANY;
-        Models.Model cakes = Models.get(STOCK[(many ? 2 : 0) + (piece.gridX + piece.gridY & 1)]);
+        Models.Model cakes = Models.get(STOCK[(ShopFittings.many(object) ? 2 : 0) + (piece.gridX + piece.gridY & 1)]);
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);
         build.placed.add(cakes, build.frame, x, y, middle[0], middle[1], foot + DECK * piece.scaleUp, piece.turns, piece.scale, piece.scaleUp,

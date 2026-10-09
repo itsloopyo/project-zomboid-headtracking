@@ -148,14 +148,29 @@ final class Panels {
     static void shutBackWheel(int playerIndex) {
         Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(BACK_WHEEL), Double.valueOf(playerIndex));
         if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable wheel)) {
-            Log.info("the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
+            sayOnce(playerIndex, "the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
             return;
         }
         if (wheel.rawget("javaObject") instanceof UIElementInterface shown && shown.isVisible() && UIManager.getUI().contains(shown)) {
             Object[] shut = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(wheel, "undisplay"), wheel);
             if (shut.length == 0 || !Boolean.TRUE.equals(shut[0])) {
-                Log.info("the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+                sayOnce(playerIndex, "the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+                return;
             }
+        }
+        wheelTroubleSaid[playerIndex] = false;
+    }
+
+    /**
+     * Whether what went wrong with each player's wheel has been said since it last went right: the wheel is asked
+     * after on every frame the button is held.
+     */
+    private static final boolean[] wheelTroubleSaid = new boolean[View.COUNT];
+
+    private static void sayOnce(int playerIndex, String trouble) {
+        if (!wheelTroubleSaid[playerIndex]) {
+            wheelTroubleSaid[playerIndex] = true;
+            Log.info(trouble);
         }
     }
 

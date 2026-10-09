@@ -100,7 +100,7 @@ final class Clinic {
         }
         // Each square is half of one cabinet two squares wide, and the two halves meet.
         if (called.equals("Cabinet") && group.equals("Wide Medical")) {
-            String half = HOOD_LEFT.contains(place(name)) ? "fume_hood_left" : "fume_hood_right";
+            String half = HOOD_LEFT.contains(Sheets.place(name)) ? "fume_hood_left" : "fume_hood_right";
             return new Furniture(sprite, half, turns).meet(0f, 0f, true);
         }
         // Its front is the sprite's own painting of it: a red case, a green square and a white cross.
@@ -145,17 +145,12 @@ final class Clinic {
      * Their tops are as high as the sheet's desks'. Null for the rest of the sheet.
      */
     static Furniture unnamedDesk(IsoSprite sprite, String name) {
-        int which = place(name);
+        int which = Sheets.place(name);
         String model = which == 2 || which == 4 ? "desk_run" : which == 3 ? "desk_corner" : which == 12 ? "desk_end_left" : null;
         if (model == null) {
             return null;
         }
         float surfaceHigh = OFFICE_DESK_SURFACE / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         return deskSquare(sprite, model, which == 2 ? 3 : 0, surfaceHigh, surfaceUp);
-    }
-
-    /** The number a sprite's name ends in, its place on its sheet. */
-    private static int place(String name) {
-        return Integer.parseInt(name.substring(name.lastIndexOf('_') + 1));
     }
 }

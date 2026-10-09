@@ -90,12 +90,13 @@ final class Camp {
         if (called.equals("Cooking Pit") && kind.equals("Simple") && name.equals(SHELTERS + "16")) {
             return new Outdoors.Piece("cooking_pit_simple", 0).dye(PAINT, NEAR_STONE, NEAR_STONE, STONE_DYE);
         }
-        if (called.equals("Burn Barrel") && Sheets.place(name, WORKSHOP) >= 0 && Sheets.place(name, WORKSHOP) != 62 && Sheets.place(name, WORKSHOP) != 63) {
+        int workshop = Sheets.place(name, WORKSHOP);
+        if (called.equals("Burn Barrel") && workshop >= 0 && workshop != 62 && workshop != 63) {
             return new Outdoors.Piece("burn_barrel", 0).dye(PAINT, DRUM_DYE);
         }
         // An army crate on the floor is Furniture's, and is the model this stands on it.
         if (called.equals("Crate") && (kind.equals("Military") && Sheets.place(name, ARMY) >= 0 && surfaceHigh > CRATE_HIGH
-                || (kind.equals("Metal") && Sheets.place(name, MADE) >= 0 || kind.equals("Fancy Metal") && Sheets.place(name, WORKSHOP) >= 0) && surface > 0)) {
+                || (kind.equals("Metal") && Sheets.place(name, MADE) >= 0 || kind.equals("Fancy Metal") && workshop >= 0) && surface > 0)) {
             return crate(surfaceHigh);
         }
         if (called.equals("Candle") && name.equals(MADE + "0")) {

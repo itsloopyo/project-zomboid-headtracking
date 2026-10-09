@@ -22,10 +22,7 @@ final class Potted {
 
     /** The plant a sprite is, or null for a sprite that is none of them. */
     static Potted of(String name, String called) {
-        if (!name.startsWith(SHEET) || name.length() == SHEET.length() || !name.substring(SHEET.length()).chars().allMatch(Character::isDigit)) {
-            return null;
-        }
-        int place = Integer.parseInt(name.substring(SHEET.length()));
+        int place = Sheets.place(name, SHEET);
         // The sheet's first row holds the grown plants, and each row under it the five again, a step on.
         String kind;
         String named;

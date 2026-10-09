@@ -239,6 +239,40 @@ final class Furniture {
         return this;
     }
 
+    /** The glass round a piece, laid by places on its model in metres: a shop's glass counter's case, a cake shop's glass case. */
+    static final class Glass {
+        private final SpriteGeometry.Mesh mesh;
+        private final Furniture piece;
+        private final float x, y, foot, red, green, blue;
+        private final float[] turned = new float[2];
+
+        /** Laid in a window's panes, still in the wind. x and y are the piece's first square, foot the floor under it. */
+        Glass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
+            mesh = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
+            mesh.sway = 0f;
+            mesh.open = build.frame.open + 32f * WorldScene.PANE;
+            this.piece = piece;
+            this.x = x;
+            this.y = y;
+            this.foot = foot;
+            red = build.frame.red;
+            green = build.frame.green;
+            blue = build.frame.blue;
+        }
+
+        /** Faces what is laid next the way (modelX, modelY, up) is in the model. */
+        void face(float modelX, float modelY, float up) {
+            Models.turn(piece.turns, modelX, modelY, turned);
+            mesh.face(turned[0], turned[1], up);
+        }
+
+        /** A corner of a sheet at (modelX, modelY, modelZ) in the model, (u, v) of its pane. */
+        void corner(float modelX, float modelY, float modelZ, float u, float v) {
+            Models.turn(piece.turns, modelX, modelY, turned);
+            mesh.add(x + piece.centreX + turned[0] * piece.scale, y + piece.centreY + turned[1] * piece.scale, foot + modelZ * piece.scaleUp, u, v, red, green, blue);
+        }
+    }
+
     static Furniture known(IsoSprite sprite) {
         Furniture piece = furniture.get(sprite);
         if (piece == null && !furniture.containsKey(sprite)) {
@@ -259,22 +293,22 @@ final class Furniture {
         PropertyContainer properties = sprite.getProperties();
         String called = properties.get("CustomName");
         IsoSpriteGrid grid = sprite.getSpriteGrid();
+        int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
+        String groupName = properties.get("GroupName");
+        int surface = properties.getSurface();
         if (name != null && (grid == null || grid.getLevels() == 1)) {
             IsoDirections way = sprite.getFacing();
             int faces = way == IsoDirections.N ? Outdoors.NORTH : way == IsoDirections.E ? Outdoors.EAST : way == IsoDirections.S ? Outdoors.SOUTH
                     : way == IsoDirections.W ? Outdoors.WEST : Outdoors.NONE;
-            Outdoors.Piece outside = Outdoors.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
-                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            Outdoors.Piece outside = Outdoors.of(name, called, groupName, faces, width, height, surface);
             if (outside != null) {
                 return outdoors(sprite, outside);
             }
-            Outdoors.Piece works = Industry.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
-                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            Outdoors.Piece works = Industry.of(name, called, groupName, faces, width, height, surface);
             if (works != null) {
                 return outdoors(sprite, works);
             }
-            Outdoors.Piece camp = Camp.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
-                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            Outdoors.Piece camp = Camp.of(name, called, groupName, faces, width, height, surface);
             if (camp != null) {
                 return outdoors(sprite, camp);
             }
@@ -298,9 +332,8 @@ final class Furniture {
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;
         }
-        String group = properties.get("GroupName") == null ? "" : properties.get("GroupName");
+        String group = groupName == null ? "" : groupName;
         String holds = properties.get("container") == null ? "" : properties.get("container");
-        int surface = properties.getSurface();
         float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         boolean low = properties.has("IsLow"), onTable = properties.has("IsTableTop");
         boolean counterHigh = surface >= 30 && surface <= 40;
@@ -385,7 +418,6 @@ final class Furniture {
         }
         int turns = turnsOf(facing);
         boolean alongY = (turns & 1) == 0;
-        int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         int along = alongY ? height : width, across = alongY ? width : height;
         boolean single = grid == null, pair = along == 1 && across == 2;
         boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
@@ -655,6 +687,8 @@ final class Furniture {
 
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
     private static final String STREET_LAMPS = "lighting_outdoor_01_";
+    /** The sheet has a copy of itself with the lamps lit, the same lamps in the same places. */
+    private static final String LIT_STREET_LAMPS = STREET_LAMPS + "on_";
     /** Where on its sprite a lamp's post gives its colour, in levels. */
     private static final float POST_DYE = 0.5f, UPPER_POST_DYE = 0.25f;
 
@@ -669,15 +703,7 @@ final class Furniture {
      * the mod has no model of.
      */
     private static Furniture streetLamp(IsoSprite sprite, String name) {
-        // The sheet has a copy of itself with the lamps lit, the same lamps in the same places.
-        String place = name.substring(STREET_LAMPS.length());
-        if (place.startsWith("on_")) {
-            place = place.substring(3);
-        }
-        if (place.isEmpty() || place.length() > 3 || !place.chars().allMatch(Character::isDigit)) {
-            return null;
-        }
-        int which = Integer.parseInt(place);
+        int which = Sheets.place(name, name.startsWith(LIT_STREET_LAMPS) ? LIT_STREET_LAMPS : STREET_LAMPS);
         return switch (which) {
             case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 1 -> new Furniture(sprite, "globe_lamp", 0).dye(1 << Models.PAINT, POST_DYE);

@@ -113,8 +113,6 @@ final class Papers {
             if (told[column]) {
                 odd += painted - count;
                 all += painted;
-            }
-            if (told[column]) {
                 columns[column * 3] = red / (255f * count);
                 columns[column * 3 + 1] = green / (255f * count);
                 columns[column * 3 + 2] = blue / (255f * count);

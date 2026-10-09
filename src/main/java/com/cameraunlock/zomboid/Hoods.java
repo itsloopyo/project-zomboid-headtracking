@@ -128,12 +128,15 @@ final class Hoods {
         return endsPlus ? endsMinus ? "hood_alone" : "hood_end_plus" : endsMinus ? "hood_end_minus" : "hood";
     }
 
+    /** The four steps to a square's neighbours along the map's x and y. */
+    private static final int[][] STEPS = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
     /** Whether the piece of eave on a square is the end of a hood, which the hood's model has: past the end of the hood's run, along its wall. */
     static boolean endOfAHood(Squares squares, int x, int y) {
         if (!squares.endPiece(x, y)) {
             return false;
         }
-        for (int[] step : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+        for (int[] step : STEPS) {
             int nx = x + step[0], ny = y + step[1];
             if (hood(squares, nx, ny) && (squares.eave(nx, ny) == Outdoors.WEST) == (step[0] == 0)) {
                 return true;
@@ -148,9 +151,11 @@ final class Hoods {
         out[1] = wall == Outdoors.NORTH ? 0f : 0.5f;
     }
 
-    /** Where on its square a hood's sprite gives the colour of its roofing. */
+    private static final float[] DYED_WEST = {DYE_OUT, DYE_ALONG}, DYED_NORTH = {DYE_ALONG, DYE_OUT};
+
+    /** Where on its square a hood's sprite gives the colour of its roofing, as a and b: not to be written. */
     static float[] dyedAt(int wall) {
-        return wall == Outdoors.WEST ? new float[] {DYE_OUT, DYE_ALONG} : new float[] {DYE_ALONG, DYE_OUT};
+        return wall == Outdoors.WEST ? DYED_WEST : DYED_NORTH;
     }
 
     static Squares on(IsoCell cell, int z) {
@@ -164,8 +169,9 @@ final class Hoods {
                 PZArrayList<IsoObject> objects = square.getObjects();
                 for (int i = 0; i < objects.size(); i++) {
                     IsoSprite sprite = objects.get(i).getSprite();
-                    if (sprite != null && Hoods.eave(sprite) != NONE) {
-                        return Hoods.eave(sprite);
+                    int wall = sprite == null ? NONE : Hoods.eave(sprite);
+                    if (wall != NONE) {
+                        return wall;
                     }
                 }
                 return NONE;

@@ -56,17 +56,12 @@ final class Banners {
 
     /** What a sprite is, by its name and what the game says of it: its CustomName and whether it is marked as fixed to a wall already. */
     static int kind(String name, String customName, boolean attached) {
-        if (name != null && name.startsWith(SHEET)) {
-            String index = name.substring(SHEET.length());
-            if (!index.isEmpty() && index.chars().allMatch(Character::isDigit)) {
-                int which = Integer.parseInt(index);
-                if (which >= STRUNG_FIRST && which <= STRUNG_LAST) {
-                    return STRUNG;
-                }
-                if (which >= POSTED_FIRST && which <= POSTED_LAST) {
-                    return POSTED;
-                }
-            }
+        int which = name == null ? -1 : Sheets.place(name, SHEET);
+        if (which >= STRUNG_FIRST && which <= STRUNG_LAST) {
+            return STRUNG;
+        }
+        if (which >= POSTED_FIRST && which <= POSTED_LAST) {
+            return POSTED;
         }
         return !attached && ("Bunting".equals(customName) || "Flag".equals(customName)) ? ON_WALL : NONE;
     }

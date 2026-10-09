@@ -13,7 +13,7 @@ import com.cameraunlock.zomboid.Outdoors.Piece;
 final class Industry {
     private Industry() {}
 
-    private static final String WORKS = "industry_02_", CRATES = "carpentry_01_", DISTILLERY = "location_business_distillery_01_";
+    private static final String WORKS = "industry_02_", CRATES = "carpentry_01_", DISTILLERY = "location_business_distillery_01_", EXTINGUISHERS = "industry_03_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How high the game says the crate at the foot of a stack is, in the pixels of its sprite: the crates on it stand from there. */
     private static final int CRATE_FOOT = 32;
@@ -78,8 +78,8 @@ final class Industry {
         if (called.equals("Propane Tank")) {
             return new Piece("propane_tank", 0).fit();
         }
-        if (called.equals("Extinguisher") && name.startsWith("industry_03_")) {
-            int which = switch (Sheets.place(name, "industry_03_")) {
+        if (called.equals("Extinguisher")) {
+            int which = switch (Sheets.place(name, EXTINGUISHERS)) {
                 case 22 -> 0;
                 case 23 -> 1;
                 case 30 -> 2;
