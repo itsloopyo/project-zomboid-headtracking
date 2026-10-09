@@ -264,6 +264,11 @@ final class Furniture {
             if (works != null) {
                 return outdoors(sprite, works);
             }
+            Outdoors.Piece camp = Camp.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
+                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            if (camp != null) {
+                return outdoors(sprite, camp);
+            }
         }
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
@@ -605,6 +610,8 @@ final class Furniture {
         Furniture piece = new Furniture(sprite, outside.model, outside.turns, outside.each);
         if (outside.dyed != 0) {
             piece.dye(outside.dyed, outside.dyeA, outside.dyeB, outside.dyeHigh);
+            piece.dyeX = outside.dyeX;
+            piece.dyeY = outside.dyeY;
         }
         if (outside.alsoDyed != 0) {
             piece.also(outside.alsoDyed, outside.alsoHigh);
@@ -616,7 +623,7 @@ final class Furniture {
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
         if (outside.fits) {
-            piece.stand(0f, piece.model.height(), false);
+            piece.stand(outside.top, piece.model.height(), false);
         }
         if (piece.grid == null) {
             piece.centreX = outside.a;

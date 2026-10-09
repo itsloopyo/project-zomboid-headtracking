@@ -104,6 +104,23 @@ final class Outdoors {
             return this;
         }
 
+        /** Which square of a piece on several gives the colour, where the first has nothing painted where it is looked for. */
+        int dyeX, dyeY;
+        /** How high the game says the piece's top is, in tiles, for one made as high as that, or 0. */
+        float top;
+
+        Piece dyeOn(int x, int y) {
+            dyeX = x;
+            dyeY = y;
+            return this;
+        }
+
+        /** As fit, and made as high as top tiles where that is less than it fits. */
+        Piece fitTo(float top) {
+            this.top = top;
+            return fit();
+        }
+
     }
 
     /** The game's facings as numbers: the quarter turns of a model that faces that way. */

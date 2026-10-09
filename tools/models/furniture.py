@@ -6847,6 +6847,515 @@ def office_medical():
             desk_square("desk_pedestal_right", -0.5, inset, inset, "pedestal")]
 
 
+def soft_slab(model, surface, x0, x1, y0, y1, z0, z1, crown, cells=(2, 4)):
+    """A soft body the shape of a box, its top fuller in the middle: a mattress, a sleeping bag."""
+    part = bmesh.new()
+    cage = grid_box(part, spread(x0, x1, cells[0]), spread(y0, y1, cells[1]), [z0, z1])
+    for (i, j, k), vert in cage.items():
+        if k == 1 and 0 < i < cells[0] and 0 < j < cells[1]:
+            vert.co.z += crown
+    crease(part, cage, 0.3)
+    model.soft(part, surface, levels=2)
+
+
+def camp_rod(radius, low, high):
+    """The profile of a rod, in rings no further apart than a vertex's light can be trusted to run evenly over."""
+    steps = max(1, math.ceil((high - low) / SHORTEST_CUT))
+    return [(0.0, low)] + [(radius, low + (high - low) * n / steps) for n in range(steps + 1)] + [(0.0, high)]
+
+
+def camp_pole(bm, x, y, z0, z1, radius):
+    lathe(bm, camp_rod(radius, z0, z1), cx=x, cy=y, segments=8)
+
+
+def log_x(bm, x0, x1, y, z, radius):
+    """A round length of wood lying along x."""
+    lathe(bm, camp_rod(radius, x0, x1), segments=8, to=along_x(0.0, y, z))
+
+
+def stone(bm, x, y, z, size, turn, rng):
+    """A rounded field stone, its long side turned turn degrees from x."""
+    high = size * rng.uniform(0.75, 1.05)
+    lathe(bm, [(0.0, 0.0), (size * 0.75, 0.0), (size, high * 0.4), (size * 0.8, high * 0.85), (0.0, high)], segments=7,
+          sx=rng.uniform(1.1, 1.4), sy=rng.uniform(0.8, 1.0), to=Matrix.Translation((x, y, z)) @ Matrix.Rotation(math.radians(turn), 4, "Z"))
+
+
+def stone_ring(model, radius, count, courses, size, seed):
+    """Stones laid round in a ring, a course on a course, each course turned half a stone on the one under it."""
+    rng = random.Random(seed)
+    stones = bmesh.new()
+    for course in range(courses):
+        for n in range(count):
+            angle = 360.0 * (n + 0.5 * (course % 2)) / count + rng.uniform(-4, 4)
+            at = radius + rng.uniform(-0.01, 0.01)
+            stone(stones, at * math.cos(math.radians(angle)), at * math.sin(math.radians(angle)), course * size * 0.85, size, angle + 90, rng)
+    model.plain(stones, "paint")
+
+
+def tent(name, half, length, ridge, door, guys):
+    """A ridge tent: a fly over a pole at each end, its door to the front as a frame round a dark net, closed at its back,
+    on a groundsheet, its poles held by a line to a peg ahead of each end when guys is more than 0."""
+    model = Model(name)
+    end = length / 2
+    fly = bmesh.new()
+    thick = 0.012
+    outline_along_y(fly, [(-half, 0.03), (0.0, ridge), (half, 0.03), (half - thick * 1.5, 0.03), (0.0, ridge - thick * 1.6), (-half + thick * 1.5, 0.03)],
+                    -end - 0.05, end + 0.05)
+    outline_along_y(fly, [(-half + 0.03, 0.03), (half - 0.03, 0.03), (0.0, ridge - 0.03)], end - 0.03, end - 0.02)
+    if door:
+        model.hard(fly, "cloth", bevel=0.003, segments=1)
+        frame, net = bmesh.new(), bmesh.new()
+        outline_along_y(frame, [(-half + 0.03, 0.03), (half - 0.03, 0.03), (0.0, ridge - 0.03)], -end + 0.02, -end + 0.03)
+        model.hard(frame, "linen", bevel=0.002, segments=1)
+        inset = 0.09
+        outline_along_y(net, [(-half + 0.03 + inset * 1.6, 0.03 + inset), (half - 0.03 - inset * 1.6, 0.03 + inset), (0.0, ridge - 0.03 - inset * 1.4)],
+                        -end + 0.014, -end + 0.02)
+        model.hard(net, "rubber", bevel=0.002, segments=1)
+    else:
+        outline_along_y(fly, [(-half + 0.03, 0.03), (half - 0.03, 0.03), (0.0, ridge - 0.03)], -end + 0.02, -end + 0.03)
+        model.hard(fly, "cloth", bevel=0.003, segments=1)
+    poles = bmesh.new()
+    for side in (-1, 1):
+        camp_pole(poles, 0.0, side * end, 0.0, ridge + 0.1, 0.012)
+    model.turned(poles, "metal")
+    sheet = bmesh.new()
+    cuboid(sheet, -half + 0.04, half - 0.04, -end - 0.08, end, 0.0, 0.008)
+    model.hard(sheet, "rubber", bevel=0.002, segments=1)
+    if guys > 0:
+        lines = bmesh.new()
+        for side in (-1, 1):
+            beam(lines, (0.0, side * end, ridge + 0.08), (0.0, side * (end + guys), 0.03), 0.008, 0.008)
+            cuboid(lines, -0.012, 0.012, side * (end + guys) - 0.012, side * (end + guys) + 0.012, 0.0, 0.05)
+        model.hard(lines, "linen", bevel=0.002, segments=1)
+    return model
+
+
+def sleeping_bag():
+    """A sleeping bag laid out flat, its head to the back, the top of its cover turned down there to show the lining."""
+    model = Model("sleeping_bag")
+    soft_slab(model, "cloth", -0.38, 0.38, -0.97, 0.97, 0.0, 0.08, 0.02, cells=(2, 6))
+    soft_slab(model, "linen", -0.36, 0.36, 0.5, 0.94, 0.07, 0.1, 0.006, cells=(2, 2))
+    return model
+
+
+def camp_mattress():
+    """A mattress laid on the floor with no bed under it."""
+    model = Model("camp_mattress")
+    soft_slab(model, "linen", -0.46, 0.46, -0.96, 0.96, 0.0, 0.125, 0.012)
+    return model
+
+
+def plank_bed():
+    """A bed knocked together from planks: a box of boards on four corner posts, a mattress laid in its top."""
+    model = Model("plank_bed")
+    half, end, sides = 0.475, 0.975, 0.43
+    frame = bmesh.new()
+    for side in (-1, 1):
+        cuboid(frame, side * half, side * (half - 0.025), -end + 0.04, end - 0.04, 0.06, sides)
+        cuboid(frame, -half + 0.04, half - 0.04, side * end, side * (end - 0.025), 0.06, sides)
+        for other in (-1, 1):
+            cuboid(frame, side * half - 0.03, side * half + 0.03, other * end - 0.03, other * end + 0.03, 0.0, sides + 0.02)
+    for n in range(7):
+        y = -end + 0.12 + n * (2 * end - 0.24) / 6
+        cuboid(frame, -half + 0.025, half - 0.025, y - 0.04, y + 0.04, sides - 0.06, sides - 0.03)
+    for z in (0.2, 0.33):
+        for side in (-1, 1):
+            cuboid(frame, side * (half - 0.002), side * (half + 0.004), -end + 0.04, end - 0.04, z - 0.004, z)
+    model.hard(frame, "wood", bevel=0.004, segments=1)
+    soft_slab(model, "linen", -half + 0.03, half - 0.03, -end + 0.03, end - 0.03, sides - 0.03, 0.536, 0.01)
+    return model
+
+
+def tarp_shelter():
+    """A tarp hung from a bar between two posts at its front and pegged to the ground at its back, over a floor of logs."""
+    model = Model("tarp_shelter")
+    half, front, back, bar = 0.94, -0.4, 0.46, 1.32
+    wood, logs = bmesh.new(), bmesh.new()
+    for side in (-1, 1):
+        camp_pole(wood, side * (half - 0.06), front, 0.0, bar + 0.13, 0.04)
+    log_x(wood, -half - 0.02, half + 0.02, front, bar, 0.034)
+    for n in range(6):
+        log_x(logs, -half + 0.08 + 0.03 * (n % 2), half - 0.08 - 0.03 * (n % 3), front + 0.1 + n * 0.12, 0.055, 0.055)
+    model.turned(wood, "wood")
+    model.turned(logs, "dark_wood")
+    tarp = bmesh.new()
+    outline_along_x(tarp, [(front + 0.02, bar - 0.02), (back, 0.02), (back + 0.008, 0.028), (front + 0.026, bar - 0.012)], -half + 0.02, half - 0.02)
+    model.plain(tarp, "cloth")
+    return model
+
+
+def drying_rack():
+    """A rack of poles to hang hides and washing on: a pole along the top lashed into an A of poles at each end, and a pole along the ground on each side."""
+    model = Model("drying_rack")
+    half, spread_y, top = 0.92, 0.66, 1.52
+    rack = bmesh.new()
+    beam(rack, (-half - 0.04, 0.0, top), (half + 0.04, 0.0, top), 0.055, 0.055)
+    for x in (-half + 0.08, half - 0.08):
+        for side in (-1, 1):
+            beam(rack, (x, -side * 0.06, top + 0.12), (x, side * spread_y, 0.03), 0.055, 0.055)
+    for side in (-1, 1):
+        beam(rack, (-half, side * spread_y, 0.04), (half, side * spread_y, 0.04), 0.05, 0.05)
+    model.hard(rack, "wood", bevel=0.012, segments=2)
+    return model
+
+
+def plank_table():
+    """A square table of planks laid across, on four legs joined by rails under the top and stretchers low down."""
+    model = Model("plank_table")
+    half, top = 0.475, 0.87
+    wood = bmesh.new()
+    for n in range(5):
+        x = -half + n * (2 * half) / 5
+        cuboid(wood, x + 0.003, x + 2 * half / 5 - 0.003, -half, half, top - 0.04, top)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cuboid(wood, sx * (half - 0.05) - 0.035, sx * (half - 0.05) + 0.035, sy * (half - 0.05) - 0.035, sy * (half - 0.05) + 0.035, 0.0, top - 0.04)
+    for side in (-1, 1):
+        cuboid(wood, -half + 0.08, half - 0.08, side * (half - 0.05) - 0.015, side * (half - 0.05) + 0.015, top - 0.15, top - 0.04)
+        cuboid(wood, side * (half - 0.05) - 0.015, side * (half - 0.05) + 0.015, -half + 0.08, half - 0.08, top - 0.15, top - 0.04)
+        cuboid(wood, side * (half - 0.05) - 0.012, side * (half - 0.05) + 0.012, -half + 0.08, half - 0.08, 0.14, 0.2)
+    model.hard(wood, "wood", bevel=0.005, segments=1)
+    return model
+
+
+def plank_side_table():
+    """A low table of boards with a drawer under its top at the front."""
+    model = Model("plank_side_table")
+    half, top = 0.3, 0.385
+    wood = bmesh.new()
+    for n in range(3):
+        x = -half + n * 2 * half / 3
+        cuboid(wood, x + 0.003, x + 2 * half / 3 - 0.003, -half, half, top - 0.03, top)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cuboid(wood, sx * (half - 0.04) - 0.025, sx * (half - 0.04) + 0.025, sy * (half - 0.04) - 0.025, sy * (half - 0.04) + 0.025, 0.0, top - 0.03)
+    cuboid(wood, -half + 0.06, half - 0.06, -half + 0.03, half - 0.06, top - 0.13, top - 0.03)
+    cuboid(wood, -half + 0.07, half - 0.07, -half + 0.015, -half + 0.03, top - 0.125, top - 0.035)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    pull = bmesh.new()
+    cuboid(pull, -0.04, 0.04, -half - 0.005, -half + 0.015, top - 0.09, top - 0.07)
+    model.hard(pull, "metal", bevel=0.002, segments=1)
+    return model
+
+
+def chair_frame(bm, seat, back_top, half, depth):
+    """Four square legs, the back two going on up as the posts of the back, a seat of boards and rails under it."""
+    for sx in (-1, 1):
+        cuboid(bm, sx * half, sx * (half - 0.04), -depth, -depth + 0.04, 0.0, seat - 0.03)
+        cuboid(bm, sx * half, sx * (half - 0.04), depth - 0.04, depth, 0.0, back_top)
+        cuboid(bm, sx * (half - 0.005), sx * (half - 0.035), -depth + 0.04, depth - 0.04, 0.12, 0.15)
+    for n in range(3):
+        y = -depth + n * (2 * depth - 0.04) / 3
+        cuboid(bm, -half, half, y + 0.003, y + (2 * depth - 0.04) / 3 - 0.003, seat - 0.03, seat)
+
+
+def slat_chair():
+    """A chair made with care: three slats in its back between a rail over the seat and a rail at the top."""
+    model = Model("slat_chair")
+    half, depth, seat, top = 0.22, 0.21, 0.43, 0.96
+    wood = bmesh.new()
+    chair_frame(wood, seat, top, half, depth)
+    cuboid(wood, -half + 0.04, half - 0.04, depth - 0.035, depth - 0.01, top - 0.08, top - 0.01)
+    cuboid(wood, -half + 0.04, half - 0.04, depth - 0.035, depth - 0.01, seat + 0.06, seat + 0.1)
+    for x in (-0.09, 0.0, 0.09):
+        cuboid(wood, x - 0.025, x + 0.025, depth - 0.03, depth - 0.015, seat + 0.1, top - 0.08)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def plank_chair():
+    """A chair of rough boards: its back is two planks standing side by side."""
+    model = Model("plank_chair")
+    half, depth, seat, top = 0.22, 0.21, 0.43, 0.98
+    wood = bmesh.new()
+    chair_frame(wood, seat, seat + 0.02, half, depth)
+    for x in (-0.1, 0.1):
+        cuboid(wood, x - 0.098, x + 0.098, depth - 0.025, depth, seat - 0.03, top - (0.03 if x > 0 else 0.0))
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def box_chair():
+    """A seat made of a box: boards closed in at its sides, and a back of boards laid across between two posts."""
+    model = Model("box_chair")
+    half, depth, seat, top = 0.23, 0.22, 0.38, 0.86
+    wood = bmesh.new()
+    for side in (-1, 1):
+        cuboid(wood, side * half, side * (half - 0.025), -depth, depth, 0.0, seat - 0.03)
+        cuboid(wood, side * half, side * (half - 0.04), depth - 0.04, depth, seat - 0.03, top)
+    cuboid(wood, -half + 0.025, half - 0.025, -depth, -depth + 0.02, seat - 0.12, seat - 0.03)
+    for n in range(3):
+        y = -depth + n * 2 * depth / 3
+        cuboid(wood, -half, half, y + 0.003, y + 2 * depth / 3 - 0.003, seat - 0.03, seat)
+    for z in (seat + 0.12, seat + 0.27, top - 0.1):
+        cuboid(wood, -half + 0.04, half - 0.04, depth - 0.03, depth - 0.01, z, z + 0.09)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def campfire():
+    """A cold fire in a ring of stones: charred sticks fallen in across each other on a bed of ash."""
+    model = Model("campfire")
+    stone_ring(model, 0.3, 11, 1, 0.075, 3)
+    ash, sticks = bmesh.new(), bmesh.new()
+    lathe(ash, [(0.0, 0.0), (0.24, 0.0), (0.22, 0.012), (0.0, 0.02)], segments=12)
+    model.turned(ash, "rubber")
+    for n, turn in enumerate((10, 70, 125, 160)):
+        lathe(sticks, [(0.0, -0.2), (0.03, -0.2), (0.03, 0.2), (0.0, 0.2)], segments=7,
+              to=Matrix.Rotation(math.radians(turn), 4, "Z") @ Matrix.Translation((0.0, 0.0, 0.035 + 0.025 * n)) @ Matrix.Rotation(math.radians(90 + 8 * (n % 2 * 2 - 1)), 4, "Y"))
+    model.turned(sticks, "dark_wood")
+    return model
+
+
+def cooking_pit():
+    """A round hearth built up of stones, a grill of steel bars over its top and charcoal in the bottom of it."""
+    model = Model("cooking_pit")
+    stone_ring(model, 0.36, 13, 4, 0.12, 5)
+    grill = bmesh.new()
+    lathe(grill, [(0.32, 0.47), (0.335, 0.47), (0.335, 0.485), (0.32, 0.485)], segments=24, closed=True)
+    for n in range(7):
+        y = -0.3 + n * 0.1
+        reach = math.sqrt(0.33 ** 2 - y ** 2)
+        cuboid(grill, -reach, reach, y - 0.005, y + 0.005, 0.47, 0.48)
+    model.hard(grill, "metal", bevel=0.002, segments=1)
+    coal = bmesh.new()
+    lathe(coal, [(0.0, 0.0), (0.24, 0.0), (0.24, 0.05), (0.0, 0.07)], segments=12)
+    model.turned(coal, "rubber")
+    return model
+
+
+def cooking_pit_simple():
+    """A fire in a ring of stones with a forked stick driven in each side of it and a bar across the forks to hang a pot from."""
+    model = Model("cooking_pit_simple")
+    stone_ring(model, 0.3, 11, 1, 0.075, 7)
+    wood = bmesh.new()
+    for side in (-1, 1):
+        x = side * 0.42
+        camp_pole(wood, x, 0.0, 0.0, 0.86, 0.025)
+        beam(wood, (x, 0.0, 0.84), (x - side * 0.06, 0.0, 1.0), 0.03, 0.03)
+        beam(wood, (x, 0.0, 0.84), (x + side * 0.05, 0.0, 0.98), 0.03, 0.03)
+    log_x(wood, -0.48, 0.48, 0.0, 0.93, 0.02)
+    model.turned(wood, "wood")
+    ash = bmesh.new()
+    lathe(ash, [(0.0, 0.0), (0.24, 0.0), (0.22, 0.012), (0.0, 0.02)], segments=12)
+    model.turned(ash, "rubber")
+    return model
+
+
+def hoop(bm, radius, z0, z1):
+    lathe(bm, [(radius, z0), (radius + 0.006, z0), (radius + 0.006, z1), (radius, z1)], segments=20, closed=True)
+
+
+def wooden_bucket():
+    """A bucket of staves in two iron hoops, a handle of wire over it and water inside."""
+    model = Model("wooden_bucket")
+    low, high, tall = 0.155, 0.19, 0.3
+    staves = bmesh.new()
+    lathe(staves, [(0.0, 0.0), (low, 0.0), (high, tall), (high - 0.012, tall), (low - 0.012, 0.025), (0.0, 0.025)], segments=18)
+    model.turned(staves, "wood", sharp=35.0)
+    iron = bmesh.new()
+    for z in (0.04, 0.24):
+        hoop(iron, low + (high - low) * (z + 0.015) / tall, z, z + 0.03)
+    steps = 10
+    for n in range(steps):
+        a0, a1 = math.pi * n / steps, math.pi * (n + 1) / steps
+        beam(iron, (high * math.cos(a0), 0.0, tall - 0.03 + 0.16 * math.sin(a0)), (high * math.cos(a1), 0.0, tall - 0.03 + 0.16 * math.sin(a1)), 0.008, 0.008)
+    model.plain(iron, "metal")
+    water = bmesh.new()
+    lathe(water, [(0.0, 0.2), (0.172, 0.2), (0.172, 0.24), (0.0, 0.24)], segments=18)
+    model.turned(water, "plastic")
+    return model
+
+
+def burn_barrel():
+    """A steel drum with its top cut out, to burn rubbish in: ash and charred scraps lie in it."""
+    model = Model("burn_barrel")
+    wide = 0.285
+    body = bmesh.new()
+    profile = [(0.0, 0.0), (wide, 0.0), (wide + 0.008, 0.01), (wide + 0.008, 0.03), (wide, 0.04)]
+    for z in (0.3, 0.58):
+        profile += [(wide, z - 0.015), (wide + 0.011, z - 0.004), (wide + 0.011, z + 0.012), (wide, z + 0.023)]
+    profile += [(wide, 0.88), (wide - 0.006, 0.88), (wide - 0.006, 0.03), (0.0, 0.03)]
+    lathe(body, profile, segments=28)
+    model.turned(body, "paint", sharp=35.0)
+    ash = bmesh.new()
+    lathe(ash, [(0.0, 0.55), (wide - 0.007, 0.55), (wide - 0.007, 0.58), (0.12, 0.62), (0.0, 0.6)], segments=16)
+    model.turned(ash, "rubber", sharp=60.0)
+    return model
+
+
+def wooden_barrel():
+    """A barrel of bent staves, wider at its middle, in four iron hoops, its head closed."""
+    model = Model("wooden_barrel")
+    staves = bmesh.new()
+    profile = [(0.0, 0.0), (0.22, 0.0), (0.245, 0.2), (0.255, 0.4), (0.245, 0.6), (0.22, 0.8), (0.205, 0.8), (0.205, 0.785), (0.0, 0.785)]
+    lathe(staves, profile, segments=20)
+    model.turned(staves, "wood", sharp=35.0)
+    iron = bmesh.new()
+    for z, radius in ((0.04, 0.224), (0.2, 0.245), (0.57, 0.247), (0.73, 0.226)):
+        hoop(iron, radius, z, z + 0.035)
+    model.plain(iron, "metal")
+    return model
+
+
+def stone_well():
+    """A well: a round wall of stones, a post each side of it and a windlass between them with the rope wound on it."""
+    model = Model("stone_well")
+    stone_ring(model, 0.36, 12, 5, 0.15, 11)
+    dark = bmesh.new()
+    lathe(dark, [(0.0, 0.4), (0.23, 0.4), (0.23, 0.42), (0.0, 0.42)], segments=14)
+    model.turned(dark, "rubber")
+    wood = bmesh.new()
+    for side in (-1, 1):
+        cuboid(wood, side * 0.38 - 0.045, side * 0.38 + 0.045, -0.045, 0.045, 0.0, 1.4)
+    log_x(wood, -0.34, 0.34, 0.0, 1.2, 0.055)
+    model.hard(wood, "wood", bevel=0.008, segments=1)
+    rope = bmesh.new()
+    log_x(rope, -0.09, 0.09, 0.0, 1.2, 0.07)
+    beam(rope, (0.0, -0.065, 1.2), (0.0, -0.065, 0.55), 0.012, 0.012)
+    model.turned(rope, "linen")
+    crank = bmesh.new()
+    beam(crank, (0.43, 0.0, 1.2), (0.47, 0.0, 1.2), 0.03, 0.03)
+    beam(crank, (0.47, 0.0, 1.2), (0.47, 0.0, 1.02), 0.025, 0.025)
+    beam(crank, (0.47, 0.0, 1.03), (0.56, 0.0, 1.03), 0.025, 0.025)
+    model.plain(crank, "metal")
+    return model
+
+
+def steel_target():
+    """A steel plate to shoot at, its face to the front, on a frame of timber whose legs reach back behind it.
+    The origin is the foot of the plate's middle."""
+    model = Model("steel_target", centred=False)
+    plate = bmesh.new()
+    cuboid(plate, -0.47, 0.47, -0.012, 0.012, 0.1, 2.05)
+    model.hard(plate, "steel", bevel=0.004, segments=1)
+    trim = bmesh.new()
+    cuboid(trim, -0.48, 0.48, -0.02, 0.02, 2.04, 2.08)
+    cuboid(trim, -0.48, 0.48, -0.02, -0.012, 1.04, 1.09)
+    for side in (-1, 1):
+        cuboid(trim, side * 0.47, side * 0.458, -0.02, -0.012, 0.1, 2.05)
+    model.hard(trim, "metal", bevel=0.003, segments=1)
+    wood = bmesh.new()
+    for side in (-1, 1):
+        x = side * 0.38
+        cuboid(wood, x - 0.035, x + 0.035, -0.14, 0.52, 0.0, 0.07)
+        cuboid(wood, x - 0.035, x + 0.035, 0.012, 0.08, 0.07, 1.2)
+        beam(wood, (x, 0.05, 1.12), (x, 0.47, 0.06), 0.065, 0.065)
+    cuboid(wood, -0.5, 0.5, -0.09, -0.012, 1.1, 1.18)
+    cuboid(wood, -0.42, 0.42, 0.38, 0.45, 0.07, 0.14)
+    model.hard(wood, "wood", bevel=0.006, segments=1)
+    return model
+
+
+def plank_shelves():
+    """Open shelves of boards, a back of planks and five boards between two sides. Open to the front."""
+    model = Model("plank_shelves")
+    half, depth, top = 0.48, 0.19, 2.0
+    wood = bmesh.new()
+    for side in (-1, 1):
+        cuboid(wood, side * half, side * (half - 0.025), -depth, depth, 0.0, top)
+    for n in range(4):
+        x = -half + 0.025 + n * (2 * half - 0.05) / 4
+        cuboid(wood, x + 0.002, x + (2 * half - 0.05) / 4 - 0.002, depth - 0.02, depth, 0.0, top)
+    for z in (0.06, 0.53, 1.02, 1.5, top - 0.025):
+        cuboid(wood, -half + 0.025, half - 0.025, -depth, depth - 0.02, z, z + 0.025)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def candle():
+    """A candle in a dish."""
+    model = Model("candle")
+    dish = bmesh.new()
+    lathe(dish, [(0.0, 0.0), (0.055, 0.0), (0.062, 0.012), (0.056, 0.014), (0.028, 0.016), (0.028, 0.03), (0.0, 0.03)], segments=14)
+    model.turned(dish, "metal", sharp=50.0)
+    wax = bmesh.new()
+    lathe(wax, [(0.0, 0.03), (0.021, 0.03), (0.021, 0.15), (0.017, 0.156), (0.0, 0.156)], segments=12)
+    model.turned(wax, "enamel", sharp=50.0)
+    wick = bmesh.new()
+    cuboid(wick, -0.002, 0.002, -0.002, 0.002, 0.156, 0.168)
+    model.plain(wick, "rubber")
+    return model
+
+
+def frame_posts():
+    """Two posts of a wall's frame a storey high, a square's length apart less a post."""
+    model = Model("frame_posts")
+    wood = bmesh.new()
+    for side in (-1, 1):
+        cuboid(wood, side * 0.39 - 0.045, side * 0.39 + 0.045, -0.045, 0.045, 0.0, 2.449)
+    model.hard(wood, "wood", bevel=0.006, segments=1)
+    return model
+
+
+def cloth_table():
+    """A long table of boards with a cloth over its top and a shelf of boards low down between its legs."""
+    model = Model("cloth_table")
+    half, end, top = 0.45, 0.95, 0.8
+    wood = bmesh.new()
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cuboid(wood, sx * (half - 0.04) - 0.03, sx * (half - 0.04) + 0.03, sy * (end - 0.04) - 0.03, sy * (end - 0.04) + 0.03, 0.0, top)
+    for n in range(5):
+        x = -half + 0.07 + n * (2 * half - 0.14) / 5
+        cuboid(wood, x + 0.003, x + (2 * half - 0.14) / 5 - 0.003, -end + 0.07, end - 0.07, 0.17, 0.2)
+    model.hard(wood, "wood", bevel=0.005, segments=1)
+    cloth = bmesh.new()
+    cuboid(cloth, -half - 0.01, half + 0.01, -end - 0.01, end + 0.01, top, top + 0.018)
+    for side in (-1, 1):
+        cuboid(cloth, side * (half + 0.004), side * (half + 0.01), -end - 0.01, end + 0.01, top - 0.1, top)
+        cuboid(cloth, -half - 0.01, half + 0.01, side * (end + 0.004), side * (end + 0.01), top - 0.1, top)
+    model.hard(cloth, "linen", bevel=0.004, segments=1)
+    return model
+
+
+def live_trap(name, open_door):
+    """A cage trap of steel bars, long to the front, its door at the front end: shut, or swung up where the trap is set. The origin is the middle of the cage."""
+    model = Model(name, centred=False)
+    half, end, high, bar = 0.21, 0.42, 0.36, 0.012
+    cage = bmesh.new()
+    for x in (-half, half):
+        for y in (-end, end):
+            cuboid(cage, x - bar, x + bar, y - bar, y + bar, 0.0, high)
+    for z in (0.012, high - 0.012):
+        for x in (-half, half):
+            cuboid(cage, x - bar, x + bar, -end, end, z - bar, z + bar)
+        cuboid(cage, -half, half, end - bar, end + bar, z - bar, z + bar)
+        if z < 0.1:
+            cuboid(cage, -half, half, -end - bar, -end + bar, z - bar, z + bar)
+    for n in range(1, 8):
+        y = -end + n * 2 * end / 8
+        for x in (-half, half):
+            cuboid(cage, x - 0.004, x + 0.004, y - 0.004, y + 0.004, 0.0, high)
+        cuboid(cage, -half, half, y - 0.004, y + 0.004, high - 0.016, high - 0.008)
+    for n in range(1, 5):
+        x = -half + n * 2 * half / 5
+        cuboid(cage, x - 0.004, x + 0.004, end - 0.004, end + 0.004, 0.0, high)
+    cuboid(cage, -half, half, -end, end, 0.0, 0.006)
+    model.hard(cage, "steel", bevel=0.002, segments=1)
+    door = bmesh.new()
+    hinge = Vector((0.0, -end, high))
+    swing = Matrix.Translation(hinge) @ Matrix.Rotation(math.radians(-150 if open_door else 0), 4, "X") @ Matrix.Translation(-hinge)
+    cuboid(door, -half, half, -end - bar, -end + bar, high - 0.02, high)
+    for x in (-half + 0.01, half - 0.01):
+        cuboid(door, x - bar, x + bar, -end - bar, -end + bar, 0.03, high)
+    cuboid(door, -half, half, -end - bar, -end + bar, 0.03, 0.05)
+    for n in range(1, 5):
+        x = -half + n * 2 * half / 5
+        cuboid(door, x - 0.004, x + 0.004, -end - 0.004, -end + 0.004, 0.05, high - 0.02)
+    bmesh.ops.transform(door, matrix=swing, verts=door.verts[:])
+    model.hard(door, "steel", bevel=0.002, segments=1)
+    return model
+
+
+def camp():
+    """Tents, bedding and furniture of a camp, its fires, water and traps, crates and an army's target."""
+    return [tent("ridge_tent", 0.88, 2.05, 1.15, True, 0.75), tent("pup_tent", 0.45, 1.8, 1.0, False, 0.0), sleeping_bag(), camp_mattress(), plank_bed(),
+            tarp_shelter(), drying_rack(), plank_table(), plank_side_table(), slat_chair(), plank_chair(), box_chair(), campfire(), cooking_pit(),
+            cooking_pit_simple(), wooden_bucket(), burn_barrel(), wooden_barrel(), stone_well(), steel_target(), plank_shelves(), candle(), frame_posts(),
+            cloth_table(), live_trap("live_trap", False), live_trap("live_trap_set", True)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -6867,7 +7376,7 @@ def every():
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
-            + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects())
+            + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp())
 
 
 def main():
