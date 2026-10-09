@@ -125,6 +125,20 @@ final class Kerbs {
         return street ? field : null;
     }
 
+    /**
+     * Whether a kerb runs the whole length of the north edge of the chunk's square (x, y), or
+     * of its west edge: every point of the field along it is on the line or on the land's side.
+     */
+    static boolean alongEdge(float[] field, int x, int y, boolean north) {
+        for (int i = 0; i <= FINE; i++) {
+            int p = x * FINE + (north ? i : 0), q = y * FINE + (north ? 0 : i);
+            if (field[p * POINTS + q] > 0f) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** The field at a point of the chunk, (x, y) in squares from its corner. */
     static float at(float[] field, float x, float y) {
         float p = Math.clamp(x * FINE, 0f, POINTS - 1f), q = Math.clamp(y * FINE, 0f, POINTS - 1f);

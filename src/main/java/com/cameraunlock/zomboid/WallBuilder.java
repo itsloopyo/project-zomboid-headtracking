@@ -137,7 +137,15 @@ final class WallBuilder {
             // A fence of wire or of rails is one sheet on the line between its squares. As two
             // skins a wall's thickness apart, the eye saw one lattice through the other and
             // the two beat against each other as it moved.
+            // On a street's edge that a kerb runs along, the sheet is in the kerb's face's own
+            // plane, and stood on the street the two were drawn through each other the kerb's
+            // height up: the sheet stands on the kerb's top, as a fence at its edge does on the land.
+            float raised = build.geometry.raised;
+            if (z == 0 && (da != 0f ? build.kerbNorth : build.kerbWest)) {
+                build.geometry.raised += Terrain.KERB / ViewCamera.LEVEL_HEIGHT;
+            }
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+            build.geometry.raised = raised;
             return;
         }
         if (!wall) {

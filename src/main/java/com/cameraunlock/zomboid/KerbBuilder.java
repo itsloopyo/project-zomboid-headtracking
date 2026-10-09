@@ -25,7 +25,7 @@ final class KerbBuilder {
     /** For a square with no kerb to do with it. */
     float noKerb() {
         build.geometry.kerb = null;
-        build.kerbed = false;
+        build.kerbed = build.kerbNorth = build.kerbWest = false;
         return 0f;
     }
 
@@ -57,9 +57,12 @@ final class KerbBuilder {
         if (!street || !land) {
             // A kerb along the square's edge stands on the street's square.
             build.kerbed = street && onLine;
+            build.kerbNorth = build.kerbed && Kerbs.alongEdge(build.kerbs, localX, localY, true);
+            build.kerbWest = build.kerbed && Kerbs.alongEdge(build.kerbs, localX, localY, false);
             return street ? Terrain.KERB : 0f;
         }
         build.kerbed = true;
+        build.kerbNorth = build.kerbWest = false;
         build.geometry.kerb = build.kerbs;
         build.geometry.kerbX = localX;
         build.geometry.kerbY = localY;

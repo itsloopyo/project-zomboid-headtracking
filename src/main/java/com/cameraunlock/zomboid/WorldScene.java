@@ -3961,6 +3961,8 @@ final class WorldScene {
         float[] kerbs;
         /** Whether the square being added has a kerb on it or along its edge. */
         boolean kerbed;
+        /** Whether the square being added is street with a kerb along the whole of its north edge, or of its west edge. */
+        boolean kerbNorth, kerbWest;
         /** The square beside the one being added whose ground lies beyond the kerb that crosses it, as a place in groundKind, or -1. */
         int beyondKerb;
 
