@@ -45,16 +45,16 @@ final class Industry {
             if (!single) {
                 return null;
             }
-            int works = place(name, WORKS);
+            int works = Sheets.place(name, WORKS);
             if (works >= 0) {
                 return works(works);
             }
-            int distillery = place(name, DISTILLERY);
+            int distillery = Sheets.place(name, DISTILLERY);
             if (distillery >= 0) {
                 return distillery(distillery);
             }
             // A crate on a crate, or a third on two: the game paints each where the one under it leaves off.
-            int crate = place(name, CRATES);
+            int crate = Sheets.place(name, CRATES);
             if ((crate == 17 || crate == 18 || crate == 20 || crate == 21) && surface > CRATE_FOOT) {
                 return new Piece("crate", 0).dye(1 << Models.WOOD, CRATE_DYE).fit().raise((surface - CRATE_FOOT) / WorldScene.SURFACE_PIXELS_PER_LEVEL);
             }
@@ -79,7 +79,7 @@ final class Industry {
             return new Piece("propane_tank", 0).fit();
         }
         if (called.equals("Extinguisher") && name.startsWith("industry_03_")) {
-            int which = switch (place(name, "industry_03_")) {
+            int which = switch (Sheets.place(name, "industry_03_")) {
                 case 22 -> 0;
                 case 23 -> 1;
                 case 30 -> 2;
@@ -159,21 +159,5 @@ final class Industry {
             case 10 -> new Piece("cask_lying", 1).fit();
             default -> null;
         };
-    }
-
-    /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    private static int place(String name, String sheet) {
-        if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
-            return -1;
-        }
-        int place = 0;
-        for (int i = sheet.length(); i < name.length(); i++) {
-            char digit = name.charAt(i);
-            if (digit < '0' || digit > '9') {
-                return -1;
-            }
-            place = place * 10 + digit - '0';
-        }
-        return place;
     }
 }

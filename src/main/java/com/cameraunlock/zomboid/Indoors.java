@@ -28,12 +28,6 @@ final class Indoors {
     private static final float POOL_CLOTH = 0.8f, POOL_DYE = 0.33f;
     private static final String VENTS = "rooftop_furniture_", FLOOR_LAMPS = "lighting_indoor_01_", BEDDING = "furniture_bedding";
 
-    /** The number a sprite's name ends in, its place on its sheet, or -1. */
-    private static int place(String name) {
-        String last = name.substring(name.lastIndexOf('_') + 1);
-        return !last.isEmpty() && last.length() <= 4 && last.chars().allMatch(Character::isDigit) ? Integer.parseInt(last) : -1;
-    }
-
     /** A piece told with no need of the way it faces, or one that hangs on the wall behind it. Null for anything else. */
     static Furniture anyWay(IsoSprite sprite, String name, String called, String group, String holds, PropertyContainer properties,
             IsoDirections facing, boolean blocks) {
@@ -47,7 +41,7 @@ final class Indoors {
         if (called.equals("Cartbox") && holds.equals("cardboardbox") && single) {
             // The game gives a box no front. Its four sprites are the same box turned, and so is the model.
             // A box on another is the same box, as high up as the one under it is high.
-            Furniture carton = new Furniture(sprite, "carton", place(name) & 3).dye(1 << Models.PAINT, BOX_DYE);
+            Furniture carton = new Furniture(sprite, "carton", Sheets.place(name) & 3).dye(1 << Models.PAINT, BOX_DYE);
             float top = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
             return carton.stand(top, carton.model.height(), false).raise(onTable ? top : 0f);
         }
@@ -64,16 +58,16 @@ final class Indoors {
         }
         if (called.equals("Lights") && group.startsWith("Lamp") && single && facing == null && name.startsWith(FLOOR_LAMPS)) {
             // Three lamps under one name: two uplighters, then the one with a shade.
-            return new Furniture(sprite, place(name) == 58 ? "standard_lamp" : "torchiere", 0).dye(1 << Models.PAINT, FOOT_DYE).stand(0f, 0f, false);
+            return new Furniture(sprite, Sheets.place(name) == 58 ? "standard_lamp" : "torchiere", 0).dye(1 << Models.PAINT, FOOT_DYE).stand(0f, 0f, false);
         }
         if (facing == null || blocks || !holds.isEmpty() || onTable || surface != 0 || !properties.has("IsHigh") && !properties.has("IsLow")) {
             return null;
         }
-        int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+        int faces = Furniture.turnsOf(facing);
         int wall = WallHung.behind(facing);
         if (called.equals("Conditioner") && group.equals("Air") && single && name.startsWith(VENTS)) {
             // The grilles of the sheet, by their place on it: dark louvres, white slotted plates high and low, round ones.
-            int which = place(name);
+            int which = Sheets.place(name);
             String vent = which == 17 || which == 18 ? "wall_vent" : which >= 32 && which <= 35 ? "wall_grille" : which == 36 || which == 37 ? "round_vent" : null;
             return vent == null ? null : new Furniture(sprite, vent, faces).hang(wall, false);
         }

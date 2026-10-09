@@ -52,7 +52,7 @@ final class Farm {
         int along = alongY ? height : width, across = alongY ? width : height;
         float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL;
         if ((called.equals("Single Stacked Hay") || called.equals("Double Stacked Hay")) && single) {
-            return hay(place(name, HAY), called.startsWith("Double"));
+            return hay(Sheets.place(name, HAY), called.startsWith("Double"));
         }
         if (called.equals("Stack") && faces != Outdoors.NONE) {
             // A stack the game paints over another is the next layer of it, as high up as the game says.
@@ -71,19 +71,19 @@ final class Farm {
             return new Outdoors.Piece("dog_house", faces).dye(PAINT, ROOF_DYE).fit();
         }
         if (called.equals("Composter") && single) {
-            int at = place(name, CARPENTRY);
+            int at = Sheets.place(name, CARPENTRY);
             return at == 116 || at == 117 ? new Outdoors.Piece(at == 117 ? "composter_full" : "composter", 0).dye(WOOD, COMPOST_DYE).fit() : null;
         }
         // The crate the game calls a rain barrel: lined with a sheet whose edge is folded over its boards, with rain in it or none.
         if (called.equals("Rain Collector Barrel") && single) {
-            return switch (place(name, CARPENTRY)) {
+            return switch (Sheets.place(name, CARPENTRY)) {
                 case 54, 120 -> new Outdoors.Piece("rain_crate", 0).dye(CLOTH, CRATE_CORNER, CRATE_CORNER, SHEET_DYE).fit();
                 case 55, 121 -> new Outdoors.Piece("rain_crate_water", 0).dye(CLOTH, CRATE_CORNER, CRATE_CORNER, SHEET_DYE).also(ENAMEL, RAIN_DYE).fit();
                 default -> null;
             };
         }
         if (called.equals("Raised Plantbed") && single) {
-            return switch (place(name, POTS)) {
+            return switch (Sheets.place(name, POTS)) {
                 case 8 -> new Outdoors.Piece("raised_bed", 0).dye(WOOD, BED_DYE).also(PLASTIC, FRONDS_DYE).fit();
                 case 16, 24 -> new Outdoors.Piece("raised_bed_dry", 0).dye(WOOD, BED_DYE).also(PLASTIC, FRONDS_DYE).fit();
                 case 32 -> new Outdoors.Piece("raised_bed_bare", 0).dye(WOOD, BED_DYE).fit();
@@ -94,7 +94,7 @@ final class Farm {
             return new Outdoors.Piece("washing_bin", faces).dye(CLOTH, CART_DYE).fit();
         }
         if (called.equals("Bird Bath") && single) {
-            int at = place(name, ORNAMENTS);
+            int at = Sheets.place(name, ORNAMENTS);
             return at == 50 || at == 51 ? new Outdoors.Piece(at == 50 ? "bird_bath" : "bird_bath_round", 0).dye(PAINT, BATH_DYE).also(ENAMEL, BATH_WATER).fit() : null;
         }
         if (called.equals("Salt Lick") && single) {
@@ -116,7 +116,7 @@ final class Farm {
         if (called.equals("The Gnome") && single && faces != Outdoors.NONE) {
             return new Outdoors.Piece("gnome", faces).dye(PAINT, COAT_DYE).fit();
         }
-        return single ? onTable(place(name, POTS), called, faces, surfaceHigh) : null;
+        return single ? onTable(Sheets.place(name, POTS), called, faces, surfaceHigh) : null;
     }
 
     /**
@@ -175,21 +175,5 @@ final class Farm {
             default -> null;
         };
         return plant == null ? null : plant.raise(table);
-    }
-
-    /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    private static int place(String name, String sheet) {
-        if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
-            return -1;
-        }
-        int place = 0;
-        for (int i = sheet.length(); i < name.length(); i++) {
-            char digit = name.charAt(i);
-            if (digit < '0' || digit > '9') {
-                return -1;
-            }
-            place = place * 10 + digit - '0';
-        }
-        return place;
     }
 }

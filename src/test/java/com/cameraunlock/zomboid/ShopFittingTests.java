@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import java.util.Arrays;
 import zombie.iso.sprite.IsoSprite;
 
 /**
@@ -55,7 +56,7 @@ final class ShopFittingTests {
 
     private static String[] same(int count, String extra) {
         String[] all = new String[count];
-        java.util.Arrays.fill(all, extra);
+        Arrays.fill(all, extra);
         return all;
     }
 

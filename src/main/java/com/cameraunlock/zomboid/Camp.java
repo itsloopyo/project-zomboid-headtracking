@@ -25,22 +25,6 @@ final class Camp {
     /** Where on its square a stone in the near side of a ring of them is. */
     private static final float NEAR_STONE = 0.72f;
 
-    /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    private static int place(String name, String sheet) {
-        if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
-            return -1;
-        }
-        int place = 0;
-        for (int i = sheet.length(); i < name.length(); i++) {
-            char digit = name.charAt(i);
-            if (digit < '0' || digit > '9') {
-                return -1;
-            }
-            place = place * 10 + digit - '0';
-        }
-        return place;
-    }
-
     /** The piece, or null for a sprite that is none of these. The arguments are Outdoors.of's. */
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height, int surface) {
         boolean single = width == 1 && height == 1;
@@ -50,46 +34,46 @@ final class Camp {
         }
         String kind = group == null ? "" : group;
         boolean faced = faces != Outdoors.NONE;
-        if (called.equals("Tent") && faced && width * height == 8 && place(name, BIG_TENTS) >= 0) {
+        if (called.equals("Tent") && faced && width * height == 8 && Sheets.place(name, BIG_TENTS) >= 0) {
             return new Outdoors.Piece("ridge_tent", 3 - faces).dyeOn(1, 1).dye(CLOTH, FLY_DYE).fit();
         }
-        if (called.equals("Tent") && kind.equals("Small") && faced && width * height == 2 && place(name, CAMPING) >= 0) {
+        if (called.equals("Tent") && kind.equals("Small") && faced && width * height == 2 && Sheets.place(name, CAMPING) >= 0) {
             return new Outdoors.Piece("pup_tent", width == 1 ? 0 : 1).dye(CLOTH, FLY_DYE).fit();
         }
         // A sleeping bag gives its colour on the square of its foot: the square of its head shows its lining.
-        if (called.endsWith("Sleeping Bag") && faced && width * height == 2 && place(name, BAGS) >= 0) {
+        if (called.endsWith("Sleeping Bag") && faced && width * height == 2 && Sheets.place(name, BAGS) >= 0) {
             int foot = faces == Outdoors.NORTH ? 1 : 0;
             return new Outdoors.Piece("sleeping_bag", 1 - faces & 3).dyeOn(foot, faces == Outdoors.WEST ? 1 : 0).dye(CLOTH, BAG_DYE).fit();
         }
-        if (called.equals("Shelter") && kind.equals("Tarp") && faced && width * height == 2 && place(name, SHELTERS) >= 0) {
+        if (called.equals("Shelter") && kind.equals("Tarp") && faced && width * height == 2 && Sheets.place(name, SHELTERS) >= 0) {
             return new Outdoors.Piece("tarp_shelter", faces).dye(CLOTH, TARP_DYE).fit();
         }
-        if (called.equals("Mattress") && kind.equals("Makeshift") && faced && width * height == 2 && place(name, BUILT) >= 0) {
+        if (called.equals("Mattress") && kind.equals("Makeshift") && faced && width * height == 2 && Sheets.place(name, BUILT) >= 0) {
             return new Outdoors.Piece("camp_mattress", faces).fit();
         }
-        if (called.equals("Bed") && kind.equals("Crafted") && faced && width * height == 2 && place(name, BUILT) >= 0) {
+        if (called.equals("Bed") && kind.equals("Crafted") && faced && width * height == 2 && Sheets.place(name, BUILT) >= 0) {
             return new Outdoors.Piece("plank_bed", faces).fit();
         }
-        if (called.equals("Table") && kind.equals("Pottery") && faced && width * height == 2 && place(name, CRAFTED) >= 0) {
+        if (called.equals("Table") && kind.equals("Pottery") && faced && width * height == 2 && Sheets.place(name, CRAFTED) >= 0) {
             return new Outdoors.Piece("cloth_table", width == 1 ? 0 : 1).fit();
         }
-        if (called.equals("Drying Rack") && kind.equals("Large") && faced && width == 2 && height == 2 && place(name, WORKSHOP) >= 0) {
+        if (called.equals("Drying Rack") && kind.equals("Large") && faced && width == 2 && height == 2 && Sheets.place(name, WORKSHOP) >= 0) {
             return new Outdoors.Piece("drying_rack", faces & 1).fit();
         }
         if (!single) {
             return null;
         }
-        if (called.equals("Chair") && faced && place(name, CARPENTRY) >= 0 && surface > 0) {
+        if (called.equals("Chair") && faced && Sheets.place(name, CARPENTRY) >= 0 && surface > 0) {
             String chair = kind.equals("Exceptionally crafted") ? "slat_chair" : kind.equals("Poor quality") ? "plank_chair" : kind.equals("Makeshift") ? "box_chair" : null;
             return chair == null ? null : new Outdoors.Piece(chair, faces).dye(WOOD, surfaceHigh).fit();
         }
-        if ((called.equals("Exceptional Table") || called.equals("Poor Quality Table") || called.equals("Shoddy Table")) && place(name, CARPENTRY) >= 0) {
+        if ((called.equals("Exceptional Table") || called.equals("Poor Quality Table") || called.equals("Shoddy Table")) && Sheets.place(name, CARPENTRY) >= 0) {
             return new Outdoors.Piece("plank_table", 0).dye(WOOD, surfaceHigh).fit();
         }
-        if (called.equals("Table") && faced && (kind.equals("Shoddy") || kind.equals("Medium") || kind.equals("Quality")) && place(name, BUILT) >= 0) {
+        if (called.equals("Table") && faced && (kind.equals("Shoddy") || kind.equals("Medium") || kind.equals("Quality")) && Sheets.place(name, BUILT) >= 0) {
             return new Outdoors.Piece("plank_side_table", faces).dye(WOOD, surfaceHigh).fit();
         }
-        if (called.equals("Shelves") && kind.equals("Crafted Wooden") && faced && place(name, BUILT) >= 0) {
+        if (called.equals("Shelves") && kind.equals("Crafted Wooden") && faced && Sheets.place(name, BUILT) >= 0) {
             // Against the edge of its square behind it.
             float back = 0.24f;
             float a = faces == Outdoors.EAST ? back : faces == Outdoors.WEST ? 1f - back : 0.5f;
@@ -106,12 +90,12 @@ final class Camp {
         if (called.equals("Cooking Pit") && kind.equals("Simple") && name.equals(SHELTERS + "16")) {
             return new Outdoors.Piece("cooking_pit_simple", 0).dye(PAINT, NEAR_STONE, NEAR_STONE, STONE_DYE);
         }
-        if (called.equals("Burn Barrel") && place(name, WORKSHOP) >= 0 && place(name, WORKSHOP) != 62 && place(name, WORKSHOP) != 63) {
+        if (called.equals("Burn Barrel") && Sheets.place(name, WORKSHOP) >= 0 && Sheets.place(name, WORKSHOP) != 62 && Sheets.place(name, WORKSHOP) != 63) {
             return new Outdoors.Piece("burn_barrel", 0).dye(PAINT, DRUM_DYE);
         }
         // An army crate on the floor is Furniture's, and is the model this stands on it.
-        if (called.equals("Crate") && (kind.equals("Military") && place(name, ARMY) >= 0 && surfaceHigh > CRATE_HIGH
-                || (kind.equals("Metal") && place(name, MADE) >= 0 || kind.equals("Fancy Metal") && place(name, WORKSHOP) >= 0) && surface > 0)) {
+        if (called.equals("Crate") && (kind.equals("Military") && Sheets.place(name, ARMY) >= 0 && surfaceHigh > CRATE_HIGH
+                || (kind.equals("Metal") && Sheets.place(name, MADE) >= 0 || kind.equals("Fancy Metal") && Sheets.place(name, WORKSHOP) >= 0) && surface > 0)) {
             return crate(surfaceHigh);
         }
         if (called.equals("Candle") && name.equals(MADE + "0")) {
@@ -131,7 +115,7 @@ final class Camp {
 
     /** What the game gives no name: by its place on its sheet. */
     private static Outdoors.Piece unnamed(String name, float surfaceHigh) {
-        int built = place(name, BUILT);
+        int built = Sheets.place(name, BUILT);
         // Two posts of a wall's frame, a storey high, along the north edge of the square or along its west edge.
         if (built == 95) {
             return new Outdoors.Piece("frame_posts", 0).at(0.51f, 0.12f);
@@ -142,23 +126,23 @@ final class Camp {
         if (built == 105 || built == 106) {
             return crate(surfaceHigh);
         }
-        int workshop = place(name, WORKSHOP);
+        int workshop = Sheets.place(name, WORKSHOP);
         if (workshop == 45 || workshop == 46) {
             return crate(surfaceHigh);
         }
         if (workshop == 8) {
             return new Outdoors.Piece("wooden_barrel", 0).dye(WOOD, 0.2f);
         }
-        int crafted = place(name, CRAFTED);
+        int crafted = Sheets.place(name, CRAFTED);
         // The game names the buckets to quench hot iron in only by their group.
         if (workshop == 54 || workshop == 55 || crafted == 38 || crafted == 39 || crafted == 54 || crafted == 55) {
             return new Outdoors.Piece("wooden_bucket", 0).dye(WOOD, BUCKET_DYE);
         }
-        if (place(name, CAMPING) == 16) {
+        if (Sheets.place(name, CAMPING) == 16) {
             return new Outdoors.Piece("stone_well", 0).dye(PAINT, 0.75f, 0.75f, 0.15f);
         }
         // A cage trap, long along x or along y, shut or set with its door up: the door is at its west end, and its north end.
-        switch (place(name, MADE)) {
+        switch (Sheets.place(name, MADE)) {
             case 8:
                 return new Outdoors.Piece("live_trap_set", Outdoors.WEST);
             case 9:
@@ -173,7 +157,7 @@ final class Camp {
         // A steel plate to shoot at on a frame of timber, its legs behind it. The sprites have
         // the plate in the middle of the square facing north, at its south edge facing south,
         // at its west edge facing west and its east edge facing east.
-        return switch (place(name, ARMY)) {
+        return switch (Sheets.place(name, ARMY)) {
             case 64 -> new Outdoors.Piece("steel_target", Outdoors.WEST).at(0.04f, 0.5f);
             case 65 -> new Outdoors.Piece("steel_target", Outdoors.NORTH).at(0.5f, 0.52f);
             case 66 -> new Outdoors.Piece("steel_target", Outdoors.SOUTH).at(0.5f, 0.95f);

@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /** Tests of what water shows: that a point on it shows the same place whatever way the head is turned. */
 final class WaterMirrorTests {
     private static final float TAN = (float) Math.tan(Math.toRadians(32.5)), ASPECT = 16f / 9f;
@@ -42,7 +44,7 @@ final class WaterMirrorTests {
                     if (away <= 30) {
                         check(drawn, "water 14 tiles ahead is in sight, looking " + off + " degrees from it");
                     } else if (away >= 105) {
-                        check(!drawn, "water 14 tiles off towards " + towards + " is not in sight looking " + off + " degrees from it, and its picture is not drawn: " + java.util.Arrays.toString(rect));
+                        check(!drawn, "water 14 tiles off towards " + towards + " is not in sight looking " + off + " degrees from it, and its picture is not drawn: " + Arrays.toString(rect));
                     }
                     if (drawn) {
                         check(rect[0] >= -1f && rect[2] <= 1f && rect[1] >= -1f && rect[3] <= 1f, "and what is drawn is within the picture");

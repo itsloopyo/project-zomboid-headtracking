@@ -256,22 +256,7 @@ final class OwnWeapon {
      * @param aim         0 at the hip, 1 with the sights up
      */
     void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim) {
-        // The model is sized so that its muzzle is where the game's is.
-        float size = finalScale * gameMuzzle / MODEL.muzzleFar;
-        for (int column = 0; column < 3; column++) {
-            model[column * 4] = weapon[column] * size;
-            model[column * 4 + 1] = weapon[4 + column] * size;
-            model[column * 4 + 2] = weapon[8 + column] * size;
-            model[column * 4 + 3] = 0f;
-        }
-        model[12] = weapon[3] * finalScale;
-        model[13] = weapon[7] * finalScale;
-        model[14] = weapon[11] * finalScale;
-        model[15] = 1f;
-        ViewModelMath.onto(heldView, model);
-        float turned = model[0] * (model[5] * model[10] - model[9] * model[6]) - model[4] * (model[1] * model[10] - model[9] * model[2])
-                + model[8] * (model[1] * model[6] - model[5] * model[2]);
-        handed = turned < 0f ? -1f : 1f;
+        handed = MODEL.hold(model, heldView, weapon, finalScale, gameMuzzle);
         stood = light;
         outdoors = outside ? 1f : 0f;
         // With the sights up the butt of the stock is at the eye, where the shoulder it is held

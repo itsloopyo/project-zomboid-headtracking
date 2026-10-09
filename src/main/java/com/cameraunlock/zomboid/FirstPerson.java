@@ -324,21 +324,26 @@ public final class FirstPerson {
         return view.index == 0 ? "" : "player " + (view.index + 1) + ": ";
     }
 
+    /** Lets go of the look out of the eye, and of the mouse where the view has it. */
+    private void stopLooking() {
+        landed = false;
+        active = false;
+        lookCaptured = false;
+        wasCaptured = false;
+        fromTheEye = false;
+        view.characters.wanted = false;
+        if (view.hasMouse()) {
+            MouseGrab.wanted = false;
+            MouseGrab.kept = false;
+        }
+    }
+
     /** Switches the view off where it stands and gives back all it holds, from outside any frame of its own. */
     private void giveBack(String why) {
         try {
             on = false;
             gettingReady = false;
-            landed = false;
-            active = false;
-            lookCaptured = false;
-            wasCaptured = false;
-            fromTheEye = false;
-            view.characters.wanted = false;
-            if (view.hasMouse()) {
-                MouseGrab.wanted = false;
-                MouseGrab.kept = false;
-            }
+            stopLooking();
             // No frame is open here, and the menu's first frame clears whatever the sprite renderer
             // was handed since the last one: these go by the render thread's own queue.
             if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
@@ -444,18 +449,9 @@ public final class FirstPerson {
             on = false;
             overhead = false;
             // A frame that throws again before it reaches them never clears these.
-            landed = false;
-            active = false;
-            lookCaptured = false;
-            wasCaptured = false;
-            fromTheEye = false;
-            view.characters.wanted = false;
-            if (view.hasMouse()) {
-                MouseGrab.wanted = false;
-                MouseGrab.kept = false;
-                if (MouseGrab.applied || MouseGrab.keeping) {
-                    SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
-                }
+            stopLooking();
+            if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
+                SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
             view.flight.cut(false);
             view.hearing.rest();

@@ -255,9 +255,7 @@ final class WallBuilder {
         // outside of a house by the day, whatever the room behind it is lit by.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
         if (build.overLayer == 0 && farLight >= 0) {
-            System.arraycopy(build.frame.cornerRed, 0, build.heldRed, 0, 4);
-            System.arraycopy(build.frame.cornerGreen, 0, build.heldGreen, 0, 4);
-            System.arraycopy(build.frame.cornerBlue, 0, build.heldBlue, 0, 4);
+            build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
             if (build.lightOpen[farLight] < 0) {
                 build.frame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
                 build.frame.open = 1f;
@@ -290,9 +288,7 @@ final class WallBuilder {
             build.frame.green = green;
             build.frame.blue = blue;
             build.frame.open = open;
-            System.arraycopy(build.heldRed, 0, build.frame.cornerRed, 0, 4);
-            System.arraycopy(build.heldGreen, 0, build.frame.cornerGreen, 0, 4);
-            System.arraycopy(build.heldBlue, 0, build.frame.cornerBlue, 0, 4);
+            build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
         }
         build.frame.material = material;
         skinStart = skinEnd = 0f;
@@ -545,9 +541,7 @@ final class WallBuilder {
         float made = build.frame.material;
         build.frame.material = paper.figured ? FIGURED_PAPER : made;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
-        System.arraycopy(build.frame.cornerRed, 0, build.paperRed, 0, 4);
-        System.arraycopy(build.frame.cornerGreen, 0, build.paperGreen, 0, 4);
-        System.arraycopy(build.frame.cornerBlue, 0, build.paperBlue, 0, 4);
+        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue);
         float begin = 0f;
         for (int stripe = 0; stripe < paper.ends.length; stripe++) {
             float end = paper.ends[stripe];
@@ -568,9 +562,7 @@ final class WallBuilder {
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;
-        System.arraycopy(build.paperRed, 0, build.frame.cornerRed, 0, 4);
-        System.arraycopy(build.paperGreen, 0, build.frame.cornerGreen, 0, 4);
-        System.arraycopy(build.paperBlue, 0, build.frame.cornerBlue, 0, 4);
+        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue);
     }
 
     /**

@@ -2,11 +2,7 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
-import java.util.HashMap;
-import java.util.Map;
-import zombie.core.properties.PropertyContainer;
 import zombie.iso.sprite.IsoSprite;
-import zombie.iso.sprite.IsoSpriteGrid;
 
 /**
  * What a sprite of a room is made, asked as the build asks it: Furniture.known, with the

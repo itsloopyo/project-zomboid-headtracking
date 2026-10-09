@@ -146,6 +146,18 @@ public final class FineSkins {
         volatile IOException unreadable;
         /** What a tailored picture is counted as holding of the card, from when it is asked for until it is let go. */
         long bytes;
+
+        /** Takes the picture a reader made, or frees it where this was let go of while it was being made. Under this Read's lock. */
+        synchronized void hand(OffHeap.Block made, int madeWide, int madeHigh) {
+            if (dropped) {
+                made.free();
+                return;
+            }
+            wide = madeWide;
+            high = madeHigh;
+            memory = made;
+            pixels = made.bytes;
+        }
     }
 
     /** One step of a composition, as the combiner was given it. */
@@ -804,17 +816,8 @@ public final class FineSkins {
             ByteBuffer pixels = memory.bytes;
             Tailor.fine(source, wide / times, high / times, times, laid, Tailor.edged(source), pixels);
             pixels.flip();
-            synchronized (into) {
-                taken[0] = null;
-                if (into.dropped) {
-                    memory.free();
-                    return;
-                }
-                into.wide = wide;
-                into.high = high;
-                into.memory = memory;
-                into.pixels = memory.bytes;
-            }
+            taken[0] = null;
+            into.hand(memory, wide, high);
         } catch (IOException | RuntimeException | Error failure) {
             // The fabric is missing from the jar, or Tailor is wrong: the mod's own fault, and said as one.
             into.failure = new IOException(file + " could not be made finer", failure);
@@ -883,17 +886,8 @@ public final class FineSkins {
                 wide /= 2;
                 high /= 2;
             }
-            synchronized (into) {
-                taken[0] = null;
-                if (into.dropped) {
-                    memory.free();
-                    return;
-                }
-                into.wide = wide;
-                into.high = high;
-                into.memory = memory;
-                into.pixels = memory.bytes;
-            }
+            taken[0] = null;
+            into.hand(memory, wide, high);
         } catch (IOException failure) {
             into.failure = failure;
         } catch (RuntimeException | Error failure) {

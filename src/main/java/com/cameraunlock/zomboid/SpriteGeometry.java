@@ -384,6 +384,20 @@ final class SpriteGeometry {
             vEnd = other.vEnd;
         }
 
+        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}. */
+        void cornersInto(float[] red, float[] green, float[] blue) {
+            System.arraycopy(cornerRed, 0, red, 0, 4);
+            System.arraycopy(cornerGreen, 0, green, 0, 4);
+            System.arraycopy(cornerBlue, 0, blue, 0, 4);
+        }
+
+        /** The light at the corners as {@link #cornersInto} copied it out. */
+        void cornersFrom(float[] red, float[] green, float[] blue) {
+            System.arraycopy(red, 0, cornerRed, 0, 4);
+            System.arraycopy(green, 0, cornerGreen, 0, 4);
+            System.arraycopy(blue, 0, cornerBlue, 0, 4);
+        }
+
         /** One light for the whole square. */
         void light(float r, float g, float b) {
             red = r;

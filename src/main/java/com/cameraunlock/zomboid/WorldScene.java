@@ -1244,15 +1244,7 @@ final class WorldScene {
             if (held == null || !ChunkBuffers.chunkTouches(held.wx, held.wy, minX, minY, maxX, maxY)) {
                 continue;
             }
-            if (latest[slot] != null) {
-                release(latest[slot]);
-                latest[slot] = null;
-            }
-            if (latestGrown[slot] != null) {
-                release(latestGrown[slot]);
-                latestGrown[slot] = null;
-            }
-            forgetCrowns(slot);
+            forget(slot);
         }
     }
 
@@ -1277,18 +1269,23 @@ final class WorldScene {
         topLevel = Integer.MAX_VALUE;
     }
 
+    /** Lets go of the builds held in a slot of the table. */
+    private void forget(int slot) {
+        if (latest[slot] != null) {
+            release(latest[slot]);
+            latest[slot] = null;
+        }
+        if (latestGrown[slot] != null) {
+            release(latestGrown[slot]);
+            latestGrown[slot] = null;
+        }
+        forgetCrowns(slot);
+    }
+
     /** Lets go of every build: for when what all of them were built on has changed. */
     void forgetAll() {
         for (int slot = 0; slot < latest.length; slot++) {
-            if (latest[slot] != null) {
-                release(latest[slot]);
-                latest[slot] = null;
-            }
-            if (latestGrown[slot] != null) {
-                release(latestGrown[slot]);
-                latestGrown[slot] = null;
-            }
-            forgetCrowns(slot);
+            forget(slot);
         }
     }
 

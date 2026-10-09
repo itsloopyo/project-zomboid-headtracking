@@ -40,19 +40,19 @@ final class Overhead {
 
     /** The model of a sprite with no name on a square of its own and how it stands, or null for one that is none of these. */
     static Outdoors.Piece of(String name) {
-        int place = Outdoors.place(name, BUILDING_SITE);
+        int place = Sheets.place(name, BUILDING_SITE);
         if (place >= 0) {
             return buildingSite(place);
         }
-        place = Outdoors.place(name, WORKS);
+        place = Sheets.place(name, WORKS);
         if (place >= 0) {
             return works(place);
         }
-        place = Outdoors.place(name, TIMBER_FRAME);
+        place = Sheets.place(name, TIMBER_FRAME);
         if (place >= 0) {
             return timberFrame(place);
         }
-        return switch (Outdoors.place(name, CHURCH)) {
+        return switch (Sheets.place(name, CHURCH)) {
             case 79 -> new Outdoors.Piece("church_column", 0).dye(PAINT, COLUMN_DYE);
             case 87 -> new Outdoors.Piece("church_column_base", 0).dye(PAINT, COLUMN_DYE);
             default -> null;
@@ -209,7 +209,7 @@ final class Overhead {
      * (2) are marked for none.
      */
     static int edgeOf(String name) {
-        int place = Outdoors.place(name, PLANT);
+        int place = Sheets.place(name, PLANT);
         if (place >= 0) {
             return switch (place) {
                 case 30 -> WEST_EDGE;
@@ -217,7 +217,7 @@ final class Overhead {
                 default -> ANY_EDGE;
             };
         }
-        return switch (Outdoors.place(name, POLICE)) {
+        return switch (Sheets.place(name, POLICE)) {
             case 10 -> WEST_EDGE;
             case 11 -> NORTH_EDGE;
             case 2 -> BOTH_EDGES;

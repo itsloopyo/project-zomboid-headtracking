@@ -151,6 +151,35 @@ final class OwnModel {
         return Ahead.done(mesh) && Ahead.done(colourPath) && Ahead.done(surfacePath);
     }
 
+    /**
+     * Fills into with the model's matrix where the game has its weapon, held up in the view, and
+     * says which way it is handed: -1 where that leaves it a mirror image of itself as it was
+     * made, 1 where it does not.
+     *
+     * @param heldView    ViewModel's matrix for the weapon held up: from the character's axes to the view's
+     * @param weapon      where the game has the weapon in its character's axes, read by rows
+     * @param finalScale  the scale the game draws the character's parts at
+     * @param gameMuzzle  how far the muzzle of the game's model is from its grip, in that model's units
+     */
+    float hold(float[] into, float[] heldView, float[] weapon, float finalScale, float gameMuzzle) {
+        // The model is sized so that its muzzle is where the game's is.
+        float size = finalScale * gameMuzzle / muzzleFar;
+        for (int column = 0; column < 3; column++) {
+            into[column * 4] = weapon[column] * size;
+            into[column * 4 + 1] = weapon[4 + column] * size;
+            into[column * 4 + 2] = weapon[8 + column] * size;
+            into[column * 4 + 3] = 0f;
+        }
+        into[12] = weapon[3] * finalScale;
+        into[13] = weapon[7] * finalScale;
+        into[14] = weapon[11] * finalScale;
+        into[15] = 1f;
+        ViewModelMath.onto(heldView, into);
+        float turned = into[0] * (into[5] * into[10] - into[9] * into[6]) - into[4] * (into[1] * into[10] - into[9] * into[2])
+                + into[8] * (into[1] * into[6] - into[5] * into[2]);
+        return turned < 0f ? -1f : 1f;
+    }
+
     /** Sets the fields a step at a time, so that letGo can give back a half made model. */
     private void upload(Program program, ByteBuffer read, int vertices, int indices) {
         array = GL30.glGenVertexArrays();

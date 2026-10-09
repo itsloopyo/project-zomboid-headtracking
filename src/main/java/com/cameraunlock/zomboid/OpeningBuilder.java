@@ -530,9 +530,7 @@ final class OpeningBuilder {
         addJoinery(joinery, from, to, foot, head, out * (WorldScene.WALL_HALF - 0.003f), red, green, blue);
         float start = Math.max(from, 0f), end = Math.min(to, 1f), low = Math.max(foot, 0f), high = Math.min(head, 1f);
         float wasRed = build.frame.red, wasGreen = build.frame.green, wasBlue = build.frame.blue, wasOpen = build.frame.open;
-        System.arraycopy(build.frame.cornerRed, 0, build.heldRed, 0, 4);
-        System.arraycopy(build.frame.cornerGreen, 0, build.heldGreen, 0, 4);
-        System.arraycopy(build.frame.cornerBlue, 0, build.heldBlue, 0, 4);
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
         if (windowLit == 1) {
             build.frame.light(red, green, blue);
             build.frame.open = open;
@@ -546,9 +544,7 @@ final class OpeningBuilder {
         build.frame.green = wasGreen;
         build.frame.blue = wasBlue;
         build.frame.open = wasOpen;
-        System.arraycopy(build.heldRed, 0, build.frame.cornerRed, 0, 4);
-        System.arraycopy(build.heldGreen, 0, build.frame.cornerGreen, 0, 4);
-        System.arraycopy(build.heldBlue, 0, build.frame.cornerBlue, 0, 4);
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
     }
 
     /** Where the point a share along the window's edge, up levels high and across tiles into its square is, into c at i. */

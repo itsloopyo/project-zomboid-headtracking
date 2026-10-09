@@ -33,12 +33,6 @@ final class HomeFittings {
     /** The places of the fireplaces on their sheet: the fire and its hearth, before a north wall or a west one. */
     private static final int LAST_FIRE = 5;
 
-    /** The number a sprite's name ends in, its place on its sheet, or -1. */
-    private static int place(String name) {
-        String last = name.substring(name.lastIndexOf('_') + 1);
-        return !last.isEmpty() && last.length() <= 4 && last.chars().allMatch(Character::isDigit) ? Integer.parseInt(last) : -1;
-    }
-
     /**
      * The model of the board laid over a counter that has the model `counter`: one built where the counter's
      * own top is in it. Null for a counter that has no such board.
@@ -58,7 +52,7 @@ final class HomeFittings {
             return null;
         }
         IsoSpriteGrid grid = sprite.getSpriteGrid();
-        int at = place(name);
+        int at = Sheets.place(name);
         if (called == null && grid == null && name.startsWith(COUNTER_TOPS) && at >= FIRST_TOP && at <= LAST_TOP && properties.has("Countertop")) {
             // Nothing of its own: it is the board over the counter it is laid on, which FurnishingBuilder.addCountertop stands.
             Furniture top = new Furniture(sprite, null, 0);
@@ -76,7 +70,7 @@ final class HomeFittings {
         if (called == null || facing == null || grid != null && grid.getLevels() != 1) {
             return null;
         }
-        int turns = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+        int turns = Furniture.turnsOf(facing);
         boolean alongY = (turns & 1) == 0;
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         int along = alongY ? height : width, across = alongY ? width : height;

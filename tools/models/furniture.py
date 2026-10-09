@@ -702,23 +702,27 @@ def bedside_cabinet():
     return model
 
 
-def dresser():
-    model = Model("dresser")
+def chest_of_drawers(model):
+    """A dresser's chest: a plinth, a carcass, a top board and three drawers with pairs of pulls. Gives its half
+    width, the y of its front and its back, and the height of its top."""
     half, front, back, top = 0.46, -0.23, 0.24, 0.88
-
     body = bmesh.new()
     cuboid(body, -half + 0.03, half - 0.03, front + 0.04, back, 0.0, 0.07)
     cuboid(body, -half, half, front, back, 0.07, top - 0.035)
     model.hard(body, "wood", bevel=0.006)
-
     board = bmesh.new()
     cuboid(board, -half - 0.025, half + 0.025, front - 0.035, back, top - 0.035, top)
     model.hard(board, "wood", bevel=0.01, segments=3)
-
     fronts, pulls = bmesh.new(), bmesh.new()
     drawer_fronts(fronts, pulls, -half + 0.012, half - 0.012, 0.08, top - 0.045, 3, front - 0.018, at=(0.25, 0.75), size=1.15)
     model.hard(fronts, "wood", bevel=0.005)
     model.turned(pulls, "metal")
+    return half, front, back, top
+
+
+def dresser():
+    model = Model("dresser")
+    chest_of_drawers(model)
     return model
 
 
@@ -1225,25 +1229,36 @@ def bath():
     return model
 
 
-def washing_machine():
-    model = Model("washing_machine")
+def laundry_case(model):
+    """The white case of a washing machine or a dryer, with the console its dials are on along the back. Gives
+    its half width, the y of its front and its back, and the height of its top."""
     half, front, back, top = 0.34, -0.33, 0.33, 0.92
-
     body = bmesh.new()
     cuboid(body, -half, half, front, back, 0.03, top)
     cuboid(body, -half, half, back - 0.14, back, top, top + 0.16)
     model.hard(body, "enamel", bevel=0.012, segments=3)
+    return half, front, back, top
 
-    lid = bmesh.new()
-    cuboid(lid, -half + 0.05, half - 0.05, front + 0.04, back - 0.16, top, top + 0.016)
-    model.hard(lid, "enamel", bevel=0.006, segments=2)
 
+def laundry_feet(model, half, front, back, top):
+    """The rubber feet under a laundry case, and the rubber face of its console where the dials are set."""
     feet = bmesh.new()
     for x in (-1, 1):
         for y in (front + 0.05, back - 0.05):
             lathe(feet, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.03), (0.0, 0.03)], cx=x * (half - 0.06), cy=y, segments=10)
     cuboid(feet, -half + 0.03, half - 0.03, back - 0.146, back - 0.14, top + 0.03, top + 0.13)
     model.turned(feet, "rubber")
+
+
+def washing_machine():
+    model = Model("washing_machine")
+    half, front, back, top = laundry_case(model)
+
+    lid = bmesh.new()
+    cuboid(lid, -half + 0.05, half - 0.05, front + 0.04, back - 0.16, top, top + 0.016)
+    model.hard(lid, "enamel", bevel=0.006, segments=2)
+
+    laundry_feet(model, half, front, back, top)
 
     dials = bmesh.new()
     lathe(dials, [(0.0, 0.0), (0.04, 0.0), (0.036, 0.022), (0.0, 0.025)], segments=14, to=along_y(-0.17, back - 0.146, top + 0.08))
@@ -2848,18 +2863,7 @@ def floor_lamp(name, shaded):
 def dresser_mirror():
     """A chest of drawers with a looking glass standing on its top between two posts, the wall at +Y. The chest's top is 0.88 high."""
     model = Model("dresser_mirror")
-    half, front, back, top = 0.46, -0.23, 0.24, 0.88
-    body = bmesh.new()
-    cuboid(body, -half + 0.03, half - 0.03, front + 0.04, back, 0.0, 0.07)
-    cuboid(body, -half, half, front, back, 0.07, top - 0.035)
-    model.hard(body, "wood", bevel=0.006)
-    board = bmesh.new()
-    cuboid(board, -half - 0.025, half + 0.025, front - 0.035, back, top - 0.035, top)
-    model.hard(board, "wood", bevel=0.01, segments=3)
-    fronts, pulls = bmesh.new(), bmesh.new()
-    drawer_fronts(fronts, pulls, -half + 0.012, half - 0.012, 0.08, top - 0.045, 3, front - 0.018, at=(0.25, 0.75), size=1.15)
-    model.hard(fronts, "wood", bevel=0.005)
-    model.turned(pulls, "metal")
+    half, front, back, top = chest_of_drawers(model)
     frame = bmesh.new()
     wide, low, high, rail, face = 0.31, top + 0.05, top + 0.86, 0.05, back - 0.07
     for side in (-1, 1):
@@ -2932,23 +2936,14 @@ def bar_stool():
 def clothes_dryer():
     """A tumble dryer: a white case with a round door in its front and its dials on a console along the back. Its top is 0.92 high."""
     model = Model("clothes_dryer")
-    half, front, back, top = 0.34, -0.33, 0.33, 0.92
-    body = bmesh.new()
-    cuboid(body, -half, half, front, back, 0.03, top)
-    cuboid(body, -half, half, back - 0.14, back, top, top + 0.16)
-    model.hard(body, "enamel", bevel=0.012, segments=3)
+    half, front, back, top = laundry_case(model)
     door = bmesh.new()
     lathe(door, [(0.15, 0.0), (0.215, 0.0), (0.215, 0.02), (0.2, 0.034), (0.15, 0.034)], segments=22, closed=True, to=along_y(0.0, front, 0.5))
     model.turned(door, "enamel", sharp=40.0)
     glass = bmesh.new()
     lathe(glass, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.09, 0.026), (0.0, 0.03)], segments=18, to=along_y(0.0, front, 0.5))
     model.turned(glass, "screen", sharp=50.0)
-    feet = bmesh.new()
-    for x in (-1, 1):
-        for y in (front + 0.05, back - 0.05):
-            lathe(feet, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.03), (0.0, 0.03)], cx=x * (half - 0.06), cy=y, segments=10)
-    cuboid(feet, -half + 0.03, half - 0.03, back - 0.146, back - 0.14, top + 0.03, top + 0.13)
-    model.turned(feet, "rubber")
+    laundry_feet(model, half, front, back, top)
     dials = bmesh.new()
     lathe(dials, [(0.0, 0.0), (0.04, 0.0), (0.036, 0.022), (0.0, 0.025)], segments=14, to=along_y(0.17, back - 0.146, top + 0.08))
     lathe(dials, [(0.0, 0.0), (0.02, 0.0), (0.018, 0.018), (0.0, 0.02)], segments=10, to=along_y(-0.12, back - 0.146, top + 0.08))

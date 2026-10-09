@@ -98,6 +98,11 @@ final class Furniture {
         this(sprite, model, turns, false);
     }
 
+    /** The quarter turns from north of a facing the game gives, which is one of the four ways along the map's axes. */
+    static int turnsOf(IsoDirections facing) {
+        return facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+    }
+
     /** A square that stands as a piece by itself, whatever squares the game lays its piece on. */
     static Furniture single(IsoSprite sprite, String model, int turns) {
         return new Furniture(sprite, model, turns, true);
@@ -310,8 +315,7 @@ final class Furniture {
             return shop;
         }
         if (facing != null && !blocks && holds.isEmpty() && !onTable && surface == 0) {
-            // The game gives a facing as one of the four ways along the map's axes.
-            int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+            int faces = turnsOf(facing);
             if (called.equals("Clock") && grid == null) {
                 return new Furniture(sprite, "wall_clock", faces).hang(WallHung.behind(facing), false);
             }
@@ -379,8 +383,7 @@ final class Furniture {
             }
             return null;
         }
-        // The game gives a facing as one of the four ways along the map's axes.
-        int turns = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
+        int turns = turnsOf(facing);
         boolean alongY = (turns & 1) == 0;
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         int along = alongY ? height : width, across = alongY ? width : height;

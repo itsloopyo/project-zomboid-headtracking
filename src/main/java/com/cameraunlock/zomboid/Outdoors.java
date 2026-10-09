@@ -195,11 +195,11 @@ final class Outdoors {
             if (overhead != null) {
                 return overhead;
             }
-            int works = place(name, WORKS);
+            int works = Sheets.place(name, WORKS);
             if (works >= 0) {
                 return works(works);
             }
-            int rooftop = place(name, ROOFTOP);
+            int rooftop = Sheets.place(name, ROOFTOP);
             if (rooftop >= 0) {
                 return rooftop(rooftop);
             }
@@ -216,22 +216,22 @@ final class Outdoors {
                 return sign;
             }
             // A storey of a substation gantry's narrow lattice column, the lowest on its pad, and a radio mast's in white.
-            if (place(name, PYLONS) == 176) {
+            if (Sheets.place(name, PYLONS) == 176) {
                 return new Piece("lattice_post", 0);
             }
-            if (place(name, PYLONS) == 181) {
+            if (Sheets.place(name, PYLONS) == 181) {
                 return new Piece("lattice_post_foot", 0);
             }
-            if (place(name, MASTS) == 81) {
+            if (Sheets.place(name, MASTS) == 81) {
                 return new Piece("lattice_post_white", 0);
             }
             // Roofing felt in rolls: two long rolls side by side and a banded bundle of short ones, each along y and then along x.
-            return switch (place(name, PLANT)) {
+            return switch (Sheets.place(name, PLANT)) {
                 case 40, 42 -> new Piece("felt_bundle", 0);
                 case 41 -> new Piece("felt_roll", 0);
                 case 43, 45 -> new Piece("felt_bundle", 1);
                 case 44 -> new Piece("felt_roll", 1);
-                default -> switch (place(name, BUILDING_SITE)) {
+                default -> switch (Sheets.place(name, BUILDING_SITE)) {
                     // A girder on the ground, painted along x from either end.
                     case 42, 43 -> new Piece("girder", 1).dye(PAINT, GIRDER_DYE);
                     default -> null;
@@ -263,12 +263,12 @@ final class Outdoors {
             return null;
         }
         if (called.equals("Tire") || called.equals("Tires")) {
-            return tyres(place(name, TYRES));
+            return tyres(Sheets.place(name, TYRES));
         }
         // A barrel set out to catch the rain: open, with rain in it, with a sheet tied over its mouth, and with a lid laid on
         // that sheet. The others of the name are crates lined with a sheet, which Farm stands before this is asked.
         if (called.equals("Rain Collector Barrel")) {
-            return switch (place(name, CARPENTRY)) {
+            return switch (Sheets.place(name, CARPENTRY)) {
                 case 52 -> new Piece("rain_barrel", 0).fit();
                 case 53 -> new Piece("rain_barrel_water", 0).dye(1 << Models.ENAMEL, RAIN_DYE).fit();
                 case 122, 123, 124, 125 -> new Piece("rain_barrel_tarp", 0).dye(1 << Models.CLOTH, SHEET_AT, SHEET_AT, SHEET_DYE).fit();
@@ -368,27 +368,11 @@ final class Outdoors {
 
     /** Whether a sprite is a square's length of washing line, and which way it runs: it is no model, the picture strings it as it does a wire. */
     static int washingLine(String name) {
-        return switch (place(name, LAUNDRY)) {
+        return switch (Sheets.place(name, LAUNDRY)) {
             case 30 -> LINE_EAST;
             case 31 -> LINE_SOUTH;
             default -> NO_LINE;
         };
-    }
-
-    /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    static int place(String name, String sheet) {
-        if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
-            return -1;
-        }
-        int place = 0;
-        for (int i = sheet.length(); i < name.length(); i++) {
-            char digit = name.charAt(i);
-            if (digit < '0' || digit > '9') {
-                return -1;
-            }
-            place = place * 10 + digit - '0';
-        }
-        return place;
     }
 
     /**
@@ -434,7 +418,7 @@ final class Outdoors {
      * it as the eye went by.
      */
     private static Piece fencePost(String name) {
-        return switch (place(name, FENCES)) {
+        return switch (Sheets.place(name, FENCES)) {
             case 7 -> new Piece("picket_post", 0).at(0.031f, 0.039f).dye(PAINT, 0.031f, 0.039f, 0.2f).fit();
             case 19 -> new Piece("rail_post", 0).at(0.133f, 0.102f).dye(1 << Models.WOOD, 0.133f, 0.102f, 0.2f).fit();
             case 29 -> new Piece("pipe_post", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.2f).fit();
@@ -489,7 +473,7 @@ final class Outdoors {
         if (sheet == null) {
             return null;
         }
-        Piece pump = switch (place(name, sheet)) {
+        Piece pump = switch (Sheets.place(name, sheet)) {
             case 12 -> new Piece("fuel_pump", EAST).at(PUMP_ACROSS, PUMP_ALONG).pairedWith(sheet + "13", 0, -1)
                     .dye(PAINT, PUMP_FRONT, PUMP_ALONG, PUMP_PANEL_DYE);
             case 13 -> new Piece(null, EAST).pairedWith(sheet + "12", 0, 1);
@@ -524,7 +508,7 @@ final class Outdoors {
      * painting, so a bend's arrow is the arrow the game paints. Stood up as the lathe of its outline it was a spinning top.
      */
     private static Piece warningSign(String name) {
-        int faces = switch (place(name, ROAD_SIGNS)) {
+        int faces = switch (Sheets.place(name, ROAD_SIGNS)) {
             case 4 -> NORTH;
             case 5 -> WEST;
             case 8, 9, 10, 11, 12 -> SOUTH;
@@ -544,7 +528,7 @@ final class Outdoors {
      * its colour from its sprite there. Stood up as a card it turned to the eye.
      */
     private static Piece burntPost(String name) {
-        return switch (place(name, BURNT_FENCES)) {
+        return switch (Sheets.place(name, BURNT_FENCES)) {
             case 3 -> new Piece("burnt_picket_post", 0).at(0.06f, 0.06f).dye(1 << Models.DARK_WOOD, 0.06f, 0.06f, 0.2f);
             case 13 -> new Piece("burnt_tall_post", 0).at(0.1f, 0.1f).dye(1 << Models.DARK_WOOD, 0.1f, 0.1f, 0.4f);
             case 45 -> new Piece("burnt_rail_post", 0).at(0.07f, 0.07f).dye(1 << Models.DARK_WOOD, 0.07f, 0.07f, 0.25f);

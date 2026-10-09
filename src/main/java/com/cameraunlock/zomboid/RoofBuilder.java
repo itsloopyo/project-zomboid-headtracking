@@ -164,9 +164,7 @@ final class RoofBuilder {
         // The wall is out of doors and is lit as the open air is. The roof tile's own square
         // is the loft under it, which is dark.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
-        System.arraycopy(build.frame.cornerRed, 0, build.heldRed, 0, 4);
-        System.arraycopy(build.frame.cornerGreen, 0, build.heldGreen, 0, 4);
-        System.arraycopy(build.frame.cornerBlue, 0, build.heldBlue, 0, 4);
+        build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue);
         build.frame.light(build.unseenLight.r, build.unseenLight.g, build.unseenLight.b);
         build.frame.open = 1f;
         addGableWalls(square, standing, ground, room, x, y, z, northWest, northEast, southWest, peak, peakAxis);
@@ -174,9 +172,7 @@ final class RoofBuilder {
         build.frame.green = green;
         build.frame.blue = blue;
         build.frame.open = open;
-        System.arraycopy(build.heldRed, 0, build.frame.cornerRed, 0, 4);
-        System.arraycopy(build.heldGreen, 0, build.frame.cornerGreen, 0, 4);
-        System.arraycopy(build.heldBlue, 0, build.frame.cornerBlue, 0, 4);
+        build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
     }
 
     private void addGableWalls(IsoGridSquare square, IsoBuilding standing, int ground, long room, int x, int y, int z, float northWest, float northEast, float southWest,

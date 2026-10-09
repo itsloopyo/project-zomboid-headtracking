@@ -38,7 +38,7 @@ final class Leisure {
         }
         String kind = group == null ? "" : group;
         if (called.equals("Swingset") && kind.equals("Playground") && single) {
-            return swing(place(name, PARK));
+            return swing(Sheets.place(name, PARK));
         }
         if (faces == Outdoors.NONE) {
             return null;
@@ -160,7 +160,7 @@ final class Leisure {
 
     /** What has no name: a park fountain's basin and the fountain in it, a basketball's pole and board, a court's net, a goal and a track's stacks of tyres. */
     private static Outdoors.Piece unnamed(String name) {
-        int park = place(name, PARK);
+        int park = Sheets.place(name, PARK);
         String fountain = switch (park) {
             case 45 -> "fountain_0";
             case 42 -> "fountain_1";
@@ -176,7 +176,7 @@ final class Leisure {
         if (fountain != null) {
             return new Outdoors.Piece(fountain, 0);
         }
-        int sports = place(name, SPORTS);
+        int sports = Sheets.place(name, SPORTS);
         return switch (sports) {
             case 32, 33 -> new Outdoors.Piece("basket_pole", 0).dye(PAINT, 0.5f);
             // The board a storey up over the pole, facing south, east, north and west.
@@ -231,21 +231,5 @@ final class Leisure {
             return null;
         }
         return new Outdoors.Piece(model, turns).dye(PAINT, 0.72f, 0.72f, 0.04f);
-    }
-
-    /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    private static int place(String name, String sheet) {
-        if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
-            return -1;
-        }
-        int place = 0;
-        for (int i = sheet.length(); i < name.length(); i++) {
-            char digit = name.charAt(i);
-            if (digit < '0' || digit > '9') {
-                return -1;
-            }
-            place = place * 10 + digit - '0';
-        }
-        return place;
     }
 }
