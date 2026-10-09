@@ -221,8 +221,10 @@ def crease(bm, verts, amount):
 
 
 class Model:
-    def __init__(self, name, centred=True):
+    def __init__(self, name, centred=True, hung=False):
         self.name = name
+        # What hangs high on a wall has no floor under it to shade its underside.
+        self.hung = hung
         # A piece made to meet its neighbours, the corner of a run of counters, is placed by
         # the square it fills and keeps the origin it was built round.
         self.centred = centred
@@ -311,9 +313,10 @@ class Model:
         points = [position for position, _, _ in self.vertices]
         faces = [(i, i + 1, i + 2) for i in range(0, len(points), 3)]
         # The floor the piece stands on shades its underside as the rest of it does.
-        ground = len(points)
-        points += [Vector((-9, -9, 0)), Vector((9, -9, 0)), Vector((9, 9, 0)), Vector((-9, 9, 0))]
-        faces.append((ground, ground + 1, ground + 2, ground + 3))
+        if not self.hung:
+            ground = len(points)
+            points += [Vector((-9, -9, 0)), Vector((9, -9, 0)), Vector((9, 9, 0)), Vector((-9, 9, 0))]
+            faces.append((ground, ground + 1, ground + 2, ground + 3))
         tree = BVHTree.FromPolygons(points, faces)
         rays = []
         for i in range(OCCLUSION_RAYS):
@@ -2294,6 +2297,217 @@ def parasol(name, profile, drop, scallop):
         prism(ribs, (x * 0.04, y * 0.04, 0.012, 0.012, runner), (x * profile[middle][0], y * profile[middle][0], 0.012, 0.012, profile[middle][1] - PARASOL_CLOTH - 0.03))
     model.plain(ribs, "steel")
     return model
+
+
+# A shop's awning, a square's length of it to a model, so that the squares of a run meet: Awnings.java stands one on
+# each square the game lays an awning on. How thick its cloth is, how many stripes lie on a square, and how far its
+# back stands off the edge of its square, clear of the skin of the wall it hangs on (WorldScene.WALL_HALF and a hair).
+AWNING_CLOTH = 0.008
+AWNING_STRIPES = 4
+AWNING_BACK = 0.06
+# How many cuts across a stripe the foot of its valance is drawn with, and how many steps a curve of the cloth takes.
+AWNING_CUTS = 8
+AWNING_STEPS = 6
+
+
+def awning_foot(edge, drop, across):
+    """How far above the lowest point of a stripe's valance its foot is, across being 0 at one side of the stripe and 1 at
+    the other: a round tab, a point, a scallop that hangs between two tabs or a straight hem."""
+    middle = 2.0 * across - 1.0
+    if edge == "tabs":
+        return drop * (1.0 - math.sqrt(max(1.0 - middle * middle, 0.0)))
+    if edge == "points":
+        return drop * abs(middle)
+    if edge == "scallops":
+        return drop * (1.0 - math.sin(math.pi * across))
+    return 0.0
+
+
+def awning(name, reach, wall, front, foot, edge, drop, dome=False):
+    """A length of shop awning a metre long, hung on the wall at +Y: a sheet of cloth in stripes that runs out from the
+    wall and turns down at the front into a valance, and the steel that holds it, a rail on the wall and an arm under
+    the middle of the cloth to a bar along the front.
+
+    reach is how far the front is from the edge of the square the wall is on. wall is how high the cloth is where it
+    meets the wall, front how high it is where it turns down, foot how high the lowest point of the valance is, and
+    drop how much higher its foot is at the side of a tab or a point. A dome runs out from the wall level and curves
+    down until it is upright at the front, and the others slope straight and turn down round a short curve.
+
+    The stripes go by turns to two surfaces, so that the mod can give the cloth one colour or two. Each stripe is a
+    body of its own, as is each length of rail, and those of a square meet those of the next at its edge.
+    """
+    model = Model(name, hung=True)
+    deep = reach - AWNING_BACK
+    if dome:
+        profile = [(deep * math.sin(math.pi / 2 * k / (2 * AWNING_STEPS)), front + (wall - front) * math.cos(math.pi / 2 * k / (2 * AWNING_STEPS)))
+                   for k in range(2 * AWNING_STEPS + 1)]
+    else:
+        # The front's curve: a curve drawn between the points a nose's length back along the slope and as far down
+        # from the corner the slope makes with the valance.
+        nose = 0.06
+        run = math.hypot(deep, wall - front)
+        start = (deep * (1 - nose / run), front + (wall - front) * nose / run)
+        corner, end = (deep, front), (deep, front - nose)
+        profile = [(0.0, wall)]
+        for k in range(AWNING_STEPS + 1):
+            t = k / AWNING_STEPS
+            profile.append(tuple((1 - t) ** 2 * s + 2 * (1 - t) * t * c + t * t * e for s, c, e in zip(start, corner, end)))
+    hem = profile[-1][1]
+
+    def inward(points):
+        """Each point of the outline of the cloth moved by its thickness to the underside: along the outline turned a
+        quarter, which is down under the slope and in towards the wall behind the valance."""
+        out = []
+        for i, (d, z) in enumerate(points):
+            (d0, z0), (d1, z1) = points[max(i - 1, 0)], points[min(i + 1, len(points) - 1)]
+            length = math.hypot(d1 - d0, z1 - z0)
+            out.append((d + AWNING_CLOTH * (z1 - z0) / length, z - AWNING_CLOTH * (d1 - d0) / length))
+        return out
+
+    wide = 1.0 / AWNING_STRIPES
+    cloths = [bmesh.new(), bmesh.new()]
+    for stripe in range(AWNING_STRIPES):
+        x0 = -0.5 + stripe * wide
+        outer, inner = [], []
+        for cut in range(AWNING_CUTS + 1):
+            across = cut / AWNING_CUTS
+            x = x0 + wide * across
+            low = foot + awning_foot(edge, drop, across)
+            outline = profile + [(deep, hem + (low - hem) * k / 3) for k in range(1, 4)]
+            for row, points in ((outer, outline), (inner, inward(outline))):
+                row.append([(x, deep / 2 - d, z) for d, z in points])
+        # The grids are by cut and then along the outline; shell takes them along the outline and then across.
+        shell(cloths[stripe % 2], [list(column) for column in zip(*outer)], [list(column) for column in zip(*inner)])
+    model.plain(cloths[0], "cloth")
+    model.plain(cloths[1], "linen")
+
+    def under(d):
+        """How high the underside of the cloth is that far out from the wall."""
+        for (d0, z0), (d1, z1) in zip(profile, profile[1:]):
+            if d0 <= d <= d1 and d1 > d0:
+                return z0 + (z1 - z0) * (d - d0) / (d1 - d0) - AWNING_CLOTH * 1.5
+        raise ValueError("%.3f is not under the cloth" % d)
+
+    frame = bmesh.new()
+    back = deep / 2
+    tube = 0.025
+    cuboid(frame, -0.5, 0.5, back - 0.03, back, wall - 0.11, wall - 0.05)
+    bar = deep - 0.07 if not dome else deep - 0.05
+    bar_z = under(bar) - tube / 2 if not dome else hem - 0.02
+    cuboid(frame, -0.5, 0.5, back - bar - tube / 2, back - bar + tube / 2, bar_z - tube / 2, bar_z + tube / 2)
+    arm_z = wall - 0.08
+    if dome:
+        # Straight across the inside of the curve, from the rail to the bar.
+        prism_y(frame, (0.0, bar_z, tube, tube, back - bar), (0.0, arm_z, tube, tube, back - 0.03))
+    else:
+        prism_y(frame, (0.0, bar_z, tube, tube, back - bar), (0.0, under(0.04) - tube / 2, tube, tube, back - 0.03))
+        # A strut from low on the wall to the middle of the arm.
+        brace = bar * 0.55
+        prism_y(frame, (0.0, under(brace) - tube * 1.5, tube * 0.8, tube * 0.8, back - brace), (0.0, wall - min(0.5, deep * 0.9), tube * 0.8, tube * 0.8, back - 0.03))
+        cuboid(frame, -0.04, 0.04, back - 0.012, back, wall - min(0.5, deep * 0.9) - 0.05, wall - min(0.5, deep * 0.9) + 0.05)
+    model.plain(frame, "steel")
+    return model
+
+
+def awnings():
+    """The shop awnings, read off the game's sprites of them: a level is 2.45 m."""
+    level = 2.45
+    return [awning("awning", 1.0, 0.969 * level, 0.836 * level, 0.727 * level, "tabs", 0.07),
+            awning("awning_hemmed", 1.0, 0.969 * level, 0.836 * level, 0.727 * level, "straight", 0.0),
+            awning("awning_pointed", 1.0, 0.969 * level, 0.836 * level, 0.727 * level, "points", 0.08),
+            awning("awning_short", 0.39, 0.969 * level, 0.935 * level, 0.80 * level, "tabs", 0.07),
+            awning("awning_dome", 1.0, 0.985 * level, 0.70 * level, 0.625 * level, "scallops", 0.06, dome=True)]
+
+
+# A hood of roofing over a wall that stands on its own, a kiosk's: the eave row of a roof with no roof behind it, which
+# Hoods.java hangs one model of a metre on each square of. How far it runs out from the wall, how thick its deck is, and
+# how deep the board along its front edge, in metres. Its top is the top of the wall, its front edge as high as the game's
+# sprite of the eave draws it: 1.0 and 0.874 of a level.
+HOOD_REACH = 0.4
+HOOD_DECK = 0.04
+# How far its back is from the edge of its square: just clear of the wall's skin, so that no gap shows between them.
+HOOD_BACK = 0.045
+HOOD_FASCIA = 0.1225
+
+
+def hood(name, plus, minus):
+    """A metre of a hood of roofing on the wall at +Y: a deck that slopes from the top of the wall down to the front, a
+    board along its front edge, and courses of shingles on it. plus and minus say whether the hood ends at that end of the
+    model, x at +0.5 or -0.5: there it is hipped, a slope as steep as the deck's coming down from the wall to a corner
+    as far past the end of the wall as the hood runs out from it. A length with no end is open there, to meet the next.
+    """
+    model = Model(name, centred=False, hung=True)
+    level = 2.45
+    top, low = 1.0 * level, 0.874 * level
+    # The model's origin is on the edge of the square the wall is on, in the middle of the square's length of it; it is
+    # built with its foot at the floor of the level and Model.finish lowers it to the foot of the board.
+    reach = HOOD_REACH - HOOD_BACK
+    far, near = 0.5 + (reach if plus else 0.0), -0.5 - (reach if minus else 0.0)
+    wall_y = -HOOD_BACK
+
+    def deck(drop):
+        """The deck's upper face, or a copy of it drop lower, as its corners: the wall's top, the hips' feet at the wall, the front edge."""
+        corners = {"top_minus": (-0.5, wall_y, top - drop), "top_plus": (0.5, wall_y, top - drop),
+                   "front_plus": (far, wall_y - reach, low - drop), "front_minus": (near, wall_y - reach, low - drop)}
+        if plus:
+            corners["foot_plus"] = (far, wall_y, low - drop)
+        if minus:
+            corners["foot_minus"] = (near, wall_y, low - drop)
+        return corners
+
+    body = bmesh.new()
+    upper = {key: body.verts.new(point) for key, point in deck(0.0).items()}
+    lower = {key: body.verts.new(point) for key, point in deck(HOOD_DECK).items()}
+    ring = (["foot_minus"] if minus else []) + ["top_minus", "top_plus"] + (["foot_plus"] if plus else []) + ["front_plus", "front_minus"]
+    faces = [["top_minus", "top_plus", "front_plus", "front_minus"]]
+    if plus:
+        faces.append(["top_plus", "foot_plus", "front_plus"])
+    if minus:
+        faces.append(["foot_minus", "top_minus", "front_minus"])
+    for face in faces:
+        body.faces.new([upper[key] for key in face])
+        body.faces.new([lower[key] for key in reversed(face)])
+    for a, b in zip(ring, ring[1:] + ring[:1]):
+        body.faces.new((upper[a], upper[b], lower[b], lower[a]))
+    model.plain(body, "paint")
+
+    board = bmesh.new()
+    cuboid(board, near, far, wall_y - reach, wall_y - reach + 0.022, low - HOOD_FASCIA, low - HOOD_DECK * 0.5)
+    for end, at in ((plus, far), (minus, near)):
+        if end:
+            side = 1.0 if at > 0 else -1.0
+            cuboid(board, min(at, at - side * 0.022), max(at, at - side * 0.022), wall_y - reach + 0.022, wall_y, low - HOOD_FASCIA, low - HOOD_DECK * 0.5)
+    model.hard(board, "wood", bevel=0.004, segments=1)
+
+    # Courses of shingles on the deck, each a strip whose lower edge stands proud of the one below it, as long as the
+    # deck is at that height on the slope.
+    courses = bmesh.new()
+    rows = 4
+    for row in range(rows):
+        lo, hi = row / rows, (row + 1) / rows
+        def at(share):
+            return wall_y - reach * share, low + (top - low) * (1.0 - share)
+        (y0, z0), (y1, z1) = at(1.0 - lo), at(1.0 - hi)
+        # How far past the wall's length the deck reaches at each height: nothing at the top, the hood's reach at the front.
+        x_plus = lambda share: 0.5 + (reach * share if plus else 0.0)
+        x_minus = lambda share: -0.5 - (reach * share if minus else 0.0)
+        s0, s1 = 1.0 - lo, 1.0 - hi
+        proud = 0.01
+        quad = [(x_minus(s0), y0, z0 + proud), (x_plus(s0), y0, z0 + proud), (x_plus(s1), y1, z1 + 0.002), (x_minus(s1), y1, z1 + 0.002)]
+        upper_course = [courses.verts.new(p) for p in quad]
+        lower_course = [courses.verts.new((x, y, z - 0.002 - (proud if i < 2 else 0.0))) for i, (x, y, z) in enumerate(quad)]
+        courses.faces.new(upper_course)
+        courses.faces.new(lower_course[::-1])
+        for i in range(4):
+            j = (i + 1) % 4
+            courses.faces.new((upper_course[i], upper_course[j], lower_course[j], lower_course[i]))
+    model.plain(courses, "paint")
+    return model
+
+
+def hoods():
+    """The four lengths of a hood: open at both ends, hipped at one end or the other, and hipped at both."""
+    return [hood("hood", False, False), hood("hood_end_plus", True, False), hood("hood_end_minus", False, True), hood("hood_alone", True, True)]
 
 
 def range_hood():
@@ -4361,7 +4575,7 @@ def every():
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
-            + upholstered() + barrels_and_pots() + street() + display_cases())
+            + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods())
 
 
 def main():

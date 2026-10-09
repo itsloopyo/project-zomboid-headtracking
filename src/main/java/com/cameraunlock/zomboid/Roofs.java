@@ -621,6 +621,11 @@ final class Roofs {
             if (Own.furniture() && Parasols.partOfOne(cell, sprite, x, y, z)) {
                 continue;
             }
+            // Nor is a shop's awning, or a hood over a wall that stands on its own: see Awnings and Hoods.
+            if (Own.furniture() && (Awnings.of(sprite) != null || Hoods.eave(sprite) != Hoods.NONE && Hoods.hood(Hoods.on(cell, z), x, y)
+                    || Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y))) {
+                continue;
+            }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
             if (!WorldScene.usable(texture)) {
                 continue;

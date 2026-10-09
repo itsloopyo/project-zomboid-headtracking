@@ -2141,6 +2141,8 @@ final class WorldScene {
                 wires.clear();
                 Furniture.forget();
                 Parasols.forget();
+                Awnings.forget();
+                Hoods.forget();
                 Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();
@@ -4627,6 +4629,10 @@ final class WorldScene {
                 return;
             }
 
+            if (Own.furniture() && (addAwning(sprite, texture, x, y, z) || addHood(sprite, texture, x, y, z))) {
+                return;
+            }
+
             if (Own.furniture() && addLights(object, sprite, x, y, z)) {
                 return;
             }
@@ -4932,6 +4938,70 @@ final class WorldScene {
                     SpriteGeometry.textureV(dyeFrame, Parasols.FIRST_A, Parasols.FIRST_B, Parasols.CLOTH_HIGH),
                     1 << Models.LINEN, SpriteGeometry.textureU(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B),
                     SpriteGeometry.textureV(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B, Parasols.CLOTH_HIGH));
+            furnished++;
+            return true;
+        }
+
+        final float[] awningAt = new float[2];
+
+        /**
+         * Hangs the mod's model of a length of a shop's awning on a square the game lays one on,
+         * and says whether the sprite is thereby dealt with: see Awnings. Its cloth takes the
+         * sprite's two colours, from two places on the slope a stripe apart. False, which leaves
+         * the sprite to be drawn as it was, for a sprite with nothing painted at either place.
+         */
+        private boolean addAwning(IsoSprite sprite, Texture texture, int x, int y, int z) {
+            Awnings.Hung hung = Awnings.of(sprite);
+            if (hung == null) {
+                return false;
+            }
+            if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, hung.firstA, hung.firstB)), Math.round(SpriteGeometry.frameV(frame, hung.firstA, hung.firstB, hung.dyeHigh)))
+                    || !texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, hung.secondA, hung.secondB)),
+                            Math.round(SpriteGeometry.frameV(frame, hung.secondA, hung.secondB, hung.dyeHigh)))) {
+                return false;
+            }
+            if (overLayer > 0) {
+                return true;
+            }
+            building.plain = false;
+            Models.Model model = Models.get(hung.model);
+            hung.centre(model.depth(), awningAt);
+            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f + hung.foot * ViewCamera.LEVEL_HEIGHT;
+            placed.add(model, frame, x, y, x + awningAt[0], y + awningAt[1], foot, hung.turns, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE,
+                    texture.getID(), 1 << Models.CLOTH, SpriteGeometry.textureU(frame, hung.firstA, hung.firstB), SpriteGeometry.textureV(frame, hung.firstA, hung.firstB, hung.dyeHigh),
+                    1 << Models.LINEN, SpriteGeometry.textureU(frame, hung.secondA, hung.secondB), SpriteGeometry.textureV(frame, hung.secondA, hung.secondB, hung.dyeHigh));
+            furnished++;
+            return true;
+        }
+
+        /**
+         * Hangs the mod's model of a length of a hood of roofing over a wall that stands on its
+         * own, and draws nothing for the pieces of eave at the ends of one, which its model's
+         * hips stand in for: see Hoods. Its roofing takes the sprite's colour. False for any
+         * other sprite, and for a hood's sprite with nothing painted where the colour is taken.
+         */
+        private boolean addHood(IsoSprite sprite, Texture texture, int x, int y, int z) {
+            int wall = Hoods.eave(sprite);
+            if (wall == Hoods.NONE) {
+                return Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y);
+            }
+            Hoods.Squares squares = Hoods.on(cell, z);
+            if (!Hoods.hood(squares, x, y)) {
+                return false;
+            }
+            float[] dye = Hoods.dyedAt(wall);
+            if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, dye[0], dye[1])), Math.round(SpriteGeometry.frameV(frame, dye[0], dye[1], Hoods.DYE_HIGH)))) {
+                return false;
+            }
+            if (overLayer > 0) {
+                return true;
+            }
+            building.plain = false;
+            Hoods.origin(wall, awningAt);
+            float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f + Hoods.FOOT * ViewCamera.LEVEL_HEIGHT;
+            placed.add(Models.get(Hoods.modelOf(squares, x, y)), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
+                    Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, texture.getID(), 1 << Models.PAINT,
+                    SpriteGeometry.textureU(frame, dye[0], dye[1]), SpriteGeometry.textureV(frame, dye[0], dye[1], Hoods.DYE_HIGH), 0, 0f, 0f);
             furnished++;
             return true;
         }
