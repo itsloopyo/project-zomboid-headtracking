@@ -6,4 +6,5 @@ public class IsoWorldInventoryObject extends IsoObject {
     public float getWorldPosX() { throw new UnsupportedOperationException("reference stub"); }
     public float getWorldPosY() { throw new UnsupportedOperationException("reference stub"); }
     public float getWorldPosZ() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.inventory.InventoryItem getItem() { throw new UnsupportedOperationException("reference stub"); }
 }

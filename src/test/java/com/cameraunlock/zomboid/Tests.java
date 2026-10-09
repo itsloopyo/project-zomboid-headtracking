@@ -156,6 +156,7 @@ public final class Tests {
         Checks.run("FacadeTests", FacadeTests::run);
         Checks.run("SpanTests", SpanTests::run);
         Checks.run("ParasolTests", ParasolTests::run);
+        Checks.run("GroundItemTests", GroundItemTests::run);
         Checks.run("LightsTests", LightsTests::run);
         Checks.run("BannerTests", BannerTests::run);
         Checks.run("QualityTests", QualityTests::run);

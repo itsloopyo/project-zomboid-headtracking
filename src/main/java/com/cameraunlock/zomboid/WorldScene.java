@@ -53,6 +53,7 @@ import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
+import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.iso.weather.ClimateManager;
@@ -4328,6 +4329,7 @@ final class WorldScene {
 
         private void addSquare(IsoGridSquare square, int x, int y, int z, int localX, int localY) {
             floorLayer = westLayer = northLayer = eastLayer = southLayer = 0;
+            items.clear();
             waterLocalX = localX;
             waterLocalY = localY;
 
@@ -4370,6 +4372,11 @@ final class WorldScene {
                 }
                 if (SightTrace.ON && building.traced != null) {
                     building.traced.add(object);
+                }
+                // Laid once the square's floor and what spreads over it are: see layItems.
+                if (object instanceof IsoWorldInventoryObject item) {
+                    items.add(item);
+                    continue;
                 }
                 frameOf(object, texture);
                 standOn(object);
@@ -4426,10 +4433,15 @@ final class WorldScene {
                 }
                 addEdges(x, y, localX, localY);
                 floorBuilder.spreadGround(x, y, localX, localY);
+                int laidItems = layItems(z, floorLayer + spreadLayers);
                 // What grows here is a build of its own: see grow. It lies over these layers.
-                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers);
+                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + laidItems);
                 int own = (localX + 1) * LIGHT_SPAN + localY + 1;
                 building.grows |= groundKind[own] == Terrain.NATURAL && lightOpen[own] == 1;
+            }
+
+            if (z != 0) {
+                layItems(z, floorLayer);
             }
 
             ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -4438,6 +4450,46 @@ final class WorldScene {
                     addBody(body);
                 }
             }
+        }
+
+        /** The loose items of the square being added, as addSquare finds them. */
+        private final ArrayList<IsoWorldInventoryObject> items = new ArrayList<>();
+        private final float[] itemCorners = new float[4 * GroundItems.CORNER_FLOATS];
+
+        /**
+         * Lays the loose items of the square being added, the first a layer over the given
+         * number lying under them, and says how many layers they take: see GroundItems. An item
+         * the game does not draw in its own view is not laid.
+         */
+        private int layItems(int z, int under) {
+            int laid = 0;
+            for (int i = 0; i < items.size(); i++) {
+                IsoWorldInventoryObject item = items.get(i);
+                if (!item.getItem().getScriptItem().isWorldRender()) {
+                    continue;
+                }
+                IsoSprite sprite = item.getSprite();
+                Texture texture = sprite.getTextureForCurrentFrame(item.getDir());
+                GroundItems.corners(texture.getWidthOrig(), texture.getHeightOrig(), texture.getOffsetX(), texture.getOffsetY(),
+                        texture.getWidth(), texture.getHeight(), sprite.def.getScaleX(), sprite.def.getScaleY(), frame.scale,
+                        item.getItem().getWorldZRotation(), texture.getXStart(), texture.getYStart(), texture.getXEnd(), texture.getYEnd(), itemCorners);
+                ColorInfo tint = sprite.getTintMod();
+                float itemX = item.getWorldPosX(), itemY = item.getWorldPosY(), up = item.getWorldPosZ() * ViewCamera.LEVEL_HEIGHT;
+                SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+                mesh.open = frame.open;
+                mesh.face(0f, 0f, 1f);
+                layers.lie(SpriteGeometry.LAYERS_UP, under + 1 + laid % GroundItems.LAYERS);
+                for (int corner : GroundItems.TRIANGLES) {
+                    int at = corner * GroundItems.CORNER_FLOATS;
+                    float atX = itemX + itemCorners[at], atY = itemY + itemCorners[at + 1];
+                    heightsAt(atX, atY);
+                    mesh.add(atX, atY, up + terrain.lift(atX, atY, z), itemCorners[at + 2], itemCorners[at + 3],
+                            frame.red * tint.r, frame.green * tint.g, frame.blue * tint.b);
+                }
+                layers.none();
+                laid++;
+            }
+            return Math.min(laid, GroundItems.LAYERS);
         }
 
         /**

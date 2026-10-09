@@ -6,6 +6,7 @@ import zombie.iso.IsoDirections;
 import zombie.iso.SpriteDetails.IsoObjectType;
 
 public final class IsoSprite {
+    public IsoSpriteInstance def;
     public PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
     public Texture getTextureForCurrentFrame(IsoDirections direction) { throw new UnsupportedOperationException("reference stub"); }
     public IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }
@@ -13,4 +14,5 @@ public final class IsoSprite {
     public int getFrameCount() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSpriteGrid getSpriteGrid() { throw new UnsupportedOperationException("reference stub"); }
     public IsoDirections getFacing() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.textures.ColorInfo getTintMod() { throw new UnsupportedOperationException("reference stub"); }
 }

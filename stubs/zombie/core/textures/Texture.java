@@ -9,6 +9,8 @@ public class Texture {
     public zombie.iso.Vector2 getUVScale(zombie.iso.Vector2 out) { throw new UnsupportedOperationException("reference stub"); }
     public int getWidth() { throw new UnsupportedOperationException("reference stub"); }
     public int getHeight() { throw new UnsupportedOperationException("reference stub"); }
+    public int getWidthOrig() { throw new UnsupportedOperationException("reference stub"); }
+    public int getHeightOrig() { throw new UnsupportedOperationException("reference stub"); }
     public float getOffsetX() { throw new UnsupportedOperationException("reference stub"); }
     public float getOffsetY() { throw new UnsupportedOperationException("reference stub"); }
     public float getXStart() { throw new UnsupportedOperationException("reference stub"); }
