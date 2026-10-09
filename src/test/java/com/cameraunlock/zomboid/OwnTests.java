@@ -12,6 +12,7 @@ final class OwnTests {
             aSwitchedRowHasTheWorldBuiltAgainOnce();
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
+            paintedLinesGoByTheFilesRowInEveryMode();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
             Own.picturesMade(true);
@@ -66,6 +67,22 @@ final class OwnTests {
         check(Quality.next() == Quality.LOW, "from High round to Low");
         Quality.set(Quality.LOW);
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
+    }
+
+    private static void paintedLinesGoByTheFilesRowInEveryMode() {
+        Own.set(Own.ALL);
+        Quality.set(Quality.LOW);
+        Own.taken(0);
+        check(Own.paint() && !Own.textures(), "in Low the lines of a road are laid as paint though no texture of the mod's is shown");
+        Own.set(Own.ALL & ~Own.TEXTURES);
+        check(!Own.paint(), "the textures row off in the file has them drawn from the game's sprites");
+        check(Own.taken(0) && !Own.taken(0), "and the world is built again for it in Low too, once");
+        Own.set(Own.ALL & ~Own.TEXTURES & ~Own.PLANTS);
+        check(!Own.taken(0), "another row switched in Low changes nothing that is built");
+        Own.set(Own.ALL);
+        check(Own.taken(0) && Own.paint(), "the row back on has the paint back");
+        Quality.set(Quality.HIGH);
+        Own.taken(0);
     }
 
     private static void aSwitchedRowHasTheWorldBuiltAgainOnce() {
