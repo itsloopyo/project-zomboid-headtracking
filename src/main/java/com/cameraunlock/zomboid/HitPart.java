@@ -34,6 +34,8 @@ final class HitPart {
      * still meant for the body, and the nearest part is the one hit.
      */
     static final float NEAR_MISS = 0.12f;
+    /** Head and pelvis bones nearer than this, in tiles, are a skeleton not posed yet: posed, lying or standing, they are about 0.43 apart. */
+    private static final float UNPOSED = 0.1f;
 
     /** A part: the bone it starts at, the bone it runs to, its radius in tiles, and the game's name for it. */
     private record Part(String from, String to, float radius, RagdollBodyPart game) {}
@@ -65,7 +67,7 @@ final class HitPart {
 
     /**
      * The game's ordinal of the part of {@code character} the aim is on, or {@link #NONE}: none
-     * of them, or a character with no posed skeleton.
+     * of them, or a character whose skeleton is not posed.
      *
      * @param aim     the clean aim: where the shot is aimed from and which way, in the picture's units
      * @param terrain how far the picture lifts the land above the game's flat map
@@ -82,6 +84,12 @@ final class HitPart {
             radii[i] = PARTS[i].radius;
         }
         int head = HEAD * 6, body = BODY * 6;
+        // Until its animation has run once every bone of a skeleton is at the character's feet
+        // (measured: a zombie just made 17 tiles off on a server). Nothing can be told of it yet.
+        float apartX = ends[head] - ends[body], apartY = ends[head + 1] - ends[body + 1], apartUp = ends[head + 2] - ends[body + 2];
+        if (apartX * apartX + apartY * apartY + apartUp * apartUp < UNPOSED * UNPOSED) {
+            return NONE;
+        }
         // The head runs on from the head bone, away from the neck.
         float alongX = ends[head] - ends[head + 3], alongY = ends[head + 1] - ends[head + 4], alongUp = ends[head + 2] - ends[head + 5];
         float length = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
