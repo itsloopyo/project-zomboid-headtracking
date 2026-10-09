@@ -298,5 +298,9 @@ final class RoadPaintTests {
         check(RoadPaint.marks("recreational_sports_01_108") && RoadPaint.marks("recreational_sports_01_119"), "so are the arcs of a court");
         check(!RoadPaint.marks("recreational_sports_01_22") && !RoadPaint.marks("recreational_sports_01_1080") && !RoadPaint.marks("recreational_sports_01_120"), "the court's floor and its hoops are not");
         check(!RoadPaint.marks("blends_street_01_80") && !RoadPaint.marks("d_streetcracks_1_3") && !RoadPaint.marks(null), "nor is a road, a crack, or a sprite with no name");
+        check(RoadPaint.marks("street_curbs_01_8") && RoadPaint.marks("street_curbs_01_diag_12") && RoadPaint.marks("street_curbs_01_diag_2_40"), "the strip of concrete between a road and its pavement is laid as paint is, straight or slanted");
+        check(RoadPaint.MATERIAL != WorldScene.HUNG && RoadPaint.STRIP != WorldScene.HUNG && RoadPaint.MATERIAL != Flora.CORE && RoadPaint.STRIP != Flora.CORE,
+                "paint has material numbers of its own: a bulb that hangs swings in the wind, and paint taken for one did");
+        check(!RoadPaint.marks("street_curbs_01_blend_dark_grass_17") && !RoadPaint.marks("street_curbs_01_blend_gravel_3"), "but not where the verge is blended into it: that is no one colour");
     }
 }

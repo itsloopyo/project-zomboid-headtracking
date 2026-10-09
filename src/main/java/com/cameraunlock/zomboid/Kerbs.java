@@ -31,6 +31,15 @@ final class Kerbs {
     private static final int LONGEST_TREAD = 8;
     /** The field is the true distance out to this far from the line, in squares, and no more than it beyond. */
     static final float NEAR = 1f;
+    /**
+     * How far off the line a point is still on it, squared, in squares. The line is a spline
+     * worked out from pegs, and a straight run of it comes out a few millionths of a millionth
+     * off its squares' edges, more the further the chunk is from the map's corner. Every
+     * reader tells the street's side from the land's by the sign of the field and counts an
+     * exact 0 as land: a point on a straight kerb left at 1e-12 was the street's, and the
+     * square beside it was taken for one the kerb crosses.
+     */
+    private static final double ON_THE_LINE = 1e-18;
 
     private static final int CORNERS = SPAN + 1;
     private static final int[] DX = {1, 0, -1, 0}, DY = {0, 1, 0, -1};
@@ -293,10 +302,11 @@ final class Kerbs {
                 double x = (double) p / FINE - fromX, y = (double) q / FINE - fromY;
                 double t = squared == 0.0 ? 0.0 : Math.clamp((x * alongX + y * alongY) / squared, 0.0, 1.0);
                 double offX = x - t * alongX, offY = y - t * alongY;
-                float away = (float) (offX * offX + offY * offY);
+                double off = offX * offX + offY * offY;
+                float away = off < ON_THE_LINE ? 0f : (float) off;
                 if (away < nearest[p * POINTS + q]) {
                     nearest[p * POINTS + q] = away;
-                    streetSide[p * POINTS + q] = alongX * y - alongY * x > 0.0;
+                    streetSide[p * POINTS + q] = away > 0f && alongX * y - alongY * x > 0.0;
                 }
             }
         }

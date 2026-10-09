@@ -5,7 +5,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
 /**
- * Lines painted on a road, drawn as paint.
+ * Lines painted on a road, drawn as paint, and the strip of pale concrete the game lays
+ * between a road and its pavement, which is drawn as paint is.
  *
  * The game lays a road's lines as sprites over the road's floor: a stripe along one edge of a
  * square, a corner, a bar, a slanted bay line. A sprite's edge is a staircase of dots, and a
@@ -26,8 +27,12 @@ import zombie.core.textures.Texture;
 final class RoadPaint {
     /** Dots to a side of a sprite laid flat to be read: the game's tile is this many dots across at its doubled scale. And how many dots past the square each way are read with it: a sprite may paint a little past its square. */
     static final int SIDE = 128, MARGIN = 16;
-    /** What the picture is told a triangle of paint is made of. No other material has the number. */
-    static final float MATERIAL = 82f;
+    /**
+     * What the picture is told a triangle of paint is made of, and a triangle of the strip of
+     * concrete along a road's edge, which wears as concrete does and not as paint. No other
+     * material has either number: 82 is a bulb that hangs (WorldScene.HUNG).
+     */
+    static final float MATERIAL = 83f, STRIP = 84f;
     /** A sprite's dots count as paint from this share of its most solid dot up, when its colour is taken. */
     private static final float PAINTED = 0.5f;
     /** The paint's colour is that of its lightest dots, this share of them: the darker ones are wear. And how much darker than those the paint is taken to be on the whole. */
@@ -56,11 +61,14 @@ final class RoadPaint {
         final int picture;
         /** Its triangles, PaintFit.CORNER floats a corner. */
         final float[] corners;
+        /** MATERIAL or STRIP. */
+        final float material;
         private final Asked as;
 
-        private Shape(int picture, float[] corners, Asked as) {
+        private Shape(int picture, float[] corners, float material, Asked as) {
             this.picture = picture;
             this.corners = corners;
+            this.material = material;
             this.as = as;
         }
     }
@@ -68,7 +76,7 @@ final class RoadPaint {
     /** Where the sprite sits in its frame, as the build that first asked for it had it. */
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
 
-    private static final Shape NONE = new Shape(0, null, null);
+    private static final Shape NONE = new Shape(0, null, 0f, null);
     private static final ConcurrentHashMap<Texture, Asked> asked = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Texture, Shape> known = new ConcurrentHashMap<>();
     /** The pictures of one dot made so far, by colour and coat. Known to the thread that draws alone. */
@@ -80,12 +88,18 @@ final class RoadPaint {
     private static final String COURT = "recreational_sports_01_";
     private static final int COURT_FIRST = 108, COURT_LAST = 119;
 
-    /** Whether a sprite of that name is a marking painted on the ground: a line of a road or of a parking bay, or an arc of a court. */
+    /** The sheets of the strip of concrete between a road and its pavement, straight and slanted. Its other sheets have the verge's grass or gravel blended into the strip and are no one colour. */
+    private static final String KERB_STRIP = "street_curbs_01_", KERB_STRIP_BLENDED = "street_curbs_01_blend";
+
+    /**
+     * Whether a sprite of that name is a marking on the ground: a line of a road or of a
+     * parking bay, an arc of a court, or the strip of concrete along a road's edge.
+     */
     static boolean marks(String name) {
         if (name == null) {
             return false;
         }
-        if (name.startsWith("street_trafficlines_")) {
+        if (name.startsWith("street_trafficlines_") || name.startsWith(KERB_STRIP) && !name.startsWith(KERB_STRIP_BLENDED)) {
             return true;
         }
         if (!name.startsWith(COURT) || name.length() != COURT.length() + 3) {
@@ -155,7 +169,7 @@ final class RoadPaint {
             picture = Flats.picture(new byte[] {(byte) (key >>> 24), (byte) (key >>> 16), (byte) (key >>> 8), (byte) key}, 1, 1);
             pictures.put(key, picture);
         }
-        known.put(texture, new Shape(picture, corners, wanted));
+        known.put(texture, new Shape(picture, corners, texture.getName().startsWith(KERB_STRIP) ? STRIP : MATERIAL, wanted));
     }
 
     /**
@@ -251,7 +265,7 @@ final class RoadPaint {
      */
     static void lay(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Shape shape, int x, int y, int z) {
         float made = frame.material;
-        frame.material = MATERIAL;
+        frame.material = shape.material;
         float[] corners = shape.corners;
         for (int at = 0; at < corners.length; at += 3 * PaintFit.CORNER) {
             geometry.addGiven(mesh, frame, x, y, z, corners, at);
@@ -282,10 +296,10 @@ final class RoadPaint {
             }
             """;
 
-    /** For the world's fragment main, after the texel is read: a pixel of paint is the paint's colour, as much of it as the paint covers. */
+    /** For the world's fragment main, after the texel is read: a pixel of paint is the paint's colour, as much of it as the paint covers. Concrete is not worn through to the road under it. */
     static final String GLSL_MAIN = """
-                if (vMaterial > 81.5 && vMaterial < 82.5) {
-                    texel.a *= paintCover(vUv) * (uOwnTextures > 0.5 ? paintWorn(vWorld.xy) : 1.0);
+                if (vMaterial > 82.5 && vMaterial < 84.5) {
+                    texel.a *= paintCover(vUv) * (uOwnTextures > 0.5 && vMaterial < 83.5 ? paintWorn(vWorld.xy) : 1.0);
                 }
             """;
 }

@@ -522,7 +522,8 @@ final class PipelineShaders {
                 }
                 // Nor what lies under trees or clings to a bole, though a fern, a weed and a
                 // flower growing out of the ground do.
-                bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
+                // Nor paint on a road, whose faces lie tilted on the land with a facing longer than one.
+                bool still = uLaid > 0.5 && vKind < 7.5 && (vMaterial < 59.5 || vMaterial > 82.5 && vMaterial < 84.5) || vKind > 3.5 && vKind < 7.5;
                 // An overhead wire: the length of its facing says how far it hangs below the line between its insulators, see swung.
                 // What hangs on a cord, a bulb of a string of lights, carries the same and swings with its cord. One that
                 // burns is of the stuff of a lamp and hangs below a line, which no lamp that stands does, and one that is

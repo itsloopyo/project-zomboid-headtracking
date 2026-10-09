@@ -12,6 +12,7 @@ final class KerbTests {
 
     static void run() {
         Checks.run("straightKerbLiesOnTheEdgeOfItsSquares", KerbTests::straightKerbLiesOnTheEdgeOfItsSquares);
+        Checks.run("aPointOnAStraightKerbIsExactlyOnItFarAcrossTheMap", KerbTests::aPointOnAStraightKerbIsExactlyOnItFarAcrossTheMap);
         Checks.run("evenStairIsOneStraightSlant", KerbTests::evenStairIsOneStraightSlant);
         Checks.run("stairOfLongTreadsIsOneStraightSlant", KerbTests::stairOfLongTreadsIsOneStraightSlant);
         Checks.run("stairOfTwoByTwoIsOneStraightSlant", KerbTests::stairOfTwoByTwoIsOneStraightSlant);
@@ -56,6 +57,20 @@ final class KerbTests {
                     check(Math.abs(field[p * POINTS + q] - away) < 1e-5f, "beside a straight kerb the field is how far the kerb's edge of squares is, at " + p + ", " + q);
                 } else {
                     check(field[p * POINTS + q] == Math.signum(away), "far from a kerb the field says only which side, at " + p + ", " + q);
+                }
+            }
+        }
+    }
+
+    private static void aPointOnAStraightKerbIsExactlyOnItFarAcrossTheMap() {
+        // Where the chunk's corner is thousands of squares from the map's, as every town is: the spline's sums are rounded at that size.
+        for (int[] origin : new int[][] {{10776, 9760}, {6464, 5248}, {12592, 1488}}) {
+            for (int kerb = 1; kerb < 8; kerb++) {
+                int at = kerb;
+                float[] field = field((x, y) -> y - origin[1] < at, origin[0], origin[1], null, null);
+                for (int p = 0; p < POINTS; p++) {
+                    check(field[p * POINTS + kerb * FINE] == 0f, "a point on a straight kerb is on it to the last bit, so it is the land's as an exact 0 is, at " + origin[0] + ", " + origin[1]
+                            + " row " + kerb + " point " + p + ": " + field[p * POINTS + kerb * FINE]);
                 }
             }
         }

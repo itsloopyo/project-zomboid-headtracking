@@ -12,12 +12,21 @@ import java.util.Arrays;
  * A square is under something built when a building's room is on it, a stair stands on it,
  * or a floor, a roof, a wall or a stair is over it on a level above. Built squares that
  * touch, by a side or by a corner, are one thing, and so is what hangs over a square that
- * touches them: a sign, a coping, a lamp on a bracket. One with a building in it stands at
- * that building's footing, and where several buildings are joined, at the footing of the
- * one nearest the middle of them all, the same whichever square asks. One with no building
- * in it, a canopy or a flight to nowhere, stands at the height the land has under the middle
- * of it. What only hangs, with nothing built that it touches, is the head of something on a
- * pole, a street lamp or a flag, and goes by the land as its pole does.
+ * touches them: a sign, a coping, a lamp on a bracket. So are built squares with no more
+ * than a passage of made ground between them, PASSAGE squares across: the shops of a row
+ * stand on one level, and the paving along their fronts and in the passages between them
+ * with them, where shops each at a height of its own were so many steps in the pavement.
+ *
+ * One with a building in it stands at that building's footing, and where several buildings
+ * are joined, at the footing of the one nearest the middle of them all, the same whichever
+ * square asks. One with no building in it, a canopy or a flight to nowhere, stands at the
+ * height the ground has under the middle of it with nothing standing there. And one with
+ * made ground against its walls, building or none, stands at the height that ground has
+ * with nothing standing, in the middle of all of it that meets the walls: a shop is as high
+ * as the pavement at its door, and the shop across the street as high as the same street,
+ * where each at the height of the land under its own middle stood a step above its pavement
+ * or below it. What only hangs, with nothing built that it touches, is the head of
+ * something on a pole, a street lamp or a flag, and goes by the land as its pole does.
  *
  * Logic thread.
  */
@@ -28,6 +37,10 @@ final class Footings {
      * floor, roof, wall or stair.
      */
     static final byte OPEN = 0, BUILT = 1, HOUSE = 2, UNLOADED = 3, HUNG = 4;
+    /** Nothing over it, and made ground: a street, a pavement, a yard. */
+    static final byte PAVED = 5;
+    /** The widest passage of made ground that what is built either side of it is one thing across, counting what hangs out over it from either side. */
+    static final int PASSAGE = 4;
 
     /** The map, as far as a footing goes by it. */
     interface Site {
@@ -35,6 +48,9 @@ final class Footings {
 
         /** The middle of the building over a HOUSE square, as key packs it. */
         long house(int x, int y);
+
+        /** Whether the ground of a HUNG square is made ground: over tells that of a square only when nothing is over it. */
+        boolean paved(int x, int y);
     }
 
     /**
@@ -53,7 +69,7 @@ final class Footings {
 
     /** The thing found over the square last asked about: its middle as key packs it, or NONE. */
     long found;
-    /** Whether it has no building in it, and so stands at the land's height and not at a building's. */
+    /** Whether it stands at the height the ground has where found is with nothing built standing, and not at a building's footing: it has no building in it, or it has made ground against it. */
     boolean free;
     /** Whether all of it was on loaded map: one that was not may be another thing when more is loaded. */
     boolean settled;
@@ -71,9 +87,10 @@ final class Footings {
      * it: the search asks about each of a square's eight neighbours, and telling what is over
      * a square is a walk up through its levels. A place holds for the search whose number it
      * has, so the table is never cleared. A thing of MOST squares has eight times as many
-     * round it at the very most, and the table is never full.
+     * round it at the very most and sixteen times as many along the passages out from it,
+     * 4 * (PASSAGE + 1) less the four already counted from each, and the table is never full.
      */
-    private static final int PLACES = 1 << 17;
+    private static final int PLACES = 1 << 18;
     private final long[] asked = new long[PLACES];
     private final int[] askedIn = new int[PLACES];
     private final byte[] answered = new byte[PLACES];
@@ -181,7 +198,7 @@ final class Footings {
             settled = false;
             return;
         }
-        if (start == OPEN) {
+        if (start == OPEN || start == PAVED) {
             return;
         }
         boolean big = large.contains(square(x, y));
@@ -195,6 +212,8 @@ final class Footings {
         long nearest = NONE;
         boolean structured = false;
         int lowX = x, highX = x, lowY = y, highY = y;
+        long pavedX = 0, pavedY = 0;
+        int paved = 0;
         // In a thing known to be too large, only as far as the nearest building.
         for (int next = 0; next < count && whole && !(big && nearest != NONE); next++) {
             int atX = squares[next * 2], atY = squares[next * 2 + 1];
@@ -224,6 +243,46 @@ final class Footings {
                     push(toX, toY);
                 }
             }
+            if (here == HUNG) {
+                // A sign or a coping out over a pavement: the pavement under it is against the wall it hangs from.
+                if (site.paved(atX, atY)) {
+                    pavedX += 2 * atX + 1;
+                    pavedY += 2 * atY + 1;
+                    paved++;
+                }
+                continue;
+            }
+            for (int side = 0; side < 4 && whole; side++) {
+                for (int across = 1; across <= PASSAGE + 1 && whole; across++) {
+                    int toX = atX + STEP_X[side] * across, toY = atY + STEP_Y[side] * across;
+                    int at = place(site, toX, toY);
+                    byte over = answered[at];
+                    if (over == UNLOADED) {
+                        settled = false;
+                    }
+                    if (over == PAVED) {
+                        if (across == 1) {
+                            // Twice the middle of the square, to keep to whole numbers: the sum is then the same in whatever order the squares are met.
+                            pavedX += 2 * toX + 1;
+                            pavedY += 2 * toY + 1;
+                            paved++;
+                        }
+                        continue;
+                    }
+                    if ((over & ~QUEUED) == HUNG) {
+                        continue;
+                    }
+                    if (across > 1 && (over == BUILT || over == HOUSE)) {
+                        big |= large.contains(square(toX, toY));
+                        whole = count < MOST;
+                        if (whole) {
+                            answered[at] |= QUEUED;
+                            push(toX, toY);
+                        }
+                    }
+                    break;
+                }
+            }
         }
         if (big || !whole) {
             whole = false;
@@ -231,6 +290,11 @@ final class Footings {
                 large.add(square(squares[member * 2], squares[member * 2 + 1]));
             }
             found = start == HOUSE ? site.house(x, y) : nearest;
+            return;
+        }
+        if (structured && paved > 0) {
+            free = true;
+            found = key(pavedX / (2f * paved), pavedY / (2f * paved));
             return;
         }
         if (nearest == NONE) {
@@ -270,7 +334,7 @@ final class Footings {
     /** Where in the table the square is, asking the site about it if this search has not yet. */
     private int place(Site site, int x, int y) {
         long square = (long) x << 32 | y & 0xFFFFFFFFL;
-        int at = (int) (square * 0x9E3779B97F4A7C15L >>> 47) & PLACES - 1;
+        int at = (int) (square * 0x9E3779B97F4A7C15L >>> 64 - Integer.numberOfTrailingZeros(PLACES));
         while (askedIn[at] == search) {
             if (asked[at] == square) {
                 return at;

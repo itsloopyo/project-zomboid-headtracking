@@ -14,15 +14,18 @@ final class TerrainTests {
     static void run() {
         byte[] around = Terrain.around.clone();
         float[] pads = Terrain.padsAround.clone();
+        boolean[] footway = Terrain.footwayAround.clone();
         try {
+            Arrays.fill(Terrain.footwayAround, false);
             terrain = Terrain.HILLS;
             streetAlongAHillsideIsLevelFromSideToSide();
             swellsAreSeenFromAStreetAndNoSteeperThanOneInTwenty();
             terrain = Terrain.LEVEL;
-            streetPastABuildingIsAsHighOnOneSideAsTheOther();
+            streetWithItsPavementAgainstABuildingIsAtTheBuildingsFooting();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
+            System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
         }
     }
 
@@ -75,7 +78,7 @@ final class TerrainTests {
         check(crests >= 6 && crests <= 10, "a street crosses a crest every hundred paces or so");
     }
 
-    private static void streetPastABuildingIsAsHighOnOneSideAsTheOther() {
+    private static void streetWithItsPavementAgainstABuildingIsAtTheBuildingsFooting() {
         // A building, two squares of pavement, a street four squares wide, open ground.
         int pavement = 8, street = 10, verge = 14, row = SPAN / 2;
         lay(street, verge, Terrain.MADE);
@@ -84,10 +87,12 @@ final class TerrainTests {
         }
         terrain.streets(0, 0);
         check(terrain.corner(0f, 0f, row, pavement) == 1f, "a building's own corner is at the height of its pad");
-        for (int j = street; j <= verge; j++) {
-            check(terrain.corner(0f, 0f, row, j) == 0f, "a street past a building a tile above the land is at the land's height from kerb to kerb");
+        // The pavement runs up to the wall, so the street is laid to the building's footing (Paving) and not to the land.
+        for (int j = pavement; j <= verge; j++) {
+            check(Math.abs(terrain.corner(0f, 0f, row, j) - 1f) < 1e-5f, "a street past a building with its pavement against the wall is at the building's footing from the wall to the far kerb");
         }
-        float between = terrain.corner(0f, 0f, row, pavement + 1);
-        check(between > 0.2f && between < 0.8f, "the pavement between a building and a street is graded from one to the other");
+        for (int j = street + 1; j <= verge; j++) {
+            check(terrain.corner(0f, 0f, row, j) == terrain.corner(0f, 0f, row, street), "and its road is as high at one kerb as at the other");
+        }
     }
 }

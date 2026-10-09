@@ -63,6 +63,11 @@ final class FootingTests {
         public long house(int x, int y) {
             return houses.get(at(x, y));
         }
+
+        @Override
+        public boolean paved(int x, int y) {
+            return false;
+        }
     }
 
     private static final Footings footings = new Footings();
@@ -165,6 +170,11 @@ final class FootingTests {
             public long house(int x, int y) {
                 return halls.house(x, y);
             }
+
+            @Override
+            public boolean paved(int x, int y) {
+                return halls.paved(x, y);
+            }
         };
         fresh.find(counted, side + 1, side / 2);
         check(!fresh.whole && fresh.found == west, "the covered way between them stands with the hall nearest along it, before any hall was asked about");
@@ -207,6 +217,11 @@ final class FootingTests {
         @Override
         public long house(int x, int y) {
             return plan.house(x, y);
+        }
+
+        @Override
+        public boolean paved(int x, int y) {
+            return plan.paved(x, y);
         }
     }
 
@@ -276,6 +291,7 @@ final class FootingTests {
     private static void layStairOnStreet(float pad, int row, int from, int to) {
         int span = Terrain.SPAN;
         Arrays.fill(Terrain.padsAround, Float.NaN);
+        Arrays.fill(Terrain.footwayAround, false);
         for (int i = 0; i < span; i++) {
             for (int j = 0; j < span; j++) {
                 Terrain.around[i * span + j] = j >= row ? Terrain.MADE : j >= row - 6 ? Terrain.STREET : Terrain.NATURAL;
@@ -289,6 +305,7 @@ final class FootingTests {
     private static void theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting() {
         byte[] around = Terrain.around.clone();
         float[] pads = Terrain.padsAround.clone();
+        boolean[] footway = Terrain.footwayAround.clone();
         try {
             Terrain terrain = Terrain.HILLS;
             int span = Terrain.SPAN, row = span / 2 + 2, from = span / 2 - 1, to = span / 2 + 2;
@@ -302,22 +319,26 @@ final class FootingTests {
                     check(terrain.corner(x + i, y + j, i, j) == pad, "every corner of a square a flight stands on is at the footing of the building it climbs, corner " + i + ", " + j);
                 }
             }
-            float street = terrain.corner(x + from + 1, y + row - 4, from + 1, row - 4);
-            check(Math.abs(street - pad) > 0.2f, "the test's street lies off the footing, or it shows nothing: " + street);
+            // The street runs along the wall, so Paving lays all of it to the footing: it is the land beyond it that shows what the footing is off.
+            float land = terrain.corner(x + from + 1, y + row - 6 - 2 * Terrain.REACH, from + 1, row - 6 - 2 * Terrain.REACH);
+            check(Math.abs(land - pad) > 0.2f, "the test's land lies off the footing, or it shows nothing: " + land);
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
+            System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
         }
     }
 
     private static void theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting() {
         byte[] around = Terrain.around.clone();
         float[] pads = Terrain.padsAround.clone();
+        boolean[] footway = Terrain.footwayAround.clone();
         try {
             Terrain terrain = Terrain.HILLS;
             int span = Terrain.SPAN, row = span / 2 + 2;
             float pad = -1.5f;
             Arrays.fill(Terrain.padsAround, Float.NaN);
+            Arrays.fill(Terrain.footwayAround, false);
             for (int i = 0; i < span; i++) {
                 for (int j = 0; j < span; j++) {
                     Terrain.around[i * span + j] = j >= row ? Terrain.MADE : Terrain.NATURAL;
@@ -335,12 +356,14 @@ final class FootingTests {
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
+            System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
         }
     }
 
     private static void aStreetPastAStairIsStillLevelFromKerbToKerb() {
         byte[] around = Terrain.around.clone();
         float[] pads = Terrain.padsAround.clone();
+        boolean[] footway = Terrain.footwayAround.clone();
         try {
             Terrain terrain = Terrain.HILLS;
             // The flight at one end of the ground laid, and the street looked at well out of its reach.
@@ -349,10 +372,11 @@ final class FootingTests {
             layStairOnStreet(3.25f, row, from, to);
             terrain.streets(x, y);
             float near = terrain.corner(x + along, y + row - 5, along, row - 5), far = terrain.corner(x + along, y + row - 2, along, row - 2);
-            check(Math.abs(near - far) < 1e-4f, "a street is level from side to side away from what stands on it: " + near + " and " + far);
+            check(Math.abs(near - far) < 1e-4f, "a street is level from side to side along from the flight that stands on it: " + near + " and " + far);
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
+            System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
         }
     }
 }
