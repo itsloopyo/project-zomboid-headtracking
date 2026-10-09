@@ -64,12 +64,18 @@ final class HitPart {
     float boneX, boneY, boneUp;
 
     /**
-     * The game's ordinal of the part of {@code character} the aim is on, or {@link #NONE}.
+     * The game's ordinal of the part of {@code character} the aim is on, or {@link #NONE}: none
+     * of them, or a character with no posed skeleton.
      *
      * @param aim     the clean aim: where the shot is aimed from and which way, in the picture's units
      * @param terrain how far the picture lifts the land above the game's flat map
      */
     int part(ViewCamera.Pose aim, Terrain terrain, IsoGameCharacter character) {
+        // Just made or being taken out of the world, a character has no posed skeleton; the game's
+        // own bone lookups answer nothing then too.
+        if (character.getAnimationPlayer() == null || !character.getAnimationPlayer().isReady()) {
+            return NONE;
+        }
         for (int i = 0; i < COUNT; i++) {
             place(character, PARTS[i].from, terrain, ends, i * 6);
             place(character, PARTS[i].to, terrain, ends, i * 6 + 3);
@@ -107,7 +113,7 @@ final class HitPart {
 
     /** Where a bone of the character is in the picture: tiles across, and up as the picture has it. */
     private void place(IsoGameCharacter character, String name, Terrain terrain, float[] out, int at) {
-        if (character.getAnimationPlayer() == null || character.getAnimationPlayer().getSkinningBoneIndex(name, -1) < 0) {
+        if (character.getAnimationPlayer().getSkinningBoneIndex(name, -1) < 0) {
             throw new IllegalStateException("the game's skeleton has no bone " + name);
         }
         CombatManager.getBoneWorldPos(character, name, bone);
