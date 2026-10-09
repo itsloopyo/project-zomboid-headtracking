@@ -9,6 +9,7 @@ final class ShapeTests {
 
     static void run() {
         Checks.run("copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow", ShapeTests::copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow);
+        Checks.run("solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite", ShapeTests::solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite);
         Checks.run("slabOverAShopFrontIsABeamAlongItsWall", ShapeTests::slabOverAShopFrontIsABeamAlongItsWall);
         Checks.run("sillAlongANorthWallIsABeamAtItsFloor", ShapeTests::sillAlongANorthWallIsABeamAtItsFloor);
         Checks.run("billboardSheetIsAPanelOnItsLine", ShapeTests::billboardSheetIsAPanelOnItsLine);
@@ -381,6 +382,22 @@ final class ShapeTests {
         check(Math.round(frame.left) == left && Math.round(frame.height) == down, "the frame is left as it was given");
         check(SpriteShape.withoutShadow(outline, Solids.outline(new boolean[across * down], left, top, across, down), frame) == outline,
                 "a sprite with no solid paint keeps the reading of its outline");
+    }
+
+    private static void solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite() {
+        // A sprite of 6 by 4, on a sheet drawn at twice the size: 12 by 8 at (2, 1) of a sheet 16 wide, solid in its right half and shadow in its left.
+        int sheetWidth = 16;
+        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(sheetWidth * 10 * 4);
+        for (int y = 1; y < 9; y++) {
+            for (int x = 2; x < 14; x++) {
+                sheet.put((y * sheetWidth + x) * 4 + 3, (byte) (x >= 8 ? Solids.SOLID : Solids.SOLID - 1));
+            }
+        }
+        Solids.Outline outline = Solids.outline(Solids.solid(sheet, sheetWidth, 2, 1, 14, 9, 6, 4), 10, 20, 6, 4);
+        check(outline.left == 13 && outline.top == 20 && outline.width == 3 && outline.height == 4,
+                "the solid half of the sprite, in the sprite's own pixels: " + outline.left + ", " + outline.top + " " + outline.width + " by " + outline.height);
+        check(outline.at(13, 20) && outline.at(15, 23) && !outline.at(12, 21) && !outline.at(16, 21), "paint under the threshold is no part of it");
+        check(Solids.outline(Solids.solid(sheet, 0, 0, 0, 0, 0, 6, 4), 10, 20, 6, 4).width == 0, "a sprite of a sheet with no size has no solid paint");
     }
 
     private static void slabOverAShopFrontIsABeamAlongItsWall() {

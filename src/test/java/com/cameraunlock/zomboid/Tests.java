@@ -148,6 +148,8 @@ public final class Tests {
         Checks.run("FootingTests", FootingTests::run);
         Checks.run("FacadeTests", FacadeTests::run);
         Checks.run("SpanTests", SpanTests::run);
+        Checks.run("ParasolTests", ParasolTests::run);
+        Checks.run("LightsTests", LightsTests::run);
         Checks.run("BannerTests", BannerTests::run);
         Checks.run("QualityTests", QualityTests::run);
         Checks.run("StyleTests", StyleTests::run);

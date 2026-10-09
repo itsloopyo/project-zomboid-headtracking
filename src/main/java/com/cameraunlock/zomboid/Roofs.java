@@ -617,6 +617,10 @@ final class Roofs {
             if (sprite == null || !isTile(sprite.getType())) {
                 continue;
             }
+            // A parasol's canopy is marked as a roof tile and is no roof: see Parasols.
+            if (Own.furniture() && Parasols.partOfOne(cell, sprite, x, y, z)) {
+                continue;
+            }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
             if (!WorldScene.usable(texture)) {
                 continue;

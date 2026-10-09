@@ -10,17 +10,24 @@ import java.util.Arrays;
  * each one body, plumb and level, and the ground is cut level under all of it.
  *
  * A square is under something built when a building's room is on it, a stair stands on it,
- * or anything is built over it on a level above. Built squares that touch, by a side or by a
- * corner, are one thing. One with a building in it stands at that building's footing, and
- * where several buildings are joined, at the footing of one of them, the same whichever
- * square asks. One with no building in it, a canopy or a flight to nowhere, stands at the
- * height the land has under the middle of it.
+ * or a floor, a roof, a wall or a stair is over it on a level above. Built squares that
+ * touch, by a side or by a corner, are one thing, and so is what hangs over a square that
+ * touches them: a sign, a coping, a lamp on a bracket. One with a building in it stands at
+ * that building's footing, and where several buildings are joined, at the footing of the
+ * one nearest the middle of them all, the same whichever square asks. One with no building
+ * in it, a canopy or a flight to nowhere, stands at the height the land has under the middle
+ * of it. What only hangs, with nothing built that it touches, is the head of something on a
+ * pole, a street lamp or a flag, and goes by the land as its pole does.
  *
  * Logic thread.
  */
 final class Footings {
-    /** What is over a square: nothing built, something built that is no room of a building, a building, or a square the map has not loaded. */
-    static final byte OPEN = 0, BUILT = 1, HOUSE = 2, UNLOADED = 3;
+    /**
+     * What is over a square: nothing, something built that is no room of a building, a
+     * building, a square the map has not loaded, or something on a level above that is no
+     * floor, roof, wall or stair.
+     */
+    static final byte OPEN = 0, BUILT = 1, HOUSE = 2, UNLOADED = 3, HUNG = 4;
 
     /** The map, as far as a footing goes by it. */
     interface Site {
@@ -68,12 +75,20 @@ final class Footings {
     private final byte[] answered = new byte[PLACES];
     private int search;
     private static final byte QUEUED = 8;
-    /** The buildings found in things too large to look over, which answer for their own squares without another search. */
+    /**
+     * The squares found in things too large to look over. A search that meets one knows what
+     * it is in without looking over MOST squares again, and a building's own square among
+     * them answers with no search.
+     */
     private final java.util.HashSet<Long> large = new java.util.HashSet<>();
 
     /** For a map loaded anew. */
     void forget() {
         large.clear();
+    }
+
+    private static long square(int x, int y) {
+        return (long) x << 32 | y & 0xFFFFFFFFL;
     }
 
     static long key(float x, float y) {
@@ -104,26 +119,25 @@ final class Footings {
         if (start == OPEN) {
             return;
         }
-        if (start == HOUSE && large.contains(site.house(x, y))) {
+        boolean big = large.contains(square(x, y));
+        if (big && start == HOUSE) {
             whole = false;
             found = site.house(x, y);
             return;
         }
         answered[place(site, x, y)] |= QUEUED;
         push(x, y);
-        long least = NONE, nearest = NONE;
-        boolean housed = false;
+        long nearest = NONE;
+        boolean structured = false;
         int lowX = x, highX = x, lowY = y, highY = y;
-        for (int next = 0; next < count && whole; next++) {
+        // In a thing known to be too large, only as far as the nearest building.
+        for (int next = 0; next < count && whole && !(big && nearest != NONE); next++) {
             int atX = squares[next * 2], atY = squares[next * 2 + 1];
-            if ((answered[place(site, atX, atY)] & ~QUEUED) == HOUSE) {
-                long house = site.house(atX, atY);
-                if (!housed) {
-                    nearest = house;
-                }
-                least = housed ? Math.min(least, house) : house;
-                housed = true;
+            int here = answered[place(site, atX, atY)] & ~QUEUED;
+            if (here == HOUSE && nearest == NONE) {
+                nearest = site.house(atX, atY);
             }
+            structured |= here != HUNG;
             lowX = Math.min(lowX, atX);
             highX = Math.max(highX, atX);
             lowY = Math.min(lowY, atY);
@@ -135,9 +149,10 @@ final class Footings {
                 if (over == UNLOADED) {
                     settled = false;
                 }
-                if (over != BUILT && over != HOUSE) {
+                if (over != BUILT && over != HOUSE && over != HUNG) {
                     continue;
                 }
+                big |= large.contains(square(toX, toY));
                 whole = count < MOST;
                 if (whole) {
                     answered[at] |= QUEUED;
@@ -145,15 +160,33 @@ final class Footings {
                 }
             }
         }
-        if (!whole) {
-            found = start == HOUSE ? site.house(x, y) : nearest;
-            if (start == HOUSE && settled) {
-                large.add(found);
+        if (big || !whole) {
+            whole = false;
+            for (int member = 0; member < count; member++) {
+                large.add(square(squares[member * 2], squares[member * 2 + 1]));
             }
+            found = start == HOUSE ? site.house(x, y) : nearest;
             return;
         }
-        free = !housed;
-        found = housed ? least : key((lowX + highX + 1) / 2f, (lowY + highY + 1) / 2f);
+        if (nearest == NONE) {
+            free = structured;
+            found = structured ? key((lowX + highX + 1) / 2f, (lowY + highY + 1) / 2f) : NONE;
+            return;
+        }
+        // Of buildings joined, the one nearest the middle of them all: a row down a hill stands at the height of its middle and not of one end.
+        float midX = (lowX + highX + 1) / 2f, midY = (lowY + highY + 1) / 2f, least = Float.POSITIVE_INFINITY;
+        for (int member = 0; member < count; member++) {
+            int atX = squares[member * 2], atY = squares[member * 2 + 1];
+            if ((answered[place(site, atX, atY)] & ~QUEUED) != HOUSE) {
+                continue;
+            }
+            long house = site.house(atX, atY);
+            float awayX = keyX(house) - midX, awayY = keyY(house) - midY, away = awayX * awayX + awayY * awayY;
+            if (away < least || away == least && house < found) {
+                least = away;
+                found = house;
+            }
+        }
     }
 
     private static final int[] STEP_X = {1, -1, 0, 0, 1, 1, -1, -1}, STEP_Y = {0, 0, 1, -1, 1, -1, 1, -1};

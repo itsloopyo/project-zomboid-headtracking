@@ -103,6 +103,10 @@ final class Terrain {
         final float[] midX = new float[CHUNK_TILES * CHUNK_TILES], midY = new float[CHUNK_TILES * CHUNK_TILES];
         /** Whether that thing has no building in it and stands at the land's own height: see gather. */
         final boolean[] free = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
+        final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** Whether every square of the chunk was loaded and nothing on it reaches ground that is not: then it is kept, and is the same whenever it is asked for. */
+        boolean whole;
         boolean water;
         /** As Grid.used. */
         int used;
@@ -120,6 +124,26 @@ final class Terrain {
     private final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE * WAYS);
     private static final Kinds[] known = new Kinds[TABLE_SIDE * TABLE_SIDE * WAYS];
     private static final Kinds passing = new Kinds();
+    /**
+     * What the chunks that are not whole are made of, by chunk, for as long as the map has the
+     * chunks loaded that it had when they were looked over. One height asks about the same
+     * chunk many times, and looking one over is a search for what each thing on it is joined to.
+     */
+    private static final HashMap<Long, Kinds> unsure = new HashMap<>();
+    private static long unsureAsOf = Long.MIN_VALUE;
+    /** The footings worked out for made things with no building in them that cannot be kept yet, for as long. */
+    private final HashMap<Long, Float> padsForNow = new HashMap<>();
+    private long padsAsOf = Long.MIN_VALUE;
+
+    /**
+     * A number that is another when the map may have other chunks loaded: the game's own count
+     * of that where it tells of it, and the frame where it does not or where a dev build
+     * checks that it does.
+     */
+    private static long mapAsOf() {
+        return ChunkMarks.live && !AUDITED ? 1L << 32 | loaded & 0xFFFFFFFFL : frame & 0xFFFFFFFFL;
+    }
+
     static final byte[] around = new byte[SPAN * SPAN];
     static final float[] padsAround = new float[SPAN * SPAN];
     /** The height of the land in the middle of each square of street of around. */
@@ -136,7 +160,7 @@ final class Terrain {
             if (square == null) {
                 return Footings.UNLOADED;
             }
-            return defOf(square) != null ? Footings.HOUSE : built(siteCell, square, x, y) ? Footings.BUILT : Footings.OPEN;
+            return defOf(square) != null ? Footings.HOUSE : stands(siteCell, square, x, y) ? Footings.BUILT : above(siteCell, square, x, y);
         }
 
         @Override
@@ -209,9 +233,12 @@ final class Terrain {
             LEVEL.grids.set(slot, null);
         }
         Arrays.fill(known, null);
+        unsure.clear();
         footings.forget();
         HILLS.pads.clear();
         LEVEL.pads.clear();
+        HILLS.padsForNow.clear();
+        LEVEL.padsForNow.clear();
     }
 
     /** The first of the WAYS places a chunk may be kept in. */
@@ -373,7 +400,7 @@ final class Terrain {
                     for (int j = 0; j < CHUNK_TILES; j++) {
                         int at = ((cx + reach) * CHUNK_TILES + i) * Kerbs.SPAN + (cy + reach) * CHUNK_TILES + j;
                         kerbKinds[at] = kinds == null ? UNKNOWN : kinds.kinds[i * CHUNK_TILES + j];
-                        kerbHard[at] = kinds != null && !Float.isNaN(kinds.midX[i * CHUNK_TILES + j]);
+                        kerbHard[at] = kinds != null && kinds.hard[i * CHUNK_TILES + j];
                         from = (from ^ kerbKinds[at] + (kerbHard[at] ? 8 : 0)) * 0x100000001B3L;
                     }
                 }
@@ -486,28 +513,33 @@ final class Terrain {
      * the ground is laid out again with them all standing.
      */
     private boolean gather(IsoCell cell, int wx, int wy) {
+        if (padsAsOf != mapAsOf()) {
+            padsForNow.clear();
+            padsAsOf = mapAsOf();
+        }
         boolean all = lay(cell, wx, wy, true);
         freeAsked = 0;
+        boolean anyFree = false;
         for (int at = 0; at < midXAround.length; at++) {
             if (!freeAround[at]) {
                 continue;
             }
+            anyFree = true;
             long key = Footings.key(midXAround[at], midYAround[at]);
             boolean asked = pads.containsKey(key);
+            if (!asked && padsForNow.containsKey(key)) {
+                asked = true;
+                all = false;
+            }
             for (int earlier = 0; earlier < freeAsked && !asked; earlier++) {
                 asked = freeKeys[earlier] == key;
             }
             if (!asked) {
                 if (freeAsked == freeKeys.length) {
                     freeKeys = Arrays.copyOf(freeKeys, freeAsked * 2);
-                    freeNow = Arrays.copyOf(freeNow, freeAsked * 2);
                 }
                 freeKeys[freeAsked++] = key;
             }
-        }
-        boolean anyFree = false;
-        for (int at = 0; at < freeAround.length && !anyFree; at++) {
-            anyFree = freeAround[at];
         }
         if (!anyFree) {
             return all;
@@ -518,18 +550,14 @@ final class Terrain {
             int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
             boolean lasting = lay(cell, midWx, midWy, true) & findWater(cell, midWx, midWy);
             streets(midWx * CHUNK_TILES - LEVELLED, midWy * CHUNK_TILES - LEVELLED);
-            freeNow[asked] = corner(x, y, x - midWx * CHUNK_TILES + LEVELLED, y - midWy * CHUNK_TILES + LEVELLED);
-            if (lasting) {
-                pads.put(freeKeys[asked], freeNow[asked]);
-            }
+            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, x - midWx * CHUNK_TILES + LEVELLED, y - midWy * CHUNK_TILES + LEVELLED));
             all &= lasting;
         }
         return all & lay(cell, wx, wy, false);
     }
 
-    /** The made things with no building in them whose footings the gathering in hand worked out and could not keep, and the footings. */
+    /** The made things with no building in them whose footings the gathering in hand has still to work out. */
     private long[] freeKeys = new long[8];
-    private float[] freeNow = new float[8];
     private int freeAsked;
 
     /** Fills around and padsAround for gather: bare, with nothing standing that has no building in it. */
@@ -540,7 +568,7 @@ final class Terrain {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = kinds(cell, wx + cx, wy + cy);
                 // What stands on a chunk may be joined to something on ground that is not loaded, and is then another thing with another footing.
-                all &= kinds != passing;
+                all &= kinds.whole;
                 for (int i = 0; i < CHUNK_TILES; i++) {
                     int row = cx * CHUNK_TILES + i + LEVELLED;
                     if (row < 0 || row >= SPAN) {
@@ -561,7 +589,7 @@ final class Terrain {
                 }
             }
         }
-        // Only now: finding a pad looks at other chunks, and what a chunk not all loaded is made of is kept in one place.
+        // Only now: finding a pad looks at other chunks, and lays their water over this one's.
         float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
         for (int at = 0; at < midXAround.length; at++) {
             float x = midXAround[at], y = midYAround[at];
@@ -573,10 +601,7 @@ final class Terrain {
                 long key = Footings.key(x, y);
                 Float kept = pads.get(key);
                 if (freeAround[at]) {
-                    for (int asked = 0; asked < freeAsked && kept == null && !bare; asked++) {
-                        kept = freeKeys[asked] == key ? freeNow[asked] : null;
-                    }
-                    kept = bare ? Float.NaN : kept;
+                    kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(key);
                 } else if (kept == null) {
                     boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
                     kept = base(x, y);
@@ -609,7 +634,7 @@ final class Terrain {
                     // the rest of it would find nothing to keep.
                     kept = cell.getGridSquare((wx + cx) * CHUNK_TILES + CHUNK_TILES / 2, (wy + cy) * CHUNK_TILES + CHUNK_TILES / 2, 0) == null
                             ? null : kinds(cell, wx + cx, wy + cy);
-                    if (kept == null || kept == passing) {
+                    if (kept == null || !kept.whole) {
                         all = false;
                         continue;
                     }
@@ -640,6 +665,15 @@ final class Terrain {
         if (kept != null) {
             return kept;
         }
+        if (unsureAsOf != mapAsOf()) {
+            unsure.clear();
+            unsureAsOf = mapAsOf();
+        }
+        long chunk = (long) wx << 32 | wy & 0xFFFFFFFFL;
+        kept = unsure.get(chunk);
+        if (kept != null) {
+            return kept;
+        }
         boolean whole = true, water = false;
         siteCell = cell;
         Arrays.fill(passing.midX, Float.NaN);
@@ -649,9 +683,11 @@ final class Terrain {
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
                 int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                byte kind = kind(cell.getGridSquare(x, y, 0));
+                IsoGridSquare square = cell.getGridSquare(x, y, 0);
+                byte kind = kind(square);
                 whole &= kind != UNKNOWN;
                 passing.kinds[i * CHUNK_TILES + j] = kind;
+                passing.hard[i * CHUNK_TILES + j] = square != null && (defOf(square) != null || stands(cell, square, x, y));
                 water |= kind == WATER;
                 if (foundInChunk[i * CHUNK_TILES + j]) {
                     continue;
@@ -673,17 +709,20 @@ final class Terrain {
             }
         }
         siteCell = null;
-        if (!whole) {
-            return passing;
-        }
         Kinds fresh = new Kinds();
         fresh.wx = wx;
         fresh.wy = wy;
+        fresh.whole = whole;
         fresh.water = water;
         System.arraycopy(passing.kinds, 0, fresh.kinds, 0, fresh.kinds.length);
         System.arraycopy(passing.midX, 0, fresh.midX, 0, fresh.midX.length);
         System.arraycopy(passing.midY, 0, fresh.midY, 0, fresh.midY.length);
         System.arraycopy(passing.free, 0, fresh.free, 0, fresh.free.length);
+        System.arraycopy(passing.hard, 0, fresh.hard, 0, fresh.hard.length);
+        if (!whole) {
+            unsure.put(chunk, fresh);
+            return fresh;
+        }
         fresh.used = frame;
         int slot = slot(wx, wy), into = slot;
         for (int way = 0; way < WAYS; way++) {
@@ -708,15 +747,12 @@ final class Terrain {
     }
 
     /**
-     * Whether something is built on or over a square that is in no room of a building. On its
-     * ground: a stair, a roof tile, which there is an awning or a canopy, or a building's own
-     * wall, which the game stands on the square outside the building along its south and east
-     * sides. On any level above it: a floor, a roof, a wall, a stair, a rail, a sign. The
-     * wires the game hangs over a road on squares of air, and the upper lengths of the poles
-     * that carry them, are not: they go by the land (WorldScene.addPole, addWires). Nor is a
-     * fence or a garden wall, which runs with the ground it stands on.
+     * Whether something built stands on the ground of a square that is in no room of a
+     * building: a stair, a roof tile, which there is an awning or a canopy, or a building's
+     * own wall, which the game stands on the square outside the building along its south and
+     * east sides. A fence or a garden wall does not: it runs with the ground it stands on.
      */
-    private static boolean built(IsoCell cell, IsoGridSquare square, int x, int y) {
+    private static boolean stands(IsoCell cell, IsoGridSquare square, int x, int y) {
         PZArrayList<IsoObject> objects = square.getObjects();
         boolean north = false, west = false;
         for (int i = 0; i < objects.size(); i++) {
@@ -724,34 +760,52 @@ final class Terrain {
             if (sprite == null) {
                 continue;
             }
-            IsoObjectType type = sprite.getType();
-            if (isStair(type) || type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT) {
+            if (isStair(sprite.getType()) || isRoof(sprite.getType())) {
                 return true;
             }
             PropertyContainer flags = sprite.getProperties();
             north |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN);
             west |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
         }
-        if (north && inBuilding(cell.getGridSquare(x, y - 1, 0)) || west && inBuilding(cell.getGridSquare(x - 1, y, 0))) {
-            return true;
-        }
+        return north && inBuilding(cell.getGridSquare(x, y - 1, 0)) || west && inBuilding(cell.getGridSquare(x - 1, y, 0));
+    }
+
+    /**
+     * What is over a square on the levels above it, as Footings names it: BUILT under a room,
+     * a floor, a roof, a wall, a rail or a stair, HUNG under anything else, a sign, a coping
+     * or the head of a street lamp, and OPEN under nothing. The wires the game hangs over a
+     * road on squares of air, and the upper lengths of the poles that carry them, are
+     * nothing: they go by the land (WorldScene.addPole, addWires).
+     */
+    private static byte above(IsoCell cell, IsoGridSquare square, int x, int y) {
+        boolean hung = false;
         for (int z = 1; z <= square.getChunk().getMaxLevel(); z++) {
             IsoGridSquare over = cell.getGridSquare(x, y, z);
             if (over == null) {
                 continue;
             }
-            if (over.getBuilding() != null) {
-                return true;
+            if (over.getBuilding() != null || over.getFloor() != null) {
+                return Footings.BUILT;
             }
-            objects = over.getObjects();
+            PZArrayList<IsoObject> objects = over.getObjects();
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
-                if (sprite != null && (sprite.getName() == null || !sprite.getName().startsWith(Footings.OVERHEAD_LINES))) {
-                    return true;
+                if (sprite == null || sprite.getName() != null && sprite.getName().startsWith(Footings.OVERHEAD_LINES)) {
+                    continue;
                 }
+                PropertyContainer flags = sprite.getProperties();
+                if (isStair(sprite.getType()) || isRoof(sprite.getType()) || flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW)
+                        || flags.has(IsoFlagType.WallSE) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.WindowW)) {
+                    return Footings.BUILT;
+                }
+                hung = true;
             }
         }
-        return false;
+        return hung ? Footings.HUNG : Footings.OPEN;
+    }
+
+    private static boolean isRoof(IsoObjectType type) {
+        return type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT;
     }
 
     private static boolean inBuilding(IsoGridSquare square) {

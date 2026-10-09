@@ -67,8 +67,20 @@ final class Solids {
         if (wanted == null || known.containsKey(texture)) {
             return;
         }
-        int across = wanted.width, down = wanted.height;
+        known.put(texture, outline(solid(sheet, width, left, top, right, bottom, wanted.width, wanted.height), wanted.left, wanted.top, wanted.width, wanted.height));
+    }
+
+    /**
+     * Which pixels of a sprite across by down are painted solid, row by row, read off its
+     * rectangle of a sheet width wide, which is drawn at another size than the sprite where
+     * the sheet is. None of them where the rectangle has no size: a sheet that never came to
+     * the graphics card is read so, and its sprites paint nothing, as SpriteColours keeps them.
+     */
+    static boolean[] solid(ByteBuffer sheet, int width, int left, int top, int right, int bottom, int across, int down) {
         boolean[] solid = new boolean[across * down];
+        if (right == left || bottom == top) {
+            return solid;
+        }
         for (int row = 0; row < down; row++) {
             int y = top + row * (bottom - top) / down;
             for (int column = 0; column < across; column++) {
@@ -76,7 +88,7 @@ final class Solids {
                 solid[row * across + column] = (sheet.get((y * width + x) * 4 + 3) & 0xff) >= SOLID;
             }
         }
-        known.put(texture, outline(solid, wanted.left, wanted.top, across, down));
+        return solid;
     }
 
     /** The outline of the pixels given as solid, across by down from (left, top) of a sprite's frame, row by row. */

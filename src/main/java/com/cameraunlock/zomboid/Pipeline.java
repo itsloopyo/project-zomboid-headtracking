@@ -321,7 +321,7 @@ final class Pipeline {
     private final Lent torched = new Lent("torch's shadow map");
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures");
-    /** What water shows, at half the picture's size: only in High with water in the frame. */
+    /** What water shows, at half the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows");
     private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered};
     private final Lent[] UNSIZED = {beamed, torched, mirrored};
@@ -518,7 +518,8 @@ final class Pipeline {
     private boolean inScope;
     /**
      * What water shows: the world over it, drawn from the eye's image under it at half the
-     * picture's size. Only in High, and only in a frame with water in it. See WaterMirror.
+     * picture's size. Only in High, in first person, and only in a frame whose picture can
+     * have water in it: see waterInSight and WaterMirror.
      */
     private int waterColor, waterTarget, waterDepth, waterWidth, waterHeight;
     private final ViewCamera.Pose under = new ViewCamera.Pose();
@@ -807,10 +808,11 @@ final class Pipeline {
             if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
-            waterDrawn = water != null && shadedAndLit && !outside;
+            waterDrawn = water != null && shadedAndLit && !outside && waterInSight(camera, tanHalfFieldOfView, aspect, near, far);
             if (waterDrawn) {
                 drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
+            stage(STAGE_WORLD);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_WORLD);
             if (steadying) {
@@ -945,6 +947,26 @@ final class Pipeline {
         }
         behindListed.of(drawn, leftOut, true);
         return behindListed;
+    }
+
+    /**
+     * Whether a chunk with water on it can put a pixel in the eye's picture. The frame holds
+     * the chunks all round the eye, and with a river behind the viewer, or beyond the walls of
+     * the room they stand in but off to a side, the picture of what water shows is a second
+     * drawing of the world that nothing would show.
+     */
+    private boolean waterInSight(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        ViewCamera.turned(camera, viewed);
+        mapBounds.ofTurned(projection, viewed);
+        for (int i = 0; i < drawn.size(); i++) {
+            WorldScene.ChunkMeshes build = drawn.get(i);
+            if (build.water && !mapBounds.outside((build.minX + build.maxX) / 2f - camera.eyeX, (build.minY + build.maxY) / 2f - camera.eyeY,
+                    (build.minUp + build.maxUp) / 2f - camera.eyeUp, (build.maxX - build.minX) / 2f, (build.maxY - build.minY) / 2f, (build.maxUp - build.minUp) / 2f)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1929,7 +1951,7 @@ final class Pipeline {
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
-        // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the scope.
+        // The three parts of the view's own picture of the world are timed apart: what "world" then has left is the scope and what water shows.
         boolean own = !inMirror && !inScope && !inWater;
         if (own) {
             stage(STAGE_DEPTH);
@@ -4044,6 +4066,7 @@ final class Pipeline {
                 }
             }
             Decor.letGo();
+            Flats.letGo();
             forgetTexels();
             GL15.glDeleteBuffers(modelBuffer);
             GL15.glDeleteBuffers(modelCorners);
@@ -4200,6 +4223,8 @@ final class Pipeline {
         waterHeight = Math.max(1, height / 2);
         waterColor = texture(GL_RGBA16F, waterWidth, waterHeight, GL_RGBA, GL_FLOAT, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        // Its coarser levels come to a third of it again.
+        making.bytes += (long) waterWidth * waterHeight * 8 / 3;
         waterDepth = texture(GL_DEPTH_COMPONENT24, waterWidth, waterHeight, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
         waterTarget = target(waterColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, waterDepth, 0);

@@ -46,8 +46,13 @@ final class Flats {
     private static final float PAINTED = 0.97f;
     /** A dot is painted when the sprite's dots round it cover this much of it: what the picture takes for solid. A stain laid thinly over a whole square is no floor. */
     private static final float COVERED = 0.5f;
-    /** Two heights of a roof's plane, in levels, are the same when this near: a tile's height is its own less its level's, which comes out a hair different on each level. */
-    private static final float SAME_PLANE = 1e-3f;
+    private static final float PLANE_STEPS = 1024f;
+    /** A roof tile that paints this much of its plane and not the whole of it is a tile cut by a hip or a valley: its picture is empty where the sprite is. */
+    private static final float CUT_TILE = 0.3f;
+    /** How many dots in from a square's edge a sprite's staircase leaves empty at most. */
+    private static final int EDGE_STAIR = 3;
+    /** A floor's lines run along y when its dots change this many times as much from one to the next along x as along y. */
+    private static final float LINED = 1.3f;
     /** Dots of rim round the square, and dots to a side of the picture with its rim. */
     static final int RIM = 4, WHOLE = SIDE + 2 * RIM;
     /** Where in the picture the square's (0, 0) corner is, and how much of the picture the square takes, both ways alike. */
@@ -65,8 +70,16 @@ final class Flats {
     static final float WALL_FROM = (float) WALL_RIM / WALL_WHOLE, WALL_SPAN = (float) WALL_LONG / WALL_WHOLE;
     /** A run of empty dots no longer than this at an end of a row, or at the top of a column, is the sprite stopping short and is filled in. A longer one is an opening, or a wall that is low or short. */
     private static final int END_SHORT = 6, TOP_SHORT = 12;
-    /** A dot of a wall is solid when the sprite's dots round it cover this much of it, and has a colour when they cover the second. Between the two it is as the sprite has it: the glass of a glazed wall. */
-    private static final float WALL_COVERED = 0.5f, WALL_TINGED = 0.02f;
+    /** A dot of a wall is painted when the sprite's dots round it cover this much of it. */
+    private static final float WALL_COVERED = 0.5f;
+    /**
+     * A dot of the sprite with a cover between these is glass, and a wall with more than GLAZED
+     * of its dots wholly on glass is a glazed one, which the picture draws by its sprite's own
+     * cover: it is left to its sprite. A dot at a wall's soft outline has empty dots beside it
+     * and is not counted.
+     */
+    private static final int GLASS_FROM = 26, GLASS_TO = 230;
+    private static final float GLAZED = 0.01f;
 
     /** What a sprite is read as: the floor of its square, the wall along its square's north edge or its west, or a tile of roof over it. */
     static final int FLOOR = 0, NORTH = 1, WEST = 2, ROOF = 3;
@@ -78,20 +91,21 @@ final class Flats {
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
 
     /**
-     * Where the sprite sits in its frame, as the build that first asked for it had it, and for
-     * a roof the plane it lies on: its height in levels over the square's (0, 0) corner, and
-     * how much it climbs along the square each way.
+     * One picture: the sprite, what it is read as, where it sits in its frame, and for a roof
+     * the plane it lies on, which is its height in levels over the square's (0, 0) corner and
+     * how much it climbs along the square each way. A sprite shown at two places in its frame,
+     * or a roof's on two planes, has a picture for each.
      */
-    private record Asked(float originU, float originV, float scale, float left, float top, float width, float height, float high, float climbA, float climbB) {}
+    private record Want(Texture texture, int as, float originU, float originV, float scale, float left, float top, float width, float height, float high, float climbA, float climbB) {}
 
-    /** A sprite read: its picture's OpenGL name, or 0 for a sprite that paints no whole square of floor or nothing along that edge. */
-    private record Read(int name, Asked as) {}
+    /** What has been asked for of each sprite, and each picture made: its OpenGL name, or 0 for a sprite that paints no whole square of floor or nothing along that edge. */
+    private static final ConcurrentHashMap<Texture, java.util.Set<Want>> asked = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Want, Integer> known = new ConcurrentHashMap<>();
+    /** The pictures of floors whose lines, the joints between its boards, run along y. */
+    private static final java.util.Set<Integer> alongY = ConcurrentHashMap.newKeySet();
 
-    /** By what the sprite is read as. */
-    private static final java.util.List<ConcurrentHashMap<Texture, Asked>> asked = java.util.List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(),
-            new ConcurrentHashMap<>());
-    private static final java.util.List<ConcurrentHashMap<Texture, Read>> known = java.util.List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(),
-            new ConcurrentHashMap<>());
+    /** What of says of a sprite no frame has been drawn since it was first asked for. */
+    static final int PENDING = -1;
 
     /** Dev only, for the rig: no sprite has a picture while set, so every floor, wall and roof is drawn from its sprite as it was, for a comparison within one run. */
     static volatile boolean without;
@@ -99,66 +113,86 @@ final class Flats {
     private Flats() {}
 
     /**
-     * The OpenGL name of the sprite's picture as a floor or as a wall. 0 until a frame has
-     * been drawn since it was first asked for, for a sprite that does not paint its whole
-     * square or anything along that edge, and for one that sits elsewhere in its frame, or is
-     * shown from another part of its sheet, than when it was read.
+     * The OpenGL name of the sprite's picture as a floor, a wall, or a tile of roof on the
+     * plane given as Want holds one. PENDING until a frame has been drawn since it was first
+     * asked for, and 0 for a sprite that does not paint its whole square or anything along
+     * that edge.
      */
-    static int of(Texture texture, SpriteGeometry.Frame frame, int as) {
-        return of(texture, frame, as, 0f, 0f, 0f);
-    }
-
-    /** As of, for a tile of roof on the plane given as Asked holds one: 0 too for a sprite read on another plane. */
     static int of(Texture texture, SpriteGeometry.Frame frame, int as, float high, float climbA, float climbB) {
         if (without) {
             return 0;
         }
-        Read read = known.get(as).get(texture);
-        if (read != null) {
-            Asked was = read.as;
-            return was.originU == frame.originU && was.originV == frame.originV && was.scale == frame.scale && was.left == frame.left && was.top == frame.top
-                    && was.width == frame.width && was.height == frame.height && Math.abs(was.high - high) < SAME_PLANE && Math.abs(was.climbA - climbA) < SAME_PLANE
-                    && Math.abs(was.climbB - climbB) < SAME_PLANE ? read.name : 0;
+        Want want = new Want(texture, as, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height, plane(high), plane(climbA), plane(climbB));
+        Integer name = known.get(want);
+        if (name != null) {
+            return name;
         }
-        if (asked.get(as).putIfAbsent(texture, new Asked(frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height, high, climbA, climbB)) == null) {
+        if (asked.computeIfAbsent(texture, sprite -> ConcurrentHashMap.newKeySet()).add(want)) {
             SpriteColours.readAgain(texture);
         }
-        return 0;
+        return PENDING;
     }
 
-    /** Whether the sprite has still to be read as that. */
-    static boolean unread(Texture texture, int as) {
-        return !without && !known.get(as).containsKey(texture);
+    /** A height of a roof's plane to the nearest of PLANE_STEPS to a level: a tile's height is its own less its level's, which comes out a hair different on each level. */
+    private static float plane(float levels) {
+        return Math.round(levels * PLANE_STEPS) / PLANE_STEPS;
     }
 
     /** Reads the sprite as whatever it was asked for as, and makes its pictures: see Windows.read. On the thread that draws. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        for (int as = FLOOR; as <= ROOF; as++) {
-            Asked wanted = asked.get(as).get(texture);
-            if (wanted == null || known.get(as).containsKey(texture)) {
+        java.util.Set<Want> wants = asked.get(texture);
+        if (wants == null) {
+            return;
+        }
+        for (Want want : wants) {
+            if (known.containsKey(want)) {
                 continue;
             }
+            int as = want.as;
             boolean lies = as == FLOOR || as == ROOF;
-            byte[] dots = lies ? laid(sheet, width, left, top, right, bottom, wanted.originU, wanted.originV, wanted.scale, wanted.left, wanted.top, wanted.width, wanted.height,
-                    wanted.high, wanted.climbA, wanted.climbB)
-                    : stood(sheet, width, left, top, right, bottom, as == NORTH, wanted.originU, wanted.originV, wanted.scale, wanted.left, wanted.top, wanted.width, wanted.height);
+            byte[] dots = lies ? laid(sheet, width, left, top, right, bottom, want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height,
+                    want.high, want.climbA, want.climbB, as == ROOF)
+                    : stood(sheet, width, left, top, right, bottom, as == NORTH, want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height);
             if (FirstPerson.TRACE) {
                 Log.info((as == FLOOR ? "floor " : as == ROOF ? "roof " : as == NORTH ? "north wall " : "west wall ") + texture.getName()
-                        + (dots == null ? " paints too little to be one and is drawn from its sprite" : lies ? " is laid flat" : " is stood square"));
+                        + (dots == null ? " has no picture as one and is drawn from its sprite" : lies ? " is laid flat" : " is stood square"));
             }
             int name = dots == null ? 0 : lies ? picture(rimmed(dots, as == FLOOR), WHOLE, WHOLE) : picture(wallRimmed(dots), WALL_WHOLE, WALL_HIGH);
-            known.get(as).put(texture, new Read(name, wanted));
+            if (as == FLOOR && dots != null && linedAlongY(dots)) {
+                alongY.add(name);
+            }
+            known.put(want, name);
         }
+    }
+
+    /**
+     * Render thread, once first person has been off a while and every build has been let go:
+     * gives every picture back to the graphics card. A build made after this asks for its
+     * pictures again.
+     */
+    static void letGo() {
+        int count = 0;
+        for (java.util.Iterator<Integer> names = known.values().iterator(); names.hasNext();) {
+            int name = names.next();
+            names.remove();
+            if (name != 0) {
+                GL11.glDeleteTextures(name);
+                count++;
+            }
+        }
+        asked.clear();
+        alongY.clear();
+        Log.info(count + " pictures of floors, walls and roofs are given back to the graphics card");
     }
 
     /**
      * The length of wall a sprite paints along one edge of its square, stood square: WALL_LONG
      * dots a row from the wall's start, the (0, 0) corner of the square, to its end, and
      * WALL_HIGH rows from a level above the floor down to it, each dot a red, green, blue and
-     * its cover as the sprite has it. Where most rows are empty for the same few dots at an end, or
+     * a cover of 255 or of 0. Where most rows are empty for the same few dots at an end, or
      * most columns at the top, those dots are filled with the first dot painted: the sprite
      * stops short there and the wall does not. Null for a sprite with nothing painted along
-     * the edge.
+     * the edge, and for a glazed wall.
      */
     static byte[] stood(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, float originU, float originV, float scale,
             float frameLeft, float frameTop, float frameWidth, float frameHeight) {
@@ -168,7 +202,7 @@ final class Flats {
         }
         byte[] dots = new byte[WALL_LONG * WALL_HIGH * 4];
         float perU = wide / frameWidth, perV = high / frameHeight;
-        int count = 0;
+        int count = 0, glass = 0;
         for (int j = 0; j < WALL_HIGH; j++) {
             for (int i = 0; i < WALL_LONG; i++) {
                 float along = (i + 0.5f) / WALL_LONG, up = 1f - (j + 0.5f) / WALL_HIGH;
@@ -176,30 +210,34 @@ final class Flats {
                 float v = ((along * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * scale + originV - frameTop) * perV - 0.5f;
                 int u0 = (int) Math.floor(u), v0 = (int) Math.floor(v);
                 float partU = u - u0, partV = v - v0, red = 0f, green = 0f, blue = 0f, cover = 0f;
+                boolean onGlass = true;
                 for (int corner = 0; corner < 4; corner++) {
                     int x = u0 + (corner & 1), y = v0 + (corner >> 1);
                     if (x < 0 || y < 0 || x >= wide || y >= high) {
+                        onGlass = false;
                         continue;
                     }
-                    int place = ((top + y) * width + left + x) * 4;
-                    float weight = ((corner & 1) == 0 ? 1f - partU : partU) * ((corner >> 1) == 0 ? 1f - partV : partV) * (sheet.get(place + 3) & 0xff) / 255f;
+                    int place = ((top + y) * width + left + x) * 4, covered = sheet.get(place + 3) & 0xff;
+                    float weight = ((corner & 1) == 0 ? 1f - partU : partU) * ((corner >> 1) == 0 ? 1f - partV : partV) * covered / 255f;
                     red += weight * (sheet.get(place) & 0xff);
                     green += weight * (sheet.get(place + 1) & 0xff);
                     blue += weight * (sheet.get(place + 2) & 0xff);
                     cover += weight;
+                    onGlass &= covered >= GLASS_FROM && covered <= GLASS_TO;
                 }
-                if (cover < WALL_TINGED) {
+                glass += onGlass ? 1 : 0;
+                if (cover < WALL_COVERED) {
                     continue;
                 }
                 int at = (j * WALL_LONG + i) * 4;
                 dots[at] = (byte) Math.round(red / cover);
                 dots[at + 1] = (byte) Math.round(green / cover);
                 dots[at + 2] = (byte) Math.round(blue / cover);
-                dots[at + 3] = (byte) Math.round(Math.min(cover, 1f) * 255f);
-                count += cover >= WALL_COVERED ? 1 : 0;
+                dots[at + 3] = (byte) 255;
+                count++;
             }
         }
-        if (count == 0) {
+        if (count == 0 || glass > GLAZED * WALL_LONG * WALL_HIGH) {
             return null;
         }
         int[] runs = new int[Math.max(WALL_HIGH, WALL_LONG)];
@@ -229,13 +267,13 @@ final class Flats {
     }
 
     /**
-     * How many dots of a line are not solid before its first solid one, going from the dot at
-     * from by step dots at a time: -1 for a line of count dots with none solid, and one more
+     * How many dots of a line are empty before its first painted one, going from the dot at
+     * from by step dots at a time: -1 for a line of count dots with none painted, and one more
      * than most for a line empty further than most.
      */
     private static int empty(byte[] dots, int from, int step, int count, int most) {
         int run = 0;
-        while (run < count && (dots[(from + run * step) * 4 + 3] & 0xff) < WALL_COVERED * 255f) {
+        while (run < count && dots[(from + run * step) * 4 + 3] == 0) {
             run++;
         }
         return run == count ? -1 : Math.min(run, most + 1);
@@ -276,6 +314,24 @@ final class Flats {
         return whole;
     }
 
+    /** Whether the floor in the picture of that name has its lines along y: a floor of boards laid that way. */
+    static boolean alongY(int name) {
+        return alongY.contains(name);
+    }
+
+    /** Whether a square's dots, as laid gives them, change LINED times as much from one to the next along x as along y. */
+    static boolean linedAlongY(byte[] dots) {
+        long acrossX = 0, acrossY = 0;
+        for (int j = 0; j < SIDE - 1; j++) {
+            for (int i = 0; i < SIDE - 1; i++) {
+                int at = (j * SIDE + i) * 4, lit = (dots[at] & 0xff) + (dots[at + 1] & 0xff) + (dots[at + 2] & 0xff);
+                acrossX += Math.abs(lit - (dots[at + 4] & 0xff) - (dots[at + 5] & 0xff) - (dots[at + 6] & 0xff));
+                acrossY += Math.abs(lit - (dots[at + SIDE * 4] & 0xff) - (dots[at + SIDE * 4 + 1] & 0xff) - (dots[at + SIDE * 4 + 2] & 0xff));
+            }
+        }
+        return acrossX > LINED * acrossY;
+    }
+
     /**
      * The square a sprite paints, laid flat: SIDE dots a row, the row at y after the row
      * before it, each dot a red, green, blue and a cover of 255. A dot is the blend of the
@@ -283,16 +339,19 @@ final class Flats {
      * counted by how solid it is. The few dots along the square's edges that the sprite's
      * staircase leaves empty take the colour of the dots beside them, the far edge counting as
      * beside the near one, since that is what lies there on the map. Null for a sprite that
-     * leaves more than that empty: it is not a square of floor.
+     * leaves more than that empty: it is not a square of floor. A roof tile cut by a hip or a
+     * valley paints part of its plane, and its dots are left empty, a cover of 0, where it
+     * paints nothing.
      *
      * @param sheet the sheet the sprite is on, four bytes a dot, width dots a row
      * @param left the sprite's trimmed rectangle on the sheet, with top, right and bottom
      * @param originU the frame dot of the square's (0, 0) corner, with originV
      * @param frameLeft the trimmed rectangle in frame dots, with frameTop, frameWidth and frameHeight
      * @param lifted how many levels over its floor the square lies at its (0, 0) corner, with how much it climbs along the square each way: 0 for a floor
+     * @param cut whether a sprite that paints CUT_TILE of the square and not all of it has a picture
      */
     static byte[] laid(ByteBuffer sheet, int width, int left, int top, int right, int bottom, float originU, float originV, float scale,
-            float frameLeft, float frameTop, float frameWidth, float frameHeight, float lifted, float climbA, float climbB) {
+            float frameLeft, float frameTop, float frameWidth, float frameHeight, float lifted, float climbA, float climbB, boolean cut) {
         int wide = right - left, high = bottom - top;
         if (wide <= 0 || high <= 0) {
             return null;
@@ -333,11 +392,15 @@ final class Flats {
                 count++;
             }
         }
-        if (count < PAINTED * SIDE * SIDE) {
+        boolean whole = count >= PAINTED * SIDE * SIDE;
+        if (!whole && !(cut && count >= CUT_TILE * SIDE * SIDE)) {
             return null;
         }
+        // A cut tile is empty past its cut. Its empty dots still take the colour beside them, so that a
+        // texel blended across the cut is the roof's colour thinned and not darkened, and the few the
+        // staircase leaves empty along the square's own edges are painted as a whole tile's are.
         boolean[] next = new boolean[SIDE * SIDE];
-        while (count < SIDE * SIDE) {
+        for (int pass = 0; count < SIDE * SIDE; pass++) {
             System.arraycopy(painted, 0, next, 0, painted.length);
             for (int at = 0; at < SIDE * SIDE; at++) {
                 if (painted[at]) {
@@ -345,7 +408,13 @@ final class Flats {
                 }
                 int i = at % SIDE, j = at / SIDE, red = 0, green = 0, blue = 0, beside = 0;
                 for (int side = 0; side < 4; side++) {
-                    int ni = Math.floorMod(i + (side == 0 ? -1 : side == 1 ? 1 : 0), SIDE), nj = Math.floorMod(j + (side == 2 ? -1 : side == 3 ? 1 : 0), SIDE);
+                    int ni = i + (side == 0 ? -1 : side == 1 ? 1 : 0), nj = j + (side == 2 ? -1 : side == 3 ? 1 : 0);
+                    if (whole) {
+                        ni = Math.floorMod(ni, SIDE);
+                        nj = Math.floorMod(nj, SIDE);
+                    } else if (ni < 0 || nj < 0 || ni >= SIDE || nj >= SIDE) {
+                        continue;
+                    }
                     int from = nj * SIDE + ni;
                     if (painted[from]) {
                         red += dots[from * 4] & 0xff;
@@ -360,7 +429,8 @@ final class Flats {
                 dots[at * 4] = (byte) (red / beside);
                 dots[at * 4 + 1] = (byte) (green / beside);
                 dots[at * 4 + 2] = (byte) (blue / beside);
-                dots[at * 4 + 3] = (byte) 255;
+                boolean atEdge = Math.min(Math.min(i, j), Math.min(SIDE - 1 - i, SIDE - 1 - j)) < EDGE_STAIR && pass < EDGE_STAIR;
+                dots[at * 4 + 3] = (byte) (whole || atEdge ? 255 : 0);
                 next[at] = true;
                 count++;
             }
@@ -402,6 +472,7 @@ final class Flats {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         GL11.glBindTexture(GL_TEXTURE_2D, was);
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
         return name;

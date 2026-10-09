@@ -28,7 +28,7 @@ final class WaterMirrorTests {
         float shownX = waterX + (lineX - into * plane[0]) / length * 30f, shownY = waterY + (lineY - into * plane[1]) / length * 30f,
                 shownUp = waterUp + (lineUp - into * plane[2]) / length * 30f;
         ViewCamera.Pose eye = new ViewCamera.Pose(), under = new ViewCamera.Pose();
-        float[] onWater = new float[2], inPicture = new float[2];
+        float[] onWater = new float[2], inPicture = new float[2], read = new float[2];
         int seen = 0;
         for (int yaw = 230; yaw <= 310; yaw += 20) {
             for (int pitch = -80; pitch <= 20; pitch += 10) {
@@ -44,6 +44,16 @@ final class WaterMirrorTests {
                     check(Math.abs(inPicture[0] - onWater[0]) < 2e-3f && Math.abs(inPicture[1] - onWater[1]) < 2e-3f,
                             "the picture drawn from under the water has what a point of the water shows at the place the eye's picture draws that point, at yaw "
                                     + yaw + " pitch " + pitch + " roll " + roll);
+                    // The sum the world's program does for a pixel of water (overWater): the place shown, counted from
+                    // the eye, is put through the plane as the pipeline hands it over, drawn as the eye's own picture
+                    // would draw it and scaled by the margin the wider picture was drawn with.
+                    float fromX = shownX - eyeX, fromY = shownY - eyeY, fromUp = shownUp - eyeUp;
+                    float through = 2f * (plane[0] * fromX + plane[1] * fromY + plane[2] * fromUp + WaterMirror.above(plane, eyeX, eyeY, eyeUp));
+                    check(ViewCamera.project(eye, TAN, ASPECT, eyeX + fromX - through * plane[0], eyeY + fromY - through * plane[1],
+                            eyeUp + fromUp - through * plane[2], read), "the image of what the water shows is before the eye");
+                    check(ViewCamera.project(under, TAN * WaterMirror.MARGIN, ASPECT, shownX, shownY, shownUp, inPicture), "and the place itself before the eye's image");
+                    check(Math.abs(read[0] / WaterMirror.MARGIN - inPicture[0]) < 2e-3f && Math.abs(read[1] / WaterMirror.MARGIN - inPicture[1]) < 2e-3f,
+                            "the wider picture is read where it holds the place the water shows, at yaw " + yaw + " pitch " + pitch + " roll " + roll);
                 }
             }
         }
@@ -76,6 +86,12 @@ final class WaterMirrorTests {
                 float x = place[0] + 30f * (float) Math.cos(way * Math.PI / 4), y = place[1] + 30f * (float) Math.sin(way * Math.PI / 4);
                 check(Math.abs(WaterMirror.above(plane, x, y, Terrain.HILLS.waterLevel(x, y))) < 0.12f,
                         "thirty tiles off the water is within an eighth of a tile of the plane, at " + place[0] + ", " + place[1] + " way " + way);
+                // As far as High sees. The eye's line thrown back by water that far off the plane is read from
+                // the picture under a degree from where it should be, and nowhere does that change at a step.
+                x = place[0] + 80f * (float) Math.cos(way * Math.PI / 4);
+                y = place[1] + 80f * (float) Math.sin(way * Math.PI / 4);
+                check(Math.abs(WaterMirror.above(plane, x, y, Terrain.HILLS.waterLevel(x, y))) < 0.65f,
+                        "eighty tiles off the water is within two thirds of a tile of the plane, at " + place[0] + ", " + place[1] + " way " + way);
             }
         }
         float[] flat = new float[4];

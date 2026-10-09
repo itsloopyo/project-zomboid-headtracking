@@ -366,6 +366,8 @@ final class PipelineShaders {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            // 1 for a floor of boards that run along y: the grain laid on it is turned to run with them.
+            varying float vLie;
             varying float vHung;
             uniform float uCutAbove;
             varying vec3 vPlace;
@@ -454,6 +456,8 @@ final class PipelineShaders {
                 // thirty-twos above that what it is made of.
                 vMaterial = floor((vColor.a + 0.5) / 32.0);
                 vKind = vColor.a - 32.0 * vMaterial;
+                vLie = vMaterial > 70.5 && vMaterial < 71.5 ? 1.0 : 0.0;
+                vMaterial = vLie > 0.5 ? 3.0 : vMaterial;
                 // What is laid may be drawn in two parts, its grass and the rest: see
                 // Pipeline.drawWorld. A vertex of the part not being drawn is in no picture.
                 if (uLaid > 1.5 && (vKind > 7.5) == (uLaid > 2.5)) {
@@ -469,7 +473,11 @@ final class PipelineShaders {
                 // flower growing out of the ground do.
                 bool still = uLaid > 0.5 && vKind < 7.5 && vMaterial < 59.5 || vKind > 3.5 && vKind < 7.5;
                 // An overhead wire: the length of its facing says how far it hangs below the line between its insulators, see swung.
-                bool wire = uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5;
+                // What hangs on a cord, a bulb of a string of lights, carries the same and swings with its cord. One that
+                // burns is of the stuff of a lamp and hangs below a line, which no lamp that stands does, and one that is
+                // out is of a stuff of its own. See WorldScene.hungRound.
+                bool hung = uModel < 0.5 && !still && (vMaterial > 81.5 && vMaterial < 82.5 || vMaterial > 13.5 && vMaterial < 14.5 && dot(gl_Normal, gl_Normal) > 1.004);
+                bool wire = uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5 || hung;
                 vec4 at = strip ? vec4(swayed(stands.xyz, high, vBlade.z), 1.0) : still || wire ? stands : blown(stands, looks);
                 if (strip) {
                     // Grass parts round whoever stands in it. The eye is over the viewer's
@@ -496,7 +504,9 @@ final class PipelineShaders {
                     float swing;
                     vec3 off = wireOff(gl_MultiTexCoord0.xy, across, swing);
                     at.xyz = swung(at.xyz, length(gl_Normal) - 1.0, across, swing);
-                    at.xyz += off * max(0.0, 0.6 * uPixel * length(at.xyz - uEye) - 0.015);
+                    if (!hung) {
+                        at.xyz += off * max(0.0, 0.6 * uPixel * length(at.xyz - uEye) - 0.015);
+                    }
                     vUv = vec2(0.0);
                     vNormal = normalize(looks);
                     vCover = 1.0;
@@ -580,6 +590,8 @@ final class PipelineShaders {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
+            // 1 for a floor of boards that run along y: the grain laid on it is turned to run with them.
+            varying float vLie;
             varying float vHung;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
@@ -728,20 +740,21 @@ final class PipelineShaders {
             // or two, and the same knot is seen all the way down a fence. So it is cut into
             // strips along its grain, at cut, which is a joint between two of its boards, and
             // each strip is slid along the grain its own amount, half of them turned end for
-            // end, and is a shade lighter or darker than the next. upright is for a picture
+            // end, and is a shade lighter or darker than the next, by up to shades: none on a floor,
+            // where a room seen from above showed as a chequer of lighter and darker blocks. upright is for a picture
             // whose grain runs up it. A strip is the same again every strips of them: the place
             // is counted from a corner that moves a whole number of pictures at a time. With
             // the light and dark comes how far the surface stands out there, 1 at its top.
             // across and down are how fast the place changes over the screen, asked of the
             // place as it was: slid, it jumps from one strip to the next, and moved for the
             // surface's depth (see relieve) it jumps at the lip of every hollow.
-            vec2 laid(sampler2D picture, vec2 at, vec2 across, vec2 down, float cut, bool upright, float strips) {
+            vec2 laid(sampler2D picture, vec2 at, vec2 across, vec2 down, float cut, bool upright, float strips, float shades) {
                 vec2 grain = upright ? at.yx : at;
                 float strip = mod(floor(grain.y - cut), strips);
                 vec2 own = fract(sin(vec2(strip * 12.9898 + 4.1, strip * 78.233 + 1.7)) * 43758.5453);
                 grain.x = (own.y > 0.5 ? -grain.x : grain.x) + own.x;
                 vec4 seen = texture2DGradARB(picture, upright ? grain.yx : grain, across, down);
-                return vec2(dot(seen.rgb, vec3(0.299, 0.587, 0.114)) * (0.93 + 0.14 * fract(own.x * 5.0)), seen.a);
+                return vec2(dot(seen.rgb, vec3(0.299, 0.587, 0.114)) * (1.0 + shades * (fract(own.x * 5.0) - 0.5)), seen.a);
             }
 
             // Whichever of two pictures of bark is the lighter at a place, where share is a half,
@@ -767,23 +780,24 @@ final class PipelineShaders {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
             }
 
-            // How far from the plane of the picture of what water shows water may lie and
-            // still be shown it, in tiles; how far off what water shows is taken to stand, in
-            // tiles, where a ripple or a rise of the water throws the eye's line aside; and
-            // how long a streak the ripples a pixel cannot show draw a reflection out into, as
-            // a multiple of how much they tilt the water.
-            const float WATER_LEVEL_WITHIN = 0.3, WATER_THROW = 24.0, WATER_STREAK = 0.52;
+            // How far off what water shows is taken to stand, in tiles, where a ripple or a
+            // rise of the water throws the eye's line aside; and how long a streak the ripples
+            // a pixel cannot show draw a reflection out into, as a multiple of how much they
+            // tilt the water.
+            const float WATER_THROW = 24.0, WATER_STREAK = 0.52;
             const int WATER_TAPS = 8;
 
             // What the water shows of a place, counted from the eye: its image in the water's
             // plane is found in the picture drawn from under the water where the eye's own
             // picture would draw it. For level water that is the pixel being drawn, whatever
             // way the eye is turned.
-            // coarser says how many levels coarser than the picture itself it is read.
+            // coarser says which level of the picture is read, 0 being the picture as drawn:
+            // the level is named and not left to the card, which would go by how fast the
+            // place read changes from one pixel to the next, and over a ripple that is fast.
             vec3 overWater(vec3 fromEye, float coarser) {
                 vec3 image = fromEye - 2.0 * (dot(uWater.xyz, fromEye) + uWater.w) * uWater.xyz;
                 vec4 seen = gl_ModelViewProjectionMatrix * vec4(image, 1.0);
-                return texture2D(uWaterPicture, seen.xy / max(seen.w, 1e-4) * (0.5 * uWaterShare) + 0.5, coarser).rgb;
+                return texture2DLod(uWaterPicture, seen.xy / max(seen.w, 1e-4) * (0.5 * uWaterShare) + 0.5, coarser).rgb;
             }
 
             // How many of them fit across a tile, for the three sizes of ripple on water.
@@ -1123,9 +1137,10 @@ final class PipelineShaders {
                 }
                 if (reliefKind < 4.5) {
                     vec2 at = reliefBase + moved;
-                    return reliefKind < 2.5 ? laid(uShingles, at * 0.55, reliefAcross * 0.55, reliefDown * 0.55, 0.1, false, 33.0).y
-                            : reliefKind < 3.5 ? laid(uWood, at * 0.45, reliefAcross * 0.45, reliefDown * 0.45, 0.44, false, 27.0).y
-                            : laid(uPlanks, at * 0.7, reliefAcross * 0.7, reliefDown * 0.7, 0.648, true, 42.0).y;
+                    return reliefKind < 2.5 ? laid(uShingles, at * 0.55, reliefAcross * 0.55, reliefDown * 0.55, 0.1, false, 33.0, 0.14).y
+                            : reliefKind < 3.5 ? (vLie > 0.5 ? laid(uWood, at.yx * 0.45, reliefAcross.yx * 0.45, reliefDown.yx * 0.45, 0.44, false, 27.0, 0.14).y
+                                    : laid(uWood, at * 0.45, reliefAcross * 0.45, reliefDown * 0.45, 0.44, false, 27.0, 0.14).y)
+                            : laid(uPlanks, at * 0.7, reliefAcross * 0.7, reliefDown * 0.7, 0.648, true, 42.0, 0.14).y;
                 }
                 bool other = reliefWhich > 0.5;
                 vec2 at = other ? reliefTwo + vec2(moved.x * 0.8 - moved.y * 0.6, moved.x * 0.6 + moved.y * 0.8) * 0.37 : reliefOne + moved * 0.83;
@@ -2413,11 +2428,12 @@ final class PipelineShaders {
                         n = normalize(n - reliefBend);
                         texel.rgb *= 1.0 - 0.4 * reliefLow;
                     }
-                    float fine = roofing ? laid(uShingles, across * 0.55, acrossX * 0.55, acrossY * 0.55, 0.1, false, 33.0).x * uSurfaceGain.x
+                    float fine = roofing ? laid(uShingles, across * 0.55, acrossX * 0.55, acrossY * 0.55, 0.1, false, 33.0, 0.14).x * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
-                            : vMaterial < 3.5 ? laid(uWood, across * 0.45, acrossX * 0.45, acrossY * 0.45, 0.44, false, 27.0).x * uSurfaceGain.z
+                            : vMaterial < 3.5 ? (vLie > 0.5 ? laid(uWood, across.yx * 0.45, acrossX.yx * 0.45, acrossY.yx * 0.45, 0.44, false, 27.0, level ? 0.0 : 0.14).x
+                                    : laid(uWood, across * 0.45, acrossX * 0.45, acrossY * 0.45, 0.44, false, 27.0, level ? 0.0 : 0.14).x) * uSurfaceGain.z
                             : vMaterial < 6.5 ? dot(texture2DArray(uBark, vec3(across * vec2(1.6, 0.8), 0.0)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
-                            : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, acrossX * 0.7, acrossY * 0.7, 0.648, true, 42.0).x * uTimberGain.y
+                            : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, acrossX * 0.7, acrossY * 0.7, 0.648, true, 42.0, 0.14).x * uTimberGain.y
                             : dot(texture2D(uCarpet, across * 1.6).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.z;
                     float much = roofing ? 0.85 : vMaterial < 2.5 ? 0.3 : vMaterial < 3.5 ? 0.7 : 0.8;
                     // What is painted white is paint over the wood: its grain barely shows.
@@ -2866,7 +2882,7 @@ final class PipelineShaders {
                     mirrored.z = abs(mirrored.z);
                     float glance = 0.03 + 0.97 * pow(1.0 - clamp(dot(view, surface), 0.0, 1.0), 5.0);
                     vec3 shows;
-                    if (water && uWater.z > 0.0 && abs(uWater.w - dot(uWater.xyz, toEye)) < WATER_LEVEL_WITHIN) {
+                    if (water && uWater.z > 0.0) {
                         // The ripples a pixel cannot show are still there: each throws the eye's
                         // line a little higher or lower than level water would, and what the
                         // pixel shows is all of those at once, the far bank drawn out towards
@@ -2876,14 +2892,18 @@ final class PipelineShaders {
                         float drawn = ripple * dot(1.0 - kept, RIPPLES * vec3(0.5, 0.3, 0.2)) / dot(RIPPLES, vec3(0.5, 0.3, 0.2)) * WATER_STREAK;
                         vec2 toward = view.xy / max(length(view.xy), 1e-4);
                         float coarser = log2(max(4.0 * drawn / uPixel * 0.5 * uWaterShare / float(WATER_TAPS), 1.0));
-                        shows = vec3(0.0);
-                        for (int i = 0; i < WATER_TAPS; i++) {
-                            vec3 tipped = normalize(surface + vec3(toward * (drawn * ((float(i) + 0.5) * 2.0 / float(WATER_TAPS) - 1.0)), 0.0));
-                            vec3 thrown = reflect(-view, tipped);
-                            thrown.z = abs(thrown.z);
-                            shows += overWater(thrown * WATER_THROW - toEye, coarser);
+                        if (drawn > 0.0) {
+                            shows = vec3(0.0);
+                            for (int i = 0; i < WATER_TAPS; i++) {
+                                vec3 tipped = normalize(surface + vec3(toward * (drawn * ((float(i) + 0.5) * 2.0 / float(WATER_TAPS) - 1.0)), 0.0));
+                                vec3 thrown = reflect(-view, tipped);
+                                thrown.z = abs(thrown.z);
+                                shows += overWater(thrown * WATER_THROW - toEye, coarser);
+                            }
+                            shows /= float(WATER_TAPS);
+                        } else {
+                            shows = overWater(mirrored * WATER_THROW - toEye, 0.0);
                         }
-                        shows /= float(WATER_TAPS);
                     } else {
                         shows = ridges(mirrored, atmosphere(mirrored));
                     }
@@ -2939,8 +2959,8 @@ final class PipelineShaders {
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
                         : surface > 15.5 && surface < 16.5 && !pictured ? 0.55 : 0.0;
-                // Water shows the world by the picture drawn from under it, and is no mirror for the last pass to trace.
-                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(water ? 0.0 : shine, polish) * step(0.8, n.z), pane));
+                // Where water shows the world by the picture drawn from under it, it is no mirror for the last pass to trace.
+                gl_FragColor = vec4(color, sheet ? veil : uLaid > 0.5 ? texel.a * shown : 1.0 - uMirrors * max(max(water && uWater.z > 0.0 ? 0.0 : shine, polish) * step(0.8, n.z), pane));
             }
             """;
 
@@ -2986,8 +3006,8 @@ final class PipelineShaders {
                     gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
                     return;
                 }
-                // An overhead wire swings where the view has it: see swung.
-                if (material > 11.5 && material < 12.5) {
+                // An overhead wire swings where the view has it, and so does a bulb that hangs on a cord: see swung.
+                if (material > 11.5 && material < 12.5 || material > 81.5 && material < 82.5 || material > 13.5 && material < 14.5 && dot(gl_Normal, gl_Normal) > 1.004) {
                     // A wire keeps neither the sky's light nor the weather off what is under it,
                     // and that map is read at places tiles away from the one being lit: in it
                     // a thing as thin and high as a wire is cover over every place that reads

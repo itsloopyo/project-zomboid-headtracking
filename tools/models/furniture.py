@@ -2231,6 +2231,85 @@ def serving_counter():
     return model
 
 
+def shell(bm, outer, inner):
+    """A sheet with a thickness: two grids of points of the same shape, one for each side of it, closed round their edges."""
+    rows, cols = len(outer), len(outer[0])
+    sides = [[[bm.verts.new(point) for point in row] for row in grid] for grid in (outer, inner)]
+    for i in range(rows - 1):
+        for j in range(cols - 1):
+            for side in sides:
+                bm.faces.new((side[i][j], side[i][j + 1], side[i + 1][j + 1], side[i + 1][j]))
+    one, other = sides
+    for i in range(rows - 1):
+        for j in (0, cols - 1):
+            bm.faces.new((one[i][j], one[i + 1][j], other[i + 1][j], other[i][j]))
+    for j in range(cols - 1):
+        for i in (0, rows - 1):
+            bm.faces.new((one[i][j], one[i][j + 1], other[i][j + 1], other[i][j]))
+
+
+# A parasol's cloth: how thick it is, how many ribs hold it, and how many stripes lie between two ribs.
+PARASOL_CLOTH = 0.006
+PARASOL_RIBS = 8
+PARASOL_STRIPES = 4
+
+
+def parasol(name, profile, drop, scallop):
+    """A cafe parasol: a pole on a weighted foot, ribs and their stretchers, and a canopy of flat panels between the
+    ribs with a scalloped valance hung from its edge.
+
+    profile is the canopy's outline along a rib as (radius, height) from the hub out to the edge. The cloth is in
+    stripes that go by turns to two surfaces, so that the mod can give it one colour or two. drop is how far the
+    valance hangs at the ends of a scallop, and scallop how much further in the middle of one.
+    """
+    model = Model(name)
+    top, edge = profile[0][1], profile[-1][1]
+    reach = profile[-1][0]
+    ways = [(math.cos(2 * math.pi * k / PARASOL_RIBS), math.sin(2 * math.pi * k / PARASOL_RIBS)) for k in range(PARASOL_RIBS)]
+
+    def on(k, across, radius, z):
+        """A point of the panel after rib k: across is 0 at that rib and 1 at the next."""
+        (x0, y0), (x1, y1) = ways[k], ways[(k + 1) % PARASOL_RIBS]
+        return (radius * (x0 + (x1 - x0) * across), radius * (y0 + (y1 - y0) * across), z)
+
+    cloths = [bmesh.new(), bmesh.new()]
+    cuts = 4
+    for k in range(PARASOL_RIBS):
+        for stripe in range(PARASOL_STRIPES):
+            cloth = cloths[stripe % 2]
+            a, b = stripe / PARASOL_STRIPES, (stripe + 1) / PARASOL_STRIPES
+            shell(cloth, [[on(k, a, radius, z), on(k, b, radius, z)] for radius, z in profile],
+                  [[on(k, a, radius, z - PARASOL_CLOTH), on(k, b, radius, z - PARASOL_CLOTH)] for radius, z in profile])
+            hung, behind = [[], []], [[], []]
+            for cut in range(cuts + 1):
+                across = a + (b - a) * cut / cuts
+                low = edge - drop - scallop * math.sin(math.pi * cut / cuts)
+                hung[0].append(on(k, across, reach, edge))
+                hung[1].append(on(k, across, reach, low))
+                behind[0].append(on(k, across, reach - PARASOL_CLOTH, edge))
+                behind[1].append(on(k, across, reach - PARASOL_CLOTH, low))
+            shell(cloth, hung, behind)
+    model.plain(cloths[0], "cloth")
+    model.plain(cloths[1], "linen")
+
+    frame = bmesh.new()
+    lathe(frame, [(0.26, 0.0), (0.26, 0.045), (0.24, 0.06), (0.06, 0.075), (0.045, 0.2), (0.022, 0.2), (0.022, top + 0.03), (0.03, top + 0.04),
+                  (0.03, top + 0.07), (0.0, top + 0.1)], segments=16)
+    runner = edge - 0.12
+    lathe(frame, [(0.04, runner - 0.04), (0.04, runner + 0.04)], segments=12)
+    lathe(frame, [(0.045, top - 0.06), (0.045, profile[0][1] - PARASOL_CLOTH)], segments=12)
+    model.turned(frame, "metal")
+    ribs = bmesh.new()
+    for k, (x, y) in enumerate(ways):
+        for (r0, z0), (r1, z1) in zip(profile, profile[1:]):
+            prism(ribs, (x * r0, y * r0, 0.014, 0.014, z0 - PARASOL_CLOTH - 0.016), (x * (r1 - 0.01), y * (r1 - 0.01), 0.014, 0.014, z1 - PARASOL_CLOTH - 0.016))
+        # The stretcher from the runner on the pole to the middle of the rib.
+        middle = len(profile) // 2
+        prism(ribs, (x * 0.04, y * 0.04, 0.012, 0.012, runner), (x * profile[middle][0], y * profile[middle][0], 0.012, 0.012, profile[middle][1] - PARASOL_CLOTH - 0.03))
+    model.plain(ribs, "steel")
+    return model
+
+
 def range_hood():
     """A canopy hood over a cooker: a steel lip, a canopy whose front slopes back to a duct, and the duct going up
     to the ceiling. Its back, flat, is at +Y, and its foot is the lower edge of the lip: the mod hangs it over a hob."""
@@ -3406,7 +3485,9 @@ def every():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
-              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()] + indoors() + outdoors()
+              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
+              parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
+              parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + indoors() + outdoors()
 
 
 def main():

@@ -42,6 +42,7 @@ import zombie.iso.fboRenderChunk.FBORenderCutaways;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
+import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
@@ -161,6 +162,8 @@ final class WorldScene {
          * the least and the greatest x, y and height. Of no meaning for a build with no runs.
          */
         float minX, minY, minUp, maxX, maxY, maxUp;
+        /** Whether the chunk it was built of has water on it, as last asked of Terrain.holdsWater. */
+        boolean water;
         /**
          * How far past the box, along the map, the picture may draw a vertex of the runs: a card
          * that turns to the camera is held as its middle line, and each vertex says how far along
@@ -673,6 +676,10 @@ final class WorldScene {
     private static WeakReference<IsoCell> readIn = new WeakReference<>(null);
     /** How thick an overhead wire is drawn, in tiles: thicker than one is, or a street away it is finer than a pixel and comes and goes. */
     private static final float WIRE_THICK = 0.03f;
+    /** The least a vertex of what hangs on a cord is given as hanging below the line between the cord's supports, in tiles: the picture tells it from a lamp that stands by its hanging at all. */
+    private static final float HUNG_LEAST = 0.004f;
+    /** What hangs on a cord and gives no light: a bulb that is out, and a bulb's holder. The picture swings it with its cord and lights it as any plain thing. */
+    private static final float HUNG = 82f;
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
     /**
@@ -1428,6 +1435,10 @@ final class WorldScene {
         return wooden && isWall(properties, sprite.getType()) ? BOARDS : 0f;
     }
 
+    /** The sheet of floors for inside a house: its tiles and lino first, then from FIRST_WOOD its boards and parquet. */
+    private static final String TILES_AND_WOOD = "floors_interior_tilesandwood_01_";
+    private static final int FIRST_WOOD = 40;
+
     /** What a sprite's surface is made of, by the sheet it comes from. */
     private static float materialOf(String name, boolean isFloor) {
         if (name == null) {
@@ -1471,6 +1482,10 @@ final class WorldScene {
         }
         if (name.startsWith("furniture_seating_indoor") || name.startsWith("furniture_bedding") || name.startsWith("fixtures_windows_curtains")) {
             return CARPET;
+        }
+        // Another mod's sheet may take the name with something other than a number after it: that is no sprite of this sheet.
+        if (isFloor && name.startsWith(TILES_AND_WOOD) && name.length() > TILES_AND_WOOD.length() && name.chars().skip(TILES_AND_WOOD.length()).allMatch(Character::isDigit)) {
+            return Integer.parseInt(name, TILES_AND_WOOD.length(), name.length(), 10) < FIRST_WOOD ? TILE : WOOD;
         }
         if (isFloor && name.contains("tile") && !name.contains("wood")) {
             return TILE;
@@ -1718,6 +1733,8 @@ final class WorldScene {
 
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
     private static final float FIGURED_PAPER = 70f;
+    /** A floor of boards that run along y: the picture draws it as WOOD with its grain turned. */
+    private static final float WOOD_ALONG_Y = 71f;
 
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
@@ -2217,8 +2234,9 @@ final class WorldScene {
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
             if (Own.taken(view.index)) {
-                // A row of [Content] was switched: every build holds what the rows were.
+                // A row of [Content] was switched: every build holds what the rows were, and so does every roof read, which leaves a parasol out by its row.
                 forgetAll();
+                Roofs.forget();
             }
             if (crownedToSight != Quality.crownsToSight()) {
                 // Every build in the last band holds whether its trees were given crowns and boles.
@@ -2249,6 +2267,8 @@ final class WorldScene {
                 doorSpans.clear();
                 wires.clear();
                 Furniture.forget();
+                Parasols.forget();
+                Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();
                 Terrain.forget();
@@ -2781,7 +2801,8 @@ final class WorldScene {
                     }
                     current.users++;
                     shown.add(current);
-                    waterShown |= Terrain.holdsWater(chunk.wx, chunk.wy);
+                    current.water = Terrain.holdsWater(chunk.wx, chunk.wy);
+                    waterShown |= current.water;
                     ChunkMeshes crowned = latestCrowned[slot];
                     if (crowned != null && crowned.wx == chunk.wx && crowned.wy == chunk.wy) {
                         crowned.users++;
@@ -3425,6 +3446,10 @@ final class WorldScene {
                                 // which is another overlay sprite (IsoTelevision.updateTvScreen). It marks nothing for another channel or a tape.
                                 int showing = Screens.showing(set);
                                 level = sum(level, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
+                            }
+                            if (object instanceof IsoLightSwitch string && object.getSprite() != null && Lights.slice(object.getSprite()) != Lights.NONE) {
+                                // A string of lights that goes on or off: its bulbs are built burning or out.
+                                thing = sum(thing, burns(string) ? 6 : 5);
                             }
                             if (object instanceof IsoDoor door) {
                                 thing = sum(thing, door.IsOpen() ? 2 : 1);
@@ -4235,11 +4260,11 @@ final class WorldScene {
                 frame.material = materialOf(floor.getSprite().getName(), true);
             }
             geometry.kerbKeep = geometry.kerbStreet ? SpriteGeometry.LAND : SpriteGeometry.STREET;
-            int flat = Flats.of(texture, frame, Flats.FLOOR);
-            if (flat == 0 && Flats.unread(texture, Flats.FLOOR)) {
-                building.signed = false;
-            }
+            int flat = flatOf(texture, Flats.FLOOR, 0f, 0f, 0f);
             frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
+            if (frame.material == WOOD && Flats.alongY(flat)) {
+                frame.material = WOOD_ALONG_Y;
+            }
             geometry.addFace(solid.get(flat != 0 ? flat : texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.flat = 0;
             geometry.kerbKeep = SpriteGeometry.BOTH;
@@ -4836,6 +4861,130 @@ final class WorldScene {
             plain.sway = 0f;
         }
 
+        private final float[] lightSpan = new float[Spans.PIECE];
+
+
+        /**
+         * Whether a string of lights burns: it is switched on and has power. The game's own test
+         * for laying the lit sprite over the dark one, IsoLightSwitch.shouldShowOnOverlay, also
+         * asks that the viewer has seen the string's square, and a string behind a fence it hangs
+         * on has not been seen from the far side of that fence.
+         */
+        private boolean burns(IsoLightSwitch string) {
+            return string.isActivated() && (mainsOn || string.getSquare().haveElectricity());
+        }
+
+        /**
+         * Hangs the half of a swag of lights a sprite is, and says whether the sprite is thereby
+         * dealt with: see Lights. The cord is hung as an overhead wire is, in lengths that lie on
+         * the curve of its span, and swings as one; a bulb hangs under it wherever the sprites
+         * show one, and swings with the cord it hangs on.
+         *
+         * The bulbs burn when the string does: see burns. Burning, a bulb is the colour the lit
+         * sprite has it and fully lit, which in the dark is how the picture tells a lamp that is on.
+         */
+        private boolean addLights(IsoObject object, IsoSprite sprite, int x, int y, int z) {
+            int slice = Lights.slice(sprite);
+            if (slice == Lights.NONE) {
+                return false;
+            }
+            // What the game lays over the sprite, a stain, has no place on the cord.
+            if (overLayer > 0) {
+                return true;
+            }
+            building.plain = false;
+            Lights.span(slice, x, y, lightSpan);
+            int from = Spans.FROM, to = Spans.TO, kind = Lights.kind(slice);
+            float held = (z + Lights.HELD) * ViewCamera.LEVEL_HEIGHT, sag = Lights.SAG * ViewCamera.LEVEL_HEIGHT;
+            float fromUp = held + landAt(lightSpan[from], lightSpan[from + 1]), toUp = held + landAt(lightSpan[to], lightSpan[to + 1]);
+            float swing = Spans.swing(lightSpan, 0);
+            for (int length = 0; length < Lights.LENGTHS; length++) {
+                for (int end = 0; end < 2; end++) {
+                    float share = (length + end) / (float) Lights.LENGTHS;
+                    float endX = lightSpan[0] + (lightSpan[2] - lightSpan[0]) * share, endY = lightSpan[1] + (lightSpan[3] - lightSpan[1]) * share;
+                    float along = Spans.along(lightSpan, 0, endX, endY);
+                    wireHangs[end] = Spans.hangs(along, sag);
+                    set(wireEnds, end, endX, endY, fromUp + (toUp - fromUp) * along - wireHangs[end]);
+                }
+                cable(wireEnds[0], wireEnds[1], wireEnds[2], wireHangs[0], wireEnds[3], wireEnds[4], wireEnds[5], wireHangs[1], swing);
+            }
+            boolean burning = object instanceof IsoLightSwitch string && burns(string);
+            if (FirstPerson.TRACE) {
+                Log.info("lights: " + x + "," + y + "," + z + " " + sprite.getName() + " " + object.getClass().getSimpleName() + (burning ? " burning" : " out"));
+            }
+            float spanX = lightSpan[to] - lightSpan[from], spanY = lightSpan[to + 1] - lightSpan[from + 1];
+            float turned = Spans.acrossSign(-spanY, spanX) / Lights.SPAN, tells = 1.1f + 0.8f * swing;
+            float acrossX = -spanY * turned * tells, acrossY = spanX * turned * tells, size = Lights.size(kind);
+            float red = burning ? 1f : frame.red, green = burning ? 1f : frame.green, blue = burning ? 1f : frame.blue;
+            SpriteGeometry.Mesh holder = solid.get(PLAIN, WallSides.key(Lights.HOLDER_RED, Lights.HOLDER_GREEN, Lights.HOLDER_BLUE, WallSides.FLAT));
+            for (int bulb = 0; bulb < Lights.bulbs(kind); bulb++) {
+                if (!Lights.on(slice, bulb)) {
+                    continue;
+                }
+                float along = Lights.place(kind, bulb) / Lights.SPAN, hangs = Spans.hangs(along, sag);
+                float bulbX = lightSpan[from] + spanX * along, bulbY = lightSpan[from + 1] + spanY * along, up = fromUp + (toUp - fromUp) * along - hangs;
+                SpriteGeometry.Mesh glass = solid.get(PLAIN, WallSides.key(Lights.colour(kind, bulb, burning, 0), Lights.colour(kind, bulb, burning, 1),
+                        Lights.colour(kind, bulb, burning, 2), WallSides.FLAT));
+                hungRound(holder, HUNG, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.HOLDER, size, Lights.sides(kind), frame.red, frame.green, frame.blue);
+                hungRound(glass, burning ? LAMP : HUNG, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.GLASS, size, Lights.sides(kind), red, green, blue);
+            }
+            return true;
+        }
+
+        /**
+         * Adds a round thing that hangs under a cord and swings with it: turned about the plumb
+         * line under (x, y, up) to a profile of pairs, how far below the cord and how thick, in
+         * units of size. hangs is how far the cord hangs there below the line between its
+         * supports, and each vertex is that much and its own depth under the cord below the
+         * line, so the whole of it is carried round the line as the cord is: see swung in
+         * PipelineShaders. stuff is LAMP for glass that burns, and a lamp's vertex that hangs
+         * below a line is what the picture swings, or HUNG. across is what cable gives a cord's
+         * vertex where a texel's place would be, for the first corner.
+         */
+        private void hungRound(SpriteGeometry.Mesh mesh, float stuff, float x, float y, float up, float hangs, float acrossX, float acrossY, float[] profile, float size,
+                int sides, float red, float green, float blue) {
+            mesh.open = frame.open + 32f * stuff;
+            for (int ring = 0; ring + 3 < profile.length; ring += 2) {
+                float highDeep = profile[ring] * size, highWide = profile[ring + 1] * size, lowDeep = profile[ring + 2] * size, lowWide = profile[ring + 3] * size;
+                float drop = lowDeep - highDeep, swell = lowWide - highWide, slant = (float) Math.sqrt(drop * drop + swell * swell);
+                for (int side = 0; side < sides; side++) {
+                    double start = side * 2.0 * Math.PI / sides, stop = (side + 1) * 2.0 * Math.PI / sides;
+                    for (int corner = 0; corner < 6; corner++) {
+                        // Two triangles, as SpriteGeometry.addRound makes them: low from, low to, high to, then low from, high to, high from.
+                        boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
+                        float cos = (float) Math.cos(far ? stop : start), sin = (float) Math.sin(far ? stop : start);
+                        float deep = high ? highDeep : lowDeep, wide = high ? highWide : lowWide;
+                        mesh.face(cos * drop / slant, sin * drop / slant, swell / slant);
+                        mesh.sway = hangs + deep + HUNG_LEAST;
+                        mesh.add(x + cos * wide, y + sin * wide, up - deep, acrossX, acrossY, red, green, blue);
+                    }
+                }
+            }
+            mesh.sway = 0f;
+        }
+
+        /** Whether a string of lights is made fast at the north-west corner of a square, where its corner post stands. */
+        private boolean holdsLights(int x, int y, int z) {
+            for (int beside = 0; beside < 3; beside++) {
+                int alongX = beside == 1 ? -1 : 0, alongY = beside == 2 ? -1 : 0;
+                IsoGridSquare square = cell.getGridSquare(x + alongX, y + alongY, z);
+                if (square == null) {
+                    continue;
+                }
+                PZArrayList<IsoObject> objects = square.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    IsoSprite sprite = objects.get(i).getSprite();
+                    if (sprite != null) {
+                        int slice = Lights.slice(sprite);
+                        if (slice != Lights.NONE && Lights.fastAt(slice, alongX, alongY)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         private boolean spreads(int at, int own, int mine) {
             if (groundKind[at] != Terrain.NATURAL || lightOpen[at] != 1 || groundTexture[at] == null) {
                 return false;
@@ -5078,6 +5227,22 @@ final class WorldScene {
             }
             if (overLayer == 0 && Own.buildings() && (kind.rail != null && addRail(kind.rail, x, y, z)
                     || kind.flightPost && underAFlightsHead(x, y, z))) {
+                return;
+            }
+
+            if (Own.furniture() && addParasol(object, sprite, texture, properties, x, y, z)) {
+                return;
+            }
+
+            if (Own.furniture() && addLights(object, sprite, x, y, z)) {
+                return;
+            }
+
+            // A fence's corner post that a string of lights is made fast to. Stood as a wall's
+            // corner piece it is its picture on both edges of its square, two boards crossed,
+            // each twice as wide as the post and cut to the point the game's view draws its top as.
+            if (Own.furniture() && overLayer == 0 && properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("fencing_")
+                    && holdsLights(x, y, z) && addPost(mesh, object, sprite, texture, x, y, z)) {
                 return;
             }
 
@@ -5332,13 +5497,14 @@ final class WorldScene {
             // squares beside it: see Flats. Not water, which the picture moves, nor what is
             // painted over a floor.
             boolean floor = isFloor && overLayer == 0 && floorLayer == 0 && frame.kind == 0f;
-            int flat = floor ? Flats.of(texture, frame, Flats.FLOOR) : 0;
-            if (flat == 0 && floor && Flats.unread(texture, Flats.FLOOR)) {
-                building.signed = false;
-            }
+            int flat = floor ? flatOf(texture, Flats.FLOOR, 0f, 0f, 0f) : 0;
             frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             if (flat != 0) {
                 mesh = solid.get(flat);
+                // The grain the picture lays on a floor of boards runs the way the sprite's boards do.
+                if (frame.material == WOOD && Flats.alongY(flat)) {
+                    frame.material = WOOD_ALONG_Y;
+                }
             }
             if (floorLayer == 0 && z > lowestLevel) {
                 addCeiling(mesh, x, y, z);
@@ -6094,6 +6260,55 @@ final class WorldScene {
                     addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
                 }
             }
+            return true;
+        }
+
+        /**
+         * Stands the mod's model of a parasol where the map has the four quarters of a round
+         * canopy, and says whether this sprite is thereby dealt with: see Parasols. The south-east
+         * quarter stands the model, with its pole at the corner the four squares meet at, and the
+         * other three add nothing. Nor does the wall's corner post the map stands on the
+         * south-east square for a pole: the model has its own.
+         *
+         * False, which leaves the sprite to be drawn as it is, for a canopy with a quarter
+         * missing and for one whose south-east sprite has nothing painted where the cloth's
+         * colours are taken. Every quarter reaches the same answer.
+         */
+        private boolean addParasol(IsoObject object, IsoSprite sprite, Texture texture, PropertyContainer properties, int x, int y, int z) {
+            int quarter = Parasols.quarter(sprite);
+            // The pole is a post of a building's wall, on the south-east square. A fence's corner post there is the fence's.
+            if (quarter == Parasols.NONE && !(properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("walls_"))) {
+                return false;
+            }
+            int from = quarter == Parasols.NONE ? Parasols.SOUTH_EAST : quarter;
+            IsoObject front = Parasols.whole(cell, x - Parasols.ALONG_X[from], y - Parasols.ALONG_Y[from], z);
+            if (front == null) {
+                return false;
+            }
+            Texture cloth = front.getSprite().getTextureForCurrentFrame(front.getDir());
+            if (!usable(cloth)) {
+                return false;
+            }
+            dyeFrame.scale = frame.scale;
+            WorldScene.frameOf(dyeFrame, front, cloth);
+            if (!cloth.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, Parasols.FIRST_A, Parasols.FIRST_B)),
+                    Math.round(SpriteGeometry.frameV(dyeFrame, Parasols.FIRST_A, Parasols.FIRST_B, Parasols.CLOTH_HIGH)))
+                    || !cloth.isMaskSet(Math.round(SpriteGeometry.frameU(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B)),
+                            Math.round(SpriteGeometry.frameV(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B, Parasols.CLOTH_HIGH)))) {
+                return false;
+            }
+            if (object != front || overLayer > 0) {
+                return true;
+            }
+            building.plain = false;
+            // The corner the pole stands at is this square's north-west one.
+            float foot = z * ViewCamera.LEVEL_HEIGHT + geometry.lift[0];
+            placed.add(Models.get(Parasols.modelOf(properties.get("GroupName"))), frame, x, y, x, y, foot, 0, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE,
+                    cloth.getID(), 1 << Models.CLOTH, SpriteGeometry.textureU(dyeFrame, Parasols.FIRST_A, Parasols.FIRST_B),
+                    SpriteGeometry.textureV(dyeFrame, Parasols.FIRST_A, Parasols.FIRST_B, Parasols.CLOTH_HIGH),
+                    1 << Models.LINEN, SpriteGeometry.textureU(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B),
+                    SpriteGeometry.textureV(dyeFrame, Parasols.SECOND_A, Parasols.SECOND_B, Parasols.CLOTH_HIGH));
+            furnished++;
             return true;
         }
 
@@ -6939,6 +7154,20 @@ final class WorldScene {
         }
 
         /**
+         * The name of the picture of the sprite the frame holds, read as a floor, a wall or a
+         * roof on the plane given: see Flats. 0 for a sprite with none, and for one not yet
+         * read, which is drawn from its sprite in a build that is made again.
+         */
+        private int flatOf(Texture texture, int as, float high, float climbA, float climbB) {
+            int flat = Flats.of(texture, frame, as, high, climbA, climbB);
+            if (flat == Flats.PENDING) {
+                building.signed = false;
+                return 0;
+            }
+            return flat;
+        }
+
+        /**
          * The mesh a wall's skin goes in when it is to show the given sprite as the frame has
          * it: the mesh of the sprite stood square, with the frame told so, where the skin was
          * to go in the sprite's own mesh and is the wall itself. Any other mesh, one painted
@@ -6949,10 +7178,8 @@ final class WorldScene {
             if (overLayer != 0 || mesh.tint != 0 || mesh.texture != texture.getID()) {
                 return mesh;
             }
-            int as = north ? Flats.NORTH : Flats.WEST;
-            int stood = Flats.of(texture, frame, as);
+            int stood = flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
             if (stood == 0) {
-                building.signed &= !Flats.unread(texture, as);
                 return mesh;
             }
             frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
@@ -8148,9 +8375,8 @@ final class WorldScene {
          * does not paint the whole of the plane.
          */
         private SpriteGeometry.Mesh roofLaidFlat(SpriteGeometry.Mesh mesh, Texture texture, float high, float climbA, float climbB) {
-            int flat = Flats.of(texture, frame, Flats.ROOF, high, climbA, climbB);
+            int flat = flatOf(texture, Flats.ROOF, high, climbA, climbB);
             if (flat == 0) {
-                building.signed &= !Flats.unread(texture, Flats.ROOF);
                 return mesh;
             }
             frame.flat = SpriteGeometry.FLAT_FLOOR;

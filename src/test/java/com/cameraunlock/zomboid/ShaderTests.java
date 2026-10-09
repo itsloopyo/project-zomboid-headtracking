@@ -130,7 +130,7 @@ final class ShaderTests {
         if (vertex == null) {
             throw new AssertionError("no program is linked as \"shadow\"");
         }
-        String wire = "if (material > 11.5 && material < 12.5) {";
+        String wire = "if (material > 11.5 && material < 12.5 || material > 81.5 && material < 82.5 || material > 13.5 && material < 14.5 && dot(gl_Normal, gl_Normal) > 1.004) {";
         int at = vertex.indexOf(wire);
         if (at < 0 || vertex.indexOf(wire, at + 1) >= 0) {
             throw new AssertionError("the shadow vertex stage has not exactly one branch for an overhead wire");

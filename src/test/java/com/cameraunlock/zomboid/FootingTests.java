@@ -14,6 +14,8 @@ final class FootingTests {
         Checks.run("whatIsNotLoadedLeavesAThingUnsettled", FootingTests::whatIsNotLoadedLeavesAThingUnsettled);
         Checks.run("aThingTooLargeToLookOverKeepsEachBuildingWhole", FootingTests::aThingTooLargeToLookOverKeepsEachBuildingWhole);
         Checks.run("openGroundAndWhatIsApartFromABuildingAreNotIt", FootingTests::openGroundAndWhatIsApartFromABuildingAreNotIt);
+        Checks.run("whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt", FootingTests::whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt);
+        Checks.run("aRowDownAHillStandsAtTheFootingOfItsMiddle", FootingTests::aRowDownAHillStandsAtTheFootingOfItsMiddle);
         Checks.run("theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting);
         Checks.run("aStreetPastAStairIsStillLevelFromKerbToKerb", FootingTests::aStreetPastAStairIsStillLevelFromKerbToKerb);
         Checks.run("theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting);
@@ -23,22 +25,27 @@ final class FootingTests {
         Checks.check(condition, what);
     }
 
-    /** A map drawn in rows of text: '.' open, 's' built, a letter A to Z a building, '?' not loaded. Outside it is open. */
+    /** A map drawn in rows of text: '.' open, 's' built, 'h' hung over, a letter A to Z a building, '?' not loaded. Outside it is open. */
     private static final class Plan implements Footings.Site {
         final String[] rows;
         final HashMap<Character, Long> houses = new HashMap<>();
 
         Plan(String... rows) {
             this.rows = rows;
+            HashMap<Character, int[]> boxes = new HashMap<>();
             for (int y = 0; y < rows.length; y++) {
                 for (int x = 0; x < rows[y].length(); x++) {
                     char c = rows[y].charAt(x);
                     if (c >= 'A' && c <= 'Z') {
-                        // Any point will do for a building's middle, as long as it is the building's own.
-                        houses.putIfAbsent(c, Footings.key(100f + c, 200f + c));
+                        int[] box = boxes.computeIfAbsent(c, key -> new int[] {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE});
+                        box[0] = Math.min(box[0], x);
+                        box[1] = Math.min(box[1], y);
+                        box[2] = Math.max(box[2], x);
+                        box[3] = Math.max(box[3], y);
                     }
                 }
             }
+            boxes.forEach((c, box) -> houses.put(c, Footings.key((box[0] + box[2] + 1) / 2f, (box[1] + box[3] + 1) / 2f)));
         }
 
         private char at(int x, int y) {
@@ -48,7 +55,7 @@ final class FootingTests {
         @Override
         public byte over(int x, int y) {
             char c = at(x, y);
-            return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == '?' ? Footings.UNLOADED : Footings.HOUSE;
+            return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == 'h' ? Footings.HUNG : c == '?' ? Footings.UNLOADED : Footings.HOUSE;
         }
 
         @Override
@@ -60,6 +67,8 @@ final class FootingTests {
     private static final Footings footings = new Footings();
 
     private static long found(Plan plan, int x, int y) {
+        // Each plan is a map of its own at the same squares as the last.
+        footings.forget();
         footings.find(plan, x, y);
         return footings.found;
     }
@@ -95,7 +104,7 @@ final class FootingTests {
                 "..EE....");
         long first = found(row, 0, 0);
         check(first == found(row, 4, 1) && first == found(row, 7, 0), "a row of buildings that share walls is one thing with one footing");
-        check(first == row.houses.get('A') || first == row.houses.get('B') || first == row.houses.get('C'), "the row's footing is one of its own buildings'");
+        check(first == row.houses.get('B'), "the row's footing is that of the building in the middle of it");
         long pair = found(row, 0, 3);
         check(pair == found(row, 3, 5), "buildings that touch at a corner are one thing");
         check(pair != first, "a building across open ground is another thing");
@@ -142,18 +151,62 @@ final class FootingTests {
         }
         Plan halls = new Plan(rows);
         long west = halls.houses.get('A'), east = halls.houses.get('B');
+        Footings fresh = new Footings();
+        int[] asked = {0};
+        Footings.Site counted = new Footings.Site() {
+            @Override
+            public byte over(int x, int y) {
+                asked[0]++;
+                return halls.over(x, y);
+            }
+
+            @Override
+            public long house(int x, int y) {
+                return halls.house(x, y);
+            }
+        };
+        fresh.find(counted, side + 1, side / 2);
+        check(!fresh.whole && fresh.found == west, "the covered way between them stands with the hall nearest along it, before any hall was asked about");
+        fresh.find(counted, side + 2, side / 2);
+        check(!fresh.whole && fresh.found == east, "and its other end with the other hall");
+        int first = asked[0];
+        check(first > Footings.MOST, "the test's first searches looked a hall over, or they show nothing: " + first);
         for (int[] at : new int[][] {{0, 0}, {side - 1, side - 1}, {side / 2, side / 2}, {side - 1, side / 2}}) {
-            check(found(halls, at[0], at[1]) == west && !footings.whole, "every square of one hall has that hall's footing, from " + at[0] + ", " + at[1]);
+            fresh.find(counted, at[0], at[1]);
+            check(fresh.found == west && !fresh.whole, "every square of one hall has that hall's footing, from " + at[0] + ", " + at[1]);
         }
-        check(found(halls, side + 4, 0) == east && found(halls, 2 * side + 3, side - 1) == east, "and of the other hall, the other's");
-        long way = found(halls, side + 1, side / 2);
-        check(way == west || way == east, "the covered way between them stands with one of the halls");
+        fresh.find(counted, side + 4, 0);
+        check(fresh.found == east, "and of the other hall, the other's");
+        fresh.find(counted, 2 * side + 3, side - 1);
+        check(fresh.found == east, "to its far corner");
+        check(asked[0] - first < 2 * Footings.MOST * 9, "a thing found too large is not looked over again for each square of it: " + (asked[0] - first) + " squares asked about");
 
         String[] long1 = new String[3];
         char[] viaduct = new char[Footings.MOST + 10];
         Arrays.fill(viaduct, 's');
         Arrays.fill(long1, new String(viaduct));
         check(found(new Plan(long1), 5, 1) == Footings.NONE, "a viaduct with no building in it follows the land as its road does");
+    }
+
+    private static void whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt() {
+        Plan street = new Plan(
+                "AAA......",
+                "AAAh..h..",
+                "......h.s",
+                "........h");
+        check(found(street, 3, 1) == street.houses.get('A') && !footings.free, "a sign that hangs out from a building stands with the building");
+        check(found(street, 6, 1) == Footings.NONE && !footings.free && found(street, 6, 2) == Footings.NONE, "the head of a lamp on its pole is no made thing and goes by the land");
+        long canopy = found(street, 8, 3);
+        check(footings.free && canopy == found(street, 8, 2), "what hangs from a canopy stands with the canopy");
+    }
+
+    private static void aRowDownAHillStandsAtTheFootingOfItsMiddle() {
+        Plan row = new Plan("AABBCCDDEE.FF");
+        for (int x = 0; x < 10; x++) {
+            check(found(row, x, 0) == row.houses.get('C'), "from square " + x + " the row stands at the footing of the building in its middle");
+        }
+        Plan pair = new Plan("AABB");
+        check(found(pair, 0, 0) == found(pair, 3, 0), "two buildings as near the middle as each other give one answer whichever is asked");
     }
 
     private static void openGroundAndWhatIsApartFromABuildingAreNotIt() {

@@ -361,7 +361,7 @@ final class WindowTests {
     }
 
     private static void floorLaidFlatMeetsItselfAtTheSquaresEdge() {
-        byte[] dots = Flats.laid(diamond(WindowTests::diagonalTiles, 2f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f);
+        byte[] dots = Flats.laid(diamond(WindowTests::diagonalTiles, 2f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f, false);
         check(dots != null, "a diamond painted to its edges is a square of floor");
         int side = Flats.SIDE;
         float worst = 0f;
@@ -404,7 +404,7 @@ final class WindowTests {
                 tipped.put(at, (byte) Math.round(c[0] * 255f)).put(at + 1, (byte) Math.round(c[1] * 255f)).put(at + 2, (byte) Math.round(c[2] * 255f)).put(at + 3, (byte) 255);
             }
         }
-        byte[] slope = Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f);
+        byte[] slope = Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f, true);
         check(slope != null, "a tile of roof painted to its edges is laid flat on its slope");
         float off = 0f;
         for (int j = 8; j < side - 8; j++) {
@@ -413,10 +413,28 @@ final class WindowTests {
             }
         }
         check(off < 0.08f, "and each dot of it is the roof at its own place on the slope: off by " + off);
+        // The same tile cut along its diagonal by a hip: the half it paints is its picture and the other half is empty.
+        for (int y = 0; y < 32; y++) {
+            for (int x = 64; x < 128; x++) {
+                tipped.put((y * 128 + x) * 4 + 3, (byte) 0);
+            }
+        }
+        byte[] hip = Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f, true);
+        check(hip != null && hip[(96 * side + 32) * 4 + 3] != 0 && hip[(32 * side + 96) * 4 + 3] == 0, "a tile of roof cut by a hip has a picture of the half it paints");
+        check(Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f, false) == null, "and a floor painted by half is still no floor");
+        // Boards: bands eight dots wide, running along y and then along x.
+        byte[] boardsY = new byte[side * side * 4], boardsX = new byte[side * side * 4];
+        for (int j = 0; j < side; j++) {
+            for (int i = 0; i < side; i++) {
+                boardsY[(j * side + i) * 4] = (byte) (i / 8 % 2 * 200);
+                boardsX[(j * side + i) * 4] = (byte) (j / 8 % 2 * 200);
+            }
+        }
+        check(Flats.linedAlongY(boardsY) && !Flats.linedAlongY(boardsX) && !Flats.linedAlongY(dots), "boards that run along y are told from boards along x and from tiles");
     }
 
     private static void halfASquareIsNoFlatFloor() {
-        check(Flats.laid(diamond(WindowTests::diagonalTiles, 0.5f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f) == null,
+        check(Flats.laid(diamond(WindowTests::diagonalTiles, 0.5f), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f, false) == null,
                 "a sprite that paints half its square is left to its sprite");
     }
 
@@ -471,6 +489,49 @@ final class WindowTests {
         check(whole[(20 * all + rim) * 4] == dots[20 * wide * 4] && whole[(20 * all + rim - 1) * 4] == dots[(20 * wide + wide - 1) * 4]
                 && whole[(20 * all + all - 1) * 4] == dots[(20 * wide + rim - 1) * 4], "and the rim at each end is the wall's other end, which is the next length's");
         check(Flats.stood(sheet, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a sprite with nothing along the west edge is no wall there");
+        // A wall along the west edge runs the other way across its sprite. This one stops three dots short of its far end and
+        // eight short of its top, and its last tenth is a paler band, so what fills the gaps can be told from the rest.
+        java.nio.ByteBuffer west = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        for (int y = 0; y < 256; y++) {
+            for (int x = 3; x < 64; x++) {
+                float along = (64f - (x + 0.5f)) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
+                if (up < 0f || up > 1f - 8f / 192f) {
+                    continue;
+                }
+                byte shade = (byte) Math.round((courses(along, up) + (along > 0.9f ? 0.1f : 0f)) * 255f);
+                int at = (y * 128 + x) * 4;
+                west.put(at, shade).put(at + 1, shade).put(at + 2, shade).put(at + 3, (byte) 255);
+            }
+        }
+        byte[] stood = Flats.stood(west, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        check(stood != null, "a wall painted along the west edge is a wall");
+        float westOff = 0f;
+        for (int j = 12; j < high - 4; j++) {
+            for (int i = 0; i < wide - 4; i++) {
+                float along = (i + 0.5f) / wide, up = 1f - (j + 0.5f) / high, inCourse = up * 8f - (float) Math.floor(up * 8f);
+                if (inCourse > 0.15f && inCourse < 0.85f && Math.abs(along - 0.33f) > 0.04f && Math.abs(along - 0.9f) > 0.03f) {
+                    westOff = Math.max(westOff, Math.abs((stood[(j * wide + i) * 4] & 0xff) / 255f - courses(along, up) - (along > 0.9f ? 0.1f : 0f)));
+                }
+            }
+        }
+        check(westOff < 0.02f, "a west wall's start is the square's corner and its joint is where the sprite has it: off by " + westOff);
+        int mid = (100 * wide + wide - 1) * 4;
+        float midUp = 1f - 100.5f / high;
+        check((stood[mid + 3] & 0xff) == 255 && Math.abs((stood[mid] & 0xff) / 255f - courses(0.95f, midUp) - 0.1f) < 0.02f, "the end the sprite stops short of is filled solid with the wall's last dots");
+        int topDot = 40 * 4;
+        check((stood[topDot + 3] & 0xff) == 255 && Math.abs((stood[topDot] & 0xff) / 255f - courses(0.6f, 1f - 10f / 192f)) < 0.02f, "and the top it stops short of with its top course");
+        // The same wall with glass in its window is a glazed wall, and is left to its sprite.
+        java.nio.ByteBuffer glazed = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        glazed.put(sheet.duplicate().rewind()).rewind();
+        for (int y = 0; y < 256; y++) {
+            for (int x = 64; x < 125; x++) {
+                float along = (x + 0.5f - 64f) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
+                if (along > 0.3f && along < 0.6f && up > 0.3f && up < 0.7f) {
+                    glazed.put((y * 128 + x) * 4 + 3, (byte) 110);
+                }
+            }
+        }
+        check(Flats.stood(glazed, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a wall with a pane of glass in it has no picture");
         // A fence of pickets with gaps of all sorts at its ends, row by row, is left as painted.
         java.nio.ByteBuffer pickets = java.nio.ByteBuffer.allocate(128 * 256 * 4);
         for (int y = 0; y < 256; y++) {
