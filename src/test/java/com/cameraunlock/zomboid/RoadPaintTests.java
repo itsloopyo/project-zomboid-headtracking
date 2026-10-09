@@ -2,6 +2,8 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Tests of what a painted road line is read as: PaintFit's outline of a sprite laid flat, and RoadPaint's laying of it. */
 final class RoadPaintTests {
@@ -29,6 +31,11 @@ final class RoadPaintTests {
         Checks.run("onlyMarkingsAreRead", RoadPaintTests::onlyMarkingsAreRead);
         Checks.run("everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints", RoadPaintTests::everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints);
         Checks.run("aReadingAgreesWithItsOwnDotsAndNotWithAnothers", RoadPaintTests::aReadingAgreesWithItsOwnDotsAndNotWithAnothers);
+        Checks.run("aCurvedLineIsPaintedRightAcrossItsMiddle", RoadPaintTests::aCurvedLineIsPaintedRightAcrossItsMiddle);
+        Checks.run("aCurvedLineIsLaidAsItCurves", RoadPaintTests::aCurvedLineIsLaidAsItCurves);
+        Checks.run("aLineDrawnALittleOffAWayIsLaidExactlyInIt", RoadPaintTests::aLineDrawnALittleOffAWayIsLaidExactlyInIt);
+        Checks.run("linesDrawnInTheSpritesDiamondAreLaidWhereTheyPaint", RoadPaintTests::linesDrawnInTheSpritesDiamondAreLaidWhereTheyPaint);
+        Checks.run("whatIsDrawnPastTheStaircaseIsKept", RoadPaintTests::whatIsDrawnPastTheStaircaseIsKept);
     }
 
     private static void check(boolean condition, String what) {
@@ -91,39 +98,211 @@ final class RoadPaintTests {
      * dot of its outline, where the fit straightens a stair.
      */
     private static void everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints() {
-        java.util.Map<String, Painted> kinds = new java.util.LinkedHashMap<>();
+        Map<String, Painted> kinds = new LinkedHashMap<>();
         kinds.put("a corner of an edge line", (x, y) -> y > 0 && y < 60 && x > 40 && x < 54 || y > 46 && y < 60 && x > 40 && x < SIDE);
         kinds.put("a tee of an arrow's shaft", (x, y) -> y > 0 && y < SIDE && x > 57 && x < 71 || y > 57 && y < 71 && x > 57 && x < SIDE);
         kinds.put("a broad crossing rung", (x, y) -> y > 30 && y < 98 && x > 0 && x < SIDE);
         kinds.put("an arrowhead", (x, y) -> y > 20 && y < 100 && Math.abs(x - 64) < (y - 20) * 0.5);
-        for (java.util.Map.Entry<String, Painted> kind : kinds.entrySet()) {
-            Painted painted = kind.getValue();
+        laidAsPainted(kinds, 1.0, 300);
+    }
+
+    /**
+     * Each shape is read and is laid where its sprite paints and nowhere else, at every dot at
+     * least clear dots from its outline (nearer, the fit straightens a stair), and has more
+     * than least such dots of paint to look at.
+     */
+    private static void laidAsPainted(Map<String, Painted> shapes, double clear, int least) {
+        for (Map.Entry<String, Painted> shape : shapes.entrySet()) {
+            laidAsPainted(shape.getKey(), shape.getValue(), PaintFit.triangles(cover(shape.getValue()), SIDE, MARGIN), clear, least);
+        }
+    }
+
+    private static void laidAsPainted(String what, Painted painted, float[] triangles, double clear, int least) {
+        check(triangles != null, what + " is read");
+        if (triangles == null) {
+            return;
+        }
+        int wrong = 0, inPaint = 0;
+        for (int i = 0; i < SIDE; i++) {
+            for (int j = 0; j < SIDE; j++) {
+                double x = i + 0.5, y = j + 0.5;
+                boolean paint = painted.at(x, y);
+                boolean same = true;
+                for (int k = 0; k < 8 && same; k++) {
+                    same = painted.at(x + clear * Math.cos(k * Math.PI / 4), y + clear * Math.sin(k * Math.PI / 4)) == paint;
+                }
+                if (!same) {
+                    continue;
+                }
+                inPaint += paint ? 1 : 0;
+                wrong += inside(triangles, x / SIDE, y / SIDE) != paint ? 1 : 0;
+            }
+        }
+        check(inPaint > least, what + " has paint to look at: " + inPaint + " dots");
+        check(wrong == 0, what + " is laid where its sprite paints and not where it does not, " + clear + " dots or more from its outline: " + wrong + " dots wrong");
+    }
+
+    /**
+     * The arc of a court's line, and a curved line on a diagonal road: every dot a dot and a
+     * half or more inside the paint is under the paint laid, with no slit of road down the middle.
+     */
+    private static void aCurvedLineIsPaintedRightAcrossItsMiddle() {
+        double[][] arcs = {{0, 0, 96, 104}, {-150, -150, 246, 254}};
+        for (double[] arc : arcs) {
+            Painted painted = (x, y) -> {
+                double r = Math.hypot(x - arc[0], y - arc[1]);
+                return r > arc[2] && r < arc[3] && x > 0 && y > 0 && x < SIDE && y < SIDE;
+            };
             float[] triangles = PaintFit.triangles(cover(painted), SIDE, MARGIN);
-            check(triangles != null, kind.getKey() + " is read");
+            check(triangles != null, "a line curved round " + arc[2] + " dots is read");
             if (triangles == null) {
                 continue;
             }
-            int wrong = 0, inPaint = 0;
-            for (int i = 0; i < SIDE; i++) {
-                for (int j = 0; j < SIDE; j++) {
-                    double x = i + 0.5, y = j + 0.5;
-                    boolean paint = painted.at(x, y);
-                    boolean clear = paint;
-                    for (int k = 0; k < 8 && clear == paint; k++) {
-                        clear = painted.at(x + Math.cos(k * Math.PI / 4), y + Math.sin(k * Math.PI / 4));
-                    }
-                    if (clear != paint) {
-                        continue;
-                    }
-                    inPaint += paint ? 1 : 0;
-                    if (inside(triangles, x / SIDE, y / SIDE) != paint) {
-                        wrong++;
+            int bare = 0, deep = 0;
+            for (int i = 1; i < SIDE; i++) {
+                for (int j = 1; j < SIDE; j++) {
+                    double x = i + 0.5, y = j + 0.5, r = Math.hypot(x - arc[0], y - arc[1]);
+                    if (r > arc[2] + 1.5 && r < arc[3] - 1.5) {
+                        deep++;
+                        bare += inside(triangles, x / SIDE, y / SIDE) ? 0 : 1;
                     }
                 }
             }
-            check(inPaint > 300, kind.getKey() + " has paint to look at: " + inPaint + " dots");
-            check(wrong == 0, kind.getKey() + " is laid where its sprite paints and not where it does not, a dot or more from its outline: " + wrong + " dots wrong");
+            check(deep > 300 && bare == 0, "every dot of a line curved round " + arc[2] + " dots that is well inside its paint is painted: " + bare + " of " + deep + " are bare");
         }
+    }
+
+    /**
+     * Court arcs and curved lines of other radii, centred on the square's corner, past its side
+     * and past its corner: each laid where it paints, so a curve is neither cut short at its
+     * ends nor left with corners where it is rounded.
+     */
+    private static void aCurvedLineIsLaidAsItCurves() {
+        double[][] arcs = {{0, 0, 30, 36}, {0, 0, 60, 68}, {0, 0, 96, 104}, {SIDE, 0, 50, 62}, {64, -40, 70, 78}, {-150, -150, 246, 254}};
+        Map<String, Painted> curves = new LinkedHashMap<>();
+        for (double[] arc : arcs) {
+            curves.put("a line curved round " + arc[2] + " dots from " + arc[0] + ", " + arc[1], (x, y) -> {
+                double r = Math.hypot(x - arc[0], y - arc[1]);
+                return r > arc[2] && r < arc[3] && x > 0 && y > 0 && x < SIDE && y < SIDE;
+            });
+        }
+        laidAsPainted(curves, 1.0, 150);
+    }
+
+    /**
+     * A line drawn half a degree off one of the directions lines are laid in, each way round:
+     * along, across, the diagonals and one square over for two along. Its sides are laid
+     * exactly in that direction, each a whole number of dots from the square's corner as that
+     * direction counts them, so that every square holding a length of the line lays it on the
+     * same two lines.
+     */
+    private static void aLineDrawnALittleOffAWayIsLaidExactlyInIt() {
+        int[][] ways = {{1, 0}, {0, 1}, {1, 1}, {1, -1}, {2, 1}, {1, 2}, {2, -1}, {1, -2}};
+        for (int[] way : ways) {
+            double drawn = Math.atan2(way[1], way[0]) + 0.008, along = Math.cos(drawn), across = Math.sin(drawn);
+            float[] triangles = PaintFit.triangles(cover((x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && Math.abs((y - 64) * along - (x - 64) * across) < 7), SIDE, MARGIN);
+            String what = "a line drawn half a degree off " + way[0] + " along for " + way[1] + " across";
+            check(triangles != null, what + " is read");
+            if (triangles == null) {
+                continue;
+            }
+            double length = Math.hypot(way[0], way[1]), nx = way[1] / length, ny = -way[0] / length;
+            double low = Double.MAX_VALUE, high = -Double.MAX_VALUE;
+            for (int at = 0; at < triangles.length; at += PaintFit.CORNER) {
+                if (triangles[at + 2] == 0f) {
+                    double out = (nx * triangles[at] + ny * triangles[at + 1]) * SIDE;
+                    low = Math.min(low, out);
+                    high = Math.max(high, out);
+                }
+            }
+            for (int at = 0; at < triangles.length; at += PaintFit.CORNER) {
+                if (triangles[at + 2] == 0f) {
+                    double out = (nx * triangles[at] + ny * triangles[at + 1]) * SIDE;
+                    check(Math.min(out - low, high - out) < 0.01, what + ": every corner of its outline is on one of its two sides, laid in that direction: " + out + " is between " + low + " and " + high);
+                    near(out * length, Math.rint(out * length), 0.01, what + ": a side is a whole number of dots from the square's corner as the direction counts them");
+                }
+            }
+            near(high - low, 14.0, 0.5, what + ": as wide as it was drawn");
+        }
+    }
+
+    /**
+     * The game draws a line in the dots of its sprite's diamond, and laid flat the line's
+     * edges are a staircase. Along, across and one square over for two along, a line that stops
+     * in its square, and a line at a slant no line is laid at, are each laid where they paint
+     * with the staircase straightened.
+     */
+    private static void linesDrawnInTheSpritesDiamondAreLaidWhereTheyPaint() {
+        Map<String, Painted> lines = new LinkedHashMap<>();
+        lines.put("a line along the map sixteen dots wide", line(1, 0, 16, 0));
+        lines.put("a line one over for two along sixteen dots wide, off the middle", line(2, 1, 16, 23.7));
+        lines.put("a line across the map twelve dots wide", line(0, 1, 12, 0));
+        lines.put("a line along the map eight dots wide, off the middle", line(1, 0, 8, 5.3));
+        for (Map.Entry<String, Painted> one : lines.entrySet()) {
+            laidAsPainted(one.getKey(), one.getValue(), PaintFit.triangles(drawnInTheDiamond(one.getValue()), SIDE, MARGIN), 1.0, 300);
+        }
+        Painted narrow = line(2, 1, 12, 0), wide = line(2, 1, 16, 5.3);
+        Painted stops = (x, y) -> narrow.at(x, y) && (x - 64) * 2 + (y - 64) < 40 * Math.sqrt(5), stopsSooner = (x, y) -> wide.at(x, y) && (x - 64) * 2 + (y - 64) < 15 * Math.sqrt(5);
+        laidAsPainted("a line one over for two along that stops in its square", stops, PaintFit.triangles(drawnInTheDiamond(stops), SIDE, MARGIN), 1.0, 300);
+        laidAsPainted("a wider one, off the middle, that stops sooner", stopsSooner, PaintFit.triangles(drawnInTheDiamond(stopsSooner), SIDE, MARGIN), 1.0, 300);
+        double slant = Math.toRadians(35), along = Math.cos(slant), across = Math.sin(slant);
+        Painted slanted = (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && Math.abs((y - 64) * along - (x - 64) * across) < 6;
+        float[] triangles = PaintFit.triangles(drawnInTheDiamond(slanted), SIDE, MARGIN);
+        laidAsPainted("a line at a slant of 35 degrees", slanted, triangles, 1.0, 300);
+        int bends = 0;
+        for (int at = 0; triangles != null && at < triangles.length; at += PaintFit.CORNER) {
+            double x = triangles[at] * SIDE, y = triangles[at + 1] * SIDE;
+            bends += triangles[at + 2] == 0f && x > 3 && y > 3 && x < SIDE - 3 && y < SIDE - 3 ? 1 : 0;
+        }
+        check(bends == 0, "and its sides are straight, with no corner but where it leaves its square: " + bends + " corners");
+    }
+
+    /** A straight line in the direction whole steps along and across give, wide dots wide, its middle off dots to one side of the square's. */
+    private static Painted line(int along, int across, double wide, double off) {
+        double length = Math.hypot(along, across), ux = along / length, uy = across / length;
+        return (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && Math.abs((y - 64) * ux - (x - 64) * uy - off) < wide / 2;
+    }
+
+    /**
+     * What is painted, drawn as the game draws a square's sprite at its doubled scale: 128 by
+     * 64 dots, each of paint or of none, the square's corner at the top middle, so that the
+     * middle of the dot at x and y lies (x + 0.5 - 63) / 64 tiles further along the square's x
+     * than its y, and (y + 0.5) / 32 along the two together, as RoadPaint.laidFlat reads it.
+     * Read back laid flat.
+     */
+    private static float[] drawnInTheDiamond(Painted painted) {
+        int wide = 128, high = 64;
+        ByteBuffer sheet = ByteBuffer.allocate(wide * high * 4);
+        for (int y = 0; y < high; y++) {
+            for (int x = 0; x < wide; x++) {
+                double apart = (x + 0.5 - 63) / 64.0, together = (y + 0.5) / 32.0;
+                if (painted.at((together + apart) / 2 * SIDE, (together - apart) / 2 * SIDE)) {
+                    int place = (y * wide + x) * 4;
+                    sheet.put(place, (byte) 220).put(place + 1, (byte) 220).put(place + 2, (byte) 220).put(place + 3, (byte) 255);
+                }
+            }
+        }
+        return RoadPaint.laidFlat(sheet, wide, 0, 0, wide, high, 64f, 0f, 2f, 0f, 0f, wide, high, new float[4]);
+    }
+
+    /**
+     * What the fit takes out is the staircase of the sprite's diamond and the rounding the
+     * softened dots give a corner, and no more: a tab standing proud of a bar's end, a corner
+     * cut off a bar, the end of a line where it runs out across its square's corner, and a
+     * dent in a slanted line's edge are each laid as they are painted.
+     */
+    private static void whatIsDrawnPastTheStaircaseIsKept() {
+        Map<String, Painted> shapes = new LinkedHashMap<>();
+        shapes.put("a bar with a tab three dots high on its end", (x, y) -> y > 0 && x > 50 && x < 78 && (y < 70 || x > 70 && y < 73));
+        shapes.put("a bar with a tab two dots high on its end", (x, y) -> y > 0 && x > 50 && x < 78 && (y < 70 || x > 70 && y < 72));
+        shapes.put("a bar with a corner cut off four dots back", (x, y) -> y > 0 && x > 50 && x < 78 && y < 70 && x + y < 144);
+        shapes.put("a diagonal line running out across its square's corner", (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && x - y > 108 && x - y < 122);
+        double slant = Math.toRadians(13), along = Math.cos(slant), across = Math.sin(slant);
+        shapes.put("a slanted line with a dent two and a half dots deep in its edge", (x, y) -> {
+            double u = (x - 64) * along + (y - 64) * across, v = (y - 64) * along - (x - 64) * across;
+            return x > 0 && y > 0 && x < SIDE && y < SIDE && Math.abs(v) < 7 && !(v > 4.5 && Math.abs(u - 10) < 5);
+        });
+        laidAsPainted(shapes, 1.0, 100);
     }
 
     /** What decides whether a reading is used or the sprite drawn as it is: how many of the dots either paints both paint. */
@@ -323,6 +502,8 @@ final class RoadPaintTests {
             (x, y) -> x > 2 && x < 16 && y > 2 && y < SIDE || y > 2 && y < 16 && x > 2 && x < SIDE,
             (x, y) -> x > 34 && x < 64 && y > 4 && y < SIDE || y > 4 && y < 18 && x > 34 && x < SIDE,
             (x, y) -> x > 0 && Math.abs(y - 64) < 30 - x,
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && Math.hypot(x, y) > 60 && Math.hypot(x, y) < 68,
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && Math.hypot(x + 150, y + 150) > 246 && Math.hypot(x + 150, y + 150) < 254,
         };
         for (int which = 0; which < shapes.length; which++) {
             float[] triangles = PaintFit.triangles(cover(shapes[which]), SIDE, MARGIN);

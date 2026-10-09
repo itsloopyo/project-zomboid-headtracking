@@ -445,7 +445,8 @@ final class PaintFit {
      * Takes out of an outline the short lengths that lie between two long straight ones and
      * keep close to them: the two then meet in a corner of their own. The sprite's diamond is
      * a staircase with a blunt end, and where a line runs into it the line's corner is a dot
-     * or two out of true.
+     * or two out of true. Not where the two lines cross further off than a corner is made
+     * (FAR_CORNER): that is the end of a curve, which would be cut off with the short lengths.
      */
     private static void ownCorners(double[] loop, int count, ArrayList<Edge> edges) {
         for (int k = 0; k < edges.size() && edges.size() > 3; k++) {
@@ -465,7 +466,15 @@ final class PaintFit {
                 run += length(loop, next);
                 chain++;
             }
-            if (after == null || chain == 0 || run >= CORNER_LONGEST || Math.abs(before.nx * after.ny - before.ny * after.nx) < CROSSING) {
+            if (after == null || chain == 0 || run >= CORNER_LONGEST) {
+                continue;
+            }
+            double det = before.nx * after.ny - before.ny * after.nx;
+            if (Math.abs(det) < CROSSING) {
+                continue;
+            }
+            double crossX = (before.c * after.ny - after.c * before.ny) / det, crossY = (before.nx * after.c - after.nx * before.c) / det;
+            if (Math.hypot(crossX - loop[after.from * 2], crossY - loop[after.from * 2 + 1]) > FAR_CORNER) {
                 continue;
             }
             boolean close = true;
@@ -960,23 +969,36 @@ final class PaintFit {
      * an ear at a time. A stripe, a bar and a triangle leave nothing, their bands meeting along
      * the middle, and what they leave is a line gone over twice, which has ears that are no
      * part of it, or are paint a band has covered already: a coat laid twice is twice as thick.
-     * Where no ear is left to cut the rest is left out.
+     * On a curve the two sides' bands do not meet exactly, and pass each other where the paint
+     * is a little thinner than elsewhere: what is left there crosses itself and has no ear to
+     * cut until it is cut in two where it crosses, each part then cut as the whole was. Where
+     * the bands overlap an ear lies under them and is not added. Where no ear is left to cut and
+     * nothing crosses, the rest is left out.
      */
     private static void fill(double[] corners, boolean[] open, double[] inner, int count, double half, double thick, Out out) {
-        int[] left = new int[count];
+        double[] points = new double[count * 2];
         int size = 0;
         for (int k = 0; k < count; k++) {
-            int before = size == 0 ? -1 : left[size - 1];
-            if (before >= 0 && Math.hypot(inner[k * 2] - inner[before * 2], inner[k * 2 + 1] - inner[before * 2 + 1]) < 1e-3) {
+            if (size > 0 && Math.hypot(inner[k * 2] - points[size * 2 - 2], inner[k * 2 + 1] - points[size * 2 - 1]) < 1e-3) {
                 continue;
             }
-            left[size++] = k;
+            points[size * 2] = inner[k * 2];
+            points[size * 2 + 1] = inner[k * 2 + 1];
+            size++;
+        }
+        ears(points, size, corners, count, open, half, thick, out);
+    }
+
+    private static void ears(double[] points, int size, double[] corners, int count, boolean[] open, double half, double thick, Out out) {
+        int[] left = new int[size];
+        for (int k = 0; k < size; k++) {
+            left[k] = k;
         }
         while (size >= 3) {
             boolean cut = false;
             for (int k = 0; k < size && !cut; k++) {
                 int a = left[(k + size - 1) % size], b = left[k], d = left[(k + 1) % size];
-                double ax = inner[a * 2], ay = inner[a * 2 + 1], bx = inner[b * 2], by = inner[b * 2 + 1], dx = inner[d * 2], dy = inner[d * 2 + 1];
+                double ax = points[a * 2], ay = points[a * 2 + 1], bx = points[b * 2], by = points[b * 2 + 1], dx = points[d * 2], dy = points[d * 2 + 1];
                 double turn = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
                 if (turn < -1e-9) {
                     continue;
@@ -987,7 +1009,7 @@ final class PaintFit {
                     if (p == a || p == b || p == d) {
                         continue;
                     }
-                    double px = inner[p * 2], py = inner[p * 2 + 1];
+                    double px = points[p * 2], py = points[p * 2 + 1];
                     double one = (bx - ax) * (py - ay) - (by - ay) * (px - ax), two = (dx - bx) * (py - by) - (dy - by) * (px - bx), three = (ax - dx) * (py - dy) - (ay - dy) * (px - dx);
                     clear = !(one > 1e-9 && two > 1e-9 && three > 1e-9);
                 }
@@ -1008,6 +1030,43 @@ final class PaintFit {
                 cut = true;
             }
             if (!cut) {
+                splitWhereItCrosses(points, left, size, corners, count, open, half, thick, out);
+                return;
+            }
+        }
+    }
+
+    /** Cuts a loop of points with no ear left in two where two of its lengths cross, and cuts the ears of each part. */
+    private static void splitWhereItCrosses(double[] points, int[] left, int size, double[] corners, int count, boolean[] open, double half, double thick, Out out) {
+        for (int i = 0; i < size; i++) {
+            double ax = points[left[i] * 2], ay = points[left[i] * 2 + 1];
+            double ex = points[left[(i + 1) % size] * 2] - ax, ey = points[left[(i + 1) % size] * 2 + 1] - ay;
+            for (int j = i + 2; j < size && (j + 1) % size != i; j++) {
+                double bx = points[left[j] * 2], by = points[left[j] * 2 + 1];
+                double fx = points[left[(j + 1) % size] * 2] - bx, fy = points[left[(j + 1) % size] * 2 + 1] - by;
+                double one = ex * (by - ay) - ey * (bx - ax), two = ex * (by + fy - ay) - ey * (bx + fx - ax);
+                double three = fx * (ay - by) - fy * (ax - bx), four = fx * (ay + ey - by) - fy * (ax + ex - bx);
+                if (!(one * two < 0.0 && Math.abs(one) > 1e-9 && Math.abs(two) > 1e-9 && three * four < 0.0 && Math.abs(three) > 1e-9 && Math.abs(four) > 1e-9)) {
+                    continue;
+                }
+                double t = one / (one - two), crossX = bx + fx * t, crossY = by + fy * t;
+                int first = j - i, second = size - first;
+                double[] part = new double[(first + 1) * 2], rest = new double[(second + 1) * 2];
+                for (int k = 0; k < first; k++) {
+                    part[k * 2] = points[left[i + 1 + k] * 2];
+                    part[k * 2 + 1] = points[left[i + 1 + k] * 2 + 1];
+                }
+                part[first * 2] = crossX;
+                part[first * 2 + 1] = crossY;
+                for (int k = 0; k < second; k++) {
+                    int p = left[(j + 1 + k) % size];
+                    rest[k * 2] = points[p * 2];
+                    rest[k * 2 + 1] = points[p * 2 + 1];
+                }
+                rest[second * 2] = crossX;
+                rest[second * 2 + 1] = crossY;
+                ears(part, first + 1, corners, count, open, half, thick, out);
+                ears(rest, second + 1, corners, count, open, half, thick, out);
                 return;
             }
         }
