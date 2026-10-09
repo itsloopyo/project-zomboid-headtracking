@@ -3998,15 +3998,21 @@ def sack_barrier():
     return model
 
 
-def log_stack(name, rows):
-    """Logs stacked along y, each row one fewer than the row under it and lying in its hollows: bark, and the pale wood of the sawn ends."""
+# How high one layer of a stack of logs is, in metres: the game paints a layer laid on another this far up, whether it is of five logs or six.
+LOG_LAYER = 34 / 192 * 2.45
+
+
+def log_stack(name, rows, shifts=None, radius=None, half=0.92):
+    """Logs stacked along y, each row lying in the hollows of the row under it, moved along by shifts[row] radii: bark, and the pale
+    wood of the sawn ends. Unless a radius is given the logs are as thick as makes the stack a layer high."""
     model = Model(name)
-    radius, half = 0.13, 0.92
+    if radius is None:
+        radius = LOG_LAYER / (2 + (len(rows) - 1) * math.sqrt(3))
     bark, ends = bmesh.new(), bmesh.new()
     random.seed(len(name))
     for row, count in enumerate(rows):
         for n in range(count):
-            x = (n - (count - 1) / 2) * 2 * radius
+            x = (n - (count - 1) / 2 + (shifts[row] if shifts else 0) / 2) * 2 * radius
             z = radius + row * radius * math.sqrt(3)
             # No two logs are sawn to one length.
             front, back = -half + random.uniform(0.0, 0.07), half - random.uniform(0.0, 0.07)
@@ -4019,6 +4025,605 @@ def log_stack(name, rows):
     model.turned(bark, "dark_wood")
     model.plain(ends, "wood")
     return model
+
+
+def log_bundle():
+    """A load of long logs lying along y, three rows of three, each row in the hollows of the one under it, with two steel straps round
+    the lot: three squares long and two across."""
+    rows, shifts, radius, half = (3, 3, 3), (0, 1, 0), 0.26, 1.42
+    model = log_stack("log_bundle", rows, shifts, radius, half)
+    centres = [((n - (count - 1) / 2 + shifts[row] / 2) * 2 * radius, radius + row * radius * math.sqrt(3))
+               for row, count in enumerate(rows) for n in range(count)]
+    # The strap runs round the outermost logs: the hull of their outlines, a little out from the bark.
+    points = [(x + (radius + 0.004) * math.cos(2 * math.pi * k / 24), z + (radius + 0.004) * math.sin(2 * math.pi * k / 24)) for x, z in centres for k in range(24)]
+    points.sort()
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for point in points:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+    for point in reversed(points):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], point) <= 0:
+            upper.pop()
+        upper.append(point)
+    hull = lower[:-1] + upper[:-1]
+    strap = bmesh.new()
+    for y in (-0.5, 0.5):
+        band(strap, hull, y - 0.025, y + 0.025, 0.006)
+    model.plain(strap, "steel")
+    return model
+
+
+def band(bm, ring, y0, y1, thick):
+    """A flat band of a thickness laid round a ring of (x, z) points that goes round counter-clockwise, from y0 to y1."""
+    count = len(ring)
+    out = []
+    for i in range(count):
+        before, after = ring[i - 1], ring[(i + 1) % count]
+        dx, dz = after[0] - before[0], after[1] - before[1]
+        length = math.hypot(dx, dz)
+        out.append((ring[i][0] + dz / length * thick, ring[i][1] - dx / length * thick))
+    layers = [[bm.verts.new((x, y, z)) for x, z in points] for points in (ring, out) for y in (y0, y1)]
+    inner0, inner1, outer0, outer1 = layers
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((outer0[i], outer0[j], outer1[j], outer1[i]))
+        bm.faces.new((inner0[j], inner0[i], inner1[i], inner1[j]))
+        bm.faces.new((inner0[i], inner0[j], outer0[j], outer0[i]))
+        bm.faces.new((inner1[j], inner1[i], outer1[i], outer1[j]))
+
+
+# A small square bale of hay as it comes off the baler: how long, how wide and how high, and how many flakes of pressed hay it is of.
+HAY_LONG, HAY_WIDE, HAY_HIGH, HAY_FLAKES = 0.95, 0.48, 0.41, 8
+
+
+def hay_bales(name, count):
+    """Bales of hay one on another, each lying along y: a block of pressed hay with soft edges, its sides rippled where one flake
+    meets the next and no two flakes quite alike, and two strings of twine round each bale along its length."""
+    model = Model(name)
+    rng = random.Random(count)
+    twine = bmesh.new()
+    for bale in range(count):
+        low = bale * HAY_HIGH
+        shift = rng.uniform(-0.015, 0.015) if bale else 0.0
+        hay = bmesh.new()
+        xs, ys, zs = spread(-HAY_WIDE / 2, HAY_WIDE / 2, 2), spread(-HAY_LONG / 2, HAY_LONG / 2, HAY_FLAKES), spread(low, low + HAY_HIGH, 2)
+        cage = grid_box(hay, xs, ys, zs)
+        flake = [(rng.uniform(-0.024, -0.004), rng.uniform(-0.008, 0.008)) for _ in ys]
+        for (i, j, k), vert in cage.items():
+            pulled, moved = flake[j] if 0 < j < len(ys) - 1 else (0.0, 0.0)
+            # A bale bulges at the middle of its sides, where the twine does not hold it.
+            out = pulled + (0.014 if k == 1 else 0.0)
+            vert.co.x += shift + moved + (out if i == len(xs) - 1 else -out if i == 0 else 0.0)
+            if k == len(zs) - 1:
+                vert.co.z += pulled + (0.012 if i == 1 else 0.0)
+        crease(hay, cage, 0.5)
+        model.soft(hay, "cloth", levels=1)
+        for x in (-0.12, 0.12):
+            top = low + HAY_HIGH + 0.001
+            cuboid(twine, shift + x - 0.005, shift + x + 0.005, -HAY_LONG / 2 + 0.03, HAY_LONG / 2 - 0.03, top - 0.004, top)
+            for side in (-1, 1):
+                y0, y1 = sorted((side * (HAY_LONG / 2 + 0.001), side * (HAY_LONG / 2 - 0.004)))
+                cuboid(twine, shift + x - 0.005, shift + x + 0.005, y0, y1, low + 0.03, top - 0.03)
+    model.plain(twine, "rubber")
+    return model
+
+
+def feed_trough(name, long):
+    """A wooden trough for feed on two splayed legs at each end: a floor, sides that lean out, ends, and a board along the top of each
+    side. It is long along x."""
+    model = Model(name)
+    rim, floor, wide = 0.40, 0.2, 0.46
+    wood = bmesh.new()
+    inner = long / 2 - 0.025
+    cuboid(wood, -inner, inner, -wide / 2 + 0.05, wide / 2 - 0.05, floor, floor + 0.03)
+    for side in (-1, 1):
+        prism(wood, (0.0, side * (wide / 2 - 0.06), 2 * inner, 0.025, floor), (0.0, side * (wide / 2 - 0.015), 2 * inner, 0.025, rim - 0.025))
+        cuboid(wood, -long / 2, long / 2, side * (wide / 2 + 0.012) - 0.03, side * (wide / 2 + 0.012), rim - 0.025, rim)
+        prism(wood, (side * (inner + 0.0125), 0.0, 0.025, wide - 0.12, floor), (side * (inner + 0.0125), 0.0, 0.025, wide - 0.03, rim - 0.025))
+        x = side * (long / 2 - 0.1)
+        for across in (-1, 1):
+            beam(wood, (x, across * (wide / 2 + 0.06), 0.0), (x, across * (wide / 2 - 0.08), floor + 0.02), 0.06, 0.05)
+        cuboid(wood, x - 0.03, x + 0.03, -wide / 2 + 0.02, wide / 2 - 0.02, floor - 0.06, floor)
+    model.hard(wood, "wood", bevel=0.005, segments=1)
+    return model
+
+
+def stadium(long, wide, out, steps=8):
+    """The outline of a stock tank, long along x: two half rounds joined by straight sides, out further than its own."""
+    radius, straight = wide / 2 + out, (long - wide) / 2
+    return arc(straight, 0.0, radius, -90, 90, steps) + arc(-straight, 0.0, radius, 90, 270, steps)
+
+
+def wall_ring(bm, outer, inner, z0, z1):
+    """A wall of a thickness between two outlines of the same number of points, from z0 to z1."""
+    rings = [[bm.verts.new((x, y, z)) for x, y in outline] for outline in (outer, inner) for z in (z0, z1)]
+    outer0, outer1, inner0, inner1 = rings
+    count = len(outer)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((outer0[i], outer0[j], outer1[j], outer1[i]))
+        bm.faces.new((inner0[j], inner0[i], inner1[i], inner1[j]))
+        bm.faces.new((outer1[i], outer1[j], inner1[j], inner1[i]))
+        bm.faces.new((inner0[i], inner0[j], outer0[j], outer0[i]))
+
+
+def stock_tank(name, long, wide=0.92, high=0.6):
+    """A galvanised stock tank with round ends: a wall of sheet with two ribs pressed round it, a rolled rim, a floor, and seams
+    riveted up its straight sides."""
+    model = Model(name)
+    sheet = bmesh.new()
+    wall_ring(sheet, stadium(long, wide, 0.0), stadium(long, wide, -0.012), 0.0, high - 0.02)
+    wall_ring(sheet, stadium(long, wide, 0.012), stadium(long, wide, -0.02), high - 0.03, high)
+    for z in (high * 0.33, high * 0.66):
+        wall_ring(sheet, stadium(long, wide, 0.008), stadium(long, wide, -0.004), z - 0.012, z + 0.012)
+    outline_up(sheet, stadium(long, wide, -0.006), 0.0, 0.025)
+    model.turned(sheet, "steel", sharp=50.0)
+    seams = bmesh.new()
+    straight = (long - wide) / 2
+    for x in (-straight / 2, straight / 2) if straight > 0.6 else (0.0,):
+        for side in (-1, 1):
+            y = side * (wide / 2 + 0.004)
+            cuboid(seams, x - 0.02, x + 0.02, y - 0.004, y + 0.004, 0.03, high - 0.03)
+            for z in spread(0.06, high - 0.06, 4):
+                y0, y1 = sorted((side * (wide / 2 + 0.006), side * (wide / 2 + 0.013)))
+                cuboid(seams, x - 0.007, x + 0.007, y0, y1, z - 0.007, z + 0.007)
+    model.plain(seams, "steel")
+    return model
+
+
+def dog_house():
+    """A kennel of dark boards with a door at the front under its gable and a roof of three courses of shingle each side."""
+    model = Model("dog_house")
+    wide, deep, eaves, ridge, board = 0.78, 0.84, 0.5, 0.85, 0.03
+    door_half, door_top = 0.17, 0.44
+    walls = bmesh.new()
+    cuboid(walls, -wide / 2, wide / 2, deep / 2 - board, deep / 2, 0.0, eaves)
+    for side in (-1, 1):
+        x0, x1 = sorted((side * wide / 2, side * (wide / 2 - board)))
+        cuboid(walls, x0, x1, -deep / 2, deep / 2, 0.0, eaves)
+        x0, x1 = sorted((side * door_half, side * (wide / 2 - board)))
+        cuboid(walls, x0, x1, -deep / 2, -deep / 2 + board, 0.0, eaves)
+    cuboid(walls, -door_half, door_half, -deep / 2, -deep / 2 + board, door_top, eaves)
+    for y0, y1 in ((-deep / 2, -deep / 2 + board), (deep / 2 - board, deep / 2)):
+        outline_along_y(walls, [(-wide / 2, eaves), (wide / 2, eaves), (0.0, ridge)], y0, y1)
+    cuboid(walls, -wide / 2 + board, wide / 2 - board, -deep / 2 + board, deep / 2 - board, 0.0, 0.04)
+    model.hard(walls, "dark_wood", bevel=0.004, segments=1)
+    trim = bmesh.new()
+    for side in (-1, 1):
+        cuboid(trim, side * door_half - 0.025, side * door_half + 0.025, -deep / 2 - 0.012, -deep / 2 + 0.002, 0.0, door_top + 0.025)
+        for y in (-deep / 2 - 0.012, deep / 2 - 0.002):
+            cuboid(trim, side * wide / 2 - 0.03, side * wide / 2 + 0.03, y, y + 0.014, 0.0, eaves)
+    cuboid(trim, -door_half - 0.025, door_half + 0.025, -deep / 2 - 0.012, -deep / 2 + 0.002, door_top, door_top + 0.04)
+    model.hard(trim, "wood", bevel=0.003, segments=1)
+    roof = bmesh.new()
+    reach, over = wide / 2 + 0.06, deep / 2 + 0.05
+    slope = Vector((reach, (eaves - ridge) * reach / (wide / 2)))
+    slope_unit = slope.normalized()
+    up = Vector((-slope_unit.y, slope_unit.x)) if slope_unit.x > 0 else Vector((slope_unit.y, -slope_unit.x))
+    for side in (-1, 1):
+        for course in range(3):
+            t0, t1 = course / 3, (course + 1) / 3 + 0.04
+            top, bottom = slope * t0, slope * min(t1, 1.0)
+            outline = [(side * top.x, ridge + top.y), (side * (top.x + up.x * 0.012), ridge + top.y + up.y * 0.012),
+                       (side * (bottom.x + up.x * 0.03), ridge + bottom.y + up.y * 0.03), (side * bottom.x, ridge + bottom.y)]
+            if side < 0:
+                outline.reverse()
+            outline_along_y(roof, outline, -over, over)
+    cuboid(roof, -0.035, 0.035, -over - 0.005, over + 0.005, ridge - 0.01, ridge + 0.035)
+    model.hard(roof, "paint", bevel=0.004, segments=1)
+    return model
+
+
+def slatted_box(name, side, high, slats, gap, made="wood"):
+    """An open box of boards nailed round a post in each corner, with gaps between the boards; returns the model and how far in from
+    its middle the inner face of its boards is."""
+    model = Model(name)
+    half, post, board = side / 2, 0.05, 0.022
+    wood = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            x0, x1 = sorted((x * (half - board), x * (half - board - post)))
+            y0, y1 = sorted((y * (half - board), y * (half - board - post)))
+            cuboid(wood, x0, x1, y0, y1, 0.0, high)
+    tall = (high - 0.01 - gap * (slats - 1)) / slats
+    for n in range(slats):
+        z = 0.01 + n * (tall + gap)
+        for s in (-1, 1):
+            y0, y1 = sorted((s * half, s * (half - board)))
+            cuboid(wood, -half, half, y0, y1, z, z + tall)
+            x0, x1 = sorted((s * half, s * (half - board)))
+            cuboid(wood, x0, x1, -half + board, half - board, z, z + tall)
+    model.hard(wood, made, bevel=0.004, segments=1)
+    return model, half - board
+
+
+def composter(name, full):
+    """A compost bin of boards with gaps between them for the air, empty or full of dark compost heaped a little in the middle."""
+    model, inside = slatted_box(name, 0.94, 0.58, 5, 0.03)
+    if full:
+        heap = bmesh.new()
+        lathe(heap, [(0.0, 0.02), (inside * 1.2, 0.02), (inside * 1.2, 0.4), (inside * 0.8, 0.47), (0.0, 0.5)], segments=4)
+        bmesh.ops.rotate(heap, verts=heap.verts[:], cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(math.radians(45), 3, "Z"))
+        bmesh.ops.scale(heap, verts=heap.verts[:], vec=(inside * 0.98 / (inside * 1.2 * math.cos(math.radians(45))),) * 2 + (1.0,))
+        model.turned(heap, "rubber", sharp=60.0)
+    return model
+
+
+def rain_crate(name, water):
+    """A crate of close boards lined with a plastic sheet whose edge is folded over the top of the boards, empty or with rain standing in it."""
+    model, inside = slatted_box(name, 0.68, 0.6, 4, 0.004)
+    sheet = bmesh.new()
+    half = 0.68 / 2
+    wall_ring(sheet, [(-half - 0.006, -half - 0.006), (half + 0.006, -half - 0.006), (half + 0.006, half + 0.006), (-half - 0.006, half + 0.006)],
+              [(-half + 0.006, -half + 0.006), (half - 0.006, -half + 0.006), (half - 0.006, half - 0.006), (-half + 0.006, half - 0.006)], 0.5, 0.605)
+    wall_ring(sheet, [(-inside, -inside), (inside, -inside), (inside, inside), (-inside, inside)],
+              [(-inside + 0.006, -inside + 0.006), (inside - 0.006, -inside + 0.006), (inside - 0.006, inside - 0.006), (-inside + 0.006, inside - 0.006)],
+              0.03, 0.6)
+    cuboid(sheet, -inside, inside, -inside, inside, 0.03, 0.04)
+    model.hard(sheet, "cloth", bevel=0.003, segments=1)
+    if water:
+        rain = bmesh.new()
+        cuboid(rain, -inside + 0.006, inside - 0.006, -inside + 0.006, inside - 0.006, 0.04, 0.48)
+        model.plain(rain, "enamel")
+    return model
+
+
+def leaf_strip(bm, points, widths, thick=0.004):
+    """A leaf or a blade as a ribbon of a thickness along a line of points, as wide at each point as widths says, laid level across."""
+    rows = []
+    for i, point in enumerate(points):
+        point = Vector(point)
+        along = (Vector(points[min(i + 1, len(points) - 1)]) - Vector(points[max(i - 1, 0)])).normalized()
+        side = along.cross(Vector((0.0, 0.0, 1.0)))
+        side = Vector((1.0, 0.0, 0.0)) if side.length < 1e-6 else side.normalized()
+        up = side.cross(along).normalized()
+        half = max(widths[i] / 2, 0.0005)
+        rows.append([bm.verts.new(point + side * dx * half + up * (dz * thick / 2 + 0.25 * half * (1 - abs(dx)))) for dx, dz in
+                     ((-1, -1), (0, -1), (1, -1), (1, 1), (0, 1), (-1, 1))])
+    for a, b in zip(rows, rows[1:]):
+        for i in range(6):
+            j = (i + 1) % 6
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+    bm.faces.new(rows[0][::-1])
+    bm.faces.new(rows[-1])
+
+
+def arching(start, yaw, rise, length, droop, pieces=6):
+    """Points along a stalk that leaves start at yaw, rising at rise degrees, and bends down by droop at its end."""
+    way = Vector((math.cos(math.radians(yaw)), math.sin(math.radians(yaw)), 0.0))
+    return [Vector(start) + way * length * t * math.cos(math.radians(rise)) + Vector((0.0, 0.0, length * t * math.sin(math.radians(rise)) - droop * t * t))
+            for t in (i / pieces for i in range(pieces + 1))]
+
+
+def raised_bed(name, plant, droop=0.0):
+    """A raised bed of pale boards a little higher than a knee, full of earth, and a fern of arching fronds growing in it when plant."""
+    model = Model(name)
+    side, high, board = 0.84, 0.62, 0.035
+    half = side / 2
+    wood = bmesh.new()
+    for n in range(3):
+        z0, z1 = n * high / 3 + 0.002, (n + 1) * high / 3 - 0.002
+        for s in (-1, 1):
+            y0, y1 = sorted((s * half, s * (half - board)))
+            cuboid(wood, -half, half, y0, y1, z0, z1)
+            x0, x1 = sorted((s * half, s * (half - board)))
+            cuboid(wood, x0, x1, -half + board, half - board, z0, z1)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    earth = bmesh.new()
+    cuboid(earth, -half + board, half - board, -half + board, half - board, 0.0, high - 0.06)
+    model.plain(earth, "rubber")
+    if plant:
+        fronds = bmesh.new()
+        rng = random.Random(len(name))
+        for k in range(22):
+            yaw = k * 360 / 22 * 7 % 360 + rng.uniform(-8, 8)
+            rise = rng.uniform(40, 72) - droop * 40
+            # Every frond stays over the earth, inside the boards round it.
+            length = min(rng.uniform(0.5, 0.7), (half - board - 0.03) / math.cos(math.radians(rise)))
+            points = arching((0.04 * math.cos(math.radians(yaw)), 0.04 * math.sin(math.radians(yaw)), high - 0.06), yaw, rise, length, 0.42 + droop * 0.2)
+            leaf_strip(fronds, points, [0.02, 0.07, 0.085, 0.08, 0.065, 0.04, 0.008])
+        model._take(fronds, "plastic", lambda obj: None, sharp=50.0)
+    return model
+
+
+def washing_bin():
+    """A laundry cart: a frame of steel tube on four castors with a canvas bag hung from its top rails."""
+    model = Model("washing_bin")
+    wide, deep, high, tube = 0.78, 0.6, 0.8, 0.022
+    frame = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            cuboid(frame, x * wide / 2 - tube / 2, x * wide / 2 + tube / 2, y * deep / 2 - tube / 2, y * deep / 2 + tube / 2, 0.09, high)
+            lathe(frame, [(0.0, 0.0), (0.035, 0.0), (0.035, 0.03), (0.02, 0.07), (0.0, 0.09)], cx=x * wide / 2, cy=y * deep / 2, segments=8)
+    for z in (0.12, high - tube / 2):
+        for y in (-1, 1):
+            cuboid(frame, -wide / 2, wide / 2, y * deep / 2 - tube / 2, y * deep / 2 + tube / 2, z - tube / 2, z + tube / 2)
+        for x in (-1, 1):
+            cuboid(frame, x * wide / 2 - tube / 2, x * wide / 2 + tube / 2, -deep / 2, deep / 2, z - tube / 2, z + tube / 2)
+    model.hard(frame, "steel", bevel=0.005, segments=1)
+    bag = bmesh.new()
+    xs, ys, zs = spread(-wide / 2 + 0.02, wide / 2 - 0.02, 4), spread(-deep / 2 + 0.02, deep / 2 - 0.02, 3), spread(0.24, high + 0.01, 3)
+    cage = grid_box(bag, xs, ys, zs)
+    for (i, j, k), vert in cage.items():
+        middle = (1 - abs(xs[i]) / (wide / 2)) * (1 - abs(ys[j]) / (deep / 2))
+        if k == 0:
+            vert.co.z -= 0.06 * middle
+        elif k < len(zs) - 1:
+            vert.co.x *= 1.03
+            vert.co.y *= 1.04
+    model.soft(bag, "cloth", levels=2)
+    return model
+
+
+def bird_bath(name, square_foot):
+    """A stone bird bath: a wide shallow bowl on a turned column, on a square plinth or a round foot, with water in the bowl."""
+    model = Model(name)
+    stone = bmesh.new()
+    if square_foot:
+        cuboid(stone, -0.17, 0.17, -0.17, 0.17, 0.0, 0.07)
+        foot = [(0.0, 0.07), (0.12, 0.07)]
+    else:
+        foot = [(0.0, 0.0), (0.18, 0.0), (0.18, 0.04), (0.12, 0.09)]
+    lathe(stone, foot + [(0.08, 0.14), (0.06, 0.3), (0.075, 0.45), (0.055, 0.6), (0.07, 0.66), (0.24, 0.74), (0.28, 0.76), (0.285, 0.8),
+                         (0.26, 0.8), (0.23, 0.77), (0.0, 0.76)], segments=24)
+    model.turned(stone, "paint", sharp=40.0)
+    water = bmesh.new()
+    lathe(water, [(0.0, 0.76), (0.235, 0.76), (0.245, 0.785), (0.0, 0.785)], segments=24)
+    model.turned(water, "enamel", sharp=40.0)
+    return model
+
+
+def salt_lick():
+    """A block of salt for stock to lick, a hollow worn into its top."""
+    model = Model("salt_lick")
+    block = bmesh.new()
+    prism(block, (0.0, 0.0, 0.25, 0.25, 0.0), (0.0, 0.0, 0.24, 0.24, 0.2))
+    model.hard(block, "paint", bevel=0.02, segments=2)
+    return model
+
+
+def log_bench(name):
+    """A bench of a log split down its middle, its flat face up for the seat, on two pairs of splayed legs. It is long along x."""
+    model = Model(name)
+    long, seat, radius = 1.7, 0.41, 0.17
+    half_round = [(radius * math.cos(math.radians(a)), seat - 0.012 + radius * 0.55 * math.sin(math.radians(a))) for a in range(180, 361, 15)]
+    bark = bmesh.new()
+    outline_along_x(bark, [(y, z) for y, z in reversed(half_round)], -long / 2, long / 2)
+    for x in (-long / 2 + 0.2, long / 2 - 0.2):
+        for side in (-1, 1):
+            beam(bark, (x, side * 0.26, 0.0), (x, side * 0.05, seat - 0.12), 0.07, 0.07)
+    model.hard(bark, "dark_wood", bevel=0.012, segments=1)
+    top = bmesh.new()
+    cuboid(top, -long / 2 + 0.01, long / 2 - 0.01, -radius + 0.01, radius - 0.01, seat - 0.014, seat)
+    model.hard(top, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def stump(name, high, radius, roots):
+    """A tree's stump sawn level, its foot spreading into roots, or a round of trunk sawn for a chopping block when roots is 0."""
+    model = Model(name)
+    bark = bmesh.new()
+    if roots:
+        profile = [(0.0, 0.0), (radius * 1.35, 0.0), (radius * 1.12, 0.05), (radius * 1.02, 0.13), (radius, high - 0.01)]
+    else:
+        profile = [(0.0, 0.0), (radius * 0.97, 0.0), (radius, 0.02), (radius, high - 0.01)]
+    lathe(bark, profile + [(radius * 0.96, high - 0.004), (0.0, high - 0.004)], segments=16)
+    for k in range(roots):
+        angle = 2 * math.pi * (k + 0.3) / roots
+        way = Vector((math.cos(angle), math.sin(angle), 0.0))
+        beam(bark, way * radius * 0.7 + Vector((0.0, 0.0, 0.1)), way * radius * 1.7 + Vector((0.0, 0.0, 0.005)), 0.08, 0.06)
+    model.turned(bark, "dark_wood", sharp=50.0)
+    face = bmesh.new()
+    lathe(face, [(0.0, high - 0.006), (radius * 0.95, high - 0.006), (radius * 0.95, high), (0.0, high)], segments=16)
+    model.turned(face, "wood", sharp=50.0)
+    return model
+
+
+def gnome():
+    """A garden gnome of painted plaster: boots, a coat with a belt, a white beard, a pointed red hat, one hand raised to wave."""
+    model = Model("gnome")
+    coat = bmesh.new()
+    lathe(coat, [(0.0, 0.05), (0.1, 0.05), (0.105, 0.12), (0.095, 0.2), (0.08, 0.27), (0.06, 0.3), (0.0, 0.31)], segments=16)
+    beam(coat, (0.075, 0.0, 0.26), (0.11, -0.01, 0.17), 0.045, 0.045)
+    beam(coat, (-0.075, 0.0, 0.26), (-0.13, -0.02, 0.34), 0.045, 0.045)
+    model.turned(coat, "paint", sharp=50.0)
+    boots = bmesh.new()
+    for side in (-1, 1):
+        cuboid(boots, side * 0.05 - 0.035, side * 0.05 + 0.035, -0.09, 0.03, 0.0, 0.055)
+    lathe(boots, [(0.0, 0.165), (0.1, 0.165), (0.1, 0.185), (0.0, 0.185)], segments=16)
+    model.hard(boots, "rubber", bevel=0.008, segments=1)
+    skin = bmesh.new()
+    lathe(skin, [(0.0, 0.29), (0.045, 0.3), (0.06, 0.34), (0.055, 0.38), (0.0, 0.395)], segments=12)
+    lathe(skin, [(0.0, -0.012), (0.016, -0.004), (0.0, 0.012)], segments=8, to=along_y(0.0, -0.055, 0.35))
+    for x, z in ((0.115, 0.165), (-0.135, 0.35)):
+        lathe(skin, [(0.0, z - 0.022), (0.022, z), (0.0, z + 0.022)], cx=x, cy=-0.015, segments=8)
+    model.turned(skin, "linen", sharp=60.0)
+    beard = bmesh.new()
+    lathe(beard, [(0.0, 0.19), (0.035, 0.21), (0.062, 0.28), (0.062, 0.33), (0.0, 0.335)], cy=-0.06, sy=0.6, segments=12)
+    model.turned(beard, "pillow", sharp=60.0)
+    hat = bmesh.new()
+    lathe(hat, [(0.0, 0.365), (0.066, 0.365), (0.05, 0.42), (0.028, 0.48), (0.0, 0.55)], segments=14)
+    bmesh.ops.rotate(hat, verts=hat.verts[:], cent=(0.0, 0.0, 0.37), matrix=Matrix.Rotation(math.radians(12), 3, "X"))
+    model.turned(hat, "vinyl", sharp=60.0)
+    return model
+
+
+def potted_flowers(name, pot, rim, high, heads, spread_wide, stalk, clay_of="ceramic"):
+    """A pot of earth with a mound of leaves and flower heads on it. pot is the pot's profile; heads how many flowers there are."""
+    model = Model(name)
+    clay = bmesh.new()
+    lathe(clay, pot, segments=16)
+    model.turned(clay, clay_of, sharp=40.0)
+    earth = bmesh.new()
+    lathe(earth, [(0.0, high - 0.012), (rim - 0.006, high - 0.012), (rim - 0.006, high - 0.008), (0.0, high - 0.008)], segments=16)
+    model.plain(earth, "rubber")
+    plant = bmesh.new()
+    rng = random.Random(len(name) + heads)
+    for k in range(heads + 4):
+        yaw = k * 360 / (heads + 4) + rng.uniform(-15, 15)
+        leaf_strip(plant, arching((0.0, 0.0, high - 0.01), yaw, rng.uniform(25, 55), spread_wide * rng.uniform(0.8, 1.1), 0.02, 4),
+                   [0.004, 0.02, 0.028, 0.022, 0.002], thick=0.002)
+    blooms = bmesh.new()
+    for k in range(heads):
+        angle, out = rng.uniform(0, 2 * math.pi), spread_wide * math.sqrt(rng.uniform(0.0, 0.7))
+        x, y, z = out * math.cos(angle), out * math.sin(angle), high + stalk * rng.uniform(0.75, 1.0)
+        lathe(blooms, [(0.0, z - 0.008), (0.012, z - 0.003), (0.016, z + 0.003), (0.008, z + 0.008), (0.0, z + 0.005)], cx=x, cy=y, segments=8)
+        beam(plant, (x * 0.3, y * 0.3, high - 0.01), (x, y, z - 0.01), 0.004, 0.004)
+    model._take(plant, "plastic", lambda obj: None, sharp=50.0)
+    model.turned(blooms, "vinyl", sharp=60.0)
+    return model
+
+
+def cactus():
+    """A column cactus with two arms, in a white pot."""
+    model = Model("cactus_pot")
+    clay = bmesh.new()
+    lathe(clay, [(0.0, 0.0), (0.04, 0.0), (0.052, 0.07), (0.056, 0.075), (0.056, 0.085), (0.0, 0.085)], segments=16)
+    model.turned(clay, "ceramic", sharp=40.0)
+    green = bmesh.new()
+    ribs = [(0.0, 0.08)] + [(0.022, 0.09)] + [(0.022, z) for z in (0.2, 0.32)] + [(0.016, 0.34), (0.0, 0.35)]
+    lathe(green, ribs, segments=10)
+    for side, low, top in ((1, 0.15, 0.27), (-1, 0.19, 0.3)):
+        beam(green, (0.0, 0.0, low), (side * 0.045, 0.0, low + 0.01), 0.022, 0.022)
+        lathe(green, [(0.0, low - 0.005), (0.013, low), (0.013, top - 0.01), (0.0, top)], cx=side * 0.05, segments=8)
+    model.turned(green, "plastic", sharp=50.0)
+    return model
+
+
+def bonsai():
+    """A bonsai in a dark shallow tray: a twisted trunk and three flat pads of leaves."""
+    model = Model("bonsai")
+    tray = bmesh.new()
+    wall_ring(tray, [(-0.14, -0.08), (0.14, -0.08), (0.14, 0.08), (-0.14, 0.08)], [(-0.128, -0.068), (0.128, -0.068), (0.128, 0.068), (-0.128, 0.068)], 0.0, 0.055)
+    cuboid(tray, -0.13, 0.13, -0.07, 0.07, 0.0, 0.012)
+    model.hard(tray, "ceramic", bevel=0.004, segments=1)
+    earth = bmesh.new()
+    cuboid(earth, -0.128, 0.128, -0.068, 0.068, 0.012, 0.045)
+    model.plain(earth, "rubber")
+    trunk = bmesh.new()
+    path = [(0.02, 0.0, 0.04), (0.0, 0.0, 0.09), (0.04, 0.01, 0.14), (0.0, 0.0, 0.2)]
+    for a, b in zip(path, path[1:]):
+        beam(trunk, a, b, 0.022, 0.022)
+    beam(trunk, (0.03, 0.005, 0.12), (0.1, 0.0, 0.13), 0.012, 0.012)
+    beam(trunk, (0.01, 0.0, 0.1), (-0.09, 0.01, 0.12), 0.012, 0.012)
+    model.hard(trunk, "dark_wood", bevel=0.003, segments=1)
+    pads = bmesh.new()
+    for x, z, size in ((0.1, 0.135, 0.06), (-0.09, 0.125, 0.055), (0.0, 0.205, 0.07)):
+        lathe(pads, [(0.0, z - 0.012), (size, z - 0.004), (size * 0.9, z + 0.012), (0.0, z + 0.025)], cx=x, segments=10, sy=0.75)
+    model.turned(pads, "plastic", sharp=60.0)
+    return model
+
+
+def rose_bouquet():
+    """A bunch of roses laid on its side: stems tied together, leaves, and the heads fanned out at one end. The heads are long along x."""
+    model = Model("rose_bouquet")
+    rng = random.Random(7)
+    stems = bmesh.new()
+    for k in range(9):
+        y, z = rng.uniform(-0.05, 0.05), rng.uniform(0.012, 0.04)
+        beam(stems, (0.12, y * 0.3, 0.02), (-0.12 + rng.uniform(-0.03, 0.03), y * 1.6, z), 0.006, 0.006)
+        leaf_strip(stems, arching((rng.uniform(-0.06, 0.06), y, z), rng.choice((-90, 90)) + rng.uniform(-30, 30), 15, 0.05, 0.01, 3),
+                   [0.003, 0.022, 0.018, 0.002], thick=0.002)
+    model._take(stems, "plastic", lambda obj: None, sharp=50.0)
+    heads = bmesh.new()
+    for k in range(9):
+        x, y, z = -0.15 + rng.uniform(-0.04, 0.03), rng.uniform(-0.09, 0.09), rng.uniform(0.03, 0.06)
+        lathe(heads, [(0.0, z - 0.025), (0.022, z - 0.015), (0.03, z + 0.005), (0.022, z + 0.02), (0.0, z + 0.016)], cx=x, cy=y, segments=8)
+    model.turned(heads, "vinyl", sharp=60.0)
+    return model
+
+
+def hay_feeder():
+    """A feeder for stock: a steel trough with a hopper bottom, and over it a frame of green tube on four posts holding a rack of bars
+    that lean in from the top rails on both sides to the trough, for the hay. It is long along x."""
+    model = Model("hay_feeder")
+    long, half_wide, rim, high, tube = 1.68, 0.42, 0.55, 1.85, 0.042
+    trough = bmesh.new()
+    outer = [(-half_wide, rim), (-half_wide, 0.42), (-0.18, 0.3), (0.18, 0.3), (half_wide, 0.42), (half_wide, rim)]
+    inner = [(y * (half_wide - 0.02) / half_wide, z + (0.02 if z < rim else 0.0)) for y, z in outer]
+    outline_along_x(trough, outer + inner[::-1], -long / 2, long / 2)
+    for x in (-long / 2, long / 2 - 0.02):
+        outline_along_x(trough, outer, x, x + 0.02)
+    model.hard(trough, "plastic", bevel=0.004, segments=1)
+    floor = bmesh.new()
+    outline_along_x(floor, [(y * 0.98, z + 0.004) for y, z in inner[1:5]], -long / 2 + 0.02, long / 2 - 0.02)
+    model.plain(floor, "steel")
+    frame = bmesh.new()
+    px, py = long / 2 + 0.04, half_wide + 0.05
+    for x in (-px, px):
+        for y in (-py, py):
+            cuboid(frame, x - tube / 2, x + tube / 2, y - tube / 2, y + tube / 2, 0.0, high)
+        for z in (0.75, 0.9, high - tube / 2):
+            cuboid(frame, x - tube / 2, x + tube / 2, -py, py, z - tube / 2, z + tube / 2)
+    for y in (-py, py):
+        cuboid(frame, -px, px, y - tube / 2, y + tube / 2, high - tube, high)
+    for side in (-1, 1):
+        top, low = (side * (py - 0.06), high - 0.15), (side * 0.08, 0.72)
+        beam(frame, (-px, top[0], top[1]), (px, top[0], top[1]), 0.032, 0.032)
+        beam(frame, (-px, low[0], low[1]), (px, low[0], low[1]), 0.032, 0.032)
+        for x in spread(-px + 0.16, px - 0.16, 7):
+            beam(frame, (x, top[0], top[1]), (x, low[0], low[1]), 0.024, 0.024)
+    model.hard(frame, "paint", bevel=0.01, segments=1)
+    return model
+
+
+def straw_post():
+    """A post driven into the ground with straw bound round it in two thick sheaves, a hand of bare post between them and at the top."""
+    model = Model("straw_post")
+    post = bmesh.new()
+    lathe(post, [(0.0, 0.0), (0.07, 0.0), (0.065, 1.66), (0.05, 1.7), (0.0, 1.7)], segments=10)
+    model.turned(post, "dark_wood", sharp=50.0)
+    straw = bmesh.new()
+    for low, top in ((0.18, 0.86), (0.96, 1.62)):
+        cage = grid_box(straw, spread(-0.17, 0.17, 2), spread(-0.17, 0.17, 2), spread(low, top, 3))
+        for (i, j, k), vert in cage.items():
+            if k in (0, 3):
+                vert.co.x *= 0.7
+                vert.co.y *= 0.7
+        crease(straw, cage, 0.2)
+    model.soft(straw, "cloth", levels=2)
+    return model
+
+
+def fallen_log():
+    """A length of fallen trunk lying on the ground, sawn at one end and broken at the other, two snapped branches standing off it.
+    It lies aslant as the game's sprite paints it, turned so that its sawn end is towards the south-west of the map."""
+    model = Model("fallen_log")
+    radius, half = 0.11, 0.42
+    bark = bmesh.new()
+    lathe(bark, [(0.0, -half), (radius, -half), (radius * 1.04, -half + 0.2), (radius * 0.95, half - 0.1), (radius * 0.7, half), (0.0, half + 0.02)],
+          segments=12, to=along_y(0.0, 0.0, radius))
+    for at, yaw, rise in ((-0.05, 1, 35), (0.2, -1, 50)):
+        start = Vector((0.0, at, radius * 1.4))
+        beam(bark, start, start + Vector((yaw * 0.16, 0.06, 0.16 * math.tan(math.radians(rise)))), 0.035, 0.035)
+    model.turned(bark, "dark_wood", sharp=50.0)
+    end = bmesh.new()
+    lathe(end, [(0.0, -half - 0.004), (radius * 0.97, -half - 0.004), (radius * 0.97, -half + 0.001), (0.0, -half + 0.001)], segments=12,
+          to=along_y(0.0, 0.0, radius))
+    model.plain(end, "wood")
+    turn = Matrix.Rotation(math.radians(159), 3, "Z")
+    model.vertices = [(turn @ position, turn @ normal, surface) for position, normal, surface in model.vertices]
+    return model
+
+
+def farm_and_garden():
+    """What stands in a farmyard or a garden: hay, troughs, a kennel, compost and rain, a raised bed, a laundry cart, a bird bath,
+    a salt lick, a log bench, stumps, a gnome, and the plants that stand on a table."""
+    return [hay_bales("hay_bale", 1), hay_bales("hay_bales_2", 2), log_bundle(), feed_trough("feed_trough", 1.88), feed_trough("feed_trough_small", 0.92),
+            stock_tank("stock_tank", 1.86), stock_tank("stock_tank_long", 2.8), dog_house(), composter("composter", False), composter("composter_full", True),
+            rain_crate("rain_crate", False), rain_crate("rain_crate_water", True), raised_bed("raised_bed", True), raised_bed("raised_bed_dry", True, 0.6),
+            raised_bed("raised_bed_bare", False), washing_bin(), bird_bath("bird_bath", True), bird_bath("bird_bath_round", False), salt_lick(),
+            log_bench("log_bench"), stump("stump", 0.33, 0.28, 5), stump("chopping_block", 0.33, 0.23, 0), gnome(),
+            potted_flowers("pot_flowers", [(0.0, 0.0), (0.04, 0.0), (0.05, 0.075), (0.055, 0.08), (0.055, 0.09), (0.0, 0.09)], 0.05, 0.09, 12, 0.06, 0.05),
+            potted_flowers("pot_violets", [(0.0, 0.0), (0.038, 0.0), (0.05, 0.08), (0.056, 0.085), (0.056, 0.095), (0.0, 0.095)], 0.05, 0.095, 12, 0.07, 0.06, "wood"),
+            potted_flowers("vase_flowers", [(0.0, 0.0), (0.045, 0.0), (0.058, 0.06), (0.055, 0.12), (0.042, 0.15), (0.045, 0.16), (0.0, 0.16)], 0.04, 0.16, 11,
+                           0.07, 0.08),
+            cactus(), bonsai(), rose_bouquet(), hay_feeder(), straw_post(), fallen_log()]
 
 
 def twin_head():
@@ -5063,7 +5668,7 @@ def outdoors():
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
-            sack_barrier(), log_stack("log_stack_6", (3, 2, 1)), log_stack("log_stack_5", (3, 2)),
+            sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
             twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
@@ -7665,7 +8270,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers())
+            + towers() + farm_and_garden())
 
 
 def main():

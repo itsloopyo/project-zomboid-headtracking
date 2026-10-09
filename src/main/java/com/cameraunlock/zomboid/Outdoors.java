@@ -24,13 +24,13 @@ final class Outdoors {
         /** The surfaces the sprite gives their colour, and where on the square and how high, in levels, it gives it. */
         int dyed;
         float dyeA = 0.5f, dyeB = 0.5f, dyeHigh;
+        /** The surfaces that take their colour from another height over the same place, and that height, in levels. */
+        int alsoDyed;
+        float alsoHigh;
         /** Whether it is made no bigger than fits inside its squares, and not a metre to the tile so as to meet the next. */
         boolean fits;
         /** Whether each square of a piece the game lays on several is a piece of its own. */
         boolean each;
-        /** The surfaces that take their colour from the sprite at a second height over the same place, and that height, in levels. */
-        int alsoDyed;
-        float alsoHigh;
         /**
          * For a piece the game paints in two sprites on two squares side by side, with no grid to tie them: the name of the
          * other one and how far its square is from this one's. Neither stands its model unless the other is there.
@@ -69,9 +69,16 @@ final class Outdoors {
             return dye(surfaces, 0.5f, 0.5f, high);
         }
 
+        Piece also(int surfaces, float high) {
+            alsoDyed = surfaces;
+            alsoHigh = high;
+            return this;
+        }
+
         Piece raise(float levels) {
             raised = levels * ViewCamera.LEVEL_HEIGHT;
             dyeHigh += levels;
+            alsoHigh += levels;
             return this;
         }
 
@@ -80,11 +87,6 @@ final class Outdoors {
             return this;
         }
 
-        Piece also(int surfaces, float high) {
-            alsoDyed = surfaces;
-            alsoHigh = high;
-            return this;
-        }
 
         Piece pictured(float y) {
             pictured = true;
@@ -172,6 +174,10 @@ final class Outdoors {
      * @param surface how high the game says its top is, in the pixels of its unscaled sprites, or 0
      */
     static Piece of(String name, String called, String group, int faces, int width, int height, int surface) {
+        Piece farm = Farm.of(name, called, group, faces, width, height, surface);
+        if (farm != null) {
+            return farm;
+        }
         boolean single = width == 1 && height == 1;
         Piece burnt = single ? burntPost(name) : null;
         if (burnt != null) {
@@ -256,7 +262,7 @@ final class Outdoors {
             return tyres(place(name, TYRES));
         }
         // A barrel set out to catch the rain: open, with rain in it, with a sheet tied over its mouth, and with a lid laid on
-        // that sheet. The others of the name are a crate lined with a sheet, which is a box and stays one.
+        // that sheet. The others of the name are crates lined with a sheet, which Farm stands before this is asked.
         if (called.equals("Rain Collector Barrel")) {
             return switch (place(name, CARPENTRY)) {
                 case 52 -> new Piece("rain_barrel", 0).fit();

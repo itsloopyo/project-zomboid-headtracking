@@ -83,7 +83,6 @@ final class OutdoorTests {
         Checks.check(Outdoors.of("furniture_seating_outdoor_01_20", "Bench", "Oakwood", Outdoors.SOUTH, 2, 1, 12) == null, "a bench of oak planks two squares long is left to the benches indoors");
         holds(Outdoors.of("camping_01_24", "Stack", "6 Log", Outdoors.EAST, 2, 1, 0), "a stack of six logs has a model");
         holds(Outdoors.of("camping_01_35", "Stack", "5 Log", Outdoors.SOUTH, 1, 2, 0), "a stack of five logs has a model");
-        Checks.check(Outdoors.of("camping_01_26", "Stack", "6 Log", Outdoors.EAST, 2, 1, 17) == null, "a stack painted up on a load stays as it is");
     }
 
     /** Where a way along the floor of a piece's model points on the map. */
@@ -318,9 +317,6 @@ final class OutdoorTests {
         }
         Checks.check(rainBarrel(53).dyed == 1 << Models.ENAMEL && rainBarrel(52).dyed == 0, "only the rain in a barrel takes its colour from the sprite");
         Checks.check(rainBarrel(122).dyed == 1 << Models.CLOTH && rainBarrel(127).dyed == 1 << Models.CLOTH, "and the sheet over one");
-        for (int crate : new int[] {54, 55, 120, 121}) {
-            Checks.check(rainBarrel(crate) == null, "carpentry_02_" + crate + ", a crate lined with a sheet, stays a box");
-        }
         Checks.check(Outdoors.of("carpentry_02_52", "Rain Collector Barrel", null, Outdoors.NONE, 2, 1, 0) == null, "a barrel of two squares is none");
     }
 
