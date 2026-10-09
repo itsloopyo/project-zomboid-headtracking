@@ -42,9 +42,9 @@ import zombie.vehicles.VehiclePart;
  * 9 puts the clock on by three hours, into the next day if that is where they end: for
  * seeing the picture at any hour without waiting for it.
  *
- * Backspace holds the weather at the next of nine kinds, from a clear sky through cloud and
- * rain to a blizzard over lying snow, and after the last gives it back to the game. The game
- * keeps what it is held at in the save.
+ * Backspace holds the weather at the next of its kinds, from a clear sky through cloud, rain
+ * and fog to snow half melted and a blizzard over lying snow, and after the last gives it back
+ * to the game. The game keeps what it is held at in the save.
  *
  * The semicolon puts a pump action shotgun in the player's hands, and from then on whatever firearm is
  * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
@@ -117,22 +117,34 @@ public final class DevKeys {
     /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
     private static final int WEATHER_KEY = 14;
 
-    /** A kind of weather as the game's climate has it: each of cloud, rain or snow, and wind from 0 to 1. */
-    private record Weather(String name, float cloud, float falling, float wind, boolean snow, boolean lying) {}
+    /**
+     * A kind of weather as the game's climate has it: each of cloud, rain or snow, wind and fog
+     * from 0 to 1, and how much of the ground lies under snow, from 0 to 1.
+     */
+    private record Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying) {}
 
     private static final Weather[] WEATHERS = {
-            new Weather("a clear sky", 0f, 0f, 0.05f, false, false),
-            new Weather("some clouds", 0.35f, 0f, 0.1f, false, false),
-            new Weather("cloudy", 0.85f, 0f, 0.15f, false, false),
-            new Weather("raining", 0.85f, 0.4f, 0.1f, false, false),
-            new Weather("rain with some wind", 0.9f, 0.5f, 0.4f, false, false),
-            new Weather("a storm of rain", 1f, 1f, 0.9f, false, false),
-            new Weather("snow on the ground", 0.35f, 0f, 0.1f, false, true),
-            new Weather("light snow falling", 0.85f, 0.3f, 0.15f, true, true),
-            new Weather("a blizzard", 1f, 1f, 0.9f, true, true),
+            new Weather("a clear sky", 0f, 0f, 0.05f, 0f, false, 0f),
+            new Weather("some clouds", 0.35f, 0f, 0.1f, 0f, false, 0f),
+            new Weather("cloudy", 0.85f, 0f, 0.15f, 0f, false, 0f),
+            new Weather("raining", 0.85f, 0.4f, 0.1f, 0f, false, 0f),
+            new Weather("rain with some wind", 0.9f, 0.5f, 0.4f, 0f, false, 0f),
+            new Weather("a storm of rain", 1f, 1f, 0.9f, 0f, false, 0f),
+            new Weather("a light fog", 0.6f, 0f, 0.05f, 0.3f, false, 0f),
+            new Weather("a thick fog", 0.7f, 0f, 0f, 1f, false, 0f),
+            new Weather("snow half melted", 0.5f, 0f, 0.1f, 0f, false, 0.3f),
+            new Weather("snow on the ground", 0.35f, 0f, 0.1f, 0f, false, 1f),
+            new Weather("fog over snow", 0.7f, 0f, 0f, 0.7f, false, 0.7f),
+            new Weather("light snow falling", 0.85f, 0.3f, 0.15f, 0f, true, 0.7f),
+            new Weather("a blizzard", 1f, 1f, 0.9f, 0f, true, 1f),
     };
     /** The weather being held, and none while it is the game's own. */
     private static int weather = -1;
+    /** Lying snow drifts from what is held by more than this before it is set again. */
+    private static final float LYING_DRIFT = 0.05f;
+    /** The game's snow strength at which the whole ground lies under snow. */
+    private static final float FULL_SNOW_STRENGTH = 7.5f;
+    private static Field snowStrength, wasForceSnow;
     /** The semicolon. */
     private static final int ARM_KEY = 39;
     private static final String SHOTGUN = "Base.Shotgun";
@@ -218,6 +230,10 @@ public final class DevKeys {
             weather = weather + 1 < WEATHERS.length ? weather + 1 : -1;
             hold(weather < 0 ? null : WEATHERS[weather]);
         }
+        // The game melts and adds to lying snow on the hour, so it is set again when it has moved.
+        if (weather >= 0 && Math.abs(ClimateManager.getInstance().getSnowFracNow() - WEATHERS[weather].lying()) > LYING_DRIFT) {
+            lie(WEATHERS[weather].lying());
+        }
         if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
             safe.setPrimaryHandItem(shotgun);
@@ -266,12 +282,34 @@ public final class DevKeys {
         hold(climate.getClimateFloat(ClimateManager.FLOAT_CLOUD_INTENSITY), held.cloud());
         hold(climate.getClimateFloat(ClimateManager.FLOAT_PRECIPITATION_INTENSITY), held.falling());
         hold(climate.getClimateFloat(ClimateManager.FLOAT_WIND_INTENSITY), held.wind());
-        hold(climate.getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY), 0f);
+        hold(climate.getClimateFloat(ClimateManager.FLOAT_FOG_INTENSITY), held.fog());
         ClimateManager.ClimateBool snow = climate.getClimateBool(ClimateManager.BOOL_IS_SNOW);
         snow.setEnableAdmin(true);
         snow.setAdminValue(held.snow());
-        Core.getInstance().setForceSnow(held.lying());
+        lie(held.lying());
         Log.info("Backspace: the weather held at " + held.name() + ", " + (weather + 1) + " of " + WEATHERS.length);
+    }
+
+    /**
+     * Lays snow over that share of the ground. The game's forced snow lies at 0.7 whatever is
+     * asked, so the strength it works lying snow out from is set instead, and the field that
+     * makes its next tick work it out from that strength.
+     */
+    private static void lie(float lying) {
+        ClimateManager climate = ClimateManager.getInstance();
+        Core.getInstance().setForceSnow(false);
+        try {
+            if (snowStrength == null) {
+                snowStrength = ClimateManager.class.getDeclaredField("snowStrength");
+                snowStrength.setAccessible(true);
+                wasForceSnow = ClimateManager.class.getDeclaredField("wasForceSnow");
+                wasForceSnow.setAccessible(true);
+            }
+            snowStrength.setFloat(climate, FULL_SNOW_STRENGTH * lying);
+            wasForceSnow.setBoolean(climate, true);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's climate has no snowStrength or wasForceSnow to set lying snow with", e);
+        }
     }
 
     private static void hold(ClimateManager.ClimateFloat value, float at) {
