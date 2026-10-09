@@ -57,7 +57,11 @@ final class Footings {
     boolean free;
     /** Whether all of it was on loaded map: one that was not may be another thing when more is loaded. */
     boolean settled;
-    /** Whether all of it was looked over: then every square of it, the first count pairs of squares, has the same answer. */
+    /**
+     * Whether all of it was looked over: then every square of it has the same answer, and the
+     * first count pairs of squares are those squares, or none where the answer was kept from
+     * the search that found it.
+     */
     boolean whole;
     int count;
     int[] squares = new int[512];
@@ -82,9 +86,60 @@ final class Footings {
      */
     private final java.util.HashSet<Long> large = new java.util.HashSet<>();
 
+    /** The answer for a thing looked over whole: see find. */
+    private record Answer(long found, boolean free, boolean settled) {}
+
+    /**
+     * The answers for the squares of things looked over whole, by chunk and square: one search
+     * of a thing answers for every square of it. Those of a settled thing hold until a map is
+     * loaded anew, the others only while the map has the chunks loaded that it had when they
+     * were found: see changed. Of chunks not asked about lately the answers are let go, past
+     * KEPT_CHUNKS of them, and found again if they are asked about.
+     */
+    private final Answers lasting = new Answers(), forNow = new Answers();
+    /** About twice the chunks a view of the farthest the game loads looks over. */
+    static final int KEPT_CHUNKS = 2048;
+
+    private static final class Answers extends java.util.LinkedHashMap<Long, Answer[]> {
+        private static final long serialVersionUID = 1L;
+
+        Answers() {
+            super(64, 0.75f, true);
+        }
+
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<Long, Answer[]> eldest) {
+            return size() > KEPT_CHUNKS;
+        }
+
+        Answer at(int x, int y) {
+            Answer[] chunk = get(chunkOf(x, y));
+            return chunk == null ? null : chunk[placeIn(x, y)];
+        }
+
+        void put(int x, int y, Answer answer) {
+            computeIfAbsent(chunkOf(x, y), key -> new Answer[Terrain.CHUNK_TILES * Terrain.CHUNK_TILES])[placeIn(x, y)] = answer;
+        }
+
+        private static long chunkOf(int x, int y) {
+            return square(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
+        }
+
+        private static int placeIn(int x, int y) {
+            return Math.floorMod(x, Terrain.CHUNK_TILES) * Terrain.CHUNK_TILES + Math.floorMod(y, Terrain.CHUNK_TILES);
+        }
+    }
+
     /** For a map loaded anew. */
     void forget() {
         large.clear();
+        lasting.clear();
+        forNow.clear();
+    }
+
+    /** For a map with other chunks loaded: a thing that was not all on loaded map may be another thing now. */
+    void changed() {
+        forNow.clear();
     }
 
     private static long square(int x, int y) {
@@ -110,6 +165,16 @@ final class Footings {
         settled = true;
         whole = true;
         found = NONE;
+        Answer known = lasting.at(x, y);
+        if (known == null) {
+            known = forNow.at(x, y);
+        }
+        if (known != null) {
+            found = known.found;
+            free = known.free;
+            settled = known.settled;
+            return;
+        }
         search++;
         byte start = answered[place(site, x, y)];
         if (start == UNLOADED) {
@@ -171,6 +236,7 @@ final class Footings {
         if (nearest == NONE) {
             free = structured;
             found = structured ? key((lowX + highX + 1) / 2f, (lowY + highY + 1) / 2f) : NONE;
+            remember();
             return;
         }
         // Of buildings joined, the one nearest the middle of them all: a row down a hill stands at the height of its middle and not of one end.
@@ -186,6 +252,16 @@ final class Footings {
                 least = away;
                 found = house;
             }
+        }
+        remember();
+    }
+
+    /** Keeps the answer of a search that looked its thing over whole for every square of the thing. */
+    private void remember() {
+        Answer answer = new Answer(found, free, settled);
+        Answers into = settled ? lasting : forNow;
+        for (int member = 0; member < count; member++) {
+            into.put(squares[member * 2], squares[member * 2 + 1], answer);
         }
     }
 

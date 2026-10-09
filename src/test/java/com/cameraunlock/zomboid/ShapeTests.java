@@ -10,6 +10,7 @@ final class ShapeTests {
     static void run() {
         Checks.run("copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow", ShapeTests::copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow);
         Checks.run("solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite", ShapeTests::solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite);
+        Checks.run("aCopingKeepsTheSlantOfItsSpriteAlongEveryEdgeSoItsLengthsMeet", ShapeTests::aCopingKeepsTheSlantOfItsSpriteAlongEveryEdgeSoItsLengthsMeet);
         Checks.run("slabOverAShopFrontIsABeamAlongItsWall", ShapeTests::slabOverAShopFrontIsABeamAlongItsWall);
         Checks.run("sillAlongANorthWallIsABeamAtItsFloor", ShapeTests::sillAlongANorthWallIsABeamAtItsFloor);
         Checks.run("billboardSheetIsAPanelOnItsLine", ShapeTests::billboardSheetIsAPanelOnItsLine);
@@ -398,6 +399,37 @@ final class ShapeTests {
                 "the solid half of the sprite, in the sprite's own pixels: " + outline.left + ", " + outline.top + " " + outline.width + " by " + outline.height);
         check(outline.at(13, 20) && outline.at(15, 23) && !outline.at(12, 21) && !outline.at(16, 21), "paint under the threshold is no part of it");
         check(Solids.outline(Solids.solid(sheet, 0, 0, 0, 0, 0, 6, 4), 10, 20, 6, 4).width == 0, "a sprite of a sheet with no size has no solid paint");
+    }
+
+    private static void aCopingKeepsTheSlantOfItsSpriteAlongEveryEdgeSoItsLengthsMeet() {
+        // The coping along a parapet's west edge, as walls_detailing_02_77 is read and trimmed: a slab 0.018 of a level thick.
+        SpriteGeometry.Frame frame = frame();
+        frame.left = 4f;
+        frame.top = 128f;
+        frame.width = 76f;
+        frame.height = 92f;
+        SpriteShape coping = new SpriteShape(SpriteShape.BEAM, false, true, 0.06f, 0.002f, 0.326f, 0.237f, 0.998f, 0.344f);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        new SpriteGeometry().addBeam(mesh, frame, 0, 0, 0, coping);
+        float[] f = mesh.vertices;
+        int edges = 0;
+        // The edges of each triangle: across two faces a line of one height is no edge.
+        int triangle = 3 * SpriteGeometry.VERTEX_FLOATS;
+        for (int i = 0; i < mesh.floats; i += SpriteGeometry.VERTEX_FLOATS) {
+            for (int j = i + SpriteGeometry.VERTEX_FLOATS; j < (i / triangle + 1) * triangle; j += SpriteGeometry.VERTEX_FLOATS) {
+                float dx = f[j] - f[i], dy = f[j + 1] - f[i + 1];
+                if (Math.abs(f[j + 2] - f[i + 2]) > 1e-4f || Math.abs(dx) > 1e-4f && Math.abs(dy) > 1e-4f || Math.abs(dx) + Math.abs(dy) < 0.1f) {
+                    continue;
+                }
+                // Along the map's y a level line runs up the sprite half a pixel for each pixel across, along x down.
+                float du = (f[j + 3] - f[i + 3]) * frame.width, dv = (f[j + 4] - f[i + 4]) * frame.height;
+                float slant = Math.abs(dy) > 1e-4f ? -0.5f : 0.5f;
+                check(Math.abs(du) > 1f && Math.abs(dv / du - slant) < 0.02f,
+                        "a level edge of the coping takes its texels along a level line of the sprite: " + dv / du + " where the sprite's slant is " + slant + ", at height " + f[i + 2]);
+                edges++;
+            }
+        }
+        check(edges >= 8, "the test found the coping's level edges: " + edges);
     }
 
     private static void slabOverAShopFrontIsABeamAlongItsWall() {

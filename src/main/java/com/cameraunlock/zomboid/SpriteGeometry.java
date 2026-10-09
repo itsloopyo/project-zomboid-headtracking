@@ -370,6 +370,12 @@ final class SpriteGeometry {
      * height in frame pixels down. 0 for any other face.
      */
     private float halfAcross, halfDown;
+    /**
+     * The two edges of the face from its first corner, in frame pixels, for one that lies or
+     * leans: its inset is taken along them. Zero for a roof's triangle, which keeps the inset
+     * along the frame's own rows and columns.
+     */
+    private float edgeU1, edgeV1, edgeU2, edgeV2;
     /** How far the face being added stands from where its texels are taken, along a and b: see addBox. */
     float shownA, shownB;
     /** The same up, in levels: the underside of a beam shows what its top does. */
@@ -499,6 +505,10 @@ final class SpriteGeometry {
         setCorner(frame, 3, a + da2, b + db2, h + dh2);
         centreU = (corners[CORNER_U] + corners[CORNER_FLOATS * 2 + CORNER_U]) / 2f;
         centreV = (corners[CORNER_V] + corners[CORNER_FLOATS * 2 + CORNER_V]) / 2f;
+        edgeU1 = corners[CORNER_FLOATS + CORNER_U] - corners[CORNER_U];
+        edgeV1 = corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V];
+        edgeU2 = corners[CORNER_FLOATS * 3 + CORNER_U] - corners[CORNER_U];
+        edgeV2 = corners[CORNER_FLOATS * 3 + CORNER_V] - corners[CORNER_V];
         float acrossU = corners[CORNER_FLOATS + CORNER_U] - corners[CORNER_U];
         alongSlant = dh1 == 0f && dh2 != 0f && Math.abs(acrossU) > 1e-3f ? (corners[CORNER_FLOATS + CORNER_V] - corners[CORNER_V]) / acrossU : 0f;
         boolean straightUp = alongSlant != 0f && da2 == 0f && db2 == 0f;
@@ -688,6 +698,7 @@ final class SpriteGeometry {
         alongSlant = 0f;
         halfAcross = 0f;
         halfDown = 0f;
+        edgeU1 = edgeV1 = edgeU2 = edgeV2 = 0f;
         int covered = clipToFrame(frame, 0f);
         if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
             return 0;
@@ -1474,7 +1485,8 @@ final class SpriteGeometry {
         // face's centre would run along them without leaving the sprite's empty edge columns.
         float inset = EDGE_INSET_PIXELS * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
-        if (halfAcross > inset && halfDown > inset) {
+        float sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
+        if (halfAcross > inset && halfDown > 0f) {
             // A face that stands straight up is drawn smaller onto itself about its middle,
             // so every point of it moves in by its share and not by the whole inset. A sprite
             // that covers part of the face cuts it there, and the corners the cut makes are
@@ -1485,12 +1497,30 @@ final class SpriteGeometry {
             // How far below the face's middle the point is, with the slant of its courses taken out.
             float below = pixelV - centreV - fromCentre * alongSlant;
             float movedAcross = -Math.clamp(fromCentre / halfAcross, -1f, 1f) * insetAcross;
-            float insetDown = inset + (below < 0f ? sealTop : 0f);
+            // A face less than four insets tall, the side of a coping, is drawn no further onto
+            // itself than half its height: moved past its middle course, its two ends would take
+            // their texels from courses either side of it, and it would lean across its square.
+            float insetDown = Math.min(inset, halfDown / 2f) + (below < 0f ? sealTop : 0f);
             pixelU += movedAcross;
             // A wall's courses run across its sprite at a slant. Moved across alone, a corner
             // of the face would take its texels from a course up or down, and the boards of
             // one wall would step where it meets the next: the move follows the slant.
             pixelV += movedAcross * alongSlant - Math.clamp(below / halfDown, -1f, 1f) * insetDown;
+        } else if (Math.abs(sheet) > 1e-3f) {
+            // A face that lies or leans is drawn smaller onto itself along its own two edges, so
+            // its edges keep the slant the sprite paints them at. Moved towards its middle by
+            // the frame's rows and columns, a long narrow face, a coping's top, would take its
+            // texels from across its own width at a slant and step where it meets the next.
+            float dU = pixelU - centreU, dV = pixelV - centreV;
+            float s = Math.clamp(2f * (dU * edgeV2 - dV * edgeU2) / sheet, -1f, 1f), t = Math.clamp(2f * (edgeU1 * dV - edgeV1 * dU) / sheet, -1f, 1f);
+            float length1 = (float) Math.hypot(edgeU1, edgeV1), length2 = (float) Math.hypot(edgeU2, edgeV2);
+            // Each corner ends half the inset inside both edges it lies on, square to them: a
+            // diamond's left and right corners as far in as the inset across put them, its top
+            // and bottom ones less far than the inset down did.
+            float deep = inset / 2f / (Math.abs(sheet) / (length1 * length2));
+            float in1 = Math.min(deep, length1 / 4f) / length1, in2 = Math.min(deep, length2 / 4f) / length2;
+            pixelU -= s * in1 * edgeU1 + t * in2 * edgeU2;
+            pixelV -= s * in1 * edgeV1 + t * in2 * edgeV2;
         } else {
             float movedAcross = Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
             pixelU += movedAcross;

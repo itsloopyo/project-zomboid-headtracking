@@ -77,7 +77,7 @@ final class SpriteShape {
      */
     final float a0, b0, h0, a1, b1, h1;
 
-    private SpriteShape(int kind, boolean alongX, boolean whole, float a0, float b0, float h0, float a1, float b1, float h1) {
+    SpriteShape(int kind, boolean alongX, boolean whole, float a0, float b0, float h0, float a1, float b1, float h1) {
         this.kind = kind;
         this.alongX = alongX;
         this.whole = whole;

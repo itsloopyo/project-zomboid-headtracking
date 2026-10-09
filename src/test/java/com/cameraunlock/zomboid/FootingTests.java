@@ -16,6 +16,7 @@ final class FootingTests {
         Checks.run("openGroundAndWhatIsApartFromABuildingAreNotIt", FootingTests::openGroundAndWhatIsApartFromABuildingAreNotIt);
         Checks.run("whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt", FootingTests::whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt);
         Checks.run("aRowDownAHillStandsAtTheFootingOfItsMiddle", FootingTests::aRowDownAHillStandsAtTheFootingOfItsMiddle);
+        Checks.run("oneSearchAnswersForEverySquareOfAThing", FootingTests::oneSearchAnswersForEverySquareOfAThing);
         Checks.run("theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAStairOnAStreetIsLevelAtTheBuildingsFooting);
         Checks.run("aStreetPastAStairIsStillLevelFromKerbToKerb", FootingTests::aStreetPastAStairIsStillLevelFromKerbToKerb);
         Checks.run("theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting);
@@ -186,6 +187,57 @@ final class FootingTests {
         Arrays.fill(viaduct, 's');
         Arrays.fill(long1, new String(viaduct));
         check(found(new Plan(long1), 5, 1) == Footings.NONE, "a viaduct with no building in it follows the land as its road does");
+    }
+
+    /** A site that counts the squares it is asked about. */
+    private static final class Counted implements Footings.Site {
+        final Plan plan;
+        int asked;
+
+        Counted(Plan plan) {
+            this.plan = plan;
+        }
+
+        @Override
+        public byte over(int x, int y) {
+            asked++;
+            return plan.over(x, y);
+        }
+
+        @Override
+        public long house(int x, int y) {
+            return plan.house(x, y);
+        }
+    }
+
+    private static void oneSearchAnswersForEverySquareOfAThing() {
+        // A block of 40 by 40 with a flight down its side, and another at the edge of the loaded map.
+        String[] rows = new String[42];
+        for (int y = 0; y < rows.length; y++) {
+            StringBuilder row = new StringBuilder();
+            for (int x = 0; x < 48; x++) {
+                row.append(y < 40 && x < 40 ? 'A' : y < 40 && x == 40 ? 's' : y < 10 && x >= 44 && x < 47 ? 'B' : y < 10 && x == 47 ? '?' : '.');
+            }
+            rows[y] = row.toString();
+        }
+        Counted site = new Counted(new Plan(rows));
+        Footings fresh = new Footings();
+        for (int y = 0; y < rows.length; y++) {
+            for (int x = 0; x < 48; x++) {
+                fresh.find(site, x, y);
+            }
+        }
+        int squares = 48 * rows.length, thing = 40 * 41;
+        // Each square asked once for itself, and the block's search asks once about each square of it and round it.
+        check(site.asked < squares + 2 * (thing + 4 * 42) + 200, "every square of a map asked for its footing asks about each square a few times, not once a square of the thing: " + site.asked);
+        int before = site.asked;
+        fresh.changed();
+        for (int y = 0; y < rows.length; y++) {
+            for (int x = 0; x < 48; x++) {
+                fresh.find(site, x, y);
+            }
+        }
+        check(site.asked - before < squares + 200, "with other chunks loaded the settled block is not looked over again, only what may have changed: " + (site.asked - before));
     }
 
     private static void whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt() {

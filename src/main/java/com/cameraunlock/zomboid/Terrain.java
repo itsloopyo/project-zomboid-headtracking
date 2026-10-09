@@ -105,8 +105,11 @@ final class Terrain {
         final boolean[] free = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
         final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
-        /** Whether every square of the chunk was loaded and nothing on it reaches ground that is not: then it is kept, and is the same whenever it is asked for. */
+        /** Whether every square of the chunk was loaded: then it is kept, and is the same whenever it is asked for. */
         boolean whole;
+        /** Whether footed has filled in midX, midY and free; whether what it found can no longer change; and the map it found it on. */
+        boolean footed, footSettled;
+        long footedAsOf;
         boolean water;
         /** As Grid.used. */
         int used;
@@ -593,8 +596,9 @@ final class Terrain {
         for (int cx = -reach; cx <= reach; cx++) {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = kinds(cell, wx + cx, wy + cy);
+                footed(cell, kinds);
                 // What stands on a chunk may be joined to something on ground that is not loaded, and is then another thing with another footing.
-                all &= kinds.whole;
+                all &= kinds.whole && kinds.footSettled;
                 for (int i = 0; i < CHUNK_TILES; i++) {
                     int row = cx * CHUNK_TILES + i + LEVELLED;
                     if (row < 0 || row >= SPAN) {
@@ -701,11 +705,6 @@ final class Terrain {
             return kept;
         }
         boolean whole = true, water = false;
-        siteCell = cell;
-        Arrays.fill(passing.midX, Float.NaN);
-        Arrays.fill(passing.midY, Float.NaN);
-        Arrays.fill(passing.free, false);
-        Arrays.fill(foundInChunk, false);
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
                 int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
@@ -715,35 +714,14 @@ final class Terrain {
                 passing.kinds[i * CHUNK_TILES + j] = kind;
                 passing.hard[i * CHUNK_TILES + j] = square != null && (defOf(square) != null || stands(cell, square, x, y));
                 water |= kind == WATER;
-                if (foundInChunk[i * CHUNK_TILES + j]) {
-                    continue;
-                }
-                footings.find(site, x, y);
-                whole &= footings.settled;
-                // A search that looked the whole thing over answers for every square of it: the chunk's own are taken from the one search.
-                for (int member = footings.whole ? 0 : footings.count; member <= footings.count; member++) {
-                    boolean asked = member == footings.count;
-                    int memberI = asked ? i : footings.squares[member * 2] - wx * CHUNK_TILES;
-                    int memberJ = asked ? j : footings.squares[member * 2 + 1] - wy * CHUNK_TILES;
-                    if (memberI >= 0 && memberI < CHUNK_TILES && memberJ >= 0 && memberJ < CHUNK_TILES) {
-                        foundInChunk[memberI * CHUNK_TILES + memberJ] = true;
-                        passing.midX[memberI * CHUNK_TILES + memberJ] = Footings.keyX(footings.found);
-                        passing.midY[memberI * CHUNK_TILES + memberJ] = Footings.keyY(footings.found);
-                        passing.free[memberI * CHUNK_TILES + memberJ] = footings.free;
-                    }
-                }
             }
         }
-        siteCell = null;
         Kinds fresh = new Kinds();
         fresh.wx = wx;
         fresh.wy = wy;
         fresh.whole = whole;
         fresh.water = water;
         System.arraycopy(passing.kinds, 0, fresh.kinds, 0, fresh.kinds.length);
-        System.arraycopy(passing.midX, 0, fresh.midX, 0, fresh.midX.length);
-        System.arraycopy(passing.midY, 0, fresh.midY, 0, fresh.midY.length);
-        System.arraycopy(passing.free, 0, fresh.free, 0, fresh.free.length);
         System.arraycopy(passing.hard, 0, fresh.hard, 0, fresh.hard.length);
         if (!whole) {
             unsure.put(chunk, fresh);
@@ -765,7 +743,40 @@ final class Terrain {
         return fresh;
     }
 
-    private static final boolean[] foundInChunk = new boolean[CHUNK_TILES * CHUNK_TILES];
+    /**
+     * Fills in which made thing stands over each square of a chunk, and what it stands at:
+     * the search of what a square is joined to looks over chunks round it, so it is asked
+     * only of the chunks a height is worked out from (lay) and not of every chunk looked at
+     * for water. Kept while what it found is settled, and otherwise for as long as the map
+     * has the same chunks loaded.
+     */
+    private static void footed(IsoCell cell, Kinds kinds) {
+        long asOf = mapAsOf();
+        if (footingsAsOf != asOf) {
+            footings.changed();
+            footingsAsOf = asOf;
+        }
+        if (kinds.footed && (kinds.footSettled || kinds.footedAsOf == asOf)) {
+            return;
+        }
+        boolean settled = true;
+        siteCell = cell;
+        for (int i = 0; i < CHUNK_TILES; i++) {
+            for (int j = 0; j < CHUNK_TILES; j++) {
+                footings.find(site, kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
+                settled &= footings.settled;
+                kinds.midX[i * CHUNK_TILES + j] = Footings.keyX(footings.found);
+                kinds.midY[i * CHUNK_TILES + j] = Footings.keyY(footings.found);
+                kinds.free[i * CHUNK_TILES + j] = footings.free;
+            }
+        }
+        siteCell = null;
+        kinds.footed = true;
+        kinds.footSettled = settled;
+        kinds.footedAsOf = asOf;
+    }
+
+    private static long footingsAsOf = Long.MIN_VALUE;
 
     private static BuildingDef defOf(IsoGridSquare square) {
         IsoBuilding building = square.getBuilding();

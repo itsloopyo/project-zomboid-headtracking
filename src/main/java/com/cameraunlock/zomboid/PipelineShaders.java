@@ -669,19 +669,22 @@ final class PipelineShaders {
             // runs along its north edge and its west wall along its west edge. A wall is taken by the way
             // it faces, or the end of one that stands would go with the cut wall it meets. Something
             // hung has faces every way, and goes by the wall it is nearest. A wall's own ends run a
-            // little past its square, into the corner.
+            // little past its square, into the corner. A wall's top faces up whichever wall it is,
+            // and leans along its wall where the wall's two ends stand at different heights: it is
+            // cut with any cut wall whose thickness it lies in, so the top of a straight run is cut
+            // across the joints of its squares, and a counter's top against the wall keeps all but
+            // the wall's own thickness.
             bool cutAway(vec3 at, vec3 facing, bool hung) {
                 vec2 edge = floor(at.xy + 0.5), off = abs(at.xy - edge);
+                bool northCut = mod(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 2.0) > 0.5 || mod(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 2.0) > 0.5;
+                bool westCut = cutMarks(vec2(edge.x, floor(at.y - 0.06))) > 1.5 || cutMarks(vec2(edge.x, floor(at.y + 0.06))) > 1.5;
+                if (!hung && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {
+                    return off.y < 0.06 && northCut || off.x < 0.06 && westCut;
+                }
                 float reach = hung ? 0.45 : 0.3;
                 bool north = off.y < reach && (hung ? off.y < off.x : abs(facing.y) > abs(facing.x));
                 bool west = off.x < reach && (hung ? off.x <= off.y : abs(facing.x) >= abs(facing.y));
-                if (north) {
-                    return mod(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 2.0) > 0.5 || mod(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 2.0) > 0.5;
-                }
-                if (west) {
-                    return cutMarks(vec2(edge.x, floor(at.y - 0.06))) > 1.5 || cutMarks(vec2(edge.x, floor(at.y + 0.06))) > 1.5;
-                }
-                return false;
+                return north ? northCut : west && westCut;
             }
             uniform vec3 uHole;
             uniform float uHoleUp;
