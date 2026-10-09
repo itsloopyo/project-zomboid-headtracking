@@ -1,7 +1,10 @@
 package com.cameraunlock.zomboid;
 
 import java.util.IdentityHashMap;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /**
  * The cloth of a tent and of a market stall's canopy, from the game's sheet of them
@@ -127,6 +130,24 @@ final class Tents {
             roped.put(sprite, rope);
         }
         return rope;
+    }
+
+    /** Whether a sprite is a square of a tent's canopy: under it the canvas is the ceiling, and no flat one is laid. */
+    static boolean isCanvas(IsoSprite sprite) {
+        Piece piece = of(sprite);
+        return piece != null && piece.kind() == CANOPY;
+    }
+
+    /** Whether a square holds a square of a tent's canopy. */
+    static boolean canvasOn(IsoGridSquare square) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && isCanvas(sprite)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The piece of a tent a sprite paints, other than its rope, or null for any other sprite. */

@@ -1894,6 +1894,8 @@ final class WorldScene {
             return kind;
         }
         private boolean wallNorth, wallWest;
+        /** Whether the square being built holds a square of a tent's canopy: see Tents.isCanvas. */
+        private boolean canvas;
         /** Whether anything of a wall's kind, a fence or a low wall too, stands on the north and the west edge of the square being added. */
         boolean edgeNorth, edgeWest;
         String steepestSaid = "", roofName = "";
@@ -4367,7 +4369,7 @@ final class WorldScene {
             IsoObject floor = square.getFloor();
             hangsInAir = floor == null;
             geometry.floored = !hangsInAir;
-            wallNorth = wallWest = edgeNorth = edgeWest = false;
+            wallNorth = wallWest = edgeNorth = edgeWest = canvas = false;
             boolean openAbove = false;
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
@@ -4376,6 +4378,7 @@ final class WorldScene {
                     PropertyContainer flags = sprite.getProperties();
                     IsoObjectType type = sprite.getType();
                     openAbove |= Roofs.isTile(type) || isStair(type);
+                    canvas |= Tents.isCanvas(sprite);
                     edgeNorth |= onNorthEdge(flags);
                     edgeWest |= onWestEdge(flags);
                     wallNorth |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN);
@@ -4601,6 +4604,11 @@ final class WorldScene {
 
             if (isFloor || properties.has(IsoFlagType.solidfloor) || properties.has(IsoFlagType.FloorOverlay)
                     || properties.has(IsoFlagType.attachedFloor)) {
+                // The map closes a tent at the level its canopy is on with a ceiling laid as a
+                // floor. Inside the tent the canvas is the ceiling: the flat one is left out.
+                if (canvas && z > 0) {
+                    return;
+                }
                 floorBuilder.addFloor(mesh, kind, properties, texture, isFloor, x, y, z);
                 return;
             }

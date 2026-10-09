@@ -10,6 +10,7 @@ final class TentTests {
         Checks.run("aGableReachesTheRidgeAndAStripCarriesTheSlopeOn", TentTests::aGableReachesTheRidgeAndAStripCarriesTheSlopeOn);
         Checks.run("aRopeRunsFromUnderTheEavesToTheGroundOutside", TentTests::aRopeRunsFromUnderTheEavesToTheGroundOutside);
         Checks.run("anotherSpriteIsNoTent", TentTests::anotherSpriteIsNoTent);
+        Checks.run("theCanvasIsTheCeilingUnderEverySquareOfACanopy", TentTests::theCanvasIsTheCeilingUnderEverySquareOfACanopy);
     }
 
     private static final String SHEET = "location_military_tent_01_";
@@ -81,6 +82,25 @@ final class TentTests {
         for (String name : new String[] {SHEET + 0, SHEET + 3, SHEET + 56, SHEET + 64, SHEET + 128, SHEET + "x", SHEET, "roofs_shallow_01_24", "location_military_tent_02_16", null}) {
             check(Tents.of(name) == null && Tents.ropeOf(name) == null, name + " is no tent's piece");
         }
+    }
+
+    /**
+     * A square holding canopy has no flat ceiling under it, the mod's plaster or the map's
+     * ceilings_01 laid as a floor: the stall at the Riverside market (6472, 5210) and the camp's
+     * tent (12472, 4217), whose level 1 holds ceilings_01_0 beside the canvas. A gable, a strip
+     * and the ceiling sprite alone are no canvas, and a house's ceiling stays.
+     */
+    private static void theCanvasIsTheCeilingUnderEverySquareOfACanopy() {
+        for (int place : new int[] {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 80, 86, 87, 85, 93, 88}) {
+            check(Tents.isCanvas(sprite(SHEET + place)), place + " is canvas");
+        }
+        for (String name : new String[] {SHEET + 48, SHEET + 40, SHEET + 32, SHEET + 35, SHEET + 0, "ceilings_01_0", "roofs_shallow_01_24"}) {
+            check(!Tents.isCanvas(sprite(name)), name + " is no canvas");
+        }
+    }
+
+    private static zombie.iso.sprite.IsoSprite sprite(String name) {
+        return new zombie.iso.sprite.IsoSprite(name, new zombie.core.properties.PropertyContainer(new java.util.HashMap<>()));
     }
 
     private static void check(boolean ok, String what) {

@@ -31,11 +31,12 @@ final class CeilingBuilder {
      * shows, the roof's near slopes or nothing at all, and from inside the room that is rafters
      * and sky. Such a square is closed at the top of its level with plain plaster, lit by the
      * room. Left open: a square the stairs go up through, one a roof comes down through, and
-     * one with a room over it, which is how the map marks a hall two floors high.
+     * one with a room over it, which is how the map marks a hall two floors high, and one
+     * under a tent's canopy, whose canvas is its ceiling.
      */
     void addRoomCeiling(int x, int y, int z, int localX, int localY) {
         IsoGridSquare above = build.cell.getGridSquare(x, y, z + 1);
-        if (above != null && (above.getFloor() != null || above.getRoomID() != -1L) || build.madeAt(x, y, z)
+        if (above != null && (above.getFloor() != null || above.getRoomID() != -1L || Tents.canvasOn(above)) || build.madeAt(x, y, z)
                 || world.cutAway(x, y)) {
             return;
         }
