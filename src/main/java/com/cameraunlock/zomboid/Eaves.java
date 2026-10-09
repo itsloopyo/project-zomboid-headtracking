@@ -48,23 +48,40 @@ final class Eaves {
         int at(int level);
     }
 
+    /** Whether a wall stands on a level in the line under the eave, at the end of its run where the pipe goes. */
+    interface Walled {
+        boolean at(int level);
+    }
+
     /**
      * How high above the ground's own level the foot of a gutter's pipe stands, in tiles, for
      * an eave at level z: on the ground, or on a floor out of doors it comes to on the way, a
-     * balcony or a lower flat roof. NaN where the pipe would have to come down through a room
-     * or a roof: an eave round a skylight in the middle of a roof has a room under every side
-     * of it, and a pipe from it stood from floor to ceiling in the middle of that room.
+     * balcony or a lower flat roof. NaN where there is no pipe:
+     * - where it would have to come down through a room or a roof: an eave round a skylight in
+     *   the middle of a roof has a room under every side of it, and a pipe from it stood from
+     *   floor to ceiling in the middle of that room;
+     * - where there is no wall under the eave to carry it, on any level from the one the eave
+     *   hangs at the top of (the level below a roof's, or a roof on the ground level's own) down
+     *   to the pipe's foot: the open front of a porch or an awning has none, and a pipe hung
+     *   there stood alone in front of it like a post with its foot turned out.
      */
-    static float pipeFoot(int z, Under under) {
+    static float pipeFoot(int z, Under under, Walled walled) {
+        int foot = 0;
         for (int level = z; level >= 0; level--) {
             int found = under.at(level);
             if (found == ROOM) {
                 return Float.NaN;
             }
             if (found == FLOOR && level > 0) {
-                return level * ViewCamera.LEVEL_HEIGHT;
+                foot = level;
+                break;
             }
         }
-        return 0f;
+        for (int level = foot; level <= Math.max(z - 1, 0); level++) {
+            if (!walled.at(level)) {
+                return Float.NaN;
+            }
+        }
+        return foot * ViewCamera.LEVEL_HEIGHT;
     }
 }

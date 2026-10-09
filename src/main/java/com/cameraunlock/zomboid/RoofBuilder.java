@@ -850,7 +850,8 @@ final class RoofBuilder {
         // Of the gutter's dark metal: pale, it reads as a post standing at the foot of the gable.
         if (piped && startEnd != Eaves.RUNS_ON) {
             int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
-            float foot = Eaves.pipeFoot(z, level -> under(beyondX, beyondY, level));
+            int wallX = runsY ? x + (int) edge : x, wallY = runsY ? y : y + (int) edge;
+            float foot = Eaves.pipeFoot(z, level -> under(beyondX, beyondY, level), level -> walledAt(wallX, wallY, level, !runsY));
             // Against the wall at the building's corner, whatever the eave does past it.
             float px = runsY ? x + edge + ox * 0.5f : x, py = runsY ? y : y + edge + oy * 0.5f;
             float head = far - GUTTER;
@@ -869,6 +870,16 @@ final class RoofBuilder {
             }
         }
         sheet.open = roofing;
+    }
+
+    /**
+     * Whether a wall stands on the edge of the square (x, y, level) under an eave that runs
+     * along x (north) or along y, or on the square before it along the run: the pipe at the
+     * start of the run, on the corner between the two, is against either.
+     */
+    private boolean walledAt(int x, int y, int level, boolean north) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, level), before = build.cell.getGridSquare(north ? x - 1 : x, north ? y : y - 1, level);
+        return square != null && WorldScene.wallOn(square, north) != null || before != null && WorldScene.wallOn(before, north) != null;
     }
 
     /** What is under an eave on the square past it, a level at a time going down: see Eaves.pipeFoot. */

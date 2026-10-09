@@ -34,6 +34,7 @@ final class BuildingTests {
         Checks.run("skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner", BuildingTests::skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner);
         Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
+        Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
     }
 
@@ -261,12 +262,27 @@ final class BuildingTests {
                 "at a hip the eave's edge runs on as far as the other eave stands out, so the two meet on the diagonal");
         check(Eaves.atWall(gable, rake) == rake && Eaves.atEdge(gable, eave, rake) == rake, "at a gable it runs on as far as the roof's edge over the gable does");
         check(Eaves.end(true, true) == Eaves.MEETS, "two eaves of one tile meet whatever is beside it");
-        check(Eaves.pipeFoot(1, level -> Eaves.AIR) == 0f && Eaves.pipeFoot(2, level -> level == 0 ? Eaves.FLOOR : Eaves.AIR) == 0f,
+        Eaves.Walled wall = level -> true;
+        check(Eaves.pipeFoot(1, level -> Eaves.AIR, wall) == 0f && Eaves.pipeFoot(2, level -> level == 0 ? Eaves.FLOOR : Eaves.AIR, wall) == 0f,
                 "a gutter's pipe comes down open air to the ground");
-        check(Eaves.pipeFoot(2, level -> level == 1 ? Eaves.FLOOR : Eaves.AIR) == ViewCamera.LEVEL_HEIGHT, "or to a flat roof it meets on the way");
-        check(Float.isNaN(Eaves.pipeFoot(2, level -> level == 0 ? Eaves.ROOM : Eaves.AIR)) && Float.isNaN(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.ROOM : Eaves.AIR)),
+        check(Eaves.pipeFoot(2, level -> level == 1 ? Eaves.FLOOR : Eaves.AIR, wall) == ViewCamera.LEVEL_HEIGHT, "or to a flat roof it meets on the way");
+        check(Float.isNaN(Eaves.pipeFoot(2, level -> level == 0 ? Eaves.ROOM : Eaves.AIR, wall)) && Float.isNaN(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.ROOM : Eaves.AIR, wall)),
                 "and there is none where it would come down through a room: round a skylight");
-        check(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.FLOOR : Eaves.AIR) == 2f * ViewCamera.LEVEL_HEIGHT, "an eave onto a deck at its own level has its foot there, too short to hang");
+        check(Eaves.pipeFoot(2, level -> level == 2 ? Eaves.FLOOR : Eaves.AIR, wall) == 2f * ViewCamera.LEVEL_HEIGHT, "an eave onto a deck at its own level has its foot there, too short to hang");
+    }
+
+    private static void aDownpipeRunsDownAWallAndNeverStandsAlone() {
+        Eaves.Under open = level -> Eaves.AIR;
+        check(Float.isNaN(Eaves.pipeFoot(1, open, level -> false)), "a porch roof's open corner, with no wall under its eave, has no pipe");
+        check(Float.isNaN(Eaves.pipeFoot(0, open, level -> false)), "nor has an awning or canopy on the ground level standing out from its wall");
+        check(Float.isNaN(Eaves.pipeFoot(0, open, level -> level == 1)), "the wall it hangs from on the ground level is the one the pipe needs, not one above");
+        check(Eaves.pipeFoot(1, open, level -> level == 0) == 0f && Eaves.pipeFoot(0, open, level -> level == 0) == 0f,
+                "against the wall under the eave the pipe comes down to the ground");
+        check(Float.isNaN(Eaves.pipeFoot(3, open, level -> level != 0)), "an upper storey over an open ground floor leaves the pipe with nothing to run down");
+        check(Float.isNaN(Eaves.pipeFoot(3, open, level -> level != 2)), "and so does a top storey set back from the wall below it");
+        check(Eaves.pipeFoot(3, level -> level == 1 ? Eaves.FLOOR : Eaves.AIR, level -> level >= 1) == ViewCamera.LEVEL_HEIGHT,
+                "down to a balcony only the walls above the balcony carry it");
+        check(Eaves.SHOE_OUT >= 0.1f && Eaves.SHOE_OUT <= 0.15f && Eaves.SHOE_HIGH <= 0.2f, "its shoe turns out from the wall as far as a real one, 10 to 15 cm, at the foot");
     }
 
     private static void pavementIsNotLooseStone() {
