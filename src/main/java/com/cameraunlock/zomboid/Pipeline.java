@@ -3447,7 +3447,7 @@ final class Pipeline {
 
     /** The light of a shot's flash, for a program whose source has MuzzleFlash.GLSL in it. */
     private void setFlash(Program program) {
-        view.muzzleFlash.light(flash);
+        view.muzzleFlash.light(flash, frameNanos);
         program.set("uFlashAt", flash[0], flash[1], flash[2], flash[3]);
         program.set("uFlashColor", flash[4], flash[5], flash[6]);
     }
@@ -3499,7 +3499,12 @@ final class Pipeline {
                     asideX, asideY);
         }
         if (view.viewModel.hasMuzzle) {
-            view.muzzleFlash.draw(camera, view.viewModel.muzzle[0], view.viewModel.muzzle[1], view.viewModel.muzzle[2], tanHalfFieldOfView, aspect, width, height);
+            view.muzzleFlash.place(camera, view.viewModel.muzzle, view.viewModel.pointing);
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+            float[] muzzle = view.viewModel.muzzle, grip = view.viewModel.gripSeen;
+            float reach = (float) Math.sqrt((muzzle[0] - grip[0]) * (muzzle[0] - grip[0]) + (muzzle[1] - grip[1]) * (muzzle[1] - grip[1])
+                    + (muzzle[2] - grip[2]) * (muzzle[2] - grip[2]));
+            view.muzzleFlash.draw(muzzle, view.viewModel.pointing, reach, frameNanos, tanHalfFieldOfView, aspect, width, height, near, far);
         } else {
             view.muzzleFlash.none();
         }

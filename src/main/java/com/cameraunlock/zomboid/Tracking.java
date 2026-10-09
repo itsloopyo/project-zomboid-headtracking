@@ -158,6 +158,7 @@ final class Tracking {
         Quality.set(live.quality());
         Style.set(live.style());
         FrameBlending.set(live.frameBlending());
+        MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
@@ -202,7 +203,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, Style, FrameBlending, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
@@ -238,6 +239,7 @@ final class Tracking {
         }
         Style.set(live.style());
         FrameBlending.set(live.frameBlending());
+        MuzzleFlash.set(live.muzzleFlash());
         SplitScreen.set(live.splitScreen());
         if (live.own() != Own.rows()) {
             Own.set(live.own());

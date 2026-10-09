@@ -41,9 +41,9 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
-     * the Quality row, the Style row, the FrameBlending row, the SplitScreen row and the rows of [Graphics].
+     * the Quality row, the Style row, the FrameBlending row, the MuzzleFlash row, the SplitScreen row and the rows of [Graphics].
      */
-    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, int splitScreen, Quality.Picture custom) {}
+    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, boolean muzzleFlash, int splitScreen, Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
     static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -53,7 +53,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, frameBlending, splitScreen, secondPlayerPort;
+    private final int fieldOfView, quality, style, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
     /** The rows of [Graphics], in the order of GRAPHICS. */
@@ -66,7 +66,7 @@ final class Config {
      * writable: their hotkeys save. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
-     * FrameBlending, SplitScreen and the rows of [Content] are the mod's own, and the ones read
+     * FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
@@ -156,6 +156,11 @@ final class Config {
                         + "soft shadows are smoother and steadier, and the whole picture is a little softer,\n"
                         + "as much standing still as while you turn or walk. Read again while the game runs.",
                 writable | live, false);
+        muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
+                "true: a shot from a firearm in first person flashes at the muzzle: a small bloom\n"
+                        + "of fire ahead of the barrel for a frame or two, and a moment's light on what is\n"
+                        + "near. false: no flash and no light from it. Read again while the game runs.",
+                writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it. SplitScreenKey goes from one to the other\n"
                         + "and saves it here. Vertical: side by side, each half the width and the whole\n"
@@ -320,6 +325,7 @@ final class Config {
         puts.put("Quality", value -> Quality.set((int) value));
         puts.put("Style", value -> Style.set((int) value));
         puts.put("FrameBlending", value -> FrameBlending.set(value != 0));
+        puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         String[] ownKeys = {"OwnWeapons", "OwnFurniture", "OwnPictures", "OwnPlants", "OwnTextures", "OwnBuildings", "OwnZombies", "OwnPeople",
             "OwnArms", "OwnClothes"};
@@ -397,7 +403,7 @@ final class Config {
             custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetInt(frameBlending) != 0, core.configGetInt(splitScreen), picture(custom));
+                core.configGetInt(frameBlending) != 0, core.configGetInt(muzzleFlash) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
     /**

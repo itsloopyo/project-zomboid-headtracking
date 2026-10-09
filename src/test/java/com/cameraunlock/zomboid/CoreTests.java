@@ -576,16 +576,17 @@ public final class CoreTests {
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
-                .replace("FrameBlending=false", "FrameBlending=true").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555"));
+                .replace("FrameBlending=false", "FrameBlending=true").replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched off are, and the rest stay on: " + Own.described(Own.rows()));
         check(Quality.name().equals("High") && Style.current() == Style.BLEAK && FrameBlending.on(), "and the graphics mode, the picture style and frame blending");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
+        check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
-                        && !FrameBlending.on() && SplitScreen.row() == SplitScreen.HORIZONTAL,
+                        && !FrameBlending.on() && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
@@ -613,13 +614,14 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending SplitScreen StockLook SpritePlants "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending MuzzleFlash SplitScreen StockLook SpritePlants "
                         + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
                         + "FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
-                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), blending = optionNamed(options, "FrameBlending");
+                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "OwnArms"), blending = optionNamed(options, "FrameBlending"),
+                flash = optionNamed(options, "MuzzleFlash");
         boolean taken = true;
         for (CameraUnlock.Option option : options) {
             taken &= Tracking.takes(option);
@@ -629,27 +631,30 @@ public final class CoreTests {
                         && options[fov].label.equals("Field of view") && options[aim].source == CameraUnlock.OPTION_AIM_MODE,
                 "the field of view is a slider from 40 to 110 in whole degrees");
         check(Tracking.optionValue(fov) == FieldOfView.degrees() && Tracking.optionValue(aim) == Tracking.aimMode()
-                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(blending) != 0) == FrameBlending.on(),
+                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(blending) != 0) == FrameBlending.on()
+                        && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on() && options[flash].label.equals("Muzzle flash"),
                 "each reads as the session has it");
 
-        boolean world = !Tracking.worldYaw(), blended = !FrameBlending.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
-        int[] applied = {fov, yaw, tracking, aim, arms, blending};
-        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, blended ? 1 : 0};
+        boolean world = !Tracking.worldYaw(), blended = !FrameBlending.on(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
+        int[] applied = {fov, yaw, tracking, aim, arms, blending, flash};
+        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, ownArms ? 1 : 0, blended ? 1 : 0, flashed ? 1 : 0};
         for (int i = 0; i < applied.length; i++) {
             Tracking.applyOption(applied[i], options[applied[i]], values[i]);
         }
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended,
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended
+                        && MuzzleFlash.on() == flashed,
                 "what is applied there the session takes at once, before any of it is saved: " + started());
         Tracking.toggleWorldYaw();
         Tracking.cycleGraphicsMode();
         check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
         Tracking.toggleWorldYaw();
         check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
-                        "OwnArms=" + ownArms, "FrameBlending=" + blended),
+                        "OwnArms=" + ownArms, "FrameBlending=" + blended, "MuzzleFlash=" + flashed),
                 "what is applied there is saved as its row, or the rows of its mode");
         check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended,
+                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) != 0) == ownArms && FrameBlending.on() == blended
+                        && MuzzleFlash.on() == flashed,
                 "and the session still runs on it once the saves are made: " + started());
         check(Tracking.optionValue(fov) == 72 && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_POSITION_ONLY,
                 "and the screen reads it back when it next opens");

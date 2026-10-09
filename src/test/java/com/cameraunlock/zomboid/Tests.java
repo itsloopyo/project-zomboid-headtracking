@@ -152,6 +152,7 @@ public final class Tests {
         Checks.run("LowTests", LowTests::run);
         Checks.run("ScopeTests", ScopeTests::run);
         Checks.run("RifleTests", RifleTests::run);
+        Checks.run("MuzzleFlashTests", MuzzleFlashTests::run);
         Checks.run("KerbTests", KerbTests::run);
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);
@@ -612,7 +613,7 @@ public final class Tests {
         check(near(MuzzleFlash.left(MuzzleFlash.SECONDS / 2f), 0.5f), "half gone half way");
         check(MuzzleFlash.left(MuzzleFlash.SECONDS) == 0f && MuzzleFlash.left(1f) == 0f, "and gone after its time");
         float[] light = {9f, 9f, 9f, 9f, 9f, 9f, 9f};
-        muzzleFlash.light(light);
+        muzzleFlash.light(light, System.nanoTime());
         check(light[0] == 0f && light[3] == 0f && light[4] > 0f, "with no weapon drawn there is no light, only its colour");
     }
 
