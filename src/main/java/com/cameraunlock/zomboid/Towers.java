@@ -37,6 +37,13 @@ final class Towers {
     /** How high the lower chords of a pylon's short arms are over the floor of their level, and the tip of a long arm, in levels. */
     private static final float SHORT_ARM = 0.6f, LONG_TIP = 0.03f;
 
+    /**
+     * Where a big dish's pedestal stands on its anchor's square. The game paints the pedestal's foot two thirds of a
+     * metre over the floor where its axis is there, and a dish on a flat roof stands on the roof: the foot is put down
+     * on the floor, under the painted axis, and the whole dish comes down with it.
+     */
+    private static final float DISH_A = 0.36f, DISH_B = 0.65f;
+
     /** One sprite's place from its section's anchor, in squares and levels. */
     record Place(String sprite, int dx, int dy, int dz) {}
 
@@ -243,5 +250,12 @@ final class Towers {
         add(new Section("storage_tank", 2, -1f, -1f, 0f, works + 84, places(works, 81, -3, 0, 0, 95, 0, -4, 0, 130, -1, -1, -1), places(works, raised)));
         add(new Section("silo_storey", 0, 0f, 0f, 0f, works + 130, places(works, 129, -1, 0, 0, 131, 0, -1, 0), new Place[0]));
         add(new Section("vent_tank", 0, 0f, 0f, 0f, works + 73, places(works, 74, -1, -1, 0), places(works, 72, -1, 0, 0, 75, 0, -1, 0)));
+
+        // A big satellite dish on a pedestal, facing south: three sprites over three of its four squares and three on
+        // the level over them, the anchor the pedestal's. The pedestal stands on the anchor's square, and the dish
+        // reaches out over the squares to its south.
+        String dish = "appliances_com_01_";
+        add(new Section("satellite_dish_large", 2, DISH_A, DISH_B, 0f, dish + 38,
+                places(dish, 36, -1, 1, 0, 37, 0, 1, 0, 30, 0, 0, 1, 28, -1, 1, 1, 29, 0, 1, 1), new Place[0]));
     }
 }

@@ -128,6 +128,34 @@ final class RoofFit {
         }
     }
 
+    /** A line of sight that climbs less than this over a roof's plane, in levels a tile along the map's diagonal, runs along the roof. */
+    private static final float SIGHT_LEAST = 0.1f;
+
+    /**
+     * Where something the game paints standing on the floor of a roof's level, at (a, b) on its square, stands on the
+     * roof: into out as a and b on the square and its height over that floor, in levels. corners are the roof's heights
+     * over the floor at the square's corners, north-west, north-east, south-east and south-west, and the roof is taken
+     * as the plane through them. The game's view draws a point (d, d) further along the map and d/3 of a level higher
+     * on the same spot, so the thing is slid along that line of sight to where it meets the roof. On a slope the line
+     * runs along, which the game's view sees edge on or not at all, it is raised to the roof over (a, b).
+     */
+    static void standOn(float[] corners, float a, float b, float[] out) {
+        float alongX = (corners[1] + corners[2] - corners[0] - corners[3]) / 2f, alongY = (corners[2] + corners[3] - corners[0] - corners[1]) / 2f;
+        float middle = (corners[0] + corners[1] + corners[2] + corners[3]) / 4f;
+        float at = middle + alongX * (a - 0.5f) + alongY * (b - 0.5f);
+        float sight = PITCH - alongX - alongY;
+        if (sight < SIGHT_LEAST) {
+            out[0] = a;
+            out[1] = b;
+            out[2] = at;
+            return;
+        }
+        float slid = at / sight;
+        out[0] = a + slid;
+        out[1] = b + slid;
+        out[2] = slid * PITCH;
+    }
+
     /** The heights at a square's four corners of a plane with the given heights at its near and far edge along the axis. */
     static void cornersOf(int axis, float near, float far, float[] corners) {
         corners[0] = near;

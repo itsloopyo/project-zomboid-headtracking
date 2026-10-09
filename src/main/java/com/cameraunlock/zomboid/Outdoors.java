@@ -45,6 +45,11 @@ final class Outdoors {
          */
         boolean pictured;
         float paneY;
+        /**
+         * Whether it stands on the roof of its square where there is one: the game paints it over the floor of the
+         * roof's level, and the mod's roof is over that floor. See RoofFit.standOn.
+         */
+        boolean onRoof;
 
         Piece(String model, int turns) {
             this.model = model;
@@ -91,6 +96,11 @@ final class Outdoors {
         Piece pictured(float y) {
             pictured = true;
             paneY = y;
+            return this;
+        }
+
+        Piece onRoof() {
+            onRoof = true;
             return this;
         }
 
@@ -181,6 +191,10 @@ final class Outdoors {
         Piece play = Leisure.of(name, called, group, faces, width, height);
         if (play != null) {
             return play;
+        }
+        Piece aerial = aerial(name);
+        if (aerial != null) {
+            return aerial;
         }
         boolean single = width == 1 && height == 1;
         Piece burnt = single ? burntPost(name) : null;
@@ -491,6 +505,35 @@ final class Outdoors {
             return pump;
         }
         return pump.also(1 << Models.VINYL, PUMP_HEAD_DYE);
+    }
+
+    /** The sheet the game's television aerials are on, with its poles and wires. */
+    private static final String AERIALS = "appliances_com_01_";
+    /**
+     * Where a television aerial's mast stands, across its pair of squares and along them, on the square of the pair at
+     * the far end from the game's view: read off the two sprites drawn together. The aerial facing east is the one
+     * facing south mirrored across the diagonal, as the game's view is.
+     */
+    private static final float AERIAL_ACROSS = 0.03f, AERIAL_ALONG = 0.66f;
+
+    /**
+     * A television aerial: two sprites on two squares, the mast and its yagis on one and the foot of its stay on the
+     * other, south of the first for one that faces south (80 and 81) and east of it for one that faces east (82 and
+     * 83). The square at the far end from the game's view stands the whole aerial, on the roof it is painted on.
+     */
+    private static Piece aerial(String name) {
+        return switch (Sheets.place(name, AERIALS)) {
+            case 81 -> new Piece("tv_aerial", SOUTH).at(AERIAL_ACROSS, AERIAL_ALONG).pairedWith(AERIALS + "80", 0, 1).each().onRoof();
+            case 82 -> new Piece("tv_aerial", EAST).at(AERIAL_ALONG, AERIAL_ACROSS).pairedWith(AERIALS + "83", 1, 0).each().onRoof();
+            case 80 -> following(new Piece(null, SOUTH).pairedWith(AERIALS + "81", 0, -1));
+            case 83 -> following(new Piece(null, EAST).pairedWith(AERIALS + "82", -1, 0));
+            default -> null;
+        };
+    }
+
+    private static Piece following(Piece piece) {
+        piece.follows = true;
+        return piece.each();
     }
 
     /** Where the face of a warning sign's plate is along its model's y: WARNING_PLATE_Y in furniture.py. */

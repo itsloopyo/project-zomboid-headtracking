@@ -652,6 +652,26 @@ final class RoofBuilder {
         return slopesAlong(x - 1, y, z, RoofFit.ALONG_Y) || slopesAlong(x, y - 1, z, RoofFit.ALONG_X);
     }
 
+    /**
+     * The heights over the floor of level z, in levels, at the corners of the roof tile the map has on (x, y, z), as
+     * RoofFit.standOn takes them. False for a square with no roof tile, or only half of one.
+     */
+    boolean cornersAt(int x, int y, int z, float[] corners) {
+        build.building.plain = false;
+        Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        if (map == null || map.tile.half != 0) {
+            return false;
+        }
+        if (map.tile.shaped) {
+            for (int corner = 0; corner < 4; corner++) {
+                corners[corner] = map.tile.corners[corner] - z;
+            }
+        } else {
+            RoofFit.cornersOf(map.tile.fitAxis, map.tile.fitLow - z, map.tile.fitHigh - z, corners);
+        }
+        return true;
+    }
+
     private boolean slopesAlong(int x, int y, int z, int axis) {
         build.building.plain = false;
         Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale), made = Roofs.madeAt(x, y, z, world.roundNow);

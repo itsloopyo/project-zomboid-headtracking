@@ -24,6 +24,8 @@ final class WallObjects {
     private static final float CHALK_FOOT = 0.78f;
     /** How high the foot of a deer's head's plaque is hung, in tiles, read off the sprites: its antlers reach to under the ceiling. */
     private static final float TROPHY_FOOT = 1.42f;
+    /** How high the lowest point of a house's satellite dish is hung, in tiles: its wall plate a metre up, read off the sprites. */
+    private static final float DISH_FOOT = 0.9f;
     /** Where on the back of a pay phone's sprite, in levels, the side of its hood gives its colour. */
     private static final float PHONE_DYE = 0.5f;
 
@@ -57,6 +59,15 @@ final class WallObjects {
         boolean single = along == 1 && across == 1;
         if (called.equals("Phones") && group.equals("Pay") && single) {
             return new Furniture(sprite, "pay_phone", turns).dyeAtBack(1 << Models.PAINT, PHONE_DYE).stand(0f, 0f, true);
+        }
+        // The map puts a house's dish on a wall, and as often on a roof with no wall at all, painted where it would
+        // hang on the wall behind it over the roof's level. There it is on a post, stood on the roof as the game's
+        // view draws it.
+        if (called.equals("Dish") && group.equals("Satellite") && single) {
+            Furniture dish = new Furniture(sprite, "satellite_dish", turns).stand(0f, 0f, true).raise(DISH_FOOT);
+            dish.onRoof = true;
+            dish.posted = Models.get("satellite_dish_post");
+            return dish;
         }
         if (called.equals("Deer Trophy") && group.equals("Mounted") && single) {
             return new Furniture(sprite, "deer_trophy", turns).stand(0f, 0f, true).raise(TROPHY_FOOT);

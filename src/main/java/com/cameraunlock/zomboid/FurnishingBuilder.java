@@ -57,6 +57,7 @@ final class FurnishingBuilder {
     private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
+    private final float[] roofCorners = new float[4], onRoof = new float[3];
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -309,7 +310,18 @@ final class FurnishingBuilder {
         }
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
         build.building.plain = false;
-        build.placed.add(model, build.frame, x, y, x + piece.centreX, y + piece.centreY, foot, piece.turns, piece.scale, piece.scaleUp,
+        float centreX = piece.centreX, centreY = piece.centreY;
+        if (piece.onRoof && build.roofBuilder.cornersAt(x, y, z, roofCorners)) {
+            RoofFit.standOn(roofCorners, centreX, centreY, onRoof);
+            centreX = onRoof[0];
+            centreY = onRoof[1];
+            foot += onRoof[2] * ViewCamera.LEVEL_HEIGHT;
+            if (piece.posted != null) {
+                model = piece.posted;
+                foot -= piece.raised;
+            }
+        }
+        build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.

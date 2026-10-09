@@ -93,6 +93,13 @@ final class Furniture {
     boolean stocked;
     /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass. */
     boolean glazed;
+    /** Whether it stands on the roof of its square where there is one: see Outdoors.Piece. */
+    boolean onRoof;
+    /**
+     * For what hangs on a wall and is put on a roof as often, the model it is there: the same thing on a post from the
+     * roof, its foot on the roof and not raised. Null for a piece that is the same model on a roof.
+     */
+    Models.Model posted;
 
     Furniture(IsoSprite sprite, String model, int turns) {
         this(sprite, model, turns, false);
@@ -675,6 +682,7 @@ final class Furniture {
         piece.follows = outside.follows;
         piece.pictured = outside.pictured;
         piece.paneY = outside.paneY;
+        piece.onRoof = outside.onRoof;
         if (outside.fits) {
             piece.stand(outside.top, piece.model.height(), false);
         }

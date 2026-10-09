@@ -9518,6 +9518,153 @@ def camp():
             cloth_table(), live_trap("live_trap", False), live_trap("live_trap_set", True)]
 
 
+# Dishes and aerials on roofs and walls, as Towers.java, WallObjects.java and Outdoors.java stand them.
+
+def dish_shell(bm, radius, depth, thick, to, segments=32, rings=6):
+    """A dish of a paraboloid, its rim radius round its axis and its middle depth behind the rim, thick through: turned
+    about Z with its hollow to +Z and the middle of its rim at the origin, then moved by to."""
+    front = [(radius * k / rings, -depth * (1 - (k / rings) ** 2)) for k in range(rings + 1)]
+    back = [(r, z - thick) for r, z in reversed(front)]
+    lathe(bm, front + back, segments=segments, caps=False, to=to)
+
+
+def facing(way, at):
+    """Moves something turned about Z so that its +Z points along way, and its origin to at."""
+    way = Vector(way).normalized()
+    return Matrix.Translation(at) @ Vector((0.0, 0.0, 1.0)).rotation_difference(way).to_matrix().to_4x4()
+
+
+# The big dish on its pedestal as the game paints it over its four squares, read off its sprites drawn together: the
+# middle of its rim from the pedestal's axis, the way it looks (16 degrees off the model's front, 32 up), and the bearing.
+LARGE_DISH_AT = (-0.36, -1.06, 2.65)
+LARGE_DISH_WAY = (-math.sin(math.radians(16)) * math.cos(math.radians(32)), -math.cos(math.radians(16)) * math.cos(math.radians(32)),
+                  math.sin(math.radians(32)))
+LARGE_DISH_HEAD = 1.82
+
+
+def satellite_dish_large():
+    """A dish 2.7 m across on a round pedestal: a foot, a steel column, a bearing head with its axle across the way the
+    dish looks, struts from the head to the back of the dish, and three struts in from the rim holding the feed at the
+    focus. The origin is the pedestal's axis on the ground."""
+    model = Model("satellite_dish_large", centred=False)
+    way, middle = Vector(LARGE_DISH_WAY).normalized(), Vector(LARGE_DISH_AT)
+    radius, depth, focus = 1.35, 0.38, 1.2
+    foot = bmesh.new()
+    lathe(foot, [(0.0, 0.0), (0.3, 0.0), (0.3, 0.08), (0.24, 0.12), (0.24, 0.6), (0.0, 0.6)], segments=24)
+    model.turned(foot, "metal", sharp=30.0)
+    column = bmesh.new()
+    lathe(column, [(0.0, 0.6), (0.165, 0.6), (0.165, LARGE_DISH_HEAD - 0.12), (0.0, LARGE_DISH_HEAD - 0.12)], segments=24)
+    model.turned(column, "steel", sharp=30.0)
+    head = bmesh.new()
+    cuboid(head, -0.2, 0.2, -0.2, 0.2, LARGE_DISH_HEAD - 0.14, LARGE_DISH_HEAD + 0.1)
+    model.hard(head, "steel", bevel=0.02, segments=1)
+    across = Vector((-way.y, way.x, 0.0)).normalized()
+    centre = Vector((0.0, 0.0, LARGE_DISH_HEAD))
+    axle = bmesh.new()
+    rod(axle, tuple(centre - across * 0.3), tuple(centre + across * 0.3), 0.11, segments=16)
+    model.turned(axle, "metal")
+    dish = bmesh.new()
+    dish_shell(dish, radius, depth, 0.025, facing(way, middle), segments=40)
+    model.turned(dish, "enamel", sharp=60.0)
+    rim = bmesh.new()
+    lathe(rim, [(radius - 0.01, -0.04), (radius + 0.03, -0.04), (radius + 0.03, 0.01), (radius - 0.01, 0.01)], segments=40,
+          to=facing(way, middle))
+    model.turned(rim, "enamel", sharp=30.0)
+    vertex = middle - way * depth
+    up = way.cross(across).normalized()
+    frame = bmesh.new()
+    for side in (-1, 1):
+        for lift in (-1, 1):
+            mount = vertex + across * side * 0.55 + up * lift * 0.55 + way * (depth * (0.55 * math.sqrt(2) / radius) ** 2 - 0.03)
+            strut(frame, tuple(centre + across * side * 0.25), tuple(mount), 0.06)
+    strut(frame, tuple(centre), tuple(vertex - way * 0.03), 0.09)
+    model.plain(frame, "steel")
+    feed = bmesh.new()
+    point = vertex + way * focus
+    for k in range(3):
+        a = math.radians(90 + 120 * k)
+        on_rim = middle + (across * math.cos(a) + up * math.sin(a)) * (radius - 0.04)
+        rod(feed, tuple(on_rim), tuple(point - way * 0.05), 0.022, segments=8)
+    rod(feed, tuple(point - way * 0.12), tuple(point + way * 0.1), 0.07, segments=12)
+    model.turned(feed, "metal")
+    return model
+
+
+# A house's dish on its wall, the wall at +Y: how high the middle of its wall plate is, and of its rim, over the floor.
+SMALL_DISH_PLATE, SMALL_DISH_MIDDLE = 1.0, 1.34
+
+
+def satellite_dish(name="satellite_dish", post=False):
+    """A house's satellite dish 0.8 m across on a wall bracket: a plate on the wall, an arm out from it to the back of
+    the dish, the dish looking out and a little up, and an arm up from its lower rim holding the receiver at the focus.
+    With post, the plate is on a post down to a foot on the roof, for a dish the map puts on a roof."""
+    model = Model(name)
+    radius, depth = 0.4, 0.07
+    way = Vector((0.0, -math.cos(math.radians(14)), math.sin(math.radians(14))))
+    middle = Vector((0.0, -0.3, SMALL_DISH_MIDDLE))
+    plate = bmesh.new()
+    cuboid(plate, -0.07, 0.07, -0.012, 0.0, SMALL_DISH_PLATE - 0.1, SMALL_DISH_PLATE + 0.1)
+    model.hard(plate, "metal", bevel=0.004, segments=1)
+    vertex = middle - way * depth
+    arm = bmesh.new()
+    strut(arm, (0.0, -0.012, SMALL_DISH_PLATE), (0.0, vertex.y + 0.08, SMALL_DISH_PLATE), 0.035)
+    strut(arm, (0.0, vertex.y + 0.08, SMALL_DISH_PLATE), tuple(vertex - way * 0.02), 0.035)
+    model.plain(arm, "metal")
+    dish = bmesh.new()
+    dish_shell(dish, radius, depth, 0.012, facing(way, middle), segments=32, rings=5)
+    model.turned(dish, "enamel", sharp=60.0)
+    feed = bmesh.new()
+    point = vertex + way * 0.5
+    low = middle - way.cross(Vector((1.0, 0.0, 0.0))).normalized() * (radius - 0.03)
+    rod(feed, tuple(low), tuple(point), 0.012, segments=6)
+    rod(feed, tuple(point - way * 0.03), tuple(point + way * 0.07), 0.03, segments=10)
+    model.turned(feed, "plastic")
+    if post:
+        foot = bmesh.new()
+        cuboid(foot, -0.1, 0.1, -0.2, 0.0, 0.0, 0.012)
+        model.hard(foot, "metal", bevel=0.003, segments=1)
+        stand = bmesh.new()
+        rod(stand, (0.0, -0.04, 0.01), (0.0, -0.04, SMALL_DISH_PLATE + 0.08), 0.024, segments=10)
+        model.turned(stand, "metal")
+    return model
+
+
+# A television aerial on a roof: how high its mast is, and the two booms across its top, along X and along Y.
+AERIAL_MAST, AERIAL_BOOMS = 1.66, (1.6, 1.46)
+
+
+def tv_aerial():
+    """A rooftop television aerial: a mast on a foot plate with a raking stay to a second plate behind it, at +Y, and on
+    the mast two yagis at right angles, each a boom with its elements across it, longest at one end. The origin is the
+    foot of the mast."""
+    model = Model("tv_aerial", centred=False)
+    plates = bmesh.new()
+    cuboid(plates, -0.08, 0.08, -0.08, 0.08, 0.0, 0.015)
+    cuboid(plates, -0.05, 0.05, 0.2, 0.32, 0.0, 0.012)
+    model.hard(plates, "metal", bevel=0.003, segments=1)
+    tubes = bmesh.new()
+    rod(tubes, (0.0, 0.0, 0.01), (0.0, 0.0, AERIAL_MAST), 0.022, segments=10)
+    rod(tubes, (0.0, 0.26, 0.012), (0.0, 0.02, 0.62), 0.014, segments=8)
+    model.turned(tubes, "metal")
+    elements = bmesh.new()
+    for along_x, z, start, end in ((True, AERIAL_BOOMS[0], -0.95, 0.75), (False, AERIAL_BOOMS[1], -0.8, 0.95)):
+        a, b = (Vector((start, 0.0, z)), Vector((end, 0.0, z))) if along_x else (Vector((0.0, start, z)), Vector((0.0, end, z)))
+        rod(elements, tuple(a), tuple(b), 0.011, segments=6)
+        count = 11
+        for k in range(count):
+            at = a + (b - a) * k / (count - 1)
+            half = 0.42 - 0.22 * k / (count - 1)
+            side = Vector((0.0, half, 0.0)) if along_x else Vector((half, 0.0, 0.0))
+            rod(elements, tuple(at - side), tuple(at + side), 0.005, segments=4)
+    model.turned(elements, "metal")
+    return model
+
+
+def aerials():
+    """Dishes and aerials: what the game paints on roofs and walls to take in a broadcast."""
+    return [satellite_dish_large(), satellite_dish(), satellite_dish("satellite_dish_post", True), tv_aerial()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -9539,7 +9686,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + farm_and_garden() + leisure() + shop_fittings())
+            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings())
 
 
 def main():

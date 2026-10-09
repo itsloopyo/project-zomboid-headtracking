@@ -1741,7 +1741,7 @@ final class WorldScene {
         private final StairBuilder stairBuilder = new StairBuilder(this);
         private final FurnishingBuilder furnishingBuilder = new FurnishingBuilder(this);
         final CeilingBuilder ceilingBuilder = new CeilingBuilder(WorldScene.this, this);
-        private final RoofBuilder roofBuilder = new RoofBuilder(WorldScene.this, this);
+        final RoofBuilder roofBuilder = new RoofBuilder(WorldScene.this, this);
         private final WireBuilder wireBuilder = new WireBuilder(WorldScene.this, this);
         /** Dev only: set round a check's third build, which makes its crowns in the chunk's own sets as every build once did. */
         boolean crownsInline;
