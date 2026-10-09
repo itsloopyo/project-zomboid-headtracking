@@ -42,6 +42,17 @@ final class Online {
     }
 
     /**
+     * Whether a first person shot hits the part of the body the aim is on. The game finds the part
+     * by a ray down through the reticle from its own overhead camera, which in first person mostly
+     * finds none and rolls one. Against a player who could be fought that roll is the game's to
+     * make, as it is for everyone shooting them, so a player is no likelier to be hit in the head
+     * by someone with this mod.
+     */
+    static boolean aimPicksThePartOf(boolean player) {
+        return !player || !contested();
+    }
+
+    /**
      * Whether the body has to face the way the view does. The game shows a player only what
      * is in front of their character, and other players read which way a character faces to
      * tell what its player can see. In first person what is seen is what the view faces,

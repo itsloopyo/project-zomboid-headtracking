@@ -285,11 +285,11 @@ public final class Controls {
     /**
      * The part of a character a first person shot is on, for the game to hit: see {@link HitPart}.
      * {@link HitPart#NONE} leaves the game to decide as it does, which it does for a player who
-     * could be fought here, so that a player is no easier to hit in the head because the one
-     * shooting has this mod, and for an animal, whose skeleton is not a person's.
+     * could be fought here ({@link Online#aimPicksThePartOf}) and for an animal, whose skeleton is
+     * not a person's.
      */
     int aimedPart(IsoGameCharacter target) {
-        if (!view.firstPerson.lookCaptured() || target instanceof IsoAnimal || target instanceof IsoPlayer && Online.contested()) {
+        if (!view.firstPerson.lookCaptured() || target instanceof IsoAnimal || !Online.aimPicksThePartOf(target instanceof IsoPlayer)) {
             return HitPart.NONE;
         }
         int part = hitPart.part(view.firstPerson.aimView(), view.worldScene.terrain, target);

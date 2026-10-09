@@ -16,6 +16,7 @@ public final class OnlineTests {
         Checks.run("onlyAServerThatLetsPlayersFightHoldsAnythingBack", OnlineTests::onlyAServerThatLetsPlayersFightHoldsAnythingBack);
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
+        Checks.run("theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought", OnlineTests::theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought);
     }
 
     private static void check(boolean condition, String what) {
@@ -33,6 +34,14 @@ public final class OnlineTests {
             zombie.network.ServerOptions.getInstance().pvp.setValue(true);
             check(!Online.contested(), "a game played alone is no fight whatever its own server options say");
         });
+    }
+
+    private static void theAimPicksThePartOfAPlayerOnlyWhereTheyCannotBeFought() {
+        Servers.in(Servers.Where.ALONE, () -> check(Online.aimPicksThePartOf(false) && Online.aimPicksThePartOf(true), "alone the aim picks the part"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.aimPicksThePartOf(false) && Online.aimPicksThePartOf(true),
+                "on a server where players cannot hurt each other, of a player too"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(Online.aimPicksThePartOf(false), "where they can, still of a zombie"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Online.aimPicksThePartOf(true), "but of a player the game picks as it does for everyone"));
     }
 
     private static void keysAheadAreToldFromKeysAside() {
