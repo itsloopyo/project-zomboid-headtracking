@@ -60,6 +60,8 @@ final class HitPart {
     private final float[] chest = new float[3];
     private final float[] along = new float[1];
     private final Vector3 bone = new Vector3();
+    /** After {@link #part} has found one: the point on the part's own bone level with where the aim is on it, in the picture's units. */
+    float boneX, boneY, boneUp;
 
     /**
      * The game's ordinal of the part of {@code character} the aim is on, or {@link #NONE}.
@@ -91,6 +93,10 @@ final class HitPart {
         if (found == NONE) {
             return NONE;
         }
+        int at = found * 6;
+        boneX = ends[at] + (ends[at + 3] - ends[at]) * along[0];
+        boneY = ends[at + 1] + (ends[at + 4] - ends[at + 1]) * along[0];
+        boneUp = ends[at + 2] + (ends[at + 5] - ends[at + 2]) * along[0];
         if (found != BODY) {
             return PARTS[found].game.ordinal();
         }

@@ -1890,6 +1890,7 @@ final class WorldScene {
 
         /** The characters this frame draws, for the aim to be traced against. */
         float[] characterX = new float[16], characterY = new float[16], characterBase = new float[16];
+        IsoGameCharacter[] characterOf = new IsoGameCharacter[16];
         int characters;
         private final SkyState sky = new SkyState();
         private float fogEnd;
@@ -3044,6 +3045,7 @@ final class WorldScene {
 
         /** Begins again what a frame counts and what it showed, and notes whether the eye has moved since the last. */
         private void beginTallies(ViewCamera.Pose pose) {
+            Arrays.fill(characterOf, 0, characters, null);
             characters = 0;
             for (int i = 0; i < shown.size(); i++) {
                 release(shown.get(i));
@@ -4801,7 +4803,9 @@ final class WorldScene {
                 characterX = Arrays.copyOf(characterX, characters * 2);
                 characterY = Arrays.copyOf(characterY, characters * 2);
                 characterBase = Arrays.copyOf(characterBase, characters * 2);
+                characterOf = Arrays.copyOf(characterOf, characters * 2);
             }
+            characterOf[characters] = character;
             characterX[characters] = x;
             characterY[characters] = y;
             characterBase[characters] = base;

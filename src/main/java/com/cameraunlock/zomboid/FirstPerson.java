@@ -5,7 +5,9 @@ import java.util.Locale;
 import java.util.Set;
 import zombie.GameTime;
 import zombie.characters.CharacterJoypadAxis2dBinding;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.opengl.RenderThread;
@@ -170,6 +172,7 @@ public final class FirstPerson {
      * traced from it.
      */
     private final ViewCamera.Pose aimView = new ViewCamera.Pose();
+    private final HitPart onBone = new HitPart();
     private final WorldQuery world = new WorldQuery();
     private final float[] ndc = new float[2];
     private int reticleX, reticleY;
@@ -940,6 +943,17 @@ public final class FirstPerson {
         float aimed = shotDistance == Float.POSITIVE_INFINITY ? WorldScene.REACH : shotDistance;
         float aimedX = aimView.eyeX + aimView.forwardX * aimed, aimedY = aimView.eyeY + aimView.forwardY * aimed;
         float aimedUp = aimView.eyeUp + aimView.forwardUp * aimed;
+        // The game finds the target down a ray from its overhead camera through this point. Where
+        // the aim meets a character's outline the point is in front of the body, and at the height
+        // of the head that ray passes over the shoulder: the game had no target for most shots
+        // aimed at a head (measured: none of five at four tiles with the hunting rifle). On the bone
+        // the aim is on, the ray goes through that part of the body.
+        IsoGameCharacter aimedAt = characterAimedAt(scene);
+        if (aimedAt != null && !(aimedAt instanceof IsoAnimal) && onBone.part(aimView, view.worldScene.terrain, aimedAt) != HitPart.NONE) {
+            aimedX = onBone.boneX;
+            aimedY = onBone.boneY;
+            aimedUp = onBone.boneUp;
+        }
         IsoPlayer player = view.player();
         float level = player.getZ();
         float aimedLevel = (aimedUp - view.worldScene.terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
@@ -989,6 +1003,16 @@ public final class FirstPerson {
     boolean inPicture(float x, float y, float up, float[] ndc) {
         float aspect = view.worldScene.drawnAspect();
         return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(trackedView, pictureTanHalf, aspect, x, y, up, ndc);
+    }
+
+    /** The character the clean aim meets before anything else this frame, or null. */
+    private IsoGameCharacter characterAimedAt(WorldScene.Frame scene) {
+        for (int i = 0; i < scene.characters; i++) {
+            if (WorldQuery.cylinderDistance(aimView, scene.characterX[i], scene.characterY[i], scene.characterBase[i]) == shotDistance) {
+                return scene.characterOf[i];
+            }
+        }
+        return null;
     }
 
     private void hideReticle() {
