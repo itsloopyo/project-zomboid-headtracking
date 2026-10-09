@@ -4794,6 +4794,11 @@ final class WorldScene {
                 if (overLayer == 0 && sprite.getName() != null && !kind.roofSheet && postBuilder.addPost(mesh, object, sprite, texture, x, y, z)) {
                     return;
                 }
+                // The eave the map hangs under a slope's foot, and the trims painted on it, are the
+                // eave the slope's lowest tile makes.
+                if (z > 0 && (Hoods.eave(sprite) != Hoods.NONE || kind.roofAccent) && roofBuilder.eaveRow(x, y, z)) {
+                    return;
+                }
                 roofName = sprite.getName();
                 roofBuilder.addRoof(mesh, texture, x, y, z);
                 return;

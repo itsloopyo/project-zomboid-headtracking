@@ -701,7 +701,24 @@ final class RoofBuilder {
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1));
+        return !hasRoof(beyondX, beyondY, z) && !(low < Roofs.FLAT && hasRoof(beyondX, beyondY, z - 1) && !eaveRow(beyondX, beyondY, z - 1));
+    }
+
+    /**
+     * Whether the square holds the row of eave the map hangs at the top of a level from the
+     * square's west or north wall, under the lowest tile of a slope that falls to that wall
+     * from the square beyond it, a level up: the eave addEave makes of that tile. Drawn as
+     * tiles, the row's pieces each lay at its own tilt under the eave, a row of slabs with the
+     * wall showing in a triangle between each two.
+     */
+    boolean eaveRow(int x, int y, int z) {
+        int wall = Hoods.on(build.cell, z).eave(x, y);
+        if (wall == Hoods.NONE) {
+            return false;
+        }
+        boolean west = wall == Outdoors.WEST;
+        Roofs.Laid slope = Roofs.at(build.cell, west ? x - 1 : x, west ? y : y - 1, z + 1, world.roundNow, build.frame.scale);
+        return slope != null && RoofFit.fallsToItsFloor(slope.tile, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y);
     }
 
     /**
@@ -820,7 +837,7 @@ final class RoofBuilder {
         if (square == null) {
             return Eaves.AIR;
         }
-        if (square.getRoomID() != -1L || Roofs.roofing(square) || build.madeAt(x, y, level)) {
+        if (square.getRoomID() != -1L || Roofs.roofing(square) && !eaveRow(x, y, level) || build.madeAt(x, y, level)) {
             return Eaves.ROOM;
         }
         return square.getFloor() != null ? Eaves.FLOOR : Eaves.AIR;

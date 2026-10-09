@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 
@@ -27,6 +28,203 @@ final class RoofTests {
         Checks.run("valleyTileThatReadsLevelIsFolded", RoofTests::valleyTileThatReadsLevelIsFolded);
         Checks.run("lowestRowThatReadsLevelIsTheSlopeGoingOnDown", RoofTests::lowestRowThatReadsLevelIsTheSlopeGoingOnDown);
         Checks.run("meanColourOfATileCountsTheDarkBetweenItsShingles", RoofTests::meanColourOfATileCountsTheDarkBetweenItsShingles);
+        Checks.run("farSlopesOverTheLoftCeilingAreMadeWhole", RoofTests::farSlopesOverTheLoftCeilingAreMadeWhole);
+        Checks.run("rowCutShortByAWingStillComesDownToItsEave", RoofTests::rowCutShortByAWingStillComesDownToItsEave);
+        Checks.run("bothRidgesOfACrossGableArePeakedAndCappedWhole", RoofTests::bothRidgesOfACrossGableArePeakedAndCappedWhole);
+        Checks.run("deepWingIsCarriedIntoTheMainRoofUpToItsRidge", RoofTests::deepWingIsCarriedIntoTheMainRoofUpToItsRidge);
+        Checks.run("eaveRowHangsUnderTheFootOfASlopeOnly", RoofTests::eaveRowHangsUnderTheFootOfASlopeOnly);
+    }
+
+    private static void eaveRowHangsUnderTheFootOfASlopeOnly() {
+        // The wing of the cross gable: its east slope comes down to the eave on level 2 over the east edge of column 8.
+        HashMap<Long, RoofFit.Tile> at = new HashMap<>();
+        for (RoofFit.Tile tile : crossGable()) {
+            at.putIfAbsent(RoofFit.key(tile.x, tile.y, tile.z), tile);
+        }
+        check(RoofFit.fallsToItsFloor(at.get(RoofFit.key(8, 12, 2)), RoofFit.ALONG_X),
+                "the row of eave the map hangs from the wall east of the wing's lowest tile is that tile's eave, which the picture makes");
+        check(!RoofFit.fallsToItsFloor(at.get(RoofFit.key(7, 12, 2)), RoofFit.ALONG_X), "a tile higher up the slope has no eave under it");
+        check(!RoofFit.fallsToItsFloor(at.get(RoofFit.key(8, 12, 2)), RoofFit.ALONG_Y), "nor has a slope across the wall the row hangs from");
+        check(!RoofFit.fallsToItsFloor(at.get(RoofFit.key(3, 8, 2)), RoofFit.ALONG_X) && RoofFit.fallsToItsFloor(at.get(RoofFit.key(3, 8, 2)), RoofFit.ALONG_Y),
+                "the main roof's lowest row comes down to its eave along y");
+        RoofFit.Tile rising = new RoofFit.Tile(0, 0, 2, RoofFit.ALONG_X, true, 2f, 2f + THIRD);
+        RoofFit.fit(new ArrayList<>(List.of(rising)));
+        check(!RoofFit.fallsToItsFloor(rising, RoofFit.ALONG_X), "a slope that climbs to the wall the row hangs from is no eave over it");
+    }
+
+    /**
+     * Cally's Gifts in Riverside (6481..6489, 5295..5312), as the map holds its roof, from x and
+     * y 0. A main roof over rows 0 to 8 with its ridge along the middle of row 4, and a wing as
+     * wide over rows 9 to 17 with its ridge along the middle of column 4, both from eaves on
+     * level 2 up to 3.5. The map has the main roof's south slope and the wing's east slope, the
+     * half tiles that top them, and the valley where the two meet on the east; the main roof's
+     * north slope and the wing's west slope are left out. A tile that would stand more than a
+     * level over its square's floor is on level 3. Squares (5, 5), (6, 6) and (8, 8) hold the
+     * valley's tiles and (7, 7) a sprite that reads neither way.
+     */
+    private static List<RoofFit.Tile> crossGable() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        int[][] southSlope = {{0, 1, 2, 3, 6, 7, 8}, {0, 1, 2, 3, 4, 5, 7, 8}, {0, 1, 2, 3, 4, 8}, {0, 1, 2, 3}};
+        for (int row = 0; row < southSlope.length; row++) {
+            int y = 5 + row;
+            float north = 2f + (9 - y) * THIRD;
+            for (int x : southSlope[row]) {
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(north - THIRD + 0.05f), RoofFit.ALONG_Y, true, north, north - THIRD));
+            }
+        }
+        for (int x = 5; x <= 8; x++) {
+            float west = 2f + (9 - x) * THIRD;
+            for (int y = x + 1; y <= 17; y++) {
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(west - THIRD + 0.05f), RoofFit.ALONG_X, true, west, west - THIRD));
+            }
+        }
+        roof.add(new RoofFit.Tile(5, 5, 3, RoofFit.SOUTH_EAST_ODD, true, 3f + THIRD, 3f));
+        roof.add(new RoofFit.Tile(6, 6, 2, RoofFit.SOUTH_EAST_ODD, true, 3f, 3f - THIRD));
+        roof.add(new RoofFit.Tile(8, 8, 2, RoofFit.SOUTH_EAST_ODD, true, 2f + THIRD, 2f));
+        roof.add(new RoofFit.Tile(7, 7, 2, RoofFit.ALONG_Y, false, 2.82f, 2f + THIRD));
+        for (int x = 0; x <= 8; x++) {
+            roof.add(half(x, 4, RoofFit.SOUTH_HALF));
+        }
+        for (int y = 5; y <= 17; y++) {
+            roof.add(half(4, y, RoofFit.EAST_HALF));
+        }
+        // In the order of their places, as Roofs.read gives them.
+        roof.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(roof);
+        return roof;
+    }
+
+    private static RoofFit.Tile half(int x, int y, int which) {
+        RoofFit.Tile half = new RoofFit.Tile(x, y, 3, RoofFit.LEVEL, true, 3f + THIRD, 3f + THIRD);
+        half.half = which;
+        half.halfEdge = 3f + THIRD;
+        return half;
+    }
+
+    /**
+     * The building under that roof: two storeys and the loft. The map lays a floor on level 3,
+     * the loft's ceiling, where the roof stands over level 3 from edge to edge: rows 3 to 5 of
+     * the main roof and columns 3 to 5 of the wing. No room is on it. Roofs.site leaves out such
+     * a floor as this does, one that is no room, above the level asked about and no higher than
+     * the roof made there.
+     */
+    private static final RoofFit.Site CROSS_GABLE = new RoofFit.Site() {
+        @Override
+        public boolean stands(int x, int y, int z) {
+            return x >= 0 && x <= 8 && y >= 0 && y <= 17;
+        }
+
+        @Override
+        public boolean floored(int x, int y, int z) {
+            return z == 3 && stands(x, y, z) && (y >= 3 && y <= 5 || x >= 3 && x <= 5 && y >= 3);
+        }
+
+        @Override
+        public boolean taken(int x, int y, int z, float roof) {
+            if (floored(x, y, z)) {
+                return true;
+            }
+            for (int level = z + 1; level <= z + 3; level++) {
+                if (floored(x, y, level) && level > roof + RoofFit.SAME) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    private static HashMap<Long, RoofFit.Tile> madeOfCrossGable(List<RoofFit.Tile> tiles) {
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.backs(tiles, CROSS_GABLE)) {
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        return over;
+    }
+
+    private static String said(RoofFit.Tile tile) {
+        return tile == null ? "nothing" : (tile.shaped ? "folded " : "axis " + tile.fitAxis + " ") + tile.fitLow + ".." + tile.fitHigh;
+    }
+
+    private static void farSlopesOverTheLoftCeilingAreMadeWhole() {
+        HashMap<Long, RoofFit.Tile> over = madeOfCrossGable(crossGable());
+        for (int x = 0; x <= 5; x++) {
+            for (int y = 0; y <= 3; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD),
+                        "the main roof's north slope is made at " + x + ", " + y + ", from the eave up to the ridge, its top row over the loft's ceiling too: " + said(tile));
+            }
+        }
+        for (int y = 9; y <= 17; y++) {
+            for (int x = 0; x <= 3; x++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 2f + x * THIRD) && near(tile.fitHigh, 2f + (x + 1) * THIRD),
+                        "the wing's west slope is made at " + x + ", " + y + ": " + said(tile));
+            }
+        }
+    }
+
+    private static void rowCutShortByAWingStillComesDownToItsEave() {
+        HashMap<Long, RoofFit.Tile> over = madeOfCrossGable(crossGable());
+        // East of the valley the main roof's rows run into the wing a row or two over the eave.
+        for (int x = 6; x <= 8; x++) {
+            for (int y = 0; y <= 3; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD),
+                        "the north slope over column " + x + " stands on the eave the rest of it does, and is no row short of the ridge, at " + y + ": " + said(tile));
+            }
+        }
+    }
+
+    private static void bothRidgesOfACrossGableArePeakedAndCappedWhole() {
+        List<RoofFit.Tile> tiles = crossGable();
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, CROSS_GABLE);
+        RoofFit.peaks(tiles, made);
+        HashMap<Long, RoofFit.Tile> ridges = new HashMap<>();
+        for (RoofFit.Tile tile : made) {
+            if (tile.peak > 0f) {
+                check(ridges.put(RoofFit.key(tile.x, tile.y, 0), tile) == null, "one ridge to a square: " + tile.x + ", " + tile.y);
+            }
+        }
+        for (int x = 0; x <= 8; x++) {
+            RoofFit.Tile ridge = ridges.get(RoofFit.key(x, 4, 0));
+            check(ridge != null && ridge.peakAxis == RoofFit.ALONG_Y && near(ridge.fitLow + ridge.peak, 3.5f),
+                    "the main roof's ridge runs the whole length of the roof, over the wing's end and the valley's top too: " + x);
+        }
+        for (int y = 5; y <= 17; y++) {
+            RoofFit.Tile ridge = ridges.get(RoofFit.key(4, y, 0));
+            check(ridge != null && ridge.peakAxis == RoofFit.ALONG_X && near(ridge.fitLow + ridge.peak, 3.5f),
+                    "the wing's ridge runs from the main roof's to its own end, over the main roof's slope going on under it too: " + y);
+        }
+        boolean[] capped = new boolean[18];
+        for (RoofFit.Cap cap : RoofFit.caps(tiles, made)) {
+            if (cap.x0 == 4.5f && cap.x1 == 4.5f && near(cap.high0, 3.5f) && near(cap.high1, 3.5f)) {
+                for (int y = (int) Math.min(cap.y0, cap.y1); y < Math.max(cap.y0, cap.y1); y++) {
+                    capped[y] = true;
+                }
+            }
+        }
+        for (int y = 5; y <= 17; y++) {
+            check(capped[y], "and the wing's ridge is capped all along it: " + y);
+        }
+    }
+
+    private static void deepWingIsCarriedIntoTheMainRoofUpToItsRidge() {
+        List<RoofFit.Tile> tiles = crossGable();
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, CROSS_GABLE);
+        RoofFit.peaks(tiles, made);
+        HashMap<Long, RoofFit.Tile> carried = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.valleys(tiles, made)) {
+            carried.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        // The wing's west slope runs into the main roof's south slope along the line from (0, 9) to (4.5, 4.5).
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 8 - x; y <= 8; y++) {
+                RoofFit.Tile tile = carried.get(RoofFit.key(x, y, 0));
+                check(tile != null && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 2f + x * THIRD),
+                        "the wing's west slope is carried over the main roof's as far as the valley, its top row too, a whole tile's climb and more over the main roof's eave: "
+                                + x + ", " + y + ": " + said(tile));
+            }
+        }
     }
 
     private static void meanColourOfATileCountsTheDarkBetweenItsShingles() {
@@ -131,7 +329,7 @@ final class RoofTests {
         }
 
         @Override
-        public boolean taken(int x, int y, int z) {
+        public boolean taken(int x, int y, int z, float roof) {
             return floored(x, y, z) || floored(x, y, z + 1);
         }
     };
@@ -325,7 +523,7 @@ final class RoofTests {
             }
 
             @Override
-            public boolean taken(int x, int y, int z) {
+            public boolean taken(int x, int y, int z, float roof) {
                 return false;
             }
         };
@@ -365,7 +563,7 @@ final class RoofTests {
             }
 
             @Override
-            public boolean taken(int x, int y, int z) {
+            public boolean taken(int x, int y, int z, float roof) {
                 return false;
             }
         };

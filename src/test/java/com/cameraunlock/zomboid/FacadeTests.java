@@ -268,7 +268,7 @@ final class FacadeTests {
         }
 
         @Override
-        public boolean taken(int x, int y, int z) {
+        public boolean taken(int x, int y, int z, float roof) {
             return false;
         }
     };

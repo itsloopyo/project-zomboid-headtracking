@@ -156,6 +156,14 @@ final class RoofFit {
         out[2] = slid * PITCH;
     }
 
+    /**
+     * Whether a tile is a whole plane of a slope that falls along the axis, towards the far
+     * edge, to the floor of its level there: the lowest tile of a slope whose eave is that edge.
+     */
+    static boolean fallsToItsFloor(Tile tile, int axis) {
+        return tile.slopes() && tile.fitAxis == axis && tile.fitHigh < tile.fitLow && Math.abs(tile.fitHigh - tile.z) < Roofs.FLAT;
+    }
+
     /** The heights at a square's four corners of a plane with the given heights at its near and far edge along the axis. */
     static void cornersOf(int axis, float near, float far, float[] corners) {
         corners[0] = near;
@@ -388,8 +396,13 @@ final class RoofFit {
         /** Whether a floor lies on the square at that level. */
         boolean floored(int x, int y, int z);
 
-        /** Whether the square at that level is a room or has a floor, or something roofs it from above. */
-        boolean taken(int x, int y, int z);
+        /**
+         * Whether the square at that level is a room or has a floor, or something roofs it from
+         * above. roof is the least height, in levels, a roof made over the square stands at
+         * there: a floor that is no room, on a level above z and no higher than that, is the
+         * ceiling the map lays over the loft inside that roof, under its ridge, and does not count.
+         */
+        boolean taken(int x, int y, int z, float roof);
     }
 
     /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
@@ -426,10 +439,6 @@ final class RoofFit {
             return new Side(x, y, near, far, fromEave, eave, pitch, top);
         }
 
-        int level() {
-            return (int) Math.floor(Math.min(near, far) + LEAST_RISE);
-        }
-
         /** The level the slope's eave is on. */
         int eaveLevel() {
             return (int) Math.floor(eave + LEAST_RISE);
@@ -459,6 +468,13 @@ final class RoofFit {
             at.put(key(tile.x, tile.y, tile.z), tile);
             roofed.merge(key(tile.x, tile.y, 0), tile, (was, now) -> was.slopes() ? was : now);
         }
+        // The eave of each plane the fit laid slopes on: the lowest edge of any of its tiles.
+        HashMap<Long, Float> eaves = new HashMap<>();
+        for (Tile tile : tiles) {
+            if (tile.fitted && tile.slopes()) {
+                eaves.merge(planeOf(tile), Math.min(tile.fitLow, tile.fitHigh), Math::min);
+            }
+        }
         HashMap<Long, Boolean> built = new HashMap<>();
         ArrayList<Tile> made = new ArrayList<>();
         mend(tiles, roofed, built, site, made);
@@ -482,6 +498,13 @@ final class RoofFit {
                 climbed++;
             }
             float eave = Math.min(lowest.fitLow, lowest.fitHigh);
+            // A row whose foot runs under a wing is cut short there, by the valley's tiles: the
+            // slope goes on down under the wing to the eave the rest of its plane comes down to.
+            Float planeEave = top.fitted ? eaves.get(planeOf(top)) : null;
+            if (planeEave != null && planeEave < eave - SAME) {
+                eave = planeEave;
+                climbed = Math.round((ridge - eave) / rise);
+            }
             int whole = Math.round(ridge);
             boolean level = Math.abs(ridge - whole) < LEAST_RISE;
             int x = top.x + dx, y = top.y + dy;
@@ -501,8 +524,9 @@ final class RoofFit {
             }
             int floor = (int) Math.floor(eave + LEAST_RISE);
             int open = 0;
+            // The far slope over a square stands no lower than the ridge less a tile's climb for every square from the ridge to the square's far edge.
             while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor) && !roofed.containsKey(key(x + open * dx, y + open * dy, 0))
-                    && !site.taken(x + open * dx, y + open * dy, floor)) {
+                    && !site.taken(x + open * dx, y + open * dy, floor, ridge - (open + 1) * rise)) {
                 open++;
             }
             // A far side as deep as the near one, or deeper, stands on the far wall as the near
@@ -544,15 +568,22 @@ final class RoofFit {
                 }
                 middle = Math.min(side.near + side.far, across.near + across.far) / 2f;
             }
-            lay(made, side.x, side.y, corners, middle, site);
+            lay(made, side.x, side.y, corners, middle, across == null ? side.eaveLevel() : Math.min(side.eaveLevel(), across.eaveLevel()), site);
         }
         for (Side side : alongY.values()) {
             if (!alongX.containsKey(key(side.x, side.y, 0))) {
                 cornersOf(ALONG_Y, side.near, side.far, corners);
-                lay(made, side.x, side.y, corners, (side.near + side.far) / 2f, site);
+                lay(made, side.x, side.y, corners, (side.near + side.far) / 2f, side.eaveLevel(), site);
             }
         }
         return made;
+    }
+
+    /** Which plane a fitted slope tile lies on: its axis, its rise over a tile and its height where its axis is 0, to a 48th of a level. */
+    private static long planeOf(Tile tile) {
+        float rise = tile.fitHigh - tile.fitLow;
+        long atOrigin = Math.round((tile.fitLow - rise * tile.along()) * 48f), climb = Math.round(rise * 48f);
+        return (long) tile.fitAxis << 56 ^ (climb & 0xFFFFL) << 40 ^ atOrigin & 0xFFFFFFFFFFL;
     }
 
     /**
@@ -570,7 +601,7 @@ final class RoofFit {
             Tile beyond = roofed.get(key(x + dx, y + dy, 0));
             if (roofed.containsKey(key(x, y, 0)) || beyond == null || !beyond.slopes() || beyond.fitAxis != tile.fitAxis
                     || Math.abs(beyond.fitLow - tile.fitLow) > SAME || Math.abs(beyond.fitHigh - tile.fitHigh) > SAME
-                    || !stands(built, site, x, y, tile.z) || site.taken(x, y, tile.z)) {
+                    || !stands(built, site, x, y, tile.z) || site.taken(x, y, tile.z, Math.min(tile.fitLow, tile.fitHigh))) {
                 continue;
             }
             Tile mended = new Tile(x, y, tile.z, tile.fitAxis, true, tile.fitLow, tile.fitHigh);
@@ -592,11 +623,11 @@ final class RoofFit {
         return known;
     }
 
-    /** Makes the tile of a made roof over one square, unless the building has something else there. */
-    private static void lay(List<Tile> made, int x, int y, float[] corners, float middle, Site site) {
+    /** Makes the tile of a made roof over one square, unless the building has something else there from the level of the roof's eave up. */
+    private static void lay(List<Tile> made, int x, int y, float[] corners, float middle, int eaveLevel, Site site) {
         float lowest = Math.min(Math.min(corners[0], corners[1]), Math.min(corners[2], corners[3]));
         int z = (int) Math.floor(lowest + LEAST_RISE);
-        if (site.taken(x, y, z)) {
+        if (site.taken(x, y, eaveLevel, lowest)) {
             return;
         }
         int crease = creaseOf(corners, middle);
@@ -665,7 +696,7 @@ final class RoofFit {
                 while (!strips.containsKey(key(x, y, 0))) {
                     Tile on = roofed.get(key(x, y, 0));
                     if (on == null) {
-                        if (stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel()) && !site.taken(x, y, from.level())) {
+                        if (stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))) {
                             Side next = from.at(x, y);
                             strips.put(key(x, y, 0), next);
                             queue.add(next);
@@ -819,9 +850,11 @@ final class RoofFit {
                     float level = (tile.fitLow + tile.fitHigh) / 2f;
                     Tile before = facing(at, tile.x - (alongX ? 1 : 0), tile.y - (alongX ? 0 : 1), tile.z, axis, 1, level);
                     Tile after = facing(at, tile.x + (alongX ? 1 : 0), tile.y + (alongX ? 0 : 1), tile.z, axis, -1, level);
-                    if (before != null && after != null) {
-                        boolean peaked = tile.peak > 0f && tile.peakAxis == axis;
-                        float high = Math.max(level, Math.max(before.fitHigh, after.fitLow)) + (peaked ? tile.peak : 0f);
+                    boolean peaked = tile.peak > 0f && tile.peakAxis == axis;
+                    // A ridge along the middle of the square is one whatever lies beside it: where a
+                    // wing's ridge runs into the main roof's, a slope on one side is under the other.
+                    if (peaked || before != null && after != null) {
+                        float high = (peaked ? level : Math.max(level, Math.max(before.fitHigh, after.fitLow))) + (peaked ? tile.peak : 0f);
                         // The roof is level under this one from side to side, unless it peaks there.
                         float fall = peaked ? 2f * tile.peak : 0f;
                         caps.add(alongX ? new Cap(tile.x + 0.5f, tile.y, high, tile.x + 0.5f, tile.y + 1f, high, fall)
@@ -849,15 +882,19 @@ final class RoofFit {
      * as backs made it or as made here, and peaks along its middle half a tile's climb higher.
      */
     static void peaks(List<Tile> tiles, List<Tile> made) {
-        HashMap<Long, Tile> slopes = new HashMap<>(), ridges = new HashMap<>();
+        HashMap<Long, Tile> slopes = new HashMap<>(), ridges = new HashMap<>(), halves = new HashMap<>();
         for (Tile tile : tiles) {
             if (tile.slopes()) {
                 slopes.put(key(tile.x, tile.y, 0), tile);
+            }
+            if (tile.half != 0) {
+                halves.put(key(tile.x, tile.y, tile.z), tile);
             }
         }
         for (Tile tile : made) {
             ridges.put(key(tile.x, tile.y, 0), tile);
         }
+        HashMap<Tile, Integer> shifts = new HashMap<>();
         for (Tile half : tiles) {
             if (half.half == 0) {
                 continue;
@@ -870,25 +907,57 @@ final class RoofFit {
                 if (below == null || below.fitAxis != (east ? ALONG_X : ALONG_Y) || below.up() != -1 || Math.abs(below.fitLow - edge) > SAME + PITCH_SLACK) {
                     continue;
                 }
-                Tile ridge = ridges.get(key(x, y, 0));
-                if (ridge == null && !slopes.containsKey(key(x, y, 0))) {
-                    ridge = new Tile(x, y, (int) Math.floor(below.fitLow + LEAST_RISE), LEVEL, true, below.fitLow, below.fitLow);
-                    ridge.fitted = true;
-                    cornersOf(LEVEL, below.fitLow, below.fitLow, ridge.corners);
-                    made.add(ridge);
-                    ridges.put(key(x, y, 0), ridge);
-                }
-                if (ridge != null && !ridge.shaped && ridge.fitAxis == LEVEL && Math.abs(ridge.fitLow - below.fitLow) <= SAME + PITCH_SLACK) {
-                    ridge.peak = PITCH / 2f;
-                    ridge.peakAxis = east ? ALONG_X : ALONG_Y;
-                }
+                shifts.put(half, shift);
+                peak(x, y, below.fitLow, east, slopes, ridges, made);
                 break;
+            }
+        }
+        // A half whose square has the end of another slope below it, where a wing's ridge runs
+        // into the main roof's, or the foot of a valley, has its place from the run of halves
+        // it is one of: the same ridge, at the same height.
+        for (Tile half : tiles) {
+            if (half.half == 0 || shifts.containsKey(half)) {
+                continue;
+            }
+            boolean east = half.half == EAST_HALF;
+            for (int way = -1; way <= 1 && !shifts.containsKey(half); way += 2) {
+                for (int along = 1; ; along++) {
+                    Tile next = halves.get(key(half.x + (east ? 0 : way * along), half.y + (east ? way * along : 0), half.z));
+                    if (next == null || next.half != half.half || Math.abs(next.halfEdge - half.halfEdge) > SAME) {
+                        break;
+                    }
+                    Integer shift = shifts.get(next);
+                    if (shift != null) {
+                        shifts.put(half, shift);
+                        peak(half.x - shift, half.y - shift, half.halfEdge - shift * PITCH, east, slopes, ridges, made);
+                        break;
+                    }
+                }
             }
         }
     }
 
-    /** A slope is carried into another only from this near above it, in levels: further up it is the roof of another storey. */
-    private static final float VALLEY_REACH = 2f * PITCH;
+    /**
+     * Makes the square under a ridge along its middle level at the height the slopes reach and
+     * peaked, or peaks the level tile backs made there. A square that holds a slope of the map
+     * is left as it is, unless the slope lies wholly under the ridge: the main roof going on
+     * under a wing's ridge.
+     */
+    private static void peak(int x, int y, float level, boolean east, HashMap<Long, Tile> slopes, HashMap<Long, Tile> ridges, List<Tile> made) {
+        Tile ridge = ridges.get(key(x, y, 0));
+        Tile under = slopes.get(key(x, y, 0));
+        if (ridge == null && (under == null || Math.max(under.fitLow, under.fitHigh) < level - SAME)) {
+            ridge = new Tile(x, y, (int) Math.floor(level + LEAST_RISE), LEVEL, true, level, level);
+            ridge.fitted = true;
+            cornersOf(LEVEL, level, level, ridge.corners);
+            made.add(ridge);
+            ridges.put(key(x, y, 0), ridge);
+        }
+        if (ridge != null && !ridge.shaped && ridge.fitAxis == LEVEL && Math.abs(ridge.fitLow - level) <= SAME + PITCH_SLACK) {
+            ridge.peak = PITCH / 2f;
+            ridge.peakAxis = east ? ALONG_X : ALONG_Y;
+        }
+    }
 
     /**
      * The valleys where one roof runs into the side of another: a wing whose ridge meets the
@@ -899,10 +968,11 @@ final class RoofFit {
      *
      * So each slope is carried on along its level lines over the squares of a slope that runs
      * across it and climbs the way it is being carried, for as long as it stands above that
-     * slope anywhere on the square. Under the other slope it is out of sight inside the roof;
-     * above it, it is the roof of the wing, and the line where it goes under is the valley. A
-     * ridge that runs along the middle of its squares is carried on the same way. A slope that
-     * falls the way it would be carried is a hip, which backs folds, and nothing is carried there.
+     * slope anywhere on the square and that slope goes on to climb as high as it. Under the
+     * other slope it is out of sight inside the roof; above it, it is the roof of the wing,
+     * and the line where it goes under is the valley. A ridge that runs along the middle of
+     * its squares is carried on the same way. A slope that falls the way it would be carried
+     * is a hip, which backs folds, and nothing is carried there.
      *
      * tiles are the fitted tiles of the map and made those of backs and peaks. Returns the
      * carried tiles, each marked so.
@@ -954,7 +1024,9 @@ final class RoofFit {
                     for (int corner = 0; corner < 4; corner++) {
                         above |= (peaked ? highest : own[corner]) > other[corner] + SAME;
                     }
-                    if (!above || lowest - Math.max(across.fitLow, across.fitHigh) >= VALLEY_REACH - SAME) {
+                    // A slope across that never climbs as high as this one before it ends is the
+                    // roof of a lower storey, and this one is no wing of it.
+                    if (!above || climbsTo(at, x, y, dx, dy, across.fitAxis, step) < lowest - SAME) {
                         break;
                     }
                     Tile over = new Tile(x, y, (int) Math.floor(lowest + LEAST_RISE), tile.fitAxis, true, tile.fitLow, tile.fitHigh);
@@ -968,6 +1040,23 @@ final class RoofFit {
             }
         }
         return carried;
+    }
+
+    /** The highest the slope that runs across the square climbs to, going on from it the way given over the squares it covers. */
+    private static float climbsTo(HashMap<Long, ArrayList<Tile>> at, int x, int y, int dx, int dy, int axis, int up) {
+        float highest = Float.NEGATIVE_INFINITY;
+        for (boolean on = true; on; x += dx, y += dy) {
+            on = false;
+            ArrayList<Tile> here = at.get(key(x, y, 0));
+            for (int i = 0; here != null && i < here.size(); i++) {
+                Tile tile = here.get(i);
+                if (tile.slopes() && tile.fitAxis == axis && tile.up() == up) {
+                    highest = Math.max(highest, Math.max(tile.fitLow, tile.fitHigh));
+                    on = true;
+                }
+            }
+        }
+        return highest;
     }
 
     /** A tile the map has for the foot of a valley reads as level this near the height of the valley's higher corners, in levels. */

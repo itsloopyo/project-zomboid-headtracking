@@ -576,19 +576,25 @@ final class Roofs {
             }
 
             @Override
-            public boolean taken(int x, int y, int z) {
+            public boolean taken(int x, int y, int z, float roof) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 if (square != null && (square.getRoomID() != -1L || square.getFloor() != null || roofing(square))) {
                     return true;
                 }
                 for (int above = 1; above <= LOOKED_ABOVE; above++) {
-                    if (floored(x, y, z + above)) {
+                    int level = z + above;
+                    if (floored(x, y, level) && !(level <= roof + RoofFit.SAME && loftCeiling(cell.getGridSquare(x, y, level)))) {
                         return true;
                     }
                 }
                 return false;
             }
         };
+    }
+
+    /** Whether a square that is floored is only floored: no room, and none of the game's roofing on it. */
+    private static boolean loftCeiling(IsoGridSquare square) {
+        return square.getRoomID() == -1L && !roofing(square);
     }
 
     /** Whether any of the game's roofing lies on the square: a tile of a roof, or one of its caps and edgings. */

@@ -291,7 +291,7 @@ final class BuildingTests {
             }
 
             @Override
-            public boolean taken(int x, int y, int z) {
+            public boolean taken(int x, int y, int z, float roof) {
                 return z == roomLevel && x <= roomTo || floored(x, y, z) || floored(x, y, z + 1);
             }
         };
