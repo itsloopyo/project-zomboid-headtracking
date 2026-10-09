@@ -1,15 +1,14 @@
 """Shop signs, notices and flags: what the game hangs on a wall as a lettered board some sixty dots a metre.
 
 A sign says exactly what the game's says. The model that makes the mod's pictures spells nothing right, so no letter
-here comes from it: the wording is set as type (pack.py's fonts, and Arial Black, Segoe Script and Mistral from the same
+here comes from it: the wording is set as type (pack.py's fonts, and Arial Black and Segoe Script from the same
 Windows folder) over a ground that is generated, plain paint on sheet metal, a slate, hanging cloth, with no writing on
 it. An emblem is generated alone, as a pale shape on a dark ground, and only its outline is taken.
 
 SIGNS is key -> (metres wide, metres high, ground art, ground colour, what is on it). The size is that of the place
-WorldScene.addHung hangs the picture in, which it works out from the game's sprite with WallHung.painted
-(.lab/hires/check.py does the same sums off line and says where a picture is another shape than its place), and the
-picture is made that shape, because a hung picture of another shape than its place has its sides cut off. What is on it is a list, drawn in
-order, of places given as shares of the board from its left and its top:
+WorldScene.addHung hangs the picture in, which it works out from the game's sprite with WallHung.painted, and the
+picture is made that shape, because a hung picture of another shape than its place has its sides cut off. A sign
+whose two facings have places of two shapes is made between them. What is on it is a list, drawn in order, of places given as shares of the board from its left and its top:
     ('band', left, top, right, bottom, colour)
     ('line', left, top, right, bottom, colour, thick)        a rule round a rectangle, thick a share of the height
     ('text', words, font, colour, left, top, right, bottom)  set as large as fits the box, in the middle of it
@@ -37,10 +36,7 @@ GROUNDS = {
 EMBLEMS = {
     'sign-seahorse': ('flat white silhouette of a seahorse with a spiky crest rising out of a coffee cup on a saucer, simple bold vintage '
                       'cafe logo, solid dark red background, centred, vector, high contrast', 'text, letters, words, gradient, shading, photograph, detail, outline, frame'),
-    'sign-seahorse-b': ('white paper cut-out silhouette of a seahorse head and curled body above a white teacup and saucer, simple bold emblem, '
-                        'plain black background, centred, high contrast', 'text, letters, words, gradient, photograph, colour, frame'),
 }
-SEEDS = {'sign-seahorse-b': 7}
 
 WHITE, RED, INK = (240, 236, 226), (178, 44, 38), (30, 28, 28)
 COFFEE = [('caps', 'SEAHORSE COFFEE', 'impact.ttf', WHITE, 0.035, 0.12, 0.80, 0.90), ('emblem', 'sign-seahorse', WHITE, 0.815, 0.10, 0.975, 0.90)]
@@ -49,7 +45,7 @@ WARNING = [('line', 0.012, 0.025, 0.988, 0.975, RED, 0.035), ('band', 0.05, 0.10
            ('text', 'AREA', 'arialbd.ttf', INK, 0.10, 0.70, 0.90, 0.92)]
 SIGNS = {
     'Sign|Coffee Low': (2.98, 0.71, 'sign-board', (158, 62, 36), COFFEE),
-    'Sign|Exit': (0.52, 0.32, 'sign-board', (206, 204, 184), [('line', 0.0, 0.0, 1.0, 1.0, (96, 96, 92), 0.07),
+    'Sign|Exit': (0.52, 0.33, 'sign-board', (206, 204, 184), [('line', 0.0, 0.0, 1.0, 1.0, (96, 96, 92), 0.07),
                                                              ('text', 'EXIT', 'arialbd.ttf', (196, 60, 26), 0.10, 0.16, 0.90, 0.84)]),
     'Sign|For Lease': (0.84, 0.54, 'sign-board', (182, 54, 54), [('line', 0.025, 0.035, 0.975, 0.965, WHITE, 0.03),
                                                                 ('text', 'FOR', 'impact.ttf', WHITE, 0.2, 0.10, 0.8, 0.47),
@@ -60,7 +56,7 @@ SIGNS = {
                                                                    ('text', 'OP', 'ariblk.ttf', (62, 72, 168), 0.06, 0.50, 0.17, 0.90),
                                                                    ('text', 'Laundromat', 'segoescb.ttf', (52, 54, 150), 0.25, 0.02, 0.975, 0.98)]),
     'Sign|Pie Menu': (0.98, 1.21, 'sign-slate', (62, 62, 60), [('line', 0.0, 0.0, 1.0, 1.0, (176, 104, 40), 0.045),
-                                                              ('text', 'Specials', 'MISTRAL.TTF', (226, 224, 216), 0.10, 0.06, 0.90, 0.24)]),
+                                                              ('text', 'Specials', 'segoesc.ttf', (226, 224, 216), 0.10, 0.06, 0.90, 0.24)]),
     'Sign|Bail Bonds': (2.89, 0.48, 'sign-board', (204, 200, 180), [('line', 0.0, 0.0, 1.0, 1.0, (44, 44, 40), 0.07),
                                                                   ('text', 'BAIL BONDS', 'ariblk.ttf', (16, 16, 16), 0.05, 0.20, 0.95, 0.84)]),
     'Sign|Legal Services': (2.89, 0.48, 'sign-board', (208, 204, 184), [('line', 0.0, 0.0, 1.0, 1.0, (44, 44, 40), 0.07),
@@ -91,7 +87,6 @@ def size(key):
 def grain(art, wide, high):
     """The ground's light and dark about its own mean, a piece of the art the size of the board at a board's scale."""
     grey = ImageOps.grayscale(art)
-    # A metre of board is the whole of a ground's picture.
     side = max(wide, high)
     grey = grey.resize((side, side), Image.LANCZOS).crop((0, 0, wide, high))
     mean = sum(grey.resize((1, 1), Image.BOX).getdata())
@@ -104,8 +99,10 @@ def fitted(text, name, wide, high):
     while True:
         face = ImageFont.truetype(FONT_FOLDER + name, size)
         left, top, right, bottom = face.getbbox(text)
-        if size <= 8 or right - left <= wide and bottom - top <= high:
+        if right - left <= wide and bottom - top <= high:
             return face, (left, top, right, bottom)
+        if size <= 8:
+            raise SystemExit('"%s" does not fit its box on the sign at any size' % text)
         size -= max(1, size // 40)
 
 

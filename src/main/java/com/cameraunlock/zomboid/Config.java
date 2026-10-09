@@ -191,9 +191,9 @@ final class Config {
                             + "game's sprites alone, and the lines as the game's sprites have them.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors, curtains and handrails built by the mod, the posts under a\n"
-                            + "fire escape, and the outside of a wall finished as its building is. false: the\n"
-                            + "game's sprites of them, on both sides of the wall.",
+                    "true: windows, doors, curtains and handrails built by the mod, the posts under an\n"
+                            + "open flight of stairs, and the outside of a wall finished as its building is.\n"
+                            + "false: the game's sprites of them, on both sides of the wall.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
                     "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"

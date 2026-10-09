@@ -463,9 +463,9 @@ OwnPlants=true
 ; with clean edges, which is so in every graphics mode. false: the colours of the
 ; game's sprites alone, and the lines as the game's sprites have them.
 OwnTextures=true
-; true: windows, doors, curtains and handrails built by the mod, the posts under a
-; fire escape, and the outside of a wall finished as its building is. false: the
-; game's sprites of them, on both sides of the wall.
+; true: windows, doors, curtains and handrails built by the mod, the posts under an
+; open flight of stairs, and the outside of a wall finished as its building is.
+; false: the game's sprites of them, on both sides of the wall.
 OwnBuildings=true
 ; true: the mod's own skins for zombies near the eye, each with a lifelike face.
 ; false: the game's own painted skins.

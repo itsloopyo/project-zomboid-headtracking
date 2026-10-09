@@ -1257,6 +1257,8 @@ final class PipelineShaders {
                 // covers, each weighed by how solid it is, and is as solid as their mean.
                 vec2 stepX = dFdx(vUv), stepY = dFdy(vUv);
                 bool small = uTexel.x > 0.0 && max(dot(stepX, stepX), dot(stepY, stepY)) > 1.3 * uTexel.x * uTexel.x;
+                // The most solid of those nine samples, or -1 for a pixel that took none: see the painted shadow below.
+                float mostSolid = -1.0;
                 if (small) {
                     // Nine samples over what the pixel covers, each itself a blend of four
                     // dots: enough for a house several streets off, where a pixel takes in
@@ -1268,6 +1270,7 @@ final class PipelineShaders {
                             vec4 s = texture2D(uTexture, vUv + (float(i) * stepX + float(j) * stepY) * 0.34);
                             sum += s.rgb * s.a;
                             solid += s.a;
+                            mostSolid = max(mostSolid, s.a);
                         }
                     }
                     texel = vec4(sum / max(solid, 0.001), solid / 9.0);
@@ -2024,6 +2027,25 @@ final class PipelineShaders {
                     cover = 1.0;
                     // Of the pixels that are the pane, the share that is the dust on it is lit as dust is.
                     texel = vec4(mix(vec3(0.02, 0.025, 0.03), vec3(0.62, 0.6, 0.55), soiled / veil), 1.0);
+                }
+                // The game paints the shadow a thing throws on the ground into the thing's
+                // sprite: black, a fifth covered. Stood up with the thing as a card, or wrapped
+                // on its box, that shadow was a black sheet under every chair and bench. The
+                // picture throws shadows of its own. Black that thin with nothing thicker
+                // a texel to either side of it or two texels off cornerwise is such a shadow:
+                // the soft edge of a black line has the line beside it. Far off, where the pixel is the mean of nine samples,
+                // a black line among them is one sample that is solid, and a shadow has none.
+                if (uLaid < 0.5 && uTexel.x > 0.0 && glazed < 0.5 && !(vMaterial > 15.5 && vMaterial < 51.5) && texel.a < 0.27
+                        && max(texel.r, max(texel.g, texel.b)) < 0.04) {
+                    float thickest = max(mostSolid, 0.0);
+                    for (int i = 0; i < 8 && mostSolid < 0.0; i++) {
+                        vec2 off = (i == 0 ? vec2(2.0, 2.0) : i == 1 ? vec2(-2.0, 2.0) : i == 2 ? vec2(2.0, -2.0) : i == 3 ? vec2(-2.0, -2.0)
+                                : i == 4 ? vec2(1.0, 0.0) : i == 5 ? vec2(-1.0, 0.0) : i == 6 ? vec2(0.0, 1.0) : vec2(0.0, -1.0)) * uTexel;
+                        thickest = max(thickest, texture2D(uTexture, vUv + off).a);
+                    }
+                    if (thickest < 0.27) {
+                        discard;
+                    }
                 }
                 // The mod's own furniture is a model and has no sprite. Its surface says what it
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
@@ -3126,7 +3148,8 @@ final class PipelineShaders {
      * at uShelterAt.xy, how many storeys of rooms stand on it, uShelterAt.z is one over the
      * block's side, or 0 when there is no block, and uShelterAt.w is the height the texture's
      * most stands for. On the camera's way to the eye it is the
-     * viewer's own building, whose box is uLidBox.
+     * viewer's own building, whose box is uLidBox. uSeenOn, in the rain and the snow, is the
+     * way the camera far overhead looks and the height of the viewer's floor, or nothing.
      */
     static final String SHELTERED = """
             uniform sampler2D uShelter;
@@ -3141,6 +3164,15 @@ final class PipelineShaders {
                 return uShelterAt.z > 0.0 && square.x > 0.0 && square.x < 1.0 && square.y > 0.0 && square.y < 1.0
                         && at.z < texture2D(uShelter, square).r * uShelterAt.w;
             }
+
+            // Whether a place in the air is seen against a sheltered floor: the line of sight
+            // through it, which goes the way `way`, comes down on a room at the height `level`.
+            // From far overhead most of the rain seen over an opened room falls in front of the
+            // building or over where its roof was, and the game's own view has none there.
+            bool shelteredWhereSeen(vec3 at, vec3 way, float level) {
+                vec3 on = at - way * ((at.z - level) / way.z);
+                return sheltered(vec3(on.xy, level + 0.1));
+            }
             """;
 
     static final String SNOW_FRAGMENT = """
@@ -3151,6 +3183,7 @@ final class PipelineShaders {
             uniform vec3 uEye;
             uniform float uSeated;
             uniform float uShown;
+            uniform vec4 uSeenOn;
             varying vec3 vWorld;
             varying vec2 vIn;
             """ + BEAMS + SHELTERED + """
@@ -3160,7 +3193,7 @@ final class PipelineShaders {
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
                     discard;
                 }
-                if (sheltered(vWorld)) {
+                if (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w))) {
                     discard;
                 }
                 // A flake under a roof never fell there.
@@ -3190,6 +3223,7 @@ final class PipelineShaders {
             uniform vec3 uEye;
             uniform float uSeated;
             uniform float uShown;
+            uniform vec4 uSeenOn;
             varying vec3 vWorld;
             varying vec2 vIn;
             """ + BEAMS + SHELTERED + """
@@ -3199,7 +3233,7 @@ final class PipelineShaders {
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
                     discard;
                 }
-                if (sheltered(vWorld)) {
+                if (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w))) {
                     discard;
                 }
                 // The map of what is overhead, seen from straight above: a drop under a roof
@@ -5302,7 +5336,6 @@ final class PipelineShaders {
                 return sum / total;
             }
 
-            // 1 where what the picture shows at uv stands inside the marked box.
             // Banks of fog as a pattern over the map that comes round every 32 squares of its
             // lattice, so that the drift it is carried by can start again from nothing.
             float banks(vec2 q) {
@@ -5334,6 +5367,7 @@ final class PipelineShaders {
                 return uFog.x * mix(0.16, 0.8 + 0.18 * bank, thick);
             }
 
+            // 1 where what the picture shows at uv stands inside the marked box.
             float marked(vec2 uv) {
                 vec3 seen = placeAt(uv);
                 vec3 at = uEyeAt + uAcross * seen.x + uUpward * seen.y + uAhead * seen.z;

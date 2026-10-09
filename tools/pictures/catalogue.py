@@ -419,5 +419,4 @@ for _show, _shots in shows.SHOWS.items():
 # name and group the game gives the sign.
 for _name, (_prompt, _negative, _wide, _high) in signs.ART.items():
     art(_name, _prompt, _negative, (_wide, _high))
-SEEDS.update(signs.SEEDS)
 HUNG += signs.HUNG

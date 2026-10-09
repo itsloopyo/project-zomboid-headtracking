@@ -125,6 +125,7 @@ public final class Tests {
         Checks.run("jarHoldsEveryModelStoodOnTheFloor", Tests::jarHoldsEveryModelStoodOnTheFloor);
         Checks.run("wallTintSurvivesItsPacking", Tests::wallTintSurvivesItsPacking);
         Checks.run("meshesAreKeptByTextureAndTint", Tests::meshesAreKeptByTextureAndTint);
+        Checks.run("OutdoorTests", OutdoorTests::run);
         Checks.run("BuildingTests", BuildingTests::run);
         Checks.run("RoofTests", RoofTests::run);
         Checks.run("ShapeTests", ShapeTests::run);
@@ -147,6 +148,7 @@ public final class Tests {
         Checks.run("FootingTests", FootingTests::run);
         Checks.run("FacadeTests", FacadeTests::run);
         Checks.run("SpanTests", SpanTests::run);
+        Checks.run("BannerTests", BannerTests::run);
         Checks.run("QualityTests", QualityTests::run);
         Checks.run("StyleTests", StyleTests::run);
         Checks.run("GameFixTests", GameFixTests::run);

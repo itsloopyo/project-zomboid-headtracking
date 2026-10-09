@@ -251,9 +251,9 @@ final class Pipeline {
     private static final int RAIN_DROPS = 9000;
     /** The unit the rain and the snow read the block of sheltered squares on. */
     private static final int SHELTER_UNIT = 1;
-    /** The unit the develop pass reads it on, how bright fog is against the sky it hangs under, and how far over the ground the eye the scene is built round is, in tiles. */
+    /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
     private static final int DEVELOP_SHELTER_UNIT = 5;
-    private static final float FOG_BRIGHT = 1.1f, FOG_EYE_OVER_GROUND = 1.6f;
+    private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
     /**
@@ -399,6 +399,8 @@ final class Pipeline {
     float cutBehind = 1f;
     /** Where rain and snow are kept out with no roof drawn, or null: see Shelter. */
     Shelter sheltered;
+    /** The height of the floor the viewer stands on, which the picture from far overhead is seen against. */
+    float floorUp;
     /** How far the camera outside the viewer is from the place it looks at, in tiles. */
     float away;
     private int shelterTexture;
@@ -1652,14 +1654,20 @@ final class Pipeline {
      * flake is across, in dots of the picture.
      */
     private static final float RAIN_UNDER_PLACE = 1f;
-    private static final int RAIN_BOXES_MOST = 5;
+    private static final int RAIN_BOXES_MOST = 9;
+    /**
+     * The least the camera far overhead looks down for its lines of sight to be followed to
+     * the viewer's floor, as the way it looks goes up for each tile on. On its flight to an
+     * eye that looks level or up they never come down on that floor.
+     */
+    private static final float SEEN_ON_FLOOR_FROM = 0.2f;
     private static final float RAIN_DOTS_LEAST = 1.1f, SNOW_DOTS_LEAST = 1.5f;
     /**
      * From far overhead a line of sight crosses the whole depth of the falling rain, where an
      * eye in it sees the near drops large and few. This share of the drops, and of the flakes,
      * is drawn there, which is as heavy as the game's own view has its rain and its snow.
      */
-    private static final float RAIN_SHARE_OVERHEAD = 0.15f, SNOW_SHARE_OVERHEAD = 0.35f;
+    private static final float RAIN_SHARE_OVERHEAD = 0.3f, SNOW_SHARE_OVERHEAD = 0.35f;
     /** How long a drop is taken in for from far overhead: the game's own view has its rain as short strokes, a fifth of a tile or so. */
     private static final float RAIN_SEEN_FOR_OVERHEAD = 0.014f;
     private final float[] rainBox = new float[4];
@@ -1697,7 +1705,7 @@ final class Pipeline {
         // the picture shows and over as much again towards the camera as the rain stands high,
         // which is where the lines of sight to that ground come down through it.
         int boxesX = 1, boxesY = 1;
-        float dot = 0f;
+        float dot = 0f, aheadX = 1f, aheadY = 0f, reachAlong = 0f, reachAcross = 0f;
         rainBox[0] = camera.eyeX;
         rainBox[1] = camera.eyeY;
         rainBox[2] = camera.eyeUp;
@@ -1705,22 +1713,28 @@ final class Pipeline {
         if (overhead) {
             float halfHigh = tanHalfFieldOfView * away, halfWide = halfHigh * aspect;
             float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
-            float steep = Math.max(-camera.forwardUp, 0.2f);
-            float aheadX = flat > 1e-4f ? camera.forwardX / flat : 1f, aheadY = flat > 1e-4f ? camera.forwardY / flat : 0f;
+            float steep = Math.max(-camera.forwardUp, SEEN_ON_FLOOR_FROM);
+            if (flat > 1e-4f) {
+                aheadX = camera.forwardX / flat;
+                aheadY = camera.forwardY / flat;
+            }
             float towards = RAIN_HIGH * flat / steep, along = halfHigh / steep;
             float placeUp = camera.eyeUp + camera.forwardUp * away;
             rainBox[0] = camera.eyeX + camera.forwardX * away - aheadX * towards / 2f;
             rainBox[1] = camera.eyeY + camera.forwardY * away - aheadY * towards / 2f;
             rainBox[2] = placeUp;
             rainBox[3] = Math.clamp(placeUp + RAIN_UNDER_PLACE, RAIN_UNDER_PLACE, RAIN_UNDER_EYE);
-            float reachX = Math.abs(aheadX) * (along + towards / 2f) + Math.abs(aheadY) * halfWide;
-            float reachY = Math.abs(aheadY) * (along + towards / 2f) + Math.abs(aheadX) * halfWide;
+            reachAlong = along + towards / 2f;
+            reachAcross = halfWide;
+            float reachX = Math.abs(aheadX) * reachAlong + Math.abs(aheadY) * reachAcross;
+            float reachY = Math.abs(aheadY) * reachAlong + Math.abs(aheadX) * reachAcross;
             boxesX = Math.clamp((int) Math.ceil(2f * reachX / RAIN_BOX), 1, RAIN_BOXES_MOST);
             boxesY = Math.clamp((int) Math.ceil(2f * reachY / RAIN_BOX), 1, RAIN_BOXES_MOST);
             // Half a dot of the picture, in tiles, at the place looked at.
             dot = halfHigh / height;
         }
         boolean lidded = overhead && lid < Float.MAX_VALUE / 2f;
+        boolean seenOnFloor = overhead && camera.forwardUp < -SEEN_ON_FLOOR_FROM;
         if (state.rain > 0f) {
             // Added to what is there. The picture's alpha is left alone: it says what mirrors.
             GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
@@ -1737,11 +1751,12 @@ final class Pipeline {
             rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
             rain.set("uShown", RAIN_SHOWN);
             setShelter(rain, SHELTER_UNIT, lidded);
+            rain.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(rain, TORCH_UNIT);
             // A drop shows the sky it falls through.
             rain.set("uTint", 1.6f * (float) Math.pow(state.horizonRed, 2.2), 1.6f * (float) Math.pow(state.horizonGreen, 2.2),
                     1.6f * (float) Math.pow(state.horizonBlue, 2.2));
-            drawBoxes(rain, boxesX, boxesY);
+            drawBoxes(rain, boxesX, boxesY, aheadX, aheadY, reachAlong, reachAcross);
         }
         if (state.snow > 0f) {
             // A flake is white and hides what is behind it: laid over the picture, not added to it.
@@ -1758,12 +1773,13 @@ final class Pipeline {
             snow.set("uThin", SNOW_DOTS_LEAST * dot);
             snow.set("uShown", SNOW_SHOWN);
             setShelter(snow, SHELTER_UNIT, lidded);
+            snow.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(snow, TORCH_UNIT);
             // A flake is lit by the whole sky, and by the sun or the moon when there is one.
             snow.set("uTint", (float) Math.pow(0.5f * (state.horizonRed + state.zenithRed) + 0.35f * state.lightRed, 2.2),
                     (float) Math.pow(0.5f * (state.horizonGreen + state.zenithGreen) + 0.35f * state.lightGreen, 2.2),
                     (float) Math.pow(0.5f * (state.horizonBlue + state.zenithBlue) + 0.35f * state.lightBlue, 2.2));
-            drawBoxes(snow, boxesX, boxesY);
+            drawBoxes(snow, boxesX, boxesY, aheadX, aheadY, reachAlong, reachAcross);
         }
         GL11.glDisable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1772,20 +1788,29 @@ final class Pipeline {
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
 
-    /** Draws the drops once for each box of a block of them, the block's middle on the place the boxes are counted from. */
-    private static void drawBoxes(Program falling, int boxesX, int boxesY) {
+    /**
+     * Draws the drops once for each box of a block of them, the block's middle on the place the
+     * boxes are counted from. The boxes lie along the map and the picture's ground lies along
+     * the way the camera looks, so a box is left out when no part of it comes within the reach
+     * of that ground, ahead and to the side.
+     */
+    private static void drawBoxes(Program falling, int boxesX, int boxesY, float aheadX, float aheadY, float reachAlong, float reachAcross) {
+        float corner = RAIN_BOX * 0.7072f;
         for (int boxY = 0; boxY < boxesY; boxY++) {
             for (int boxX = 0; boxX < boxesX; boxX++) {
-                falling.set("uTile", (boxX - (boxesX - 1) / 2f) * RAIN_BOX, (boxY - (boxesY - 1) / 2f) * RAIN_BOX);
+                float x = (boxX - (boxesX - 1) / 2f) * RAIN_BOX, y = (boxY - (boxesY - 1) / 2f) * RAIN_BOX;
+                if (Math.abs(x * aheadX + y * aheadY) > reachAlong + corner || Math.abs(y * aheadX - x * aheadY) > reachAcross + corner) {
+                    continue;
+                }
+                falling.set("uTile", x, y);
                 GL11.glDrawArrays(GL_TRIANGLES, 0, RAIN_DROPS * 6);
             }
         }
     }
 
-    /** Has the frame's block of sheltered squares on the graphics card, on a unit. A view keeps the one small texture for as long as it draws. */
+    /** Has the frame's block of sheltered squares on the graphics card, on a unit. The one small texture goes back with the shadow maps. */
     private void holdShelter(int unit) {
         GL13.glActiveTexture(GL_TEXTURE0 + unit);
-        GL33.glBindSampler(unit, 0);
         if (shelterTexture == 0) {
             shelterTexture = GL11.glGenTextures();
             GL11.glBindTexture(GL_TEXTURE_2D, shelterTexture);
@@ -1796,6 +1821,9 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, shelterTexture);
         if (sheltered != null && sheltered != shelterHeld) {
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
             GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Shelter.SIDE, Shelter.SIDE, GL_RED, GL_UNSIGNED_BYTE, sheltered.storeys);
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
             shelterHeld = sheltered;
@@ -2522,17 +2550,22 @@ final class Pipeline {
             develop.set("uEyeAt", camera.eyeX, camera.eyeY, camera.eyeUp);
         }
         // Seen from far overhead the fog is a sheet over the ground: see the develop shader. It
-        // thins away as the camera comes down to the eye, where the lit air is the fog.
-        float fog = overhead && sheltered != Shelter.EVERYWHERE ? state.fog * cutBehind : 0f;
+        // thins away as the camera comes down to the eye, where the lit air is the fog, and is
+        // gone before the camera is near enough to stop being overhead or looks level enough
+        // for its lines of sight to miss the sheet.
+        float fog = 0f;
+        if (overhead && sheltered != Shelter.EVERYWHERE) {
+            fog = state.fog * cutBehind * Math.clamp((-camera.forwardUp - SEEN_ON_FLOOR_FROM) / SEEN_ON_FLOOR_FROM, 0f, 1f)
+                    * Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f);
+        }
         develop.set("uFog", fog, state.gustX, state.gustY);
         if (fog > 0f) {
             holdShelter(DEVELOP_SHELTER_UNIT);
             GL13.glActiveTexture(GL_TEXTURE0);
             setShelter(develop, DEVELOP_SHELTER_UNIT, lid < Float.MAX_VALUE / 2f);
-            float feetUp = focusUp - FOG_EYE_OVER_GROUND;
             develop.set("uFogFrom", camera.eyeX + camera.forwardX * away - focusX, camera.eyeY + camera.forwardY * away - focusY,
-                    camera.eyeUp + camera.forwardUp * away - feetUp);
-            develop.set("uFogViewer", focusX, focusY, feetUp);
+                    camera.eyeUp + camera.forwardUp * away - floorUp);
+            develop.set("uFogViewer", focusX, focusY, floorUp);
             develop.set("uFogSpan", tanHalfFieldOfView * aspect * away, tanHalfFieldOfView * away);
             // Fog is the colour of the sky it hangs under, with most of the blue out of it.
             float red = (float) Math.pow(0.65f * state.horizonRed + 0.35f * state.zenithRed, 2.2);
@@ -3809,6 +3842,8 @@ final class Pipeline {
             GL30.glDeleteFramebuffers(target);
         }
         nearMap = 0;
+        GL11.glDeleteTextures(shelterTexture);
+        shelterTexture = 0;
         giveBack(beamed);
         giveBack(torched);
     }

@@ -8,8 +8,14 @@ final class FlightTests {
 
     private static final int[] SLOPED = {Rails.PIPE, Rails.BALUSTER};
     private static final int[] STYLES = {Rails.PIPE, Rails.BALUSTER, Rails.BALUSTRADE};
-    /** Half the thickness of the thickest upright under a flight's rail whose head is cut square, in tiles. */
-    private static final float THICKEST_HALF = 0.0225f;
+    /** From the axis of an upright under a flight's rail to its downhill face is at least this far, in tiles: half the thinnest, a baluster. */
+    private static final float THINNEST_HALF = 0.012f;
+
+    /** The top of the tread under a point of a flight. */
+    private static float treadUnder(float along) {
+        int step = Math.min((int) (along / Stairs.GOING), 3 * Stairs.STEPS - 1);
+        return (step + 1) * Stairs.RISE;
+    }
 
     static void run() {
         Checks.run("aRailRunsUnbrokenFromTheFootOfAFlightToItsHead", FlightTests::aRailRunsUnbrokenFromTheFootOfAFlightToItsHead);
@@ -18,6 +24,7 @@ final class FlightTests {
         Checks.run("aBalusterStandsOnEveryTread", FlightTests::aBalusterStandsOnEveryTread);
         Checks.run("anOpenFlightsStringsStopAtTheFloorAndCarryEveryTread", FlightTests::anOpenFlightsStringsStopAtTheFloorAndCarryEveryTread);
         Checks.run("postsStandUnderTheMiddleAndTheHeadOfAnOpenFlightThatHasAFloor", FlightTests::postsStandUnderTheMiddleAndTheHeadOfAnOpenFlightThatHasAFloor);
+        Checks.run("twoFlightsSideBySideHaveNoStringOrPostBetweenThem", FlightTests::twoFlightsSideBySideHaveNoStringOrPostBetweenThem);
         Checks.run("aLevelRailSpansItsWholeEdge", FlightTests::aLevelRailSpansItsWholeEdge);
         Checks.run("everyFlightsRailHasALengthForEachOfItsSquares", FlightTests::everyFlightsRailHasALengthForEachOfItsSquares);
     }
@@ -98,7 +105,7 @@ final class FlightTests {
                         continue;
                     }
                     feet++;
-                    float stoodOn = middle < Stairs.GOING / 2f ? 0f : Flights.treadUnder(middle);
+                    float stoodOn = middle < Stairs.GOING / 4f ? 0f : treadUnder(middle);
                     check(face[UP] < stoodOn && face[UP] > stoodOn - 0.006f,
                             "an upright at " + middle + " has its foot at " + face[UP] + ", a little into the tread there, which is at " + stoodOn + ", style " + style);
                 }
@@ -110,7 +117,7 @@ final class FlightTests {
                         float rail = topAt(faces, third + 1f) - (third + 1f - middle) / 3f;
                         check(face[UP] < rail && face[UP] > rail - 0.06f, "an upright's head at " + middle + " is at " + face[UP] + " under a rail whose top is at " + rail + ", style " + style);
                         // The rail falls towards the foot of the flight, and the head must be under its top at the upright's downhill face too.
-                        check(face[UP] <= rail - THICKEST_HALF / 3f, "an upright's head at " + middle + " is under the rail's top at its downhill face, style " + style);
+                        check(face[UP] <= rail - THINNEST_HALF / 3f, "an upright's head at " + middle + " is under the rail's top a baluster's half thickness down the flight, style " + style);
                     }
                 }
             }
@@ -118,15 +125,21 @@ final class FlightTests {
     }
 
     private static void aBalusterStandsOnEveryTread() {
-        int feet = 0;
+        int[] onTread = new int[3 * Stairs.STEPS];
         for (int third = 0; third < 3; third++) {
             int square = third;
             for (float[] face : faces(f -> f.slope(square, Rails.BALUSTER, 0f))) {
                 float middle = (least(face, ALONG) + most(face, ALONG)) / 2f;
-                feet += level(face) && face[UP] <= Flights.nosings(middle) + 1e-4f ? 1 : 0;
+                if (level(face) && face[UP] <= Flights.nosings(middle) + 1e-4f) {
+                    onTread[(int) (middle / Stairs.GOING)]++;
+                }
             }
         }
-        check(feet == 3 * Stairs.STEPS + 2, "a flight's rail of balusters stands on " + feet + " uprights: one a tread and the two newels");
+        for (int tread = 0; tread < onTread.length; tread++) {
+            // The newel at the foot is through the first tread and the one at the head stands on the last.
+            int uprights = tread == 0 || tread == onTread.length - 1 ? 2 : 1;
+            check(onTread[tread] == uprights, "tread " + tread + " of a flight carries " + onTread[tread] + " uprights of a rail of balusters");
+        }
     }
 
     private static void anOpenFlightsStringsStopAtTheFloorAndCarryEveryTread() {
@@ -134,7 +147,7 @@ final class FlightTests {
             int square = third;
             for (int stands = 0; stands <= 1; stands++) {
                 boolean stood = stands == 1;
-                for (float[] face : faces(f -> f.open(square, stood))) {
+                for (float[] face : faces(f -> f.open(square, stood, false, false))) {
                     check(least(face, UP) >= -1e-5f, "nothing of an open flight is under its floor, square " + third);
                     check(least(face, ACROSS) >= -1e-5f && most(face, ACROSS) <= 1f + 1e-5f, "nothing of an open flight is outside its width");
                     check(least(face, ALONG) >= third - 1e-5f && most(face, ALONG) <= third + 1f + 1e-5f, "a square of an open flight builds within itself");
@@ -153,14 +166,14 @@ final class FlightTests {
     private static void postsStandUnderTheMiddleAndTheHeadOfAnOpenFlightThatHasAFloor() {
         for (int third = 0; third < 3; third++) {
             int square = third;
-            int bare = faces(f -> f.open(square, false)).size(), stood = faces(f -> f.open(square, true)).size();
+            int bare = faces(f -> f.open(square, false, false, false)).size(), stood = faces(f -> f.open(square, true, false, false)).size();
             // Two posts and a beam, six faces each, and under the middle square two braces.
             int more = third == 0 ? 0 : third == 1 ? 30 : 18;
             check(stood - bare == more, "square " + third + " of an open flight on a floor has " + (stood - bare) + " faces of posts, beam and braces");
             if (third == 0) {
                 continue;
             }
-            ArrayList<float[]> all = faces(f -> f.open(square, true));
+            ArrayList<float[]> all = faces(f -> f.open(square, true, false, false));
             float head = third + 1f, carried = Flights.stringUnder(head);
             boolean onFloor = false, underString = false;
             for (float[] face : all.subList(bare, all.size())) {
@@ -169,6 +182,24 @@ final class FlightTests {
                 underString |= post && near(face[UP], carried);
             }
             check(onFloor && underString, "the posts under the head of square " + third + " stand on the floor and reach the string at " + carried);
+        }
+    }
+
+    private static void twoFlightsSideBySideHaveNoStringOrPostBetweenThem() {
+        for (int third = 1; third < 3; third++) {
+            int square = third;
+            // The flight on the low side is joined on its high side, and the other the other way.
+            for (float[] face : faces(f -> f.open(square, true, false, true))) {
+                boolean spans = most(face, ACROSS) - least(face, ACROSS) > 0.5f;
+                // The end of the beam is a face on the line the two flights meet on.
+                check(spans || most(face, ACROSS) < 0.5f || near(least(face, ACROSS), 1f), "a flight joined on its high side has nothing but treads and the beam there, square " + third);
+                check(!spans || near(most(face, ACROSS), 1f), "its treads and beam run to the flight beside it, square " + third);
+            }
+            for (float[] face : faces(f -> f.open(square, true, true, false))) {
+                boolean spans = most(face, ACROSS) - least(face, ACROSS) > 0.5f;
+                check(spans || least(face, ACROSS) > 0.5f || near(most(face, ACROSS), 0f), "a flight joined on its low side has nothing but treads and the beam there, square " + third);
+                check(!spans || near(least(face, ACROSS), 0f), "its treads and beam run from the flight beside it, square " + third);
+            }
         }
     }
 
@@ -198,6 +229,9 @@ final class FlightTests {
                         "fixtures_railings_01_" + flight[third] + " is the rail of square " + third + " of its flight");
             }
         }
+        check(Rails.of("fixtures_railings_01_56").part == Rails.ABOVE_AND_LEVEL && Rails.of("fixtures_railings_01_56").west
+                && Rails.of("fixtures_railings_01_51").part == Rails.ABOVE_AND_LEVEL && !Rails.of("fixtures_railings_01_51").west,
+                "56 and 51 are the fire escape's lengths over the head of a flight with a level rail joined on, west and north");
         Rails.Piece pipe = Rails.of("fixtures_railings_01_61"), over = Rails.of("fixtures_railings_01_57"), north = Rails.of("fixtures_railings_01_40");
         check(pipe.west && pipe.style == Rails.PIPE && over.part == Rails.ABOVE && over.third == 2 && over.west && !north.west,
                 "the fire escape's rail: 61 at the foot of a flight that climbs west, 57 over its head, 40 at the foot of one that climbs north");

@@ -8,8 +8,9 @@ import java.nio.ByteOrder;
  * buildings the game's own view has opened. Their roofs and the floors over the viewer's are
  * not built, so neither the picture's depth nor the map of roofs keeps anything out of them.
  *
- * A block of SIDE by SIDE squares, and for each how many storeys of rooms stand on it, counted
- * from the ground: what is in the air over the square and under that many storeys is indoors.
+ * A block of SIDE by SIDE squares, and for each how many storeys the rooms over it reach,
+ * counted from the ground: what is in the air over the square and under that many storeys is
+ * indoors. A room under the ground covers nothing: what is over it is the open air.
  * Made on the logic thread when the opened buildings change and never written again, so the
  * render thread reads one whole.
  */
@@ -29,15 +30,14 @@ final class Shelter {
         y = middleY - SIDE / 2;
     }
 
-    /** A room's rectangle of squares, with the number of storeys its building has from the ground up. */
+    /** A room's rectangle of squares, with the number of storeys from the ground up to the room's ceiling. The highest room over a square counts. */
     void cover(int fromX, int fromY, int wide, int deep, int count) {
-        if (count <= 0) {
-            return;
-        }
-        byte held = (byte) Math.min(count, 255);
+        int held = Math.min(count, 255);
         for (int row = Math.max(fromY - y, 0); row < Math.min(fromY + deep - y, SIDE); row++) {
             for (int column = Math.max(fromX - x, 0); column < Math.min(fromX + wide - x, SIDE); column++) {
-                storeys.put(row * SIDE + column, held);
+                if ((storeys.get(row * SIDE + column) & 255) < held) {
+                    storeys.put(row * SIDE + column, (byte) held);
+                }
             }
         }
     }

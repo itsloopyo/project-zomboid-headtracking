@@ -1,13 +1,15 @@
 """
 What the first person view still draws from a coarse picture of the game's, ranked.
 
-    python tools/hires/density.py OUT_DIR [--game DIR] [--index src/main/resources/pictures/index.txt] [--tag NAME]
+    python tools/hires/density.py OUT_DIR --game DIR [--index src/main/resources/pictures/index.txt] [--tag NAME]
 
-Reads the installed game, never the repo: the tile properties (media/*.tiles), the map as
+DIR is an installed copy of the game. Of the repo this reads only the index of the mod's pictures. Of the game: the tile properties (media/*.tiles), the map as
 shipped (media/maps/Muldraugh, KY/*.lotpack, every cell) and the sprite sheets
 (media/texturepacks/*2x*.pack). Writes OUT_DIR/table[-TAG].tsv, a row a sprite the map places,
 and OUT_DIR/sheets[-TAG].tsv, the same summed by sheet, both worst first. Counting the map is
-slow the first time (a few minutes) and is kept in OUT_DIR/placed.pkl.
+slow the first time (a few minutes) and is kept in OUT_DIR/placed.pkl with the names and sizes of the
+map's files: a map that differs is counted again. A sprite the map places that is in none of the
+three sheets read has no row, and how many there are is printed.
 
 Columns of table.tsv:
   sprite     the game's name for it
@@ -19,10 +21,13 @@ Columns of table.tsv:
              sprite's name and tile properties. They are a reading of that code, not the code:
              what the mod decides from the sprite's dots (Tiles, Papers, Masonry, SpriteShape)
              is taken as the usual outcome for the sheet.
-  own        1 where the mod shows a picture or surface of its own in place of the sprite's
+  own        1 where the mod shows a picture or surface of its own in place of the sprite's. By the
+             sprite's name, as drawn is: a chair, a table or a counter is taken as the mod's model,
+             and Furniture.recognise refuses some of them, so the table says too little is left.
   texels_m   texels of the picture across a metre of the surface it is drawn on
   metres2    how much surface a placing of it covers
-  away_m     the distance it is usually looked at from
+  away_m     the distance it is taken to be looked at from: 2 to 4 metres by what it is, further
+             for what is on an upper level. A rule of this tool's, not a measurement.
   enlarged   dots of a 1080 line high screen to a texel of it at that distance (field of view 65)
   detail     how much the picture has to lose: the mean step in brightness between
              neighbouring dots of it, 0 to 1. A plain wall has none and a lettered sign much.
@@ -49,7 +54,6 @@ import sys
 import numpy as np
 from PIL import Image
 
-STEAM = r"C:\Program Files (x86)\Steam\steamapps\common\ProjectZomboid"
 TILE_FILES = ["newtiledefinitions.tiles", "tiledefinitions_erosion.tiles", "tiledefinitions_overlays.tiles",
               "tiledefinitions_b42chunkcaching.tiles", "tiledefinitions_noiseworks.patch.tiles"]
 PACKS = ["Tiles2x.pack", "Tiles2x.floor.pack", "Overlays2x.pack"]
@@ -102,13 +106,18 @@ def tiles(media):
 
 def placed(maps, keep):
     """For every sprite name: squares holding it, how many of those in a room, by level, and a few places."""
+    headers = sorted(glob.glob(os.path.join(maps, '*.lotheader')))
+    if not headers:
+        raise SystemExit("no map in " + maps)
+    counted = [(os.path.basename(path), os.path.getsize(path)) for path in sorted(glob.glob(os.path.join(maps, '*.lot*')))]
     if os.path.exists(keep):
-        return pickle.load(open(keep, 'rb'))
+        kept = pickle.load(open(keep, 'rb'))
+        if kept[0] == counted:
+            return kept[1:]
     count = collections.Counter()
     inside = collections.Counter()
     levels = collections.defaultdict(collections.Counter)
     where = collections.defaultdict(list)
-    headers = sorted(glob.glob(os.path.join(maps, '*.lotheader')))
     for done, header in enumerate(headers):
         data = open(header, 'rb').read()
         if data[:4] != b'LOTH':
@@ -123,8 +132,6 @@ def placed(maps, keep):
         wide, high, lowest, highest = struct.unpack_from('<iiii', data, place)
         cx, cy = map(int, os.path.basename(header).split('.')[0].split('_'))
         pack_path = os.path.join(maps, "world_%d_%d.lotpack" % (cx, cy))
-        if not os.path.exists(pack_path):
-            continue
         pack = open(pack_path, 'rb').read()
         if pack[:4] != b'LOTP':
             raise SystemExit(pack_path + " is no lot pack")
@@ -160,7 +167,7 @@ def placed(maps, keep):
         if done % 200 == 0:
             print("map: %d of %d cells" % (done, len(headers)), file=sys.stderr)
     out = (count, inside, {name: dict(by) for name, by in levels.items()}, dict(where))
-    pickle.dump(out, open(keep, 'wb'))
+    pickle.dump((counted,) + out, open(keep, 'wb'))
     return out
 
 
@@ -243,7 +250,7 @@ DRAWN = {
     "laid flat: sprite": 0, "wire or pole of the mod's": 1, "picture of the mod's": 1, "frame of the mod's round the sprite": 0,
     "model of the mod's": 1, "model of the mod's (most of the name)": 1, "curtain of the mod's": 1, "door of the mod's": 1, "window of the mod's": 1,
     "wall: courses or paper of the mod's": 1, "wall: sprite under the mod's grain": 0, "on a wall: sprite": 0, "roof: sprite under the mod's grain": 0,
-    "plant of the mod's": 1, "box, panel or card: sprite under the mod's grain": 0, "box, panel or card: sprite": 0, "not drawn": 1,
+    "plant of the mod's": 1, "box, panel or card: sprite under the mod's grain": 0, "box, panel or card: sprite": 0,
 }
 
 
@@ -315,12 +322,11 @@ def away(what, share_inside, level):
 
 def pictures(index_path):
     shows, shows_long = set(), set()
-    if index_path and os.path.exists(index_path):
-        for line in open(index_path, encoding='utf-8'):
-            if line.startswith('='):
-                shows.add(line[1:].split('\t')[0])
-            elif line.startswith('+'):
-                shows_long.add(line[1:].split('\t')[0])
+    for line in open(index_path, encoding='utf-8'):
+        if line.startswith('='):
+            shows.add(line[1:].split('\t')[0])
+        elif line.startswith('+'):
+            shows_long.add(line[1:].split('\t')[0])
 
     def has_picture(name, called, group, on_several):
         key = "%s|%s" % (called, group)
@@ -331,7 +337,7 @@ def pictures(index_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("out")
-    parser.add_argument("--game", default=STEAM)
+    parser.add_argument("--game", required=True)
     parser.add_argument("--index", default=os.path.join(os.path.dirname(__file__), "..", "..", "src", "main", "resources", "pictures", "index.txt"))
     parser.add_argument("--tag", default="")
     args = parser.parse_args()
@@ -343,10 +349,12 @@ def main():
     has_picture = pictures(args.index)
     per_metre = SCREEN_LINES / (2.0 * math.tan(math.radians(FIELD_OF_VIEW / 2.0)))
     rows = []
+    unmeasured = 0
     # In the order of the sheets' pages, so that each page is unpacked once.
     for name in sorted(count, key=lambda n: sheets.index.get(n, ("", 0))[:2]):
         measured = sheets.measure(name)
         if measured is None:
+            unmeasured += 1
             continue
         dots, detail = measured
         props = properties.get(name, {})
@@ -385,7 +393,8 @@ def main():
         for sheet, (score, n, sprites, own, whats, enlarged, whoses) in sorted(by_sheet.items(), key=lambda item: -item[1][0]):
             out.write("%s\t%.1f\t%d\t%d\t%d\t%.1f\t%s\t%s\n"
                       % (sheet, score, n, sprites, own, enlarged, whoses.most_common(1)[0][0], whats.most_common(1)[0][0]))
-    print("%d sprites placed and measured, %d of them the mod's own; total score %.0f" % (len(rows), sum(row[6] for row in rows), sum(row[0] for row in rows)))
+    print("%d sprites placed and measured, %d of them the mod's own; total score %.0f; %d more placed and in none of the sheets read"
+          % (len(rows), sum(row[6] for row in rows), sum(row[0] for row in rows), unmeasured))
 
 
 if __name__ == "__main__":

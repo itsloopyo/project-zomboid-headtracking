@@ -2367,20 +2367,6 @@ def exit_sign():
     return model
 
 
-def strip_light():
-    """A fluorescent fitting along a wall, its back at +Y: a white tray with one tube under a ribbed cover."""
-    model = Model("strip_light")
-    tray = bmesh.new()
-    cuboid(tray, -0.5, 0.5, -0.03, 0.0, 0.0, 0.1)
-    for side in (-1, 1):
-        cuboid(tray, side * 0.5 - 0.02, side * 0.5 + 0.02, -0.085, 0.0, 0.0, 0.1)
-    model.hard(tray, "enamel", bevel=0.004, segments=1)
-    tube = bmesh.new()
-    lathe(tube, [(0.0, -0.48), (0.03, -0.48), (0.03, 0.48), (0.0, 0.48)], segments=10, to=along_x(0.0, -0.055, 0.05))
-    model.turned(tube, "shade", sharp=60.0)
-    return model
-
-
 def sconce():
     """A lamp on a wall, the wall at +Y: a brass plate, an arm that comes out and turns up, and a shade on it."""
     model = Model("sconce")
@@ -2470,25 +2456,6 @@ def coat_rack():
         prism_y(hooks, (x, 0.04, 0.012, 0.012, -0.09), (x, 0.1, 0.012, 0.012, -0.02))
         cuboid(hooks, x - 0.006, x + 0.006, -0.102, -0.09, 0.034, 0.08)
     model.hard(hooks, "metal", bevel=0.003, segments=1)
-    return model
-
-
-def clothes_rail():
-    """A shop's rail for clothes on hangers, two squares long: a bar on two posts, each on a foot across it with castors."""
-    model = Model("clothes_rail")
-    half, top = 0.8, 1.55
-    frame = bmesh.new()
-    lathe(frame, [(0.016, -half - 0.06), (0.016, half + 0.06)], segments=10, caps=True, to=along_x(0.0, 0.0, top))
-    for side in (-1, 1):
-        lathe(frame, [(0.018, 0.07), (0.018, top)], cx=side * half, segments=10)
-        cuboid(frame, side * half - 0.018, side * half + 0.018, -0.3, 0.3, 0.06, 0.09)
-    lathe(frame, [(0.012, -half), (0.012, half)], segments=8, to=along_x(0.0, 0.0, 0.3))
-    model.turned(frame, "steel", sharp=40.0)
-    castors = bmesh.new()
-    for side in (-1, 1):
-        for y in (-0.27, 0.27):
-            lathe(castors, [(0.0, -0.012), (0.03, -0.012), (0.03, 0.012), (0.0, 0.012)], segments=10, to=along_x(side * half, y, 0.03))
-    model.turned(castors, "rubber")
     return model
 
 
@@ -2803,16 +2770,624 @@ def school_desk():
 
 
 def indoors():
-    """What stood in rooms as flat cards and wrapped boxes until it was made (session flat-in, 2026-10-08)."""
+    """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
-            round_vent(), exit_sign(), strip_light(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), coat_rack(), clothes_rail(),
+            round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), coat_rack(),
             filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
             plank_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),
             cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
             cabinet("steel_counter_sink", 0.62, 0.90, True, sink=True, made="steel", top_of="steel"),
             cabinet("steel_counter_corner", 0.62, 0.90, True, corner=True, made="steel", top_of="steel"),
-            wall_shelf("wire_wall_shelf", 1, made="plastic"), wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()]
+            wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()]
+
+
+def beam(bm, start, end, wide, deep):
+    """A bar from start to end, wide across the way it runs and deep the other way."""
+    start, end = Vector(start), Vector(end)
+    along = (end - start).normalized()
+    side = along.cross(Vector((0.0, 0.0, 1.0)))
+    side = Vector((1.0, 0.0, 0.0)) if side.length < 1e-6 else side.normalized()
+    up = side.cross(along).normalized()
+    rings = [[bm.verts.new(point + side * dx * wide / 2 + up * dz * deep / 2) for dx, dz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+             for point in (start, end)]
+    bm.faces.new(rings[0][::-1])
+    bm.faces.new(rings[1])
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
+
+
+def outline_up(bm, outline, z0, z1):
+    """A body with the same outline, given as (x, y) going round, from z0 to z1."""
+    low = [bm.verts.new((x, y, z0)) for x, y in outline]
+    high = [bm.verts.new((x, y, z1)) for x, y in outline]
+    count = len(outline)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((low[i], low[j], high[j], high[i]))
+    bm.faces.new(low[::-1])
+    bm.faces.new(high)
+
+
+def arc(cx, cy, radius, start, end, steps):
+    """Points round (cx, cy) from the angle start to end, in degrees."""
+    return [(cx + radius * math.cos(math.radians(start + (end - start) * i / steps)),
+             cy + radius * math.sin(math.radians(start + (end - start) * i / steps))) for i in range(steps + 1)]
+
+
+# A length of sheet steel duct as it lies on a flat roof: half its width, its height, and how far its seams stand out and how wide they are.
+DUCT_HALF, DUCT_HIGH, DUCT_SEAM, DUCT_BAND = 0.2, 0.34, 0.012, 0.03
+
+
+def duct_mouth(bm, x, y, across_x):
+    """The dark of a duct's open end, a hair proud of the end at (x, y): across_x for an end that faces along y."""
+    inset, proud = 0.018, 0.0015
+    if across_x:
+        cuboid(bm, x - DUCT_HALF + inset, x + DUCT_HALF - inset, y - proud, y + proud, inset, DUCT_HIGH - inset)
+    else:
+        cuboid(bm, x - proud, x + proud, y - DUCT_HALF + inset, y + DUCT_HALF - inset, inset, DUCT_HIGH - inset)
+
+
+def duct_run():
+    """A square's length of duct, open at both ends so that a run of them is one pipe: a metre long, to meet the next."""
+    model = Model("duct_run")
+    shell = bmesh.new()
+    wall = 0.012
+    outer = [(-DUCT_HALF, 0.0), (DUCT_HALF, 0.0), (DUCT_HALF, DUCT_HIGH), (-DUCT_HALF, DUCT_HIGH)]
+    inner = [(-DUCT_HALF + wall, wall), (DUCT_HALF - wall, wall), (DUCT_HALF - wall, DUCT_HIGH - wall), (-DUCT_HALF + wall, DUCT_HIGH - wall)]
+    rings = [[shell.verts.new((x, y, z)) for x, z in outline] for outline in (outer, inner) for y in (-0.5, 0.5)]
+    for i in range(4):
+        j = (i + 1) % 4
+        shell.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
+        for y in (0, 1):
+            shell.faces.new((rings[y][i], rings[y][j], rings[2 + y][j], rings[2 + y][i]))
+    model.plain(shell, "paint")
+    # The seam where two sheets are joined, round the middle of the length.
+    seam = bmesh.new()
+    for x0, x1, z0, z1 in ((-DUCT_HALF - DUCT_SEAM, DUCT_HALF + DUCT_SEAM, DUCT_HIGH, DUCT_HIGH + DUCT_SEAM),
+                           (-DUCT_HALF - DUCT_SEAM, -DUCT_HALF, 0.0, DUCT_HIGH), (DUCT_HALF, DUCT_HALF + DUCT_SEAM, 0.0, DUCT_HIGH)):
+        cuboid(seam, x0, x1, -DUCT_BAND / 2, DUCT_BAND / 2, z0, z1)
+    model.plain(seam, "paint")
+    bore = bmesh.new()
+    lining = [[bore.verts.new((x, y, z)) for x, z in inner] for y in (-0.5, 0.5)]
+    for i in range(4):
+        j = (i + 1) % 4
+        bore.faces.new((lining[0][i], lining[0][j], lining[1][j], lining[1][i]))
+    model._take(bore, "plastic", lambda obj: None, sharp=1.0, inward=True)
+    return model
+
+
+def duct_down():
+    """A length of duct whose back end turns down through the roof. Its front end is open, to meet a run."""
+    model = Model("duct_down")
+    body = bmesh.new()
+    bend = 0.5 - DUCT_HIGH
+    outline_along_x(body, [(-0.5, 0.0), (-0.5, DUCT_HIGH)] + arc(bend, 0.0, DUCT_HIGH, 90.0, 0.0, 8), -DUCT_HALF, DUCT_HALF)
+    model.turned(body, "paint", sharp=35.0)
+    seam = bmesh.new()
+    cuboid(seam, -DUCT_HALF - DUCT_SEAM, DUCT_HALF + DUCT_SEAM, -0.12 - DUCT_BAND / 2, -0.12 + DUCT_BAND / 2, 0.0, DUCT_HIGH + DUCT_SEAM)
+    model.plain(seam, "paint")
+    mouth = bmesh.new()
+    duct_mouth(mouth, 0.0, -0.5, True)
+    model.plain(mouth, "plastic")
+    return model
+
+
+def duct_elbow():
+    """A duct turning a corner on the level: one end open to the front and the other to +X. The origin is the middle of
+    its square, so each end is at the square's edge."""
+    model = Model("duct_elbow", centred=False)
+    body = bmesh.new()
+    outline_up(body, [(-DUCT_HALF, -0.5), (DUCT_HALF, -0.5), (DUCT_HALF, -DUCT_HALF), (0.5, -DUCT_HALF), (0.5, DUCT_HALF)]
+               + arc(DUCT_HALF, -DUCT_HALF, 2 * DUCT_HALF, 90.0, 180.0, 8)[1:], 0.0, DUCT_HIGH)
+    model.turned(body, "paint", sharp=35.0)
+    mouth = bmesh.new()
+    duct_mouth(mouth, 0.0, -0.5, True)
+    duct_mouth(mouth, 0.5, 0.0, False)
+    model.plain(mouth, "plastic")
+    return model
+
+
+def roof_dome():
+    """A ventilator on a flat roof: a square curb, a short collar and a low domed cowl that overhangs it."""
+    model = Model("roof_dome")
+    curb = bmesh.new()
+    prism(curb, (0.0, 0.0, 0.86, 0.86, 0.0), (0.0, 0.0, 0.8, 0.8, 0.07))
+    model.hard(curb, "paint", bevel=0.008, segments=2)
+    collar = bmesh.new()
+    lathe(collar, [(0.27, 0.07), (0.27, 0.17), (0.0, 0.17)], segments=24)
+    model.turned(collar, "plastic")
+    cowl = bmesh.new()
+    lathe(cowl, [(0.0, 0.15), (0.35, 0.15), (0.36, 0.165), (0.345, 0.2), (0.3, 0.235), (0.2, 0.265), (0.1, 0.278), (0.0, 0.282)], segments=24)
+    model.turned(cowl, "paint", sharp=50.0)
+    return model
+
+
+def fan_in(model, top, radius=0.3):
+    """An extractor fan let into a level top: a rim, the dark of its well, and four blades on a hub under a guard of two bars."""
+    rim = bmesh.new()
+    lathe(rim, [(radius, top), (radius + 0.035, top), (radius + 0.035, top + 0.02), (radius, top + 0.02)], segments=24, closed=True)
+    model.turned(rim, "paint", sharp=50.0)
+    well = bmesh.new()
+    lathe(well, [(0.0, top - 0.002), (radius, top - 0.002), (radius, top + 0.002), (0.0, top + 0.002)], segments=24)
+    model.plain(well, "rubber")
+    blades = bmesh.new()
+    for turn in range(4):
+        angle = math.radians(45 + 90 * turn)
+        out = Vector((math.cos(angle), math.sin(angle), 0.0))
+        side = Vector((-out.y, out.x, 0.0))
+        corners = [out * 0.05 - side * 0.03, out * (radius - 0.03) - side * 0.09, out * (radius - 0.03) + side * 0.09, out * 0.05 + side * 0.03]
+        outline_up(blades, [(point.x, point.y) for point in corners], top + 0.006, top + 0.01)
+    lathe(blades, [(0.0, top + 0.004), (0.06, top + 0.004), (0.06, top + 0.024), (0.0, top + 0.024)], segments=12)
+    model.plain(blades, "metal")
+    guard = bmesh.new()
+    cuboid(guard, -radius, radius, -0.012, 0.012, top + 0.02, top + 0.03)
+    cuboid(guard, -0.012, 0.012, -radius, radius, top + 0.02, top + 0.03)
+    model.plain(guard, "paint")
+
+
+def roof_fan():
+    """An extractor fan on a flat roof: a low square curb with the fan in its top."""
+    model = Model("roof_fan")
+    curb = bmesh.new()
+    prism(curb, (0.0, 0.0, 0.86, 0.86, 0.0), (0.0, 0.0, 0.8, 0.8, 0.09))
+    model.hard(curb, "paint", bevel=0.008, segments=2)
+    fan_in(model, 0.09)
+    return model
+
+
+def fan_unit():
+    """A condenser on a roof: a steel case a third of a metre high with a fan in its top."""
+    model = Model("fan_unit")
+    case = bmesh.new()
+    cuboid(case, -0.46, 0.46, -0.46, 0.46, 0.02, 0.33)
+    model.hard(case, "paint", bevel=0.03, segments=3)
+    foot = bmesh.new()
+    cuboid(foot, -0.42, 0.42, -0.42, 0.42, 0.0, 0.02)
+    model.plain(foot, "plastic")
+    fan_in(model, 0.33, radius=0.33)
+    return model
+
+
+def roof_stacks():
+    """Two vent pipes through a flat roof, each in a cone of flashing, on one sheet of it."""
+    model = Model("roof_stacks")
+    sheet = bmesh.new()
+    prism(sheet, (0.0, 0.0, 0.62, 0.62, 0.0), (0.0, 0.0, 0.56, 0.56, 0.035))
+    model.hard(sheet, "paint", bevel=0.006, segments=1)
+    stacks = bmesh.new()
+    for x, y, high in ((-0.11, 0.08, 0.3), (0.13, -0.08, 0.24)):
+        lathe(stacks, [(0.1, 0.035), (0.062, 0.12), (0.05, high), (0.058, high), (0.058, high + 0.015), (0.04, high + 0.015), (0.04, high - 0.05),
+                       (0.0, high - 0.05)], cx=x, cy=y, segments=14)
+    model.turned(stacks, "paint", sharp=40.0)
+    return model
+
+
+# A pipe run along the foot of a wall: how far its middle is from the middle of its square and above the floor, and how thick it is.
+PIPE_OUT, PIPE_UP, PIPE_RADIUS = 0.38, 0.13, 0.055
+
+
+def pipe_length(bm, fittings, from_y, to_y, x):
+    """A pipe along y at x with a flange at each end, on two stands."""
+    lathe(bm, [(PIPE_RADIUS, from_y), (PIPE_RADIUS, to_y)], segments=12, caps=False, to=along_y(x, 0.0, PIPE_UP) @ Matrix.Rotation(math.radians(180), 4, "X"))
+    for y in (from_y, to_y - 0.03):
+        lathe(fittings, [(0.0, y), (PIPE_RADIUS + 0.03, y), (PIPE_RADIUS + 0.03, y + 0.03), (0.0, y + 0.03)], segments=12,
+              to=along_y(x, 0.0, PIPE_UP) @ Matrix.Rotation(math.radians(180), 4, "X"))
+    for y in (from_y + (to_y - from_y) * 0.3, from_y + (to_y - from_y) * 0.7):
+        cuboid(fittings, x - 0.008, x + 0.008, y - 0.008, y + 0.008, 0.0, PIPE_UP - PIPE_RADIUS + 0.01)
+        cuboid(fittings, x - 0.04, x + 0.04, y - 0.012, y + 0.012, 0.0, 0.008)
+
+
+def pipe_run():
+    """A square's length of pipe on its stands. It lies along y through the model's middle: the mod stands it at the edge of its square."""
+    model = Model("pipe_run", centred=False)
+    pipe, fittings = bmesh.new(), bmesh.new()
+    pipe_length(pipe, fittings, -0.5, 0.5, 0.0)
+    model.turned(pipe, "paint")
+    model.turned(fittings, "metal", sharp=40.0)
+    return model
+
+
+def pipe_corner():
+    """Two lengths of pipe that meet in an elbow at a corner of their square: one along the square's +X side and one along its front."""
+    model = Model("pipe_corner", centred=False)
+    pipe, fittings = bmesh.new(), bmesh.new()
+    bend = 0.1
+    pipe_length(pipe, fittings, -PIPE_OUT + bend, 0.5, PIPE_OUT)
+    lathe(pipe, [(PIPE_RADIUS, -0.5), (PIPE_RADIUS, PIPE_OUT - bend)], segments=12, caps=False, to=along_x(0.0, -PIPE_OUT, PIPE_UP))
+    for x in (-0.5, PIPE_OUT - bend - 0.03):
+        lathe(fittings, [(0.0, x), (PIPE_RADIUS + 0.03, x), (PIPE_RADIUS + 0.03, x + 0.03), (0.0, x + 0.03)], segments=12, to=along_x(0.0, -PIPE_OUT, PIPE_UP))
+    for x in (-0.2, 0.1):
+        cuboid(fittings, x - 0.008, x + 0.008, -PIPE_OUT - 0.008, -PIPE_OUT + 0.008, 0.0, PIPE_UP - PIPE_RADIUS + 0.01)
+        cuboid(fittings, x - 0.012, x + 0.012, -PIPE_OUT - 0.04, -PIPE_OUT + 0.04, 0.0, 0.008)
+    # The elbow: a quarter of a ring about the upright through the middle of the bend.
+    steps = 6
+    rings = []
+    for i in range(steps + 1):
+        angle = math.radians(-90 * i / steps)
+        out = Vector((math.cos(angle), math.sin(angle), 0.0))
+        centre = Vector((PIPE_OUT - bend, -PIPE_OUT + bend, PIPE_UP)) + out * bend
+        rings.append([pipe.verts.new(centre + (out * math.cos(2 * math.pi * k / 12) + Vector((0.0, 0.0, 1.0)) * math.sin(2 * math.pi * k / 12)) * PIPE_RADIUS)
+                      for k in range(12)])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(12):
+            pipe.faces.new((a[k], a[(k + 1) % 12], b[(k + 1) % 12], b[k]))
+    model.turned(pipe, "paint")
+    model.turned(fittings, "metal", sharp=40.0)
+    return model
+
+
+def culvert_pipe():
+    """A length of wide pipe lying on the ground, open at both ends: a metre long, to meet the next."""
+    model = Model("culvert_pipe")
+    pipe = bmesh.new()
+    lathe(pipe, [(0.118, -0.5), (0.14, -0.5), (0.14, 0.5), (0.118, 0.5)], segments=18, closed=True, to=along_y(0.0, 0.0, 0.14))
+    model.turned(pipe, "paint", sharp=50.0)
+    return model
+
+
+def deck_chair():
+    """A folding deck chair: two frames of wood that cross, and a sling of striped canvas hung from the top of one to the front of the other. Its foot is the front."""
+    model = Model("deck_chair")
+    half = 0.29
+    frame = bmesh.new()
+    # The long frame runs from the ground at the front up to the top of the back, and the short one from the ground at the back up to the front of the seat.
+    long_low, long_high = (-0.56, 0.02), (0.5, 0.92)
+    short_low, short_high = (0.52, 0.02), (-0.5, 0.36)
+    for side in (-1, 1):
+        beam(frame, (side * half, long_low[0], long_low[1]), (side * half, long_high[0], long_high[1]), 0.022, 0.045)
+        beam(frame, (side * (half - 0.03), short_low[0], short_low[1]), (side * (half - 0.03), short_high[0], short_high[1]), 0.022, 0.045)
+        # The prop that holds the two apart, from the long frame down to the back of the short one.
+        beam(frame, (side * (half + 0.025), 0.3, 0.75), (side * (half + 0.025), 0.5, 0.06), 0.02, 0.035)
+    for y, z, reach in ((long_low[0], long_low[1], half), (long_high[0], long_high[1], half), (short_low[0], short_low[1], half - 0.03),
+                        (short_high[0], short_high[1], half - 0.03)):
+        beam(frame, (-reach, y, z), (reach, y, z), 0.03, 0.03)
+    model.hard(frame, "wood", bevel=0.005, segments=1)
+    # The sling hangs in a curve from the top rail to the front rail, lowest just behind the front rail.
+    steps, stripes = 10, 7
+
+    def hang(t):
+        return (short_high[0] + (long_high[0] - short_high[0]) * t,
+                short_high[1] + (long_high[1] - short_high[1]) * t - 0.52 * t * (1.0 - t) * (1.6 - t))
+
+    wide = 2 * (half - 0.045)
+    for surface in ("linen", "cloth"):
+        canvas = bmesh.new()
+        for stripe in range(stripes):
+            if (stripe % 2 == 0) != (surface == "cloth"):
+                continue
+            x0 = -wide / 2 + wide * stripe / stripes
+            x1 = x0 + wide / stripes
+            # A strip of cloth with a thickness, closed all round, so that each side of it faces its own way.
+            rows = [[canvas.verts.new((x, hang(i / steps)[0], hang(i / steps)[1] + lift)) for lift in (0.0, 0.005) for x in (x0, x1)] for i in range(steps + 1)]
+            for a, b in zip(rows, rows[1:]):
+                canvas.faces.new((a[1], a[0], b[0], b[1]))
+                canvas.faces.new((a[2], a[3], b[3], b[2]))
+                canvas.faces.new((a[0], a[2], b[2], b[0]))
+                canvas.faces.new((a[3], a[1], b[1], b[3]))
+            canvas.faces.new((rows[0][0], rows[0][1], rows[0][3], rows[0][2]))
+            canvas.faces.new((rows[-1][1], rows[-1][0], rows[-1][2], rows[-1][3]))
+        model._take(canvas, surface, lambda obj: None, sharp=60.0)
+    return model
+
+
+def slab_bench():
+    """A street bench: a slab of three boards on two steel legs bolted to the ground."""
+    model = Model("slab_bench")
+    half, top = 0.5, 0.36
+    boards = bmesh.new()
+    for n in range(3):
+        y = -0.19 + n * 0.13
+        cuboid(boards, -half, half, y, y + 0.12, top - 0.04, top)
+    model.hard(boards, "paint", bevel=0.005, segments=1)
+    legs = bmesh.new()
+    for side in (-1, 1):
+        x = side * (half - 0.1)
+        cuboid(legs, x - 0.025, x + 0.025, -0.03, 0.03, 0.0, top - 0.04)
+        cuboid(legs, x - 0.025, x + 0.025, -0.18, 0.18, top - 0.065, top - 0.04)
+        cuboid(legs, x - 0.05, x + 0.05, -0.1, 0.1, 0.0, 0.012)
+    model.hard(legs, "metal", bevel=0.004, segments=1)
+    return model
+
+
+def dustbin():
+    """A galvanised dustbin: a ribbed can that widens to its rim, two handles, and a lid with a handle of its own."""
+    model = Model("dustbin")
+    can = bmesh.new()
+    lathe(can, [(0.0, 0.0), (0.2, 0.0), (0.205, 0.02), (0.24, 0.6), (0.25, 0.61), (0.25, 0.63), (0.0, 0.63)], segments=20)
+    model.turned(can, "steel", sharp=35.0)
+    ribs = bmesh.new()
+    for k in range(10):
+        angle = 2 * math.pi * k / 10
+        way = Vector((math.cos(angle), math.sin(angle), 0.0))
+        beam(ribs, way * 0.213 + Vector((0.0, 0.0, 0.08)), way * 0.238 + Vector((0.0, 0.0, 0.56)), 0.022, 0.012)
+    for side in (-1, 1):
+        cuboid(ribs, side * 0.246 - 0.022, side * 0.246 + 0.022, -0.05, 0.05, 0.44, 0.46)
+    model.hard(ribs, "steel", bevel=0.004, segments=1)
+    lid = bmesh.new()
+    lathe(lid, [(0.0, 0.63), (0.262, 0.63), (0.262, 0.66), (0.2, 0.685), (0.08, 0.705), (0.0, 0.708)], segments=20)
+    model.turned(lid, "steel", sharp=35.0)
+    grip = bmesh.new()
+    cuboid(grip, -0.05, 0.05, -0.01, 0.01, 0.7, 0.74)
+    model.hard(grip, "steel", bevel=0.004, segments=1)
+    return model
+
+
+def road_cone():
+    model = Model("road_cone")
+    foot = bmesh.new()
+    cuboid(foot, -0.19, 0.19, -0.19, 0.19, 0.0, 0.03)
+    model.hard(foot, "paint", bevel=0.006, segments=1)
+    body = bmesh.new()
+    lathe(body, [(0.14, 0.03), (0.035, 0.68), (0.035, 0.7), (0.02, 0.7), (0.02, 0.6), (0.0, 0.6)], segments=16)
+    model.turned(body, "paint", sharp=40.0)
+    return model
+
+
+def traffic_drum():
+    """A striped post that marks off road works: a tube on a heavy square foot of rubber, banded dark and bright."""
+    model = Model("traffic_drum")
+    foot = bmesh.new()
+    prism(foot, (0.0, 0.0, 0.5, 0.5, 0.0), (0.0, 0.0, 0.42, 0.42, 0.06))
+    model.hard(foot, "rubber", bevel=0.008, segments=1)
+    bright, dark = bmesh.new(), bmesh.new()
+    bands = [0.06, 0.24, 0.4, 0.56, 0.72, 0.9, 1.04]
+    for n, (low, high) in enumerate(zip(bands, bands[1:])):
+        lathe(dark if n % 2 == 0 else bright, [(0.115 - 0.02 * low, low), (0.115 - 0.02 * high, high)], segments=16, caps=False)
+    lathe(bright, [(0.094, 1.04), (0.07, 1.04), (0.07, 0.9), (0.0, 0.9)], segments=16, caps=False)
+    model.turned(bright, "paint", sharp=40.0)
+    model.turned(dark, "plastic", sharp=40.0)
+    return model
+
+
+def hydrant():
+    """A fire hydrant: a barrel on a flanged foot, a domed bonnet with its nut, and a capped outlet on each side and one at the front."""
+    model = Model("hydrant")
+    body = bmesh.new()
+    lathe(body, [(0.0, 0.0), (0.13, 0.0), (0.13, 0.03), (0.085, 0.05), (0.085, 0.42), (0.11, 0.43), (0.11, 0.46), (0.1, 0.47), (0.095, 0.56), (0.07, 0.62),
+                 (0.035, 0.645), (0.035, 0.7), (0.0, 0.7)], segments=16)
+    model.turned(body, "paint", sharp=35.0)
+    outlets = bmesh.new()
+    for side in (0, 180):
+        lathe(outlets, [(0.0, 0.07), (0.05, 0.07), (0.05, 0.13), (0.06, 0.13), (0.06, 0.16), (0.0, 0.16)], segments=10,
+              to=Matrix.Rotation(math.radians(side), 4, "Z") @ along_x(0.0, 0.0, 0.33))
+    lathe(outlets, [(0.0, 0.07), (0.065, 0.07), (0.065, 0.13), (0.075, 0.13), (0.075, 0.16), (0.0, 0.16)], segments=10, to=along_y(0.0, 0.0, 0.3))
+    model.turned(outlets, "paint", sharp=35.0)
+    return model
+
+
+def pallet_boards(model):
+    boards = bmesh.new()
+    for n in range(5):
+        y = -0.5 + n * 0.2125
+        cuboid(boards, -0.5, 0.5, y, y + 0.15, 0.115, 0.14)
+    for n in range(3):
+        y = -0.5 + n * 0.425
+        cuboid(boards, -0.5, 0.5, y, y + 0.15, 0.0, 0.022)
+    for x in (-0.5, -0.05, 0.4):
+        cuboid(boards, x, x + 0.1, -0.5, 0.5, 0.022, 0.115)
+    model.hard(boards, "wood", bevel=0.004, segments=1)
+
+
+def pallet():
+    model = Model("pallet")
+    pallet_boards(model)
+    return model
+
+
+def brick_pallet():
+    """A pallet with a cube of bricks stacked on it."""
+    model = Model("brick_pallet")
+    pallet_boards(model)
+    stack = bmesh.new()
+    cuboid(stack, -0.4, 0.4, -0.4, 0.4, 0.14, 0.72)
+    model.hard(stack, "paint", bevel=0.006, segments=1)
+    return model
+
+
+def gravestone(name, top):
+    """A headstone on its plinth, its face to the front: top is round for a half-round head, square for a level one and gabled for a point."""
+    model = Model(name)
+    plinth = bmesh.new()
+    cuboid(plinth, -0.3, 0.3, -0.13, 0.13, 0.0, 0.1)
+    model.hard(plinth, "paint", bevel=0.01, segments=2)
+    stone = bmesh.new()
+    half, shoulder = 0.22, 0.62
+    if top == "round":
+        head = [(x, z + shoulder) for x, z in arc(0.0, 0.0, half, 0.0, 180.0, 10)]
+    elif top == "square":
+        head = [(half, shoulder + 0.08), (-half, shoulder + 0.08)]
+    else:
+        head = [(half, shoulder), (0.0, shoulder + 0.17), (-half, shoulder)]
+    outline_along_y(stone, [(-half, 0.1), (half, 0.1)] + head, -0.055, 0.055)
+    model.turned(stone, "paint", sharp=50.0)
+    return model
+
+
+def sack_barrier():
+    """A barrier of the kind an army fills with earth: a cube of sacking in a cage of wire mesh, heaped at the top."""
+    model = Model("sack_barrier")
+    sack = bmesh.new()
+    prism(sack, (0.0, 0.0, 0.94, 0.94, 0.0), (0.0, 0.0, 0.98, 0.98, 0.95))
+    model.hard(sack, "paint", bevel=0.05, segments=3)
+    heap = bmesh.new()
+    lathe(heap, [(0.6, 0.93), (0.5, 1.0), (0.28, 1.06), (0.0, 1.08)], segments=4, to=Matrix.Rotation(math.radians(45), 4, "Z"))
+    model.turned(heap, "linen", sharp=80.0)
+    cage = bmesh.new()
+    for side in (-1, 1):
+        for n in range(5):
+            at = -0.48 + n * 0.24
+            cuboid(cage, at - 0.006, at + 0.006, side * 0.497 - 0.006, side * 0.497 + 0.006, 0.0, 0.96)
+            cuboid(cage, side * 0.497 - 0.006, side * 0.497 + 0.006, at - 0.006, at + 0.006, 0.0, 0.96)
+        for z in (0.02, 0.33, 0.64, 0.95):
+            cuboid(cage, -0.5, 0.5, side * 0.497 - 0.006, side * 0.497 + 0.006, z - 0.006, z + 0.006)
+            cuboid(cage, side * 0.497 - 0.006, side * 0.497 + 0.006, -0.5, 0.5, z - 0.006, z + 0.006)
+    model.plain(cage, "metal")
+    return model
+
+
+def log_stack(name, rows):
+    """Logs stacked along y, each row one fewer than the row under it and lying in its hollows: bark, and the pale wood of the sawn ends."""
+    model = Model(name)
+    radius, half = 0.13, 0.92
+    bark, ends = bmesh.new(), bmesh.new()
+    random.seed(len(name))
+    for row, count in enumerate(rows):
+        for n in range(count):
+            x = (n - (count - 1) / 2) * 2 * radius
+            z = radius + row * radius * math.sqrt(3)
+            # No two logs are sawn to one length.
+            front, back = -half + random.uniform(0.0, 0.07), half - random.uniform(0.0, 0.07)
+            thick = radius * random.uniform(0.93, 1.0)
+            lathe(bark, [(thick, -back), (thick, -front)], segments=10, caps=False, to=along_y(x, 0.0, z))
+            # Each sawn end is a thin disc of its own past the end of the bark, so it faces out of the log.
+            for end, out in ((-back, 0.003), (-front, -0.003)):
+                lathe(ends, [(0.0, min(end, end - out)), (thick, min(end, end - out)), (thick, max(end, end - out)), (0.0, max(end, end - out))], segments=10,
+                      to=along_y(x, 0.0, z))
+    model.turned(bark, "dark_wood")
+    model.plain(ends, "wood")
+    return model
+
+
+def twin_head():
+    """The upper length of a car park's lamp the game has in two sprites: the top of the post and two flat heads on a
+    short arm, one to the front and one to the back, each with its lens underneath. The origin is the post's axis."""
+    model = Model("twin_head", centred=False)
+    shaft = bmesh.new()
+    lathe(shaft, [(0.0, 0.0), (0.045, 0.0), (0.045, 1.84), (0.0, 1.84)], segments=10)
+    model.turned(shaft, "paint", sharp=40.0)
+    heads, lenses = bmesh.new(), bmesh.new()
+    cuboid(heads, -0.03, 0.03, -0.24, 0.24, 1.76, 1.82)
+    for side in (-1, 1):
+        y = side * 0.5
+        prism(heads, (0.0, y, 0.3, 0.54, 1.72), (0.0, y, 0.34, 0.58, 1.78))
+        prism(heads, (0.0, y, 0.34, 0.58, 1.78), (0.0, y, 0.3, 0.54, 1.87))
+        cuboid(lenses, -0.11, 0.11, y - 0.2, y + 0.2, 1.714, 1.72)
+    model.hard(heads, "paint", bevel=0.008, segments=2)
+    model.plain(lenses, "shade")
+    return model
+
+
+def girder():
+    """A square's length of steel girder lying on the ground on one flange: a metre long, to meet the next."""
+    model = Model("girder")
+    steel = bmesh.new()
+    half, high, flange, web = 0.16, 0.3, 0.03, 0.025
+    cuboid(steel, -half, half, -0.5, 0.5, 0.0, flange)
+    cuboid(steel, -half, half, -0.5, 0.5, high - flange, high)
+    cuboid(steel, -web / 2, web / 2, -0.5, 0.5, flange, high - flange)
+    model.plain(steel, "paint")
+    return model
+
+
+def felt_rolls(name, length, rows):
+    """Rolls of roofing felt lying along y, so many in each row: long ones side by side, or short ones stacked and held by a band."""
+    model = Model(name)
+    radius = 0.085
+    rolls, cores = bmesh.new(), bmesh.new()
+    top = 0.0
+    for row, count in enumerate(rows):
+        for n in range(count):
+            x = (n - (count - 1) / 2) * 2 * radius
+            z = radius + row * radius * math.sqrt(3)
+            top = z + radius
+            lathe(rolls, [(0.03, -length / 2), (radius, -length / 2), (radius, length / 2), (0.03, length / 2)], segments=12, caps=False, to=along_y(x, 0.0, z))
+            for y in (-length / 2, length / 2 - 0.004):
+                lathe(cores, [(0.0, y), (0.03, y), (0.03, y + 0.004), (0.0, y + 0.004)], segments=8, to=along_y(x, 0.0, z))
+    model.turned(rolls, "plastic", sharp=40.0)
+    model.plain(cores, "rubber")
+    if len(rows) > 1:
+        band = bmesh.new()
+        wide = rows[0] * radius + 0.004
+        outline_along_y(band, [(-wide, 0.0), (wide, 0.0), (wide, radius), (radius * 0.6, top + 0.004), (-radius * 0.6, top + 0.004), (-wide, radius)], -0.05, 0.05)
+        model.plain(band, "steel")
+    return model
+
+
+def stop_sign():
+    """A stop sign on its post: an eight sided plate, red inside a white edge on the side it is read from and bare metal behind.
+    The origin is the post's axis."""
+    model = Model("stop_sign", centred=False)
+    post = bmesh.new()
+    cuboid(post, -0.02, 0.02, -0.012, 0.012, 0.0, 1.9)
+    model.hard(post, "metal", bevel=0.003, segments=1)
+    middle = 1.6
+
+    def plate(bm, radius, front, back):
+        outline_along_y(bm, [(x, z + middle) for x, z in arc(0.0, 0.0, radius / math.cos(math.radians(22.5)), 22.5, 337.5, 7)], front, back)
+
+    back, edge, face = bmesh.new(), bmesh.new(), bmesh.new()
+    plate(back, 0.27, -0.018, -0.012)
+    model.plain(back, "metal")
+    plate(edge, 0.27, -0.021, -0.018)
+    model.plain(edge, "enamel")
+    plate(face, 0.245, -0.023, -0.021)
+    model.plain(face, "vinyl")
+    return model
+
+
+def hand_truck():
+    """A stock trolley: a flat bed of slats near the ground on four small wheels, and at its back a frame of two uprights with
+    rungs between them, each upright ending in a grip to push it by. The bed is to the front."""
+    model = Model("hand_truck")
+    half, back, front, bed, top = 0.25, 0.23, -0.25, 0.09, 1.05
+    frame = bmesh.new()
+    for side in (-1, 1):
+        cuboid(frame, side * half - 0.014, side * half + 0.014, back - 0.014, back + 0.014, bed - 0.02, top)
+        cuboid(frame, side * half - 0.014, side * half + 0.014, front, back, bed - 0.02, bed + 0.008)
+    for n in range(4):
+        z = 0.34 + n * 0.2
+        cuboid(frame, -half, half, back - 0.01, back + 0.01, z - 0.012, z + 0.012)
+    for n in range(5):
+        y = front + n * (back - front - 0.03) / 4
+        cuboid(frame, -half, half, y, y + 0.03, bed - 0.006, bed + 0.008)
+    model.hard(frame, "metal", bevel=0.004, segments=1)
+    dark = bmesh.new()
+    for side in (-1, 1):
+        beam(dark, (side * half, back, top), (side * half, back + 0.1, top + 0.03), 0.034, 0.034)
+        for y in (front + 0.05, back - 0.03):
+            lathe(dark, [(0.0, -0.012), (0.035, -0.012), (0.035, 0.012), (0.0, 0.012)], segments=10, to=along_x(side * (half - 0.03), y, 0.035))
+    model.turned(dark, "rubber", sharp=40.0)
+    return model
+
+
+def roof_case(name, high):
+    """The steel case of a roof's machine, a square across: sheets bolted at their corners on a dark plinth, in sections a little over a
+    metre high with a seam between one and the next. What the game stands on top of one is painted at the height of its top."""
+    model = Model(name)
+    half, plinth = 0.485, 0.06
+    sections = max(1, round(high / 1.2))
+    body = bmesh.new()
+    cuboid(body, -half, half, -half, half, plinth, high)
+    model.hard(body, "paint", bevel=0.012, segments=2)
+    dark, bolts = bmesh.new(), bmesh.new()
+    cuboid(dark, -half + 0.03, half - 0.03, -half + 0.03, half - 0.03, 0.0, plinth)
+    for section in range(sections):
+        low = plinth + (high - plinth) * section / sections
+        top = plinth + (high - plinth) * (section + 1) / sections
+        if section:
+            for side in (-1, 1):
+                cuboid(dark, -half, half, side * half - 0.002, side * half + 0.002, low - 0.006, low + 0.006)
+                cuboid(dark, side * half - 0.002, side * half + 0.002, -half, half, low - 0.006, low + 0.006)
+        for side in (-1, 1):
+            for across in (-1, 1):
+                for z in (low + 0.08, top - 0.08):
+                    cuboid(bolts, across * (half - 0.08) - 0.012, across * (half - 0.08) + 0.012, side * half - 0.004, side * half + 0.004, z - 0.012, z + 0.012)
+                    cuboid(bolts, side * half - 0.004, side * half + 0.004, across * (half - 0.08) - 0.012, across * (half - 0.08) + 0.012, z - 0.012, z + 0.012)
+    model.plain(dark, "plastic")
+    model.plain(bolts, "metal")
+    return model
+
+
+def outdoors():
+    """What stands out of doors: on roofs, in yards and along streets."""
+    return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
+            deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
+            gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
+            sack_barrier(), log_stack("log_stack_6", (3, 2, 1)), log_stack("log_stack_5", (3, 2)),
+            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), hand_truck(),
+            roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]
 
 
 def every():
@@ -2831,7 +3406,7 @@ def every():
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
-              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()] + indoors()
+              cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner()] + indoors() + outdoors()
 
 
 def main():

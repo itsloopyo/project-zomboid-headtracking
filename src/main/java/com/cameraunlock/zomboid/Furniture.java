@@ -78,9 +78,14 @@ final class Furniture {
     boolean television, blackAndWhite;
 
     Furniture(IsoSprite sprite, String model, int turns) {
+        this(sprite, model, turns, false);
+    }
+
+    /** alone for a sprite that is a piece by itself whatever squares the game lays its piece on. */
+    private Furniture(IsoSprite sprite, String model, int turns, boolean alone) {
         this.model = model == null ? null : Models.get(model);
         this.turns = turns;
-        grid = sprite.getSpriteGrid();
+        grid = alone ? null : sprite.getSpriteGrid();
         width = grid == null ? 1 : grid.getWidth();
         height = grid == null ? 1 : grid.getHeight();
         gridX = grid == null ? 0 : grid.getSpriteGridPosX(sprite);
@@ -155,6 +160,12 @@ final class Furniture {
         centreY = height / 2f - front[1] * slack;
     }
 
+    /** Makes a long seat as high as the game says its seat is and no shorter along the ground for it. */
+    Furniture seat(float seatUp, float reference) {
+        scaleUp = seatUp / reference;
+        return this;
+    }
+
     Furniture raise(float up) {
         raised = up;
         return this;
@@ -214,6 +225,16 @@ final class Furniture {
         PropertyContainer properties = sprite.getProperties();
         String called = properties.get("CustomName");
         IsoSpriteGrid grid = sprite.getSpriteGrid();
+        if (name != null && (grid == null || grid.getLevels() == 1)) {
+            IsoDirections way = sprite.getFacing();
+            int faces = way == IsoDirections.N ? Outdoors.NORTH : way == IsoDirections.E ? Outdoors.EAST : way == IsoDirections.S ? Outdoors.SOUTH
+                    : way == IsoDirections.W ? Outdoors.WEST : Outdoors.NONE;
+            Outdoors.Piece outside = Outdoors.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
+                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            if (outside != null) {
+                return outdoors(sprite, outside);
+            }
+        }
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
         }
@@ -248,8 +269,8 @@ final class Furniture {
                 return new Furniture(sprite, lamp, faces).hang(WallHung.behind(facing), false).ownSize();
             }
             // An air conditioner is let through its wall and stands out of it: the case of one, on
-            // the sheet of things a works has. The flat grilles the game calls by the same
-            // name are flat, and stay as their sprites paint them.
+            // the sheet of things a works has. The grilles the game calls by the same name
+            // are Indoors'.
             if (called.equals("Conditioner") && name.startsWith("industry_") && grid == null) {
                 return new Furniture(sprite, "air_conditioner", faces).hang(WallHung.behind(facing), false).ownSize();
             }
@@ -533,6 +554,22 @@ final class Furniture {
         return null;
     }
 
+    /** A piece that stands out of doors, stood as Outdoors says it stands. */
+    private static Furniture outdoors(IsoSprite sprite, Outdoors.Piece outside) {
+        Furniture piece = new Furniture(sprite, outside.model, outside.turns, outside.each);
+        if (outside.dyed != 0) {
+            piece.dye(outside.dyed, outside.dyeA, outside.dyeB, outside.dyeHigh);
+        }
+        if (outside.fits) {
+            piece.stand(0f, piece.model.height(), false);
+        }
+        if (piece.grid == null) {
+            piece.centreX = outside.a;
+            piece.centreY = outside.b;
+        }
+        return piece.raise(outside.raised);
+    }
+
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
     private static final String STREET_LAMPS = "lighting_outdoor_01_";
     /** Where on its sprite a lamp's post gives its colour, in levels. */
@@ -542,7 +579,8 @@ final class Furniture {
      * The model of a street lamp, by which sprite of the game's sheet of them it is. The first
      * four are whole lamps, a post with its light. A lamp taller than a storey is two sprites,
      * and the upper one, on the level above, is the head: a lantern, or the arm of a road lamp,
-     * which reaches out north, east, south and west in that order on the sheet. Null for the
+     * which reaches out north, east, south and west in that order on the sheet, or the two flat
+     * heads of a car park's lamp, side by side along y and then along x. Null for the
      * rest of the sheet: bare posts, which stand well enough as they are, signals, and heads
      * the mod has no model of.
      */
@@ -562,6 +600,7 @@ final class Furniture {
             case 3 -> new Furniture(sprite, "lantern_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 5 -> new Furniture(sprite, "lantern_head", 0).dye(1 << Models.PAINT, UPPER_POST_DYE);
             case 8, 9, 10, 11 -> new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            case 18, 19 -> new Furniture(sprite, "twin_head", which - 18).dye(1 << Models.PAINT, UPPER_POST_DYE);
             default -> null;
         };
     }

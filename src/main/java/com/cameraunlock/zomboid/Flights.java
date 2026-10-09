@@ -23,8 +23,12 @@ final class Flights {
 
     /** How thick an open tread is, in levels: the lip its sprite paints along its front. */
     static final float TREAD = 0.35f * Stairs.RISE;
-    /** A string of an open flight: how far in from the side of the flight it is thick, and how far under and over the line of the nosings it reaches, in levels. */
-    static final float STRING_THICK = 0.045f, STRING_OVER = -0.15f * Stairs.RISE, STRING_UNDER = 1.7f * Stairs.RISE;
+    /**
+     * A string of an open flight: how far in from the side of the flight it is thick, and how
+     * far under and over the line of the nosings it reaches, in levels. Thicker than half a
+     * wall by enough that the string of a flight along a wall stands clear of the wall's skin.
+     */
+    static final float STRING_THICK = 0.06f, STRING_OVER = -0.15f * Stairs.RISE, STRING_UNDER = 1.7f * Stairs.RISE;
     /** The posts under an open flight, the beam across them and the brace up to the string: how thick, in tiles. */
     static final float POST = 0.07f, BEAM = 0.06f, BRACE = 0.045f;
     /** How far below the head of its post a brace starts, in levels, and how far down the flight it meets the string, in squares. */
@@ -40,7 +44,7 @@ final class Flights {
     private static final int[] BALUSTERS = {0, 4, 5};
     /** A balustrade's bottom rail: how high its top is, in levels, and how deep it is, in tiles. */
     private static final float SHOE_UP = 0.07f, SHOE_DEEP = 0.04f;
-    /** How far up the flight from its foot the first post stands, in squares: half a post in from the first riser. */
+    /** How far up the flight from its foot the axis of the first post is, in squares. It stands on the floor, through the front of the first tread. */
     private static final float FOOT = 0.04f;
     /** How far into what it stands on the foot of an upright goes, in levels: level with it, the two are drawn through each other. */
     private static final float SUNK = 0.004f;
@@ -116,15 +120,20 @@ final class Flights {
      * treads, and a string down each side that the treads sit between. Where the square has a
      * floor under it and is the middle or the top one of its flight, two posts stand under its
      * upper end with a beam across them, and under the middle square a brace runs from each
-     * post back up to the string.
+     * post back up to the string. A side that another flight is joined to, two flights side by
+     * side being one stair twice as wide, has no string and no post: the treads run on.
      */
-    void open(int third, boolean stands) {
+    void open(int third, boolean stands, boolean joinedLow, boolean joinedHigh) {
+        float low = joinedLow ? 0f : STRING_THICK, high = joinedHigh ? 1f : 1f - STRING_THICK;
         for (int step = 0; step < Stairs.STEPS; step++) {
             float front = third + step * Stairs.GOING, back = front + Stairs.GOING, top = Stairs.tread(third, step), under = top - TREAD;
-            quad(front, STRING_THICK, under, back, STRING_THICK, under, back, 1f - STRING_THICK, under, front, 1f - STRING_THICK, under);
-            quad(back, STRING_THICK, under, back, 1f - STRING_THICK, under, back, 1f - STRING_THICK, top, back, STRING_THICK, top);
+            quad(front, low, under, back, low, under, back, high, under, front, high, under);
+            quad(back, low, under, back, high, under, back, high, top, back, low, top);
         }
         for (int side = 0; side <= 1; side++) {
+            if (side == 0 ? joinedLow : joinedHigh) {
+                continue;
+            }
             float c0 = side == 0 ? 0f : 1f - STRING_THICK, c1 = c0 + STRING_THICK;
             for (int step = 0; step < Stairs.STEPS; step++) {
                 float s0 = third + step * Stairs.GOING, s1 = s0 + Stairs.GOING;
@@ -136,6 +145,9 @@ final class Flights {
         }
         float head = third + 1f, carried = stringUnder(head);
         for (int side = 0; side <= 1; side++) {
+            if (side == 0 ? joinedLow : joinedHigh) {
+                continue;
+            }
             float c0 = side == 0 ? 0f : 1f - POST, c1 = c0 + POST;
             box(head - POST, head, c0, c1, 0f, carried);
             if (third == 1) {
@@ -144,24 +156,24 @@ final class Flights {
                 bar(to, stringUnder(to), deep, head - POST, from, deep, b0, b0 + BRACE);
             }
         }
-        box(head - POST, head, POST, 1f - POST, carried - BEAM * UP, carried);
+        box(head - POST, head, joinedLow ? 0f : POST, joinedHigh ? 1f : 1f - POST, carried - BEAM * UP, carried);
     }
 
     /**
      * One square of a flight's handrail, centred on the line across the flight at `across`:
      * the rail itself over that square, and what it stands on. A rail of posts has one at the
      * foot of the flight, one at its head, and one on the middle of every second tread between. A rail of
-     * balusters has a newel at the foot and at the head and a baluster on every tread. Each
-     * stands on the tread under it.
+     * balusters has a newel at the foot and at the head and a baluster on every tread. The
+     * upright at the foot stands on the floor and every other on the tread under it.
      */
     void slope(int third, int style, float across) {
         float over = RAIL_OVER[style], deep = RAIL_DEEP[style] * UP, half = RAIL_WIDE[style] / 2f;
         float from = third == 0 ? FOOT - RAIL_POST[style] / 2f : third, to = third + 1f;
         float post = RAIL_POST[style] / 2f, into = over - deep / 2f;
-        if (style == PIPE) {
+        if (style == Rails.PIPE) {
             // A tube. A post's head is cut level at the height the middle of the rail has on
-            // the post's axis, and the rail falls less than half its depth across a post, so
-            // the whole head is inside the rail.
+            // the post's axis, and from there to the post's edge the rail rises or falls less
+            // than half its depth, so the whole head is inside the rail.
             tube(from, nosings(from) + over, to, nosings(to) + over, across, half);
             if (third == 0) {
                 round(FOOT, post, across, 0f, nosings(FOOT) + into);
@@ -233,28 +245,19 @@ final class Flights {
         quad(along - in, across - in, head, along + in, across - in, head, along + in, across + in, head, along - in, across + in, head);
     }
 
-    private static final int PIPE = Rails.PIPE;
-
-    /** The top of the tread under a point of a flight. */
-    static float treadUnder(float along) {
-        int step = Math.min((int) (along / Stairs.GOING), 3 * Stairs.STEPS - 1);
-        return (step + 1) * Stairs.RISE;
-    }
-
     /** An upright of square section, half thick each way from its axis, its foot sunk in what it stands on. */
     private void stand(float along, float half, float across, float foot, float head) {
         box(along - half, along + half, across - half, across + half, foot - SUNK, head);
     }
 
     /**
-     * A level rail along one edge of a square, from `from` to `to` along it, centred `across`
-     * from the edge. A rail of posts stands on one in the middle of the edge, as its sprite
+     * A level rail along the whole of one edge of a square, centred `across` from the edge. A rail of posts stands on one in the middle of the edge, as its sprite
      * has it, and its ends meet the rails of the edges beside it. A rail of balusters stands
      * on those, and a balustrade has a bottom rail they pass through.
      */
     void level(int style, float across) {
         float top = levelTop(style), deep = RAIL_DEEP[style] * UP, half = RAIL_WIDE[style] / 2f;
-        if (style == PIPE) {
+        if (style == Rails.PIPE) {
             tube(0f, top, 1f, top, across, half);
             round(0.5f, RAIL_POST[style] / 2f, across, 0f, top - deep / 2f);
             return;
@@ -271,10 +274,10 @@ final class Flights {
         }
     }
 
-    /** The post at the corner of two level rails, on the corner itself. It stands a little over the rails, as a newel does. */
+    /** The post at the corner of two level rails, on the corner itself. A post of pipe ends in the rails, and a timber one stands a little over them, as a newel does. */
     void cornerPost(int style) {
         float half = RAIL_POST[style] / 2f + 0.01f;
-        if (style == PIPE) {
+        if (style == Rails.PIPE) {
             round(0f, half, 0f, 0f, levelTop(style));
             return;
         }

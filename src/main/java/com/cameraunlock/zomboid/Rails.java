@@ -22,6 +22,8 @@ final class Rails {
 
     /** What a sprite is a length of. */
     static final int SLOPE = 0, ABOVE = 1, LEVEL_WEST = 2, LEVEL_NORTH = 3, LEVEL_BOTH = 4, CORNER_POST = 5;
+    /** The length over the top square of a flight with a level rail joined to it: that rail runs along the same edge, on the floor the flight arrives at. */
+    static final int ABOVE_AND_LEVEL = 6;
 
     static final class Piece {
         final int style, part;
@@ -49,17 +51,22 @@ final class Rails {
 
     /**
      * A flight's rail: the sprites on its bottom, middle and top squares, then the one over
-     * the middle square and those over the top one, a level up.
+     * the middle square and the one over the top one, a level up, and last that one's variant
+     * with a level rail joined to it.
      */
-    private static void slope(int style, float[] paint, boolean west, int bottom, int middle, int top, int overMiddle, int... overTop) {
+    private static void slope(int style, float[] paint, boolean west, int bottom, int middle, int top, int overMiddle, int overTop, int overTopAndLevel) {
         PIECES.put(SHEET + bottom, new Piece(style, SLOPE, west, 0, paint));
         PIECES.put(SHEET + middle, new Piece(style, SLOPE, west, 1, paint));
         PIECES.put(SHEET + top, new Piece(style, SLOPE, west, 2, paint));
         PIECES.put(SHEET + overMiddle, new Piece(style, ABOVE, west, 1, paint));
-        for (int over : overTop) {
-            PIECES.put(SHEET + over, new Piece(style, ABOVE, west, 2, paint));
+        PIECES.put(SHEET + overTop, new Piece(style, ABOVE, west, 2, paint));
+        if (overTopAndLevel >= 0) {
+            PIECES.put(SHEET + overTopAndLevel, new Piece(style, ABOVE_AND_LEVEL, west, 2, paint));
         }
     }
+
+    /** For a rail the sheet has no such variant of. */
+    private static final int NONE = -1;
 
     private static void level(int style, float[] paint, int part, int... sprites) {
         for (int sprite : sprites) {
@@ -71,12 +78,12 @@ final class Rails {
             RUST = {0.27f, 0.19f, 0.17f}, TIMBER = {0.28f, 0.16f, 0.10f}, OAK = {0.34f, 0.25f, 0.18f}, PAINTED = {0.74f, 0.71f, 0.68f};
 
     static {
-        slope(BALUSTER, VARNISHED, true, 0, 1, 2, 14, 3);
-        slope(BALUSTER, VARNISHED, false, 7, 6, 5, 15, 4);
-        slope(BALUSTER, IRON, true, 16, 17, 18, 12, 19);
-        slope(BALUSTER, IRON, false, 23, 22, 21, 13, 20);
-        slope(BALUSTER, WHITE, true, 86, 87, 94, 102, 95);
-        slope(BALUSTER, WHITE, false, 71, 70, 69, 103, 68);
+        slope(BALUSTER, VARNISHED, true, 0, 1, 2, 14, 3, NONE);
+        slope(BALUSTER, VARNISHED, false, 7, 6, 5, 15, 4, NONE);
+        slope(BALUSTER, IRON, true, 16, 17, 18, 12, 19, NONE);
+        slope(BALUSTER, IRON, false, 23, 22, 21, 13, 20, NONE);
+        slope(BALUSTER, WHITE, true, 86, 87, 94, 102, 95, NONE);
+        slope(BALUSTER, WHITE, false, 71, 70, 69, 103, 68, NONE);
         slope(PIPE, RUST, true, 61, 60, 59, 58, 57, 56);
         slope(PIPE, RUST, false, 40, 41, 42, 43, 44, 51);
         slope(PIPE, TIMBER, true, 101, 100, 99, 98, 97, 96);

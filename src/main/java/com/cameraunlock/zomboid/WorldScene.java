@@ -510,7 +510,7 @@ final class WorldScene {
     /** How far in front of the place looked at the picture reaches from far overhead, in tiles. */
     private static final float OVERHEAD_DEPTH = 160f;
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
-    private static final float OVERHEAD_RANGE = 12f;
+    static final float OVERHEAD_RANGE = 12f;
     /** How much of its opening-up the eye is refused at full night. */
     private static final float NIGHT_HELD_BACK = 0.5f;
     /**
@@ -524,20 +524,16 @@ final class WorldScene {
     /** The rooms of those buildings, where rain and snow are kept out with no roof drawn: see Shelter. Null while no building is open. */
     private Shelter shelter;
 
-    /** The rooms of the opened buildings round a square, each with the storeys its building has from the ground up. */
+    /** The rooms of the opened buildings round a square, each up to its own ceiling. */
     private Shelter shelterRound(int x, int y) {
         Shelter made = new Shelter(x, y);
         for (int i = 0; i < openBuildings.size(); i++) {
             BuildingDef def = openBuildings.get(i);
-            int storeys = 0;
             for (int r = 0; r < def.rooms.size(); r++) {
-                storeys = Math.max(storeys, def.rooms.get(r).level + 1);
-            }
-            for (int r = 0; r < def.rooms.size(); r++) {
-                ArrayList<RoomDef.RoomRect> rects = def.rooms.get(r).rects;
-                for (int k = 0; k < rects.size(); k++) {
-                    RoomDef.RoomRect rect = rects.get(k);
-                    made.cover(rect.x, rect.y, rect.w, rect.h, storeys);
+                RoomDef room = def.rooms.get(r);
+                for (int k = 0; k < room.rects.size(); k++) {
+                    RoomDef.RoomRect rect = room.rects.get(k);
+                    made.cover(rect.x, rect.y, rect.w, rect.h, room.level + 1);
                 }
             }
         }
@@ -621,6 +617,10 @@ final class WorldScene {
                 boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
+        /** Which cloth the map hangs out the sprite is, if any: see Banners. */
+        final int banner;
+        /** Which way a length of washing line runs from its square, or Outdoors.NO_LINE. */
+        final int line;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -656,6 +656,9 @@ final class WorldScene {
             flightPost = Rails.flightPost(name);
             fireEscape = Rails.fireEscape(name);
             paint = RoadPaint.marks(name);
+            banner = Banners.kind(name, properties.get("CustomName"), properties.has(IsoFlagType.attachedN)
+                    || properties.has(IsoFlagType.attachedW) || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS));
+            line = name == null ? Outdoors.NO_LINE : Outdoors.washingLine(name);
         }
     }
 
@@ -748,6 +751,8 @@ final class WorldScene {
      */
     private final HashMap<Long, float[]> strung = new HashMap<>();
     private int strungWith;
+    /** The run each length of a banner strung across a street is part of, as Banners finds it, by the square it hangs on. Kept and dropped as strung is. */
+    private final HashMap<Long, float[]> bannerRuns = new HashMap<>();
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
@@ -1899,6 +1904,8 @@ final class WorldScene {
         private final float[] cutRows = new float[Cutaways.FLOATS];
         /** For such a frame, where rain and snow are kept out with no roof drawn, or null: see Shelter. */
         private Shelter sheltered;
+        /** The height of the floor the viewer stands on. */
+        private float stoodUp;
         private int cutRowsX, cutRowsY;
         private float cutBelow;
         /**
@@ -2222,6 +2229,7 @@ final class WorldScene {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
                 strung.clear();
+                bannerRuns.clear();
                 forgetAll();
                 forgetTheOpened();
             }
@@ -2265,6 +2273,7 @@ final class WorldScene {
             if (loadedNow != strungWith) {
                 // A span left unknown at an end for want of map is found again now that the map has other chunks loaded.
                 strung.values().removeIf(Spans::wanting);
+                bannerRuns.values().removeIf(Banners::wanting);
                 strungWith = loadedNow;
             }
             int loadedForAll = Rounds.loaded(view.index, loadedNow);
@@ -2337,6 +2346,7 @@ final class WorldScene {
             }
             sheltered = gamesView && level < 0 ? Shelter.EVERYWHERE : shelter;
             float floorUp = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
+            stoodUp = floorUp;
             cutFrom = gamesView || indoors ? floorUp + WALL_LEFT : Float.MAX_VALUE;
             cutBelow = 0f;
             if (gamesView) {
@@ -4392,6 +4402,158 @@ final class WorldScene {
             return lines.length > 0;
         }
 
+        /** How many strips a square's length of a banner is cut into along the banner, and up it: enough for it to belly in the wind. */
+        private static final int BANNER_ALONG = 4, BANNER_UP = 3, BANNER_FLOATS = 9;
+        /** How far inside its sprite's rectangle a banner's sheet takes its outermost texels, in frame dots: the middle of the outermost dot. */
+        private static final float BANNER_INSET = 0.5f;
+        /** The corners of one piece of a banner's sheet in the order of its two triangles: a bit for the further one along, a bit for the lower one. */
+        private static final int[] BANNER_CORNERS = {0, 1, 3, 0, 3, 2};
+        private final float[] bannerAt = new float[2];
+        private final float[] bannerCorners = new float[(BANNER_ALONG + 1) * (BANNER_UP + 1) * BANNER_FLOATS];
+
+        /**
+         * A square's length of a banner strung across a street, or a banner on a lamp post's
+         * arm: the whole of what the sprite paints, as a sheet in the plane the banner hangs
+         * in, every dot of it where the game's view has it on that plane. See Banners.
+         *
+         * A strung banner is on the edge of its squares, and as high as its run has it: over
+         * the line between the land at the run's two ends, where its cable is made fast, and
+         * not over the land under the square, which steps at a kerb and rises with the road.
+         * One on a post's arm is in the plane through the post. Both sides show the sprite, so
+         * from behind the lettering reads backwards through the cloth.
+         */
+        private void addBanner(SpriteGeometry.Mesh mesh, boolean isStrung, int x, int y, int z) {
+            boolean alongX = Banners.alongX(frame);
+            float off = isStrung ? 0f : Banners.POST_AXIS, level = ViewCamera.LEVEL_HEIGHT;
+            float[] run = null;
+            float landFrom = 0f, landTo = 0f;
+            if (isStrung) {
+                long key = (long) x << 40 | (y & 0xFFFFFFL) << 16 | z & 0xFFFFL;
+                run = bannerRuns.get(key);
+                if (run == null) {
+                    hungOn = z;
+                    run = Banners.find(bannerMap, x, y, alongX);
+                    bannerRuns.put(key, run);
+                    if (FirstPerson.TRACE) {
+                        Log.info("banner run: " + x + "," + y + "," + z + " " + Arrays.toString(run));
+                    }
+                }
+                wantsMap |= Banners.wanting(run);
+                float line = alongX ? y : x;
+                landFrom = alongX ? landAt(run[Banners.FROM], line) : landAt(line, run[Banners.FROM]);
+                landTo = alongX ? landAt(run[Banners.TO], line) : landAt(line, run[Banners.TO]);
+            }
+            // The sheet reaches the edge of the sprite's last dots, where the next square's first ones
+            // begin. Its texels are taken from the middle of a dot at the nearest: further out
+            // the sheet's next sprite over is mixed in, or nothing, and shows as a line down the join.
+            float lastU = frame.left + frame.width - BANNER_INSET, lastV = frame.top + frame.height - BANNER_INSET;
+            int row = (BANNER_ALONG + 1) * BANNER_FLOATS;
+            for (int j = 0; j <= BANNER_UP; j++) {
+                for (int i = 0; i <= BANNER_ALONG; i++) {
+                    float u = frame.left + frame.width * i / BANNER_ALONG, v = frame.top + frame.height * j / BANNER_UP;
+                    Banners.place(frame, alongX, off, u, v, bannerAt);
+                    float along = bannerAt[0], levels = bannerAt[1];
+                    float a = alongX ? along : off, b = alongX ? off : along;
+                    float up, sway;
+                    if (isStrung) {
+                        float share = Banners.along(run, (alongX ? x : y) + along);
+                        up = (z + levels) * level + landFrom + (landTo - landFrom) * share;
+                        sway = Banners.sway(run, share, levels);
+                    } else {
+                        up = (z + levels) * level + geometry.liftAt(Banners.POST_AXIS, Banners.POST_AXIS);
+                        sway = Banners.POSTED_SWAY * j / BANNER_UP;
+                    }
+                    float lightA = Math.clamp(a, 0f, 1f), lightB = Math.clamp(b, 0f, 1f);
+                    float w0 = (1f - lightA) * (1f - lightB), w1 = lightA * (1f - lightB), w2 = lightA * lightB, w3 = (1f - lightA) * lightB;
+                    int at = j * row + i * BANNER_FLOATS;
+                    bannerCorners[at] = x + a;
+                    bannerCorners[at + 1] = y + b;
+                    bannerCorners[at + 2] = up;
+                    float texelU = Math.clamp(u, frame.left + BANNER_INSET, lastU), texelV = Math.clamp(v, frame.top + BANNER_INSET, lastV);
+                    bannerCorners[at + 3] = frame.uStart + (texelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+                    bannerCorners[at + 4] = frame.vStart + (texelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
+                    bannerCorners[at + 5] = frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3;
+                    bannerCorners[at + 6] = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
+                    bannerCorners[at + 7] = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
+                    bannerCorners[at + 8] = sway;
+                }
+            }
+            mesh.open = frame.open + 32f * frame.material;
+            mesh.face(alongX ? 0f : 1f, alongX ? 1f : 0f, 0f);
+            for (int j = 0; j < BANNER_UP; j++) {
+                for (int i = 0; i < BANNER_ALONG; i++) {
+                    for (int corner : BANNER_CORNERS) {
+                        int at = (j + (corner >> 1)) * row + (i + (corner & 1)) * BANNER_FLOATS;
+                        mesh.sway = bannerCorners[at + 8];
+                        mesh.add(bannerCorners[at], bannerCorners[at + 1], bannerCorners[at + 2], bannerCorners[at + 3], bannerCorners[at + 4],
+                                bannerCorners[at + 5], bannerCorners[at + 6], bannerCorners[at + 7]);
+                    }
+                }
+            }
+            mesh.sway = 0f;
+        }
+
+        /** The map the run of a strung banner is found on, on the level hungOn. */
+        private final Banners.Hung bannerMap = new Banners.Hung() {
+            /** The picture of the length found last, and whether a length was passed over because its picture is not there to read yet. */
+            private Texture picture;
+            private boolean unread;
+
+            @Override
+            public int strung(int x, int y, boolean alongX) {
+                int gridX = Math.floorDiv(x, CHUNK_TILES) - mapWx, gridY = Math.floorDiv(y, CHUNK_TILES) - mapWy;
+                if (gridX < 0 || gridY < 0 || gridX >= mapSide || gridY >= mapSide) {
+                    return -1;
+                }
+                IsoChunk hungIn = chunkMap.getChunk(gridX, gridY);
+                if (hungIn == null || !hungIn.loaded) {
+                    return -1;
+                }
+                // With a length unread, where the run goes from here is not known.
+                return length(x, y, alongX) != null ? 1 : unread ? -1 : 0;
+            }
+
+            @Override
+            public float top(int x, int y, boolean alongX, boolean atStart) {
+                IsoObject length = length(x, y, alongX);
+                float top = Banners.top(picture::isMaskSet, hungFrame, alongX, atStart);
+                if (Float.isNaN(top)) {
+                    throw new IllegalStateException("the banner's length " + length.getSprite().getName() + " at " + x + "," + y + "," + hungOn
+                            + " paints nothing at the end of its square, so where its cable is made fast cannot be read");
+                }
+                return top;
+            }
+
+            /** The length on a square that runs the way asked, with hungFrame and picture set for it. */
+            private IsoObject length(int x, int y, boolean alongX) {
+                unread = false;
+                IsoGridSquare square = cell.getGridSquare(x, y, hungOn);
+                if (square == null) {
+                    return null;
+                }
+                PZArrayList<IsoObject> objects = square.getObjects();
+                for (int i = 0; i < objects.size(); i++) {
+                    IsoObject object = objects.get(i);
+                    IsoSprite sprite = object.getSprite();
+                    if (sprite == null || kindOf(sprite).banner != Banners.STRUNG) {
+                        continue;
+                    }
+                    Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+                    if (!usable(texture)) {
+                        unread = true;
+                        continue;
+                    }
+                    hungFrame.scale = frame.scale;
+                    WorldScene.frameOf(hungFrame, object, texture);
+                    if (Banners.alongX(hungFrame) == alongX) {
+                        picture = texture;
+                        return object;
+                    }
+                }
+                return null;
+            }
+        };
+
         /** The wires a sprite shows, as Wires reads them off it in a frame set for it. Empty for a sprite that is no wire. */
         private float[] wiresOn(Texture texture, String name, SpriteGeometry.Frame in) {
             float[] lines = wires.get(texture);
@@ -4888,6 +5050,24 @@ final class WorldScene {
                 return;
             }
 
+            // A washing line. The game paints a square's length of it as it paints an overhead wire,
+            // and stood up as a card a run of them was a row of dashes that turned with the eye.
+            // Each length is strung from over the middle of its square to over the middle of the
+            // next, as high over the land at each end as the line is, so a run goes with the land.
+            if (z == 0 && !hangsInAir && overLayer == 0 && kind.line != Outdoors.NO_LINE && Own.furniture()) {
+                float fromX = x + 0.5f, fromY = y + 0.5f;
+                float toX = fromX + (kind.line == Outdoors.LINE_EAST ? 1f : 0f), toY = fromY + (kind.line == Outdoors.LINE_SOUTH ? 1f : 0f);
+                float from = landAt(fromX, fromY), to = landAt(toX, toY);
+                for (float up : Outdoors.LINES_UP) {
+                    cable(fromX, fromY, from + up, 0f, toX, toY, to + up, 0f, 0f);
+                }
+                return;
+            }
+            if (kind.banner == Banners.STRUNG || kind.banner == Banners.POSTED) {
+                addBanner(mesh, kind.banner == Banners.STRUNG, x, y, z);
+                return;
+            }
+
             if (addStair(mesh, texture, type, x, y, z)) {
                 return;
             }
@@ -4945,8 +5125,10 @@ final class WorldScene {
                 // its corner by a name of its own, which says nothing to a test for either wall:
                 // it stood in every corner of every room as a card turned to the eye.
                 boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE) || kind.cornerTrim;
-                west = both || standsOnWestEdge(properties, type);
-                north = both || standsOnNorthEdge(properties, type);
+                // Bunting and a flag some squares long are marked for no wall. Which edge each is on is in its picture.
+                boolean cloth = kind.banner == Banners.ON_WALL;
+                west = both || standsOnWestEdge(properties, type) || cloth && !Banners.alongX(frame);
+                north = both || standsOnNorthEdge(properties, type) || cloth && Banners.alongX(frame);
             }
             // A light switch says nothing of where it is. It is on a wall of its square, and is
             // laid on whichever the square has; stood up to face the eye it is a grey panel
@@ -8338,8 +8520,12 @@ final class WorldScene {
                 plain.open = frame.open;
                 plain.sway = 0f;
                 flightOn(plain, x, y, z, west, third);
-                // The posts under the flight stand in for the one the map stands there, which is left out only with the rest of what the mod builds.
-                flights.open(third, !hangsInAir && Own.buildings());
+                // Whether another flight is joined to a side is read from a square that may be another chunk's.
+                building.plain = false;
+                boolean joinedLow = flightThirdAt(west ? x : x - 1, west ? y - 1 : y, z, west) == third;
+                boolean joinedHigh = flightThirdAt(west ? x : x + 1, west ? y + 1 : y, z, west) == third;
+                // The posts are the mod's own. Under a fire escape the map stands a post of its own, which is left out where these are built: see underAFlightsHead.
+                flights.open(third, !hangsInAir && Own.buildings(), joinedLow, joinedHigh);
                 return true;
             }
             mesh.open = frame.open + 32f * frame.material;
@@ -8429,17 +8615,18 @@ final class WorldScene {
          * A length of handrail, built as a rail: see Rails and Flights. A length of a flight's
          * rail is built where the map has the square of the flight it is the rail of, on its
          * own square or on the one before it across the flight, and the lengths the map hangs
-         * a level up over a flight are that same rail, built already. A rail along a wall
+         * a level up over a flight are that same rail, built already, but for the level rail
+         * one of them has joined to it. A rail along a wall
          * stands clear of the wall on the flight's side. False for a length of a flight's rail
          * with no flight to be the rail of, which is left the sprite it is.
          */
         private boolean addRail(Rails.Piece piece, int x, int y, int z) {
-            boolean slope = piece.part == Rails.SLOPE || piece.part == Rails.ABOVE;
+            boolean slope = piece.part == Rails.SLOPE || piece.part == Rails.ABOVE || piece.part == Rails.ABOVE_AND_LEVEL;
             boolean own = false;
             // What is built depends on a square that may be another chunk's.
             building.plain = false;
             if (slope) {
-                int level = piece.part == Rails.ABOVE ? z - 1 : z;
+                int level = piece.part == Rails.SLOPE ? z : z - 1;
                 own = flightThirdAt(x, y, level, piece.west) == piece.third;
                 if (!own && flightThirdAt(piece.west ? x : x - 1, piece.west ? y - 1 : y, level, piece.west) != piece.third) {
                     return false;
@@ -8451,6 +8638,15 @@ final class WorldScene {
             SpriteGeometry.Mesh mesh = solid.get(PLAIN, WallSides.key(piece.red, piece.green, piece.blue, WallSides.FLAT));
             mesh.open = frame.open;
             mesh.sway = 0f;
+            if (piece.part == Rails.ABOVE_AND_LEVEL) {
+                if (piece.west) {
+                    frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
+                } else {
+                    frameOn(mesh, x, y, z, 0f, 0f, 0f, 1f, 1f, 0f);
+                }
+                flights.level(piece.style, 0f);
+                return true;
+            }
             if (slope) {
                 boolean walled = piece.west ? wallNorth : wallWest;
                 flightOn(mesh, x, y, z, piece.west, piece.third);
@@ -8474,8 +8670,9 @@ final class WorldScene {
 
         /**
          * Whether a post the map stands under the head of a flight is the one Flights stands
-         * there: it is on the square a fire escape arrives over, and the flight's top square has
-         * a floor for the built posts to stand on.
+         * there: it is on the square a fire escape arrives over, the flight's top square has a
+         * floor for the built posts to stand on, and the flight's sprite has been read for the
+         * colour they are built in. Until it has, the flight has no posts and the map's stays.
          */
         private boolean underAFlightsHead(int x, int y, int z) {
             building.plain = false;
@@ -8487,9 +8684,14 @@ final class WorldScene {
                 }
                 PZArrayList<IsoObject> objects = top.getObjects();
                 for (int i = 0; i < objects.size(); i++) {
-                    IsoSprite sprite = objects.get(i).getSprite();
+                    IsoObject object = objects.get(i);
+                    IsoSprite sprite = object.getSprite();
                     if (sprite != null && thirdOf(sprite.getType()) == 2 && climbsWest(sprite.getType()) == west && kindOf(sprite).fireEscape) {
-                        return true;
+                        Texture stair = sprite.getTextureForCurrentFrame(object.getDir());
+                        if (usable(stair) && SpriteColours.of(stair) != null) {
+                            return true;
+                        }
+                        building.signed &= !usable(stair) || !SpriteColours.unread(stair);
                     }
                 }
             }
@@ -8554,6 +8756,7 @@ final class WorldScene {
             view.pipeline.cutRowsY = cutRowsY;
             view.pipeline.cutBelow = outside ? cutBelow : 0f;
             view.pipeline.sheltered = sheltered;
+            view.pipeline.floorUp = stoodUp;
             view.pipeline.away = outside ? outsideAway : 0f;
             view.pipeline.cutBox[0] = boxMinX;
             view.pipeline.cutBox[1] = boxMinY;

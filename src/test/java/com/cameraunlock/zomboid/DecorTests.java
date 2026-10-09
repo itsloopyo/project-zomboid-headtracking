@@ -23,6 +23,7 @@ final class DecorTests {
         int low = Decor.of("location_restaurant_seahorse_01_67", "Sign", "Coffee Low", true);
         check(low != Decor.NONE, "the sign the game calls Coffee Low shows a picture of the mod's");
         check(low != Decor.NONE && Math.abs(Decor.wideForHigh(low) - 2.98f / 0.71f) < 0.05f, "and it is the shape of the board");
+        check(Decor.of("location_restaurant_seahorse_01_72", "Sign", "Coffee High", true) == low, "the same sign under the game's other name for it shows the same picture");
         check(Decor.of("walls_decoration_01_16", "Flag", "Stars n Stripes", false) != Decor.NONE, "a flag hung on a wall shows one too");
         check(Decor.of("signs_one-off_08_93", "Sign", "", false) == Decor.NONE, "and a sign the mod has no picture for shows none");
     }

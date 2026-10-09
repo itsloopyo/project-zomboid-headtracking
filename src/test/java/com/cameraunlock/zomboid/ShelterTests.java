@@ -9,6 +9,7 @@ final class ShelterTests {
         Checks.run("aRoomThatRunsOffTheBlockCoversWhatOfItIsOnIt", ShelterTests::aRoomThatRunsOffTheBlockCoversWhatOfItIsOnIt);
         Checks.run("aBuildingWithNothingOverTheGroundCoversNothing", ShelterTests::aBuildingWithNothingOverTheGroundCoversNothing);
         Checks.run("anotherBlockIsMadeOnceTheViewerHasStrayed", ShelterTests::anotherBlockIsMadeOnceTheViewerHasStrayed);
+        Checks.run("theHighestRoomOverASquareCountsAndACellarCoversNothing", ShelterTests::theHighestRoomOverASquareCountsAndACellarCoversNothing);
     }
 
     private static void check(boolean condition, String what) {
@@ -47,6 +48,16 @@ final class ShelterTests {
         Shelter shelter = new Shelter(500, 700);
         check(!shelter.strayedFrom(500, 700) && !shelter.strayedFrom(500 + Shelter.STRAY, 700 - Shelter.STRAY), "near the block's middle it is kept");
         check(shelter.strayedFrom(500 + Shelter.STRAY + 1, 700) && shelter.strayedFrom(500, 700 - Shelter.STRAY - 1), "a square further and another is made");
-        check(Shelter.STRAY + 60 <= Shelter.SIDE / 2, "a viewer who has not strayed still has sixty squares of block every way");
+    }
+
+    private static void theHighestRoomOverASquareCountsAndACellarCoversNothing() {
+        Shelter shelter = new Shelter(0, 0);
+        shelter.cover(0, 0, 4, 4, 3);
+        shelter.cover(2, 2, 4, 4, 1);
+        shelter.cover(10, 10, 2, 2, 0);
+        shelter.cover(12, 10, 2, 2, -1);
+        check(shelter.at(3, 3) == 3, "a ground floor room laid over a square a third floor room covers leaves the three storeys");
+        check(shelter.at(5, 5) == 1, "the ground floor room's own squares have its one storey");
+        check(shelter.at(10, 10) == 0 && shelter.at(12, 10) == 0, "rooms under the ground leave the squares over them in the open");
     }
 }

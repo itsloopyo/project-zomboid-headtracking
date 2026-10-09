@@ -8,9 +8,8 @@ import zombie.iso.sprite.IsoSprite;
 /**
  * What stands in rooms and hangs on their walls that Furniture has a model for besides the
  * pieces it tells itself: a kitchen's hood, bins, vents and steel counters, a bathroom's
- * fittings, an office's cabinets and machines, and the furniture the map has most of that
- * was still a sprite wrapped on a box or stood up as a card. Furniture.recognise asks here
- * first, so nothing here may be a piece it tells by the same signs.
+ * fittings, an office's cabinets and machines, and the furniture the map has most of. These
+ * rules are tried before Furniture's own, so nothing here may be a piece it tells by the same signs.
  */
 final class Indoors {
     private Indoors() {}
@@ -19,7 +18,7 @@ final class Indoors {
     private static final float HOOD_FOOT = 1.58f;
     /** How high the shelf of a coat rack is, in tiles, and where on its sprite, in levels, the shelf gives its colour. */
     private static final float COAT_SHELF = 1.45f, COAT_DYE = 0.58f;
-    /** The highest the top of a cupboard with a mirror for a door is hung, in tiles: the game gives some a height over a head. */
+    /** How high the top of a cupboard with a mirror for a door is hung, in tiles: the game gives every one a height over a head. */
     private static final float MIRROR_TOP = 1.95f;
     /** How high, in metres, the part of a model is that the game gives the height of. */
     private static final float BASIN_RIM = 0.87f, CHEST_TOP = 0.88f, BAR_SEAT = 0.75f, DRYER_TOP = 0.92f, BENCH_SEAT = 0.45f, PEW_SEAT = 0.44f, DESK_TOP = 0.74f;
@@ -41,7 +40,10 @@ final class Indoors {
         boolean onTable = properties.has("IsTableTop");
         if (called.equals("Cartbox") && holds.equals("cardboardbox") && single) {
             // The game gives a box no front. Its four sprites are the same box turned, and so is the model.
-            return new Furniture(sprite, "carton", place(name) & 3).dye(1 << Models.PAINT, BOX_DYE).stand(0f, 0f, false);
+            // A box on another is the same box, as high up as the one under it is high.
+            Furniture carton = new Furniture(sprite, "carton", place(name) & 3).dye(1 << Models.PAINT, BOX_DYE);
+            float top = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
+            return carton.stand(top, carton.model.height(), false).raise(onTable ? top : 0f);
         }
         if (called.equals("Green Garbage Bin") && holds.equals("bin") && single) {
             return new Furniture(sprite, "garbage_can", 0).dye(1 << Models.PAINT, CAN_DYE).stand(0f, 0f, false);
@@ -56,7 +58,6 @@ final class Indoors {
         if (facing == null || blocks || !holds.isEmpty() || onTable || surface != 0 || !properties.has("IsHigh") && !properties.has("IsLow")) {
             return null;
         }
-        // The game gives a facing as one of the four ways along the map's axes.
         int faces = facing == IsoDirections.N ? 0 : facing == IsoDirections.E ? 1 : facing == IsoDirections.S ? 2 : 3;
         int wall = WallHung.behind(facing);
         if (called.equals("Conditioner") && group.equals("Air") && single && name.startsWith(VENTS)) {
@@ -68,10 +69,8 @@ final class Indoors {
         if (called.equals("Sign") && group.equals("Exit") && single) {
             return new Furniture(sprite, "exit_sign", faces).hang(wall, false);
         }
-        if (called.equals("Wall Light") && group.endsWith("Fluorescent") || called.equals("Wall Lamp") && group.equals("Bar") && single) {
-            return new Furniture(sprite, "strip_light", faces).hang(wall, false);
-        }
-        if (called.equals("Wall Lamp") && !group.endsWith("Half Sphere") && single) {
+        // A bar of a lamp is a tube along its wall and no shade on an arm: it stays the beam its sprite makes.
+        if (called.equals("Wall Lamp") && !group.endsWith("Half Sphere") && !group.equals("Bar") && single) {
             return new Furniture(sprite, "sconce", faces).hang(wall, false).ownSize();
         }
         if (called.equals("Blower") && group.equals("Air") && single) {
@@ -98,7 +97,7 @@ final class Indoors {
             return new Furniture(sprite, "range_hood", turns).stand(0f, 0f, true).raise(HOOD_FOOT);
         }
         if (called.equals("Counter") && single && group.contains("Steel") && low && properties.isTable() && holds.equals("counter") && counterHigh) {
-            // Steel all over: the wooden counter's model dyed grey showed wood's grain through the grey.
+            // Steel all over: wood dyed grey keeps its grain.
             boolean corner = group.contains("Corner");
             Furniture counter = new Furniture(sprite, corner ? "steel_counter_corner" : "steel_counter", turns);
             if (!corner) {
@@ -113,20 +112,18 @@ final class Indoors {
         if (called.equals("Sink") && !onTable && single && group.endsWith("Standing") && surface > 0) {
             return new Furniture(sprite, "pedestal_sink", turns).stand(surfaceUp, BASIN_RIM, true);
         }
-        if (called.equals("Cabinet") && holds.equals("medicine") && single && high && surface > 0) {
+        // A first aid box holds the same things and is no cupboard.
+        if (called.equals("Cabinet") && holds.equals("medicine") && single && high && !group.equals("First Aid")) {
             Furniture cabinet = new Furniture(sprite, "medicine_cabinet", turns).stand(0f, 0f, true);
-            return cabinet.raise(Math.min(surfaceUp, MIRROR_TOP) - cabinet.model.height());
+            return cabinet.raise(MIRROR_TOP - cabinet.model.height());
         }
-        if (called.equals("Shelves") && holds.equals("metal_shelves") && single && high && surface >= 50) {
-            Furniture shelf = new Furniture(sprite, surface >= 60 ? "wire_wall_shelves" : "wire_wall_shelf", turns).stand(0f, 0f, true);
+        if (called.equals("Shelves") && holds.equals("metal_shelves") && single && high) {
+            Furniture shelf = new Furniture(sprite, "wire_wall_shelves", turns).stand(0f, 0f, true);
             return shelf.raise(surfaceUp - shelf.model.height());
         }
         if (called.equals("Rack") && group.equals("Coat") && single && high) {
             Furniture rack = new Furniture(sprite, "coat_rack", turns).dyeAtBack(1 << Models.WOOD, COAT_DYE).stand(0f, 0f, true);
             return rack.raise(COAT_SHELF - rack.model.height());
-        }
-        if (called.equals("Rack") && holds.equals("clothingrack") && pair) {
-            return new Furniture(sprite, "clothes_rail", turns).stand(0f, 0f, false);
         }
         if (called.equals("Cabinet") && holds.equals("filingcabinet") && single && low) {
             return new Furniture(sprite, "filing_cabinet", turns).dye(1 << Models.PAINT, CAN_DYE).stand(0f, 0f, true);
@@ -156,10 +153,10 @@ final class Indoors {
         // The benches of the seating sheets are planks on two legs. A mall's brick bench and one of logs are not.
         if (called.equals("Bench") && pair && rests && surface > 0 && name.startsWith("furniture_seating") && !group.equals("Park")
                 && !group.equals("Fancy Outdoors")) {
-            return new Furniture(sprite, "plank_bench", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, BENCH_SEAT, false);
+            return new Furniture(sprite, "plank_bench", turns).dye(1 << Models.WOOD, surfaceHigh).stand(0f, 0f, false).seat(surfaceUp, BENCH_SEAT);
         }
         if (called.equals("Pew") && along == 1 && across == 3 && surface > 0) {
-            return new Furniture(sprite, "pew", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, PEW_SEAT, false);
+            return new Furniture(sprite, "pew", turns).dye(1 << Models.WOOD, surfaceHigh).stand(0f, 0f, false).seat(surfaceUp, PEW_SEAT);
         }
         if (name.startsWith(BEDDING) && called.equals("Beds") && along == 2 && across == 1) {
             return new Furniture(sprite, group.equals("Bunk") ? "steel_bunk_bed" : "bunk_bed", turns).stand(0f, 0f, false);
