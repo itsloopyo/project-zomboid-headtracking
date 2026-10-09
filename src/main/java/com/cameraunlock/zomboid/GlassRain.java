@@ -112,7 +112,7 @@ final class GlassRain {
             // the place: where a blade passes, other drops gather and run after it than the
             // ones it took, and none has left more wet behind it than it has had time for.
             vec2 runsOn(vec2 on, float time, float arrived, vec2 wiped, float grain) {
-                const float LANES = 17.0, HEAD = 0.004, TAIL = 0.24;
+                const float LANES = 17.0, HEAD = 0.00133, TAIL = 0.24;
                 float lane = floor(on.x * LANES);
                 float own = hash21(vec2(lane, 5.0 + mod(wiped.x, 89.0) * 3.3));
                 float trips = floor(252.0 + 360.0 * own);
@@ -168,19 +168,19 @@ final class GlassRain {
                 vec2 leant = vec2(on.x - (beside ? uGlassPull.x : uGlassPull.y) * (0.65 - on.y), on.y);
                 vec2 wet;
                 if (uGlassRain > 1.5) {
-                    wet = 0.8 * dropsOn(on, 0.0, 118.0, vec2(0.8776, 0.4794), 0.6, 0.1, 0.24, 0.0, arrived, swept, grain)
-                            + dropsOn(on, 3.7, 52.0, vec2(0.4536, 0.8912), 0.7, 0.1, 0.3, 0.35, arrived, swept, grain)
-                            + dropsOn(on, 8.3, 25.0, vec2(-0.4161, 0.9093), 0.5, 0.1, 0.28, 0.45, arrived, swept, grain);
+                    wet = 0.8 * dropsOn(on, 0.0, 354.0, vec2(0.8776, 0.4794), 0.6, 0.1, 0.24, 0.0, arrived, swept, grain)
+                            + dropsOn(on, 3.7, 156.0, vec2(0.4536, 0.8912), 0.7, 0.1, 0.3, 0.35, arrived, swept, grain)
+                            + dropsOn(on, 8.3, 75.0, vec2(-0.4161, 0.9093), 0.5, 0.1, 0.28, 0.45, arrived, swept, grain);
                     // Where the wipers clear the glass a run has only the time between two
                     // passes of a blade.
                     vec2 wiped = swept > 0.5 ? wipedAt(on) : vec2(0.0, 1000.0);
                     float time = beside ? uTime : swept > 0.5 ? uGlassPull.z : uGlassPull.w;
                     wet = max(wet, runsOn(leant, time, arrived, wiped, grain) * (1.0 - 0.7 * swept * still));
                 } else if (uGlassRain > 0.5) {
-                    wet = 0.9 * dropsOn(on, 0.0, 88.0, vec2(0.8776, 0.4794), 0.6, 0.1, 0.26, 0.0, arrived, swept, grain)
-                            + dropsOn(on, 3.7, 33.0, vec2(0.4536, 0.8912), 0.7, 0.1, 0.3, 0.45, arrived, swept, grain);
+                    wet = 0.9 * dropsOn(on, 0.0, 264.0, vec2(0.8776, 0.4794), 0.6, 0.1, 0.26, 0.0, arrived, swept, grain)
+                            + dropsOn(on, 3.7, 99.0, vec2(0.4536, 0.8912), 0.7, 0.1, 0.3, 0.45, arrived, swept, grain);
                 } else {
-                    wet = dropsOn(on, 0.0, 40.0, vec2(0.4536, 0.8912), 0.75, 0.12, 0.3, 0.4, arrived, swept, grain);
+                    wet = dropsOn(on, 0.0, 120.0, vec2(0.4536, 0.8912), 0.75, 0.12, 0.3, 0.4, arrived, swept, grain);
                 }
                 // A drop holds the sky and, at night, the glare of the lamps.
                 vec3 sky = atmosphere(vec3(0.0, 0.0, 1.0));
