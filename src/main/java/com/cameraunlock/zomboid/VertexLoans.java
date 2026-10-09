@@ -110,25 +110,25 @@ final class VertexLoans {
         trimmedOnce = true;
         trimmedNanos = nowNanos;
         for (int length = 0; length < LENGTHS; length++) {
-            for (int surplus = leastIdle[length]; surplus > 0; surplus--) {
-                FloatBuffer gone = idle[length][--idleCount[length]];
-                idle[length][idleCount[length]] = null;
-                idleBytes -= (long) Float.BYTES << length + SMALLEST;
-                loans.remove(gone).block.free();
-            }
+            freeIdle(length, leastIdle[length]);
             leastIdle[length] = idleCount[length];
+        }
+    }
+
+    /** Frees this many of the idle buffers of one length, the last given back first. */
+    private static void freeIdle(int length, int count) {
+        for (int left = count; left > 0; left--) {
+            FloatBuffer gone = idle[length][--idleCount[length]];
+            idle[length][idleCount[length]] = null;
+            idleBytes -= (long) Float.BYTES << length + SMALLEST;
+            loans.remove(gone).block.free();
         }
     }
 
     /** Lets go of every buffer that is not out on loan: first person has been switched off, and nothing is being built. */
     static synchronized void letGoIdle() {
         for (int length = 0; length < LENGTHS; length++) {
-            while (idleCount[length] > 0) {
-                FloatBuffer gone = idle[length][--idleCount[length]];
-                idle[length][idleCount[length]] = null;
-                idleBytes -= (long) Float.BYTES << length + SMALLEST;
-                loans.remove(gone).block.free();
-            }
+            freeIdle(length, idleCount[length]);
             leastIdle[length] = 0;
         }
     }

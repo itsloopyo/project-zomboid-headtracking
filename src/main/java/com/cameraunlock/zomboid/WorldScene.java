@@ -4419,10 +4419,9 @@ final class WorldScene {
                 geometry.keep = 1f;
                 // What the game draws over an object with the object: the leaves on a tree, the
                 // ivy and the stains on a wall. Each lies or stands as the object under it does.
-                ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
-                if (attached != null) {
-                    for (int k = 0; k < attached.size(); k++) {
-                        addOver(object, sprite, attached.get(k).parentSprite, object == floor, x, y, z);
+                if (leaves != null) {
+                    for (int k = 0; k < leaves.size(); k++) {
+                        addOver(object, sprite, leaves.get(k).parentSprite, object == floor, x, y, z);
                     }
                 }
                 addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);

@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,21 +206,19 @@ public final class ChunkMarks {
 
     /** The marks for light that named no level, on a chunk and the eight round it. */
     static int litLooseAround(int wx, int wy) {
-        int sum = 0;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                sum += litLoose.get(slot(wx + dx, wy + dy));
-            }
-        }
-        return sum;
+        return sumAround(litLoose, wx, wy);
     }
 
     /** The marks on a chunk and the eight round it for anything but light, as one number that is another once any is marked so again. */
     static int thingsAround(int wx, int wy) {
+        return sumAround(things, wx, wy);
+    }
+
+    private static int sumAround(AtomicIntegerArray counts, int wx, int wy) {
         int sum = 0;
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                sum += things.get(slot(wx + dx, wy + dy));
+                sum += counts.get(slot(wx + dx, wy + dy));
             }
         }
         return sum;
@@ -241,8 +240,10 @@ public final class ChunkMarks {
         }
         long unloaded = byFlag.getAndSet(UNLOADED, 0L);
         all.append(" of chunks not yet loaded ").append(unloaded);
-        callers.entrySet().stream().sorted((a, b) -> b.getValue().get() - a.getValue().get()).limit(6)
-                .forEach(each -> all.append(" | ").append(each.getValue().get()).append("x ").append(each.getKey()));
+        // Each count is taken once before the sort: another thread may raise one while it runs, and a sort whose order changes under it throws.
+        callers.entrySet().stream().map(each -> Map.entry(each.getKey(), each.getValue().get()))
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(6)
+                .forEach(each -> all.append(" | ").append(each.getValue()).append("x ").append(each.getKey()));
         callers.clear();
         return all.toString();
     }

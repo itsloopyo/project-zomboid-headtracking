@@ -162,9 +162,9 @@ final class Tiles {
         float[] sum = new float[3], joint = new float[3], whole = new float[3];
         int joints = 0, every = 0;
         boolean[] inside = into == null ? null : new boolean[side * side];
+        int margin = Math.max(1, Math.round(EDGE * side / count));
         for (int x = 0; x < count; x++) {
             for (int y = 0; y < count; y++) {
-                int margin = Math.max(1, Math.round(EDGE * side / count));
                 int i0 = x * side / count + margin, i1 = (x + 1) * side / count - margin, j0 = y * side / count + margin, j1 = (y + 1) * side / count - margin;
                 sum[0] = sum[1] = sum[2] = 0f;
                 int held = 0;

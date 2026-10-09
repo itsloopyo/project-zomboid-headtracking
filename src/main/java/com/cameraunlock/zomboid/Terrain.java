@@ -783,6 +783,9 @@ final class Terrain {
         }
         // Only now: finding a pad looks at other chunks, and lays their water over this one's.
         float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
+        // The two last footings that could not be kept yet: rows of squares cross two buildings in turn, and each would look for its water again at every crossing.
+        long unkeptKey = Footings.NONE, otherUnkeptKey = Footings.NONE;
+        float unkeptPad = Float.NaN, otherUnkeptPad = Float.NaN;
         int first = AROUND - reach * CHUNK_TILES, past = AROUND + (reach + 1) * CHUNK_TILES;
         for (int row = first; row < past; row++) {
             for (int at = row * SPAN + first; at < row * SPAN + past; at++) {
@@ -796,11 +799,20 @@ final class Terrain {
                     Float kept = pads.get(key);
                     if (freeAround[at]) {
                         kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(key);
+                    } else if (kept == null && key == unkeptKey) {
+                        kept = unkeptPad;
+                    } else if (kept == null && key == otherUnkeptKey) {
+                        kept = otherUnkeptPad;
                     } else if (kept == null) {
                         boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
                         kept = base(x, y);
                         if (lasting) {
                             pads.put(key, kept);
+                        } else {
+                            otherUnkeptKey = unkeptKey;
+                            otherUnkeptPad = unkeptPad;
+                            unkeptKey = key;
+                            unkeptPad = kept;
                         }
                         all &= lasting;
                     }

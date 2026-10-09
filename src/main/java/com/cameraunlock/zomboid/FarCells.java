@@ -113,8 +113,7 @@ final class FarCells {
         float nearest = Terrain.VALLEY;
         for (int cy = chunkY - reach; cy <= chunkY + reach; cy++) {
             for (int cx = chunkX - reach; cx <= chunkX + reach; cx++) {
-                int[] rows = around[(Math.floorDiv(cy, SIDE) + 1) * 3 + Math.floorDiv(cx, SIDE) + 1];
-                if ((rows[Math.floorMod(cy, SIDE)] >>> Math.floorMod(cx, SIDE) & 1) == 0) {
+                if (!watered(around, cx, cy)) {
                     continue;
                 }
                 float awayX = Math.max(0f, Math.max(cx * STEP - x, x - cx * STEP - STEP));
@@ -123,6 +122,12 @@ final class FarCells {
             }
         }
         return nearest;
+    }
+
+    /** Whether the chunk (cx, cy), counted as toWater counts places, has water in it. */
+    private static boolean watered(int[][] around, int cx, int cy) {
+        int[] rows = around[(Math.floorDiv(cy, SIDE) + 1) * 3 + Math.floorDiv(cx, SIDE) + 1];
+        return (rows[Math.floorMod(cy, SIDE)] >>> Math.floorMod(cx, SIDE) & 1) != 0;
     }
 
     /** The land of a cell: LAND_VERTICES vertices, drawn as one strip. */
@@ -140,8 +145,8 @@ final class FarCells {
                 // land's water lying higher met it nearer, where it had not come in yet. Lying
                 // lower it has come in, and is behind the built world while that is there; the
                 // land of such a chunk with it, which is no further than that behind the built land.
-                if (toWater(around, x - STEP / 2f, y - STEP / 2f) == 0f || toWater(around, x + STEP / 2f, y - STEP / 2f) == 0f
-                        || toWater(around, x - STEP / 2f, y + STEP / 2f) == 0f || toWater(around, x + STEP / 2f, y + STEP / 2f) == 0f) {
+                // Any of the four chunks that meet at the corner, (i - 2, j - 2) to (i - 1, j - 1).
+                if (watered(around, i - 2, j - 2) || watered(around, i - 1, j - 2) || watered(around, i - 2, j - 1) || watered(around, i - 1, j - 1)) {
                     heights[j * ring + i] -= Terrain.WATER_BELOW + WATER_UNDER;
                 }
             }
