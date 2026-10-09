@@ -2149,6 +2149,7 @@ final class WorldScene {
                 Parasols.forget();
                 Awnings.forget();
                 Hoods.forget();
+                Towers.forget();
                 Lights.forget();
                 Roofs.forget();
                 WallFinish.forget();
@@ -4642,6 +4643,10 @@ final class WorldScene {
                 return;
             }
 
+            if (Own.furniture() && addTower(sprite, x, y, z)) {
+                return;
+            }
+
             if (Own.furniture() && addLights(object, sprite, x, y, z)) {
                 return;
             }
@@ -5066,6 +5071,56 @@ final class WorldScene {
             furnished++;
             return true;
         }
+
+        /**
+         * Stands the mod's model of a section of a pylon, a mast or a tank where the map has
+         * every sprite of it that tells it, and says whether this sprite is thereby dealt with:
+         * see Towers. The anchor's sprite stands the model and the section's other sprites add
+         * nothing. A section with a square not loaded yet adds nothing either, and the build is
+         * made again when the map has more.
+         */
+        private boolean addTower(IsoSprite sprite, int x, int y, int z) {
+            Towers.Part[] parts = Towers.of(sprite);
+            boolean dealt = false;
+            String stood = null;
+            for (Towers.Part part : parts) {
+                Towers.Section section = part.section();
+                int at = Towers.whole(Towers.on(cell), section, x - part.dx(), y - part.dy(), z - part.dz());
+                if (at == Towers.NOT_LOADED) {
+                    wantsMap = true;
+                    dealt = true;
+                    continue;
+                }
+                if (at != Towers.WHOLE) {
+                    continue;
+                }
+                dealt = true;
+                if (part.dx() != 0 || part.dy() != 0 || part.dz() != 0 || !section.anchor().equals(sprite.getName()) || overLayer > 0
+                        || section.model().equals(stood)) {
+                    continue;
+                }
+                stood = section.model();
+                building.plain = false;
+                float centreX = x + section.a(), centreY = y + section.b();
+                heightsAt(centreX, centreY);
+                float foot = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(centreX, centreY, z) + section.raised();
+                // A section reaches some squares from its anchor's, and the light of that square
+                // drawn on across them by its corners runs far off what it is at their corners.
+                // The whole section is lit as the middle of that square is.
+                for (int corner = 0; corner < 4; corner++) {
+                    towerLight.cornerRed[corner] = (frame.cornerRed[0] + frame.cornerRed[1] + frame.cornerRed[2] + frame.cornerRed[3]) / 4f;
+                    towerLight.cornerGreen[corner] = (frame.cornerGreen[0] + frame.cornerGreen[1] + frame.cornerGreen[2] + frame.cornerGreen[3]) / 4f;
+                    towerLight.cornerBlue[corner] = (frame.cornerBlue[0] + frame.cornerBlue[1] + frame.cornerBlue[2] + frame.cornerBlue[3]) / 4f;
+                }
+                towerLight.open = frame.open;
+                placed.add(Models.get(section.model()), towerLight, x, y, centreX, centreY, foot, section.turns(), Furniture.TILES_PER_METRE,
+                        Furniture.TILES_PER_METRE, 0, 0, 0f, 0f, 0, 0f, 0f);
+                furnished++;
+            }
+            return dealt;
+        }
+
+        final SpriteGeometry.Frame towerLight = new SpriteGeometry.Frame();
 
         /** Whether the mains are on: read once a frame. */
         boolean mainsOn;

@@ -4770,6 +4770,294 @@ def wall_objects():
             chalkboard("chalkboard_3", 2.5), chalkboard("chalkboard_4", 3.5)]
 
 
+# A storey of the game's map, in metres, and how far the corner legs of a lattice mast or a pylon's waist stand from its axis.
+STOREY = 2.44949
+MAST_HALF = 0.74
+
+
+def strut(bm, start, end, size):
+    """A steel member of a lattice from start to end, size across both ways."""
+    beam(bm, start, end, size, size)
+
+
+def lattice_base():
+    """The four legged steel base the game's pylons and water towers stand on: legs splayed from feet 4.4 m apart, on
+    concrete pads, to a waist of MAST_HALF at four and a half storeys, then straight up to five. Belts round it at each
+    panel, crossed braces on each face and across it in plan at two belts. The origin is the axis on the ground."""
+    model = Model("lattice_base", centred=False)
+    foot, waist, top, pad = 2.2, 4.5 * STOREY, 5.0 * STOREY, 0.22
+
+    def half(z):
+        return foot + (MAST_HALF - foot) * min(z, waist) / waist
+
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    belts = [pad, 1.7 * STOREY, 2.9 * STOREY, 3.9 * STOREY, waist, top]
+    legs, braces = bmesh.new(), bmesh.new()
+    for sx, sy in corners:
+        strut(legs, (sx * foot, sy * foot, pad), (sx * MAST_HALF, sy * MAST_HALF, waist), 0.13)
+        strut(legs, (sx * MAST_HALF, sy * MAST_HALF, waist), (sx * MAST_HALF, sy * MAST_HALF, top), 0.13)
+    for z in belts[1:]:
+        r = half(z)
+        for i, (sx, sy) in enumerate(corners):
+            tx, ty = corners[(i + 1) % 4]
+            strut(braces, (sx * r, sy * r, z), (tx * r, ty * r, z), 0.07)
+    for low, high in zip(belts, belts[1:]):
+        a, b = half(low), half(high)
+        for i, (sx, sy) in enumerate(corners):
+            tx, ty = corners[(i + 1) % 4]
+            strut(braces, (sx * a, sy * a, low), (tx * b, ty * b, high), 0.05)
+            strut(braces, (tx * a, ty * a, low), (sx * b, sy * b, high), 0.05)
+    for z in (belts[1], waist):
+        r = half(z)
+        strut(braces, (-r, -r, z), (r, r, z), 0.05)
+        strut(braces, (r, -r, z), (-r, r, z), 0.05)
+    model.plain(legs, "steel")
+    model.plain(braces, "steel")
+    pads = bmesh.new()
+    for sx, sy in corners:
+        cuboid(pads, sx * foot - 0.32, sx * foot + 0.32, sy * foot - 0.32, sy * foot + 0.32, 0.0, pad)
+    model.hard(pads, "worktop", bevel=0.02, segments=1)
+    return model
+
+
+def lattice_storey(name, surface):
+    """One storey of a square lattice mast, MAST_HALF from its axis to each corner leg: a belt half way up and at the
+    top, and a cross of braces on each face of each half. Its foot belt is the top of whatever it stands on."""
+    model = Model(name, centred=False)
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    steel = bmesh.new()
+    for sx, sy in corners:
+        strut(steel, (sx * MAST_HALF, sy * MAST_HALF, 0.0), (sx * MAST_HALF, sy * MAST_HALF, STOREY), 0.1)
+    for low, high in ((0.0, STOREY / 2), (STOREY / 2, STOREY)):
+        for i, (sx, sy) in enumerate(corners):
+            tx, ty = corners[(i + 1) % 4]
+            strut(steel, (sx * MAST_HALF, sy * MAST_HALF, high), (tx * MAST_HALF, ty * MAST_HALF, high), 0.06)
+            strut(steel, (sx * MAST_HALF, sy * MAST_HALF, low + 0.02), (tx * MAST_HALF, ty * MAST_HALF, high), 0.045)
+            strut(steel, (tx * MAST_HALF, ty * MAST_HALF, low + 0.02), (sx * MAST_HALF, sy * MAST_HALF, high), 0.045)
+    model.plain(steel, surface)
+    return model
+
+
+def pylon_arm(name, reach, root_low, root_high, tip_high, square_tip):
+    """A pair of a pylon's cross-arms reaching out along y either side of the mast, each a truss: two lower chords from
+    the mast's two legs on that face at root_low, two upper chords from the same legs at root_high, all four meeting at
+    the tip, reach from the axis at tip_high. A square tip keeps the arm as wide as the mast to its end, with a cross bar
+    there; any other comes to a point. Verticals and crossed braces between the chords. Heights are over the floor of
+    the level the arm is drawn on, and the origin is the mast's axis on that floor."""
+    model = Model(name, centred=False)
+    steel = bmesh.new()
+    panels = 4
+    for side in (-1, 1):
+        root = side * MAST_HALF
+
+        def at(x_side, t, upper):
+            """A point of a chord: x_side picks the leg it starts at, t runs from the mast (0) to the tip (1)."""
+            x = x_side * MAST_HALF * (1.0 if square_tip else 1.0 - t)
+            y = root + (side * reach - root) * t
+            z = (root_high if upper else root_low) + (tip_high - (root_high if upper else root_low)) * t
+            return (x, y, z)
+
+        for x_side in (-1, 1):
+            strut(steel, at(x_side, 0.0, False), at(x_side, 1.0, False), 0.09)
+            strut(steel, at(x_side, 0.0, True), at(x_side, 1.0, True), 0.08)
+            for k in range(1, panels):
+                t = k / panels
+                strut(steel, at(x_side, t, False), at(x_side, t, True), 0.045)
+            for k in range(panels):
+                t0, t1 = k / panels, (k + 1) / panels
+                strut(steel, at(x_side, t0, k % 2 == 0), at(x_side, t1, k % 2 == 1), 0.04)
+        for k in range(panels):
+            t0, t1 = k / panels, (k + 1) / panels
+            strut(steel, at(-1, t0, False), at(1, t1, False), 0.04)
+            strut(steel, at(-1, t0, True), at(1, t0, True), 0.04)
+        if square_tip:
+            strut(steel, at(-1, 1.0, False), at(1, 1.0, False), 0.09)
+    model.plain(steel, "steel")
+    return model
+
+
+# A strain insulator: how far it reaches out from where it hangs, the radius of its discs, and how far apart the two strings of a pair are.
+INSULATOR_REACH, INSULATOR_DISC, INSULATOR_APART = 0.8, 0.085, 0.26
+
+
+def insulator(name, strings):
+    """Strings of glass discs that hold a wire's end off a pylon's arm, reaching along +x from the arm at the origin: a
+    yoke plate at each end, and between them one string, or two side by side."""
+    model = Model(name, centred=False)
+    discs, metal = bmesh.new(), bmesh.new()
+    ys = [0.0] if strings == 1 else [-INSULATOR_APART / 2, INSULATOR_APART / 2]
+    count = 8
+    for y in ys:
+        lathe(metal, [(0.0, 0.0), (0.012, 0.0), (0.012, INSULATOR_REACH), (0.0, INSULATOR_REACH)], segments=6, to=along_x(0.0, y, 0.0))
+        for k in range(count):
+            x = 0.1 + (INSULATOR_REACH - 0.2) * (k + 0.5) / count
+            lathe(discs, [(0.0, -0.022), (INSULATOR_DISC * 0.55, -0.025), (INSULATOR_DISC, -0.008), (INSULATOR_DISC, 0.004), (0.0, 0.02)],
+                  segments=12, to=along_x(x, y, 0.0))
+    for x in (0.0, INSULATOR_REACH):
+        cuboid(metal, x - 0.015, x + 0.015, min(ys) - 0.04, max(ys) + 0.04, -0.03, 0.03)
+    model.turned(discs, "ceramic")
+    model.plain(metal, "metal")
+    return model
+
+
+def lattice_post(name, footed, surface="steel"):
+    """One storey of a narrow square lattice column, as a substation's gantry is built of: four corner angles 0.54 m
+    apart, belts half way and at the top, a cross on each face of each half. The lowest storey stands on a concrete pad."""
+    model = Model(name)
+    half = 0.27
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    low = 0.16 if footed else 0.0
+    steel = bmesh.new()
+    for sx, sy in corners:
+        strut(steel, (sx * half, sy * half, low), (sx * half, sy * half, STOREY), 0.06)
+    for z0, z1 in ((low, STOREY / 2), (STOREY / 2, STOREY)):
+        for i, (sx, sy) in enumerate(corners):
+            tx, ty = corners[(i + 1) % 4]
+            strut(steel, (sx * half, sy * half, z1), (tx * half, ty * half, z1), 0.04)
+            strut(steel, (sx * half, sy * half, z0 + 0.01), (tx * half, ty * half, z1), 0.03)
+    model.plain(steel, surface)
+    if footed:
+        pad = bmesh.new()
+        cuboid(pad, -0.4, 0.4, -0.4, 0.4, 0.0, low)
+        model.hard(pad, "worktop", bevel=0.02, segments=1)
+    return model
+
+
+def railing_ring(bm, radius, z, high, posts):
+    """A round guard rail on a deck at height z: posts and a top and a middle rail, each rail a ring of short bars."""
+    for k in range(posts):
+        a = 2 * math.pi * k / posts
+        cuboid(bm, radius * math.cos(a) - 0.02, radius * math.cos(a) + 0.02, radius * math.sin(a) - 0.02, radius * math.sin(a) + 0.02, z, z + high)
+    for rail in (high, high * 0.5):
+        for k in range(posts * 2):
+            a0, a1 = 2 * math.pi * k / (posts * 2), 2 * math.pi * (k + 1) / (posts * 2)
+            strut(bm, (radius * math.cos(a0), radius * math.sin(a0), z + rail), (radius * math.cos(a1), radius * math.sin(a1), z + rail), 0.04)
+
+
+def water_tank():
+    """The wooden water tank of a roof or a water tower, a storey over its foot: four legs braced in crosses carry a
+    steel bowl and a round deck with a guard rail, and on that a staved barrel under a shallow cone of a roof with a
+    ladder up its side. The origin is the axis at the legs' feet."""
+    model = Model("water_tank", centred=False)
+    deck, barrel_r, barrel_top, eave, roof_r, apex = STOREY, 1.1, 1.95 * STOREY, 2.0 * STOREY, 1.38, 2.4 * STOREY
+    legs = bmesh.new()
+    leg = 0.7
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    for sx, sy in corners:
+        strut(legs, (sx * leg, sy * leg, 0.0), (sx * leg, sy * leg, deck - 0.3), 0.08)
+    for i, (sx, sy) in enumerate(corners):
+        tx, ty = corners[(i + 1) % 4]
+        strut(legs, (sx * leg, sy * leg, 0.1), (tx * leg, ty * leg, deck - 0.4), 0.04)
+        strut(legs, (tx * leg, ty * leg, 0.1), (sx * leg, sy * leg, deck - 0.4), 0.04)
+    model.plain(legs, "steel")
+    bowl = bmesh.new()
+    lathe(bowl, [(0.0, deck - 0.45), (0.5, deck - 0.4), (0.95, deck - 0.2), (1.15, deck - 0.05), (1.6, deck - 0.05), (1.6, deck), (0.0, deck)], segments=28)
+    model.turned(bowl, "metal")
+    rail = bmesh.new()
+    railing_ring(rail, 1.55, deck, 0.75, 16)
+    model.plain(rail, "vinyl")
+    staves = bmesh.new()
+    lathe(staves, [(0.0, deck), (barrel_r, deck), (barrel_r * 1.02, (deck + barrel_top) / 2), (barrel_r, barrel_top), (0.0, barrel_top)], segments=32)
+    model.turned(staves, "wood", sharp=50.0)
+    hoops = bmesh.new()
+    for k in range(4):
+        z = deck + 0.2 + (barrel_top - deck - 0.4) * k / 3
+        lathe(hoops, [(barrel_r + 0.012, z - 0.025), (barrel_r + 0.022, z), (barrel_r + 0.012, z + 0.025)], segments=32, caps=False)
+    model.turned(hoops, "metal")
+    roof = bmesh.new()
+    lathe(roof, [(0.0, eave - 0.06), (roof_r, eave - 0.06), (roof_r, eave), (0.05, apex), (0.0, apex + 0.05)], segments=32)
+    model.turned(roof, "metal", sharp=30.0)
+    ladder = bmesh.new()
+    lx = barrel_r + 0.12
+    for y in (-0.2, 0.2):
+        strut(ladder, (lx, y, deck), (lx, y, eave - 0.05), 0.035)
+        strut(ladder, (lx, y, eave - 0.05), (0.25, y, apex - 0.1), 0.035)
+    for k in range(8):
+        z = deck + 0.25 + (eave - deck - 0.4) * k / 7
+        strut(ladder, (lx, -0.2, z), (lx, 0.2, z), 0.025)
+    model.plain(ladder, "vinyl")
+    return model
+
+
+def storage_tank():
+    """A welded steel storage tank on the ground, 5.5 m across: its wall on a plinth, a shallow coned roof with a hatch,
+    a guard rail round the roof's edge, and a ladder up the wall at its rail's gap. The origin is the axis on the ground."""
+    model = Model("storage_tank", centred=False)
+    r, wall, rise = 2.75, 2.05, 0.2
+    shell_ = bmesh.new()
+    lathe(shell_, [(0.0, 0.0), (r + 0.06, 0.0), (r + 0.06, 0.12), (r, 0.14), (r, wall), (r + 0.03, wall), (r + 0.03, wall + 0.06), (0.4, wall + rise),
+                   (0.0, wall + rise)], segments=48)
+    model.turned(shell_, "paint", sharp=30.0)
+    seams = bmesh.new()
+    for z in (0.95, 1.9):
+        lathe(seams, [(r + 0.004, z - 0.012), (r + 0.01, z), (r + 0.004, z + 0.012)], segments=48, caps=False)
+    model.turned(seams, "metal")
+    hatch = bmesh.new()
+    cuboid(hatch, -0.6, 0.6, -0.6, 0.6, wall + rise - 0.1, wall + rise + 0.12)
+    model.hard(hatch, "metal", bevel=0.015, segments=1)
+    rail = bmesh.new()
+    railing_ring(rail, r - 0.12, wall + 0.04, 0.75, 28)
+    model.plain(rail, "vinyl")
+    ladder = bmesh.new()
+    a = math.radians(-8.0)
+    out = r + 0.2
+    for side in (-0.22, 0.22):
+        ox, oy = out * math.cos(a) - side * math.sin(a), out * math.sin(a) + side * math.cos(a)
+        strut(ladder, (ox, oy, 0.0), (ox, oy, wall + 0.85), 0.04)
+    for k in range(10):
+        z = 0.3 + (wall - 0.1) * k / 9
+        p = [(out * math.cos(a) - s * math.sin(a), out * math.sin(a) + s * math.cos(a), z) for s in (-0.22, 0.22)]
+        strut(ladder, p[0], p[1], 0.025)
+    model.plain(ladder, "vinyl")
+    return model
+
+
+def silo_storey():
+    """One storey of a steel silo 1.8 m across, standing on the one under it: the shell, a seam at its foot, and a lid
+    over its top that the storey above covers."""
+    model = Model("silo_storey", centred=False)
+    r = 0.91
+    body = bmesh.new()
+    lathe(body, [(0.0, 0.0), (r, 0.0), (r, STOREY - 0.04), (r - 0.04, STOREY), (0.0, STOREY)], segments=32)
+    model.turned(body, "paint", sharp=30.0)
+    seam = bmesh.new()
+    lathe(seam, [(r + 0.004, 0.02), (r + 0.012, 0.05), (r + 0.004, 0.08)], segments=32, caps=False)
+    model.turned(seam, "metal")
+    return model
+
+
+def vent_tank():
+    """A small steel tank on four short legs with two vent pipes over its lid, 1.7 m across. The origin is its axis on the ground."""
+    model = Model("vent_tank", centred=False)
+    r, foot, top = 0.86, 0.22, 1.85
+    body = bmesh.new()
+    lathe(body, [(0.0, foot), (r, foot), (r, top - 0.03), (r - 0.03, top), (0.0, top)], segments=32)
+    model.turned(body, "paint", sharp=30.0)
+    legs = bmesh.new()
+    for k in range(4):
+        a = math.pi / 4 + k * math.pi / 2
+        x, y = (r - 0.05) * math.cos(a), (r - 0.05) * math.sin(a)
+        cuboid(legs, x - 0.06, x + 0.06, y - 0.06, y + 0.06, 0.0, foot + 0.3)
+    model.hard(legs, "dark_wood", bevel=0.01, segments=1)
+    pipes = bmesh.new()
+    for x, y in ((0.13, -0.37), (0.37, -0.13)):
+        lathe(pipes, [(0.0, top), (0.1, top), (0.1, top + 0.45), (0.0, top + 0.45)], cx=x, cy=y, segments=12)
+        lathe(pipes, [(0.0, top + 0.45), (0.13, top + 0.45), (0.13, top + 0.55), (0.0, top + 0.6)], cx=x, cy=y, segments=12)
+    model.turned(pipes, "metal")
+    return model
+
+
+def towers():
+    """Lattice pylons and masts, water towers, and steel tanks and silos: the pieces Towers.java stands whole where the
+    game draws them a square at a time."""
+    return [lattice_base(), lattice_storey("lattice_storey", "steel"), lattice_storey("lattice_storey_white", "enamel"),
+            lattice_storey("lattice_storey_red", "vinyl"),
+            pylon_arm("pylon_arm_short", 3.0, 0.6 * STOREY, 1.0 * STOREY, 0.6 * STOREY, True),
+            pylon_arm("pylon_arm_long", 5.0, 0.0, 0.6 * STOREY, 0.03 * STOREY, False),
+            insulator("insulator_pair", 2), insulator("insulator_string", 1), lattice_post("lattice_post", False),
+            lattice_post("lattice_post_foot", True), lattice_post("lattice_post_white", False, "enamel"), water_tank(), storage_tank(), silo_storey(), vent_tank()]
+
+
 def outdoors():
     """What stands out of doors: on roofs, in yards and along streets."""
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
@@ -7376,7 +7664,8 @@ def every():
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
-            + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp())
+            + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
+            + towers())
 
 
 def main():

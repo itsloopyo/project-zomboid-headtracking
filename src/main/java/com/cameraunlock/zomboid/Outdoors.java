@@ -129,7 +129,7 @@ final class Outdoors {
     private static final String WORKS = "industry_02_", PLANT = "industry_01_", ROOFTOP = "rooftop_furniture_", BUILDING_SITE = "construction_01_", LAUNDRY = "appliances_laundry_01_",
             MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
             GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
-            ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_";
+            ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_", PYLONS = "electricity_pylon_", MASTS = "radio_tower_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -204,6 +204,16 @@ final class Outdoors {
             Piece sign = warningSign(name);
             if (sign != null) {
                 return sign;
+            }
+            // A storey of a substation gantry's narrow lattice column, the lowest on its pad, and a radio mast's in white.
+            if (place(name, PYLONS) == 176) {
+                return new Piece("lattice_post", 0);
+            }
+            if (place(name, PYLONS) == 181) {
+                return new Piece("lattice_post_foot", 0);
+            }
+            if (place(name, MASTS) == 81) {
+                return new Piece("lattice_post_white", 0);
             }
             // Roofing felt in rolls: two long rolls side by side and a banded bundle of short ones, each along y and then along x.
             return switch (place(name, PLANT)) {
