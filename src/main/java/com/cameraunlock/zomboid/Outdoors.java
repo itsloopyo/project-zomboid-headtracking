@@ -74,7 +74,7 @@ final class Outdoors {
     static final int NONE = -1, NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3;
 
     private static final String WORKS = "industry_02_", PLANT = "industry_01_", ROOFTOP = "rooftop_furniture_", BUILDING_SITE = "construction_01_", LAUNDRY = "appliances_laundry_01_",
-            MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_";
+            MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -100,6 +100,9 @@ final class Outdoors {
     /** Where on its square a stop sign's post is painted, for one that faces north, east, south and west. */
     private static final float[] STOP_SIGN_AT = {0.64f, 0.61f, 0.35f, 0.78f, 0.35f, 0.37f, 0.41f, 0.37f};
 
+    /** How high on its sprite the slats of a public litter bin give their colour, in levels. */
+    private static final float BIN_DYE = 0.2f;
+
     private Outdoors() {}
 
     /**
@@ -124,6 +127,10 @@ final class Outdoors {
             int rooftop = place(name, ROOFTOP);
             if (rooftop >= 0) {
                 return rooftop(rooftop);
+            }
+            Piece post = fencePost(name);
+            if (post != null) {
+                return post;
             }
             // Roofing felt in rolls: two long rolls side by side and a banded bundle of short ones, each along y and then along x.
             return switch (place(name, PLANT)) {
@@ -170,6 +177,12 @@ final class Outdoors {
                 case 126, 127 -> new Piece("rain_barrel_lid", 0).dye(1 << Models.CLOTH, SHEET_AT, SHEET_AT, SHEET_DYE).fit();
                 default -> null;
             };
+        }
+        if (called.equals("Fence Post")) {
+            return fencePost(name);
+        }
+        if (called.equals("Public Garbage Bin")) {
+            return new Piece("slatted_bin", 0).dye(PAINT, BIN_DYE).fit();
         }
         if (called.equals("Recycle Bin")) {
             return new Piece("dustbin", 0).fit();
@@ -307,6 +320,23 @@ final class Outdoors {
             case 229 -> new Piece("pipe_corner", 1).dye(PAINT, 0.5f, PIPE_EDGE, PIPE_DYE);
             case 228 -> new Piece("pipe_corner", 2).dye(PAINT, 0.5f, far, PIPE_DYE);
             case 227 -> new Piece("pipe_corner", 3).dye(PAINT, PIPE_EDGE, 0.4f, PIPE_DYE);
+            default -> null;
+        };
+    }
+
+    /**
+     * A fence's post that stands alone on its square, by its place on the sheet of fences, or null for any other sprite of
+     * it. Each stands where its sprite paints the middle of its foot, near the north-west corner where the fence's two edges
+     * meet, and takes its colour from its sprite there. Stood up as a card it turned to the eye, and its picture slid across
+     * it as the eye went by.
+     */
+    private static Piece fencePost(String name) {
+        return switch (place(name, FENCES)) {
+            case 7 -> new Piece("picket_post", 0).at(0.031f, 0.039f).dye(PAINT, 0.031f, 0.039f, 0.2f).fit();
+            case 19 -> new Piece("rail_post", 0).at(0.133f, 0.102f).dye(1 << Models.WOOD, 0.133f, 0.102f, 0.2f).fit();
+            case 29 -> new Piece("pipe_post", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.2f).fit();
+            case 61 -> new Piece("pipe_post_tall", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.3f).fit();
+            case 53 -> new Piece("block_post", 0).at(0.168f, 0.168f).dye(PAINT, 0.168f, 0.168f, 0.5f).fit();
             default -> null;
         };
     }

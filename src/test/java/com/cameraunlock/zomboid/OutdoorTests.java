@@ -16,6 +16,8 @@ final class OutdoorTests {
         Checks.run("aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare", OutdoorTests::aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare);
         Checks.run("aRainBarrelIsABarrelWhateverIsOverItsMouth", OutdoorTests::aRainBarrelIsABarrelWhateverIsOverItsMouth);
         Checks.run("aPottedPlantIsItsKindInItsState", OutdoorTests::aPottedPlantIsItsKindInItsState);
+        Checks.run("aFencePostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aFencePostStandsWhereItsSpritePaintsItsFoot);
+        Checks.run("aPublicLitterBinIsTheSlattedBin", OutdoorTests::aPublicLitterBinIsTheSlattedBin);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -239,5 +241,37 @@ final class OutdoorTests {
                 && Potted.of("vegetation_indoor_02_12", "Ficus") == null, "a name that is not a place on the sheet");
         Checks.check(Models.get("dragon_tree").height() > 2f && Models.get("ficus").height() > 1.3f && Models.get("pot_ficus").height() < 0.5f,
                 "a dragon tree is the tallest, a ficus as high as a shoulder, and an empty pot only a pot");
+    }
+
+    private static void aFencePostStandsWhereItsSpritePaintsItsFoot() {
+        // Each post's place and height were read off its sprite: the middle of its foot, and from there to the middle of its top.
+        Object[][] posts = {{"fencing_01_7", null, "picket_post", 0.031f, 0.039f, 0.925f}, {"fencing_01_19", "Fence Post", "rail_post", 0.133f, 0.102f, 0.995f},
+                {"fencing_01_29", "Fence Post", "pipe_post", 0.062f, 0.094f, 1.26f}, {"fencing_01_61", null, "pipe_post_tall", 0.062f, 0.094f, 2.16f},
+                {"fencing_01_53", null, "block_post", 0.168f, 0.168f, 2.52f}};
+        for (Object[] post : posts) {
+            String name = (String) post[0];
+            Outdoors.Piece piece = Outdoors.of(name, (String) post[1], null, Outdoors.NONE, 1, 1, 0);
+            holds(piece, name + " has a model");
+            if (piece == null) {
+                continue;
+            }
+            Checks.check(piece.model.equals(post[2]), name + " is " + post[2] + ", not " + piece.model);
+            Checks.check(piece.a == (float) post[3] && piece.b == (float) post[4] && piece.dyeA == piece.a && piece.dyeB == piece.b && piece.fits,
+                    name + " stands where its sprite paints its foot and takes its colour from itself there");
+            float high = Models.get(piece.model).height();
+            Checks.check(Math.abs(high - (float) post[5]) < 0.01f, name + " is as high as its sprite: " + high);
+        }
+        Checks.check(Outdoors.of("fencing_01_37", "Fence Post", null, Outdoors.NONE, 1, 1, 0) == null
+                && Outdoors.of("fencing_01_123", "Fence Post", null, Outdoors.NONE, 1, 1, 0) == null, "a post Posts reads whole off its sprite is left to it");
+        Checks.check(unnamed("fencing_01_4") == null && unnamed("fencing_01_8") == null, "a length of fence is no post");
+    }
+
+    private static void aPublicLitterBinIsTheSlattedBin() {
+        Outdoors.Piece bin = Outdoors.of("trashcontainers_01_21", "Public Garbage Bin", null, Outdoors.NONE, 1, 1, 0);
+        holds(bin, "a public litter bin has a model");
+        Checks.check(bin != null && bin.model.equals("slatted_bin") && bin.fits && bin.dyed == 1 << Models.PAINT, "it is the slatted bin, fitted to its square and coloured from its sprite");
+        Models.Model model = Models.get("slatted_bin");
+        Checks.check(model.width() < 0.8f && model.height() > 0.85f && model.height() < 0.95f, "it is about as wide and as high as the game paints it: " + model.width() + ", " + model.height());
+        Checks.check(Outdoors.of("trashcontainers_01_21", "Public Garbage Bin", null, Outdoors.NONE, 2, 1, 0) == null, "one laid on two squares is none");
     }
 }

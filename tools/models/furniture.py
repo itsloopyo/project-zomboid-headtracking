@@ -2066,20 +2066,6 @@ def lantern(casing, light, foot, size=1.0):
           segments=8)
 
 
-def lantern_head():
-    """The upper length of a lamp post the game has in two sprites, one a level above the other: the top of the
-    post and the lantern on it. It stands on the floor of the upper level, over the post below."""
-    model = Model("lantern_head", centred=False)
-    shaft = bmesh.new()
-    lathe(shaft, [(0.0, 0.0), (0.043, 0.0), (0.04, 0.72), (0.06, 0.76), (0.06, 0.8), (0.0, 0.8)], segments=12)
-    model.turned(shaft, "paint", sharp=40.0)
-    casing, light = bmesh.new(), bmesh.new()
-    lantern(casing, light, 0.8, size=1.25)
-    model.turned(casing, "paint", sharp=40.0)
-    model.turned(light, "shade", sharp=50.0)
-    return model
-
-
 def cobra_head():
     """The upper length of a road lamp the game has in two sprites: the top of the post, the arm out over the
     road towards the front, and the head at its end with its lens underneath. The origin is the post's axis."""
@@ -4034,6 +4020,146 @@ def barrels_and_pots():
             rain_barrel("rain_barrel_lid", tarp=True, lid=True)] + plants
 
 
+def acorn(casing, glass, foot, cx=0.0):
+    """An acorn lantern standing on foot over (cx, 0): a cup, then a round glass that swells to a band and narrows to a knob."""
+    lathe(casing, [(0.0, foot), (0.035, foot), (0.05, foot + 0.05), (0.085, foot + 0.15), (0.11, foot + 0.21), (0.112, foot + 0.22), (0.0, foot + 0.22)],
+          cx=cx, segments=16)
+    rim = foot + 0.22
+    lathe(glass, [(0.0, rim), (0.115, rim), (0.15, rim + 0.12), (0.166, rim + 0.22), (0.16, rim + 0.28), (0.13, rim + 0.36), (0.085, rim + 0.43),
+                  (0.05, rim + 0.46), (0.045, rim + 0.5), (0.03, rim + 0.535), (0.0, rim + 0.545)], cx=cx, segments=20)
+    lathe(casing, [(0.155, rim + 0.2), (0.172, rim + 0.215), (0.172, rim + 0.265), (0.155, rim + 0.28)], cx=cx, segments=20, closed=True, caps=False)
+
+
+def acorn_head():
+    """The upper length of a lamp post the game has in two sprites, one a level above the other: the top of the post with
+    its two collars and the acorn lantern on it. It stands on the floor of the upper level, over the post below."""
+    model = Model("acorn_head", centred=False)
+    shaft = bmesh.new()
+    lathe(shaft, [(0.0, 0.0), (0.066, 0.0), (0.066, 1.23), (0.088, 1.25), (0.088, 1.31), (0.066, 1.33), (0.066, 1.42), (0.088, 1.44),
+                  (0.088, 1.52), (0.06, 1.55), (0.04, 1.57), (0.0, 1.57)], segments=14)
+    model.turned(shaft, "paint", sharp=40.0)
+    casing, glass = bmesh.new(), bmesh.new()
+    acorn(casing, glass, 1.57)
+    model.turned(casing, "paint", sharp=40.0)
+    model.turned(glass, "shade", sharp=50.0)
+    return model
+
+
+def twin_acorn_head():
+    """The upper length of a lamp post with two acorn lanterns, the game's second sprite of it: the top of the post with a
+    collar and a finial, and an arm out to each side along x, held up by a scroll, with a lantern on its end. Each lantern's
+    cup ends in a spike underneath. The origin is the post's axis."""
+    model = Model("twin_acorn_head", centred=False)
+    shaft = bmesh.new()
+    lathe(shaft, [(0.0, 0.0), (0.066, 0.0), (0.066, 1.66), (0.088, 1.69), (0.088, 1.86), (0.07, 1.88), (0.05, 1.92), (0.045, 1.96), (0.06, 2.0),
+                  (0.05, 2.05), (0.02, 2.1), (0.0, 2.14)], segments=14)
+    model.turned(shaft, "paint", sharp=40.0)
+    iron, casing, glass = bmesh.new(), bmesh.new(), bmesh.new()
+    reach, foot = 0.55, 1.57
+    for side in (-1, 1):
+        beam(iron, (side * 0.06, 0.0, 1.74), (side * (reach - 0.07), 0.0, 1.7), 0.03, 0.03)
+        # The scroll: from low on the post out and up to the arm, with a curl where it leaves the post.
+        curve = [(0.066 + 0.035 + 0.035 * math.cos(math.radians(a)), 1.47 + 0.035 * math.sin(math.radians(a))) for a in range(180, 450, 45)]
+        curve += [(0.14 + 0.25 * t, 1.5 + 0.21 * t ** 0.6 - 0.03 * math.sin(math.pi * t)) for t in (0.2, 0.4, 0.6, 0.8, 1.0)]
+        for (x0, z0), (x1, z1) in zip(curve, curve[1:]):
+            beam(iron, (side * x0, 0.0, z0), (side * x1, 0.0, z1), 0.016, 0.016)
+        lathe(casing, [(0.0, foot - 0.26), (0.012, foot - 0.2), (0.035, foot), (0.0, foot)], cx=side * reach, segments=10)
+        acorn(casing, glass, foot, cx=side * reach)
+    model.hard(iron, "paint", bevel=0.004, segments=1)
+    model.turned(casing, "paint", sharp=40.0)
+    model.turned(glass, "shade", sharp=50.0)
+    return model
+
+
+def upright_bar(bm, angle, radius, wide, deep, low, high, out=0.0):
+    """A flat bar standing on a circle round the upright at angle, wide along the circle and deep across it, from low to high;
+    out moves its top that much further from the axis than its foot."""
+    way = Vector((math.cos(angle), math.sin(angle), 0.0))
+    along = Vector((-way.y, way.x, 0.0))
+    rings = []
+    for z, r in ((low, radius), (high, radius + out)):
+        rings.append([bm.verts.new(way * (r + dr * deep / 2) + along * (da * wide / 2) + Vector((0.0, 0.0, z)))
+                      for dr, da in ((-1, -1), (-1, 1), (1, 1), (1, -1))])
+    bm.faces.new(rings[0][::-1])
+    bm.faces.new(rings[1])
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new((rings[0][i], rings[0][j], rings[1][j], rings[1][i]))
+
+
+def slatted_bin():
+    """A street's litter bin of steel slats round a liner: a band at its foot and one at the top of the slats, which then flare
+    out to a rolled rim, and inside the rim a dished lid with a round hole in the middle."""
+    model = Model("slatted_bin")
+    steel = bmesh.new()
+    slats = 24
+    for n in range(slats):
+        angle = 2 * math.pi * (n + 0.5) / slats
+        upright_bar(steel, angle, 0.3, 0.035, 0.012, 0.03, 0.72)
+        upright_bar(steel, angle, 0.3, 0.035, 0.012, 0.72, 0.885, out=0.075)
+    model.hard(steel, "paint", bevel=0.003, segments=1)
+    bands = bmesh.new()
+    lathe(bands, [(0.29, 0.0), (0.313, 0.0), (0.313, 0.06), (0.29, 0.06)], segments=32, closed=True, caps=False)
+    lathe(bands, [(0.29, 0.68), (0.313, 0.68), (0.313, 0.74), (0.29, 0.74)], segments=32, closed=True, caps=False)
+    lathe(bands, [(0.36 + 0.016 * math.cos(math.radians(a)), 0.893 + 0.016 * math.sin(math.radians(a))) for a in range(0, 360, 60)],
+          segments=32, closed=True, caps=False)
+    model.turned(bands, "paint", sharp=40.0)
+    liner = bmesh.new()
+    lathe(liner, [(0.0, 0.03), (0.27, 0.03), (0.27, 0.79), (0.0, 0.79)], segments=24)
+    model.turned(liner, "plastic", sharp=40.0)
+    lid = bmesh.new()
+    lathe(lid, [(0.09, 0.8), (0.33, 0.84), (0.36, 0.865), (0.36, 0.875), (0.32, 0.855), (0.1, 0.82)], segments=28, closed=True, caps=False)
+    model.turned(lid, "metal", sharp=40.0)
+    return model
+
+
+def picket_post():
+    """The post at the end or corner of a picket fence: a square of painted timber with its top cut to a low point."""
+    model = Model("picket_post", centred=False)
+    timber = bmesh.new()
+    prism(timber, (0.0, 0.0, 0.086, 0.086, 0.0), (0.0, 0.0, 0.086, 0.086, 0.9))
+    prism(timber, (0.0, 0.0, 0.086, 0.086, 0.9), (0.0, 0.0, 0.03, 0.03, 0.925))
+    model.hard(timber, "paint", bevel=0.004, segments=1)
+    return model
+
+
+def rail_post():
+    """A sawn post of a fence of rails or wire: a square of rough timber, flat on top."""
+    model = Model("rail_post", centred=False)
+    timber = bmesh.new()
+    cuboid(timber, -0.055, 0.055, -0.055, 0.055, 0.0, 0.995)
+    model.hard(timber, "wood", bevel=0.006, segments=1)
+    return model
+
+
+def pipe_post(name, high):
+    """A steel tube that holds up a fence of mesh: a flange at its foot and a round cap on its top."""
+    model = Model(name, centred=False)
+    tube = bmesh.new()
+    lathe(tube, [(0.0, 0.0), (0.044, 0.0), (0.044, 0.012), (0.024, 0.03), (0.022, high - 0.035), (0.044, high - 0.025), (0.044, high - 0.012),
+                 (0.03, high), (0.0, high)], segments=12)
+    model.turned(tube, "paint", sharp=40.0)
+    return model
+
+
+def block_post():
+    """A tall square steel post set in a block of concrete on the ground."""
+    model = Model("block_post", centred=False)
+    block = bmesh.new()
+    cuboid(block, -0.145, 0.145, -0.145, 0.145, 0.0, 0.27)
+    model.hard(block, "metal", bevel=0.01, segments=2)
+    steel = bmesh.new()
+    cuboid(steel, -0.031, 0.031, -0.031, 0.031, 0.27, 2.52)
+    model.hard(steel, "paint", bevel=0.004, segments=1)
+    return model
+
+
+def street():
+    """Lamp heads, a litter bin and fence posts along streets and parks."""
+    return [acorn_head(), twin_acorn_head(), slatted_bin(), picket_post(), rail_post(), pipe_post("pipe_post", 1.26), pipe_post("pipe_post_tall", 2.16),
+            block_post()]
+
+
 def outdoors():
     """What stands out of doors: on roofs, in yards and along streets."""
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
@@ -4059,11 +4185,11 @@ def every():
               metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(), dumpster(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
-              street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
+              street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
-            + upholstered() + barrels_and_pots())
+            + upholstered() + barrels_and_pots() + street())
 
 
 def main():

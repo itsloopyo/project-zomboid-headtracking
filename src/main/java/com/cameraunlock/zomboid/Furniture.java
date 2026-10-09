@@ -578,9 +578,10 @@ final class Furniture {
     /**
      * The model of a street lamp, by which sprite of the game's sheet of them it is. The first
      * four are whole lamps, a post with its light. A lamp taller than a storey is two sprites,
-     * and the upper one, on the level above, is the head: a lantern, or the arm of a road lamp,
-     * which reaches out north, east, south and west in that order on the sheet, or the two flat
-     * heads of a car park's lamp, side by side along y and then along x. Null for the
+     * and the upper one, on the level above, is the head: an acorn lantern, or two of them on
+     * arms out along x and then along y, or the arm of a road lamp, which reaches out north,
+     * east, south and west in that order on the sheet, or the two flat heads of a car park's
+     * lamp, side by side along y and then along x. Null for the
      * rest of the sheet: bare posts, which stand well enough as they are, signals, and heads
      * the mod has no model of.
      */
@@ -598,11 +599,24 @@ final class Furniture {
             case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 1 -> new Furniture(sprite, "globe_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 3 -> new Furniture(sprite, "lantern_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
-            case 5 -> new Furniture(sprite, "lantern_head", 0).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            case 5, 6, 7 -> onPost(new Furniture(sprite, which == 5 ? "acorn_head" : "twin_acorn_head", which == 7 ? 1 : 0).dye(1 << Models.PAINT, UPPER_POST_DYE));
             case 8, 9, 10, 11 -> new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE);
             case 18, 19 -> new Furniture(sprite, "twin_head", which - 18).dye(1 << Models.PAINT, UPPER_POST_DYE);
             default -> null;
         };
+    }
+
+    /**
+     * Where on its square the axis of the post under an acorn lamp's head stands: the game's
+     * lower sprite of that post (lighting_outdoor_01_4) is stood by Posts, which reads its foot
+     * there, and a head stood in the square's middle met it a hand to one side.
+     */
+    static final float LAMP_POST_AXIS = 0.53f;
+
+    private static Furniture onPost(Furniture head) {
+        head.centreX = LAMP_POST_AXIS;
+        head.centreY = LAMP_POST_AXIS;
+        return head;
     }
 
     /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat, a basin's rim. */
