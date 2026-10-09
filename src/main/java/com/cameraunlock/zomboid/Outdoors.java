@@ -74,7 +74,7 @@ final class Outdoors {
     static final int NONE = -1, NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3;
 
     private static final String WORKS = "industry_02_", PLANT = "industry_01_", ROOFTOP = "rooftop_furniture_", BUILDING_SITE = "construction_01_", LAUNDRY = "appliances_laundry_01_",
-            MILITARY_BARRIER = "fencing_01_96";
+            MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -92,6 +92,11 @@ final class Outdoors {
     private static final float STONE_FORWARD = 0.2f;
     /** How high on its sprite a stack of logs gives the colour of its bark, in levels. */
     private static final float LOG_DYE = 0.18f;
+    /**
+     * How high on its sprite a rain barrel's rain gives its colour, in levels, over the middle of the square; and where
+     * the sheet tied over one hangs over its rim, on the side of it nearest the game's view.
+     */
+    private static final float RAIN_DYE = 0.31f, SHEET_AT = 0.75f, SHEET_DYE = 0.33f;
     /** Where on its square a stop sign's post is painted, for one that faces north, east, south and west. */
     private static final float[] STOP_SIGN_AT = {0.64f, 0.61f, 0.35f, 0.78f, 0.35f, 0.37f, 0.41f, 0.37f};
 
@@ -154,6 +159,17 @@ final class Outdoors {
         }
         if (called.equals("Tire") || called.equals("Tires")) {
             return tyres(place(name, TYRES));
+        }
+        // A barrel set out to catch the rain: open, with rain in it, with a sheet tied over its mouth, and with a lid laid on
+        // that sheet. The others of the name are a crate lined with a sheet, which is a box and stays one.
+        if (called.equals("Rain Collector Barrel")) {
+            return switch (place(name, CARPENTRY)) {
+                case 52 -> new Piece("rain_barrel", 0).fit();
+                case 53 -> new Piece("rain_barrel_water", 0).dye(1 << Models.ENAMEL, RAIN_DYE).fit();
+                case 122, 123, 124, 125 -> new Piece("rain_barrel_tarp", 0).dye(1 << Models.CLOTH, SHEET_AT, SHEET_AT, SHEET_DYE).fit();
+                case 126, 127 -> new Piece("rain_barrel_lid", 0).dye(1 << Models.CLOTH, SHEET_AT, SHEET_AT, SHEET_DYE).fit();
+                default -> null;
+            };
         }
         if (called.equals("Recycle Bin")) {
             return new Piece("dustbin", 0).fit();

@@ -45,6 +45,11 @@ final class Indoors {
             float top = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
             return carton.stand(top, carton.model.height(), false).raise(onTable ? top : 0f);
         }
+        Potted plant = Potted.of(name, called);
+        if (plant != null && single) {
+            Furniture pot = new Furniture(sprite, plant.model, 0).dye(1 << Models.CERAMIC, Potted.POT_DYE);
+            return plant.leaves > 0f ? pot.also(1 << Models.PLASTIC, plant.leaves) : pot;
+        }
         if (called.equals("Green Garbage Bin") && holds.equals("bin") && single) {
             return new Furniture(sprite, "garbage_can", 0).dye(1 << Models.PAINT, CAN_DYE).stand(0f, 0f, false);
         }

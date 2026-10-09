@@ -3756,6 +3756,284 @@ def tyres():
             tyre_stack("tyre_pile_4n", (0, 2.5, 0.5, 7)), tyre_stack("tyre_pile_4w", (0, -4, 2.5, -1.5))]
 
 
+# A cooper's barrel set out to catch the rain: its height, the radius of its heads and of its belly, how many staves
+# it is made of, how thick they are and how wide the joint between two of them is, all in metres.
+BARREL_HIGH, BARREL_HEAD, BARREL_BELLY = 0.84, 0.30, 0.35
+BARREL_STAVES, BARREL_WALL, BARREL_JOINT = 18, 0.022, 0.003
+
+
+def barrel_radius(z):
+    return BARREL_HEAD + (BARREL_BELLY - BARREL_HEAD) * math.sin(math.pi * min(max(z, 0.0), BARREL_HIGH) / BARREL_HIGH)
+
+
+def rain_barrel(name, water=False, tarp=False, lid=False):
+    """A wooden barrel of staves bellied out between four iron hoops, its top head knocked out to catch the rain.
+    water puts the rain in it, a pale sheet a hand under the rim; tarp ties a sheet over its mouth that sags into
+    it as a funnel and hangs over the rim; lid lays a wooden lid on that sheet, which is then drawn flat."""
+    model = Model(name, centred=False)
+    rows = 10
+    staves = bmesh.new()
+    for k in range(BARREL_STAVES):
+        a0, a1 = 2 * math.pi * k / BARREL_STAVES, 2 * math.pi * (k + 1) / BARREL_STAVES
+        outer, inner = [], []
+        for i in range(rows + 1):
+            z = BARREL_HIGH * i / rows
+            radius = barrel_radius(z)
+            half = BARREL_JOINT / 2 / radius
+            angles = (a0 + half, (a0 + a1) / 2, a1 - half)
+            outer.append([(radius * math.cos(a), radius * math.sin(a), z) for a in angles])
+            inner.append([((radius - BARREL_WALL) * math.cos(a), (radius - BARREL_WALL) * math.sin(a), z) for a in angles])
+        shell(staves, outer, inner)
+    # The bottom head, let into the staves a little above their ends.
+    bottom = barrel_radius(0.07) - BARREL_WALL + 0.004
+    lathe(staves, [(0.0, 0.055), (bottom, 0.055), (bottom, 0.085), (0.0, 0.085)], segments=BARREL_STAVES)
+    model.turned(staves, "dark_wood", sharp=50.0)
+
+    hoops = bmesh.new()
+    for middle in (0.05, 0.27, 0.6, BARREL_HIGH - 0.04):
+        low, high = middle - 0.024, middle + 0.024
+        lathe(hoops, [(barrel_radius(low) - 0.004, low), (barrel_radius(low) + 0.005, low), (barrel_radius(high) + 0.005, high),
+                      (barrel_radius(high) - 0.004, high)], segments=36, closed=True)
+    model.turned(hoops, "metal", sharp=40.0)
+
+    if water:
+        sheet = barrel_radius(BARREL_HIGH - 0.1) - BARREL_WALL + 0.004
+        rain = bmesh.new()
+        lathe(rain, [(0.0, BARREL_HIGH - 0.15), (sheet, BARREL_HIGH - 0.15), (sheet, BARREL_HIGH - 0.1), (0.0, BARREL_HIGH - 0.1)], segments=BARREL_STAVES)
+        model.turned(rain, "enamel", sharp=40.0)
+
+    if tarp:
+        top, rim = BARREL_HIGH, BARREL_HEAD
+        hem = BARREL_HIGH - 0.12
+        skirt = barrel_radius(hem) + 0.014
+        sag = 0.0 if lid else 0.13
+        thick = 0.005
+        profile = [(0.0, top - sag), (0.5 * rim, top - sag * 0.55), (0.85 * rim, top - sag * 0.15), (rim + 0.004, top + 0.012), (rim + 0.022, top + 0.004),
+                   (skirt - 0.002, top - 0.05), (skirt + 0.004, hem), (skirt + 0.004 - thick, hem), (skirt - 0.002 - thick, top - 0.05),
+                   (rim + 0.017, top + 0.004 - thick), (rim + 0.002, top + 0.012 - thick), (0.85 * rim, top - sag * 0.15 - thick),
+                   (0.5 * rim, top - sag * 0.55 - thick), (0.0, top - sag - thick)]
+        sheet = bmesh.new()
+        lathe(sheet, profile, segments=32, closed=True)
+        # The sheet hangs in folds below where it is tied, deeper the further down it hangs.
+        for vert in sheet.verts:
+            out = math.hypot(vert.co.x, vert.co.y)
+            if out > rim + 0.03 and vert.co.z < top - 0.02:
+                angle = math.atan2(vert.co.y, vert.co.x)
+                deep = (top - 0.02 - vert.co.z) / (top - 0.02 - hem)
+                vert.co.z += deep * 0.03 * math.sin(5 * angle + 1.3) + deep * 0.015 * math.sin(11 * angle)
+                push = 1.0 + deep * 0.03 * (0.5 + 0.5 * math.sin(7 * angle + 0.4)) / out
+                vert.co.x *= push
+                vert.co.y *= push
+        model.turned(sheet, "cloth", sharp=60.0)
+        cord = bmesh.new()
+        tied = top - 0.035
+        lathe(cord, [(barrel_radius(tied) + 0.007, tied - 0.005), (barrel_radius(tied) + 0.016, tied - 0.005), (barrel_radius(tied) + 0.016, tied + 0.005),
+                     (barrel_radius(tied) + 0.007, tied + 0.005)], segments=32, closed=True)
+        model.turned(cord, "linen", sharp=60.0)
+
+    if lid:
+        board = bmesh.new()
+        lathe(board, [(0.0, BARREL_HIGH + 0.013), (BARREL_HEAD - 0.02, BARREL_HIGH + 0.013), (BARREL_HEAD - 0.02, BARREL_HIGH + 0.036), (0.0, BARREL_HIGH + 0.036)],
+              segments=28)
+        for side in (-1, 1):
+            cuboid(board, side * 0.12 - 0.025, side * 0.12 + 0.025, -0.22, 0.22, BARREL_HIGH + 0.036, BARREL_HIGH + 0.056)
+        model.turned(board, "dark_wood", sharp=40.0)
+    return model
+
+
+def plant_pot(model, rim, base, high):
+    """A round pot of glazed clay with a rolled rim, filled with earth to a little under it. Gives how high the earth is."""
+    earth_top = high - 0.035
+    pot = bmesh.new()
+    lathe(pot, [(0.0, 0.0), (base - 0.01, 0.0), (base, 0.012), (rim - 0.008, high - 0.03), (rim + 0.006, high - 0.026), (rim + 0.008, high),
+                (rim - 0.014, high), (rim - 0.02, earth_top - 0.02), (0.0, earth_top - 0.02)], segments=24)
+    model.turned(pot, "ceramic", sharp=40.0)
+    earth = bmesh.new()
+    lathe(earth, [(0.0, earth_top - 0.025), (rim - 0.019, earth_top - 0.025), (rim - 0.019, earth_top - 0.004), (rim * 0.5, earth_top + 0.004),
+                  (0.0, earth_top + 0.008)], segments=20)
+    model.turned(earth, "rubber", sharp=40.0)
+    return earth_top
+
+
+def stalk(bm, points, radius, tip=1.0, sides=6):
+    """A round stem or cane through the points, its radius narrowing to tip of what it is at its foot."""
+    points = [Vector(point) for point in points]
+    first = (points[1] - points[0]).normalized()
+    across = first.cross(Vector((1.0, 0.0, 0.0)) if abs(first.x) < 0.9 else Vector((0.0, 1.0, 0.0))).normalized()
+    rings = []
+    for i, point in enumerate(points):
+        way = (points[min(i + 1, len(points) - 1)] - points[max(i - 1, 0)]).normalized()
+        side = (across - way * across.dot(way)).normalized()
+        other = way.cross(side)
+        size = radius * (1.0 - (1.0 - tip) * i / (len(points) - 1))
+        rings.append([bm.verts.new(point + (side * math.cos(2 * math.pi * k / sides) + other * math.sin(2 * math.pi * k / sides)) * size) for k in range(sides)])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(sides):
+            j = (k + 1) % sides
+            bm.faces.new((a[k], a[j], b[j], b[k]))
+    bm.faces.new(rings[0][::-1])
+    bm.faces.new(rings[-1])
+
+
+def curve(start, yaw, rise, bend, length, pieces):
+    """Points along a line that sets off from start towards yaw, rise radians over the level, and bends down by
+    bend radians over its length: a stem, or the middle of a leaf. Gives the points and the way it runs at each."""
+    points, ways = [], []
+    here = Vector(start)
+    for i in range(pieces + 1):
+        lean = rise - bend * i / pieces
+        way = Vector((math.cos(lean) * math.cos(yaw), math.cos(lean) * math.sin(yaw), math.sin(lean)))
+        points.append(here.copy())
+        ways.append(way)
+        here = here + way * (length / pieces)
+    return points, ways
+
+
+def blade(bm, start, yaw, rise, bend, length, width, shape, fold=0.15, twist=0.0, thick=0.004):
+    """A leaf as a thin body: its middle along a curve, as wide across as shape says at each place along it, folded
+    a little along its rib so its two halves catch the light apart. shape is "lance" (wide in the middle, pointed
+    at both ends), "sword" (wide from the foot and pointed at the tip) or "strap" (long and narrow)."""
+    pieces = max(2, math.ceil(length / 0.09))
+    points, ways = curve(start, yaw, rise, bend, length, pieces)
+    level = Vector((-math.sin(yaw), math.cos(yaw), 0.0))
+    upper, lower = [], []
+    for i, (point, way) in enumerate(zip(points, ways)):
+        t = i / pieces
+        if shape == "lance":
+            wide = width * math.sin(math.pi * min(0.05 + t, 1.0)) ** 0.7
+        elif shape == "sword":
+            wide = width * (1.0 - t ** 3) * (0.75 + 0.25 * min(1.0, t * 4))
+        else:
+            wide = width * (1.0 - t ** 2) * min(1.0, 0.35 + t * 5)
+        wide = max(wide, 0.004)
+        side = Matrix.Rotation(twist * t, 3, way) @ level
+        face = way.cross(side).normalized()
+        if face.z < 0.0:
+            face = -face
+        row = [point - side * wide / 2, point - face * fold * wide, point + side * wide / 2]
+        upper.append([tuple(corner) for corner in row])
+        lower.append([tuple(corner - face * thick) for corner in row])
+    shell(bm, upper, lower)
+    return points[-1]
+
+
+def small_leaf(bm, start, way, side, length, width, thick=0.003):
+    """A leaf too small to bend: a flat diamond with a little thickness, its foot at start."""
+    way, side = Vector(way).normalized(), Vector(side).normalized()
+    face = way.cross(side).normalized()
+    middle = Vector(start) + way * length * 0.45
+    foot, tip = bm.verts.new(start), bm.verts.new(Vector(start) + way * length)
+    left, right = bm.verts.new(middle - side * width / 2), bm.verts.new(middle + side * width / 2)
+    above, below = bm.verts.new(middle + face * thick), bm.verts.new(middle - face * thick)
+    for a, b in ((foot, right), (right, tip), (tip, left), (left, foot)):
+        bm.faces.new((a, b, above))
+        bm.faces.new((b, a, below))
+
+
+# How far from the middle of its pot a potted plant reaches at most, in metres: the edge of its square less a wall's half.
+PLANT_REACH = 0.45
+
+
+def potted(name, plant, grown=True, droop=False):
+    """A plant in a pot that stands on the floor, as the game has five kinds of, which plant names. Not grown is its
+    pot with only earth in it. droop is the plant when it has gone without water, its leaves let down."""
+    model = Model(name, centred=False)
+    rng = random.Random(sum(ord(letter) for letter in name))
+    rim, base, high = {"evergreen": (0.21, 0.15, 0.42), "dragon_tree": (0.2, 0.15, 0.44), "snake_plant": (0.19, 0.17, 0.42),
+                       "cast_iron": (0.215, 0.14, 0.42), "ficus": (0.2, 0.15, 0.42)}[plant]
+    ground = plant_pot(model, rim, base, high)
+    if not grown:
+        return model
+    leaves, stems = bmesh.new(), bmesh.new()
+    if plant == "snake_plant":
+        # Stiff swords from the earth, a few of them falling outwards when the plant is dry.
+        for k in range(10):
+            yaw = 2 * math.pi * k / 10 + rng.uniform(-0.3, 0.3)
+            out = rng.uniform(0.0, 0.09)
+            foot = (out * math.cos(yaw), out * math.sin(yaw), ground - 0.01)
+            long = rng.uniform(0.55, 1.25)
+            rise, bend = (math.radians(rng.uniform(80, 88)), rng.uniform(0.05, 0.25)) if not droop else (math.radians(rng.uniform(65, 84)), rng.uniform(0.3, 1.0))
+            blade(leaves, foot, yaw, rise, bend, long * (0.85 if droop else 1.0), rng.uniform(0.06, 0.08), "sword", fold=0.12, twist=rng.uniform(-0.8, 0.8))
+    elif plant == "evergreen":
+        # Broad leaves on stalks, the inner ones held higher.
+        for k in range(11):
+            yaw = k * 2.4 + rng.uniform(-0.2, 0.2)
+            inner = k / 10
+            stem_rise = math.radians((74 - 18 * inner) - (15 if droop else 0))
+            points, _ = curve((0.02 * math.cos(yaw), 0.02 * math.sin(yaw), ground - 0.01), yaw, stem_rise, 0.25 if droop else 0.1, 0.58 - 0.3 * inner, 6)
+            stalk(leaves, points, 0.008, tip=0.7)
+            blade(leaves, points[-1], yaw, math.radians(45 - 30 * inner) - (0.7 if droop else 0.0), 0.7 if droop else 0.55, 0.3, 0.12, "lance", fold=0.2)
+    elif plant == "cast_iron":
+        # Long leaves on long stalks that rise almost straight and arch over at the top.
+        for k in range(9):
+            yaw = k * 2.4 + rng.uniform(-0.2, 0.2)
+            long = rng.uniform(0.85, 1.45)
+            points, _ = curve((0.02 * math.cos(yaw), 0.02 * math.sin(yaw), ground - 0.01), yaw, math.radians(rng.uniform(84, 88) - (8 if droop else 0)),
+                              0.15 if droop else 0.03, long, max(2, math.ceil(long / 0.09)))
+            stalk(leaves, points, 0.007, tip=0.7)
+            blade(leaves, points[-1], yaw, math.radians(60 if not droop else 5), 1.5 if not droop else 1.2, 0.42, 0.14, "lance", fold=0.22)
+    elif plant == "dragon_tree":
+        # Three canes of three heights, each with a head of narrow leaves at its top.
+        for cane, (tall, lean) in enumerate(((1.25, 0.6), (1.7, 2.6), (2.1, 4.5))):
+            top = (0.08 * math.cos(lean), 0.08 * math.sin(lean), tall)
+            foot = (0.04 * math.cos(lean + 3.14), 0.04 * math.sin(lean + 3.14), ground - 0.01)
+            pieces = max(2, math.ceil((tall - ground) / 0.09))
+            stalk(stems, [Vector(foot).lerp(Vector(top), i / pieces) for i in range(pieces + 1)], 0.022, tip=0.8)
+            for k in range(18):
+                yaw = k * 2.4 + cane
+                below = 0.18 * (1 - k / 17)
+                start = Vector(top) + Vector((0.0, 0.0, -below))
+                rise = math.radians(-15 + 75 * k / 17) if not droop else math.radians(-40 + 45 * k / 17)
+                blade(leaves, start, yaw, rise, 0.9 if not droop else 1.2, 0.42, 0.035, "strap", fold=0.1)
+    elif plant == "ficus":
+        # A little tree: a trunk, a few branches out of it, and a round head of small leaves.
+        trunk_top = 0.9
+        pieces = 9
+        stalk(stems, [(0.012 * math.sin(i), 0.0, ground - 0.01 + (trunk_top - ground) * i / pieces) for i in range(pieces + 1)], 0.022, tip=0.6)
+        middle = Vector((0.0, 0.0, 1.12))
+        for k in range(6):
+            yaw = k * 2.4
+            points, _ = curve((0.0, 0.0, 0.62 + 0.05 * k), yaw, math.radians(50), 0.0, 0.32, 3)
+            stalk(stems, points, 0.01, tip=0.5)
+        count = 420 if not droop else 200
+        for _ in range(count):
+            while True:
+                place = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-1, 1)))
+                if 0.55 < place.length <= 1.0:
+                    break
+            at = middle + Vector((place.x * 0.36, place.y * 0.36, place.z * 0.32))
+            if droop and rng.random() < 0.5:
+                at.z -= 0.12
+            out = (at - Vector((0.0, 0.0, middle.z - 0.1))).normalized()
+            way = (out + Vector((rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6), (-1.6 if droop else rng.uniform(-0.4, 0.4))))).normalized()
+            side = way.cross(Vector((0.0, 0.0, 1.0)))
+            side = Vector((1.0, 0.0, 0.0)) if side.length < 1e-3 else side.normalized()
+            side = Matrix.Rotation(rng.uniform(-0.5, 0.5), 3, way) @ side
+            small_leaf(leaves, at, way, side, rng.uniform(0.075, 0.1), rng.uniform(0.038, 0.05))
+    # Held inside its own square, so that a plant stood in a corner reaches no leaf through either wall.
+    reach = max(math.hypot(vert.co.x, vert.co.y) for part in (leaves, stems) for vert in part.verts)
+    if reach > PLANT_REACH:
+        for part in (leaves, stems):
+            for vert in part.verts:
+                vert.co.x *= PLANT_REACH / reach
+                vert.co.y *= PLANT_REACH / reach
+    model.turned(leaves, "plastic", sharp=60.0)
+    if stems.verts:
+        model.turned(stems, "dark_wood", sharp=50.0)
+    else:
+        stems.free()
+    return model
+
+
+def barrels_and_pots():
+    """The barrels that catch rain and the plants in pots that Outdoors.java and Potted.java place."""
+    plants = []
+    for plant in ("evergreen", "dragon_tree", "snake_plant", "cast_iron", "ficus"):
+        plants += [potted(plant, plant), potted(plant + "_dry", plant, droop=True), potted("pot_" + plant, plant, grown=False)]
+    return [rain_barrel("rain_barrel"), rain_barrel("rain_barrel_water", water=True), rain_barrel("rain_barrel_tarp", tarp=True),
+            rain_barrel("rain_barrel_lid", tarp=True, lid=True)] + plants
+
+
 def outdoors():
     """What stands out of doors: on roofs, in yards and along streets."""
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
@@ -3784,8 +4062,8 @@ def every():
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
-              parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + indoors() + outdoors() \
-        + upholstered()
+              parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
+            + upholstered() + barrels_and_pots())
 
 
 def main():

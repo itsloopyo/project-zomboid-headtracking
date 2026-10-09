@@ -14,6 +14,8 @@ final class OutdoorTests {
         Checks.run("aGravestoneStandsTowardsTheSideItFaces", OutdoorTests::aGravestoneStandsTowardsTheSideItFaces);
         Checks.run("aSpriteOfAnotherSheetOrShapeIsNoPiece", OutdoorTests::aSpriteOfAnotherSheetOrShapeIsNoPiece);
         Checks.run("aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare", OutdoorTests::aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare);
+        Checks.run("aRainBarrelIsABarrelWhateverIsOverItsMouth", OutdoorTests::aRainBarrelIsABarrelWhateverIsOverItsMouth);
+        Checks.run("aPottedPlantIsItsKindInItsState", OutdoorTests::aPottedPlantIsItsKindInItsState);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -186,5 +188,56 @@ final class OutdoorTests {
         // Thrown on less squarely: the upper tyre of a pair painted to the left of the lower lies off it towards the map's -x and +y.
         Models.Model pair = Models.get(Outdoors.of("location_business_machinery_01_40", "Tires", "2 Stacked", Outdoors.NORTH, 1, 1, 0).model);
         Checks.check(pair.maxX > 0.36f && pair.maxY > 0.36f && pair.minX > -0.33f, "the pair facing north has its upper tyre off the lower one: " + pair.maxX + ", " + pair.maxY);
+    }
+
+    private static Outdoors.Piece rainBarrel(int place) {
+        return Outdoors.of("carpentry_02_" + place, "Rain Collector Barrel", null, Outdoors.NONE, 1, 1, 0);
+    }
+
+    private static void aRainBarrelIsABarrelWhateverIsOverItsMouth() {
+        String[] models = {"rain_barrel", "rain_barrel_water", "rain_barrel_tarp", "rain_barrel_tarp", "rain_barrel_tarp", "rain_barrel_tarp", "rain_barrel_lid", "rain_barrel_lid"};
+        int[] places = {52, 53, 122, 123, 124, 125, 126, 127};
+        for (int i = 0; i < places.length; i++) {
+            Outdoors.Piece piece = rainBarrel(places[i]);
+            holds(piece, "carpentry_02_" + places[i] + " has a model");
+            Checks.check(piece != null && piece.model.equals(models[i]) && piece.fits, "carpentry_02_" + places[i] + " is " + models[i] + " inside its square");
+            Models.Model model = Models.get(models[i]);
+            Checks.check(model.width() < 0.96f && model.depth() < 0.96f && model.height() > 0.8f && model.height() < 0.95f,
+                    models[i] + " is a barrel's size: " + model.width() + " by " + model.height());
+        }
+        Checks.check(rainBarrel(53).dyed == 1 << Models.ENAMEL && rainBarrel(52).dyed == 0, "only the rain in a barrel takes its colour from the sprite");
+        Checks.check(rainBarrel(122).dyed == 1 << Models.CLOTH && rainBarrel(127).dyed == 1 << Models.CLOTH, "and the sheet over one");
+        for (int crate : new int[] {54, 55, 120, 121}) {
+            Checks.check(rainBarrel(crate) == null, "carpentry_02_" + crate + ", a crate lined with a sheet, stays a box");
+        }
+        Checks.check(Outdoors.of("carpentry_02_52", "Rain Collector Barrel", null, Outdoors.NONE, 2, 1, 0) == null, "a barrel of two squares is none");
+    }
+
+    private static void aPottedPlantIsItsKindInItsState() {
+        String[][] kinds = {{"evergreen", "Chinese Evergreen", "7", "21", "29", "37"}, {"dragon_tree", "Dragon Tree", "9", "17", "25", "33"},
+                {"snake_plant", "Snake Plant", "10", "18", "26", "34"}, {"cast_iron", "Cast Iron Plant", "11", "19", "27", "35"},
+                {"ficus", "Ficus", "12", "20", "28", "36"}};
+        for (String[] kind : kinds) {
+            String[] models = {kind[0], kind[0] + "_dry", kind[0] + "_dry", "pot_" + kind[0]};
+            for (int state = 0; state < 4; state++) {
+                String name = "vegetation_indoor_01_" + kind[2 + state];
+                Potted plant = Potted.of(name, kind[1]);
+                Checks.check(plant != null && plant.model.equals(models[state]), name + " is " + models[state]);
+                if (plant == null) {
+                    continue;
+                }
+                Models.Model model = Models.get(plant.model);
+                Checks.check((plant.leaves > 0f) == (state < 3), name + " takes the colour of leaves only where it has them");
+                // A plant stood in a corner reaches no leaf through either wall of it.
+                Checks.check(model.width() <= 0.9f + 1e-4f && model.depth() <= 0.9f + 1e-4f, name + " stays inside its square: " + model.width() + " by " + model.depth());
+            }
+        }
+        Checks.check(Potted.of("vegetation_indoor_01_12", "Cast Iron Plant") == null, "a sprite whose name says another plant is none");
+        Checks.check(Potted.of("vegetation_indoor_01_8", "Raised Plantbed") == null && Potted.of("vegetation_indoor_01_0", "Venus Fly Trap") == null,
+                "a raised bed and what stands on a table are not plants in pots on the floor");
+        Checks.check(Potted.of("vegetation_indoor_01_", "Ficus") == null && Potted.of("vegetation_indoor_01_1x", "Ficus") == null
+                && Potted.of("vegetation_indoor_02_12", "Ficus") == null, "a name that is not a place on the sheet");
+        Checks.check(Models.get("dragon_tree").height() > 2f && Models.get("ficus").height() > 1.3f && Models.get("pot_ficus").height() < 0.5f,
+                "a dragon tree is the tallest, a ficus as high as a shoulder, and an empty pot only a pot");
     }
 }
