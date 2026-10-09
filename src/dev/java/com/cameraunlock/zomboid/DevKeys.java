@@ -43,9 +43,9 @@ import zombie.vehicles.VehiclePart;
  * 9 puts the clock on by three hours, into the next day if that is where they end: for
  * seeing the picture at any hour without waiting for it.
  *
- * Backspace holds the weather at the next of its kinds, from a clear sky through cloud, rain
- * and fog to snow half melted and a blizzard over lying snow, and after the last gives it back
- * to the game. The game keeps what it is held at in the save.
+ * Backspace holds the weather at the next of six kinds, sunny, cloudy, stormy, blizzard, clear
+ * snowy day and foggy in that order, and after the last gives it back to the game. The game
+ * keeps what it is held at in the save.
  *
  * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
  * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
@@ -125,19 +125,12 @@ public final class DevKeys {
     private record Weather(String name, float cloud, float falling, float wind, float fog, boolean snow, float lying) {}
 
     private static final Weather[] WEATHERS = {
-            new Weather("a clear sky", 0f, 0f, 0.05f, 0f, false, 0f),
-            new Weather("some clouds", 0.35f, 0f, 0.1f, 0f, false, 0f),
+            new Weather("sunny", 0f, 0f, 0.05f, 0f, false, 0f),
             new Weather("cloudy", 0.85f, 0f, 0.15f, 0f, false, 0f),
-            new Weather("raining", 0.85f, 0.4f, 0.1f, 0f, false, 0f),
-            new Weather("rain with some wind", 0.9f, 0.5f, 0.4f, 0f, false, 0f),
-            new Weather("a storm of rain", 1f, 1f, 0.9f, 0f, false, 0f),
-            new Weather("a light fog", 0.6f, 0f, 0.05f, 0.3f, false, 0f),
-            new Weather("a thick fog", 0.7f, 0f, 0f, 1f, false, 0f),
-            new Weather("snow half melted", 0.5f, 0f, 0.1f, 0f, false, 0.3f),
-            new Weather("snow on the ground", 0.35f, 0f, 0.1f, 0f, false, 1f),
-            new Weather("fog over snow", 0.7f, 0f, 0f, 0.7f, false, 0.7f),
-            new Weather("light snow falling", 0.85f, 0.3f, 0.15f, 0f, true, 0.7f),
-            new Weather("a blizzard", 1f, 1f, 0.9f, 0f, true, 1f),
+            new Weather("stormy", 1f, 1f, 0.9f, 0f, false, 0f),
+            new Weather("blizzard", 1f, 1f, 0.9f, 0f, true, 1f),
+            new Weather("clear snowy day", 0f, 0f, 0.1f, 0f, false, 1f),
+            new Weather("foggy", 0.7f, 0f, 0f, 1f, false, 0f),
     };
     /** The weather being held, and none while it is the game's own. */
     private static int weather = -1;
@@ -180,7 +173,7 @@ public final class DevKeys {
     static void poll() {
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next kind of weather, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next weather of sunny, cloudy, stormy, blizzard, clear snowy day and foggy, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
