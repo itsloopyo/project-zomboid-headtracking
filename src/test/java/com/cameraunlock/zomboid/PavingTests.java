@@ -35,6 +35,10 @@ final class PavingTests {
         Checks.run("builtThingsAcrossAPassageAreOneThing", PavingTests::builtThingsAcrossAPassageAreOneThing);
         Checks.run("aBuildingWithPavingAgainstItStandsWhereThePavingMeetsIt", PavingTests::aBuildingWithPavingAgainstItStandsWhereThePavingMeetsIt);
         Checks.run("aBoothOnAPavementIsSetDownOnIt", PavingTests::aBoothOnAPavementIsSetDownOnIt);
+        Checks.run("oneSearchAnswersForEverySquareOfAShopWithPavingAgainstIt", PavingTests::oneSearchAnswersForEverySquareOfAShopWithPavingAgainstIt);
+        Checks.run("aThingAtTheEdgeOfTheMapIsLookedOverAgainOnlyWhenWhatItWentByIsLoadedOtherwise", PavingTests::aThingAtTheEdgeOfTheMapIsLookedOverAgainOnlyWhenWhatItWentByIsLoadedOtherwise);
+        Checks.run("aSquareTheMapHasLetGoOfAnswersAsASearchOfItWould", PavingTests::aSquareTheMapHasLetGoOfAnswersAsASearchOfItWould);
+        Checks.run("aThingKeptAtTheEdgeIsLookedOverAgainOnceSomeOfItIsInAThingTooLarge", PavingTests::aThingKeptAtTheEdgeIsLookedOverAgainOnceSomeOfItIsInAThingTooLarge);
     }
 
     private static void check(boolean condition, String what) {
@@ -432,6 +436,32 @@ final class PavingTests {
 
     private static final Footings footings = new Footings();
 
+    /** A site that counts the squares it is asked about. */
+    private static final class Counted implements Footings.Site {
+        Plan plan;
+        int asked;
+
+        Counted(Plan plan) {
+            this.plan = plan;
+        }
+
+        @Override
+        public byte over(int x, int y) {
+            asked++;
+            return plan.over(x, y);
+        }
+
+        @Override
+        public long house(int x, int y) {
+            return plan.house(x, y);
+        }
+
+        @Override
+        public boolean paved(int x, int y) {
+            return plan.paved(x, y);
+        }
+    }
+
     private static long found(Plan plan, int x, int y) {
         footings.forget();
         footings.find(plan, x, y);
@@ -540,5 +570,127 @@ final class PavingTests {
                 "======");
         here = found(shelter, 2, 1);
         check(footings.free && Footings.keyX(here) == 3f && Footings.keyY(here) == 2f, "a canopy on a forecourt stands at the height the forecourt has under its middle: " + Footings.keyX(here) + ", " + Footings.keyY(here));
+    }
+
+    private static void oneSearchAnswersForEverySquareOfAShopWithPavingAgainstIt() {
+        // A row of shops 40 by 40 with a pavement along its front: what a town is made of, and each square of a chunk asks for its footing.
+        String[] rows = new String[44];
+        for (int y = 0; y < rows.length; y++) {
+            rows[y] = (y < 40 ? "A".repeat(40) : "=".repeat(40)) + "....";
+        }
+        Plan plan = new Plan(rows);
+        Counted site = new Counted(plan);
+        Footings fresh = new Footings();
+        for (int y = 0; y < rows.length; y++) {
+            for (int x = 0; x < 44; x++) {
+                fresh.find(site, x, y);
+                if (y < 40 && x < 40 && (x + y) % 7 == 0) {
+                    long kept = fresh.found;
+                    boolean free = fresh.free;
+                    check(found(plan, x, y) == kept && footings.free == free, "a square of the shop has the answer a search from it gives, " + x + ", " + y);
+                }
+            }
+        }
+        int squares = 44 * rows.length, thing = 40 * 40;
+        // Each square asked once for itself, and the shop's one search asks about each square of it, the passages out from it and what is round it.
+        check(site.asked < squares + 2 * thing + 4 * 44 * (Footings.PASSAGE + 1) + 200,
+                "a shop with paving against it is looked over once and not once for each square of it: " + site.asked + " squares asked about");
+    }
+
+    private static void aThingAtTheEdgeOfTheMapIsLookedOverAgainOnlyWhenWhatItWentByIsLoadedOtherwise() {
+        // A shop in the first chunk, its pavement running on into the next, which is not loaded: there may be a shop across the passage.
+        int chunk = Terrain.CHUNK_TILES;
+        String[] edge = new String[chunk], loaded = new String[chunk];
+        for (int y = 0; y < chunk; y++) {
+            edge[y] = (y < 3 ? "AAAAAAA=" : "========") + "?".repeat(chunk);
+            loaded[y] = (y < 3 ? "AAAAAAA=" : "========") + (y < 3 ? "=BBB...." : "========");
+        }
+        Counted site = new Counted(new Plan(edge));
+        Footings fresh = new Footings();
+        fresh.find(site, 0, 0);
+        long before = fresh.found;
+        check(!fresh.settled, "a shop whose pavement runs into ground not loaded is not settled");
+        int asked = site.asked;
+        for (int changes = 0; changes < 5; changes++) {
+            fresh.changed();
+            for (int x = 0; x < 7; x++) {
+                fresh.find(site, x, 1);
+                check(fresh.found == before && !fresh.settled, "with the same chunks loaded it is the same, " + x);
+            }
+        }
+        check(site.asked - asked < asked, "and is not looked over again while the chunks it went by are as they were: " + (site.asked - asked) + " squares asked about over five changes, "
+                + asked + " in the one search");
+        site.plan = new Plan(loaded);
+        fresh.changed();
+        fresh.find(site, 3, 1);
+        long after = fresh.found;
+        check(after == found(site.plan, 3, 1) && after != before, "once the next chunk is loaded it is looked over again and comes out as a search on the loaded map does: "
+                + Footings.keyX(before) + ", " + Footings.keyY(before) + " then " + Footings.keyX(after) + ", " + Footings.keyY(after));
+    }
+
+    private static void aSquareTheMapHasLetGoOfAnswersAsASearchOfItWould() {
+        // Two chunks: a shop with its pavement, all loaded and so settled, and an unsettled shop whose pavement runs on into a third chunk not loaded.
+        int chunk = Terrain.CHUNK_TILES;
+        String[] loaded = new String[chunk], letGo = new String[chunk];
+        for (int y = 0; y < chunk; y++) {
+            String first = y < 3 ? "AAAAA..." : y < 5 ? "=====..." : "........";
+            String second = y < 3 ? "BBBBBBB=" : "........";
+            loaded[y] = first + second + "?".repeat(chunk);
+            letGo[y] = "?".repeat(2 * chunk) + "?".repeat(chunk);
+        }
+        Counted site = new Counted(new Plan(loaded));
+        Footings fresh = new Footings();
+        for (int y = 0; y < chunk; y++) {
+            for (int x = 0; x < 2 * chunk; x++) {
+                fresh.find(site, x, y);
+                char c = loaded[y].charAt(x);
+                check(fresh.open == (c == '.' || c == '='), "a square is open where it is open ground or paving with nothing over it, " + x + ", " + y);
+            }
+        }
+        site.plan = new Plan(letGo);
+        fresh.changed();
+        for (int y = 0; y < chunk; y++) {
+            for (int x = 0; x < 2 * chunk; x++) {
+                fresh.find(site, x, y);
+                long found = fresh.found;
+                boolean free = fresh.free, settled = fresh.settled, open = fresh.open;
+                fresh.findUnloaded(x, y);
+                check(fresh.found == found && fresh.free == free && fresh.settled == settled && fresh.open == open,
+                        "a square of a chunk let go answers without a search as it does with one, " + x + ", " + y);
+            }
+        }
+        fresh.findUnloaded(2, 1);
+        check(fresh.settled && fresh.found != Footings.NONE, "a settled shop is kept once the map has let go of it");
+        fresh.findUnloaded(10, 1);
+        check(!fresh.settled && fresh.found == Footings.NONE, "and a shop that was not all on loaded map is not");
+    }
+
+    private static void aThingKeptAtTheEdgeIsLookedOverAgainOnceSomeOfItIsInAThingTooLarge() {
+        // A shop with a passage of paving east of it into a chunk not loaded, a hall too large to look over beyond that chunk.
+        int chunk = Terrain.CHUNK_TILES, side = 100;
+        String[] edge = new String[side], joined = new String[side];
+        for (int y = 0; y < side; y++) {
+            String shop = y < 3 ? "BBBBBBB=" : "........";
+            String hall = "A".repeat(side - 2 * chunk);
+            edge[y] = shop + "?".repeat(chunk) + hall;
+            joined[y] = shop + "A".repeat(chunk) + hall;
+        }
+        check(side * (side - chunk) > Footings.MOST, "the hall with the chunk between is too large to look over");
+        Counted site = new Counted(new Plan(edge));
+        Footings fresh = new Footings();
+        fresh.find(site, 0, 0);
+        check(!fresh.settled && fresh.whole, "the shop is looked over whole and is not settled");
+        // The chunk between loads, and a search from it finds the hall and the shop joined to it too large to look over.
+        site.plan = new Plan(joined);
+        fresh.changed();
+        fresh.find(site, chunk + 1, 1);
+        check(!fresh.whole, "the hall and the shop with the chunk between are too large to look over");
+        // The chunk is let go again: every chunk the shop's search went by is as loaded as it was.
+        site.plan = new Plan(edge);
+        fresh.changed();
+        fresh.find(site, 0, 0);
+        check(!fresh.whole && fresh.found == site.plan.houses.get('B'),
+                "the shop is looked over again, and as a search does that starts in something found too large, stands with its own building: "
+                        + Footings.keyX(fresh.found) + ", " + Footings.keyY(fresh.found));
     }
 }

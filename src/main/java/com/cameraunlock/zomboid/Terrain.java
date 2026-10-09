@@ -76,6 +76,20 @@ final class Terrain {
     /** How far round a chunk the squares are gathered: as far as Paving looks from a corner for what is built, in whole chunks. */
     static final int AROUND = (Paving.GATHERED + CHUNK_TILES - 1) / CHUNK_TILES * CHUNK_TILES;
     static final int SPAN = CHUNK_TILES + 2 * AROUND;
+    /**
+     * How far a square di, dj squares from a corner is from it, the square's nearest point, at
+     * (di + LEVELLED) * 2 * LEVELLED + dj + LEVELLED, for di and dj from -LEVELLED to LEVELLED - 1.
+     */
+    static final float[] AWAY = new float[4 * LEVELLED * LEVELLED];
+
+    static {
+        for (int di = -LEVELLED; di < LEVELLED; di++) {
+            for (int dj = -LEVELLED; dj < LEVELLED; dj++) {
+                float awayI = di >= 0 ? di : -di - 1, awayJ = dj >= 0 ? dj : -dj - 1;
+                AWAY[(di + LEVELLED) * 2 * LEVELLED + dj + LEVELLED] = (float) Math.sqrt(awayI * awayI + awayJ * awayJ);
+            }
+        }
+    }
 
     static final byte NATURAL = 0, MADE = 1, WATER = 2, UNKNOWN = 3, STREET = 4;
     /** How far a street lies below the ground beside it: the height of a kerb, in tiles. */
@@ -120,6 +134,13 @@ final class Terrain {
         /** Whether footed has filled in midX, midY and free; whether what it found can no longer change; and the map it found it on. */
         boolean footed, footSettled;
         long footedAsOf;
+        /**
+         * Which squares footed found open (Footings.open), and whether the chunk and the eight
+         * round it were all loaded then: what over says of a square goes by the chunks round
+         * it, and while they stay loaded an open square is open still and is not asked again.
+         */
+        final boolean[] open = new boolean[CHUNK_TILES * CHUNK_TILES];
+        boolean ringLoaded;
         boolean water;
         /** How many of the squares have a building or something built standing on them: see hard. */
         int builtOn;
@@ -189,6 +210,12 @@ final class Terrain {
             }
             byte kind = kind(square);
             return !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
+        }
+
+        @Override
+        public boolean loaded(int wx, int wy) {
+            // As findWater and kerbs take it: the map has every square of a chunk or none of it.
+            return siteCell.getGridSquare(wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2, 0) != null;
         }
 
         @Override
@@ -576,8 +603,7 @@ final class Terrain {
                 if (kind == NATURAL && Float.isNaN(pad)) {
                     continue;
                 }
-                float awayI = di >= 0 ? di : -di - 1, awayJ = dj >= 0 ? dj : -dj - 1;
-                float away = (float) Math.sqrt(awayI * awayI + awayJ * awayJ);
+                float away = AWAY[(di + LEVELLED) * 2 * LEVELLED + dj + LEVELLED];
                 if (kind != NATURAL) {
                     toMade = Math.min(toMade, away);
                 }
@@ -959,18 +985,39 @@ final class Terrain {
         if (kinds.footed && (kinds.footSettled || kinds.footedAsOf == asOf)) {
             return;
         }
-        boolean settled = true;
+        boolean settled = true, onMap = false;
+        for (byte kind : kinds.kinds) {
+            onMap |= kind != UNKNOWN;
+        }
         siteCell = cell;
+        boolean ringLoaded = onMap;
+        for (int cx = -1; cx <= 1 && ringLoaded; cx++) {
+            for (int cy = -1; cy <= 1 && ringLoaded; cy++) {
+                ringLoaded = site.loaded(kinds.wx + cx, kinds.wy + cy);
+            }
+        }
+        boolean openHolds = kinds.footed && kinds.ringLoaded && ringLoaded;
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
-                footings.find(site, kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
+                int at = i * CHUNK_TILES + j;
+                if (openHolds && kinds.open[at]) {
+                    continue;
+                }
+                // A chunk that is not whole is looked over again whenever the map has other chunks loaded (kinds): one with no square known has none loaded now.
+                if (onMap) {
+                    footings.find(site, kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
+                } else {
+                    footings.findUnloaded(kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
+                }
                 settled &= footings.settled;
-                kinds.midX[i * CHUNK_TILES + j] = Footings.keyX(footings.found);
-                kinds.midY[i * CHUNK_TILES + j] = Footings.keyY(footings.found);
-                kinds.free[i * CHUNK_TILES + j] = footings.free;
+                kinds.open[at] = footings.open;
+                kinds.midX[at] = Footings.keyX(footings.found);
+                kinds.midY[at] = Footings.keyY(footings.found);
+                kinds.free[at] = footings.free;
             }
         }
         siteCell = null;
+        kinds.ringLoaded = ringLoaded;
         kinds.footed = true;
         kinds.footSettled = settled;
         kinds.footedAsOf = asOf;

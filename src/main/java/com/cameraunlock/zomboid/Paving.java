@@ -79,6 +79,24 @@ final class Paving {
     /** The squares of front, in the order they lie in, x first. */
     private static int[] fronts = new int[256];
     private static int frontCount;
+    /** Where the squares of front in each row of x begin in fronts: those with x i are from columnStart[i] up to columnStart[i + 1]. */
+    private static final int[] columnStart = new int[SPAN + 1];
+    /** The furthest a square of front counts in footing, in half squares, either way. */
+    private static final int FARTHEST = 2 * HELD_FROM;
+    /** For a square of front a half squares off one way and b the other: how far it is, squared, and its weight, as footing counts them, at a * (FARTHEST + 1) + b. */
+    private static final double[] AWAY_SQUARED = new double[(FARTHEST + 1) * (FARTHEST + 1)], WEIGHT = new double[AWAY_SQUARED.length];
+
+    static {
+        for (int a = 0; a <= FARTHEST; a++) {
+            for (int b = 0; b <= FARTHEST; b++) {
+                // From the nearest point of the square, as a corner's distance to a square is counted in Terrain.
+                double awayI = Math.max(0, a - 1) / 2.0, awayJ = Math.max(0, b - 1) / 2.0;
+                double away = awayI * awayI + awayJ * awayJ;
+                AWAY_SQUARED[a * (FARTHEST + 1) + b] = away;
+                WEIGHT[a * (FARTHEST + 1) + b] = 1.0 / (away * away);
+            }
+        }
+    }
     private static float[] pads;
     private static boolean[] footway;
     /** Whether nothing built has made ground against it, anywhere round the chunk. */
@@ -125,6 +143,7 @@ final class Paving {
         }
         frontCount = 0;
         for (int i = 0; i < SPAN; i++) {
+            columnStart[i] = frontCount;
             for (int j = 0; j < SPAN; j++) {
                 int at = i * SPAN + j;
                 front[at] = !Float.isNaN(padsAround[at]) && touches(made, i, j);
@@ -137,6 +156,7 @@ final class Paving {
                 }
             }
         }
+        columnStart[SPAN] = frontCount;
         idle = frontCount == 0;
         if (idle) {
             return;
@@ -181,9 +201,10 @@ final class Paving {
             walked[at] = made[at] && footway[at];
         }
         spread(offRoad, road, walked, FOOTWAY * STRAIGHT, from - 2 - FOOTWAY, to + 2 + FOOTWAY);
-        for (int i = Math.max(0, from - reach); i <= Math.min(SPAN - 1, to + reach); i++) {
-            for (int j = Math.max(0, from - reach); j <= Math.min(SPAN - 1, to + reach); j++) {
-                if (overBroad[i * SPAN + j] != NEVER) {
+        // Only where onto reads it: the squares within LEVELLED of a corner asked for that have not eased all the way to the land.
+        for (int i = Math.max(0, from - Terrain.LEVELLED); i <= Math.min(SPAN - 1, to + Terrain.LEVELLED - 1); i++) {
+            for (int j = Math.max(0, from - Terrain.LEVELLED); j <= Math.min(SPAN - 1, to + Terrain.LEVELLED - 1); j++) {
+                if (overBroad[i * SPAN + j] < EASED_OVER * STRAIGHT) {
                     // Twice over, to ask of the square's middle what is asked of a corner.
                     heldTo[i * SPAN + j] = (float) footing(2 * i + 1, 2 * j + 1, EASED_OVER + LEVEL_FOR + 1);
                 }
@@ -203,31 +224,28 @@ final class Paving {
     private static double footing(int twiceI, int twiceJ, int reach) {
         double footings = 0.0, weights = 0.0;
         nearestFront = Double.POSITIVE_INFINITY;
-        // The squares of front lie in order of x: those within reach in x are a run of them, found by halving.
-        int low = 0, high = frontCount;
-        while (low < high) {
-            int middle = (low + high) >>> 1;
-            if (2 * (fronts[middle] / SPAN) + 1 - twiceI < -2 * reach) {
-                low = middle + 1;
-            } else {
-                high = middle;
+        // A square (i, j) of front is 2i + 1 - twiceI half squares off one way and 2j + 1 - twiceJ the other: the rows of x within reach,
+        // and in each the run of squares within reach the other way, found by halving.
+        int fromI = Math.max(0, Math.ceilDiv(twiceI - 1 - 2 * reach, 2)), toI = Math.min(SPAN - 1, Math.floorDiv(twiceI - 1 + 2 * reach, 2));
+        int fromJ = Math.ceilDiv(twiceJ - 1 - 2 * reach, 2), toJ = Math.floorDiv(twiceJ - 1 + 2 * reach, 2);
+        for (int i = fromI; i <= toI; i++) {
+            int low = columnStart[i], high = columnStart[i + 1], first = i * SPAN + fromJ, last = i * SPAN + toJ;
+            while (low < high) {
+                int middle = (low + high) >>> 1;
+                if (fronts[middle] < first) {
+                    low = middle + 1;
+                } else {
+                    high = middle;
+                }
             }
-        }
-        for (int next = low; next < frontCount; next++) {
-            int di = 2 * (fronts[next] / SPAN) + 1 - twiceI, dj = 2 * (fronts[next] % SPAN) + 1 - twiceJ;
-            if (di > 2 * reach) {
-                break;
+            int row = Math.abs(2 * i + 1 - twiceI) * (FARTHEST + 1);
+            for (int next = low; next < columnStart[i + 1] && fronts[next] <= last; next++) {
+                int at = row + Math.abs(2 * (fronts[next] - i * SPAN) + 1 - twiceJ);
+                double weight = WEIGHT[at];
+                footings += pads[fronts[next]] * weight;
+                weights += weight;
+                nearestFront = Math.min(nearestFront, AWAY_SQUARED[at]);
             }
-            if (dj < -2 * reach || dj > 2 * reach) {
-                continue;
-            }
-            // From the nearest point of the square, as a corner's distance to a square is counted in Terrain.
-            double awayI = Math.max(0, Math.abs(di) - 1) / 2.0, awayJ = Math.max(0, Math.abs(dj) - 1) / 2.0;
-            double away = awayI * awayI + awayJ * awayJ;
-            double weight = 1.0 / (away * away);
-            footings += pads[fronts[next]] * weight;
-            weights += weight;
-            nearestFront = Math.min(nearestFront, away);
         }
         return footings / weights;
     }
@@ -368,8 +386,7 @@ final class Paving {
                     continue;
                 }
                 int at = i * SPAN + j;
-                float awayI = di >= 0 ? di : -di - 1, awayJ = dj >= 0 ? dj : -dj - 1;
-                float away = (float) Math.sqrt(awayI * awayI + awayJ * awayJ);
+                float away = Terrain.AWAY[(di + Terrain.LEVELLED) * 2 * Terrain.LEVELLED + dj + Terrain.LEVELLED];
                 float here = overBroad[at] == NEVER ? 0f : 1f - Terrain.smooth(overBroad[at] / (float) (EASED_OVER * STRAIGHT));
                 broads++;
                 eased += here;
