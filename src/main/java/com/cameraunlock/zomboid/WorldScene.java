@@ -1732,8 +1732,17 @@ final class WorldScene {
 
     /** Wallpaper with a figure on it, which the picture prints sprig by sprig. */
     private static final float FIGURED_PAPER = 70f;
-    /** A floor of boards that run along y: the picture draws it as WOOD with its grain turned. */
-    private static final float WOOD_ALONG_Y = 71f;
+    /**
+     * A floor of boards the picture lays: FIRST_BOARDS for the fewest boards to a tile along
+     * x, the next for the same along y, and so on up two at a time to LAST_BOARDS. The
+     * picture's vertex program reads the two back: see vBoards in PipelineShaders.
+     */
+    static final float FIRST_BOARDS = 16f, LAST_BOARDS = FIRST_BOARDS + 2 * (Flats.MOST_BOARDS - Flats.FEWEST_BOARDS) + 1;
+
+    /** What a floor of so many boards to a tile, running along y or along x, is made of. */
+    static float boardsOf(int count, boolean alongY) {
+        return FIRST_BOARDS + 2 * (count - Flats.FEWEST_BOARDS) + (alongY ? 1 : 0);
+    }
 
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 7, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6;
@@ -4262,8 +4271,9 @@ final class WorldScene {
             geometry.kerbKeep = geometry.kerbStreet ? SpriteGeometry.LAND : SpriteGeometry.STREET;
             int flat = flatOf(texture, Flats.FLOOR, 0f, 0f, 0f);
             frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
-            if (frame.material == WOOD && Flats.alongY(flat)) {
-                frame.material = WOOD_ALONG_Y;
+            // The picture's own wood is laid on a boarded floor only as the sprite's boards (see addBoards), which a floor a kerb cuts is not built as: it shows its sprite.
+            if (frame.material == WOOD) {
+                frame.material = TILE;
             }
             geometry.addFace(solid.get(flat != 0 ? flat : texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             frame.flat = 0;
@@ -5479,13 +5489,18 @@ final class WorldScene {
             frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             if (flat != 0) {
                 mesh = solid.get(flat);
-                // The grain the picture lays on a floor of boards runs the way the sprite's boards do.
-                if (frame.material == WOOD && Flats.alongY(flat)) {
-                    frame.material = WOOD_ALONG_Y;
-                }
+            }
+            // A floor shows one pattern of boards, the sprite's: the picture's own wood is laid on it only as boards of the sprite's size and lie.
+            Flats.Boards boards = frame.material == WOOD && flat != 0 ? Flats.boards(flat) : null;
+            if (frame.material == WOOD && isFloor && boards == null) {
+                frame.material = TILE;
             }
             if (floorLayer == 0 && z > lowestLevel) {
+                // The ceiling under a boarded floor is the sprite's own, as under any other floor: not the picture's wood.
+                float made = frame.material;
+                frame.material = made == WOOD ? TILE : made;
                 addCeiling(mesh, x, y, z);
+                frame.material = made;
             }
             // A line painted on the road is laid as paint, not as its sprite: see RoadPaint.
             boolean painted = (overLayer > 0 ? paintOver : sprite.paint && !isFloor) && frame.kind == 0f && Own.paint();
@@ -5516,6 +5531,15 @@ final class WorldScene {
             // it. What the game paints over the floor, an edging or a line, ends there with it.
             if (z == 0 && geometry.kerb != null && (!isFloor || beyondKerb >= 0)) {
                 geometry.kerbKeep = geometry.kerbStreet && !vergeOver ? SpriteGeometry.STREET : SpriteGeometry.LAND;
+            }
+            if (boards != null && geometry.kerb == null && Own.textures()) {
+                addBoards(solid.get(flat, WallSides.key(boards.red(), boards.green(), boards.blue(), WallSides.FLAT)), boards, x, y, z);
+                frame.flat = 0;
+                geometry.cover = null;
+                return;
+            }
+            if (boards != null) {
+                frame.material = TILE;
             }
             if (floorLayer == 0 && isFloor && frame.kind == 0f && geometry.kerb == null && (sprite.carpet || sprite.tiled) && Own.textures()) {
                 // Tiles are faces of their own on the sprite's own mesh, painted over.
@@ -5592,6 +5616,31 @@ final class WorldScene {
             System.arraycopy(paperGreen, 0, frame.cornerGreen, 0, 4);
             System.arraycopy(paperBlue, 0, frame.cornerBlue, 0, 4);
             return true;
+        }
+
+        /**
+         * A square of boarded floor in the picture's own wood: one face in the mean colour of the
+         * sprite, which the picture lays with boards as many to a tile as the sprite has and
+         * running the way they run. The sprite's own joints are not drawn under them.
+         */
+        private void addBoards(SpriteGeometry.Mesh on, Flats.Boards boards, int x, int y, int z) {
+            WallSides.tint(on.tint, tileTint);
+            float made = frame.material, red = frame.red, green = frame.green, blue = frame.blue;
+            System.arraycopy(frame.cornerRed, 0, paperRed, 0, 4);
+            System.arraycopy(frame.cornerGreen, 0, paperGreen, 0, 4);
+            System.arraycopy(frame.cornerBlue, 0, paperBlue, 0, 4);
+            frame.material = boardsOf(boards.count(), boards.alongY());
+            shade(red, green, blue, boards.red() / Math.max(tileTint[0], 0.02f), boards.green() / Math.max(tileTint[1], 0.02f), boards.blue() / Math.max(tileTint[2], 0.02f));
+            layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+            geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            layers.none();
+            frame.material = made;
+            frame.red = red;
+            frame.green = green;
+            frame.blue = blue;
+            System.arraycopy(paperRed, 0, frame.cornerRed, 0, 4);
+            System.arraycopy(paperGreen, 0, frame.cornerGreen, 0, 4);
+            System.arraycopy(paperBlue, 0, frame.cornerBlue, 0, 4);
         }
 
         /** Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of red, green and blue. */

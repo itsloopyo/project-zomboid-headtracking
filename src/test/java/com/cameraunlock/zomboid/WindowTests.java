@@ -422,15 +422,51 @@ final class WindowTests {
         byte[] hip = Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f, true);
         check(hip != null && hip[(96 * side + 32) * 4 + 3] != 0 && hip[(32 * side + 96) * 4 + 3] == 0, "a tile of roof cut by a hip has a picture of the half it paints");
         check(Flats.laid(tipped, 128, 0, 0, 128, 32, 64f, 192f, 2f, 0f, 192f, 128f, 32f, 0f, 0f, 1f / 6f, false) == null, "and a floor painted by half is still no floor");
-        // Boards: bands eight dots wide, running along y and then along x.
+        // Boards: five to a tile along y and eight along x, each with a dark joint down one edge.
         byte[] boardsY = new byte[side * side * 4], boardsX = new byte[side * side * 4];
         for (int j = 0; j < side; j++) {
             for (int i = 0; i < side; i++) {
-                boardsY[(j * side + i) * 4] = (byte) (i / 8 % 2 * 200);
-                boardsX[(j * side + i) * 4] = (byte) (j / 8 % 2 * 200);
+                for (int channel = 0; channel < 3; channel++) {
+                    boardsY[(j * side + i) * 4 + channel] = (byte) (i * 5 % side < 8 ? 60 : 180);
+                    boardsX[(j * side + i) * 4 + channel] = (byte) (j * 8 % side < 12 ? 60 : 180);
+                }
             }
         }
-        check(Flats.linedAlongY(boardsY) && !Flats.linedAlongY(boardsX) && !Flats.linedAlongY(dots), "boards that run along y are told from boards along x and from tiles");
+        Flats.Boards alongY = Flats.boarded(boardsY), alongX = Flats.boarded(boardsX);
+        check(alongY != null && alongY.alongY() && alongY.count() == 5, "five boards to a tile along y are read as that: " + alongY);
+        check(alongX != null && !alongX.alongY() && alongX.count() == 8, "and eight along x as that: " + alongX);
+        check(alongY != null && Math.abs(alongY.red() - (0.0625f * 60f + 0.9375f * 180f) / 255f) < 0.01f, "with the square's mean colour");
+        check(Flats.boarded(dots) == null, "and tiles are no boards");
+        // Grain with no joints: streaks along y that wander and never come round evenly.
+        byte[] grain = new byte[side * side * 4];
+        java.util.Random streaks = new java.util.Random(7);
+        int[] streak = new int[side];
+        for (int i = 0; i < side; i++) {
+            streak[i] = 120 + streaks.nextInt(40);
+        }
+        for (int j = 0; j < side; j++) {
+            for (int i = 0; i < side; i++) {
+                for (int channel = 0; channel < 3; channel++) {
+                    grain[(j * side + i) * 4 + channel] = (byte) (streak[i] + streaks.nextInt(4));
+                }
+            }
+        }
+        check(Flats.boarded(grain) == null, "and wood grain with no joints is no boards");
+        check(WorldScene.boardsOf(Flats.FEWEST_BOARDS, false) == WorldScene.FIRST_BOARDS && WorldScene.boardsOf(Flats.MOST_BOARDS, true) == WorldScene.LAST_BOARDS
+                && WorldScene.boardsOf(5, true) == 21f, "each count and lie of boards has a material number of its own");
+        // The picture's vertex program reads them back: the numbers it takes for boards are the ones boardsOf gives, and its first count is the fewest.
+        check(PipelineShaders.WORLD_VERTEX.contains("vMaterial > " + (int) (WorldScene.FIRST_BOARDS - 1f) + ".5 && vMaterial < " + (int) WorldScene.LAST_BOARDS + ".5")
+                && PipelineShaders.WORLD_VERTEX.contains(Flats.FEWEST_BOARDS + ".0 + floor((vMaterial - " + (int) WorldScene.FIRST_BOARDS + ".0) / 2.0)")
+                && PipelineShaders.WORLD_VERTEX.contains("mod(vMaterial - " + (int) WorldScene.FIRST_BOARDS + ".0, 2.0)"), "and the picture reads the same numbers back");
+        // How much of its square a sprite paints decides what it is: under three tenths nothing, up to 97 in 100 a cut tile of roof and no floor, above that a whole square.
+        for (float kept : new float[] {0.27f, 0.33f, 0.95f, 0.99f}) {
+            byte[] roof = Flats.laid(diamond(WindowTests::diagonalTiles, kept), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f, true);
+            byte[] ground = Flats.laid(diamond(WindowTests::diagonalTiles, kept), 128, 0, 0, 128, 64, 64f, 192f, 2f, 0f, 192f, 128f, 64f, 0f, 0f, 0f, false);
+            int far = (64 * side + side - 4) * 4 + 3;
+            check((roof != null) == kept > 0.3f, "a sprite that paints " + kept + " of its plane is a tile of roof or is not");
+            check((ground != null) == kept > 0.97f, "a sprite that paints " + kept + " of its square is a floor or is not");
+            check(roof == null || (roof[far] != 0) == kept > 0.97f, "and only a whole tile is painted to its far edge: " + kept);
+        }
     }
 
     private static void halfASquareIsNoFlatFloor() {

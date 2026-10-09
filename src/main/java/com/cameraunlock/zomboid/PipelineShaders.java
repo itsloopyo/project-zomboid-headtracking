@@ -402,7 +402,8 @@ final class PipelineShaders {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
-            // 1 for a floor of boards that run along y: the grain laid on it is turned to run with them.
+            // For a floor of boards the picture lays: how many to a tile, and 1 where they run along y. 0 for anything else.
+            varying float vBoards;
             varying float vLie;
             varying float vHung;
             uniform float uCutAbove;
@@ -502,8 +503,12 @@ final class PipelineShaders {
                 // thirty-twos above that what it is made of.
                 vMaterial = floor((vColor.a + 0.5) / 32.0);
                 vKind = vColor.a - 32.0 * vMaterial;
-                vLie = vMaterial > 70.5 && vMaterial < 71.5 ? 1.0 : 0.0;
-                vMaterial = vLie > 0.5 ? 3.0 : vMaterial;
+                // WorldScene.boardsOf: wood all the same to everything else that asks what a surface is made of.
+                // A model's materials are numbered from 16 too (Models.FIRST_MATERIAL): only the world's faces are boards.
+                bool boarded = uModel < 0.5 && vMaterial > 15.5 && vMaterial < 31.5;
+                vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : 0.0;
+                vLie = boarded ? mod(vMaterial - 16.0, 2.0) : 0.0;
+                vMaterial = boarded ? 3.0 : vMaterial;
                 // What is laid may be drawn in two parts, its grass and the rest: see
                 // Pipeline.drawWorld. A vertex of the part not being drawn is in no picture.
                 if (uLaid > 1.5 && (vKind > 7.5) == (uLaid > 2.5)) {
@@ -636,7 +641,8 @@ final class PipelineShaders {
             varying float vCover;
             varying float vKind;
             varying float vMaterial;
-            // 1 for a floor of boards that run along y: the grain laid on it is turned to run with them.
+            // For a floor of boards the picture lays: how many to a tile, and 1 where they run along y. 0 for anything else.
+            varying float vBoards;
             varying float vLie;
             varying float vHung;
             uniform vec4 uCutBox;
@@ -1151,6 +1157,36 @@ final class PipelineShaders {
             float reliefNear = 0.0, reliefLow = 0.0, reliefShade = 1.0;
             vec3 reliefBend = vec3(0.0);
 
+            // A floor of boards at a place on it, in tiles: vBoards of them to a tile, running
+            // along y where vLie is 1, each a tile long and begun its own way along, so no two
+            // ends meet across a joint. The light and dark, and with it how far the surface
+            // stands out there: 0 in the joint between two boards or two ends. The wood is the
+            // picture's, and only its grain: each board is a length of one of two boards of the
+            // picture that run it from side to side with no end in them, begun anywhere along
+            // and either way up, a shade lighter or darker than the next. The joints come every
+            // whole tile, so they are the same wherever the place is counted from.
+            vec2 floorBoards(vec2 at, vec2 across, vec2 down) {
+                vec2 run = vLie > 0.5 ? at.yx : at, runAcross = vLie > 0.5 ? across.yx : across, runDown = vLie > 0.5 ? down.yx : down;
+                // A count interpolated across the face may come a hair under the whole number it is.
+                float count = floor(vBoards + 0.5);
+                float over = run.y * count, board = floor(over), within = over - board;
+                board = mod(board, 60.0 * count);
+                float begun = fract(sin(board * 12.9898 + 4.1) * 43758.5453);
+                float gone = run.x + begun, piece = mod(floor(gone), 60.0), inPiece = fract(gone);
+                vec3 own = fract(sin(vec3(board * 78.233 + piece * 39.346 + 1.7, board * 11.135 + piece * 83.155 + 5.9, board * 37.719 + piece * 27.431 + 3.3)) * 43758.5453);
+                vec2 band = own.z > 0.5 ? vec2(0.46, 0.16) : vec2(0.662, 0.12);
+                vec2 on = vec2(run.x * 0.5 + own.x, band.x + band.y * (own.y > 0.5 ? within : 1.0 - within));
+                vec4 seen = texture2DGradARB(uWood, on, vec2(runAcross.x * 0.5, runAcross.y * count * band.y), vec2(runDown.x * 0.5, runDown.y * count * band.y));
+                // How fast the place changes over the screen across the boards and along them, each on its own:
+                // seen end on, the joints between boards stay sharp far past where the ends blur.
+                float fineAcross = length(vec2(runAcross.y, runDown.y)), fineAlong = length(vec2(runAcross.x, runDown.x));
+                float side = min(within, 1.0 - within) / count, end = min(inPiece, 1.0 - inPiece);
+                // Further off than a joint can be drawn, the floor is the mean of its boards and joints.
+                float joint = max((1.0 - smoothstep(0.003, 0.008 + fineAcross, side)) * (1.0 - smoothstep(0.02, 0.06, fineAcross)),
+                        (1.0 - smoothstep(0.003, 0.008 + fineAlong, end)) * (1.0 - smoothstep(0.02, 0.06, fineAlong)));
+                return vec2(dot(seen.rgb, vec3(0.299, 0.587, 0.114)) * (0.94 + 0.12 * own.x) * (1.0 - 0.5 * joint), seen.a * (1.0 - joint));
+            }
+
             // How far the surface stands out so far along it from the pixel's own place: 1 at its top, 0 at its deepest.
             float raisedAt(vec2 moved) {
                 if (reliefKind < 1.5) {
@@ -1161,7 +1197,7 @@ final class PipelineShaders {
                 if (reliefKind < 4.5) {
                     vec2 at = reliefBase + moved;
                     return reliefKind < 2.5 ? laid(uShingles, at * 0.55, reliefAcross * 0.55, reliefDown * 0.55, 0.1, false, 33.0, 0.14).y
-                            : reliefKind < 3.5 ? (vLie > 0.5 ? laid(uWood, at.yx * 0.45, reliefAcross.yx * 0.45, reliefDown.yx * 0.45, 0.44, false, 27.0, 0.14).y
+                            : reliefKind < 3.5 ? (vBoards > 0.5 ? floorBoards(at, reliefAcross, reliefDown).y
                                     : laid(uWood, at * 0.45, reliefAcross * 0.45, reliefDown * 0.45, 0.44, false, 27.0, 0.14).y)
                             : laid(uPlanks, at * 0.7, reliefAcross * 0.7, reliefDown * 0.7, 0.648, true, 42.0, 0.14).y;
                 }
@@ -1408,7 +1444,7 @@ final class PipelineShaders {
                 // it is such a line, and takes the colour round it, a little darkened: the
                 // edge is still there, as a shade and not as ink. The same for whatever else
                 // stands as a card: a mailbox, a lamp, a sign.
-                if ((vMaterial > 2.5 && vMaterial < 3.5 || vMaterial > 7.5 && vMaterial < 8.5 || vMaterial < 0.5 && vKind > 1.5 && vKind < 3.5) && uTexel.x > 0.0) {
+                if ((vMaterial > 2.5 && vMaterial < 3.5 && vBoards < 0.5 || vMaterial > 7.5 && vMaterial < 8.5 || vMaterial < 0.5 && vKind > 1.5 && vKind < 3.5) && uTexel.x > 0.0) {
                     float ink = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     vec3 round = vec3(0.0);
                     float found = 0.0;
@@ -2441,7 +2477,9 @@ final class PipelineShaders {
                     // read at such places is ruled with stripes a pixel or two wide. Every
                     // picture here repeats a whole number of times in sixty tiles.
                     bool level = abs(n.z) > 0.7;
-                    vec2 across = level ? vPlace.xy : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
+                    // Shingles are laid in courses along the eaves: on a slope that falls along x the picture is turned, its courses running along y.
+                    bool turned = roofing && level && abs(n.x) > abs(n.y);
+                    vec2 across = level ? (turned ? vPlace.yx : vPlace.xy) : vec2(dot(vPlace.xy, vec2(n.y, -n.x)), vPlace.z);
                     vec2 acrossX = dFdx(across), acrossY = dFdy(across);
                     // A roof's courses, the cracks of weathered planks and the seams of a floor have
                     // depth: see relieve. Not what stands as a card, a table's top or a fence's
@@ -2449,14 +2487,14 @@ final class PipelineShaders {
                     float raisedKind = vKind > 1.5 ? 0.0 : roofing ? 2.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 3.0 : vMaterial > 6.5 && vMaterial < 7.5 ? 4.0 : 0.0;
                     if (raisedKind > 0.5) {
                         reliefBase = across;
-                        across += relieve(raisedKind, level ? vec3(1.0, 0.0, 0.0) : vec3(n.y, -n.x, 0.0), level ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0), n,
+                        across += relieve(raisedKind, level ? (turned ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)) : vec3(n.y, -n.x, 0.0), level ? (turned ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0)) : vec3(0.0, 0.0, 1.0), n,
                                 raisedKind < 2.5 ? 0.014 : raisedKind < 3.5 ? 0.0015 : 0.01);
                         n = normalize(n - reliefBend);
                         texel.rgb *= 1.0 - 0.4 * reliefLow;
                     }
                     float fine = roofing ? laid(uShingles, across * 0.55, acrossX * 0.55, acrossY * 0.55, 0.1, false, 33.0, 0.14).x * uSurfaceGain.x
                             : vMaterial < 2.5 ? dot(texture2D(uPaint, across * 0.8).rgb, vec3(0.299, 0.587, 0.114)) * uSurfaceGain.y
-                            : vMaterial < 3.5 ? (vLie > 0.5 ? laid(uWood, across.yx * 0.45, acrossX.yx * 0.45, acrossY.yx * 0.45, 0.44, false, 27.0, level ? 0.0 : 0.14).x
+                            : vMaterial < 3.5 ? (vBoards > 0.5 ? floorBoards(across, acrossX, acrossY).x
                                     : laid(uWood, across * 0.45, acrossX * 0.45, acrossY * 0.45, 0.44, false, 27.0, level ? 0.0 : 0.14).x) * uSurfaceGain.z
                             : vMaterial < 6.5 ? dot(texture2DArray(uBark, vec3(across * vec2(1.6, 0.8), 0.0)).rgb, vec3(0.299, 0.587, 0.114)) * uTimberGain.x
                             : vMaterial < 7.5 ? laid(uPlanks, across * 0.7, acrossX * 0.7, acrossY * 0.7, 0.648, true, 42.0, 0.14).x * uTimberGain.y

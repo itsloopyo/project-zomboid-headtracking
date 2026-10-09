@@ -53,6 +53,11 @@ final class Flats {
     private static final int EDGE_STAIR = 3;
     /** A floor's lines run along y when its dots change this many times as much from one to the next along x as along y. */
     private static final float LINED = 1.3f;
+    /** A joint is darker than the mean of this many dots either side of it, and a count of boards fits nearly as well as the best from this share of the best's fit. */
+    private static final int JOINT_ROUND = 6;
+    private static final float NEARLY = 0.9f;
+    /** How much of the joints' own strength the best count's fit is, at least, for a floor to be boards laid side by side: a quarter at most for grain, over three quarters for the game's boards. */
+    private static final float JOINTED = 0.5f;
     /** Dots of rim round the square, and dots to a side of the picture with its rim. */
     static final int RIM = 4, WHOLE = SIDE + 2 * RIM;
     /** Where in the picture the square's (0, 0) corner is, and how much of the picture the square takes, both ways alike. */
@@ -101,8 +106,16 @@ final class Flats {
     /** What has been asked for of each sprite, and each picture made: its OpenGL name, or 0 for a sprite that paints no whole square of floor or nothing along that edge. */
     private static final ConcurrentHashMap<Texture, java.util.Set<Want>> asked = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Want, Integer> known = new ConcurrentHashMap<>();
-    /** The pictures of floors whose lines, the joints between its boards, run along y. */
-    private static final java.util.Set<Integer> alongY = ConcurrentHashMap.newKeySet();
+    /**
+     * A floor of boards laid side by side, as its sprite shows it: how many to a tile, from
+     * FEWEST_BOARDS to MOST_BOARDS, whether they run along y or along x, and the mean colour
+     * of the square.
+     */
+    record Boards(int count, boolean alongY, float red, float green, float blue) {}
+
+    static final int FEWEST_BOARDS = 3, MOST_BOARDS = 10;
+    /** The pictures of floors of boards, by name. */
+    private static final ConcurrentHashMap<Integer, Boards> boards = new ConcurrentHashMap<>();
 
     /** What of says of a sprite no frame has been drawn since it was first asked for. */
     static final int PENDING = -1;
@@ -158,8 +171,9 @@ final class Flats {
                         + (dots == null ? " has no picture as one and is drawn from its sprite" : lies ? " is laid flat" : " is stood square"));
             }
             int name = dots == null ? 0 : lies ? picture(rimmed(dots, as == FLOOR), WHOLE, WHOLE) : picture(wallRimmed(dots), WALL_WHOLE, WALL_HIGH);
-            if (as == FLOOR && dots != null && linedAlongY(dots)) {
-                alongY.add(name);
+            Boards laid = as == FLOOR && dots != null ? boarded(dots) : null;
+            if (laid != null) {
+                boards.put(name, laid);
             }
             known.put(want, name);
         }
@@ -181,7 +195,7 @@ final class Flats {
             }
         }
         asked.clear();
-        alongY.clear();
+        boards.clear();
         Log.info(count + " pictures of floors, walls and roofs are given back to the graphics card");
     }
 
@@ -314,22 +328,74 @@ final class Flats {
         return whole;
     }
 
-    /** Whether the floor in the picture of that name has its lines along y: a floor of boards laid that way. */
-    static boolean alongY(int name) {
-        return alongY.contains(name);
+    /** The boards of the floor in the picture of that name, or null for a floor that is not of boards laid side by side. */
+    static Boards boards(int name) {
+        return boards.get(name);
     }
 
-    /** Whether a square's dots, as laid gives them, change LINED times as much from one to the next along x as along y. */
-    static boolean linedAlongY(byte[] dots) {
-        long acrossX = 0, acrossY = 0;
+    /**
+     * What a square's dots, as laid gives them, show of boards laid side by side: null for a
+     * floor whose dots change about as much from one to the next along x as along y, tiles or
+     * parquet. The joints between boards are the dark lines across the mean of the square
+     * taken along its lines, and the boards to a tile the count whose spacing those lines
+     * come round at best, the largest of the counts that do nearly as well: twice the spacing
+     * fits as well as the spacing.
+     */
+    static Boards boarded(byte[] dots) {
+        long acrossX = 0, acrossY = 0, red = 0, green = 0, blue = 0;
+        int[] lit = new int[SIDE * SIDE];
+        for (int at = 0; at < SIDE * SIDE; at++) {
+            red += dots[at * 4] & 0xff;
+            green += dots[at * 4 + 1] & 0xff;
+            blue += dots[at * 4 + 2] & 0xff;
+            lit[at] = (dots[at * 4] & 0xff) + (dots[at * 4 + 1] & 0xff) + (dots[at * 4 + 2] & 0xff);
+        }
         for (int j = 0; j < SIDE - 1; j++) {
             for (int i = 0; i < SIDE - 1; i++) {
-                int at = (j * SIDE + i) * 4, lit = (dots[at] & 0xff) + (dots[at + 1] & 0xff) + (dots[at + 2] & 0xff);
-                acrossX += Math.abs(lit - (dots[at + 4] & 0xff) - (dots[at + 5] & 0xff) - (dots[at + 6] & 0xff));
-                acrossY += Math.abs(lit - (dots[at + SIDE * 4] & 0xff) - (dots[at + SIDE * 4 + 1] & 0xff) - (dots[at + SIDE * 4 + 2] & 0xff));
+                acrossX += Math.abs(lit[j * SIDE + i] - lit[j * SIDE + i + 1]);
+                acrossY += Math.abs(lit[j * SIDE + i] - lit[(j + 1) * SIDE + i]);
             }
         }
-        return acrossX > LINED * acrossY;
+        boolean alongY = acrossX > LINED * acrossY;
+        if (!alongY && acrossY <= LINED * acrossX) {
+            return null;
+        }
+        float[] mean = new float[SIDE], joints = new float[SIDE];
+        for (int across = 0; across < SIDE; across++) {
+            for (int along = 0; along < SIDE; along++) {
+                mean[across] += lit[alongY ? along * SIDE + across : across * SIDE + along];
+            }
+        }
+        for (int across = 0; across < SIDE; across++) {
+            float round = 0f;
+            for (int beside = -JOINT_ROUND; beside <= JOINT_ROUND; beside++) {
+                round += mean[Math.floorMod(across + beside, SIDE)];
+            }
+            joints[across] = mean[across] - round / (2 * JOINT_ROUND + 1);
+        }
+        float[] fits = new float[MOST_BOARDS + 1];
+        float best = 0f;
+        for (int count = FEWEST_BOARDS; count <= MOST_BOARDS; count++) {
+            int apart = Math.round((float) SIDE / count);
+            for (int across = 0; across < SIDE; across++) {
+                fits[count] += joints[across] * joints[(across + apart) % SIDE];
+            }
+            best = Math.max(best, fits[count]);
+        }
+        float joined = 0f;
+        for (int across = 0; across < SIDE; across++) {
+            joined += joints[across] * joints[across];
+        }
+        // Boards come round at their count with their joints lined up: grain, a few odd joints or boards told apart by tone alone do not.
+        if (best < JOINTED * joined) {
+            return null;
+        }
+        int count = MOST_BOARDS;
+        while (fits[count] < NEARLY * best) {
+            count--;
+        }
+        float dots255 = SIDE * SIDE * 255f;
+        return new Boards(count, alongY, red / dots255, green / dots255, blue / dots255);
     }
 
     /**
