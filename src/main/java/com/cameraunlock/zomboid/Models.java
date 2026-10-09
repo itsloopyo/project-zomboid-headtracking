@@ -395,10 +395,11 @@ final class Models {
         static final int FLOATS = 39;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
-         * its plain one, and the texture that dyes the piece or 0.
+         * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
+         * a building, which is drawn as far as the building is (see built), or 0.
          */
-        static final int FIRST = 0, COUNT = 1, PLAIN_FIRST = 2, PLAIN_COUNT = 3, TEXTURE = 4;
-        static final int INTS = 5;
+        static final int FIRST = 0, COUNT = 1, PLAIN_FIRST = 2, PLAIN_COUNT = 3, TEXTURE = 4, BUILT = 5;
+        static final int INTS = 6;
         /**
          * How much of a pixel a piece's two models may be apart where the plain one is drawn.
          * A bevel the plain one leaves out shows as the groove between two boards, which is
@@ -466,10 +467,19 @@ final class Models {
             ints[whole + PLAIN_FIRST] = model.plain.from;
             ints[whole + PLAIN_COUNT] = model.plain.corners.length;
             ints[whole + TEXTURE] = dyeTexture;
+            ints[whole + BUILT] = 0;
             stand(count, (model.minX + model.maxX) / 2f, (model.minY + model.maxY) / 2f, (model.minZ + model.maxZ) / 2f, to, at + BALL);
             float halfWide = model.width() * scale / 2f, halfDeep = model.depth() * scale / 2f, halfHigh = model.height() * scaleUp / 2f;
             to[at + BALL + 3] = (float) Math.sqrt(halfWide * halfWide + halfDeep * halfDeep + halfHigh * halfHigh);
             count++;
+        }
+
+        /**
+         * Has the piece last added drawn as far as the land and the buildings are, and not only
+         * as far as props are: it is part of a building or stands as one (DrawDistance).
+         */
+        void built() {
+            ints[(count - 1) * INTS + BUILT] = 1;
         }
 
         /**

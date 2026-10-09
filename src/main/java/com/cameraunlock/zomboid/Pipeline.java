@@ -289,8 +289,11 @@ final class Pipeline {
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
     /** The picture's colour as the passes after the steadying read it: the scene's, or with the frames blended the steadied one. */
     private int frameColor;
-    /** Quality.shadedAndLit as the frame began: the logic thread may change the mode between two passes of a frame. */
-    private boolean shadedAndLit;
+    /**
+     * Quality.shadedAndLit, Quality.surfacesMirror and Quality.reflections as the frame began: the
+     * logic thread may change the mode between two passes of a frame.
+     */
+    private boolean shadedAndLit, surfacesMirror, reflections;
     /** FrameBlending.on as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
     private boolean steadying;
 
@@ -395,6 +398,8 @@ final class Pipeline {
     ArrayList<WorldScene.ChunkMeshes> ahead;
     float rangeFrom;
     float focusX, focusY, focusUp;
+    /** How far from the eye the frame draws people, zombies, vehicles and furniture, which every pass of it goes by. */
+    final DrawDistance drawDistance = new DrawDistance();
     /**
      * The middle of the map the game has loaded and how far from it the map reaches every way,
      * in tiles: the world fades into the sky by there as well as by the picture's own sight.
@@ -805,6 +810,8 @@ final class Pipeline {
             }
             frameNanos = System.nanoTime();
             shadedAndLit = Quality.shadedAndLit();
+            surfacesMirror = Quality.surfacesMirror();
+            reflections = Quality.reflections();
             steadying = FrameBlending.on();
             frameColor = sceneColor;
             SpriteColours.read(view.index);
@@ -821,12 +828,12 @@ final class Pipeline {
             // A mirror and a scope look where the eye does not, at ground the same maps shade.
             view.characters.seenBy(camera, tanHalfFieldOfView, aspect, !seated && view.scope.fitted() == null);
             drawShadows(state, figures);
-            boolean inTheGlass = figures && !outside && !seated && reflection != null && shadedAndLit
+            boolean inTheGlass = figures && !outside && !seated && reflection != null && surfacesMirror
                     && drawReflection(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             stage(STAGE_SHADOWS);
             float[] cabin = seated ? Cabins.wheel(view.ride) : null;
             // The mirror keeps its picture between drawings: see MIRROR_EVERY_NANOS.
-            if (cabin != null && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS)) {
+            if (cabin != null && reflections && (!mirrored.made() || System.nanoTime() - mirrorDrawnAt >= MIRROR_EVERY_NANOS)) {
                 mirrorDrawnAt = System.nanoTime();
                 drawBehind(camera, state, cabin, far, fogStart, fogEnd, figures);
                 stage(STAGE_MIRROR);
@@ -834,7 +841,7 @@ final class Pipeline {
             if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
-            waterDrawn = water != null && shadedAndLit && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
+            waterDrawn = water != null && surfacesMirror && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
             if (waterDrawn) {
                 drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
@@ -1294,6 +1301,9 @@ final class Pipeline {
             for (int piece = 0; piece < placed.count; piece++) {
                 int at = piece * Models.Instances.FLOATS, ints = piece * Models.Instances.INTS;
                 int ball = at + Models.Instances.BALL;
+                if (whole[ints + Models.Instances.BUILT] == 0 && !drawDistance.draws(f[ball], f[ball + 1])) {
+                    continue;
+                }
                 boolean plain = !lit;
                 if (within != null) {
                     float ahead = (f[ball] - within.eyeX) * within.forwardX + (f[ball + 1] - within.eyeY) * within.forwardY
@@ -2360,7 +2370,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, sprigForm != 0 ? sprigForm : whiteTexture);
         to.set("uSprigForm", SPRIG_FORM_UNIT);
         to.set("uRelief", WITHOUT.contains("relief") || !Own.textures() || !Quality.relief() || inMirror || inWater ? 0f : 1f);
-        to.set("uMirrors", shadedAndLit && !inWater ? 1f : 0f);
+        to.set("uMirrors", surfacesMirror && !inWater ? 1f : 0f);
         to.set("uOwnTextures", Own.textures() ? 1f : 0f);
     }
 
@@ -3051,6 +3061,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, mirrored.made() ? mirrorColor : noneTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
         figureLight.set("uBehind", MIRROR_UNIT);
+        figureLight.set("uBehindShown", reflections ? 1f : 0f);
     }
 
     private final float[] worn = new float[3], mirrorPlace = new float[3];

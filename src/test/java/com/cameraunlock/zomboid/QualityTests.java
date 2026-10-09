@@ -122,18 +122,40 @@ final class QualityTests {
         check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words have Custom last: " + Quality.words());
     }
 
-    /** Every answer a graphics mode gives, as one line. */
+    /** Every answer a graphics mode gives, as one line: the draw distance on foot and ahead of a vehicle among them. */
     private static String answers() {
         return Quality.plain() + " " + Quality.gamesPlants() + " " + Quality.scale() + " " + Quality.shadowSize() + " " + Quality.sight() + " "
-                + Quality.glassRain() + " " + Quality.shadedAndLit() + " " + Quality.smallerPictures() + " " + Quality.crownsToSight() + " "
-                + Quality.relief() + " " + Quality.sightBehind();
+                + reaches() + " " + Quality.glassRain() + " " + Quality.shadedAndLit() + " " + Quality.reflections() + " " + Quality.surfacesMirror() + " "
+                + Quality.smallerPictures() + " " + Quality.crownsToSight() + " " + Quality.relief() + " " + Quality.sightBehind();
+    }
+
+    /**
+     * How far people and props are drawn now, beside a vehicle and ahead of it, from a viewer
+     * riding one that faces along x: the furthest whole tile, or "all" where nothing within 200
+     * is left out.
+     */
+    static String reaches() {
+        DrawDistance reach = new DrawDistance();
+        reach.take(0f, 0f, 1f, 0f, false);
+        return furthest(reach, 0f, 1f) + "/" + furthest(reach, 1f, 0f);
+    }
+
+    private static String furthest(DrawDistance reach, float wayX, float wayY) {
+        if (reach.draws(wayX * 200f, wayY * 200f)) {
+            return "all";
+        }
+        int tiles = 0;
+        while (reach.draws(wayX * (tiles + 1), wayY * (tiles + 1))) {
+            tiles++;
+        }
+        return Integer.toString(tiles);
     }
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true false 0.62 2048 48 0 false true false false 48",
-            "false true 0.8 2048 64 1 false true false false 48",
-            "false false 1.0 4096 80 2 true false true true 48",
+            "true false 0.62 2048 48 all/all 0 false true false true false false 48",
+            "false true 0.8 2048 64 all/all 1 false true false true false false 48",
+            "false false 1.0 4096 80 all/all 2 true true true false true true 48",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.set(mode);
@@ -151,18 +173,21 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.CUSTOM);
         String high = answers();
-        double[] changed = {1, 1, 0.7, 0, 40, 0, 0, 0, 0, 0};
+        double[] changed = {1, 1, 0.7, 0, 40, 30, 50, 0, 0, 0, 0, 0, 0};
         String[] answer = {
-            "true false 1.0 4096 80 2 true false true true 48",
-            "false true 1.0 4096 80 2 true false true true 48",
-            "false false 0.7 4096 80 2 true false true true 48",
-            "false false 1.0 2048 80 2 true false true true 48",
-            "false false 1.0 4096 40 2 true false true true 48",
-            "false false 1.0 4096 80 0 true false true true 48",
-            "false false 1.0 4096 80 2 false false true true 48",
-            "false false 1.0 4096 80 2 true true true true 48",
-            "false false 1.0 4096 80 2 true false false true 48",
-            "false false 1.0 4096 80 2 true false true false 48",
+            "true false 1.0 4096 80 all/all 2 true true true false true true 48",
+            "false true 1.0 4096 80 all/all 2 true true true false true true 48",
+            "false false 0.7 4096 80 all/all 2 true true true false true true 48",
+            "false false 1.0 2048 80 all/all 2 true true true false true true 48",
+            "false false 1.0 4096 40 all/all 2 true true true false true true 48",
+            "false false 1.0 4096 80 30/all 2 true true true false true true 48",
+            "false false 1.0 4096 80 all/50 2 true true true false true true 48",
+            "false false 1.0 4096 80 all/all 0 true true true false true true 48",
+            "false false 1.0 4096 80 all/all 2 false true false false true true 48",
+            "false false 1.0 4096 80 all/all 2 true false false false true true 48",
+            "false false 1.0 4096 80 all/all 2 true true true true true true 48",
+            "false false 1.0 4096 80 all/all 2 true true true false false true 48",
+            "false false 1.0 4096 80 all/all 2 true true true false true false 48",
         };
         for (int part = 0; part < Config.GRAPHICS.length; part++) {
             double[] values = Config.values(Quality.HIGH_PICTURE);

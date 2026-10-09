@@ -46,11 +46,11 @@ final class Config {
     record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, int splitScreen, Quality.Picture custom) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
-    static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "RainOnGlass",
-        "ShadingAndReflections", "FullSizeTextures", "FarTrees", "SurfaceDepth"};
+    static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "ZombiesAndPropsDrawDistance",
+        "ForwardDrivingDrawDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "FarTrees", "SurfaceDepth"};
     private static final int RENDER_SCALE = 2;
     static final float MIN_RENDER_SCALE = 0.5f;
-    static final int MIN_VIEW_DISTANCE = 32;
+    static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
     private final int fieldOfView, quality, style, frameBlending, splitScreen, secondPlayerPort;
@@ -193,17 +193,40 @@ final class Config {
                     writable | live, high.sharpShadows()),
             core.configLocalInt("Graphics", "ViewDistance",
                     "How far the first person view is built and drawn, in tiles, where the loaded map\n"
-                            + "reaches that far: 32 to 80. Low draws 48, Medium 64 and High 80.",
+                            + "reaches that far: 32 to 80. It is the land, the buildings and the plants, and as far\n"
+                            + "as anything is drawn. Low draws 48, Medium 64 and High 80.",
                     writable | live, high.viewDistance(), MIN_VIEW_DISTANCE, high.viewDistance()),
+            core.configLocalInt("Graphics", "ZombiesAndPropsDrawDistance",
+                    "How far off zombies, people, vehicles and the furniture, appliances and decor the mod\n"
+                            + "has models of are drawn in first person, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". It never reaches\n"
+                            + "past ViewDistance, which is how far the land and the buildings go: at ViewDistance or\n"
+                            + "over it they are drawn as far as the view goes. Lower, what stands further off is\n"
+                            + "left out, which costs less to draw. Low draws 48, Medium 64 and High 80, each its own\n"
+                            + "view distance. On a server where players can hurt each other it leaves nothing out.",
+                    writable | live, high.drawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
+            core.configLocalInt("Graphics", "ForwardDrivingDrawDistance",
+                    "ZombiesAndPropsDrawDistance ahead of a vehicle you ride in: how far off on the side\n"
+                            + "it faces zombies, people, vehicles and props are drawn, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". Never\n"
+                            + "past ViewDistance. Behind and beside the vehicle, and on foot,\n"
+                            + "ZombiesAndPropsDrawDistance is what counts. Low draws 48, Medium 64 and High 80. On a\n"
+                            + "server where players can hurt each other it leaves nothing out.",
+                    writable | live, high.drivingDrawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
             core.configLocalEnum("Graphics", "RainOnGlass",
                     "How much of the rain on the windows of your vehicle is drawn. Low: drops of one size.\n"
                             + "Medium: specks among them, and trickles down the panes no wiper reaches. High: three\n"
                             + "sizes of drop, and drops that run down and leave a line of wet behind them.",
                     writable | live, "Low,Medium,High", high.rainOnGlass()),
-            core.configLocalBool("Graphics", "ShadingAndReflections",
-                    "true: corners are shaded and lent the light of what stands near, the air is lit, and\n"
-                            + "wet roads, polished floors and glass mirror, as in High. false: none of these.",
+            core.configLocalBool("Graphics", "ShadingAndLight",
+                    "true: corners are shaded and lent the light of what stands near and the air is lit, as\n"
+                            + "in High, and with Reflections true wet roads, polished floors, glass and water mirror\n"
+                            + "the world. false: none of these, as in Low and Medium.",
                     writable | live, high.shadingAndLight()),
+            core.configLocalBool("Graphics", "Reflections",
+                    "true: the mirrors of a vehicle you sit in show the road behind, as in every mode, and\n"
+                            + "with ShadingAndLight true wet roads, polished floors, glass and water mirror the\n"
+                            + "world, as in High. false: nothing mirrors. A vehicle's mirrors are plain glass, and\n"
+                            + "the road behind is not drawn for them, which costs nothing.",
+                    writable | live, high.reflections()),
             core.configLocalBool("Graphics", "FullSizeTextures",
                     "true: the mod's pictures of surfaces, on walls and of skin are made at their full size,\n"
                             + "as in High. false: at half their width and height, a quarter of what they take on\n"
@@ -326,14 +349,15 @@ final class Config {
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
         return new double[] {bit(picture.stockLook()), bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
-            picture.viewDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.fullSizeTextures()), bit(picture.farTrees()),
-            bit(picture.surfaceDepth())};
+            picture.viewDistance(), picture.drawDistance(), picture.drivingDrawDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()),
+            bit(picture.reflections()), bit(picture.fullSizeTextures()), bit(picture.farTrees()), bit(picture.surfaceDepth())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS. */
     static Quality.Picture picture(double[] values) {
         return new Quality.Picture(values[0] != 0, values[1] != 0, (float) values[2], values[3] != 0, (int) Math.rint(values[4]),
-                (int) Math.rint(values[5]), values[6] != 0, values[7] != 0, values[8] != 0, values[9] != 0);
+                (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]), values[8] != 0, values[9] != 0,
+                values[10] != 0, values[11] != 0, values[12] != 0);
     }
 
     private static double bit(boolean on) {

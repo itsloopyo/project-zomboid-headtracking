@@ -7,7 +7,7 @@ import java.util.Locale;
  * is the whole picture. Medium and Low draw it with fewer pixels, shorter sight, smaller
  * shadow maps and without the passes that shade corners, light the air, mirror and give
  * surfaces depth, for a graphics card that cannot keep up with the whole of it. A vehicle's
- * mirror shows Low's picture in every mode. Automatic begins at High and steps
+ * mirror shows Low's picture in every mode where it shows one. Automatic begins at High and steps
  * down while the picture is being drawn slower than {@link #SLOWEST} frames a second. Custom
  * draws the picture the rows of [Graphics] describe, a row for each thing the other modes
  * decide (Config).
@@ -31,18 +31,22 @@ final class Quality {
      * @param renderScale      see scale
      * @param sharpShadows     shadow maps 4096 texels across, where they are otherwise 2048
      * @param viewDistance     see sight
+     * @param drawDistance     how far off people, zombies, vehicles and the furniture the mod has models of are drawn, in tiles: see DrawDistance
+     * @param drivingDrawDistance the same ahead of a vehicle the viewer rides in
      * @param rainOnGlass      see glassRain
      * @param shadingAndLight  see shadedAndLit
+     * @param reflections      see reflections and surfacesMirror
      * @param fullSizeTextures the opposite of smallerPictures
      * @param farTrees         see crownsToSight
      * @param surfaceDepth     see relief
      */
-    record Picture(boolean stockLook, boolean spritePlants, float renderScale, boolean sharpShadows, int viewDistance, int rainOnGlass,
-            boolean shadingAndLight, boolean fullSizeTextures, boolean farTrees, boolean surfaceDepth) {}
+    record Picture(boolean stockLook, boolean spritePlants, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
+            int drivingDrawDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean farTrees,
+            boolean surfaceDepth) {}
 
-    static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 0, false, false, false, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 1, false, false, false, false);
-    static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 2, true, true, true, true);
+    static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 48, 48, 0, false, true, false, false, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 64, 64, 1, false, true, false, false, false);
+    static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 80, 80, 2, true, true, true, true, true);
     /** Automatic at each level: the level's picture, still with everything the mod made. */
     private static final Picture[] AUTOMATIC_AT = {null, automatic(LOW_PICTURE), automatic(MEDIUM_PICTURE), HIGH_PICTURE};
 
@@ -107,15 +111,17 @@ final class Quality {
     }
 
     private static Picture automatic(Picture at) {
-        return new Picture(false, false, at.renderScale, at.sharpShadows, at.viewDistance, at.rainOnGlass, at.shadingAndLight,
-                at.fullSizeTextures, at.farTrees, at.surfaceDepth);
+        return new Picture(false, false, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance, at.drivingDrawDistance, at.rainOnGlass,
+                at.shadingAndLight, at.reflections, at.fullSizeTextures, at.farTrees, at.surfaceDepth);
     }
 
     static String described(Picture picture) {
-        return String.format(Locale.ROOT, "stock look %b, sprite plants %b, render scale %.2f, sharp shadows %b, view distance %d, rain on glass %d, "
-                        + "shading and light %b, full size textures %b, far trees %b, surface depth %b",
-                picture.stockLook, picture.spritePlants, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.rainOnGlass,
-                picture.shadingAndLight, picture.fullSizeTextures, picture.farTrees, picture.surfaceDepth);
+        return String.format(Locale.ROOT, "stock look %b, sprite plants %b, render scale %.2f, sharp shadows %b, view distance %d, "
+                        + "zombies and props draw distance %d, forward driving draw distance %d, rain on glass %d, shading and light %b, reflections %b, "
+                        + "full size textures %b, far trees %b, surface depth %b",
+                picture.stockLook, picture.spritePlants, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
+                picture.drivingDrawDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures, picture.farTrees,
+                picture.surfaceDepth);
     }
 
     /** The mode the hotkey goes to from the one the session is in: Low, Medium, High, Custom and round again. Automatic is only ever set in the file. */
@@ -249,9 +255,26 @@ final class Quality {
         return drawn.rainOnGlass;
     }
 
-    /** Whether corners are shaded and lent the light of what stands near, the air is lit, and wet roads, polished floors and glass mirror. */
+    /** Whether corners are shaded and lent the light of what stands near, and the air is lit. */
     static boolean shadedAndLit() {
         return drawn.shadingAndLight;
+    }
+
+    /**
+     * Whether anything mirrors at all. Without, a vehicle's mirrors are plain glass and their
+     * picture of the road behind is not drawn, and nothing else mirrors either.
+     */
+    static boolean reflections() {
+        return drawn.reflections;
+    }
+
+    /**
+     * Whether wet roads, polished floors, glass and water mirror the world, and a window shows
+     * the viewer in it. Only with the shading and light: Low and Medium draw neither and keep a
+     * vehicle's mirrors, and the one row covers both kinds of mirror.
+     */
+    static boolean surfacesMirror() {
+        return drawn.reflections && drawn.shadingAndLight;
     }
 
     /**

@@ -17,6 +17,9 @@ import zombie.vehicles.BaseVehicle;
  * And the game fades a zombie in as the viewer comes to see the square it stands on, which on
  * foot is a zombie made out of nothing a pace away as the viewer rounds a corner.
  *
+ * Neither is shown further off than the draw distance (DrawDistance), past which the game's own
+ * rules stand, and the picture draws none of them anyway.
+ *
  * Where players can fight, all of it is shown as the game shows it to everyone.
  */
 public final class FarModels {
@@ -28,6 +31,7 @@ public final class FarModels {
 
 
     private final Vector3f ahead = new Vector3f();
+    private final DrawDistance drawDistance = new DrawDistance();
     private final float[] faces = new float[2];
     /**
      * The cosine of how far round from the way the view faces a zombie is shown whole on foot:
@@ -114,11 +118,19 @@ public final class FarModels {
         IsoPlayer viewer = view.player();
         float toX = moving.getX() - viewer.getX(), toY = moving.getY() - viewer.getY();
         float reach = ChunkBuffers.drawnWithin(Quality.sight());
-        return toX * toX + toY * toY <= reach * reach;
+        if (toX * toX + toY * toY > reach * reach) {
+            return false;
+        }
+        BaseVehicle ride = viewer.getVehicle();
+        if (ride != null) {
+            ride.getForwardVector(ahead);
+        }
+        drawDistance.take(viewer.getX(), viewer.getY(), ride != null ? ahead.x : 0f, ride != null ? ahead.z : 0f, Online.contested());
+        return drawDistance.draws(moving.getX(), moving.getY());
     }
 
     /**
-     * Whether this stands within the picture's sight where the picture can come to show it.
+     * Whether this stands within the picture's sight and its draw distance where the picture can come to show it.
      * From a vehicle that is the side the vehicle faces: what is behind shows only in a mirror,
      * which takes in less than the game's own screen does. On foot it is all but what is
      * behind the view: see ROUND.

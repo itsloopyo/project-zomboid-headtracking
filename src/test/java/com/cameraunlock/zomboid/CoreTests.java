@@ -102,6 +102,7 @@ public final class CoreTests {
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
+        Checks.run("theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
     }
@@ -613,7 +614,8 @@ public final class CoreTests {
             ids.append(option.id).append(' ');
         }
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending SplitScreen StockLook SpritePlants "
-                        + "RenderScale SharpShadows ViewDistance RainOnGlass ShadingAndReflections FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
+                        + "RenderScale SharpShadows ViewDistance ZombiesAndPropsDrawDistance ForwardDrivingDrawDistance RainOnGlass ShadingAndLight Reflections "
+                        + "FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
@@ -771,6 +773,49 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(Quality.name().equals("Custom") && Quality.sight() == 60 && saved("Quality=Custom", "ViewDistance=60"),
                 "and the mode and a row edited together is Custom with the edit");
+    }
+
+    private static void theDrawDistancesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
+        inMode("High");
+        Tracking.graphicsToSay();
+        Screen screen = Screen.opened();
+        CameraUnlock.Option[] options = screen.described();
+        CameraUnlock.Option props = options[optionNamed(options, "ZombiesAndPropsDrawDistance")];
+        CameraUnlock.Option driving = options[optionNamed(options, "ForwardDrivingDrawDistance")];
+        CameraUnlock.Option reflections = options[optionNamed(options, "Reflections")];
+        check(props.kind == CameraUnlock.OPTION_INT && props.min == 16 && props.max == 80 && props.step == 1 && props.label.equals("Zombies and props draw distance")
+                        && props.comment.contains("ViewDistance") && driving.kind == CameraUnlock.OPTION_INT && driving.min == 16 && driving.max == 80
+                        && driving.label.equals("Forward driving draw distance") && reflections.kind == CameraUnlock.OPTION_BOOL
+                        && options[optionNamed(options, "ShadingAndLight")].label.equals("Shading and light"),
+                "the two draw distances are sliders of whole tiles from 16 to 80, named for what they draw, and reflections a tick box of its own");
+        check(screen.shows("ZombiesAndPropsDrawDistance") == 80 && screen.shows("ForwardDrivingDrawDistance") == 80 && screen.shows("Reflections") == 1
+                        && screen.shows("ShadingAndLight") == 1,
+                "in High the screen shows people and props drawn as far as the view goes, and reflections on");
+
+        screen.set("ZombiesAndPropsDrawDistance", 30);
+        screen.apply();
+        DrawDistance reach = new DrawDistance();
+        reach.take(0f, 0f, 0f, 0f, false);
+        check(Quality.name().equals("Custom") && Quality.drawn().drawDistance() == 30 && Quality.sight() == 80 && !reach.draws(31f, 0f) && reach.draws(30f, 0f),
+                "a draw distance applied there goes straight to Custom and draws people and props no further: " + Quality.described(Quality.drawn()));
+        check(Tracking.graphicsToSay() && saved("Quality=Custom", "ZombiesAndPropsDrawDistance=30", "ForwardDrivingDrawDistance=80", "ViewDistance=80"),
+                "said, and saved with the rest of Custom's rows");
+
+        Screen again = Screen.opened();
+        again.set("Reflections", 0);
+        again.apply();
+        check(Quality.name().equals("Custom") && !Quality.reflections() && !Quality.surfacesMirror() && Quality.shadedAndLit()
+                        && Quality.drawn().drawDistance() == 30 && saved("Reflections=false", "ShadingAndLight=true", "ZombiesAndPropsDrawDistance=30"),
+                "reflections ticked off there are off, apart from the shading and light, and saved");
+
+        inMode("Medium");
+        check(Quality.reflections() && Quality.drawn().drawDistance() == 64, "Medium draws its own: its vehicle mirrors, and people and props to its view's end");
+        Tracking.graphicsToSay();
+        edit(text().replace("ForwardDrivingDrawDistance=80", "ForwardDrivingDrawDistance=40"));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Custom") && Quality.drawn().drivingDrawDistance() == 40 && !Quality.reflections(),
+                "the forward driving distance edited in the file goes to Custom with it, the rest as Custom left them");
+        check(saved("Quality=Custom", "ForwardDrivingDrawDistance=40") && Tracking.graphicsToSay(), "saved, and said");
     }
 
     /**

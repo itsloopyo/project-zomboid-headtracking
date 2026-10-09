@@ -1312,7 +1312,7 @@ public final class Characters {
                 continue;
             }
             float toX = data.x - eyeX, toY = data.y - eyeY;
-            if (toX * toX + toY * toY > reach * reach) {
+            if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(data.x, data.y)) {
                 continue;
             }
             if (map != null && outside(map, data)) {

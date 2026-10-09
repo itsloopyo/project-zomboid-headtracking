@@ -1830,6 +1830,8 @@ final class WorldScene {
         private float fogEnd;
         /** The middle of the map the game has loaded, and how far from it the map reaches every way, in tiles. */
         private float loadedX, loadedY, loadedWithin;
+        /** How far from the eye people, zombies, vehicles and furniture are drawn, from the eye's frame: see DrawDistance. */
+        private final DrawDistance drawDistance = new DrawDistance();
         /** How much light the eye lets in this frame: see adaptEye. */
         private float exposure;
         private IsoPlayer viewer;
@@ -2175,7 +2177,7 @@ final class WorldScene {
             // No build reads the rooms' light where a room is shown only as the game shows it.
             goesBy = sum(sum(sum(goesBy, asTheGameShows ? 1 : 0), asTheGameShows ? 0 : Float.floatToRawIntBits(roomShare)), asTheGameShows ? 0 : Float.floatToRawIntBits(lampLevel));
             glass.found = false;
-            if (!fromOutside && !seated && drawnAspect > 0f && Quality.shadedAndLit()) {
+            if (!fromOutside && !seated && drawnAspect > 0f && Quality.surfacesMirror()) {
                 OwnReflection.find(cell, player, terrain, pose, tanHalfFieldOfView * drawnAspect, glass);
             }
             IsoChunkMap map = cell.getChunkMap(playerIndex);
@@ -2311,12 +2313,13 @@ final class WorldScene {
             loadedX = map.getWorldXMinTiles() + loadedWithin;
             loadedY = map.getWorldYMinTiles() + loadedWithin;
             fogEnd = Quality.sight();
+            drawDistance.take(pose.eyeX, pose.eyeY, seated ? view.ride.aheadX : 0f, seated ? view.ride.aheadY : 0f, Online.contested());
             if (!fromOutside) {
                 farLand.tend(pose.eyeX, pose.eyeY);
             }
             float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
-            boolean mirrored = !fromOutside && seated && Cabins.wheel(view.ride) != null;
+            boolean mirrored = !fromOutside && seated && Quality.reflections() && Cabins.wheel(view.ride) != null;
             float behindX = -view.ride.aheadX, behindY = -view.ride.aheadY;
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
             float forwardX = cosCone > -1f ? pose.forwardX / flat : 0f, forwardY = cosCone > -1f ? pose.forwardY / flat : 0f;
@@ -5069,6 +5072,7 @@ final class WorldScene {
             placed.add(model, frame, x, y, x + awningAt[0], y + awningAt[1], foot, hung.turns, Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE,
                     texture.getID(), 1 << Models.CLOTH, SpriteGeometry.textureU(frame, hung.firstA, hung.firstB), SpriteGeometry.textureV(frame, hung.firstA, hung.firstB, hung.dyeHigh),
                     1 << Models.LINEN, SpriteGeometry.textureU(frame, hung.secondA, hung.secondB), SpriteGeometry.textureV(frame, hung.secondA, hung.secondB, hung.dyeHigh));
+            placed.built();
             furnished++;
             return true;
         }
@@ -5134,6 +5138,7 @@ final class WorldScene {
             placed.add(Models.get(Hoods.modelOf(squares, x, y)), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
                     Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, texture.getID(), 1 << Models.PAINT,
                     SpriteGeometry.textureU(frame, dye[0], dye[1]), SpriteGeometry.textureV(frame, dye[0], dye[1], Hoods.DYE_HIGH), 0, 0f, 0f);
+            placed.built();
             furnished++;
             return true;
         }
@@ -5181,6 +5186,7 @@ final class WorldScene {
                 towerLight.open = frame.open;
                 placed.add(Models.get(section.model()), towerLight, x, y, centreX, centreY, foot, section.turns(), Furniture.TILES_PER_METRE,
                         Furniture.TILES_PER_METRE, 0, 0, 0f, 0f, 0, 0f, 0f);
+                placed.built();
                 furnished++;
             }
             return dealt;
@@ -5463,6 +5469,11 @@ final class WorldScene {
             view.pipeline.focusX = camera.eyeX;
             view.pipeline.focusY = camera.eyeY;
             view.pipeline.focusUp = camera.eyeUp;
+            if (outside) {
+                view.pipeline.drawDistance.whole();
+            } else {
+                view.pipeline.drawDistance.copy(drawDistance);
+            }
             if (waterShown) {
                 WaterMirror.plane(terrain, camera.eyeX, camera.eyeY, waterPlane);
             }

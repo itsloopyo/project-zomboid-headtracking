@@ -174,6 +174,7 @@ public final class Tests {
         Checks.run("SignRunTests", SignRunTests::run);
         Checks.run("WallObjectTests", WallObjectTests::run);
         Checks.run("QualityTests", QualityTests::run);
+        Checks.run("DrawDistanceTests", DrawDistanceTests::run);
         Checks.run("StyleTests", StyleTests::run);
         Checks.run("GameFixTests", GameFixTests::run);
         Checks.run("MarkTests", MarkTests::run);
@@ -1057,6 +1058,9 @@ public final class Tests {
         check(pieces.plain(0, least + 0.01f, pixel), "and from further off, where it does not, plain");
         check(!pieces.plain(0, -1f, pixel), "a piece the eye is inside of is drawn whole");
         check(whole[Models.Instances.TEXTURE] == 77, "and which texture dyes it");
+        check(whole[Models.Instances.BUILT] == 0, "it is drawn as far as props are");
+        pieces.built();
+        check(whole[Models.Instances.BUILT] == 1, "and once said to be part of a building, as far as the buildings are");
         check(near(f[Models.Instances.PLACE], 10f) && near(f[Models.Instances.PLACE + 1], 20f), "it is lit by the square it was stood on");
         check(near(f[Models.Instances.PLACE + 2], 0.5f) && near(f[Models.Instances.PLACE + 3], 0.25f), "it keeps its size along the ground and its size up apart");
         check(near(f[Models.Instances.FOOT], 0.5f) && near(f[Models.Instances.FOOT + 1], 0.5f) && near(f[Models.Instances.FOOT + 2], 2.5f),
@@ -1081,6 +1085,8 @@ public final class Tests {
                 "a piece that takes no dye names no texture");
         check(near(f[21 * Models.Instances.FLOATS + Models.Instances.PLACE], 19f) && whole[21 * Models.Instances.INTS + Models.Instances.FIRST] == 9,
                 "the last is where the last was put");
+        check(whole[Models.Instances.BUILT] == 1 && whole[Models.Instances.INTS + Models.Instances.BUILT] == 0 && whole[21 * Models.Instances.INTS + Models.Instances.BUILT] == 0,
+                "the first is still part of a building, and none stood after it is");
         pieces.clear();
         check(pieces.count == 0 && pieces.triangles() == 0, "a chunk built again starts with none");
     }

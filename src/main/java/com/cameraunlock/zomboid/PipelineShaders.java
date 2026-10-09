@@ -3913,6 +3913,8 @@ final class PipelineShaders {
             uniform sampler2D uWood;
             uniform float uWoodGain;
             uniform sampler2D uBehind;
+            // 0 with the Reflections row off: the picture behind is not drawn, and a mirror is plain glass.
+            uniform float uBehindShown;
             uniform vec3 uGauges;
             uniform sampler2D uVinyl;
             uniform sampler2D uCloth;
@@ -4519,6 +4521,10 @@ final class PipelineShaders {
             // What the picture of the world behind the vehicle shows at a place in it, and
             // the sky where the world stops.
             vec3 behindAt(vec2 on) {
+                if (uBehindShown < 0.5) {
+                    // One even sheen of the sky behind, faint: what is left of a mirror with nothing in it.
+                    return atmosphere(normalize(fromCabin(vec3(-1.0, 0.0, 0.25)))) * 0.3;
+                }
                 vec3 seen = texture2D(uBehind, on).rgb;
                 if (seen.r < -0.5) {
                     seen = atmosphere(normalize(fromCabin(vec3(-1.0, (0.5 - on.x) * 0.6, (on.y - 0.5) * 0.17 + 0.02))));
