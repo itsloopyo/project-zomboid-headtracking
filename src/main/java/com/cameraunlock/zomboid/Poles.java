@@ -70,6 +70,32 @@ final class Poles {
         return false;
     }
 
+    /** The map as a pole's lengths are found on it: the sprite of the length of pole drawn on a square of a level, or null. */
+    interface Drawn {
+        String on(int x, int y, int z);
+    }
+
+    /**
+     * Whether the length of pole drawn on a square stands a level lower and Spans.LEVEL_SQUARES
+     * back along x and y, where the game's view draws it on the same place: on the top of a
+     * pole there, with nothing of its own under it. The map's artists put some poles' tops so.
+     * No level is lower than lowest.
+     */
+    static boolean drawnUp(Drawn map, int x, int y, int z, int lowest) {
+        int back = Spans.LEVEL_SQUARES;
+        return z - 2 >= lowest && map.on(x, y, z) != null && map.on(x, y, z - 1) == null && map.on(x - back, y - back, z - 2) != null
+                && map.on(x - back, y - back, z - 1) == null;
+    }
+
+    /** The sprite of the length of pole that stands on a square of a level, wherever it is drawn, or null. */
+    static String standsOn(Drawn map, int x, int y, int z, int lowest) {
+        int on = Spans.LEVEL_SQUARES;
+        if (drawnUp(map, x + on, y + on, z + 1, lowest)) {
+            return map.on(x + on, y + on, z + 1);
+        }
+        return drawnUp(map, x, y, z, lowest) ? null : map.on(x, y, z);
+    }
+
     /** Which sprite of the sheet a name is, or -1 for one of another sheet. */
     static int index(String name) {
         return name == null ? -1 : Sheets.place(name, SHEET);

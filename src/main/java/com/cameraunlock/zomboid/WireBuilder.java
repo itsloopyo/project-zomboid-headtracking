@@ -21,16 +21,11 @@ final class WireBuilder {
 
     private final Spans spans = new Spans(new Spans.Hung() {
         @Override
-        public int lines(int x, int y, float[] out) {
-            int gridX = Math.floorDiv(x, WorldScene.CHUNK_TILES) - world.mapWx, gridY = Math.floorDiv(y, WorldScene.CHUNK_TILES) - world.mapWy;
-            if (gridX < 0 || gridY < 0 || gridX >= world.mapSide || gridY >= world.mapSide) {
+        public int lines(int x, int y, int z, float[] out) {
+            if (!loaded(x, y)) {
                 return -1;
             }
-            IsoChunk hungIn = world.chunkMap.getChunk(gridX, gridY);
-            if (hungIn == null || !hungIn.loaded) {
-                return -1;
-            }
-            IsoGridSquare square = build.cell.getGridSquare(x, y, build.hungOn);
+            IsoGridSquare square = build.cell.getGridSquare(x, y, z);
             // As a build takes a sprite for wire: one hung on a square of air.
             if (square == null || square.getFloor() != null) {
                 return 0;
@@ -62,9 +57,12 @@ final class WireBuilder {
         }
 
         @Override
-        public int pins(int x, int y, float[] out, int at) {
-            Poles.Arm arm = Poles.arm(poleOn(x, y, build.hungOn));
-            Posts shaft = arm == null ? null : shaftOf(x, y, build.hungOn);
+        public int pins(int x, int y, int z, float[] out, int at) {
+            if (!loaded(x, y) || !loaded(x + Spans.LEVEL_SQUARES, y + Spans.LEVEL_SQUARES)) {
+                return -1;
+            }
+            Poles.Arm arm = Poles.arm(standsOn(x, y, z));
+            Posts shaft = arm == null ? null : shaftOf(x, y, z);
             if (shaft == null) {
                 return 0;
             }
@@ -79,7 +77,8 @@ final class WireBuilder {
             return Spans.POLE_PINS;
         }
     });
-    private final float[] poleFrom = new float[3], poleTo = new float[3];
+    private final float[] poleFrom = new float[3], poleTo = new float[3], wirePlace = new float[3];
+    private final Poles.Drawn drawn = this::poleOn;
 
     WireBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -102,8 +101,7 @@ final class WireBuilder {
             long key = square | i / 4;
             float[] pieces = world.strung.get(key);
             if (pieces == null) {
-                build.hungOn = z;
-                pieces = spans.find(x, y, x + lines[i], y + lines[i + 1], x + lines[i + 2], y + lines[i + 3]);
+                pieces = spans.find(x, y, z, x + lines[i], y + lines[i + 1], x + lines[i + 2], y + lines[i + 3]);
                 world.strung.put(key, pieces);
                 if (FirstPerson.TRACE) {
                     Log.info("wire span: " + x + "," + y + "," + z + " " + name + " line " + i / 4 + " " + Arrays.toString(pieces) + " eye "
@@ -111,14 +109,16 @@ final class WireBuilder {
                 }
             }
             build.wantsMap |= Spans.wanting(pieces);
-            float held = (z + Wires.UP) * ViewCamera.LEVEL_HEIGHT;
             for (int piece = 0; piece < pieces.length; piece += Spans.PIECE) {
                 int from = piece + Spans.FROM, to = piece + Spans.TO;
-                float fromUp = held + build.landAt(pieces[from + Spans.END_LAND], pieces[from + Spans.END_LAND + 1]);
-                float toUp = held + build.landAt(pieces[to + Spans.END_LAND], pieces[to + Spans.END_LAND + 1]);
+                float levelHigh = ViewCamera.LEVEL_HEIGHT;
+                float fromUp = (pieces[from + Spans.END_LEVEL] + Wires.UP) * levelHigh + build.landAt(pieces[from + Spans.END_LAND], pieces[from + Spans.END_LAND + 1]);
+                float toUp = (pieces[to + Spans.END_LEVEL] + Wires.UP) * levelHigh + build.landAt(pieces[to + Spans.END_LAND], pieces[to + Spans.END_LAND + 1]);
                 float sag = Spans.sag(Spans.span(pieces, piece));
                 for (int end = 0; end < 2; end++) {
-                    float endX = pieces[piece + end * 2], endY = pieces[piece + end * 2 + 1], along = Spans.along(pieces, piece, endX, endY);
+                    float drawnX = pieces[piece + end * 2], drawnY = pieces[piece + end * 2 + 1], along = Spans.along(pieces, piece, drawnX, drawnY);
+                    Spans.placed(pieces, piece, drawnX, drawnY, wirePlace);
+                    float endX = wirePlace[0], endY = wirePlace[1];
                     float straight = fromUp + (toUp - fromUp) * along;
                     float up = Math.max(straight - Spans.hangs(along, sag), build.landAt(endX, endY) + Spans.CLEAR);
                     WorldScene.set(build.wireEnds, end, endX, endY, up);
@@ -143,9 +143,27 @@ final class WireBuilder {
         return lines;
     }
 
+    /** Whether the chunk a square is in is loaded. */
+    private boolean loaded(int x, int y) {
+        int gridX = Math.floorDiv(x, WorldScene.CHUNK_TILES) - world.mapWx, gridY = Math.floorDiv(y, WorldScene.CHUNK_TILES) - world.mapWy;
+        if (gridX < 0 || gridY < 0 || gridX >= world.mapSide || gridY >= world.mapSide) {
+            return false;
+        }
+        IsoChunk chunk = world.chunkMap.getChunk(gridX, gridY);
+        return chunk != null && chunk.loaded;
+    }
+
+    private boolean drawnUp(int x, int y, int z) {
+        return Poles.drawnUp(drawn, x, y, z, build.lowestLevel);
+    }
+
+    private String standsOn(int x, int y, int z) {
+        return Poles.standsOn(drawn, x, y, z, build.lowestLevel);
+    }
+
     /** The shaft of the pole that has a length on a square, as Posts reads the lowest of its lengths, or null. */
     private Posts shaftOf(int x, int y, int z) {
-        while (z > build.lowestLevel && poleOn(x, y, z - 1) != null) {
+        while (z > build.lowestLevel && standsOn(x, y, z - 1) != null) {
             z--;
         }
         PZArrayList<IsoObject> objects = build.cell.getGridSquare(x, y, z).getObjects();
@@ -183,7 +201,13 @@ final class WireBuilder {
      * land as the wires are hung, so that they meet it. See Poles.
      */
     boolean addPole(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
-        if (z > build.lowestLevel && poleOn(x, y, z - 1) != null) {
+        // Where the length is drawn may be a level off where it stands: what is drawn on the map not yet loaded may tell.
+        int other = Spans.LEVEL_SQUARES;
+        build.wantsMap |= !loaded(x - other, y - other) || !loaded(x + other, y + other);
+        if (drawnUp(x, y, z)) {
+            return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
+        }
+        if (z > build.lowestLevel && standsOn(x, y, z - 1) != null) {
             // Its foot has built it, unless its foot is a sprite Posts cannot read: then each length is left to stand as it did.
             return shaftOf(x, y, z) != null;
         }
@@ -193,7 +217,7 @@ final class WireBuilder {
         }
         int top = z;
         String highest = sprite.getName();
-        for (String above = poleOn(x, y, top + 1); above != null; above = poleOn(x, y, top + 1)) {
+        for (String above = standsOn(x, y, top + 1); above != null; above = standsOn(x, y, top + 1)) {
             top++;
             highest = above;
         }

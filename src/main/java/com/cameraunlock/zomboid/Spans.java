@@ -17,6 +17,17 @@ import java.util.Arrays;
  * artists stopped drawing it, and then the wire is held where it stops. Or the map may not be
  * loaded as far as the next pole: then a pole is taken to stand as far off as poles mostly do,
  * so that the wire hangs much as it will when the map has come in.
+ *
+ * The game's view cannot tell a thing on one level from the same thing three squares further
+ * along x and y on the level above: both are drawn on the same place on the screen. The map's
+ * artists drew some runs of wire on the level over or under that of the poles they run to, some
+ * on two levels by turns, and some between a pole that stands on higher ground and one that
+ * does not, and they left a square out of some runs, or stopped them a square short of the arm
+ * they point at, where the arm hides the gap. So a run is followed through what is drawn on the
+ * levels either side as well and to the insulators of poles on them, a wire goes from the level
+ * of the insulator at one end to that of the other, moving with the level as the view would
+ * draw it, a square left out is passed over, and a run that stops short of an insulator it
+ * points at is made fast to it.
  */
 final class Spans {
     /** A wire hangs lower in the middle of its span than at its ends by this share of the span's length. */
@@ -39,33 +50,53 @@ final class Spans {
     static final float OFF_LINE = 0.15f;
     /** The next length of a wire starts no further on than this from where the last ended, and reaches at least this much further, in tiles. */
     private static final float GAP = 0.3f, FURTHER = 0.05f;
+    /**
+     * Where the map's artists left a square of a run out, in tiles: the next length starts no
+     * further on than this, a square along a diagonal and a little. The gaps measured on the map
+     * are 0.96 along x and y and 1.07 to 1.4 along the diagonals.
+     */
+    static final float BRIDGE = 1.45f;
     /** Two lengths run the same way when the sine of the angle between them is under this. */
     private static final float SAME_WAY = 0.17f;
     /** An end of a span: made fast to an insulator, loose where the wire stops, or not known because the map is not loaded that far. */
     static final int FAST = 0, LOOSE = 1, WANTING = 2;
+    /**
+     * A run's last length that stops short of an insulator ahead of it, no further on than
+     * REACH and no further off its line than AIM, in tiles, is made fast to it. The furthest
+     * measured on the map: a run along the diagonal that stops 1.38 short of the arm along x
+     * it meets. The insulators of one arm are no nearer each other than 0.36.
+     */
+    static final float REACH = 1.5f, AIM = 0.3f;
+    /** A sprite is drawn on the same place on the screen as one this many squares further along both x and y on the level above. */
+    static final int LEVEL_SQUARES = 3;
     /** How far round a length's square the poles are looked for whose insulators it may reach, in squares: an arm's end is a square from its pole and a length's end half a square outside its own. */
     private static final int POLES_WITHIN = 2;
     /**
-     * Numbers a piece of wire is given by. Where its two ends are on the map, then for each
-     * end of its span: where it is, where the land's height is taken that it stands over, and
-     * which kind of end it is.
+     * Numbers a piece of wire is given by. Where its two ends are drawn on the level it is
+     * followed on, then for each end of its span: where it is drawn on that level, where the
+     * land's height is taken that it stands over, which kind of end it is and the level it is
+     * on. Last, the level it is followed on. Every place is drawn on that level but the land's.
      */
-    static final int PIECE = 14, FROM = 4, TO = 9, END_LAND = 2, END_KIND = 4;
+    static final int PIECE = 17, FROM = 4, TO = 10, END_LAND = 2, END_KIND = 4, END_LEVEL = 5, LEVEL = 16;
+    /** Numbers a pin is given by in pins: where it is drawn on the level followed, where its pole's axis is, and the level it is on. */
+    private static final int PIN = 5;
 
-    /** The map as the spans are found on it, on the one level a run hangs on. */
+    /** The map as the spans are found on it. */
     interface Hung {
         /**
-         * The lengths of wire the sprites on a square show, into out: four numbers each, the
-         * two ends on the map. How many numbers, or -1 for a square the map has not loaded. A
-         * count past the end of out is how many there are, of which only what fits was written.
+         * The lengths of wire the sprites on a square of a level show, into out: four numbers
+         * each, the two ends on the map. How many numbers, or -1 for a square the map has not
+         * loaded. A count past the end of out is how many there are, of which only what fits
+         * was written.
          */
-        int lines(int x, int y, float[] out);
+        int lines(int x, int y, int z, float[] out);
 
         /**
-         * The insulators of the pole whose top is on a square, into out from the place at:
-         * four numbers each, where it stands and where the pole's axis is. How many numbers.
+         * The insulators of the pole whose top stands on a square of a level, into out from the
+         * place at: four numbers each, where it stands and where the pole's axis is. How many
+         * numbers, or -1 for a square the map has not loaded.
          */
-        int pins(int x, int y, float[] out, int at);
+        int pins(int x, int y, int z, float[] out, int at);
     }
 
     /** The numbers the lines of one square usually come to, and the pins of one pole. */
@@ -73,13 +104,30 @@ final class Spans {
 
     private final Hung map;
     /** Grown when a square, stacked with wire by a map, shows more than it holds. */
-    private float[] lines = new float[MOST_LINES];
-    private final float[] pins = new float[(2 * POLES_WITHIN + 1) * (2 * POLES_WITHIN + 1) * POLE_PINS];
-    private final float[] own = new float[pins.length], end = new float[5];
+    private float[] lines = new float[3 * MOST_LINES], part = new float[MOST_LINES];
+    private final float[] pins = new float[3 * (2 * POLES_WITHIN + 1) * (2 * POLES_WITHIN + 1) * POLE_PINS / 4 * PIN];
+    private final float[] own = new float[pins.length], end = new float[END_LEVEL + 1], pole = new float[POLE_PINS];
     /** What touch found: the pin each end of a length is made fast to, or -1, and those it passes over between them, in the order it passes them. */
     private int first, last, passed;
-    private final int[] cuts = new int[pins.length / 4];
-    private final float[] cutsAlong = new float[pins.length / 4];
+    private final int[] cuts = new int[pins.length / PIN];
+    private final float[] cutsAlong = new float[pins.length / PIN];
+    /** The level the length being hung is followed on. */
+    private int level;
+    /**
+     * Whether a pole the length may reach stands on map that is not loaded, and whether follow
+     * made the end it came to fast to an insulator ahead of the length it began from, with no
+     * other length between.
+     */
+    private boolean unsure, reached;
+    /** Whether follow went on over a square left out of the run from the length it began from, and where the length it went on to starts. */
+    private boolean bridged;
+    private float bridgedX, bridgedY;
+    /** What nextLength found: the next length's ends and square, and whether a square it looked at is not loaded. */
+    private float nextFromX, nextFromY, nextToX, nextToY;
+    private int nextX, nextY;
+    private boolean unloaded;
+    /** Whether a pole by the length's own square stands on map that is not loaded: each end followed starts as unsure as that. */
+    private boolean ownUnsure;
 
     Spans(Hung map) {
         this.map = map;
@@ -107,10 +155,25 @@ final class Spans {
         return span < 1e-4f ? 0f : Math.clamp(((x - pieces[piece + FROM]) * spanX + (y - pieces[piece + FROM + 1]) * spanY) / span, 0f, 1f);
     }
 
-    /** The length of the span of a piece over the map, in tiles. */
+    /** The length of the span of a piece over the map, in tiles, from where its ends are, each on its own level. */
     static float span(float[] pieces, int piece) {
-        float spanX = pieces[piece + TO] - pieces[piece + FROM], spanY = pieces[piece + TO + 1] - pieces[piece + FROM + 1];
+        float level = pieces[piece + LEVEL];
+        float fromBack = LEVEL_SQUARES * (level - pieces[piece + FROM + END_LEVEL]), toBack = LEVEL_SQUARES * (level - pieces[piece + TO + END_LEVEL]);
+        float spanX = pieces[piece + TO] - toBack - (pieces[piece + FROM] - fromBack), spanY = pieces[piece + TO + 1] - toBack - (pieces[piece + FROM + 1] - fromBack);
         return (float) Math.sqrt(spanX * spanX + spanY * spanY);
+    }
+
+    /**
+     * Where a point of a piece drawn at (x, y) on the level it is followed on is, into out:
+     * where on the map and on which level, a fraction between the levels of its span's two
+     * ends by how far along the span it is. The view draws it on the same place.
+     */
+    static void placed(float[] pieces, int piece, float x, float y, float[] out) {
+        float along = along(pieces, piece, x, y), from = pieces[piece + FROM + END_LEVEL];
+        float level = from + (pieces[piece + TO + END_LEVEL] - from) * along, back = LEVEL_SQUARES * (pieces[piece + LEVEL] - level);
+        out[0] = x - back;
+        out[1] = y - back;
+        out[2] = level;
     }
 
     /**
@@ -151,15 +214,18 @@ final class Spans {
     }
 
     /**
-     * The pieces a length of wire on a square is hung as, PIECE numbers each: one, or more
-     * where it passes over an insulator between its ends, which holds it there, and none for
-     * a length that is all within reach of one insulator.
+     * The pieces a length of wire on a square of a level is hung as, PIECE numbers each: one,
+     * or more where it passes over an insulator between its ends, which holds it there, and
+     * none for a length that is all within reach of one insulator.
      */
-    float[] find(int x, int y, float x0, float y0, float x1, float y1) {
+    float[] find(int x, int y, int z, float x0, float y0, float x1, float y1) {
+        level = z;
+        unsure = false;
         float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
         float wayX = (x1 - x0) / length, wayY = (y1 - y0) / length;
         // Kept apart: following the wire on from an end reads the pins of other squares over these.
         int found = pinsRound(x, y);
+        ownUnsure = unsure;
         System.arraycopy(pins, 0, own, 0, found);
         touch(own, found, x0, y0, x1, y1);
         int[] held = new int[passed + 2];
@@ -180,23 +246,106 @@ final class Spans {
             pieces[piece + 1] = fromY;
             pieces[piece + 2] = toX;
             pieces[piece + 3] = toY;
+            pieces[piece + LEVEL] = z;
+            pieces[piece + FROM + END_LEVEL] = z;
+            pieces[piece + TO + END_LEVEL] = z;
             end(pieces, piece + FROM, from, fromX, fromY, -wayX, -wayY);
+            if (reached) {
+                pieces[piece] = pieces[piece + FROM];
+                pieces[piece + 1] = pieces[piece + FROM + 1];
+            } else if (bridged) {
+                pieces[piece] = bridgedX;
+                pieces[piece + 1] = bridgedY;
+            }
             end(pieces, piece + TO, to, toX, toY, wayX, wayY);
+            if (reached) {
+                pieces[piece + 2] = pieces[piece + TO];
+                pieces[piece + 3] = pieces[piece + TO + 1];
+            } else if (bridged) {
+                pieces[piece + 2] = bridgedX;
+                pieces[piece + 3] = bridgedY;
+            }
             guess(pieces, piece + FROM, piece + TO);
             guess(pieces, piece + TO, piece + FROM);
         }
         return pieces;
     }
 
-    /** Fills pins with the insulators of every pole near a square, and says how many numbers that is. */
+    /**
+     * Fills pins with the insulators of every pole drawn near a square, on the level followed
+     * and on those either side, each where it is drawn on the level followed, and says how many
+     * numbers that is. A pole the map has not loaded leaves the length unsure.
+     */
     private int pinsRound(int x, int y) {
         int found = 0;
-        for (int poleY = y - POLES_WITHIN; poleY <= y + POLES_WITHIN; poleY++) {
-            for (int poleX = x - POLES_WITHIN; poleX <= x + POLES_WITHIN; poleX++) {
-                found += map.pins(poleX, poleY, pins, found);
+        for (int up = -1; up <= 1; up++) {
+            int squares = LEVEL_SQUARES * up;
+            for (int poleY = y - POLES_WITHIN; poleY <= y + POLES_WITHIN; poleY++) {
+                for (int poleX = x - POLES_WITHIN; poleX <= x + POLES_WITHIN; poleX++) {
+                    int count = map.pins(poleX + squares, poleY + squares, level + up, pole, 0);
+                    if (count < 0) {
+                        unsure = true;
+                        continue;
+                    }
+                    for (int pin = 0; pin < count; pin += 4, found += PIN) {
+                        pins[found] = pole[pin] - squares;
+                        pins[found + 1] = pole[pin + 1] - squares;
+                        pins[found + 2] = pole[pin + 2];
+                        pins[found + 3] = pole[pin + 3];
+                        pins[found + 4] = level + up;
+                    }
+                }
             }
         }
         return found;
+    }
+
+    /**
+     * The lengths of wire that cross a square of the level, into lines: those drawn on it, and
+     * those drawn on the squares that take the same place on the screen on the levels over and
+     * under it, moved onto it. How many numbers, or -1 where the map is not loaded on the
+     * level. What the map has not loaded on the levels either side leaves the length unsure.
+     */
+    private int column(int x, int y) {
+        int count = 0;
+        for (int up = -1; up <= 1; up++) {
+            int squareX = x + LEVEL_SQUARES * up, squareY = y + LEVEL_SQUARES * up;
+            int found = map.lines(squareX, squareY, level + up, part);
+            if (found > part.length) {
+                part = new float[found];
+                found = map.lines(squareX, squareY, level + up, part);
+            }
+            if (found < 0 && up == 0) {
+                return -1;
+            }
+            if (found < 0) {
+                unsure = true;
+                continue;
+            }
+            if (count + found > lines.length) {
+                lines = Arrays.copyOf(lines, count + found);
+            }
+            for (int i = 0; i < found; i++) {
+                lines[count + i] = part[i] - LEVEL_SQUARES * up;
+            }
+            count += found;
+        }
+        return count;
+    }
+
+    /** Which of some pins a wire that stops at (x, y), running the way (wayX, wayY), points at: the one ahead within REACH nearest its line within AIM, or -1. */
+    private static int aimedAt(float[] from, int found, float x, float y, float wayX, float wayY) {
+        float nearest = AIM;
+        int which = -1;
+        for (int pin = 0; pin < found; pin += PIN) {
+            float awayX = from[pin] - x, awayY = from[pin + 1] - y;
+            float along = awayX * wayX + awayY * wayY, off = Math.abs(awayX * wayY - awayY * wayX);
+            if (along > 0f && along <= REACH && off < nearest) {
+                nearest = off;
+                which = pin;
+            }
+        }
+        return which;
     }
 
     /**
@@ -211,7 +360,7 @@ final class Spans {
         first = nearest(from, found, x0, y0);
         last = nearest(from, found, x1, y1);
         passed = 0;
-        for (int pin = 0; pin < found; pin += 4) {
+        for (int pin = 0; pin < found; pin += PIN) {
             float along = (from[pin] - x0) * wayX + (from[pin + 1] - y0) * wayY, off = Math.abs((from[pin] - x0) * wayY - (from[pin + 1] - y0) * wayX);
             if (pin == first || pin == last || along <= 0f || along >= length || off >= OFF_LINE) {
                 continue;
@@ -231,7 +380,7 @@ final class Spans {
     private static int nearest(float[] from, int found, float x, float y) {
         float nearest = Poles.MADE_FAST * Poles.MADE_FAST;
         int which = -1;
-        for (int pin = 0; pin < found; pin += 4) {
+        for (int pin = 0; pin < found; pin += PIN) {
             float awayX = from[pin] - x, awayY = from[pin + 1] - y, away = awayX * awayX + awayY * awayY;
             if (away < nearest) {
                 nearest = away;
@@ -243,9 +392,11 @@ final class Spans {
 
     /** Writes one end of a piece's span: the pin it is made fast to, or what following the wire on from (x, y) comes to. */
     private void end(float[] pieces, int at, int pin, float x, float y, float wayX, float wayY) {
+        reached = false;
+        bridged = false;
         if (pin < 0) {
             follow(x, y, wayX, wayY);
-            System.arraycopy(end, 0, pieces, at, 5);
+            System.arraycopy(end, 0, pieces, at, end.length);
             return;
         }
         pieces[at] = own[pin];
@@ -253,6 +404,7 @@ final class Spans {
         pieces[at + END_LAND] = own[pin + 2];
         pieces[at + END_LAND + 1] = own[pin + 3];
         pieces[at + END_KIND] = FAST;
+        pieces[at + END_LEVEL] = own[pin + 4];
     }
 
     /**
@@ -272,73 +424,106 @@ final class Spans {
 
     /**
      * Follows a wire on from where a length of it ends, the way it runs, into end: where its
-     * span ends that way, where the land is taken there and which kind of end it is.
+     * span ends that way, where the land is taken there and which kind of end it is. Where no
+     * length goes on, the run's last length is made fast to an insulator it points at, and is
+     * otherwise loose, or wanting where the map, or a pole it might reach, is not loaded.
      */
     private void follow(float fromX, float fromY, float wayX, float wayY) {
         float atX = fromX, atY = fromY;
+        boolean walked = false;
+        unsure = ownUnsure;
         while (true) {
-            int middleX = (int) Math.floor(atX + wayX * 0.5f), middleY = (int) Math.floor(atY + wayY * 0.5f);
-            boolean unloaded = false, next = false;
-            float nearest = OFF_LINE, nextFromX = 0f, nextFromY = 0f, nextToX = 0f, nextToY = 0f;
-            int nextX = 0, nextY = 0;
-            for (int beside = 0; beside < 9; beside++) {
-                int squareX = middleX + beside % 3 - 1, squareY = middleY + beside / 3 - 1;
-                int count = map.lines(squareX, squareY, lines);
-                if (count > lines.length) {
-                    lines = new float[count];
-                    count = map.lines(squareX, squareY, lines);
-                }
-                if (count < 0) {
-                    unloaded = true;
-                    continue;
-                }
-                for (int line = 0; line < count; line += 4) {
-                    float x0 = lines[line], y0 = lines[line + 1], x1 = lines[line + 2], y1 = lines[line + 3];
-                    float start = (x0 - atX) * wayX + (y0 - atY) * wayY, stop = (x1 - atX) * wayX + (y1 - atY) * wayY;
-                    if (start > stop) {
-                        float held = start;
-                        start = stop;
-                        stop = held;
-                        x0 = lines[line + 2];
-                        y0 = lines[line + 3];
-                        x1 = lines[line];
-                        y1 = lines[line + 1];
-                    }
-                    float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-                    float off = Math.max(Math.abs((x0 - atX) * wayY - (y0 - atY) * wayX), Math.abs((x1 - atX) * wayY - (y1 - atY) * wayX));
-                    if (start < GAP && stop > FURTHER && off < nearest && Math.abs((x1 - x0) * wayY - (y1 - y0) * wayX) < SAME_WAY * length) {
-                        nearest = off;
-                        next = true;
-                        nextFromX = x0;
-                        nextFromY = y0;
-                        nextToX = x1;
-                        nextToY = y1;
-                        nextX = squareX;
-                        nextY = squareY;
-                    }
-                }
-            }
+            unloaded = false;
+            boolean next = nextLength(atX, atY, wayX, wayY, 0.5f, -Float.MAX_VALUE, GAP);
             if (!next) {
-                end[0] = atX;
-                end[1] = atY;
-                end[END_LAND] = atX;
-                end[END_LAND + 1] = atY;
-                end[END_KIND] = unloaded ? WANTING : LOOSE;
-                return;
+                int aimed = aimedAt(pins, pinsRound((int) Math.floor(atX), (int) Math.floor(atY)), atX, atY, wayX, wayY);
+                if (aimed >= 0) {
+                    fastTo(aimed);
+                    reached = !walked;
+                    return;
+                }
+                next = nextLength(atX, atY, wayX, wayY, 1.5f, GAP, BRIDGE);
+                if (!next) {
+                    end[0] = atX;
+                    end[1] = atY;
+                    end[END_LAND] = atX;
+                    end[END_LAND + 1] = atY;
+                    end[END_KIND] = unloaded || unsure ? WANTING : LOOSE;
+                    end[END_LEVEL] = level;
+                    return;
+                }
+                if (!walked) {
+                    bridged = true;
+                    bridgedX = nextFromX;
+                    bridgedY = nextFromY;
+                }
             }
             // The first insulator that holds the next length, as that length finds it for itself.
             touch(pins, pinsRound(nextX, nextY), nextFromX, nextFromY, nextToX, nextToY);
             int held = first >= 0 ? first : passed > 0 ? cuts[0] : last;
             if (held >= 0) {
-                end[0] = pins[held];
-                end[1] = pins[held + 1];
-                end[END_LAND] = pins[held + 2];
-                end[END_LAND + 1] = pins[held + 3];
-                end[END_KIND] = FAST;
+                fastTo(held);
                 return;
             }
             atX = nextToX;
             atY = nextToY;
+            walked = true;
         }
+    }
+
+    /** Makes end fast to a pin of pins. */
+    private void fastTo(int pin) {
+        end[0] = pins[pin];
+        end[1] = pins[pin + 1];
+        end[END_LAND] = pins[pin + 2];
+        end[END_LAND + 1] = pins[pin + 3];
+        end[END_KIND] = FAST;
+        end[END_LEVEL] = pins[pin + 4];
+    }
+
+    /**
+     * Looks for the next length of a wire that runs the way (wayX, wayY) from (atX, atY), on the
+     * nine squares round the one ahead by ahead: one that runs the same way, lies on the line and
+     * starts between least and most on along it, into nextFrom, nextTo and nextX, nextY. Whether
+     * there is one. A square the map has not loaded sets unloaded.
+     */
+    private boolean nextLength(float atX, float atY, float wayX, float wayY, float ahead, float least, float most) {
+        int middleX = (int) Math.floor(atX + wayX * ahead), middleY = (int) Math.floor(atY + wayY * ahead);
+        boolean next = false;
+        float nearest = OFF_LINE;
+        for (int beside = 0; beside < 9; beside++) {
+            int squareX = middleX + beside % 3 - 1, squareY = middleY + beside / 3 - 1;
+            int count = column(squareX, squareY);
+            if (count < 0) {
+                unloaded = true;
+                continue;
+            }
+            for (int line = 0; line < count; line += 4) {
+                float x0 = lines[line], y0 = lines[line + 1], x1 = lines[line + 2], y1 = lines[line + 3];
+                float start = (x0 - atX) * wayX + (y0 - atY) * wayY, stop = (x1 - atX) * wayX + (y1 - atY) * wayY;
+                if (start > stop) {
+                    float held = start;
+                    start = stop;
+                    stop = held;
+                    x0 = lines[line + 2];
+                    y0 = lines[line + 3];
+                    x1 = lines[line];
+                    y1 = lines[line + 1];
+                }
+                float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+                float off = Math.max(Math.abs((x0 - atX) * wayY - (y0 - atY) * wayX), Math.abs((x1 - atX) * wayY - (y1 - atY) * wayX));
+                if (start >= least && start < most && stop > FURTHER && off < nearest && Math.abs((x1 - x0) * wayY - (y1 - y0) * wayX) < SAME_WAY * length) {
+                    nearest = off;
+                    next = true;
+                    nextFromX = x0;
+                    nextFromY = y0;
+                    nextToX = x1;
+                    nextToY = y1;
+                    nextX = squareX;
+                    nextY = squareY;
+                }
+            }
+        }
+        return next;
     }
 }

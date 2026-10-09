@@ -18,20 +18,36 @@ final class SpanTests {
         Checks.run("wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds", SpanTests::wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds);
         Checks.run("lengthsOfASpanSwingAsOne", SpanTests::lengthsOfASpanSwingAsOne);
         Checks.run("squareStackedWithMoreWireThanUsualIsFollowedLikeAnother", SpanTests::squareStackedWithMoreWireThanUsualIsFollowedLikeAnother);
+        Checks.run("runThatStopsShortOfAnInsulatorItPointsAtIsMadeFastToIt", SpanTests::runThatStopsShortOfAnInsulatorItPointsAtIsMadeFastToIt);
+        Checks.run("runDrawnALevelOffItsPolesHangsOnTheirLevel", SpanTests::runDrawnALevelOffItsPolesHangsOnTheirLevel);
+        Checks.run("runThatEndsByAPoleOnMapNotLoadedIsNotLeftLoose", SpanTests::runThatEndsByAPoleOnMapNotLoadedIsNotLeftLoose);
+        Checks.run("poleTopDrawnALevelUpStandsOnItsPole", SpanTests::poleTopDrawnALevelUpStandsOnItsPole);
+        Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
     }
 
-    /** A map of one level: the lines on each square, the poles, and how far along x it is loaded. */
+    /** The level the poles of the made-up maps stand their tops on, as the map's do. */
+    private static final int LEVEL = 2;
+
+    /** A made-up map: the lines on each square of each level, the poles' tops, and how far along x it is loaded, for the lines and for the poles. */
     private static final class Map implements Spans.Hung {
         final HashMap<Long, List<float[]>> lines = new HashMap<>();
         final HashMap<Long, float[]> poles = new HashMap<>();
-        int loadedTo = Integer.MAX_VALUE;
+        int loadedTo = Integer.MAX_VALUE, polesLoadedTo = Integer.MAX_VALUE;
 
         private static long key(int x, int y) {
-            return (long) x << 32 | y & 0xFFFFFFFFL;
+            return key(x, y, LEVEL);
+        }
+
+        private static long key(int x, int y, int z) {
+            return (long) z << 48 | (long) (x & 0xFFFFFF) << 24 | y & 0xFFFFFF;
         }
 
         void line(int x, int y, float x0, float y0, float x1, float y1) {
-            lines.computeIfAbsent(key(x, y), none -> new ArrayList<>()).add(new float[] {x0, y0, x1, y1});
+            lineOn(x, y, LEVEL, x0, y0, x1, y1);
+        }
+
+        void lineOn(int x, int y, int z, float x0, float y0, float x1, float y1) {
+            lines.computeIfAbsent(key(x, y, z), none -> new ArrayList<>()).add(new float[] {x0, y0, x1, y1});
         }
 
         /** A pole on a square with its axis at the square's middle and insulators the given ways off it. */
@@ -47,12 +63,12 @@ final class SpanTests {
         }
 
         @Override
-        public int lines(int x, int y, float[] out) {
+        public int lines(int x, int y, int z, float[] out) {
             if (x >= loadedTo) {
                 return -1;
             }
             int count = 0;
-            for (float[] line : lines.getOrDefault(key(x, y), List.of())) {
+            for (float[] line : lines.getOrDefault(key(x, y, z), List.of())) {
                 if (count + 4 <= out.length) {
                     System.arraycopy(line, 0, out, count, 4);
                 }
@@ -62,9 +78,12 @@ final class SpanTests {
         }
 
         @Override
-        public int pins(int x, int y, float[] out, int at) {
-            float[] pins = poles.get(key(x, y));
-            if (pins == null || x >= loadedTo) {
+        public int pins(int x, int y, int z, float[] out, int at) {
+            if (x >= loadedTo || x >= polesLoadedTo) {
+                return -1;
+            }
+            float[] pins = poles.get(key(x, y, z));
+            if (pins == null) {
                 return 0;
             }
             System.arraycopy(pins, 0, out, at, pins.length);
@@ -89,7 +108,7 @@ final class SpanTests {
 
     private static float[] piecesOf(Map map, int x, int y, int which) {
         float[] line = map.lines.get(Map.key(x, y)).get(which);
-        return new Spans(map).find(x, y, line[0], line[1], line[2], line[3]);
+        return new Spans(map).find(x, y, LEVEL, line[0], line[1], line[2], line[3]);
     }
 
     /** The two ends of a piece's span, the one at the lower x first: where each is, where its land is taken and its kind. */
@@ -285,6 +304,205 @@ final class SpanTests {
         float[] ends = ends(piecesOf(stacked, 15, 4, 0), 0), usualEnds = ends(piecesOf(usual, 15, 4, 0), 0);
         check(java.util.Arrays.equals(ends, usualEnds), "a run over a stacked square hangs between the same insulators: "
                 + java.util.Arrays.toString(ends) + " against " + java.util.Arrays.toString(usualEnds));
+    }
+
+    /** Lengths of wire a square each from (x, y) on, the way (wayX, wayY) of length one, each reaching a little into the next and keyed to the square its middle is over. */
+    private static void run(Map map, int z, float x, float y, float wayX, float wayY, int count) {
+        for (int k = 0; k < count; k++) {
+            float x0 = x + wayX * k, y0 = y + wayY * k, x1 = x0 + wayX * 1.02f, y1 = y0 + wayY * 1.02f;
+            map.lineOn((int) Math.floor((x0 + x1) / 2f), (int) Math.floor((y0 + y1) / 2f), z, x0, y0, x1, y1);
+        }
+    }
+
+    /** The piece of a length that has an end nearest a point, and the span end there: where its length ends there, where its span ends and its kind. */
+    private static float[] endNear(Map map, float x, float y, float wayX, float wayY) {
+        int squareX = (int) Math.floor(x + wayX * 0.5f), squareY = (int) Math.floor(y + wayY * 0.5f);
+        for (float[] line : map.lines.get(Map.key(squareX, squareY))) {
+            if (Math.hypot(line[0] - x, line[1] - y) > 0.01) {
+                continue;
+            }
+            float[] pieces = new Spans(map).find(squareX, squareY, LEVEL, line[0], line[1], line[2], line[3]);
+            check(pieces.length == Spans.PIECE, "the length at " + x + ", " + y + " is one piece: " + pieces.length / Spans.PIECE);
+            return new float[] {pieces[0], pieces[1], pieces[Spans.FROM], pieces[Spans.FROM + 1], pieces[Spans.FROM + Spans.END_KIND]};
+        }
+        throw new IllegalStateException("no length starts at " + x + ", " + y);
+    }
+
+    /**
+     * The map's runs of wire that stop short of the arm they meet, where the arm hides the gap
+     * in the game's view: three along the diagonal stop 0.5 to 1.38 short of an arm along x
+     * (the pole at 10581, 9299, the numbers off its axis as the sheet's sprites give them),
+     * and a run along x passes a pole with the square it should cross the arm on not drawn.
+     */
+    private static void runThatStopsShortOfAnInsulatorItPointsAtIsMadeFastToIt() {
+        Map map = new Map();
+        // Insulators of an arm along x, 0.157 off the axis to the south, as Poles.insulator puts them for a shaft 0.102 thin.
+        map.pole(10, 5, -0.8f, 0.157f, -0.16f, 0.157f, 0.8f, 0.157f);
+        float wayX = (float) Math.sqrt(0.5), wayY = -wayX;
+        float[][] stops = {{10.601f, 4.608f}, {11.069f, 4.64f}, {11.601f, 5.233f}};
+        float[] insulators = {9.7f, 10.34f, 11.3f};
+        for (float[] stop : stops) {
+            run(map, LEVEL, stop[0], stop[1], wayX, wayY, 20);
+        }
+        for (int wire = 0; wire < 3; wire++) {
+            float[] end = endNear(map, stops[wire][0], stops[wire][1], wayX, wayY);
+            check(end[4] == Spans.FAST && near(end[2], insulators[wire]) && near(end[3], 5.657f),
+                    "the wire that stops " + Math.hypot(stops[wire][0] - insulators[wire], stops[wire][1] - 5.657f) + " short of its insulator is made fast to it: " + end[2] + ", " + end[3]);
+            check(near(end[0], end[2]) && near(end[1], end[3]), "and its last length goes on to it: " + end[0] + ", " + end[1]);
+        }
+        // A length further from the pole hangs from the same insulator, and keeps its own end.
+        float[] on = endNear(map, stops[1][0] + 3f * wayX, stops[1][1] + 3f * wayY, wayX, wayY);
+        check(on[4] == Spans.FAST && near(on[2], 10.34f) && near(on[0], stops[1][0] + 3f * wayX), "a length further on hangs from it and stays where it is drawn: " + on[0] + ", " + on[2]);
+
+        // A run along x over a pole whose arm lies along y, with no wire drawn on the square it crosses the arm on.
+        Map passed = new Map();
+        passed.pole(20, 5, 0.157f, -0.8f);
+        passed.pole(46, 5, 0.157f, -0.8f);
+        passed.pole(-6, 5, 0.157f, -0.8f);
+        run(passed, LEVEL, -5.343f, 4.7f, 1f, 0f, 25);
+        run(passed, LEVEL, 20.657f, 4.7f, 1f, 0f, 25);
+        float[] last = new Spans(passed).find(19, 4, LEVEL, 18.657f, 4.7f, 19.677f, 4.7f);
+        check(last.length == Spans.PIECE && last[Spans.TO + Spans.END_KIND] == Spans.FAST && near(last[Spans.TO], 20.657f) && near(last[2], 20.657f),
+                "the last length before the gap is made fast to the insulator a square on and reaches it: " + java.util.Arrays.toString(last));
+        float[] after = endNear(passed, 20.657f, 4.7f, 1f, 0f);
+        check(after[4] == Spans.FAST && near(after[2], 20.657f), "and the run after the gap hangs from the same insulator: " + after[2]);
+        // A run that stops in the air with no insulator before it stays loose.
+        Map air = new Map();
+        air.pole(10, 5, 0f, -0.8f);
+        run(air, LEVEL, 10.5f, 4.7f, 1f, 0f, 10);
+        air.pole(22, 5, 0f, -0.8f);
+        float[] stopped = new Spans(air).find(15, 4, LEVEL, 15.5f, 4.7f, 16.52f, 4.7f);
+        check(stopped[Spans.TO + Spans.END_KIND] == Spans.LOOSE, "a run that stops further than REACH short of the next pole is held where it stops: " + stopped[Spans.TO]);
+    }
+
+    /**
+     * A run drawn on the level over or under its poles' tops and three squares on along x and
+     * y, where the game's view draws it on the same place: the run by the pole at (10718, 9852)
+     * in Riverside, whose last two squares are drawn on the poles' level and the rest on the
+     * one over. And a run between a pole that stands on ground a level up and one that does
+     * not, drawn on the level of the first: the run from (10678, 9723) to (10718, 9763).
+     */
+    private static void runDrawnALevelOffItsPolesHangsOnTheirLevel() {
+        int on = Spans.LEVEL_SQUARES;
+        float[] place = new float[3];
+        for (int up = -1; up <= 1; up += 2) {
+            Map map = new Map();
+            map.pole(10, 5, 0f, -0.8f);
+            map.pole(36, 5, 0f, -0.8f);
+            for (int x = 10; x <= 36; x++) {
+                int z = x >= 34 ? LEVEL : LEVEL + up, s = z == LEVEL ? 0 : on * up;
+                map.lineOn(x + s, 4 + s, z, x - 0.4f + s, 4.7f + s, x + 0.62f + s, 4.7f + s);
+            }
+            for (int x = 12; x <= 33; x++) {
+                int s = on * up;
+                float[] pieces = new Spans(map).find(x + s, 4 + s, LEVEL + up, x - 0.4f + s, 4.7f + s, x + 0.62f + s, 4.7f + s);
+                check(pieces.length == Spans.PIECE && pieces[Spans.FROM + Spans.END_KIND] == Spans.FAST && pieces[Spans.TO + Spans.END_KIND] == Spans.FAST
+                        && pieces[Spans.FROM + Spans.END_LEVEL] == LEVEL && pieces[Spans.TO + Spans.END_LEVEL] == LEVEL,
+                        "a length drawn on the level " + (up > 0 ? "over" : "under") + " its poles is made fast to their insulators, on theirs, at " + x);
+                float[] ends = ends(pieces, 0);
+                Spans.placed(pieces, 0, ends[0], ends[1], place);
+                boolean fromPole = near(place[0], 10.5f) && near(place[1], 4.7f) && place[2] == LEVEL;
+                Spans.placed(pieces, 0, ends[5], ends[6], place);
+                check(fromPole && near(place[0], 36.5f) && near(place[1], 4.7f) && place[2] == LEVEL, "and hangs between them, at " + x + ": to " + place[0] + ", " + place[1] + " on " + place[2]);
+                Spans.placed(pieces, 0, Math.min(pieces[0], pieces[2]), pieces[1], place);
+                check(near(place[0], x - 0.4f) && near(place[1], 4.7f) && place[2] == LEVEL, "where it is drawn on their level, at " + x + ": " + place[0] + ", " + place[1] + " on " + place[2]);
+                check(near(Spans.span(pieces, 0), 26f), "its span is from pole to pole: " + Spans.span(pieces, 0));
+            }
+        }
+        // A run drawn on the level over poles that stand their tops there stays there.
+        Map high = new Map();
+        high.poles.put(Map.key(10, 5, LEVEL + 1), new float[] {10.5f, 4.7f, 10.5f, 5.5f});
+        high.poles.put(Map.key(36, 5, LEVEL + 1), new float[] {36.5f, 4.7f, 36.5f, 5.5f});
+        for (int x = 10; x <= 36; x++) {
+            high.lineOn(x, 4, LEVEL + 1, x - 0.4f, 4.7f, x + 0.62f, 4.7f);
+        }
+        float[] pieces = new Spans(high).find(20, 4, LEVEL + 1, 19.6f, 4.7f, 20.62f, 4.7f);
+        Spans.placed(pieces, 0, 19.6f, 4.7f, place);
+        check(ends(pieces, 0)[4] == Spans.FAST && ends(pieces, 0)[9] == Spans.FAST && near(place[0], 19.6f) && place[2] == LEVEL + 1, "a run on the level of its poles hangs on it");
+        // From a pole whose top is a level up to one whose top is not, the run drawn on the level of the first.
+        Map step = new Map();
+        step.poles.put(Map.key(10, 5, LEVEL + 1), new float[] {10.5f, 4.7f, 10.5f, 5.5f});
+        step.pole(33, 2, 0f, -0.8f);
+        for (int x = 10; x <= 36; x++) {
+            step.lineOn(x, 4, LEVEL + 1, x - 0.4f, 4.7f, x + 0.62f, 4.7f);
+        }
+        float[] stepped = new Spans(step).find(23, 4, LEVEL + 1, 22.6f, 4.7f, 23.62f, 4.7f);
+        float[] stepEnds = ends(stepped, 0);
+        check(stepEnds[4] == Spans.FAST && stepEnds[9] == Spans.FAST && stepped[Spans.TO + Spans.END_LEVEL] == LEVEL && near(stepEnds[5], 36.5f),
+                "a run drawn on to where a pole on the level under draws its insulator is made fast to it: " + stepEnds[5] + " " + stepEnds[9]);
+        Spans.placed(stepped, 0, stepEnds[5], stepEnds[6], place);
+        boolean atPole = near(place[0], 33.5f) && near(place[1], 1.7f) && place[2] == LEVEL;
+        Spans.placed(stepped, 0, 23.5f, 4.7f, place);
+        check(atPole && near(place[2], LEVEL + 0.5f) && near(place[0], 22f) && near(place[1], 3.2f),
+                "and goes down to it a level over its span, where the view draws it: half way it is half a level down and half of three squares back: " + place[0] + ", " + place[1] + " on " + place[2]);
+        check(near(Spans.span(stepped, 0), (float) Math.hypot(23.0, 3.0)), "its span is from where one pole stands to where the other does: " + Spans.span(stepped, 0));
+    }
+
+    /** The runs along x at (10886, 9460) and (11901, 7175), each with one square drawn with no wire, and one along the diagonal at (11545, 6814). */
+    private static void runWithASquareLeftOutIsFollowedOverIt() {
+        Map map = new Map();
+        map.pole(10, 5, 0f, -0.8f);
+        map.pole(36, 5, 0f, -0.8f);
+        wire(map, 10, 19, 4, 4.7f);
+        wire(map, 21, 36, 4, 4.7f);
+        float[] before = new Spans(map).find(19, 4, LEVEL, 18.6f, 4.7f, 19.62f, 4.7f), after = new Spans(map).find(21, 4, LEVEL, 21.62f, 4.7f, 20.6f, 4.7f);
+        float[] beforeEnds = ends(before, 0), afterEnds = ends(after, 0);
+        check(beforeEnds[4] == Spans.FAST && beforeEnds[9] == Spans.FAST && near(beforeEnds[5], 36.5f), "the length before the gap hangs to the pole past it: " + beforeEnds[5] + " " + beforeEnds[9]);
+        check(afterEnds[4] == Spans.FAST && near(afterEnds[0], 10.5f), "and the length after it from the pole before it: " + afterEnds[0] + " " + afterEnds[4]);
+        check(near(Math.max(before[0], before[2]), 20.6f) && near(Math.min(after[0], after[2]), 19.62f),
+                "and each reaches over the gap to the other: " + Math.max(before[0], before[2]) + ", " + Math.min(after[0], after[2]));
+        float[] middle = ends(piecesOf(map, 15, 4, 0), 0);
+        check(near(middle[5], 36.5f), "every length of the run hangs between the same two poles: " + middle[5]);
+        // Along the diagonal the gap is a square's diagonal.
+        Map diagonal = new Map();
+        float way = (float) Math.sqrt(0.5);
+        run(diagonal, LEVEL, 10f, 10f, way, way, 8);
+        run(diagonal, LEVEL, 10f + way * 9.4f, 10f + way * 9.4f, way, way, 8);
+        float[] last = new Spans(diagonal).find(15, 15, LEVEL, 10f + way * 7f, 10f + way * 7f, 10f + way * 8.02f, 10f + way * 8.02f);
+        check(near(last[2], 10f + way * 9.4f) && near(Spans.span(last, 0), 17.42f), "a run along the diagonal is followed over a square left out of it: " + last[2] + ", " + Spans.span(last, 0));
+    }
+
+    private static void runThatEndsByAPoleOnMapNotLoadedIsNotLeftLoose() {
+        Map map = new Map();
+        map.pole(10, 5, 0f, -0.8f);
+        map.pole(36, 5, 0f, -0.8f);
+        wire(map, 10, 35, 4, 4.7f);
+        map.polesLoadedTo = 36;
+        float[] ends = ends(piecesOf(map, 20, 4, 0), 0);
+        check(ends[9] == Spans.WANTING, "a run that stops beside a pole the map has not loaded is not known at that end, and is found again when it is: " + ends[9]);
+        map.polesLoadedTo = Integer.MAX_VALUE;
+        ends = ends(piecesOf(map, 20, 4, 0), 0);
+        check(ends[9] == Spans.FAST && near(ends[5], 36.5f), "with the pole loaded the run hangs from it: " + ends[5]);
+    }
+
+    /** The poles at (10718, 9763) and (10730, 9864) in Riverside: two lengths on their square, and the top with its arm drawn on the level over the third and three squares on. */
+    private static void poleTopDrawnALevelUpStandsOnItsPole() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        int on = Spans.LEVEL_SQUARES;
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(10, 5, 1), "appliances_com_01_89");
+        drawn.put(Map.key(10 + on, 5 + on, 3), "appliances_com_01_93");
+        check("appliances_com_01_93".equals(Poles.standsOn(map, 10, 5, 2, 0)), "the top drawn a level up and three squares on stands on its pole: " + Poles.standsOn(map, 10, 5, 2, 0));
+        check(Poles.drawnUp(map, 10 + on, 5 + on, 3, 0) && Poles.standsOn(map, 10 + on, 5 + on, 3, 0) == null, "and not where it is drawn");
+        check("appliances_com_01_89".equals(Poles.standsOn(map, 10, 5, 1, 0)) && !Poles.drawnUp(map, 10, 5, 1, 0), "the lengths under it stand where they are drawn");
+        // A pole that stands its foot on the level over: its lengths are its own.
+        drawn.put(Map.key(30, 5, 1), "appliances_com_01_88");
+        drawn.put(Map.key(30, 5, 2), "appliances_com_01_89");
+        drawn.put(Map.key(30, 5, 3), "appliances_com_01_93");
+        drawn.put(Map.key(30 - on, 5 - on, 0), "appliances_com_01_88");
+        drawn.put(Map.key(30 - on, 5 - on, 1), "appliances_com_01_89");
+        for (int z = 1; z <= 3; z++) {
+            check(!Poles.drawnUp(map, 30, 5, z, -1) && drawn.get(Map.key(30, 5, z)).equals(Poles.standsOn(map, 30, 5, z, -1)),
+                    "a pole with its foot on the level over a shorter one three squares back keeps its length on level " + z);
+        }
+        check(Poles.standsOn(map, 30 - on, 5 - on, 2, -1) == null, "and the shorter one takes nothing of it");
+        // A pole whole to its arm, and three squares on another whose foot stands a level over that arm.
+        drawn.put(Map.key(50, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(50, 5, 1), "appliances_com_01_89");
+        drawn.put(Map.key(50, 5, 2), "appliances_com_01_93");
+        drawn.put(Map.key(50 + on, 5 + on, 3), "appliances_com_01_88");
+        check(!Poles.drawnUp(map, 50 + on, 5 + on, 3, 0) && Poles.standsOn(map, 50, 5, 3, 0) == null, "the foot of a pole over the top of a whole one is no part of it");
     }
 
     private static void check(boolean condition, String what) {
