@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
 import org.joml.Vector3f;
@@ -138,7 +139,7 @@ public final class ViewModel {
     /** For each kind of action, how long the game last took to bring a magazine to the weapon. */
     private final float[] fetchTakes = new float[9];
     {
-        java.util.Arrays.fill(fetchTakes, ArmActs.FETCH_TAKES);
+        Arrays.fill(fetchTakes, ArmActs.FETCH_TAKES);
     }
     /** For each kind of action and each thing done to a weapon, how long the game last took over it. */
     private final float[][] took = new float[9][];
@@ -616,14 +617,14 @@ public final class ViewModel {
         if (own) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
-            aimedY = -OwnWeapon.sightLine * long3 * scale / OwnWeapon.muzzleFar;
-            aimedAhead = OwnWeapon.eyeBehind * long3 * scale / OwnWeapon.muzzleFar;
+            aimedY = -OwnWeapon.MODEL.sightLine * long3 * scale / OwnWeapon.MODEL.muzzleFar;
+            aimedAhead = OwnWeapon.MODEL.eyeBehind * long3 * scale / OwnWeapon.MODEL.muzzleFar;
         }
         if (hasMuzzle && OwnRifle.standsFor(how.item)) {
             float long3 = (float) Math.sqrt((end[0] - origin[0]) * (end[0] - origin[0]) + (end[1] - origin[1]) * (end[1] - origin[1])
                     + (end[2] - origin[2]) * (end[2] - origin[2]));
-            aimedY = -OwnRifle.sightLine * long3 * scale / OwnRifle.muzzleFar;
-            aimedAhead = OwnRifle.eyeBehind * long3 * scale / OwnRifle.muzzleFar;
+            aimedY = -OwnRifle.MODEL.sightLine * long3 * scale / OwnRifle.MODEL.muzzleFar;
+            aimedAhead = OwnRifle.MODEL.eyeBehind * long3 * scale / OwnRifle.MODEL.muzzleFar;
         }
         // Behind a scope the eye is on the scope's axis, the eye relief behind its eyepiece.
         if (hasMuzzle && view.scope.sighted(weapon, finalScale, origin, forward, top, end, scale, sighted)) {
@@ -712,7 +713,7 @@ public final class ViewModel {
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
             // The mod's own model says where its fore-end is and how far it slides.
-            float rests = own ? OwnWeapon.foreEnd : FORE_END, along = rests - (own ? OwnWeapon.pumpTravel : PUMP_TRAVEL) * pumped;
+            float rests = own ? OwnWeapon.MODEL.foreEnd : FORE_END, along = rests - (own ? OwnWeapon.MODEL.foreEndTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
             ViewModelMath.place(still, origin[0] + (end[0] - origin[0]) * rests, origin[1] + (end[1] - origin[1]) * rests,

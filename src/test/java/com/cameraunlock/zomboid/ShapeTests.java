@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.function.DoubleUnaryOperator;
 
@@ -452,7 +453,7 @@ final class ShapeTests {
     private static void solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite() {
         // A sprite of 6 by 4, on a sheet drawn at twice the size: 12 by 8 at (2, 1) of a sheet 16 wide, solid in its right half and shadow in its left.
         int sheetWidth = 16;
-        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(sheetWidth * 10 * 4);
+        ByteBuffer sheet = ByteBuffer.allocate(sheetWidth * 10 * 4);
         for (int y = 1; y < 9; y++) {
             for (int x = 2; x < 14; x++) {
                 sheet.put((y * sheetWidth + x) * 4 + 3, (byte) (x >= 8 ? Solids.SOLID : Solids.SOLID - 1));

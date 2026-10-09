@@ -2920,13 +2920,8 @@ final class Pipeline {
         GL11.glDepthMask(true);
     }
 
-    private void drawPaneMask(FloatBuffer glass) {
-        // Which pixels are the vehicle's glass, drawn from the triangles of it that are:
-        // a window's edge is then the straight edge of a triangle.
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, paneTarget);
-        GL11.glClearColor(0f, 0f, 0f, 0f);
-        GL11.glClear(GL_COLOR_BUFFER_BIT);
-        GL11.glDisable(GL_DEPTH_TEST);
+    /** Has the next draw take bare triangles of the cabin, already in the cabin's own place on the screen, with nothing culled or blended. */
+    private void placeCabinTriangles(FloatBuffer triangles) {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
         arrays();
@@ -2938,7 +2933,17 @@ final class Pipeline {
         GL11.glLoadIdentity();
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(view.characters.cabin.paneMatrix);
-        GL11.glVertexPointer(3, GL_FLOAT, 0, glass);
+        GL11.glVertexPointer(3, GL_FLOAT, 0, triangles);
+    }
+
+    private void drawPaneMask(FloatBuffer glass) {
+        // Which pixels are the vehicle's glass, drawn from the triangles of it that are:
+        // a window's edge is then the straight edge of a triangle.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, paneTarget);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL11.glClear(GL_COLOR_BUFFER_BIT);
+        GL11.glDisable(GL_DEPTH_TEST);
+        placeCabinTriangles(glass);
         paneMask.use();
         // The panes of the front of the glasshouse are drawn at a half: the picture
         // builds its own there.
@@ -2961,18 +2966,7 @@ final class Pipeline {
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
-        GL11.glDisable(GL_CULL_FACE);
-        GL11.glDisable(GL_BLEND);
-        arrays();
-        cardArrayOff();
-        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL11.glDisableClientState(GL_COLOR_ARRAY);
-        GL11.glDisableClientState(GL_NORMAL_ARRAY);
-        GL11.glMatrixMode(GL_PROJECTION);
-        GL11.glLoadIdentity();
-        GL11.glMatrixMode(GL_MODELVIEW);
-        GL11.glLoadMatrixf(view.characters.cabin.paneMatrix);
-        GL11.glVertexPointer(3, GL_FLOAT, 0, parts.triangles);
+        placeCabinTriangles(parts.triangles);
         partKind.use();
         GL11.glColorMask(true, false, true, true);
         for (int kind = 0; kind < CabinParts.UNSEEN; kind++) {
@@ -3649,8 +3643,8 @@ final class Pipeline {
             }
         }, SPRIGS, SPRIG_FORM));
         // The weapon and arm models are given back with the pictures and made again with them: see giveBackContent.
-        pieces.add(new Piece(OwnWeapon::readAhead, OwnWeapon::isRead, OwnWeapon::prepare));
-        pieces.add(new Piece(OwnRifle::readAhead, OwnRifle::isRead, OwnRifle::prepare));
+        pieces.add(new Piece(OwnWeapon.MODEL::readAhead, OwnWeapon.MODEL::isRead, OwnWeapon::prepare));
+        pieces.add(new Piece(OwnRifle.MODEL::readAhead, OwnRifle.MODEL::isRead, OwnRifle::prepare));
         pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
@@ -4236,8 +4230,8 @@ final class Pipeline {
         GL11.glDeleteTextures(sprigForm);
         sprigs = 0;
         sprigForm = 0;
-        OwnWeapon.letGo();
-        OwnRifle.letGo();
+        OwnWeapon.MODEL.letGo();
+        OwnRifle.MODEL.letGo();
         OwnArms.letGo();
         contentPreparing = 0;
         contentBegun = false;

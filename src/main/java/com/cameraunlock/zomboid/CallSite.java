@@ -7,6 +7,7 @@ import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeTransform;
 import java.lang.classfile.FieldModel;
 import java.lang.classfile.Instruction;
+import java.lang.classfile.MethodModel;
 import java.lang.classfile.Opcode;
 import java.lang.classfile.TypeKind;
 import java.lang.classfile.instruction.BranchInstruction;
@@ -17,6 +18,7 @@ import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
+import java.util.List;
 import java.util.function.Consumer;
 
 final class CallSite {
@@ -129,7 +131,7 @@ final class CallSite {
      * method by that name would take the patch and then fail the JVM's check of the class.
      */
     static byte[] insertAtStartOfInstanceMethod(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
-        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
             if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
                     && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
                 throw new IllegalStateException(within + " is static or has no body");
@@ -155,7 +157,7 @@ final class CallSite {
      * a method that writes over its argument as it works still says what it was asked.
      */
     static byte[] answerOnce(byte[] classBytes, Method within, Method known, Method learn) {
-        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
             if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor()) && !method.flags().has(AccessFlag.STATIC)) {
                 throw new IllegalStateException(within + " is not static");
             }
@@ -231,7 +233,7 @@ final class CallSite {
      * is kept and then does what the inherited one does, so an answer that could have changed
      * is worked out afresh. Throws where the class already has the field or any of the methods.
      */
-    static byte[] keepInField(byte[] classBytes, Method getter, String field, String parent, java.util.List<Method> changers) {
+    static byte[] keepInField(byte[] classBytes, Method getter, String field, String parent, List<Method> changers) {
         ClassFile classFile = ClassFile.of();
         ClassModel model = classFile.parse(classBytes);
         ClassDesc owner = model.thisClass().asSymbol();
@@ -246,7 +248,7 @@ final class CallSite {
             }
         }
         boolean[] found = {false};
-        for (java.lang.classfile.MethodModel method : model.methods()) {
+        for (MethodModel method : model.methods()) {
             boolean isGetter = method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor());
             if (isGetter && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
                 throw new IllegalStateException(getter + " is static or has no body");
@@ -427,7 +429,7 @@ final class CallSite {
         if (!within.descriptor().startsWith("(I")) {
             throw new IllegalStateException(within + " does not take an int first");
         }
-        for (java.lang.classfile.MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
             if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
                     && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
                 throw new IllegalStateException(within + " is not static or has no body");

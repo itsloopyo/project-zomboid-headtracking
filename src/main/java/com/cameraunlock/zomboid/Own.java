@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * What the mod made itself and shows in first person in place of the game's own: its weapon
  * models, furniture, wall pictures, plants, surface textures, built windows and doors and the
@@ -21,7 +23,7 @@ final class Own {
     private static final int[] built = new int[View.COUNT];
 
     static {
-        java.util.Arrays.fill(built, ALL | TEXTURES << 16);
+        Arrays.fill(built, ALL | TEXTURES << 16);
     }
 
     private Own() {}

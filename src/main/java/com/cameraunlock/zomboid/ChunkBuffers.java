@@ -206,7 +206,7 @@ final class ChunkBuffers {
                     keys[(dx + reach) * across + dy + reach] = (long) (dx * dx + dy * dy) << 32 | (long) (dx + reach) << 16 | dy + reach;
                 }
             }
-            java.util.Arrays.sort(keys);
+            Arrays.sort(keys);
             int[] steps = new int[keys.length * 2];
             for (int i = 0; i < keys.length; i++) {
                 steps[i * 2] = (int) (keys[i] >> 16 & 0xffff) - reach;

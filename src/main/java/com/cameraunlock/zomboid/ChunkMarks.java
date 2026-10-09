@@ -1,5 +1,8 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLongArray;
 import zombie.iso.IsoChunk;
@@ -58,8 +61,8 @@ public final class ChunkMarks {
     static final boolean COUNTED = Boolean.getBoolean("cameraunlock.zomboid.auditMarks");
     private static final AtomicLongArray byFlag = new AtomicLongArray(17);
     private static final int UNLOADED = 16;
-    private static final java.util.Set<String> threads = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger> callers = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Set<String> threads = ConcurrentHashMap.newKeySet();
+    private static final ConcurrentHashMap<String, AtomicInteger> callers = new ConcurrentHashMap<>();
     /**
      * Whether the game is telling: the three patches are in its code and it keeps a texture for each
      * chunk, which is what it marks for. Set by WorldScene on the logic thread, and read there.
@@ -116,7 +119,7 @@ public final class ChunkMarks {
                 for (int i = 2; i < Math.min(stack.length, 7); i++) {
                     from.append(" < ").append(stack[i].getClassName().replace("zombie.", "")).append('.').append(stack[i].getMethodName());
                 }
-                callers.computeIfAbsent(from.toString(), unused -> new java.util.concurrent.atomic.AtomicInteger()).incrementAndGet();
+                callers.computeIfAbsent(from.toString(), unused -> new AtomicInteger()).incrementAndGet();
             }
         }
     }

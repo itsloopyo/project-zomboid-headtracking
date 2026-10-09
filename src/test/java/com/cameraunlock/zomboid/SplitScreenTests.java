@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.Label;
 import java.lang.classfile.Opcode;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
@@ -147,7 +148,7 @@ final class SplitScreenTests {
                 .withFlags(ClassFile.ACC_PUBLIC)
                 .withMethodBody("left", twoInts, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> code.iload(0).iload(1).irem().ireturn())
                 .withMethodBody("under", twoInts, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> {
-                    java.lang.classfile.Label less = code.newLabel();
+                    Label less = code.newLabel();
                     code.iload(0).iload(1).if_icmplt(less).iconst_0().ireturn().labelBinding(less).iconst_1().ireturn();
                 }));
         CallSite.Method left = new CallSite.Method("com/cameraunlock/zomboid/SubjectTakingARemainder", "left", "(II)I");

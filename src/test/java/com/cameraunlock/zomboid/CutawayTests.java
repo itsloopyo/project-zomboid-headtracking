@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.function.BiFunction;
+
 /** Tests of the block of cut walls the world shader is handed: see Cutaways. */
 final class CutawayTests {
     private CutawayTests() {}
@@ -54,7 +56,7 @@ final class CutawayTests {
      * out, line for line, with the game's marks given as marked(x, y). The test below holds the
      * shader to these lines.
      */
-    private static boolean cut(float x, float y, float facingX, float facingY, float facingZ, boolean hung, java.util.function.BiFunction<Integer, Integer, Integer> marked) {
+    private static boolean cut(float x, float y, float facingX, float facingY, float facingZ, boolean hung, BiFunction<Integer, Integer, Integer> marked) {
         float edgeX = (float) Math.floor(x + 0.5f), edgeY = (float) Math.floor(y + 0.5f), offX = Math.abs(x - edgeX), offY = Math.abs(y - edgeY);
         boolean northCut = (marked.apply((int) Math.floor(x - 0.06f), (int) edgeY) & Cutaways.NORTH) != 0 || (marked.apply((int) Math.floor(x + 0.06f), (int) edgeY) & Cutaways.NORTH) != 0;
         boolean westCut = (marked.apply((int) edgeX, (int) Math.floor(y - 0.06f)) & Cutaways.WEST) != 0 || (marked.apply((int) edgeX, (int) Math.floor(y + 0.06f)) & Cutaways.WEST) != 0;
@@ -81,7 +83,7 @@ final class CutawayTests {
             check(shader.contains(line), "the world shader's cutAway is the rule this test holds: " + line);
         }
         // A low north wall along y = 5240 from x 6480 to 6488, cut, and a low west fence along x = 6475 from y 5240 to 5248, cut.
-        java.util.function.BiFunction<Integer, Integer, Integer> marked = (x, y) -> (y == 5240 && x >= 6480 && x < 6488 ? Cutaways.NORTH : 0)
+        BiFunction<Integer, Integer, Integer> marked = (x, y) -> (y == 5240 && x >= 6480 && x < 6488 ? Cutaways.NORTH : 0)
                 | (x == 6475 && y >= 5240 && y < 5248 ? Cutaways.WEST : 0);
         check(cut(6482.5f, 5240.04f, 0f, 1f, 0f, false, marked), "a cut north wall's own side is cut");
         check(cut(6474.96f, 5242.5f, 1f, 0f, 0f, false, marked), "a cut west fence's own side is cut");

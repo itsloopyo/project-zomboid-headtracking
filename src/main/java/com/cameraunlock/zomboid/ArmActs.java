@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Locale;
+
 /**
  * What the hands do to a firearm besides hold it: work its action after a shot, rack it, and
  * load it, each the way that kind of firearm is worked.
@@ -67,7 +69,7 @@ final class ArmActs {
 
     /** The kind of action, from the game's name for how a weapon is reloaded. */
     static int kind(String reloadType) {
-        return switch (reloadType.toLowerCase(java.util.Locale.ROOT)) {
+        return switch (reloadType.toLowerCase(Locale.ROOT)) {
             case "boltaction", "bolt_action" -> BOLT;
             case "boltactionnomag", "bolt_action_no_mag" -> BOLT_SINGLE;
             case "doublebarrelshotgun", "double_barrel_shotgun" -> DOUBLE;

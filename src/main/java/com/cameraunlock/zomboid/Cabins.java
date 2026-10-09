@@ -5,6 +5,7 @@ import zombie.characterTextures.BloodBodyPartType;
 import zombie.characters.IsoPlayer;
 import zombie.characters.WornItems.WornItems;
 import zombie.core.ImmutableColor;
+import zombie.core.skinnedmodel.visual.HumanVisual;
 import zombie.core.skinnedmodel.visual.ItemVisual;
 import zombie.core.textures.Texture;
 import zombie.inventory.types.Clothing;
@@ -349,7 +350,7 @@ final class Cabins {
         Garment upper = null, fore = null, glove = null;
         // The blood and the dirt on what shows of each arm: on the skin, or on whatever is worn over it there.
         float[] soil = new float[STAINS];
-        zombie.core.skinnedmodel.visual.HumanVisual body = player.getHumanVisual();
+        HumanVisual body = player.getHumanVisual();
         for (int place = 0; place < Places.OF_ARMS.length; place++) {
             soil[place * 2] = body.getBlood(Places.OF_ARMS[place]);
             soil[place * 2 + 1] = body.getDirt(Places.OF_ARMS[place]);

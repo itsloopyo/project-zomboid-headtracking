@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.FloatBuffer;
+import java.util.Locale;
 import zombie.characters.IsoPlayer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoDirections;
@@ -153,7 +154,7 @@ final class OwnReflection {
         }
         if (FirstPerson.TRACE && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
-            Log.info(String.format(java.util.Locale.ROOT, "glass: the wall at %s = %.2f, %d panes from %.0f, eye (%.2f, %.2f) on side %.0f, looking (%.2f, %.2f)",
+            Log.info(String.format(Locale.ROOT, "glass: the wall at %s = %.2f, %d panes from %.0f, eye (%.2f, %.2f) on side %.0f, looking (%.2f, %.2f)",
                     into.north ? "y" : "x", into.at, into.count, into.count > 0 ? into.along[0] : 0f, view.eyeX, view.eyeY, into.side, view.forwardX, view.forwardY));
         }
     }

@@ -1,5 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 /** Tests of lying snow on bark and on plants drawn as cards. They read the shaders' text, since nothing here runs a shader. */
 final class SnowOnPlantsTests {
     private SnowOnPlantsTests() {}
@@ -41,9 +46,9 @@ final class SnowOnPlantsTests {
         check(vertex.contains("take*lean*(1.0-0.35*uPlantSnow)") && !vertex.contains("take*lean*(1.0-0.35*uSnowLying)"), "nor does a bough swing the less for it");
         String pipeline;
         try {
-            pipeline = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid/Pipeline.java"));
-        } catch (java.io.IOException e) {
-            throw new java.io.UncheckedIOException(e);
+            pipeline = Files.readString(Path.of("src/main/java/com/cameraunlock/zomboid/Pipeline.java"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
         check(pipeline.contains("return Quality.plain() ? 0f : state.snowLying;") && pipeline.contains("to.set(\"uPlantSnow\", plantSnow(state));")
                 && pipeline.contains("shadow.set(\"uPlantSnow\", plantSnow(state));"), "in Low, the plain mode, no snow lies on what grows, in the world's program and the shadows'");

@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 final class OwnArmTests {
     private OwnArmTests() {}
@@ -106,7 +107,7 @@ final class OwnArmTests {
             ArmHolds.LONG_SHOULDERS[0], ArmHolds.LONG_SHOULDERS[1]};
         for (float[] shoulder : shoulders) {
             check(Math.abs(shoulder[0]) >= 0.13f && Math.abs(shoulder[0]) <= 0.22f && shoulder[1] <= -0.18f && shoulder[1] >= -0.28f && shoulder[2] >= -0.03f && shoulder[2] <= 0.15f,
-                    "a shoulder is 13 to 22 cm to its side of the eye, 18 to 28 cm under it and no more than 3 cm ahead of it: " + java.util.Arrays.toString(shoulder));
+                    "a shoulder is 13 to 22 cm to its side of the eye, 18 to 28 cm under it and no more than 3 cm ahead of it: " + Arrays.toString(shoulder));
         }
         check(ArmHolds.LONG_SHOULDERS[0][0] > 0f && ArmHolds.LONG_SHOULDERS[1][0] < 0f && ArmHolds.LONG_SHOULDERS[1][2] < ArmHolds.LONG_SHOULDERS[0][2],
                 "behind a long gun the right one is on the right and the left one is the further forward");

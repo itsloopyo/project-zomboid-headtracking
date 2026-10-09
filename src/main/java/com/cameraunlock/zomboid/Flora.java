@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import com.cameraunlock.zomboid.SpriteGeometry.Mesh;
+import java.util.Arrays;
 import java.util.HashMap;
 
 /**
@@ -263,7 +264,7 @@ final class Flora {
                 }
             }
         }
-        return java.util.Arrays.copyOf(found, count);
+        return Arrays.copyOf(found, count);
     }
 
     /** What measure leaves of a crown's size: how wide it is, its lowest and highest leaves over the foot, how tall, and the height under which the sprite paints only trunk. */
@@ -300,8 +301,8 @@ final class Flora {
                 return false;
             }
             tall = Math.max(highest - lowest, 1e-3f);
-            java.util.Arrays.fill(reachLeft, 0f);
-            java.util.Arrays.fill(reachRight, 0f);
+            Arrays.fill(reachLeft, 0f);
+            Arrays.fill(reachRight, 0f);
             for (int i = 0; i < count; i++) {
                 float high = (footV - places[i * 2 + 1]) * up;
                 if (high < under) {
@@ -555,8 +556,8 @@ final class Flora {
         int count = places.length / 2;
         int[] placeOf = new int[CORE_RINGS];
         float[] nearest = new float[CORE_RINGS];
-        java.util.Arrays.fill(placeOf, -1);
-        java.util.Arrays.fill(nearest, Float.MAX_VALUE);
+        Arrays.fill(placeOf, -1);
+        Arrays.fill(nearest, Float.MAX_VALUE);
         for (int i = 0; i < count; i++) {
             float high = (footV - places[i * 2 + 1]) * up;
             if (high < under) {

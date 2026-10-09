@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Locale;
-import zombie.characters.IsoPlayer;
 import zombie.iso.Vector2;
 
 /**

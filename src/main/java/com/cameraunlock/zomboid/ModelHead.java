@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Locale;
 import org.lwjgl.util.vector.Matrix4f;
 import org.lwjgl.util.vector.Quaternion;
 import org.lwjgl.util.vector.Vector3f;
@@ -118,8 +119,8 @@ public final class ModelHead {
         jointUp = joint.y;
         if (FirstPerson.TRACE && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
-            Log.info(String.format(java.util.Locale.ROOT, "head joint in the model at (%.3f, %.3f, %.3f)", joint.x, joint.y, joint.z)
-                    + (neckLeast > neckMost ? ", head not turned" : String.format(java.util.Locale.ROOT, ", as the game left them the neck"
+            Log.info(String.format(Locale.ROOT, "head joint in the model at (%.3f, %.3f, %.3f)", joint.x, joint.y, joint.z)
+                    + (neckLeast > neckMost ? ", head not turned" : String.format(Locale.ROOT, ", as the game left them the neck"
                             + " turned %.1f to %.1f degrees in its parent and the head %.1f to %.1f", neckLeast, neckMost, topLeast, topMost)));
             neckLeast = Float.MAX_VALUE;
             neckMost = 0f;

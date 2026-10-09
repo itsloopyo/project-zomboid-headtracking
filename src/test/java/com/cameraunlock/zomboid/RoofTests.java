@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +32,7 @@ final class RoofTests {
     private static void meanColourOfATileCountsTheDarkBetweenItsShingles() {
         // Three pixels of a shingle's face, one of the dark beside it, and one the sprite does not paint.
         byte[] picture = {60, 90, 120, (byte) 255, 60, 90, 120, (byte) 255, 60, 90, 120, (byte) 255, 0, 10, 20, (byte) 255, (byte) 255, (byte) 255, (byte) 255, 0};
-        java.nio.ByteBuffer pixels = java.nio.ByteBuffer.wrap(picture);
+        ByteBuffer pixels = ByteBuffer.wrap(picture);
         float[] colour = new float[WallSides.MEAN + 3];
         check(WallSides.usualColour(pixels, 5, 0, 0, 5, 1, colour) && near(colour[0], 60f / 255f), "the usual colour of a tile is the face of its shingles");
         WallSides.meanColour(pixels, 5, 0, 0, 5, 1, colour);

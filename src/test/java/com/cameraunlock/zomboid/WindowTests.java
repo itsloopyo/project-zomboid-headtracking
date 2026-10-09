@@ -1,6 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Random;
+import java.util.function.BiFunction;
 
 /** Tests of what is measured off a window's sprite laid flat on its wall. */
 final class WindowTests {
@@ -298,7 +301,7 @@ final class WindowTests {
     }
 
     /** A square of floor side dots a side: the colour at each dot from its place, x then y, each 0 to 1. */
-    private static float[] floor(int side, java.util.function.BiFunction<Float, Float, float[]> colour) {
+    private static float[] floor(int side, BiFunction<Float, Float, float[]> colour) {
         float[] dots = new float[side * side * 3];
         for (int i = 0; i < side; i++) {
             for (int j = 0; j < side; j++) {
@@ -336,8 +339,8 @@ final class WindowTests {
      * down with its top corner at dot (64, 0): every dot whose middle is in the diamond, and the
      * staircase dots that touch it, in the colour the floor has at the place the dot's middle shows.
      */
-    private static java.nio.ByteBuffer diamond(java.util.function.BiFunction<Float, Float, float[]> colour, float kept) {
-        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 64 * 4);
+    private static ByteBuffer diamond(BiFunction<Float, Float, float[]> colour, float kept) {
+        ByteBuffer sheet = ByteBuffer.allocate(128 * 64 * 4);
         for (int y = 0; y < 64; y++) {
             for (int x = 0; x < 128; x++) {
                 float u = x + 0.5f - 64f, v = y + 0.5f;
@@ -392,7 +395,7 @@ final class WindowTests {
                 "and a roof's rim, which the next tile up is no part of, is its own last dots");
         // The same floor tipped up as a tile of roof, a sixth of a level over the square: laid flat on that slope it is the same picture.
         // The frame dot of a point of that slope is 64 * (a - b) + 64 across and 32 * a + 192 down: the climb takes back what b adds.
-        java.nio.ByteBuffer tipped = java.nio.ByteBuffer.allocate(128 * 32 * 4);
+        ByteBuffer tipped = ByteBuffer.allocate(128 * 32 * 4);
         for (int y = 0; y < 32; y++) {
             for (int x = 0; x < 128; x++) {
                 float a = (y + 0.5f) / 32f, b = a - (x + 0.5f - 64f) / 64f;
@@ -439,7 +442,7 @@ final class WindowTests {
         check(Flats.boarded(dots) == null, "and tiles are no boards");
         // Grain with no joints: streaks along y that wander and never come round evenly.
         byte[] grain = new byte[side * side * 4];
-        java.util.Random streaks = new java.util.Random(7);
+        Random streaks = new Random(7);
         int[] streak = new int[side];
         for (int i = 0; i < side; i++) {
             streak[i] = 120 + streaks.nextInt(40);
@@ -483,7 +486,7 @@ final class WindowTests {
     private static void wallStoodSquareRunsOnIntoTheNextLength() {
         // A wall along the north edge as the game paints it, in a whole frame of 128 by 256 with the square's corner at (64, 192):
         // on the slant, stopping three dots short of its far end, with a window in it.
-        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        ByteBuffer sheet = ByteBuffer.allocate(128 * 256 * 4);
         for (int y = 0; y < 256; y++) {
             for (int x = 64; x < 125; x++) {
                 float along = (x + 0.5f - 64f) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
@@ -527,7 +530,7 @@ final class WindowTests {
         check(Flats.stood(sheet, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a sprite with nothing along the west edge is no wall there");
         // A wall along the west edge runs the other way across its sprite. This one stops three dots short of its far end and
         // eight short of its top, and its last tenth is a paler band, so what fills the gaps can be told from the rest.
-        java.nio.ByteBuffer west = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        ByteBuffer west = ByteBuffer.allocate(128 * 256 * 4);
         for (int y = 0; y < 256; y++) {
             for (int x = 3; x < 64; x++) {
                 float along = (64f - (x + 0.5f)) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;
@@ -557,7 +560,7 @@ final class WindowTests {
         int topDot = 40 * 4;
         check((stood[topDot + 3] & 0xff) == 255 && Math.abs((stood[topDot] & 0xff) / 255f - courses(0.6f, 1f - 10f / 192f)) < 0.02f, "and the top it stops short of with its top course");
         // The same wall with glass in its window is a glazed wall, and is left to its sprite.
-        java.nio.ByteBuffer glazed = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        ByteBuffer glazed = ByteBuffer.allocate(128 * 256 * 4);
         glazed.put(sheet.duplicate().rewind()).rewind();
         for (int y = 0; y < 256; y++) {
             for (int x = 64; x < 125; x++) {
@@ -569,7 +572,7 @@ final class WindowTests {
         }
         check(Flats.stood(glazed, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a wall with a pane of glass in it has no picture");
         // A fence of pickets with gaps of all sorts at its ends, row by row, is left as painted.
-        java.nio.ByteBuffer pickets = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        ByteBuffer pickets = ByteBuffer.allocate(128 * 256 * 4);
         for (int y = 0; y < 256; y++) {
             for (int x = 64; x < 128; x++) {
                 float along = (x + 0.5f - 64f) / 64f, up = (192f + 32f * along - (y + 0.5f)) / 192f;

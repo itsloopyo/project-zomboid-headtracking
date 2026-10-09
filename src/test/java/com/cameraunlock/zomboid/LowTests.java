@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Low draws first person from the game's own sprites, with nothing the mod adds of its own
@@ -30,7 +31,7 @@ final class LowTests {
     }
 
     private static void aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow() {
-        String scene = source("WorldScene.java");
+        String scene = scene();
         check(count(scene, "boolean showing = Online.contested() || withoutSightline || Quality.plain();") == 1,
                 "in Low what stands in a room is built only once the game has shown the room");
         check(count(scene, "if (ahead && (aheadStep < 0 || withoutSightline || Quality.plain() ||") == 1,
@@ -38,7 +39,7 @@ final class LowTests {
     }
 
     private static void anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings() {
-        String scene = source("WorldScene.java");
+        String scene = scene();
         check(count(scene, "float riser = closed || !Own.buildings() ? Stairs.RISE : Flights.TREAD;") == 1,
                 "an open flight's risers are whole and show the sprite without the mod's buildings");
         int gate = scene.indexOf("if (!closed && !Own.buildings()) { return true; }"), strings = scene.indexOf("flights.open(");
@@ -46,7 +47,7 @@ final class LowTests {
     }
 
     private static void bannersHangAsClothOnlyWithTheModsFurniture() {
-        String scene = source("WorldScene.java");
+        String scene = scene();
         String strung = "if ((kind.banner == Banners.STRUNG || kind.banner == Banners.POSTED) && Own.furniture()) { addBanner(mesh, kind.banner == Banners.STRUNG,";
         String onWall = "boolean cloth = kind.banner == Banners.ON_WALL && Own.furniture();";
         check(count(scene, strung) == 1, "a banner across a street or on a lamp post is hung as a sheet only with the mod's furniture on");
@@ -56,8 +57,8 @@ final class LowTests {
     }
 
     private static void aWoodenFloorIsWoodWhereNoPictureOfTheModsIsLaid() {
-        String scene = source("WorldScene.java");
-        Matcher asked = Pattern.compile("== WOOD( && Own\\.textures\\(\\))?").matcher(scene);
+        String scene = scene();
+        Matcher asked = Pattern.compile("== WorldScene\\.WOOD( && Own\\.textures\\(\\))?").matcher(scene);
         int asks = 0, gated = 0;
         while (asked.find()) {
             asks++;
@@ -86,6 +87,18 @@ final class LowTests {
     private static String source(String file) {
         try {
             return Files.readString(SOURCE.resolve(file)).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** WorldScene and the builders its frame hands each kind of thing in a chunk to, read as one. */
+    static String scene() {
+        try (Stream<Path> files = Files.list(SOURCE)) {
+            StringBuilder scene = new StringBuilder(source("WorldScene.java"));
+            files.map(file -> file.getFileName().toString()).filter(name -> name.endsWith("Builder.java")).sorted()
+                    .forEach(name -> scene.append(' ').append(source(name)));
+            return scene.toString();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

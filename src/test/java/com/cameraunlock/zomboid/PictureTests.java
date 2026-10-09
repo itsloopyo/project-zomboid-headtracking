@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
@@ -130,15 +131,15 @@ final class PictureTests {
         // The tests' classes are a folder on the class path: a file written there is one the jar has.
         Path folder = Path.of("build", "test-classes", "refused");
         Files.createDirectories(folder);
-        byte[] renamed = vinyl.clone(), levels = vinyl.clone(), longer = java.util.Arrays.copyOf(vinyl, vinyl.length + 1);
+        byte[] renamed = vinyl.clone(), levels = vinyl.clone(), longer = Arrays.copyOf(vinyl, vinyl.length + 1);
         renamed[0] = 'X';
         levels[20] = 12;
-        Files.write(folder.resolve("short.bc"), java.util.Arrays.copyOf(vinyl, vinyl.length - 1));
-        Files.write(folder.resolve("shorter.bc"), java.util.Arrays.copyOf(vinyl, 1000));
+        Files.write(folder.resolve("short.bc"), Arrays.copyOf(vinyl, vinyl.length - 1));
+        Files.write(folder.resolve("shorter.bc"), Arrays.copyOf(vinyl, 1000));
         Files.write(folder.resolve("long.bc"), longer);
         Files.write(folder.resolve("renamed.bc"), renamed);
         Files.write(folder.resolve("levels.bc"), levels);
-        Files.write(folder.resolve("head.bc"), java.util.Arrays.copyOf(vinyl, 20));
+        Files.write(folder.resolve("head.bc"), Arrays.copyOf(vinyl, 20));
         refused("/refused/short.bc", false, "bytes after its head");
         refused("/refused/short.bc", true, "bytes after its head");
         refused("/refused/shorter.bc", true, "bytes after its head");

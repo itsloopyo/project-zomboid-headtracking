@@ -5,6 +5,7 @@ import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import java.util.Locale;
 
 /** What the mod does differently on a server, as far as it can be worked out without one. */
 public final class OnlineTests {
@@ -60,7 +61,7 @@ public final class OnlineTests {
 
     /** What the replaced call is handed to: the object it was made on, then what it took. */
     public static String shout(StringBuilder said, int from) {
-        return said.substring(from).toUpperCase(java.util.Locale.ROOT);
+        return said.substring(from).toUpperCase(Locale.ROOT);
     }
 
     private static void aCallIsHandedToItsReplacement() throws Throwable {

@@ -3,12 +3,14 @@ package com.cameraunlock.zomboid;
 import com.cameraunlock.core.agent.Boot;
 import java.io.IOException;
 import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.Opcode;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -435,9 +437,9 @@ public final class Agent {
                 halved(new CallSite.Method(core, "getOffscreenHeight", ofPlayer), 0, 1),
                 halved(startingFrame, 2, 2),
                 new Patch(core, "DoStartFrameStuffInternal taking the player's column", classBytes -> CallSite.filterFirstOperandOfEach(classBytes,
-                        startingFrame, java.lang.classfile.Opcode.IREM, seat, 1)),
+                        startingFrame, Opcode.IREM, seat, 1)),
                 new Patch(core, "DoStartFrameStuffInternal taking the player's row", classBytes -> CallSite.filterFirstOperandOfEach(classBytes,
-                        startingFrame, java.lang.classfile.Opcode.IF_ICMPLT, seat, 1)),
+                        startingFrame, Opcode.IF_ICMPLT, seat, 1)),
                 halved(new CallSite.Method(core, "DoStartFrameNoZoom", startFrame), 1, 1),
                 halved(new CallSite.Method("zombie/vispoly/VisibilityPolygon2$Drawer", "renderToScreen", "()V"), 1, 1),
                 halved(toBodyAtlas, 1, 1),
@@ -524,7 +526,7 @@ public final class Agent {
     private static List<Patch> windowMarkPatches() {
         String window = "zombie/iso/objects/IsoWindow";
         CallSite.Method changed = new CallSite.Method("com/cameraunlock/zomboid/ChunkMarks", "changed", "(Lzombie/iso/IsoObject;)V");
-        java.util.ArrayList<Patch> patches = new java.util.ArrayList<>();
+        ArrayList<Patch> patches = new ArrayList<>();
         for (String[] method : new String[][] {{"smashWindow", "(ZZ)V"}, {"setSmashed", "(Z)V"}, {"setGlassRemoved", "(Z)V"},
                 {"ToggleWindow", "(Lzombie/characters/IsoGameCharacter;)V"}, {"Thump", "(Lzombie/iso/IsoMovingObject;I)V"},
                 {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {

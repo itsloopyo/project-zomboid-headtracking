@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import zombie.GameTime;
@@ -350,7 +351,7 @@ public final class Controls {
         try {
             Object delay = IsoPlayer.class.getMethod("getAimingDelay").invoke(player);
             Object moving = IsoPlayer.class.getMethod("getBeenMovingFor").invoke(player);
-            java.util.List<?> hits = (java.util.List<?>) IsoPlayer.class.getMethod("getHitInfoList").invoke(player);
+            List<?> hits = (List<?>) IsoPlayer.class.getMethod("getHitInfoList").invoke(player);
             StringBuilder said = new StringBuilder(String.format(Locale.ROOT, "shot: aim stock %b filtered %b attack %b isAiming %b aiming delay %s moving %s can hit %d",
                     stockAim, filteredAim, attackDown, player.isAiming(), delay, moving, hits.size()));
             for (int i = 0; i < hits.size(); i++) {

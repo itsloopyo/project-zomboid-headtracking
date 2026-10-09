@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import zombie.core.properties.PropertyContainer;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -10,7 +11,6 @@ import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
-import zombie.core.properties.PropertyContainer;
 import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
 
@@ -474,7 +474,7 @@ final class Terrain {
             Log.info("terrain: the heights at " + wx + ", " + wy + " came out otherwise from all they are worked out from as it was: the copy would have been stale");
         }
         kerbs(cell, fresh, known ? grid : null);
-        boolean same = known && fresh.kerbSum == grid.kerbSum && java.util.Arrays.equals(fresh.heights, grid.heights) && java.util.Arrays.equals(fresh.water, grid.water);
+        boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
         fresh.version = same ? grid.version : ++versions;
         if (mapAsItWas && !same) {
             Log.info("chunk marks: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with the map as it was");

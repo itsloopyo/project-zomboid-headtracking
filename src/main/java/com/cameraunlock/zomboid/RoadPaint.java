@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
@@ -80,7 +81,7 @@ final class RoadPaint {
     private static final ConcurrentHashMap<Texture, Asked> asked = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Texture, Shape> known = new ConcurrentHashMap<>();
     /** The pictures of one dot made so far, by colour and coat. Known to the thread that draws alone. */
-    private static final java.util.HashMap<Integer, Integer> pictures = new java.util.HashMap<>();
+    private static final HashMap<Integer, Integer> pictures = new HashMap<>();
 
     private RoadPaint() {}
 

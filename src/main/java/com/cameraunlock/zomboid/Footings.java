@@ -1,6 +1,9 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Which made thing stands over each square of the map, so that Terrain can give the whole of
@@ -101,7 +104,7 @@ final class Footings {
      * it is in without looking over MOST squares again, and a building's own square among
      * them answers with no search.
      */
-    private final java.util.HashSet<Long> large = new java.util.HashSet<>();
+    private final HashSet<Long> large = new HashSet<>();
 
     /** The answer for a thing looked over whole: see find. */
     private record Answer(long found, boolean free, boolean settled) {}
@@ -117,7 +120,7 @@ final class Footings {
     /** About twice the chunks a view of the farthest the game loads looks over. */
     static final int KEPT_CHUNKS = 2048;
 
-    private static final class Answers extends java.util.LinkedHashMap<Long, Answer[]> {
+    private static final class Answers extends LinkedHashMap<Long, Answer[]> {
         private static final long serialVersionUID = 1L;
 
         Answers() {
@@ -125,7 +128,7 @@ final class Footings {
         }
 
         @Override
-        protected boolean removeEldestEntry(java.util.Map.Entry<Long, Answer[]> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<Long, Answer[]> eldest) {
             return size() > KEPT_CHUNKS;
         }
 

@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Locale;
 import zombie.characters.IsoPlayer;
 import zombie.inventory.InventoryItem;
 import zombie.iso.IsoWorld;
@@ -59,7 +60,7 @@ final class CarriedLight {
 
     String describe() {
         float[] now = light;
-        return String.format(java.util.Locale.ROOT, "carried light reach %.0f cone %.0f held (%.2f, %.2f, %.2f) way (%.2f, %.2f, %.2f)",
+        return String.format(Locale.ROOT, "carried light reach %.0f cone %.0f held (%.2f, %.2f, %.2f) way (%.2f, %.2f, %.2f)",
                 now[REACH], now[CONE], now[HELD], now[HELD + 1], now[HELD + 2], now[WAY], now[WAY + 1], now[WAY + 2]);
     }
 }

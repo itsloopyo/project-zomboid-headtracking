@@ -6,7 +6,12 @@ import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 final class GameFixTests {
     private GameFixTests() {}
@@ -30,13 +35,13 @@ final class GameFixTests {
 
     private static void aKindIsKeptOnceItIsLearnt() {
         check(GameFixes.knownKind(ArrayList.class) == null && GameFixes.knownKind(null) == null, "nothing is known of a class not yet asked about, nor of no class");
-        GameFixes.learnKind(ArrayList.class, java.util.AbstractList.class);
+        GameFixes.learnKind(ArrayList.class, AbstractList.class);
         GameFixes.learnKind(null, Object.class);
-        check(GameFixes.knownKind(ArrayList.class) == java.util.AbstractList.class, "what was answered for a class is known of it afterwards");
-        check(GameFixes.knownKind(java.util.LinkedList.class) == null && GameFixes.knownKind(null) == null, "and of no other");
+        check(GameFixes.knownKind(ArrayList.class) == AbstractList.class, "what was answered for a class is known of it afterwards");
+        check(GameFixes.knownKind(LinkedList.class) == null && GameFixes.knownKind(null) == null, "and of no other");
     }
 
-    private static final java.util.Map<Class<?>, Class<?>> learnt = new java.util.HashMap<>();
+    private static final Map<Class<?>, Class<?>> learnt = new HashMap<>();
     private static int worked;
 
     public static Class<?> known(Class<?> asked) {
@@ -91,7 +96,7 @@ final class GameFixTests {
                         .aload(0).invokespecial(parent, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void).return_())
                 .withMethodBody("get", getsObject, ClassFile.ACC_PUBLIC, code -> code.aload(0).invokevirtual(child, "find", getsObject).areturn()));
         CallSite.Method getter = new CallSite.Method("com/cameraunlock/zomboid/SubjectAsking", "get", "()Ljava/lang/Object;");
-        java.util.List<CallSite.Method> changers = java.util.List.of(new CallSite.Method("com/cameraunlock/zomboid/SubjectAsking", "put", "(Ljava/lang/Object;)V"));
+        List<CallSite.Method> changers = List.of(new CallSite.Method("com/cameraunlock/zomboid/SubjectAsking", "put", "(Ljava/lang/Object;)V"));
         byte[] kept = CallSite.keepInField(asking, getter, "kept", "com/cameraunlock/zomboid/SubjectHolding", changers);
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         Class<?> base = lookup.defineClass(holding);

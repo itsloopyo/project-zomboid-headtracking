@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.function.Consumer;
 
 /** Tests of what Flights builds round a flight's treads, and of which sprites Rails takes for lengths of rail. */
 final class FlightTests {
@@ -40,7 +41,7 @@ final class FlightTests {
     private static final int ALONG = 0, ACROSS = 1, UP = 2;
 
     /** The faces a build hands over, each four corners of along, across, up. */
-    private static ArrayList<float[]> faces(java.util.function.Consumer<Flights> build) {
+    private static ArrayList<float[]> faces(Consumer<Flights> build) {
         ArrayList<float[]> faces = new ArrayList<>();
         build.accept(new Flights(q -> faces.add(q.clone())));
         return faces;

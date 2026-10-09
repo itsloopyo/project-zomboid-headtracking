@@ -4,13 +4,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.classfile.ClassFile;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import java.util.zip.GZIPOutputStream;
 
 public final class Tests {
@@ -1839,18 +1840,18 @@ public final class Tests {
         check(DevPatches.list().isEmpty(), "and nothing of the game's is patched for them");
         // A key put in the wrong source tree would pass all of that. What a development key does it does by calling
         // the game, and a class names every method it calls: none of the classes that ship may name one of these.
-        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(java.nio.file.Path.of("build/classes"))) {
+        try (Stream<Path> files = Files.walk(Path.of("build/classes"))) {
             int read = 0;
-            for (java.nio.file.Path file : files.filter(each -> each.toString().endsWith(".class")).toList()) {
-                String names = new String(java.nio.file.Files.readAllBytes(file), java.nio.charset.StandardCharsets.ISO_8859_1);
+            for (Path file : files.filter(each -> each.toString().endsWith(".class")).toList()) {
+                String names = new String(Files.readAllBytes(file), StandardCharsets.ISO_8859_1);
                 read++;
                 for (String cheat : CHEATS) {
                     check(!names.contains(cheat), file.getFileName() + " ships and names " + cheat + ", which only a development key calls");
                 }
             }
             check(read > 100, "the classes that ship were read: " + read);
-        } catch (java.io.IOException e) {
-            throw new java.io.UncheckedIOException(e);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

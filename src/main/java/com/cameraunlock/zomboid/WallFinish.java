@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.WeakHashMap;
@@ -90,7 +91,7 @@ final class WallFinish {
     }
 
     /** A level of a building that has been read, for tend. */
-    private record Read(java.lang.ref.WeakReference<IsoBuilding> building, int z) {}
+    private record Read(WeakReference<IsoBuilding> building, int z) {}
 
     /** Every level read while the game tells of its changes: see tend. */
     private static final ArrayList<Read> tendedLevels = new ArrayList<>();
@@ -244,7 +245,7 @@ final class WallFinish {
         }
         // Whenever the game is telling, not only at a first reading: it may begin to tell after the level was read.
         if (ChunkMarks.live && !level.listed) {
-            tendedLevels.add(new Read(new java.lang.ref.WeakReference<>(building), z));
+            tendedLevels.add(new Read(new WeakReference<>(building), z));
             level.listed = true;
         }
         return level;

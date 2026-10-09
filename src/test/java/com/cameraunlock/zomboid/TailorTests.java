@@ -2,8 +2,10 @@ package com.cameraunlock.zomboid;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import javax.imageio.ImageIO;
 
 /** Tests of what people wear being made finer: which pictures, with what fabric, and what the enlarging keeps. */
 final class TailorTests {
@@ -30,9 +32,9 @@ final class TailorTests {
             "shirtdecals/Culture_USAflagDECAL.png", "BloodTextures/BloodOverlay.png", "BloodTextures/GrimeOverlay.png"};
         for (String relative : asked) {
             String path = FineSkins.Jar.resource(relative);
-            try (java.io.InputStream in = TailorTests.class.getResourceAsStream(path); java.io.InputStream cutIn = TailorTests.class.getResourceAsStream(FineSkins.Jar.cut(path))) {
+            try (InputStream in = TailorTests.class.getResourceAsStream(path); InputStream cutIn = TailorTests.class.getResourceAsStream(FineSkins.Jar.cut(path))) {
                 check(in != null && cutIn != null, "the jar has " + path + " and what of it shows");
-                BufferedImage image = javax.imageio.ImageIO.read(in), cut = javax.imageio.ImageIO.read(cutIn);
+                BufferedImage image = ImageIO.read(in), cut = ImageIO.read(cutIn);
                 check(image.getWidth() == cut.getWidth() && image.getHeight() == cut.getHeight() && image.getWidth() >= 512, path + " and its cut are of one size, 512 dots or more");
                 check(cut.getType() == BufferedImage.TYPE_BYTE_GRAY, "what shows of " + path + " is stored a byte a dot, so that what fades is read as it is: " + cut.getType());
                 int[] shows = cut.getRaster().getSamples(0, 0, cut.getWidth(), cut.getHeight(), 0, (int[]) null);

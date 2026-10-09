@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import zombie.core.textures.Texture;
 
 /**
  * Turns one of the game's isometric sprites into textured triangles in the
@@ -358,6 +359,30 @@ final class SpriteGeometry {
          * light runs smoothly from one square into the next.
          */
         final float[] cornerRed = new float[4], cornerGreen = new float[4], cornerBlue = new float[4];
+
+        /** The rectangle of the frame a texture holds, and where in the texture it is. */
+        void takeTexels(Texture texture) {
+            left = texture.getOffsetX();
+            top = texture.getOffsetY();
+            width = texture.getWidth();
+            height = texture.getHeight();
+            uStart = texture.getXStart();
+            uEnd = texture.getXEnd();
+            vStart = texture.getYStart();
+            vEnd = texture.getYEnd();
+        }
+
+        /** Another frame's rectangle and texels. */
+        void texelsOf(Frame other) {
+            left = other.left;
+            top = other.top;
+            width = other.width;
+            height = other.height;
+            uStart = other.uStart;
+            uEnd = other.uEnd;
+            vStart = other.vStart;
+            vEnd = other.vEnd;
+        }
 
         /** One light for the whole square. */
         void light(float r, float g, float b) {

@@ -1,9 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 /** Tests of the room kept for each chunk's triangles in the one buffer the graphics card holds them in. */
 final class BufferTests {
@@ -37,7 +40,7 @@ final class BufferTests {
     /** The game's own view: looking north-west along the ground, a floor up drawn 4.24 tiles further along. */
     private static void noChunkOnTheScreenIsLeftOut() {
         float alongX = -0.70710678f, alongY = -0.70710678f, shift = 4.2426f;
-        java.util.Random random = new java.util.Random(7);
+        Random random = new Random(7);
         int kept = 0, seen = 0;
         for (int trial = 0; trial < 200_000; trial++) {
             float halfAcross = 5f + random.nextFloat() * 70f, halfAlong = 5f + random.nextFloat() * 40f, beyond = 24f + random.nextFloat() * 24f;
@@ -147,8 +150,8 @@ final class BufferTests {
             Ahead.forget("test done then forgotten");
             check(freed(made[0]), "work that had ended when it was forgotten has its memory freed by the forgetting");
 
-            java.util.concurrent.CountDownLatch begun = new java.util.concurrent.CountDownLatch(1), forgotten = new java.util.concurrent.CountDownLatch(1);
-            java.util.concurrent.CountDownLatch ended = new java.util.concurrent.CountDownLatch(1);
+            CountDownLatch begun = new CountDownLatch(1), forgotten = new CountDownLatch(1);
+            CountDownLatch ended = new CountDownLatch(1);
             Ahead.begin("test forgotten while under way", () -> {
                 begun.countDown();
                 forgotten.await();
@@ -166,7 +169,7 @@ final class BufferTests {
                 Thread.sleep(1);
                 try {
                     // Read, not freed: a free here would race the worker's own.
-                    java.lang.reflect.Field flag = OffHeap.Block.class.getDeclaredField("freed");
+                    Field flag = OffHeap.Block.class.getDeclaredField("freed");
                     flag.setAccessible(true);
                     gone = flag.getBoolean(made[1]);
                 } catch (ReflectiveOperationException e) {
@@ -179,7 +182,7 @@ final class BufferTests {
             made[2] = Ahead.take("test taken", () -> OffHeap.take(64));
             Ahead.forget("test taken");
             check(!freed(made[2]), "work that was taken is the taker's to free, and forgetting its name afterwards frees nothing");
-        } catch (InterruptedException | java.io.IOException e) {
+        } catch (InterruptedException | IOException e) {
             throw new IllegalStateException(e);
         }
     }

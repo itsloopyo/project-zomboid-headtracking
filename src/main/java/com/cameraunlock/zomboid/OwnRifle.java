@@ -1,13 +1,7 @@
 package com.cameraunlock.zomboid;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.zip.GZIPInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
@@ -38,18 +32,13 @@ final class OwnRifle {
     /** The one item of the game's that the model stands for. */
     private static final String ITEM = "Base.HuntingRifle";
 
-    private static final String MESH = "/models/rifle.mesh.gz", COLOUR = "/models/rifle.colour.bc", SURFACE = "/models/rifle.surface.bc";
-    private static final int MAGIC = 'C' | 'U' << 8 | 'W' << 16 | 'M' << 24;
-    private static final int VERSION = 4;
-    private static final int HEAD_BYTES = 4 + 4 + 12 * Float.BYTES + 6 * Integer.BYTES;
-    /** A vertex in the file: its place, its normal, the tangent along the texture, which way the texture's other axis runs, its place in the texture. */
-    private static final int VERTEX_BYTES = 3 * Float.BYTES + 3 * Short.BYTES + 3 * Short.BYTES + Short.BYTES + 2 * Short.BYTES;
+    /** The model, read out of the jar and on the graphics card. */
+    static final OwnModel MODEL = new OwnModel("the rifle's model", "rifle");
     /** The parts the file's layout names. The rifle has nothing in the second, which is a pump's, or the last, which is a stock left out. */
-    private static final int PARTS = 5, FIXED = 0, BOLT = 2, CASE = 3;
+    private static final int FIXED = 0, BOLT = 2, CASE = 3;
 
     private static final int GL_TEXTURE_2D = 0x0DE1;
-    private static final int GL_ARRAY_BUFFER = 0x8892, GL_ELEMENT_ARRAY_BUFFER = 0x8893, GL_STATIC_DRAW = 0x88E4;
-    private static final int GL_FLOAT = 0x1406, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403, GL_UNSIGNED_INT = 0x1405, GL_TRIANGLES = 0x0004;
+    private static final int GL_UNSIGNED_INT = 0x1405, GL_TRIANGLES = 0x0004;
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_TEXTURE0 = 0x84C0, GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_BLEND = 0x0BE2, GL_LEQUAL = 0x0203;
     /** Units nothing else in the picture keeps a texture on between passes: the shotgun's, which is never in the hands with the rifle. */
     private static final int COLOUR_UNIT = 30, SURFACE_UNIT = 31, HANDS_UNIT = 3;
@@ -246,20 +235,6 @@ final class OwnRifle {
 
     /** Linked the first time the model is made and kept: the model's buffers and pictures are what is given back. */
     private static Program program;
-    /** Read by the game's logic thread too, to ask whether the model stands for what is held. */
-    private static volatile boolean onCard;
-    private static int array, vertexBuffer, indexBuffer, colour, surface;
-    private static final int[] firstIndex = new int[PARTS], indexCount = new int[PARTS];
-    private static final float[] muzzle = new float[3], port = new float[3];
-    private static float travel;
-    /**
-     * In the model's metres: how far the muzzle is from the grip, and where the eye is with the
-     * open sights lined up, over the bore and behind the grip.
-     */
-    static float muzzleFar, sightLine, eyeBehind;
-    /** Where the hand under the fore-end holds it, as a share of the way from the grip to the muzzle. */
-    static float foreEnd;
-
     private final float[] model = new float[16], projection = new float[16];
     private boolean placed;
     private float handed, stood, outdoors;
@@ -276,7 +251,7 @@ final class OwnRifle {
 
     /** How far the bolt is drawn back, in the model's metres. */
     static float boltTravel() {
-        return travel;
+        return MODEL.travel;
     }
     private static final float NOT_WORKING = -1f;
     private boolean caseThrown;
@@ -284,7 +259,7 @@ final class OwnRifle {
 
     /** Whether the model is what is drawn for an item held. */
     static boolean standsFor(String item) {
-        return onCard && Own.weapons() && ITEM.equals(item);
+        return MODEL.onCard && Own.weapons() && ITEM.equals(item);
     }
 
     /** Reads the model out of the jar and gives it to the graphics card. Null, or what went wrong. */
@@ -296,145 +271,7 @@ final class OwnRifle {
                 return problem.toString();
             }
         }
-        String problem = make();
-        if (problem == null) {
-            onCard = true;
-        } else {
-            letGo();
-        }
-        return problem;
-    }
-
-    private static String make() {
-        try {
-            ByteBuffer mesh = ByteBuffer.wrap(read(MESH)).order(ByteOrder.LITTLE_ENDIAN);
-            if (mesh.remaining() < HEAD_BYTES || mesh.getInt() != MAGIC || mesh.getInt() != VERSION) {
-                return MESH + " is not a weapon model of version " + VERSION;
-            }
-            for (int axis = 0; axis < 3; axis++) {
-                muzzle[axis] = mesh.getFloat();
-            }
-            mesh.getFloat();
-            float heldY = mesh.getFloat();
-            mesh.getFloat();
-            for (int axis = 0; axis < 3; axis++) {
-                port[axis] = mesh.getFloat();
-            }
-            travel = mesh.getFloat();
-            sightLine = mesh.getFloat();
-            eyeBehind = mesh.getFloat();
-            int vertices = mesh.getInt(), indices = 0;
-            for (int part = 0; part < PARTS; part++) {
-                firstIndex[part] = indices;
-                indexCount[part] = mesh.getInt();
-                indices += indexCount[part];
-            }
-            if (mesh.remaining() != vertices * VERTEX_BYTES + indices * Integer.BYTES) {
-                return MESH + " holds " + mesh.remaining() + " bytes after its head, not the " + vertices + " vertices and " + indices + " indices it says";
-            }
-            muzzleFar = (float) Math.sqrt(muzzle[0] * muzzle[0] + muzzle[1] * muzzle[1] + muzzle[2] * muzzle[2]);
-            foreEnd = heldY / muzzle[1];
-            upload(mesh, vertices, indices);
-            colour = texture(COLOUR);
-            surface = texture(SURFACE);
-        } catch (IOException e) {
-            return e.getMessage();
-        }
-        int error = GL11.glGetError();
-        Pipeline.noted(error);
-        if (error != 0) {
-            return "OpenGL error 0x" + Integer.toHexString(error) + " making the rifle's model";
-        }
-        return null;
-    }
-
-    /**
-     * Gives the model's buffers and pictures back to the graphics card, made or half made, and
-     * whatever was unpacked ahead for a making that will not now happen. Render thread.
-     */
-    static void letGo() {
-        onCard = false;
-        for (String path : new String[] {MESH, COLOUR, SURFACE}) {
-            Ahead.forget(path);
-        }
-        GL11.glDeleteTextures(colour);
-        GL11.glDeleteTextures(surface);
-        GL15.glDeleteBuffers(vertexBuffer);
-        GL15.glDeleteBuffers(indexBuffer);
-        GL30.glDeleteVertexArrays(array);
-        colour = 0;
-        surface = 0;
-        vertexBuffer = 0;
-        indexBuffer = 0;
-        array = 0;
-    }
-
-    /** Begins unpacking the model and its pictures on other threads, for {@link #prepare} to find them unpacked. */
-    static void readAhead() {
-        Ahead.begin(MESH, () -> unpacked(MESH));
-        for (String path : new String[] {COLOUR, SURFACE}) {
-            Ahead.begin(path, () -> Pictures.packed(path, false));
-        }
-    }
-
-    /** Whether everything {@link #readAhead} began is unpacked. */
-    static boolean isRead() {
-        return Ahead.done(MESH) && Ahead.done(COLOUR) && Ahead.done(SURFACE);
-    }
-
-    private static byte[] read(String path) throws IOException {
-        return Ahead.take(path, () -> unpacked(path));
-    }
-
-    private static byte[] unpacked(String path) throws IOException {
-        try (InputStream packed = OwnRifle.class.getResourceAsStream(path)) {
-            if (packed == null) {
-                throw new IOException("the jar has no " + path);
-            }
-            return new GZIPInputStream(packed).readAllBytes();
-        }
-    }
-
-    private static void upload(ByteBuffer mesh, int vertices, int indices) {
-        array = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(array);
-        // The driver takes its copy from memory outside the heap, which is given back as soon as it has.
-        OffHeap.Block data = OffHeap.take(vertices * VERTEX_BYTES + indices * Integer.BYTES);
-        try {
-            data.bytes.put(0, mesh.array(), mesh.position(), data.bytes.capacity());
-            vertexBuffer = GL15.glGenBuffers();
-            GL15.glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-            GL15.glBufferData(GL_ARRAY_BUFFER, data.bytes.slice(0, vertices * VERTEX_BYTES), GL_STATIC_DRAW);
-            indexBuffer = GL15.glGenBuffers();
-            GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
-            GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.bytes.slice(vertices * VERTEX_BYTES, indices * Integer.BYTES), GL_STATIC_DRAW);
-        } finally {
-            data.free();
-        }
-        attribute(program, "aPlace", 3, GL_FLOAT, false, 0);
-        attribute(program, "aNormal", 3, GL_SHORT, true, 12);
-        attribute(program, "aTangent", 3, GL_SHORT, true, 18);
-        attribute(program, "aWay", 1, GL_SHORT, false, 24);
-        attribute(program, "aUv", 2, GL_UNSIGNED_SHORT, true, 26);
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
-        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    }
-
-    private static void attribute(Program linked, String name, int size, int type, boolean normalized, int offset) {
-        int at = GL20.glGetAttribLocation(linked.id, name);
-        GL20.glEnableVertexAttribArray(at);
-        GL20.glVertexAttribPointer(at, size, type, normalized, VERTEX_BYTES, offset);
-    }
-
-    private static int texture(String path) throws IOException {
-        OffHeap.Block file = Ahead.take(path, () -> Pictures.packed(path, false));
-        try {
-            // The barrel is seen along its length, so it is read with 16 samples along the slant.
-            return Pictures.texture(file, GL_TEXTURE_2D, false, 16, path);
-        } finally {
-            file.free();
-        }
+        return MODEL.prepare(program);
     }
 
     /**
@@ -449,7 +286,7 @@ final class OwnRifle {
      */
     void place(float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside) {
         // The model is sized so that its muzzle is where the game's is.
-        float size = finalScale * gameMuzzle / muzzleFar;
+        float size = finalScale * gameMuzzle / MODEL.muzzleFar;
         for (int column = 0; column < 3; column++) {
             model[column * 4] = weapon[column] * size;
             model[column * 4 + 1] = weapon[4 + column] * size;
@@ -536,7 +373,7 @@ final class OwnRifle {
         program.set("uOutdoors", outdoors);
         program.set("uFar", far);
         program.set("uMetre", metre);
-        program.set("uBore", muzzle[2]);
+        program.set("uBore", MODEL.muzzle[2]);
         program.set("uColour", COLOUR_UNIT);
         program.set("uSurface", SURFACE_UNIT);
         program.set("uShadowNear", OwnWeapon.SHADOW_NEAR_UNIT);
@@ -545,13 +382,13 @@ final class OwnRifle {
         program.set("uSize", (float) wide, (float) high);
         program.set("uHandsNear", near);
         GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, colour);
+        GL11.glBindTexture(GL_TEXTURE_2D, MODEL.colour);
         GL13.glActiveTexture(GL_TEXTURE0 + SURFACE_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, surface);
+        GL11.glBindTexture(GL_TEXTURE_2D, MODEL.surface);
         GL13.glActiveTexture(GL_TEXTURE0 + HANDS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, handsDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
-        GL30.glBindVertexArray(array);
+        GL30.glBindVertexArray(MODEL.array);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(true);
@@ -584,18 +421,18 @@ final class OwnRifle {
         program.set("uModel", model);
         program.set("uTurn", 1f, 0f);
         program.set("uSlide", 0f);
-        GL11.glDrawElements(GL_TRIANGLES, indexCount[FIXED], GL_UNSIGNED_INT, (long) firstIndex[FIXED] * Integer.BYTES);
+        GL11.glDrawElements(GL_TRIANGLES, MODEL.indexCount[FIXED], GL_UNSIGNED_INT, (long) MODEL.firstIndex[FIXED] * Integer.BYTES);
         // The handle is on the model's left, which held up is the viewer's right, and rises as it is turned this way.
         float turn = -LIFT * bolt[0];
         program.set("uTurn", (float) Math.cos(turn), (float) Math.sin(turn));
-        program.set("uSlide", bolt[1] * travel);
-        GL11.glDrawElements(GL_TRIANGLES, indexCount[BOLT], GL_UNSIGNED_INT, (long) firstIndex[BOLT] * Integer.BYTES);
+        program.set("uSlide", bolt[1] * MODEL.travel);
+        GL11.glDrawElements(GL_TRIANGLES, MODEL.indexCount[BOLT], GL_UNSIGNED_INT, (long) MODEL.firstIndex[BOLT] * Integer.BYTES);
         program.set("uTurn", 1f, 0f);
         program.set("uSlide", 0f);
         for (int thrown = 0; thrown < CASES; thrown++) {
             if (caseAge[thrown] < CASE_LASTS) {
                 program.set("uModel", caseModel[thrown]);
-                GL11.glDrawElements(GL_TRIANGLES, indexCount[CASE], GL_UNSIGNED_INT, (long) firstIndex[CASE] * Integer.BYTES);
+                GL11.glDrawElements(GL_TRIANGLES, MODEL.indexCount[CASE], GL_UNSIGNED_INT, (long) MODEL.firstIndex[CASE] * Integer.BYTES);
             }
         }
     }
@@ -624,7 +461,7 @@ final class OwnRifle {
             int flying = nextCase;
             nextCase = (nextCase + 1) % CASES;
             caseAge[flying] = 0f;
-            ViewModelMath.place(model, port[0], port[1], port[2], seenAt);
+            ViewModelMath.place(model, MODEL.port[0], MODEL.port[1], MODEL.port[2], seenAt);
             OwnWeapon.inWorld(camera, seenAt[0], seenAt[1], seenAt[2], caseAt[flying]);
             caseAt[flying][0] += camera.eyeX;
             caseAt[flying][1] += camera.eyeY;

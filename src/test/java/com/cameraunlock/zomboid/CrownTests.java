@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /** Tests of the crown of sprigs a tree or a bush is given in place of its sprite's painted leaves. */
@@ -335,7 +336,7 @@ final class CrownTests {
         SpriteGeometry.Mesh high = new SpriteGeometry.Mesh(), highOpen = new SpriteGeometry.Mesh();
         Flora.addCrown(high, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, room);
         Flora.addCrown(highOpen, new SpriteGeometry.Mesh(), frame, PLACES, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 9, Flora.OPEN);
-        check(high.floats > 0 && java.util.Arrays.equals(high.vertices, 0, high.floats, highOpen.vertices, 0, highOpen.floats),
+        check(high.floats > 0 && Arrays.equals(high.vertices, 0, high.floats, highOpen.vertices, 0, highOpen.floats),
                 "a crown wholly over a wall's top is made as if nothing stood beside it");
     }
 

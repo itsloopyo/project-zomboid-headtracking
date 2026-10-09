@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /** Tests of what a painted road line is read as: PaintFit's outline of a sprite laid flat, and RoadPaint's laying of it. */
 final class RoadPaintTests {
@@ -74,7 +75,7 @@ final class RoadPaintTests {
                 was = is;
             }
         }
-        return java.util.Arrays.copyOf(found, count);
+        return Arrays.copyOf(found, count);
     }
 
     private static void near(double value, double wanted, double within, String what) {

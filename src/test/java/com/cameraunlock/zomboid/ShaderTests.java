@@ -280,16 +280,11 @@ final class ShaderTests {
         if (!casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))")) {
             throw new AssertionError("a sheet does not lie up as what lies in layers up does");
         }
-        String scene;
-        try {
-            scene = Files.readString(SOURCE.resolve("WorldScene.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        String scene = LowTests.scene();
         if (count(scene, "layers.sheet(") != 3 || count(scene, "layers.sheet(-1f); ") != 2
-                || !scene.contains("private void layFloor(boolean floor) { if (floor && floorLayer == 0) { layers.sheet(floorLayer++); }"
-                        + " else { layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++); } }")
-                || !scene.contains("layFloor(isFloor && frame.kind == 0f);")) {
+                || !scene.contains("private void layFloor(boolean floor) { if (floor && build.floorLayer == 0) { WorldScene.layers.sheet(build.floorLayer++); }"
+                        + " else { WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++); } }")
+                || !scene.contains("layFloor(isFloor && build.frame.kind == 0f);")) {
             throw new AssertionError("the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
         }
         if (count(pipeline, "glPolygonOffset(") != 1 || !pipeline.contains("GL11.glPolygonOffset(SLOPE_OFFSET, 6f);")

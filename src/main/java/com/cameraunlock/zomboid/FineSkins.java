@@ -24,7 +24,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
-import zombie.core.SpriteRenderer;
 import zombie.core.opengl.SmartShader;
 import zombie.core.skinnedmodel.ModelManager;
 import zombie.core.textures.SmartTexture;

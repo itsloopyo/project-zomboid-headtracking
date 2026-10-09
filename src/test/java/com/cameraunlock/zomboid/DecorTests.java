@@ -1,5 +1,14 @@
 package com.cameraunlock.zomboid;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
 /** Tests of how the mod's own picture is laid in a frame or over a sheet on a wall. */
 final class DecorTests {
     private DecorTests() {}
@@ -110,16 +119,16 @@ final class DecorTests {
     }
 
     private static Shows shows() {
-        try (java.io.InputStream in = Decor.class.getResourceAsStream("/pictures/shows.txt")) {
-            return Shows.read(new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)), "shows.txt");
-        } catch (java.io.IOException e) {
-            throw new java.io.UncheckedIOException(e);
+        try (InputStream in = Decor.class.getResourceAsStream("/pictures/shows.txt")) {
+            return Shows.read(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)), "shows.txt");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
     private static void jarHoldsAPictureForEverythingATelevisionShows() {
         Shows shows = shows();
-        java.util.List<String> names = new java.util.ArrayList<>(java.util.List.of("screen-bars", "screen-grey-bars"));
+        List<String> names = new ArrayList<>(List.of("screen-bars", "screen-grey-bars"));
         for (int show = 0; show < shows.count(); show++) {
             check(show == Shows.SNOW || shows.shots(show) > 0, "the show " + shows.name(show) + " has a shot");
             for (int shot = 0; shot < shows.shots(show); shot++) {

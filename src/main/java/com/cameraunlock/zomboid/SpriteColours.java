@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.lwjgl.opengl.GL11;
@@ -120,7 +121,7 @@ final class SpriteColours {
             }
             GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, page);
             if (FirstPerson.TRACE) {
-                Log.info(String.format(java.util.Locale.ROOT, "sprite colours: a sheet of %d by %d copied back in %.2f ms", width, height, (System.nanoTime() - pageUsedNanos) / 1e6));
+                Log.info(String.format(Locale.ROOT, "sprite colours: a sheet of %d by %d copied back in %.2f ms", width, height, (System.nanoTime() - pageUsedNanos) / 1e6));
             }
         }
         GL11.glBindTexture(GL_TEXTURE_2D, was);

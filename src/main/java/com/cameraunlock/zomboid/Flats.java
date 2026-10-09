@@ -2,6 +2,8 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -104,7 +106,7 @@ final class Flats {
     private record Want(Texture texture, int as, float originU, float originV, float scale, float left, float top, float width, float height, float high, float climbA, float climbB) {}
 
     /** What has been asked for of each sprite, and each picture made: its OpenGL name, or 0 for a sprite that paints no whole square of floor or nothing along that edge. */
-    private static final ConcurrentHashMap<Texture, java.util.Set<Want>> asked = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Texture, Set<Want>> asked = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Want, Integer> known = new ConcurrentHashMap<>();
     /**
      * A floor of boards laid side by side, as its sprite shows it: how many to a tile, from
@@ -153,7 +155,7 @@ final class Flats {
 
     /** Reads the sprite as whatever it was asked for as, and makes its pictures: see Windows.read. On the thread that draws. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        java.util.Set<Want> wants = asked.get(texture);
+        Set<Want> wants = asked.get(texture);
         if (wants == null) {
             return;
         }
@@ -186,7 +188,7 @@ final class Flats {
      */
     static void letGo() {
         int count = 0;
-        for (java.util.Iterator<Integer> names = known.values().iterator(); names.hasNext();) {
+        for (Iterator<Integer> names = known.values().iterator(); names.hasNext();) {
             int name = names.next();
             names.remove();
             if (name != 0) {
