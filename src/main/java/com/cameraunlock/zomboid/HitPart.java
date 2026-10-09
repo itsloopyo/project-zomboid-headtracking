@@ -15,7 +15,12 @@ import zombie.iso.Vector3;
  * In first person the player sees which part the aim is on, so that part is the one hit.
  *
  * Each part is a capsule along two of the character's bones as the game posed them this frame. The
- * head runs on from the head bone, which is at the base of the skull, the way the neck points.
+ * head runs on from the head bone, which is at the base of the skull, the way the neck points. The
+ * body is one capsule from the pelvis to the neck, whose rounded top ends at the neck bone: the
+ * neck bone is just under the skull, and a body running past it took the lower head. Where on the
+ * body the aim lands says chest or belly, split halfway from the pelvis bone to the chest bone, as
+ * the game's own ray splits them (measured on a standing zombie: belly up to 0.86 tiles, chest
+ * from 0.98, the halfway point 0.88).
  */
 final class HitPart {
     /** No part: the aim passes none of them, and the game decides as it would. */
@@ -33,10 +38,12 @@ final class HitPart {
     /** A part: the bone it starts at, the bone it runs to, its radius in tiles, and the game's name for it. */
     private record Part(String from, String to, float radius, RagdollBodyPart game) {}
 
+    private static final int HEAD = 0, BODY = 1;
+    private static final String CHEST = "Bip01_Spine1";
+
     private static final Part[] PARTS = {
             new Part("Bip01_Head", "Bip01_Neck", 0.11f, RagdollBodyPart.BODYPART_HEAD),
-            new Part("Bip01_Spine1", "Bip01_Neck", 0.17f, RagdollBodyPart.BODYPART_SPINE),
-            new Part("Bip01_Pelvis", "Bip01_Spine1", 0.16f, RagdollBodyPart.BODYPART_PELVIS),
+            new Part("Bip01_Pelvis", "Bip01_Neck", 0.17f, RagdollBodyPart.BODYPART_SPINE),
             new Part("Bip01_L_UpperArm", "Bip01_L_Forearm", 0.06f, RagdollBodyPart.BODYPART_LEFT_UPPER_ARM),
             new Part("Bip01_L_Forearm", "Bip01_L_Hand", 0.05f, RagdollBodyPart.BODYPART_LEFT_LOWER_ARM),
             new Part("Bip01_R_UpperArm", "Bip01_R_Forearm", 0.06f, RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM),
@@ -50,6 +57,8 @@ final class HitPart {
 
     private final float[] ends = new float[COUNT * 6];
     private final float[] radii = new float[COUNT];
+    private final float[] chest = new float[3];
+    private final float[] along = new float[1];
     private final Vector3 bone = new Vector3();
 
     /**
@@ -64,14 +73,30 @@ final class HitPart {
             place(character, PARTS[i].to, terrain, ends, i * 6 + 3);
             radii[i] = PARTS[i].radius;
         }
-        // The head capsule runs from the head bone on, away from the neck.
-        float alongX = ends[0] - ends[3], alongY = ends[1] - ends[4], alongUp = ends[2] - ends[5];
+        int head = HEAD * 6, body = BODY * 6;
+        // The head runs on from the head bone, away from the neck.
+        float alongX = ends[head] - ends[head + 3], alongY = ends[head + 1] - ends[head + 4], alongUp = ends[head + 2] - ends[head + 5];
         float length = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
-        ends[3] = ends[0] + alongX / length * HEAD_LENGTH;
-        ends[4] = ends[1] + alongY / length * HEAD_LENGTH;
-        ends[5] = ends[2] + alongUp / length * HEAD_LENGTH;
-        int found = Capsules.first(aim, ends, radii, COUNT, NEAR_MISS);
-        return found == NONE ? NONE : PARTS[found].game.ordinal();
+        ends[head + 3] = ends[head] + alongX / length * HEAD_LENGTH;
+        ends[head + 4] = ends[head + 1] + alongY / length * HEAD_LENGTH;
+        ends[head + 5] = ends[head + 2] + alongUp / length * HEAD_LENGTH;
+        // The body's rounded top ends at the neck bone.
+        float upX = ends[body + 3] - ends[body], upY = ends[body + 4] - ends[body + 1], upUp = ends[body + 5] - ends[body + 2];
+        float tall = (float) Math.sqrt(upX * upX + upY * upY + upUp * upUp);
+        float shorter = (tall - radii[BODY]) / tall;
+        ends[body + 3] = ends[body] + upX * shorter;
+        ends[body + 4] = ends[body + 1] + upY * shorter;
+        ends[body + 5] = ends[body + 2] + upUp * shorter;
+        int found = Capsules.first(aim, ends, radii, COUNT, NEAR_MISS, along);
+        if (found == NONE) {
+            return NONE;
+        }
+        if (found != BODY) {
+            return PARTS[found].game.ordinal();
+        }
+        place(character, CHEST, terrain, chest, 0);
+        float chestOn = ((chest[0] - ends[body]) * upX + (chest[1] - ends[body + 1]) * upY + (chest[2] - ends[body + 2]) * upUp) / (tall * tall * shorter);
+        return (along[0] >= chestOn / 2f ? RagdollBodyPart.BODYPART_SPINE : RagdollBodyPart.BODYPART_PELVIS).ordinal();
     }
 
     /** Where a bone of the character is in the picture: tiles across, and up as the picture has it. */

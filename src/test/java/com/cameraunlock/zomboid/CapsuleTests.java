@@ -22,6 +22,7 @@ final class CapsuleTests {
         Checks.run("aWideMissIsOnNoPart", CapsuleTests::aWideMissIsOnNoPart);
         Checks.run("nothingBehindTheEyeIsHit", CapsuleTests::nothingBehindTheEyeIsHit);
         Checks.run("theClosestApproachIsWhereTheRayCrossesTheBone", CapsuleTests::theClosestApproachIsWhereTheRayCrossesTheBone);
+        Checks.run("whereOnAPartTheAimLandsIsMeasuredAlongIt", CapsuleTests::whereOnAPartTheAimLandsIsMeasuredAlongIt);
     }
 
     private static ViewCamera.Pose ray(float x, float y, float up, float toX, float toY, float toUp) {
@@ -38,7 +39,7 @@ final class CapsuleTests {
     }
 
     private static int on(ViewCamera.Pose ray) {
-        return Capsules.first(ray, ENDS, RADII, RADII.length, HitPart.NEAR_MISS);
+        return Capsules.first(ray, ENDS, RADII, RADII.length, HitPart.NEAR_MISS, new float[1]);
     }
 
     private static void anAimAtTheHeadIsOnTheHead() {
@@ -79,5 +80,16 @@ final class CapsuleTests {
         Checks.check(Math.abs(out[1] - 0.05f) < 1e-4f, "beside it: " + out[1]);
         Capsules.closest(ray(-5f, 0f, 3f, 0f, 0f, 3f), ENDS, 6, out);
         Checks.check(Math.abs(out[1] - 1.55f) < 1e-4f, "past its top end, measured from that end: " + out[1]);
+    }
+
+    private static void whereOnAPartTheAimLandsIsMeasuredAlongIt() {
+        float[] along = new float[1];
+        Checks.check(Capsules.first(ray(-8f, -3f, 1.1f, 0f, 0f, 1.1f), ENDS, RADII, RADII.length, HitPart.NEAR_MISS, along) == CHEST,
+                "the chest, from the side away from the arm");
+        Checks.check(Math.abs(along[0] - 0.2222f) < 0.01f, "a fifth of the way up from its lower end: " + along[0]);
+        Capsules.first(ray(-8f, -3f, 1.4f, 0f, 0f, 1.4f), ENDS, RADII, RADII.length, HitPart.NEAR_MISS, along);
+        Checks.check(Math.abs(along[0] - 0.8889f) < 0.01f, "near its top: " + along[0]);
+        Checks.check(Capsules.first(ray(-8f, 0.17f, 1.65f, 0f, 0.17f, 1.65f), ENDS, RADII, RADII.length, HitPart.NEAR_MISS, along) == HEAD
+                && Math.abs(along[0] - 0.6818f) < 0.01f, "and along the part it only just misses: " + along[0]);
     }
 }
