@@ -1799,33 +1799,6 @@ def arcade_machine():
     return model
 
 
-def dumpster():
-    """A steel skip for rubbish, two squares long, under two lids."""
-    model = Model("dumpster")
-    half, top = 0.93, 1.12
-    body = bmesh.new()
-    prism(body, (0.0, 0.0, 2 * half - 0.12, 0.74, 0.1), (0.0, 0.0, 2 * half, 0.9, top))
-    for x in (-0.6, 0.0, 0.6):
-        for y in (-1, 1):
-            prism(body, (x, y * 0.38, 0.06, 0.03, 0.14), (x, y * 0.455, 0.06, 0.03, top - 0.03))
-    cuboid(body, -half - 0.01, half + 0.01, -0.46, 0.46, top - 0.06, top)
-    for side in (-1, 1):
-        cuboid(body, side * (half + 0.03) - 0.04, side * (half + 0.03) + 0.04, -0.22, 0.22, 0.72, 0.84)
-    model.hard(body, "paint", bevel=0.008, segments=1)
-    feet = bmesh.new()
-    for x in (-1, 1):
-        for y in (-1, 1):
-            lathe(feet, [(0.0, -0.02), (0.05, -0.02), (0.055, 0.0), (0.05, 0.02), (0.0, 0.02)], segments=12, to=along_x(x * 0.72, y * 0.3, 0.055))
-    model.turned(feet, "rubber")
-    lids = bmesh.new()
-    for side in (-1, 1):
-        low, high = sorted((side * 0.01, side * (half - 0.01)))
-        prism(lids, ((low + high) / 2, 0.0, high - low, 0.92, top), ((low + high) / 2, 0.01, high - low - 0.03, 0.88, top + 0.045))
-        cuboid(lids, (low + high) / 2 - 0.1, (low + high) / 2 + 0.1, -0.48, -0.455, top + 0.005, top + 0.03)
-    model.hard(lids, "plastic", bevel=0.01, segments=2)
-    return model
-
-
 def radio():
     model = Model("radio")
     case = bmesh.new()
@@ -9917,7 +9890,7 @@ def every():
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2),
-              metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(), dumpster(),
+              metal_rack(), store_shelves(), plastic_chair(), folding_chair(), booth(), stool(), vending_machine(), arcade_machine(),
               radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
