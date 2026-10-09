@@ -658,6 +658,8 @@ final class WorldScene {
         final int line;
         /** Which edges a sprite on a wall is laid on where its picture overrules its marks, or Overhead.ANY_EDGE. */
         final int edge;
+        /** The wall of its square the sprite lies flat on when nothing else is made of it: see WallObjects. */
+        final int flatWall;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -697,6 +699,7 @@ final class WorldScene {
                     || properties.has(IsoFlagType.attachedW) || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS));
             line = name == null ? Outdoors.NO_LINE : Outdoors.washingLine(name);
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
+            flatWall = WallObjects.flatOn(properties, sprite.getFacing());
         }
     }
 
@@ -4777,6 +4780,11 @@ final class WorldScene {
                 // roof tile is what closes the roof.
                 return;
             }
+            // A chalkboard, a notice or a map the game hangs on a wall by the way it faces and marks for no wall. Stood
+            // up to face the eye it hung in the middle of its square. With the mod's furniture off it is as it was.
+            if (kind.flatWall != WallHung.NONE && Own.furniture() && layFlat(mesh, kind.flatWall, x, y, z)) {
+                return;
+            }
             // A boulder. The game's picture of one stood up as a card is a cut-out of a boulder,
             // and wrapped on a box it is a crate painted as one.
             if (kind.boulder && Own.plants() && plantBuilder.addRock(x, y, z)) {
@@ -4894,6 +4902,49 @@ final class WorldScene {
                 return;
             }
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, 1f, 0f, true, false);
+        }
+
+        /**
+         * Lays the sprite flat on a wall of its square, as a picture the game has hung there is
+         * laid, over as much of the wall's plane as it paints, which may run onto the next
+         * square's length of the wall, and says whether it did. False for a sprite not painted in
+         * that wall's plane, which is left as it was.
+         */
+        private boolean layFlat(SpriteGeometry.Mesh mesh, int wall, int x, int y, int z) {
+            WallHung.extent(frame, wall, hungAt);
+            if (!WallHung.paintedAlong(hungAt)) {
+                return false;
+            }
+            float from = Math.min(hungAt[WallHung.FROM], 0f), along = Math.max(hungAt[WallHung.TO], 1f) - from;
+            float foot = Math.min(hungAt[WallHung.BOTTOM], 0f), up = Math.max(hungAt[WallHung.TOP], 1f) - foot;
+            // On the near walls clear of the wall's skin as a poster is, layered as addEdge layers what is not a
+            // wall; on the far ones clear of the next square's wall, as what the game marks attached to them is.
+            float clear = WALL_HALF + HUNG_CLEAR;
+            switch (wall) {
+                case WallHung.NORTH -> {
+                    geometry.shownB = clear;
+                    layers.lie(SpriteGeometry.LAYERS_Y, northLayer++ + 3f);
+                    geometry.addFace(mesh, frame, x, y, z, from, 0f, foot, along, 0f, 0f, 0f, 0f, up);
+                }
+                case WallHung.WEST -> {
+                    geometry.shownA = clear;
+                    layers.lie(SpriteGeometry.LAYERS_X, westLayer++ + 3f);
+                    geometry.addFace(mesh, frame, x, y, z, 0f, from, foot, 0f, along, 0f, 0f, 0f, up);
+                }
+                case WallHung.SOUTH -> {
+                    geometry.shownB = -clear;
+                    layers.lie(SpriteGeometry.LAYERS_Y, -++southLayer);
+                    geometry.addFace(mesh, frame, x, y, z, from, 1f, foot, along, 0f, 0f, 0f, 0f, up);
+                }
+                default -> {
+                    geometry.shownA = -clear;
+                    layers.lie(SpriteGeometry.LAYERS_X, -++eastLayer);
+                    geometry.addFace(mesh, frame, x, y, z, 1f, from, foot, 0f, along, 0f, 0f, 0f, up);
+                }
+            }
+            layers.none();
+            geometry.shownA = geometry.shownB = 0f;
+            return true;
         }
 
         /** The room of the plant being added: see roomFor. */

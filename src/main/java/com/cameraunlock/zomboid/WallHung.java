@@ -72,6 +72,25 @@ final class WallHung {
      * another wall does.
      */
     static boolean painted(SpriteGeometry.Frame frame, int wall, float[] out) {
+        extent(frame, wall, out);
+        float from = out[FROM], to = out[TO], bottom = out[BOTTOM], top = out[TOP];
+        return to - from >= NARROWEST && top - bottom >= LOWEST && from >= -SLACK && to <= 1f + SLACK && bottom >= -SLACK && top <= 1f + SLACK;
+    }
+
+    /**
+     * Whether what extent found is painted in the plane of its wall, whether on its own
+     * square's length of the wall or the next one's either way along it: the sprite of a
+     * board several squares long paints part of the next square's length, and a notice or a
+     * chalk drawing pinned near a square's end runs onto the next. Its foot is no lower than
+     * the floor and its top no higher than the wall, as painted asks.
+     */
+    static boolean paintedAlong(float[] found) {
+        return found[TO] - found[FROM] >= NARROWEST && found[TOP] - found[BOTTOM] >= LOWEST && found[FROM] >= -1f - SLACK && found[TO] <= 2f + SLACK
+                && found[BOTTOM] >= -SLACK && found[TOP] <= 1f + SLACK;
+    }
+
+    /** What painted finds, whatever it comes to: into out where along the wall the painting is and how high, as FROM to TOP. */
+    static void extent(SpriteGeometry.Frame frame, int wall, float[] out) {
         float start = SpriteGeometry.frameU(frame, a(wall, 0f), b(wall, 0f));
         float perTile = SpriteGeometry.frameU(frame, a(wall, 1f), b(wall, 1f)) - start;
         float one = (frame.left + EDGE - start) / perTile, other = (frame.left + frame.width - EDGE - start) / perTile;
@@ -82,7 +101,6 @@ final class WallHung {
         out[TO] = to;
         out[BOTTOM] = bottom;
         out[TOP] = top;
-        return to - from >= NARROWEST && top - bottom >= LOWEST && from >= -SLACK && to <= 1f + SLACK && bottom >= -SLACK && top <= 1f + SLACK;
     }
 
     /**

@@ -4639,6 +4639,137 @@ def street():
             block_post()]
 
 
+def toward(start, end):
+    """Moves something turned about the upright so that its axis runs from start towards end."""
+    way = (Vector(end) - Vector(start)).normalized()
+    return Matrix.Translation(start) @ Vector((0.0, 0.0, 1.0)).rotation_difference(way).to_matrix().to_4x4()
+
+
+def pay_phone():
+    """Two pay phones side by side on two posts against a wall, the wall at +Y: a back plate, a hood over each phone
+    with a side panel between and either side, and a ledge under them."""
+    model = Model("pay_phone")
+    back = 0.17
+    posts = bmesh.new()
+    for x in (-0.24, 0.24):
+        cuboid(posts, x - 0.04, x + 0.04, back - 0.12, back - 0.04, 0.0, 1.0)
+    model.hard(posts, "plastic", bevel=0.006, segments=1)
+    case = bmesh.new()
+    cuboid(case, -0.44, 0.44, back - 0.03, back, 0.95, 1.85)
+    cuboid(case, -0.46, 0.46, -back, back, 1.85, 1.89)
+    cuboid(case, -0.44, 0.44, -0.1, back - 0.03, 0.95, 0.99)
+    model.hard(case, "steel", bevel=0.005, segments=1)
+    sides = bmesh.new()
+    for x in (-0.445, 0.0, 0.445):
+        cuboid(sides, x - 0.013, x + 0.013, -back + 0.01, back - 0.03, 0.95, 1.85)
+    model.hard(sides, "paint", bevel=0.004, segments=1)
+    phones = bmesh.new()
+    for x in (-0.22, 0.22):
+        cuboid(phones, x - 0.09, x + 0.09, back - 0.12, back - 0.03, 1.26, 1.66)
+        cuboid(phones, x - 0.07, x + 0.07, back - 0.15, back - 0.03, 1.1, 1.16)
+    model.hard(phones, "metal", bevel=0.008, segments=2)
+    dark = bmesh.new()
+    for x in (-0.22, 0.22):
+        cuboid(dark, x - 0.055, x + 0.055, back - 0.125, back - 0.12, 1.4, 1.54)
+        cuboid(dark, x - 0.06, x - 0.02, back - 0.16, back - 0.12, 1.5, 1.6)
+        lathe(dark, [(0.0, 0.0), (0.022, 0.0), (0.022, 0.24), (0.0, 0.24)], segments=10, to=Matrix.Translation((x - 0.115, back - 0.15, 1.33)))
+        cuboid(dark, x - 0.135, x - 0.095, back - 0.17, back - 0.13, 1.3, 1.34)
+        cuboid(dark, x - 0.135, x - 0.095, back - 0.17, back - 0.13, 1.56, 1.6)
+    model.hard(dark, "rubber", bevel=0.003, segments=1)
+    return model
+
+
+def deer_trophy():
+    """A deer's head mounted on an oval plaque on a wall, the wall at +Y: the neck out of the plaque, the head held up
+    looking ahead, ears, and the antlers branching up and forward. Its foot is the foot of the plaque."""
+    model = Model("deer_trophy")
+    back = 0.2
+    plaque = bmesh.new()
+    lathe(plaque, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.026), (0.134, 0.04), (0.0, 0.04)], segments=28, sy=1.35, to=along_y(0.0, back, 0.2))
+    model.turned(plaque, "dark_wood", sharp=35.0)
+    head = bmesh.new()
+    neck_from, neck_to = (0.0, back - 0.03, 0.22), (0.0, 0.02, 0.36)
+    length = (Vector(neck_to) - Vector(neck_from)).length
+    lathe(head, [(0.0, 0.0), (0.1, 0.0), (0.095, length * 0.4), (0.075, length * 0.85), (0.0, length * 1.15)], segments=18, sx=0.8,
+          to=toward(neck_from, neck_to))
+    skull_from, snout = (0.0, 0.07, 0.4), (0.0, -0.2, 0.33)
+    length = (Vector(snout) - Vector(skull_from)).length
+    lathe(head, [(0.0, 0.0), (0.06, 0.015), (0.08, 0.06), (0.075, 0.11), (0.055, 0.17), (0.04, 0.22), (0.028, length - 0.01), (0.0, length)],
+          segments=18, sx=0.85, to=toward(skull_from, snout))
+    for side in (-1, 1):
+        lathe(head, [(0.0, 0.0), (0.028, 0.0), (0.034, 0.045), (0.022, 0.085), (0.0, 0.1)], segments=10, sx=0.35,
+              to=toward((side * 0.04, 0.04, 0.44), (side * 0.15, 0.08, 0.5)))
+    model.turned(head, "wood", sharp=50.0)
+    dark = bmesh.new()
+    lathe(dark, [(0.0, 0.0), (0.024, 0.004), (0.026, 0.02), (0.0, 0.032)], segments=10, sx=1.2, to=toward((0.0, -0.17, 0.335), (0.0, -0.21, 0.325)))
+    for side in (-1, 1):
+        lathe(dark, [(0.0, 0.0), (0.012, 0.003), (0.012, 0.012), (0.0, 0.016)], segments=8,
+              to=toward((side * 0.05, -0.03, 0.4), (side * 0.07, -0.03, 0.4)))
+    model.turned(dark, "rubber", sharp=60.0)
+    antlers = bmesh.new()
+    for side in (-1, 1):
+        main = [(side * 0.04, 0.03, 0.44), (side * 0.12, 0.05, 0.54), (side * 0.18, 0.03, 0.64), (side * 0.2, -0.04, 0.74), (side * 0.16, -0.1, 0.82)]
+        for n in range(len(main) - 1):
+            wide = 0.03 - n * 0.004
+            beam(antlers, main[n], main[n + 1], wide, wide)
+        for n, up in ((1, 0.13), (2, 0.12), (3, 0.09)):
+            x, y, z = main[n]
+            beam(antlers, main[n], (x - side * 0.02, y - 0.04, z + up), 0.018, 0.018)
+        x, y, z = main[0]
+        beam(antlers, (x + side * 0.03, y - 0.01, z + 0.04), (x + side * 0.05, y - 0.1, z + 0.09), 0.018, 0.018)
+    model.hard(antlers, "worktop", bevel=0.004, segments=1)
+    return model
+
+
+def cell_slab(name, long, deep, apron):
+    """A slab to sit or lie on fixed to a wall in a cell, the wall at +Y, on steel brackets, with an apron of the same
+    stuff down its front and ends where it has one. Its top is the model's top."""
+    model = Model(name)
+    half, top, thick = long / 2, 0.36, 0.06
+    back, front = deep / 2, -deep / 2
+    slab = bmesh.new()
+    cuboid(slab, -half, half, front, back, top - thick, top)
+    if apron:
+        cuboid(slab, -half, half, front, front + 0.035, top - thick - 0.11, top - thick)
+        for x0, x1 in ((-half, -half + 0.035), (half - 0.035, half)):
+            cuboid(slab, x0, x1, front + 0.035, back, top - thick - 0.11, top - thick)
+    model.hard(slab, "paint", bevel=0.01, segments=2)
+    brackets = bmesh.new()
+    count = 3 if long > 1.2 else 2
+    for n in range(count):
+        x = -half + 0.2 + n * (long - 0.4) / (count - 1)
+        cuboid(brackets, x - 0.02, x + 0.02, back - 0.012, back, 0.0, top - thick)
+        cuboid(brackets, x - 0.02, x + 0.02, front + 0.08, back - 0.012, top - thick - 0.012, top - thick)
+        beam(brackets, (x, back - 0.02, 0.03), (x, front + 0.1, top - thick - 0.02), 0.02, 0.012)
+    model.hard(brackets, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def chalkboard(name, length):
+    """A chalkboard on a wall, the wall at +Y: a dark board in a wooden frame, a tray for chalk along its foot."""
+    model = Model(name)
+    half, high, back = length / 2, 1.28, 0.02
+    board = bmesh.new()
+    cuboid(board, -half + 0.04, half - 0.04, back - 0.016, back, 0.1, high - 0.04)
+    model.hard(board, "rubber", bevel=0.002, segments=1)
+    frame = bmesh.new()
+    cuboid(frame, -half, half, back - 0.03, back, high - 0.045, high)
+    cuboid(frame, -half, half, back - 0.03, back, 0.06, 0.105)
+    for side in (-1, 1):
+        x0, x1 = (half - 0.045, half) if side > 0 else (-half, -half + 0.045)
+        cuboid(frame, x0, x1, back - 0.03, back, 0.105, high - 0.045)
+    cuboid(frame, -half + 0.03, half - 0.03, back - 0.1, back - 0.03, 0.06, 0.075)
+    cuboid(frame, -half + 0.03, half - 0.03, back - 0.1, back - 0.088, 0.075, 0.092)
+    model.hard(frame, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def wall_objects():
+    """What the game hangs on a wall by the way it faces that stands out from it: the pieces WallObjects.java places."""
+    return [pay_phone(), deer_trophy(), cell_slab("cell_seat", 0.85, 0.6, False), cell_slab("cell_bunk", 1.9, 0.75, True),
+            chalkboard("chalkboard_3", 2.5), chalkboard("chalkboard_4", 3.5)]
+
+
 def outdoors():
     """What stands out of doors: on roofs, in yards and along streets."""
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
@@ -6736,7 +6867,7 @@ def every():
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
-            + street_clutter() + home_fittings() + overhead() + office_medical())
+            + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects())
 
 
 def main():

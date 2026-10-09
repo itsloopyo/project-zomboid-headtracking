@@ -375,6 +375,10 @@ final class Furniture {
         if (glassCase != null) {
             return glassCase;
         }
+        Furniture onWall = WallObjects.model(sprite, called, group, properties, turns, along, across);
+        if (onWall != null) {
+            return onWall;
+        }
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.
         if (name.startsWith("furniture_bedding") && called.equals("Bed") && along == 2 && across <= 2) {
@@ -547,8 +551,9 @@ final class Furniture {
         if (called.equals("Barbecue") && holds.equals("barbecuepropane") && single) {
             return new Furniture(sprite, "gas_barbecue", turns).stand(0f, 0f, false);
         }
-        // A shower is on the wall behind it. The model is built on its square, the wall at its back.
-        if (called.equals("Shower") && single && name.startsWith("fixtures_bathroom") && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+        // A shower is on the wall behind it. The model is built on its square, the wall at its back. One with no tray
+        // stands the same on the walls the game's view sees from behind.
+        if (called.equals("Shower") && single && name.startsWith("fixtures_bathroom") && (facing == IsoDirections.S || facing == IsoDirections.E || group.equals("Wall"))) {
             return group.equals("Wall") ? new Furniture(sprite, "shower_head", turns).meet(0f, 0f, false).raise(SHOWER_TAPS)
                     : new Furniture(sprite, "shower", turns).meet(0f, 0f, false);
         }

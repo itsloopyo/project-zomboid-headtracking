@@ -165,6 +165,7 @@ public final class Tests {
         Checks.run("LightsTests", LightsTests::run);
         Checks.run("BannerTests", BannerTests::run);
         Checks.run("SignRunTests", SignRunTests::run);
+        Checks.run("WallObjectTests", WallObjectTests::run);
         Checks.run("QualityTests", QualityTests::run);
         Checks.run("StyleTests", StyleTests::run);
         Checks.run("GameFixTests", GameFixTests::run);
