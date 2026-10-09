@@ -727,6 +727,8 @@ final class WorldScene {
     static final int TALL_SURFACE = 60;
     private static final float CUPBOARD_DEEP = 0.55f;
     private static final int LONG_TUFTS = 13;
+    /** How far either side of where it stands a tuft of long grass far off reaches, in tiles. */
+    private static final float LONG_TUFT_HALF = 0.34f;
     private static final int WOOD_SPAN = CHUNK_TILES + 2 * Flora.WOOD_RING;
     /** How far from the eye each thing Flora makes is still made, in tiles. Past TRUNK_NEAR a bole is a plain post, and past ROCK_NEAR a boulder has a quarter of its faces. */
     private static final float FERN_REACH = 22f, FERN_NEAR = 12f, FALLEN_REACH = 10f, FLOWER_REACH = 14f, TRUNK_NEAR = 18f, TRUNK_REACH = 60f,
@@ -735,6 +737,8 @@ final class WorldScene {
     private static final float LAWN_EDGE = 0.9f;
     /** How far from a bush's middle its outer cards stand, in tiles. */
     private static final float BUSH_SPREAD = 0.16f;
+    /** How far from the line of a wall or a fence on the edge of its square a plant beside it ends, in tiles. */
+    private static final float ROOM_CLEAR = WALL_HALF + 0.02f;
     /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
     private static final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
     private static final float[] NO_BOLE = new float[0];
@@ -1860,6 +1864,32 @@ final class WorldScene {
                 || properties.has(IsoFlagType.attachedW)
                 || type == IsoObjectType.doorFrW || type == IsoObjectType.doorW
                 || type == IsoObjectType.windowFW || type == IsoObjectType.curtainW;
+    }
+
+    /** Whether what has these flags is a wall, a fence, a door's frame or a window on the north edge of its square. */
+    private static boolean onNorthEdge(PropertyContainer flags) {
+        return flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallNTrans)
+                || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.HoppableN);
+    }
+
+    private static boolean onWestEdge(PropertyContainer flags) {
+        return flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallWTrans)
+                || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.HoppableW);
+    }
+
+    /** Whether the square, if there is one, has a wall or a fence on its north edge, or on its west edge. */
+    private static boolean edged(IsoGridSquare square, boolean north) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && (north ? onNorthEdge(sprite.getProperties()) : onWestEdge(sprite.getProperties()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean standsOnNorthEdge(PropertyContainer properties, IsoObjectType type) {
@@ -4224,14 +4254,20 @@ final class WorldScene {
             boolean tree = treed[(localX + Flora.WOOD_RING) * WOOD_SPAN + localY + Flora.WOOD_RING];
             if (away2 < FERN_REACH * FERN_REACH && !tree && isLawn(own)) {
                 int ferns = Flora.ferns(x, y, deep);
+                if (ferns > 0) {
+                    roomFor(x, y, 0);
+                }
                 for (int fern = 0; fern < ferns; fern++) {
                     int seed = Flora.mix(x, y, 40 + fern);
-                    float a = 0.15f + 0.7f * Flora.unit(seed, 0), b = 0.15f + 0.7f * Flora.unit(seed, 8);
+                    float size = 0.4f + 0.3f * Flora.unit(seed, 16), reach = Flora.fernReach(size);
+                    // Its root is held in from a wall or a fence on the square's edge by as far as its fronds reach.
+                    float a = Flora.within(0.15f + 0.7f * Flora.unit(seed, 0), reach, room[0] - x, room[1] - x);
+                    float b = Flora.within(0.15f + 0.7f * Flora.unit(seed, 8), reach, room[2] - y, room[3] - y);
                     if (geometry.kerb != null && geometry.onStreet(a, b)) {
                         continue;
                     }
                     int fronds = away2 < FERN_NEAR * FERN_NEAR ? 5 + (seed >>> 24 & 1) : 4;
-                    Flora.addFern(cards, x + a, y + b, geometry.liftAt(a, b), 0.4f + 0.3f * Flora.unit(seed, 16), fronds, seed, frame);
+                    Flora.addFern(cards, x + a, y + b, geometry.liftAt(a, b), size, fronds, seed, frame);
                 }
             }
             if (away2 < FALLEN_REACH * FALLEN_REACH) {
@@ -4502,8 +4538,11 @@ final class WorldScene {
             float originU = frame.originU, originV = frame.originV, left = frame.left, top = frame.top, width = frame.width, height = frame.height;
             float uStart = frame.uStart, uEnd = frame.uEnd, vStart = frame.vStart, vEnd = frame.vEnd;
             frameOf(groundObject[own], groundTexture[own]);
-            float lowA = spillsTo(own - LIGHT_SPAN) ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + LIGHT_SPAN) ? 1f + GRASS_SPILL : 0.88f;
-            float lowB = spillsTo(own - 1) ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) ? 1f + GRASS_SPILL : 0.88f;
+            // Nor does it spill through a wall or a fence on the square's edge, and its tufts keep to their own side of one.
+            roomFor(x, y, 0);
+            float roomLowA = room[0] - x, roomHighA = room[1] - x, roomLowB = room[2] - y, roomHighB = room[3] - y;
+            float lowA = spillsTo(own - LIGHT_SPAN) && roomLowA < 0f ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + LIGHT_SPAN) && roomHighA > 1f ? 1f + GRASS_SPILL : 0.88f;
+            float lowB = spillsTo(own - 1) && roomLowB < 0f ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) && roomHighB > 1f ? 1f + GRASS_SPILL : 0.88f;
             SpriteGeometry.Mesh mesh = laid.get(groundTexture[own].getID());
             float away = bandAway;
             // Near the eye it is grown plant by plant. Far off, where a blade is finer than the
@@ -4530,12 +4569,13 @@ final class WorldScene {
                 // open ground its tufts spill a third of a square past the edge, shorter the
                 // further out they stand, so a patch has a ragged outline. Towards a road, a
                 // path or a floor it keeps inside.
-                float a = lowA + (highA - lowA) * (hash & 0xff) / 255f, b = lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f;
                 double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
+                float a = Flora.within(lowA + (highA - lowA) * (hash & 0xff) / 255f, Math.abs((float) Math.cos(turn)) * LONG_TUFT_HALF, roomLowA, roomHighA);
+                float b = Flora.within(lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f, Math.abs((float) Math.sin(turn)) * LONG_TUFT_HALF, roomLowB, roomHighB);
                 float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
                 float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f) * carded;
                 float vigour = 1f - 0.7f * woodedAt(waterLocalX, waterLocalY, Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f));
-                geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), 0.34f, tall, SpriteGeometry.LONG_GRASS, vigour);
+                geometry.addTuft(mesh, frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), LONG_TUFT_HALF, tall, SpriteGeometry.LONG_GRASS, vigour);
             }
             if (away < FLOWER_REACH) {
                 // Flowers in long grass stand as tall as it does.
@@ -5182,10 +5222,8 @@ final class WorldScene {
                     PropertyContainer flags = sprite.getProperties();
                     IsoObjectType type = sprite.getType();
                     openAbove |= Roofs.isTile(type) || isStair(type);
-                    edgeNorth |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallNTrans)
-                            || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.HoppableN);
-                    edgeWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallWTrans)
-                            || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.HoppableW);
+                    edgeNorth |= onNorthEdge(flags);
+                    edgeWest |= onWestEdge(flags);
                     wallNorth |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN);
                     wallWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
                 }
@@ -5876,6 +5914,14 @@ final class WorldScene {
             if (type == IsoObjectType.tree && overLayer == 0 && Own.plants() && addBole(sprite, texture, x, y, z) && geometry.keep < 1f) {
                 return;
             }
+            roomFor(x, y, z);
+            // A tree's cards are its whole crown, which over a wall's top reaches across it: only its crown of sprigs is kept to its room.
+            if (type != IsoObjectType.tree) {
+                geometry.roomLowA = room[0] - x;
+                geometry.roomHighA = room[1] - x;
+                geometry.roomLowB = room[2] - y;
+                geometry.roomHighB = room[3] - y;
+            }
             // A bush is leaves all over, as a tree's crown is.
             String grown = sprite.getName();
             // A bush's leaves are smaller than a tree's.
@@ -5921,7 +5967,25 @@ final class WorldScene {
                 }
             }
             geometry.nudgeX = geometry.nudgeY = 0f;
+            geometry.roomLowA = geometry.roomLowB = -Float.MAX_VALUE;
+            geometry.roomHighA = geometry.roomHighB = Float.MAX_VALUE;
         }
+
+        /**
+         * Sets room to the room of a plant on the square (see Flora.ROOM_UNDER): its own side of
+         * a wall or a fence on any edge of the square. The other side, and a room indoors behind
+         * a house's wall, shows nothing of it.
+         */
+        private void roomFor(int x, int y, int z) {
+            IsoGridSquare square = cell.getGridSquare(x, y, z);
+            room[0] = edged(square, false) ? x + ROOM_CLEAR : -Float.MAX_VALUE;
+            room[1] = edged(cell.getGridSquare(x + 1, y, z), false) ? x + 1f - ROOM_CLEAR : Float.MAX_VALUE;
+            room[2] = edged(square, true) ? y + ROOM_CLEAR : -Float.MAX_VALUE;
+            room[3] = edged(cell.getGridSquare(x, y + 1, z), true) ? y + 1f - ROOM_CLEAR : Float.MAX_VALUE;
+        }
+
+        /** The room of the plant being added: see roomFor. */
+        private final float[] room = new float[4];
         /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
         private int boleX = Integer.MIN_VALUE, boleY, boleBark;
         private float boleThick, boleTall;
@@ -5953,13 +6017,13 @@ final class WorldScene {
             if (crownsInline) {
                 boolean limbed = boled && Crowns.limbed(away);
                 return Flora.addCrown(solid.get(texture.getID()), solid.get(PLAIN), frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
-                        limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed);
+                        limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, room);
             }
             if (!Flora.measure(frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
                 return false;
             }
             (afresh ? crownsChecked : crownsRead).add(texture.getID(), frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
-                    boled ? boleBark : bark, bark, sprig, seed);
+                    boled ? boleBark : bark, bark, sprig, seed, room);
             return true;
         }
 

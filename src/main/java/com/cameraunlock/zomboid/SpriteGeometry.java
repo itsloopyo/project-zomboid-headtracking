@@ -75,6 +75,11 @@ final class SpriteGeometry {
     static final float BLADES = 24f;
     /** A plant's top moves fully with the wind from this many tiles above its root: 1 over it. */
     private static final float SWAY_PER_TILE = 0.4f;
+    /**
+     * How far the wind carries a vertex that takes the whole of it, in tiles, at most: the
+     * strongest push, Wind.push(1), by the most the world shader's blown() leans, 0.115.
+     */
+    static final float SWAY_REACH = 0.24f;
     /** The up share of a tuft's normal where grass barely grows, and how much more it is where it thrives. The world shader has the same two numbers. */
     static final float TUFT_UP_LEAST = 0.3f, TUFT_UP_SPAN = 0.6f;
     /** A sprite whose outline gives a box narrower than twice this, in tiles, or lower than MIN_BOX_HEIGHT levels, is not a box. */
@@ -411,6 +416,12 @@ final class SpriteGeometry {
     float nearer;
     /** How many layers of cards the upright added next stands clear of its own plane on the side of the camera that draws it: for one that does not turn. */
     float clear;
+    /**
+     * The part of the square, from (roomLowA, roomLowB) to (roomHighA, roomHighB), an upright
+     * card that does not turn is cut to, swaying included: a plant beside a wall or a fence ends
+     * on its own side of it. Unbounded on a side with nothing there.
+     */
+    float roomLowA = -Float.MAX_VALUE, roomHighA = Float.MAX_VALUE, roomLowB = -Float.MAX_VALUE, roomHighB = Float.MAX_VALUE;
     /** How much of an upright card is kept, from its foot up: 1 all of it. */
     float keep = 1f;
     /** How much of an upright card is left out, from its foot up: the shaft of a post that stands there as a solid, under the head the card still shows. */
@@ -929,6 +940,31 @@ final class SpriteGeometry {
         float x0 = faces ? baseX : baseX + rightX * leftOffset, y0 = faces ? baseY : baseY + rightY * leftOffset;
         float x1 = faces ? baseX : baseX + rightX * rightOffset, y1 = faces ? baseY : baseY + rightY * rightOffset;
         float along0 = faces ? leftOffset : clear, along1 = faces ? rightOffset : clear;
+        // What grows moves with the wind, the more the higher it stands above its root.
+        float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
+        float high = sways ? Math.clamp(topHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
+        float uLeft = frame.uStart, uRight = frame.uEnd;
+        if (!faces) {
+            // Cut to the room, short of each side of it by as far as the wind can carry the card's top.
+            float swayed = SWAY_REACH * high;
+            float dx = x1 - x0, dy = y1 - y0;
+            float from = Math.max(enters(x0, dx, tileX + roomLowA + swayed, tileX + roomHighA - swayed), enters(y0, dy, tileY + roomLowB + swayed, tileY + roomHighB - swayed));
+            float to = Math.min(leaves(x0, dx, tileX + roomLowA + swayed, tileX + roomHighA - swayed), leaves(y0, dy, tileY + roomLowB + swayed, tileY + roomHighB - swayed));
+            if (from >= to) {
+                return;
+            }
+            float uSpan = frame.uEnd - frame.uStart;
+            if (to < 1f) {
+                x1 = x0 + dx * to;
+                y1 = y0 + dy * to;
+                uRight = frame.uStart + uSpan * to;
+            }
+            if (from > 0f) {
+                x0 += dx * from;
+                y0 += dy * from;
+                uLeft = frame.uStart + uSpan * from;
+            }
+        }
 
         // A flat card stands in for something round, a bush or a chair, so it is lit as if it
         // leaned back: partly from the side it faces and partly from above.
@@ -937,29 +973,42 @@ final class SpriteGeometry {
         mesh.faces = faces;
         mesh.clears = !faces && clear != 0f;
         mesh.nearer = nearer;
-        // What grows moves with the wind, the more the higher it stands above its root.
-        float low = sways ? Math.clamp(bottomHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
-        float high = sways ? Math.clamp(topHeight * SWAY_PER_TILE, 0f, 1f) : 0f;
         mesh.sway = low;
         mesh.along = along0;
-        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + bottomHeight, uLeft, vBottom, frame.red, frame.green, frame.blue);
         mesh.along = along1;
-        mesh.add(x1, y1, baseUp + bottomHeight, frame.uEnd, vBottom, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + bottomHeight, uRight, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
-        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + topHeight, uRight, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = low;
         mesh.along = along0;
-        mesh.add(x0, y0, baseUp + bottomHeight, frame.uStart, vBottom, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + bottomHeight, uLeft, vBottom, frame.red, frame.green, frame.blue);
         mesh.sway = high;
         mesh.along = along1;
-        mesh.add(x1, y1, baseUp + topHeight, frame.uEnd, vTop, frame.red, frame.green, frame.blue);
+        mesh.add(x1, y1, baseUp + topHeight, uRight, vTop, frame.red, frame.green, frame.blue);
         mesh.along = along0;
-        mesh.add(x0, y0, baseUp + topHeight, frame.uStart, vTop, frame.red, frame.green, frame.blue);
+        mesh.add(x0, y0, baseUp + topHeight, uLeft, vTop, frame.red, frame.green, frame.blue);
         mesh.sway = 0f;
         mesh.along = 0f;
         mesh.nearer = 0f;
         mesh.faces = false;
         mesh.clears = false;
+    }
+
+    /** Where along from + way * t, for t from 0 to 1, the line comes into low..high: 0 if it starts inside, and no earlier than leaves says it leaves if it is never in. */
+    private static float enters(float from, float way, float low, float high) {
+        if (way == 0f) {
+            return from >= low && from <= high ? 0f : Float.MAX_VALUE;
+        }
+        return Math.max((way > 0f ? low - from : high - from) / way, 0f);
+    }
+
+    /** Where along the same line it leaves low..high: 1 if it ends inside. */
+    private static float leaves(float from, float way, float low, float high) {
+        if (way == 0f) {
+            return from >= low && from <= high ? 1f : -Float.MAX_VALUE;
+        }
+        return Math.min((way > 0f ? high - from : low - from) / way, 1f);
     }
 
     /**

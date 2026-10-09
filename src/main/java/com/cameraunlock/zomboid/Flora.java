@@ -235,6 +235,14 @@ final class Flora {
      * the picture is steadied over several frames, so leaves that travel far in a frame are a smear.
      */
     private static final float SWAY_PER_TILE = 0.08f, SWAY_MOST = 0.3f;
+    /**
+     * A plant's room, lowest x, highest x, lowest y and highest y on the map: beside a wall or a
+     * fence, its own side of it. What of a crown is lower over its foot than ROOM_UNDER, a
+     * wall's top, stays in it however the wind sways it, and what is higher reaches over.
+     */
+    static final float ROOM_UNDER = ViewCamera.LEVEL_HEIGHT;
+    /** The room of a plant with nothing round it. */
+    static final float[] OPEN = {-Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE};
 
     /**
      * Where a plant's sprite paints leaves: frame pixels across and down, two numbers a place,
@@ -342,10 +350,11 @@ final class Flora {
      * sprigs inside it and twigs to bear them, made in wood in the bark that is bark's
      * number. A tree whose bole is boleRadius thick at its top, boleTall over its foot, has
      * a leader and limbs in wood as well: 0 for a plant with no bole, or too far off for them.
-     * False, and nothing made, when the sprite shows too little to make a crown of.
+     * False, and nothing made, when the sprite shows too little to make a crown of. room is
+     * where the crown is kept to below a wall's top: see ROOM_UNDER.
      */
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
-            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed) {
+            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room) {
         int count = places.length / 2;
         float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
         if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
@@ -447,6 +456,17 @@ final class Flora {
             boolean mirrored = (hash >>> 28 & 1) == 1;
             float swayStem = Math.clamp((stemUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST);
             float swayTip = Math.clamp((tipUp - base) * SWAY_PER_TILE, 0f, SWAY_MOST) + SPRIG_FLUTTER;
+            if (Math.min(stemUp, tipUp) - Math.abs(rz) - base < ROOM_UNDER) {
+                float swayed = SpriteGeometry.SWAY_REACH * swayTip;
+                float shiftX = within(x + px, Math.abs(lx) / 2f + Math.abs(rx) + swayed, room[0], room[1]) - (x + px);
+                float shiftY = within(y + py, Math.abs(ly) / 2f + Math.abs(ry) + swayed, room[2], room[3]) - (y + py);
+                px += shiftX;
+                py += shiftY;
+                stemX += shiftX;
+                tipX += shiftX;
+                stemY += shiftY;
+                tipY += shiftY;
+            }
             for (int corner : QUAD) {
                 boolean right = corner == 1 || corner == 2, tip = corner >= 2;
                 float side = right ? 1f : -1f;
@@ -464,7 +484,7 @@ final class Flora {
             }
         }
         mesh.sway = 0f;
-        addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig);
+        addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, room);
         if (boleRadius > 0f && !shrub && lowest + LEADER_TOP * tall > boleTall + 0.2f) {
             mark(wood, frame.open, 0f, TRUNK);
             // Up the middle, from the bole's top.
@@ -488,13 +508,16 @@ final class Flora {
                 float limbThick = Math.max((thick + (LIMB_TIP - thick) * leaves) * LIMB_OF_LEADER, LIMB_TIP * 1.4f);
                 // It leaves the leader nearly level and turns up to its end: a curve through a point out beside where it leaves.
                 float bendOut = 0.7f * endOut, bendUp = fromUp + 0.1f * (endUp - fromUp);
-                float lastOut = 0f, lastUp = fromUp;
+                float lastX = x, lastY = y, lastUp = fromUp;
                 for (int piece = 1; piece <= LIMB_PIECES; piece++) {
                     float t = (float) piece / LIMB_PIECES, s = 1f - t;
                     float outAt = 2f * s * t * bendOut + t * t * endOut, upAt = s * s * fromUp + 2f * s * t * bendUp + t * t * endUp;
                     // It keeps its thickness most of its length, and thins fastest at its end.
                     float thickFrom = limbThick + (LIMB_TIP - limbThick) * (t - 1f / LIMB_PIECES) * (t - 1f / LIMB_PIECES), thickTo = limbThick + (LIMB_TIP - limbThick) * t * t;
-                    prism(wood, x + cos * lastOut, y + sin * lastOut, base + lastUp, x + cos * outAt, y + sin * outAt, base + upAt, thickFrom, thickTo,
+                    // A piece that starts under the room's top is kept to it to its end, wherever that is.
+                    float in = thickTo + SpriteGeometry.SWAY_REACH * limbSway(upAt, boleTall), fromUnder = Math.min(lastUp, upAt);
+                    float atX = keptX(x + cos * outAt, fromUnder, in, room), atY = keptY(y + sin * outAt, fromUnder, in, room);
+                    prism(wood, lastX, lastY, base + lastUp, atX, atY, base + upAt, thickFrom, thickTo,
                             LIMB_SIDES, BARK_UP * bark + WOOD_UP, limbSway(lastUp, boleTall), limbSway(upAt, boleTall), own + piece, frame);
                     if (piece >= 2) {
                         // Two branches off the end of each piece but the first, to the leaves on either side of the limb and above it.
@@ -504,13 +527,14 @@ final class Flora {
                             float toShare = Math.clamp((upAt - lowest) / tall + 0.22f * unit(which, 8), 0.05f, 0.97f);
                             float toOut = 0.85f * reachAt(reachLeft, reachRight, toShare)
                                     * (1f - BOUGH_HOLLOW * (1f - bough(toRound, toShare, lobes, rows, turnOne, turnTwo, turnThree)));
-                            float toUp = lowest + toShare * tall;
-                            prism(wood, x + cos * outAt, y + sin * outAt, base + upAt, x + (float) Math.cos(toRound) * toOut, y + (float) Math.sin(toRound) * toOut,
-                                    base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
+                            float toUp = lowest + toShare * tall, toIn = BRANCH_TIP + SpriteGeometry.SWAY_REACH * limbSway(toUp, boleTall), toUnder = Math.min(upAt, toUp);
+                            prism(wood, atX, atY, base + upAt, keptX(x + (float) Math.cos(toRound) * toOut, toUnder, toIn, room),
+                                    keptY(y + (float) Math.sin(toRound) * toOut, toUnder, toIn, room), base + toUp, Math.max(thickTo * BRANCH_OF_LIMB, BRANCH_TIP), BRANCH_TIP, BRANCH_SIDES, BARK_UP * bark + WOOD_UP,
                                     limbSway(upAt, boleTall), limbSway(toUp, boleTall), which, frame);
                         }
                     }
-                    lastOut = outAt;
+                    lastX = atX;
+                    lastY = atY;
                     lastUp = upAt;
                 }
             }
@@ -527,7 +551,7 @@ final class Flora {
      */
     private static void addCore(Mesh mesh, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV, float across, float up,
             float lowest, float tall, float under, float[] reachLeft, float[] reachRight, int lobes, float rows, float turnOne, float turnTwo,
-            float turnThree, int sprig) {
+            float turnThree, int sprig, float[] room) {
         int count = places.length / 2;
         int[] placeOf = new int[CORE_RINGS];
         float[] nearest = new float[CORE_RINGS];
@@ -577,7 +601,9 @@ final class Flora {
                     float over = lowest + share * tall;
                     mesh.face(cos, sin, 0.1f + 1.4f * (share - 0.4f));
                     mesh.sway = Math.clamp(over * SWAY_PER_TILE, 0f, SWAY_MOST);
-                    mesh.add(x + cos * out, y + sin * out, base + over, u, v, red, green, blue);
+                    // A face is kept to the room by both its rings when its lower one is under the room's top.
+                    float swayed = SpriteGeometry.SWAY_REACH * mesh.sway, faceFoot = lowest + shareLow * tall;
+                    mesh.add(keptX(x + cos * out, faceFoot, swayed, room), keptY(y + sin * out, faceFoot, swayed, room), base + over, u, v, red, green, blue);
                 }
             }
         }
@@ -588,6 +614,24 @@ final class Flora {
     private static float reachAt(float[] reachLeft, float[] reachRight, float share) {
         int band = Math.clamp((int) (share * CROWN_BANDS), 0, CROWN_BANDS - 1);
         return (reachLeft[band] + reachRight[band]) / 2f;
+    }
+
+    /**
+     * Where something reaching extent either side of at goes to keep within low..high: where it
+     * is if it fits, moved in the least that makes it fit, or the middle of a span too narrow for it.
+     */
+    static float within(float at, float extent, float low, float high) {
+        float least = low + extent, most = high - extent;
+        return least > most ? (low + high) / 2f : Math.clamp(at, least, most);
+    }
+
+    /** A point of a crown high over its foot, x along the map, kept in the room that far in from it if it is below the room's top: see ROOM_UNDER. */
+    private static float keptX(float x, float high, float in, float[] room) {
+        return high < ROOM_UNDER ? within(x, in, room[0], room[1]) : x;
+    }
+
+    private static float keptY(float y, float high, float in, float[] room) {
+        return high < ROOM_UNDER ? within(y, in, room[2], room[3]) : y;
     }
 
     /** How much of the wind wood in a crown takes at a height over the plant's foot: what a sprig there takes, and nothing where it joins the bole, which stands still. */
@@ -774,6 +818,15 @@ final class Flora {
                     frame.red, frame.green, frame.blue);
         }
         mesh.sway = 0f;
+    }
+
+    /**
+     * How far out from its root a fern of that size reaches at most along the line of a frond:
+     * its longest frond climbing at its least steep and arching level. The width of the
+     * frond's picture either side of its line is not counted.
+     */
+    static float fernReach(float size) {
+        return size * 1.1f * (0.5f * (float) Math.cos(Math.toRadians(50.0)) + 0.5f);
     }
 
     /**

@@ -33,6 +33,68 @@ final class ShapeTests {
         Checks.run("headOfAPostIsTheCardAboveItsShaft", ShapeTests::headOfAPostIsTheCardAboveItsShaft);
         Checks.run("pipeWithABendAtItsFootIsAPostFromTheBendUp", ShapeTests::pipeWithABendAtItsFootIsAPostFromTheBendUp);
         Checks.run("litterAndLowSlabsLieFlat", ShapeTests::litterAndLowSlabsLieFlat);
+        Checks.run("cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind", ShapeTests::cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind);
+    }
+
+    private static void cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind() {
+        // A bush painted the whole width of its frame, from its foot to two thirds of a level up.
+        SpriteGeometry.Frame frame = frame();
+        frame.left = 0f;
+        frame.top = 96f;
+        frame.width = 128f;
+        frame.height = 128f;
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh open = new SpriteGeometry.Mesh(), kept = new SpriteGeometry.Mesh();
+        geometry.addUpright(open, frame, 5, 7, 0, 0.5f, 0.5f, 0f, 1f, 0f, false, true);
+        float openEast = -Float.MAX_VALUE, openWest = Float.MAX_VALUE;
+        for (int at = 0; at < open.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            openEast = Math.max(openEast, open.vertices[at]);
+            openWest = Math.min(openWest, open.vertices[at]);
+        }
+        check(openEast > 6.15f, "with nothing beside it the card reaches past its square: " + openEast);
+        geometry.roomHighA = 0.94f;
+        geometry.addUpright(kept, frame, 5, 7, 0, 0.5f, 0.5f, 0f, 1f, 0f, false, true);
+        check(kept.triangles() == 2, "beside a fence on its east edge it is still one card");
+        float sway = 0f, east = -Float.MAX_VALUE, west = Float.MAX_VALUE, eastU = 0f;
+        for (int at = 0; at < kept.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float nx = kept.vertices[at + 9], ny = kept.vertices[at + 10], nz = kept.vertices[at + 11];
+            sway = Math.max(sway, (float) Math.sqrt(nx * nx + ny * ny + nz * nz) - 1f);
+            if (kept.vertices[at] > east) {
+                east = kept.vertices[at];
+                eastU = kept.vertices[at + 3];
+            }
+            west = Math.min(west, kept.vertices[at]);
+        }
+        check(sway > 0.2f && near(east, 5.94f - SpriteGeometry.SWAY_REACH * sway, 1e-4f),
+                "it ends short of the fence by as far as the strongest wind carries its top: " + east + " swaying " + sway);
+        check(near(eastU, (east - openWest) / (openEast - openWest), 1e-4f), "and shows its sprite as far as it reaches, not squeezed into what is left: " + eastU);
+        check(west == openWest, "its other end is where it was");
+        kept.clear();
+        // Turned the other way, its first end is the one at the fence.
+        geometry.addUpright(kept, frame, 5, 7, 0, 0.5f, 0.5f, 0f, -1f, 0f, false, true);
+        float turnedEast = -Float.MAX_VALUE, turnedEastU = 0f, turnedWestU = 0f, turnedWest = Float.MAX_VALUE;
+        for (int at = 0; at < kept.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            if (kept.vertices[at] > turnedEast) {
+                turnedEast = kept.vertices[at];
+                turnedEastU = kept.vertices[at + 3];
+            }
+            if (kept.vertices[at] < turnedWest) {
+                turnedWest = kept.vertices[at];
+                turnedWestU = kept.vertices[at + 3];
+            }
+        }
+        check(near(turnedEast, east, 1e-4f) && near(turnedEastU, (openEast - turnedEast) / (openEast - openWest), 1e-4f) && turnedWestU == 1f && turnedWest == openWest,
+                "turned the other way it is cut at the same place, from its other end: " + turnedEast + " showing from " + turnedEastU);
+        kept.clear();
+        geometry.addUpright(kept, frame, 5, 7, 0, 0.5f, 0.5f, 0f, 0f, 1f, false, true);
+        check(kept.triangles() == 2, "a card along the fence is left whole");
+        for (int at = 0; at < kept.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            check(kept.vertices[at] == 5.5f, "and where it stood");
+        }
+        kept.clear();
+        geometry.nudgeX = 0.5f;
+        geometry.addUpright(kept, frame, 5, 7, 0, 0.5f, 0.5f, 0f, 0f, 1f, false, true);
+        check(kept.floats == 0, "and one wholly on the far side of a fence is not there at all");
     }
 
     private static void pipeWithABendAtItsFootIsAPostFromTheBendUp() {
