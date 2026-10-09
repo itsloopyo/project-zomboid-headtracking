@@ -72,6 +72,7 @@ final class ShaderTests {
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
+        Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
     }
 
@@ -300,6 +301,24 @@ final class ShaderTests {
         String developed = from < 0 || to < 0 ? "" : pipeline.substring(from, to);
         Checks.check(developed.contains("atmosphere(develop, state);") && developed.contains("develop.set(\"uRangeFrom\", rangeFrom);"),
                 "the develop pass is not told the air's thickness and where its count of distance starts, as the world's is");
+    }
+
+    /**
+     * What is laid over the ground writes depth. Ground spreading over its neighbour fades out by `shown`, and a pixel
+     * of it that shows nothing, left in, still wrote its depth: where nothing of the built world was drawn beneath it,
+     * the sky and the far land were then kept out of that pixel, which stayed black (offline, at the end of the loaded
+     * map and along a far kerb, in every mode). Read, not run: every pixel of spread ground that shows next to nothing is
+     * left out, whatever is laid.
+     */
+    private static void spreadGroundThatDoesNotShowHidesNothing(List<Linked> programs) {
+        String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        String spread = "float shown = 1.0; if (uLaid > 0.5 && !grass && vMaterial < 56.5 && vCover < 0.999) {"
+                + " float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;"
+                + " shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));";
+        int at = world.indexOf(spread);
+        Checks.check(at >= 0 && world.indexOf(spread, at + 1) < 0, "the world's fragment stage does not work out once how much spread ground shows");
+        Checks.check(world.startsWith(" if (shown < 0.03) { discard; } }", at + spread.length()),
+                "spread ground that shows next to nothing is drawn, and writes a depth that keeps the sky and the far land out of the pixel");
     }
 
     private static String fragment(List<Linked> programs, String name) {

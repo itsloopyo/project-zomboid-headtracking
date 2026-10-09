@@ -2370,9 +2370,11 @@ final class PipelineShaders {
                 if (uLaid > 0.5 && !grass && vMaterial < 56.5 && vCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     shown = smoothstep(0.38, 0.62, vCover + ragged * 3.0 * vCover * (1.0 - vCover));
-                    // Where no fallen leaves show, nothing is drawn: left in, they would still
-                    // hide whatever is laid on the same ground after them.
-                    if (litter && shown < 0.03) {
+                    // Where the spread ground does not show, nothing is drawn: what is laid writes
+                    // depth, so a pixel of it left in would still hide whatever is laid on the
+                    // same ground after it, and where nothing of the built world was drawn beneath
+                    // it, far off, it kept the sky and the far land out and showed as a black dot.
+                    if (shown < 0.03) {
                         discard;
                     }
                 }
