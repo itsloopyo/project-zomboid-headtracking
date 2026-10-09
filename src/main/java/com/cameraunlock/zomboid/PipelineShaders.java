@@ -5339,8 +5339,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = """
-            #version 120
+    static final String DEVELOP = "#version 120\n" + Sky.ATMOSPHERE + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
@@ -5386,6 +5385,8 @@ final class PipelineShaders {
             uniform vec3 uFogColor;
             // How narrow the character's view has become, 0 to 1: see Eyesight.narrowed.
             uniform float uNarrowed;
+            // As the world's: what the air hides is counted from this far off.
+            uniform float uRangeFrom;
             """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
@@ -5637,11 +5638,17 @@ final class PipelineShaders {
                     around = ofItsOwnDepth(uOcclusion, uv, ahead);
                 }
                 vec4 here = texture2D(uScene, uv);
-                vec3 c = mirrored(uv, here, p, square) * mix(1.0, around.a, 0.62);
+                // The world's shader has already hidden in the fog, rain or snow as much of the
+                // surface as the air between hides, and the shade, the lent light and what the
+                // surface mirrors are hidden by as much: laid whole over the veiled colour, the
+                // shade drew every window frame, roof edge and tree of a building lost in thick
+                // fog as dark lines through it.
+                float seen = 1.0 - veiling(max(length(p) - uRangeFrom, 0.0));
+                vec3 c = mix(here.rgb, mirrored(uv, here, p, square), seen) * mix(1.0, around.a, 0.62 * seen);
                 // The light lent by what stands near, taken on by the surface in its own colour.
                 vec3 lent = around.rgb / max(1.0 - around.rgb, vec3(0.02));
                 float own = max(here.r, max(here.g, here.b));
-                c += lent * (here.rgb / max(own, 0.02)) * 0.22;
+                c += lent * (here.rgb / max(own, 0.02)) * (0.22 * seen);
                 if (uRayColor.r + uRayColor.g + uRayColor.b > 0.0) {
                     c += shafts(uv);
                 }

@@ -71,6 +71,7 @@ final class ShaderTests {
         Checks.run("wiresAreOutOfTheMapFromAbove", () -> wiresAreOutOfTheMapFromAbove(programs));
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
+        Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
     }
 
@@ -272,6 +273,33 @@ final class ShaderTests {
                         + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);"
                         + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")), "the world's program is not told the offset the sun maps are drawn with,"
                     + " a texel of each map as the light lies, or the depth of the map from above");
+    }
+
+    /**
+     * The world's shader veils a surface by the fog, rain or snow between it and the eye, and the develop pass then lays
+     * the shade, the light lent by what stands near and what a surface mirrors over that colour. Each has to be veiled by
+     * as much, by the world's own count from the same distance, or the shade of a building lost in thick fog draws its
+     * window frames and roof edges through the fog as dark lines. Read, not run: only a graphics card runs the pass.
+     */
+    private static void whatTheAirHidesOfASurfaceItHidesOfItsShade(List<Linked> programs) {
+        String raw = fragment(programs, "develop");
+        Checks.check(raw.contains(Sky.ATMOSPHERE), "the develop pass does not count what the air hides with the world's own veiling");
+        String develop = raw.replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(develop.contains("float seen = 1.0 - veiling(max(length(p) - uRangeFrom, 0.0));"), "the develop pass does not work out how much of a pixel the air leaves seen, from the pixel's distance as the world counts it");
+        Checks.check(develop.contains("vec3 c = mix(here.rgb, mirrored(uv, here, p, square), seen) * mix(1.0, around.a, 0.62 * seen);"),
+                "the shade, or what a surface mirrors, is laid over a surface whole however much of it the air hides");
+        Checks.check(develop.contains("c += lent * (here.rgb / max(own, 0.02)) * (0.22 * seen);"), "the light lent by what stands near is laid over a surface whole however much of it the air hides");
+        Checks.check(count(develop, "around.a") == 1 && count(develop, "lent *") == 1 && count(develop, "mirrored(uv") == 1, "the develop pass lays the shade, the lent light or the mirror over the picture somewhere else too");
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        int from = pipeline.indexOf("private void drawDeveloped("), to = pipeline.indexOf(" private ", from + 1);
+        String developed = from < 0 || to < 0 ? "" : pipeline.substring(from, to);
+        Checks.check(developed.contains("atmosphere(develop, state);") && developed.contains("develop.set(\"uRangeFrom\", rangeFrom);"),
+                "the develop pass is not told the air's thickness and where its count of distance starts, as the world's is");
     }
 
     private static String fragment(List<Linked> programs, String name) {

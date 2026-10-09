@@ -2661,6 +2661,8 @@ final class Pipeline {
         develop.set("uUp", camera.rightUp, camera.upUp, camera.forwardUp);
         develop.set("uAspect", aspect);
         develop.set("uTime", state.seconds);
+        atmosphere(develop, state);
+        develop.set("uRangeFrom", rangeFrom);
         float[] marked = overhead ? null : state.marked;
         develop.set("uAcross", camera.rightX, camera.rightY, camera.rightUp);
         develop.set("uUpward", camera.upX, camera.upY, camera.upUp);
