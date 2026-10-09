@@ -35,6 +35,7 @@ final class FurnitureTests {
         Checks.run("whatStandsOnARoofCaseIsRaisedToItsTop", FurnitureTests::whatStandsOnARoofCaseIsRaisedToItsTop);
         Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
+        Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
     }
 
     private static IsoSprite sprite(String row) {
@@ -309,5 +310,40 @@ final class FurnitureTests {
         check(east != null && west != null && east.turns == 1 && west.turns == 3, "facing the way its sprite does");
         check(east != null && west != null && east.dyeA > 0.5f && west.dyeA < 0.5f,
                 "its colour is taken from the front of its seat, clear of its back, whichever way it faces: " + (east == null ? "-" : east.dyeA));
+    }
+
+    private static void restaurantBoothsAndWaitingChairsAreTheirOwnSeats() {
+        String spiffos = "|BedType|badBed|BlocksPlacement||CanBreak||CanScrap||CustomName|Seat|Facing|S|GroupName|Spiffos Lounge|IsLow||IsMoveAble||ItemHeight|28|"
+                + "Material|Wood|Material2|Wood|Material3|Leather|MaterialType|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|"
+                + "bed||chairS||solidtrans||SeatMaterial|Leather|SpriteGridPos|";
+        String whirled = "|BedType|averageBed|BlocksPlacement||CanBreak||CanScrap||CustomName|Seat|Facing|S|GroupName|Whirled|IsLow||IsMoveAble||ItemHeight|18|"
+                + "Material|Wood|Material2|Nails|Material3|Leather|MaterialType|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|150|PlaceTool|Hammer|"
+                + "bed||solidtrans||SeatMaterial|Leather|SpriteGridPos|";
+        String leather = "|BedType|averageBed|BlocksPlacement||CanBreak||CanScrap||CustomName|Seating|Facing|E|GroupName|Leather Bar|IsLow||IsMoveAble||ItemHeight|22|"
+                + "Material|Leather|Material2|Wood|MaterialType|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|150|PlaceTool|Hammer|"
+                + "bed||solidtrans||SeatMaterial|Leather|SpriteGridPos|";
+        String waiting = "|BedType|badBed|BlocksPlacement||CanScrap||CustomName|Chairs|Facing|S|GroupName|Waiting|HoppableN||IsLow||IsMoveAble||Material|MetalPipe|"
+                + "Material2|Foam|PickUpWeight|150|bed||chairS||collideN||solidtrans||SpriteGridPos|";
+        String diner = "|BedType|averageBed|BlocksPlacement||CanBreak||CanScrap||CustomName|Seat|Facing|S|GroupName|50s|IsLow||IsMoveAble||ItemHeight|20|"
+                + "Material|Leather|Material2|Wood|MaterialType|Wood|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|150|PlaceTool|Hammer|"
+                + "bed||solidtrans||SeatMaterial|Leather|SpriteGridPos|";
+        Object[][] pieces = {
+            {"location_restaurant_spiffos_02_20", "location_restaurant_spiffos_02_21", spiffos, 2, 1, "lounge_booth", 2},
+            {"location_restaurant_pizzawhirled_01_44", "location_restaurant_pizzawhirled_01_45", whirled, 2, 1, "lounge_booth", 2},
+            {"location_restaurant_bar_01_13", "location_restaurant_bar_01_12", leather, 1, 2, "leather_booth", 1},
+            {"location_community_medical_01_58", "location_community_medical_01_59", waiting, 2, 1, "waiting_chairs", 2},
+            {"location_restaurant_diner_01_32", "location_restaurant_diner_01_33", diner, 2, 1, "booth", 2}};
+        for (Object[] piece : pieces) {
+            int width = (int) piece[3], height = (int) piece[4];
+            IsoSprite first = sprite(piece[0] + (String) piece[2] + "0,0"), second = sprite(piece[1] + (String) piece[2] + (width == 2 ? "1,0" : "0,1"));
+            piece(width, height, first, second);
+            Furniture seat = Furniture.known(first);
+            check(model(seat).equals(piece[5]) && seat.turns == (int) piece[6] && model(Furniture.known(second)).equals(piece[5]),
+                    piece[0] + " and the square beside it are a " + piece[5] + " turned " + piece[6] + " quarters from north: " + model(seat));
+            if (seat == null || seat.model == null) {
+                continue;
+            }
+            check(seat.model.width() * seat.scale <= 2f && seat.model.depth() * seat.scale <= 1f, piece[0] + " is no bigger than its two squares");
+        }
     }
 }

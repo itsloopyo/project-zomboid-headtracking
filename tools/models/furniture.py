@@ -2985,6 +2985,96 @@ def restaurant_seating():
             swivel_chair(), cafe_table(), cafe_chair()]
 
 
+def lounge_booth():
+    """A fast food restaurant's booth two squares long: a moulded shell with a hard seat, a high back and a high side at
+    each end, and a padded back of upright pleats let into the shell."""
+    model = Model("lounge_booth")
+    half, front, back, seat, top, side, shell = 0.95, -0.45, 0.45, 0.45, 1.15, 0.06, 0.15
+    body = bmesh.new()
+    cuboid(body, -half + side, half - side, front, back - shell, 0.0, seat)
+    cuboid(body, -half + side, half - side, back - shell, back, 0.0, top)
+    cuboid(body, -half, -half + side, front, back, 0.0, top)
+    cuboid(body, half - side, half, front, back, 0.0, top)
+    model.hard(body, "paint", bevel=0.025, segments=3)
+    pleats = 4
+    each = (2 * (half - side) - 0.06) / (2 * pleats)
+    for n in range(2 * pleats):
+        x0 = -half + side + 0.03 + n * each
+        part = bmesh.new()
+        cage = grid_box(part, spread(x0 + 0.004, x0 + each - 0.004, 2), [back - shell - 0.075, back - shell + 0.01], [seat + 0.04, top - 0.09])
+        for (i, j, k), vert in cage.items():
+            if i == 1 and j == 0:
+                vert.co.y -= 0.02
+        crease(part, cage, 0.25)
+        model.soft(part, "vinyl", levels=2)
+    return model
+
+
+def leather_booth():
+    """A bar's booth two squares long, upholstered in leather all over: a deep seat rolled at its front and its ends and
+    a high back with a roll along its top, on a wooden plinth."""
+    model = Model("leather_booth")
+    half, front, back, plinth, seat, top, rest = 0.95, -0.45, 0.45, 0.2, 0.47, 1.2, 0.22
+    foot = bmesh.new()
+    cuboid(foot, -half + 0.03, half - 0.03, front + 0.03, back, 0.0, plinth)
+    model.hard(foot, "dark_wood", bevel=0.006, segments=1)
+    pad = bmesh.new()
+    cage = grid_box(pad, spread(-half, half, 4), spread(front, back - rest + 0.02, 2), [plinth, seat])
+    for x in (1, 3):
+        cage[(x, 1, 1)].co.z += 0.015
+    crease(pad, cage, 0.15)
+    model.soft(pad, "vinyl", levels=2)
+    backrest = bmesh.new()
+    cage = grid_box(backrest, spread(-half, half, 4), spread(back - rest, back, 2), spread(plinth, top, 3))
+    for (i, j, k), vert in cage.items():
+        if k == 3 and j == 0:
+            vert.co.y += 0.03
+        if 0 < i < 4 and j == 0 and k in (1, 2):
+            vert.co.y -= 0.025
+    crease(backrest, cage, 0.3)
+    model.soft(backrest, "vinyl", levels=2)
+    return model
+
+
+def waiting_chairs():
+    """Two waiting room chairs side by side, a square each: a padded seat and back, wooden arms, each on one post with a
+    long foot along the floor."""
+    model = Model("waiting_chairs")
+    seat, back = 0.45, 0.24
+    frame = bmesh.new()
+    pads = bmesh.new()
+    arms = bmesh.new()
+    for middle in (-0.5, 0.5):
+        cuboid(frame, middle - 0.03, middle + 0.03, -0.26, 0.26, 0.0, 0.035)
+        cuboid(frame, middle - 0.025, middle + 0.025, -0.025, 0.025, 0.035, seat - 0.06)
+        cuboid(frame, middle - 0.2, middle + 0.2, -0.17, 0.17, seat - 0.07, seat - 0.05)
+        cuboid(frame, middle - 0.02, middle + 0.02, 0.18, back - 0.02, seat - 0.07, seat + 0.12)
+        for x in (-1, 1):
+            arm = middle + x * 0.265
+            cuboid(frame, arm - 0.012, arm + 0.012, 0.0, 0.03, seat - 0.07, 0.62)
+            cuboid(arms, arm - 0.025, arm + 0.025, -0.2, 0.17, 0.62, 0.65)
+        cage = grid_box(pads, spread(middle - 0.24, middle + 0.24, 2), spread(-0.22, 0.2, 2), [seat - 0.05, seat + 0.02])
+        cage[(1, 1, 1)].co.z += 0.012
+        cage[(1, 0, 1)].co.z -= 0.008
+        crease(pads, cage, 0.4)
+        cage = grid_box(pads, spread(middle - 0.23, middle + 0.23, 2), [back - 0.06, back], spread(seat + 0.08, 0.95, 2))
+        for (i, j, k), vert in cage.items():
+            vert.co.y += 0.06 * (vert.co.z - seat - 0.08) / (0.95 - seat - 0.08)
+        cage[(1, 0, 2)].co.z += 0.03
+        cage[(1, 1, 2)].co.z += 0.03
+        cage[(1, 0, 1)].co.y -= 0.012
+        crease(pads, cage, 0.4)
+    model.hard(frame, "rubber", bevel=0.004, segments=1)
+    model.soft(pads, "cloth", levels=2)
+    model.hard(arms, "wood", bevel=0.008, segments=2)
+    return model
+
+
+def upholstered():
+    """Seats in restaurants, bars and waiting rooms that Indoors.java places."""
+    return [lounge_booth(), leather_booth(), waiting_chairs()]
+
+
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
@@ -3624,7 +3714,8 @@ def every():
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"), lantern_head(),
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
-              parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + indoors() + outdoors()
+              parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + indoors() + outdoors() \
+        + upholstered()
 
 
 def main():

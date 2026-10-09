@@ -164,7 +164,11 @@ final class Indoors {
         if (called.equals("School Bench") && holds.equals("desk") && single && properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
             return new Furniture(sprite, "school_desk", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, DESK_TOP, false);
         }
-        return restaurant(sprite, called, group, properties, turns, along, across);
+        Furniture restaurant = restaurant(sprite, called, group, properties, turns, along, across);
+        if (restaurant != null) {
+            return restaurant;
+        }
+        return upholstered(sprite, called, group, pair && rests && surface == 0, turns);
     }
 
     /** Where on its sprite, in levels, a diner chair's seat gives its colour, and how far over its laminate a diner table's wooden band does. */
@@ -209,5 +213,29 @@ final class Indoors {
             table.dye(1 << (model.equals("cafe_table") ? Models.WOOD : Models.WORKTOP), surfaceHigh);
         }
         return table.stand(surfaceUp, table.model.height(), false);
+    }
+
+    /** Where on its sprite, in levels, over the back of its first square, a burger bar's booth shows its shell, the lip along the top of its back, and a bar's booth its leather. */
+    private static final float SHELL_DYE = 0.5f, LEATHER_DYE = 0.25f;
+
+    /**
+     * Seats two squares long in restaurants, bars and waiting rooms, which the game marks as somewhere to rest and
+     * gives no height. The pleats of a burger bar's booth are on the side of it the game's view sees only from two of
+     * its four ways, so they are one colour whichever way it faces.
+     */
+    private static Furniture upholstered(IsoSprite sprite, String called, String group, boolean restingPair, int turns) {
+        if (!restingPair) {
+            return null;
+        }
+        if (called.equals("Seat") && (group.equals("Spiffos Lounge") || group.equals("Whirled"))) {
+            return new Furniture(sprite, "lounge_booth", turns).dyeAtBack(1 << Models.PAINT, SHELL_DYE).stand(0f, 0f, true);
+        }
+        if (called.equals("Seating") && group.equals("Leather Bar")) {
+            return new Furniture(sprite, "leather_booth", turns).dyeAtBack(1 << Models.VINYL, LEATHER_DYE).stand(0f, 0f, true);
+        }
+        if (called.equals("Chairs") && group.equals("Waiting")) {
+            return new Furniture(sprite, "waiting_chairs", turns).stand(0f, 0f, false);
+        }
+        return null;
     }
 }
