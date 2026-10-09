@@ -21,7 +21,7 @@ final class Own {
     private static final int[] built = new int[View.COUNT];
 
     static {
-        java.util.Arrays.fill(built, ALL | ALL << 16);
+        java.util.Arrays.fill(built, ALL | TEXTURES << 16);
     }
 
     private Own() {}
@@ -103,8 +103,8 @@ final class Own {
      * then to be built again.
      */
     static boolean taken(int view) {
-        // The rows the mode shows, and over them the rows as the file has them, which is what paint asks.
-        int now = on() | on << 16;
+        // The rows the mode shows, and over them the one row that is asked as the file has it: see paint.
+        int now = on() | (on & TEXTURES) << 16;
         if (now == built[view]) {
             return false;
         }

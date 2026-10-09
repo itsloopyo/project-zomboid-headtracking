@@ -22,6 +22,9 @@ final class RoadPaintTests {
         Checks.run("wholeSquareAndHoleAndHairlineAreNotRead", RoadPaintTests::wholeSquareAndHoleAndHairlineAreNotRead);
         Checks.run("spritesDiamondIsReadFromItsOwnMiddle", RoadPaintTests::spritesDiamondIsReadFromItsOwnMiddle);
         Checks.run("paintIsLaidWithWhatItsCornersCarry", RoadPaintTests::paintIsLaidWithWhatItsCornersCarry);
+        Checks.run("layGivesThePaintItsMaterialAndTheFrameItsOwnBack", RoadPaintTests::layGivesThePaintItsMaterialAndTheFrameItsOwnBack);
+        Checks.run("noPointOfThePaintIsCoatedTwice", RoadPaintTests::noPointOfThePaintIsCoatedTwice);
+        Checks.run("everyCornerIsANumber", RoadPaintTests::everyCornerIsANumber);
         Checks.run("onlyMarkingsAreRead", RoadPaintTests::onlyMarkingsAreRead);
     }
 
@@ -29,12 +32,16 @@ final class RoadPaintTests {
         Checks.check(condition, what);
     }
 
-    /** Dots, each painted where the middle of it is, x and y in dots from the square's corner. */
+    /** Dots, each as solid as the share of it that is painted, x and y in dots from the square's corner. */
     private static float[] cover(Painted painted) {
         float[] cover = new float[WIDE * WIDE];
         for (int i = 0; i < WIDE; i++) {
             for (int j = 0; j < WIDE; j++) {
-                cover[i * WIDE + j] = painted.at(i - MARGIN + 0.5, j - MARGIN + 0.5) ? 1f : 0f;
+                int inside = 0;
+                for (int part = 0; part < 64; part++) {
+                    inside += painted.at(i - MARGIN + (part % 8 + 0.5) / 8.0, j - MARGIN + (part / 8 + 0.5) / 8.0) ? 1 : 0;
+                }
+                cover[i * WIDE + j] = inside / 64f;
             }
         }
         return cover;
@@ -89,6 +96,7 @@ final class RoadPaintTests {
 
     private static void stripeRunsOffItsSquareWithNoEnd() {
         float[] triangles = PaintFit.triangles(cover((x, y) -> y > 0 && y < SIDE && x > 2 && x < 16), SIDE, MARGIN);
+        check(triangles != null, "the stripe is read");
         // An open end has no edge: nothing of the stripe says a point at its very end is any nearer the outside than its middle is.
         for (int at = 0; at < triangles.length; at += PaintFit.CORNER) {
             double x = triangles[at] * SIDE, y = triangles[at + 1] * SIDE, inside = triangles[at + 2] * SIDE;
@@ -203,7 +211,86 @@ final class RoadPaintTests {
         near(mesh.vertices[floats], 8.1, 1e-6, "a corner past the square's edge is laid where it is");
         near(mesh.vertices[floats + 2], 0.25, 1e-6, "as high as the edge is there");
         near(mesh.vertices[5], 0.5, 1e-6, "lit as the square is");
-        near(mesh.vertices[8], 1f, 1e-6, "and the frame's material is whatever the frame says: RoadPaint.lay sets it");
+        near(mesh.vertices[8], 1f, 1e-6, "and out of doors as the square is, of no material the frame did not say");
+    }
+
+    private static void layGivesThePaintItsMaterialAndTheFrameItsOwnBack() {
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.open = 1f;
+        frame.material = 3f;
+        frame.light(1f, 1f, 1f);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        float[] triangles = PaintFit.triangles(cover((x, y) -> y > 0 && y < SIDE && x > 2 && x < 16), SIDE, MARGIN);
+        for (int at = 0; at < triangles.length; at += 3 * PaintFit.CORNER) {
+            geometry.addGiven(mesh, paintFrame(frame), 0, 0, 0, triangles, at);
+        }
+        check(mesh.floats == triangles.length / PaintFit.CORNER * SpriteGeometry.VERTEX_FLOATS, "every triangle of the paint is laid");
+        near(mesh.vertices[8], 1f + 32f * RoadPaint.MATERIAL, 1e-3, "each vertex says it is paint, out of doors");
+    }
+
+    /** The frame as RoadPaint.lay hands it on: the paint's material for the while. */
+    private static SpriteGeometry.Frame paintFrame(SpriteGeometry.Frame frame) {
+        frame.material = RoadPaint.MATERIAL;
+        return frame;
+    }
+
+    /** How many triangles of paint a point, in dots, is inside of, clear of their edges. */
+    private static int coats(float[] triangles, double x, double y) {
+        int coats = 0;
+        for (int at = 0; at < triangles.length; at += 3 * PaintFit.CORNER) {
+            double ax = triangles[at] * SIDE, ay = triangles[at + 1] * SIDE, bx = triangles[at + 4] * SIDE, by = triangles[at + 5] * SIDE, cx = triangles[at + 8] * SIDE, cy = triangles[at + 9] * SIDE;
+            double twice = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+            double a = ((bx - x) * (cy - y) - (by - y) * (cx - x)) / twice, b = ((cx - x) * (ay - y) - (cy - y) * (ax - x)) / twice, c = 1.0 - a - b;
+            double edge = 0.02 / Math.sqrt(Math.abs(twice));
+            if (a > edge && b > edge && c > edge && a * triangles[at + 2] + b * triangles[at + 6] + c * triangles[at + 10] > 0.0) {
+                coats++;
+            }
+        }
+        return coats;
+    }
+
+    private static void noPointOfThePaintIsCoatedTwice() {
+        Painted[] shapes = {
+            (x, y) -> y > 0 && y < SIDE && x > 2 && x < 16,
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && x - y > 20 && x - y < 34,
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && 2 * x - y > 20 && 2 * x - y < 51,
+            (x, y) -> x > 2 && x < 16 && y > 2 && y < SIDE || y > 2 && y < 16 && x > 2 && x < SIDE,
+            (x, y) -> x > 34 && x < 64 && y > 4 && y < SIDE || y > 4 && y < 18 && x > 34 && x < SIDE,
+            (x, y) -> x > 0 && Math.abs(y - 64) < 30 - x,
+        };
+        for (int which = 0; which < shapes.length; which++) {
+            float[] triangles = PaintFit.triangles(cover(shapes[which]), SIDE, MARGIN);
+            check(triangles != null, "shape " + which + " is read");
+            int twice = 0, never = 0, painted = 0;
+            for (double x = 0.37; x < SIDE; x += 0.71) {
+                for (double y = 0.41; y < SIDE; y += 0.73) {
+                    int coats = coats(triangles, x, y);
+                    twice += coats > 1 ? 1 : 0;
+                    boolean is = shapes[which].at(x, y);
+                    painted += is ? 1 : 0;
+                    never += is && !inside(triangles, x / SIDE, y / SIDE) ? 1 : 0;
+                }
+            }
+            check(twice == 0, "no point of shape " + which + " lies inside two triangles of its paint: " + twice + " do");
+            check(never * 25 < painted, "and all but its staircase is painted: " + never + " of " + painted + " points are not");
+        }
+    }
+
+    private static void everyCornerIsANumber() {
+        Painted[] shapes = {
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && (Math.abs(x - y) < 7 || Math.abs(x + y - SIDE) < 7),
+            (x, y) -> x > 0 && y > 0 && x < SIDE && y < SIDE && (Math.abs(x - 29) < 6 || Math.abs(y - 73.5) < 6),
+            (x, y) -> Math.hypot(x - 64, y - 64) < 30,
+            (x, y) -> x > 10 && x < 100 && y > 119.4 && y < 144,
+        };
+        for (int which = 0; which < shapes.length; which++) {
+            float[] triangles = PaintFit.triangles(cover(shapes[which]), SIDE, MARGIN);
+            for (int at = 0; triangles != null && at < triangles.length; at++) {
+                check(Float.isFinite(triangles[at]), "every float of shape " + which + " is a number, at " + at);
+            }
+        }
     }
 
     private static void onlyMarkingsAreRead() {

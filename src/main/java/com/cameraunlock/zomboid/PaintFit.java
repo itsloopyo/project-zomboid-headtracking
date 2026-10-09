@@ -13,9 +13,11 @@ import java.util.Arrays;
  * traced where the dots are half covered, the long runs of it are fitted with straight lines,
  * and a line that is within a few degrees of running along the map, across it, or at one of
  * the slants a mapper lays lines on is set to run exactly so, at a whole number of the
- * sprite's own dots from the square's corner. Two squares that hold the same sprite, or two
- * sprites drawn to meet, then meet on the edge they share to the last digit, and a line of
- * many squares is one straight stripe of one width.
+ * sprite's own dots from the square's corner. Two squares that hold the same sprite then meet
+ * on the edge they share to the last digit, and a line of many squares is one straight stripe
+ * of one width. Two different sprites drawn to meet do so as nearly as they were drawn to:
+ * exactly along the map, across it and on its diagonals, and within a dot on the bay lines
+ * laid one square over for two along, whose pieces the game painted that far out of line.
  *
  * What comes out is triangles, each corner with how far inside the outline it is, so the
  * picture can tell how much of a pixel the paint covers: see RoadPaint.
@@ -47,6 +49,8 @@ final class PaintFit {
     private static final float THINNEST = 1.5f;
     /** How far past its outline, in dots, a shape's triangles go on, carrying how far outside they are. */
     private static final float SKIRT_TILES = 0.15f;
+    /** A skirt ends on the line of the open edge its own edge ends on when the sine of the angle between the two is at least this: it is then no more than three times as long as it is wide. */
+    private static final float SKIRT_CROSSING = 0.33f;
     /** How many times each bend is cut to round it. */
     private static final int ROUNDINGS = 2;
     /** An outline that keeps within this many dots of the square's own edge for at least the second runs along that edge: the sprite ends there with its diamond, in a staircase. */
@@ -98,7 +102,7 @@ final class PaintFit {
                 return null;
             }
             double[] outline = outline(loop, side);
-            int count = outline.length / 2;
+            int count = tidied(outline);
             if (count < 3 || area(outline, count) < SPECK) {
                 continue;
             }
@@ -107,7 +111,39 @@ final class PaintFit {
             }
             any = true;
         }
-        return any ? out.toTiles(side) : null;
+        float[] tiles = any ? out.toTiles(side) : null;
+        for (int at = 0; tiles != null && at < tiles.length; at++) {
+            if (!Float.isFinite(tiles[at])) {
+                return null;
+            }
+        }
+        return tiles;
+    }
+
+    /**
+     * Takes out of an outline, in place, each corner that lies on the corner before it and each
+     * that lies on the straight line from the corner before it to the one after: neither is a
+     * corner, and an edge of no length has no direction to be worked with. Returns how many
+     * corners are left.
+     */
+    private static int tidied(double[] corners) {
+        int count = corners.length / 2;
+        for (boolean taken = true; taken && count >= 3;) {
+            taken = false;
+            for (int k = 0; k < count && count >= 3; k++) {
+                int before = (k + count - 1) % count, after = (k + 1) % count;
+                double inX = corners[k * 2] - corners[before * 2], inY = corners[k * 2 + 1] - corners[before * 2 + 1];
+                double outX = corners[after * 2] - corners[k * 2], outY = corners[after * 2 + 1] - corners[k * 2 + 1];
+                double in = Math.hypot(inX, inY), out = Math.hypot(outX, outY);
+                if (in < 0.05 || out >= 0.05 && Math.abs(inX * outY - inY * outX) < 1e-9 * in * out && inX * outX + inY * outY > 0.0) {
+                    System.arraycopy(corners, (k + 1) * 2, corners, k * 2, (count - k - 1) * 2);
+                    count--;
+                    k--;
+                    taken = true;
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -783,7 +819,7 @@ final class PaintFit {
             if (open[k]) {
                 continue;
             }
-            int next = (k + 1) % count, before = (k + count - 1) % count, after = (k + 2) % count;
+            int next = (k + 1) % count, before = (k + count - 1) % count;
             double ax = corners[k * 2], ay = corners[k * 2 + 1], bx = corners[next * 2], by = corners[next * 2 + 1];
             double iax = inner[k * 2], iay = inner[k * 2 + 1], ibx = inner[next * 2], iby = inner[next * 2 + 1];
             double da = c[k] - (nx[k] * iax + ny[k] * iay), db = c[k] - (nx[k] * ibx + ny[k] * iby);
@@ -804,14 +840,15 @@ final class PaintFit {
             double pax = ax + nx[k] * skirt, pay = ay + ny[k] * skirt, pbx = bx + nx[k] * skirt, pby = by + ny[k] * skirt;
             if (open[before]) {
                 double det = nx[k] * ny[before] - ny[k] * nx[before];
-                if (Math.abs(det) > 0.1) {
+                // Not where the two lines run so nearly together that they cross a long way off.
+                if (Math.abs(det) > SKIRT_CROSSING) {
                     pax = ((c[k] + skirt) * ny[before] - c[before] * ny[k]) / det;
                     pay = (nx[k] * c[before] - nx[before] * (c[k] + skirt)) / det;
                 }
             }
             if (open[next]) {
                 double det = nx[k] * ny[next] - ny[k] * nx[next];
-                if (Math.abs(det) > 0.1) {
+                if (Math.abs(det) > SKIRT_CROSSING) {
                     pbx = ((c[k] + skirt) * ny[next] - c[next] * ny[k]) / det;
                     pby = (nx[k] * c[next] - nx[next] * (c[k] + skirt)) / det;
                 }
@@ -823,7 +860,7 @@ final class PaintFit {
                 out.triangle(bx, by, 0.0, bx + nx[k] * skirt, by + ny[k] * skirt, -skirt, bx + nx[next] * skirt, by + ny[next] * skirt, -skirt, thick);
             }
         }
-        fill(corners, inner, count, half, thick, out);
+        fill(corners, open, inner, count, half, thick, out);
         return true;
     }
 
@@ -900,6 +937,18 @@ final class PaintFit {
         return inside;
     }
 
+    /** How far a point is from the nearest edge of an outline that is not open. */
+    private static double fromEdges(double[] corners, int count, boolean[] open, double x, double y) {
+        double nearest = Double.MAX_VALUE;
+        for (int k = 0; k < count; k++) {
+            if (!open[k]) {
+                int next = (k + 1) % count;
+                nearest = Math.min(nearest, fromSegment(x, y, corners[k * 2], corners[k * 2 + 1], corners[next * 2], corners[next * 2 + 1]));
+            }
+        }
+        return nearest;
+    }
+
     private static double fromSegment(double x, double y, double ax, double ay, double bx, double by) {
         double dx = bx - ax, dy = by - ay, square = dx * dx + dy * dy;
         double t = square < 1e-12 ? 0.0 : Math.clamp(((x - ax) * dx + (y - ay) * dy) / square, 0.0, 1.0);
@@ -910,10 +959,10 @@ final class PaintFit {
      * Adds what is left of the paint inside its bands, every corner half the thickness inside:
      * an ear at a time. A stripe, a bar and a triangle leave nothing, their bands meeting along
      * the middle, and what they leave is a line gone over twice, which has ears that are no
-     * part of it: an ear is cut only where it lies inside the outline. Where no ear is left to
-     * cut the rest is left out.
+     * part of it, or are paint a band has covered already: a coat laid twice is twice as thick.
+     * Where no ear is left to cut the rest is left out.
      */
-    private static void fill(double[] corners, double[] inner, int count, double half, double thick, Out out) {
+    private static void fill(double[] corners, boolean[] open, double[] inner, int count, double half, double thick, Out out) {
         int[] left = new int[count];
         int size = 0;
         for (int k = 0; k < count; k++) {
@@ -945,10 +994,15 @@ final class PaintFit {
                 if (!clear) {
                     continue;
                 }
-                if (turn > 1e-4 && !(within(corners, count, (ax + bx + dx) / 3.0, (ay + by + dy) / 3.0) && within(corners, count, ax * 0.45 + bx * 0.1 + dx * 0.45, ay * 0.45 + by * 0.1 + dy * 0.45))) {
+                double midX = (ax + bx + dx) / 3.0, midY = (ay + by + dy) / 3.0;
+                // What reaches outside the outline is no ear of the paint.
+                if (turn > 1e-4 && !(within(corners, count, midX, midY) && within(corners, count, ax * 0.45 + bx * 0.1 + dx * 0.45, ay * 0.45 + by * 0.1 + dy * 0.45))) {
                     continue;
                 }
-                out.triangle(ax, ay, half, bx, by, half, dx, dy, half, thick);
+                // An ear nearer an edge than the bands reach is paint a band has laid already: it is cut and not added.
+                if (fromEdges(corners, count, open, midX, midY) >= half - 0.05) {
+                    out.triangle(ax, ay, half, bx, by, half, dx, dy, half, thick);
+                }
                 System.arraycopy(left, k + 1, left, k, size - k - 1);
                 size--;
                 cut = true;

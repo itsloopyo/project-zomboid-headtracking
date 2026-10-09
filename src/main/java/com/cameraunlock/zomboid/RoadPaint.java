@@ -161,8 +161,9 @@ final class RoadPaint {
     /**
      * A sprite laid flat, with MARGIN dots of what lies past its square each way: SIDE + 2 *
      * MARGIN dots a row, the dot at x and y at x * that + y, the square's own corner at
-     * (MARGIN, MARGIN), each how solid the sprite is there as a share of its most solid dot. Into paint go the
-     * colour of the paint, red, green and blue, and how thick the coat is, each from 0 to 1.
+     * (MARGIN, MARGIN), each how solid the sprite is there as a share of its most solid dot.
+     * Into paint go the colour of the paint, red, green and blue, and how thick the coat is,
+     * each from 0 to 1.
      * The sprite is the rectangle from (left, top) to before (right, bottom) of a picture width
      * pixels wide, held as bytes of red, green, blue and cover. Null for a sprite that paints
      * nothing.
@@ -276,8 +277,7 @@ final class RoadPaint {
             float paintWorn(vec2 place) {
                 float wide = patches(place * 0.7 + 23.0) * 0.6 + patches(place * 2.9 + 5.0) * 0.4;
                 float foot = max(length(dFdx(place)), length(dFdy(place)));
-                float fine = patches(place * 37.0 + 11.0) * 0.6 + patches(place * 91.0) * 0.4;
-                float pits = smoothstep(0.52, 0.8, fine) * (1.0 - smoothstep(0.004, 0.012, foot));
+                float pits = smoothstep(0.52, 0.8, patches(place * 37.0 + 11.0)) * (1.0 - smoothstep(0.004, 0.012, foot));
                 return 1.0 - 0.32 * smoothstep(0.45, 0.8, wide) - 0.3 * pits;
             }
             """;
