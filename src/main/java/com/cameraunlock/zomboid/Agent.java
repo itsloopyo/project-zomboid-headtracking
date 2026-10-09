@@ -244,6 +244,9 @@ public final class Agent {
         String input = "zombie/characters/component/CharacterInputComponent", inputFilter = "(ZL" + input + ";)Z";
         String byPlayer = "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;";
         CallSite.Method ballistics = new CallSite.Method("zombie/core/physics/BallisticsController", "update", "()V");
+        String character = "Lzombie/characters/IsoGameCharacter;";
+        CallSite.Method processHit = new CallSite.Method("zombie/CombatManager", "processHit",
+                "(Lzombie/inventory/types/HandWeapon;" + character + character + ")I");
         return List.of(
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
                         new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
@@ -283,6 +286,17 @@ public final class Agent {
                 new Patch(ballistics.owner(), "update after calculateMuzzlePosition", classBytes -> CallSite.insertAfterEach(classBytes,
                         ballistics, new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(Lzombie/iso/Vector3;Lzombie/iso/Vector3;)F"),
                         code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";)V")), 1)),
+                new Patch(processHit.owner(), "processHit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, processHit, code -> {
+                    code.aload(2);
+                    code.aload(3);
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "shotAt", "(" + character + character + ")V"));
+                })),
+                new Patch(processHit.owner(), "processHit calling isCameraTarget", classBytes -> CallSite.replaceEach(classBytes, processHit,
+                        new CallSite.Method(ballistics.owner(), "isCameraTarget", "(I)Z"),
+                        new CallSite.Method(HOOKS, "cameraTarget", "(L" + ballistics.owner() + ";I)Z"), 1)),
+                new Patch(processHit.owner(), "processHit calling getCachedTargetedBodyPart", classBytes -> CallSite.replaceEach(classBytes, processHit,
+                        new CallSite.Method(ballistics.owner(), "getCachedTargetedBodyPart", "(I)I"),
+                        new CallSite.Method(HOOKS, "targetedBodyPart", "(L" + ballistics.owner() + ";I)I"), 1)),
                 new Patch("zombie/core/Core", "getKeyBinding before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/core/Core", "getKeyBinding", "(Ljava/lang/String;)" + KEY_BINDING),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "binding",

@@ -8,9 +8,12 @@ import java.util.Map;
 import zombie.GameTime;
 import zombie.characters.CharacterInputKeyBinding;
 import zombie.characters.CharacterJoypadButtonBinding;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.physics.BallisticsController;
+import zombie.core.physics.RagdollBodyPart;
 import zombie.iso.IsoUtils;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
@@ -42,6 +45,7 @@ public final class Controls {
 
     /** Where the clean aim meets the world, in the game's own axes: tiles and floor levels. */
     private float aimPointX, aimPointY, aimPointLevel;
+    private final HitPart hitPart = new HitPart();
 
     /** A binding the game holds and what first person answers with in its place. */
     private static final class Substituted {
@@ -276,6 +280,24 @@ public final class Controls {
         direction.x = aimPointX - muzzle.x;
         direction.y = aimPointY - muzzle.y;
         direction.z = aimPointLevel - muzzle.z;
+    }
+
+    /**
+     * The part of a character a first person shot is on, for the game to hit: see {@link HitPart}.
+     * {@link HitPart#NONE} leaves the game to decide as it does, which it does for a player who
+     * could be fought here, so that a player is no easier to hit in the head because the one
+     * shooting has this mod, and for an animal, whose skeleton is not a person's.
+     */
+    int aimedPart(IsoGameCharacter target) {
+        if (!view.firstPerson.lookCaptured() || target instanceof IsoAnimal || target instanceof IsoPlayer && Online.contested()) {
+            return HitPart.NONE;
+        }
+        int part = hitPart.part(view.firstPerson.aimView(), view.worldScene.terrain, target);
+        if (FirstPerson.TRACE) {
+            Log.info(String.format(Locale.ROOT, "shot part: %s of the character at (%.2f, %.2f)",
+                    part == HitPart.NONE ? "none, the game's own" : RagdollBodyPart.values()[part].name(), target.getX(), target.getY()));
+        }
+        return part;
     }
 
     /**

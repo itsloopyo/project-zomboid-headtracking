@@ -215,6 +215,11 @@ public final class FirstPerson {
         return pitch;
     }
 
+    /** The clean aim as the last frame drawn had it: where a shot is aimed from and which way, in the picture's units. */
+    ViewCamera.Pose aimView() {
+        return aimView;
+    }
+
     /** Whether the mouse is turning the view, for what the game asks between frames. */
     boolean lookCaptured() {
         return lookCaptured && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;

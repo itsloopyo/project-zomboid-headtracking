@@ -222,6 +222,25 @@ public final class Hooks {
         return view == null ? stock : view.controls.aimPointY(stock);
     }
 
+    /** The part {@link #shotAt} found the hit being worked out is on, or none. */
+    private static int aimedPart = HitPart.NONE;
+
+    /** Called as the game starts working out where a shot one character dealt another lands. */
+    public static void shotAt(IsoGameCharacter wielder, IsoGameCharacter target) {
+        View view = wielder instanceof IsoPlayer player ? View.of(player) : null;
+        aimedPart = view == null ? HitPart.NONE : view.controls.aimedPart(target);
+    }
+
+    /** Called where the game asks whether its overhead ray found the target, which decides whether it takes a part from that ray. */
+    public static boolean cameraTarget(BallisticsController ballistics, int id) {
+        return aimedPart != HitPart.NONE || ballistics.isCameraTarget(id);
+    }
+
+    /** Called where the game takes the part its overhead ray found. */
+    public static int targetedBodyPart(BallisticsController ballistics, int id) {
+        return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
+    }
+
     /** Called where the game's ballistics have just worked out where a muzzle is and which way it points. */
     public static void muzzle(BallisticsController ballistics) {
         for (int i = 0; i < View.COUNT; i++) {
