@@ -315,16 +315,15 @@ public final class FirstPerson {
      * give it back, and the other view would wait on it for what the two share.
      */
     void playerGone() {
-        Tracking.gone(view.index);
         // The render thread may have the player's last frames still to draw, from the builds giveBack
         // lets go of: it waits as long as the scene ring does before it fills a frame again.
         if (goneFor < WorldScene.SCENES) {
             goneFor++;
-            return;
-        }
-        if (on || held || pictureUp || !view.flight.home()) {
+        } else if (on || held || pictureUp || !view.flight.home()) {
             giveBack("player " + (view.index + 1) + " is gone");
         }
+        // After giveBack, whose rest of the head tracking marks the view as one played in.
+        Tracking.gone(view.index);
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */

@@ -4139,7 +4139,7 @@ final class WorldScene {
                 if (Float.isNaN(top)) {
                     // A retextured sheet can leave the cable short of the square's end: the
                     // length is still drawn, swaying from the top of its picture there.
-                    String name = length == null ? "of no sprite" : length.getSprite().getName();
+                    String name = length.getSprite().getName();
                     if (bannersUnpainted.add(name)) {
                         Log.info("the banner's length " + name + " at " + x + "," + y + "," + hungOn
                                 + " paints nothing at the end of its square, so its cable is taken to be at the top of its picture there");

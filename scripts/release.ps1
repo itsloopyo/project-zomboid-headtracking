@@ -7,8 +7,8 @@
 # no prompt. A release that is not on main with a clean tree stops before
 # anything is written. The other preconditions (valid semver, tag absent,
 # nothing under .lab tracked, the full test suite, a user-facing commit) each
-# stop the release with a non-zero exit before any file is edited.
-# THIRD-PARTY-NOTICES.md is re-synced after them and goes in the release commit.
+# stop the release with a non-zero exit, leaving the tree as it was.
+# THIRD-PARTY-NOTICES.md is re-synced after the tests and goes in the release commit.
 # A nightly re-syncs and commits it before handing over to release-nightly.ps1.
 
 [CmdletBinding()]
@@ -103,9 +103,15 @@ try {
         exit 1
     }
 
-    # --- 5. Changelog -------------------------------------------------------
+    # --- 5. Notices re-sync -------------------------------------------------
+    # A notices file it cannot record the commit in stops the release here,
+    # with nothing written.
+    Sync-CoreNotices
+
+    # --- 6. Changelog -------------------------------------------------------
     # Before the version bump: this is the step that stops a release with no
-    # user-facing commit, and stopping here leaves the tree clean.
+    # user-facing commit, and stopping here puts the notices back, so the tree
+    # is left clean.
     Write-Host 'Writing the CHANGELOG entry...' -ForegroundColor Cyan
     try {
         New-ChangelogFromCommits -ChangelogPath (Join-Path $ProjectRoot 'CHANGELOG.md') -Version $target -ArtifactPaths @(
@@ -115,13 +121,11 @@ try {
             'cameraunlock-core'
         ) -Maintenance:$Force | Out-Null
     } catch {
+        & git -C $ProjectRoot checkout -- THIRD-PARTY-NOTICES.md
         Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'Re-run with -Force for a maintenance release.' -ForegroundColor Yellow
         exit 1
     }
-
-    # --- 6. Notices re-sync -------------------------------------------------
-    Sync-CoreNotices
 
     # --- 7. Version bump ----------------------------------------------------
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false

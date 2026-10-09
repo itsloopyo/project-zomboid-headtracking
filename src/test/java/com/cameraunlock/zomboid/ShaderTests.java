@@ -183,12 +183,16 @@ final class ShaderTests {
                 boolean far = shape >= 2;
                 SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
                 Lights.round(mesh, 0f, 0f, 0f, 0f, 1f, 0f, shape % 2 == 0 ? Lights.holder(far) : Lights.glass(far), Lights.size(kind), Lights.sides(kind, far), 1f, 1f, 1f);
+                int still = 0;
+                float least = Float.MAX_VALUE;
                 for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float[] v = mesh.vertices;
                     float squared = v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11];
-                    Checks.check(squared > line, "a vertex of a bulb hung right at a support has a facing of " + squared + " squared, which the vertex stages do not take for hanging (over "
-                                + over + "): it would stand still while its cord swings");
+                    still += squared > line ? 0 : 1;
+                    least = Math.min(least, squared);
                 }
+                Checks.check(still == 0, still + " vertices of a bulb of kind " + kind + ", shape " + shape + " have a facing the vertex stages do not take for hanging,"
+                        + " the least " + least + " squared (over " + over + "): they would stand still while the cord swings");
             }
         }
         SpriteGeometry.Mesh stands = new SpriteGeometry.Mesh();

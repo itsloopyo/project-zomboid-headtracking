@@ -14,14 +14,8 @@ final class MarkTests {
         Checks.run("aBoxOfChunksIsToldWhole", MarkTests::aBoxOfChunksIsToldWhole);
         Checks.run("aLightIsCountedOnItsLevel", MarkTests::aLightIsCountedOnItsLevel);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
-        try {
-            aMethodOfAnObjectHandsItselfOverBeforeAnythingElse();
-            aStaticMethodIsRefused();
-        } catch (AssertionError failed) {
-            throw failed;
-        } catch (Throwable thrown) {
-            throw new AssertionError("a rewritten class could not be made or called", thrown);
-        }
+        Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
+        Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
     }
 
     private static void check(boolean condition, String what) {

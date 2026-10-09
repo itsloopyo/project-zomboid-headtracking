@@ -15,13 +15,7 @@ public final class OnlineTests {
         Checks.run("keysAheadAreToldFromKeysAside", OnlineTests::keysAheadAreToldFromKeysAside);
         Checks.run("onlyAServerThatLetsPlayersFightHoldsAnythingBack", OnlineTests::onlyAServerThatLetsPlayersFightHoldsAnythingBack);
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
-        try {
-            aCallIsHandedToItsReplacement();
-        } catch (AssertionError failed) {
-            throw failed;
-        } catch (Throwable thrown) {
-            throw new AssertionError("a rewritten class could not be made or called", thrown);
-        }
+        Checks.run("aCallIsHandedToItsReplacement", OnlineTests::aCallIsHandedToItsReplacement);
     }
 
     private static void check(boolean condition, String what) {
