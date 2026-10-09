@@ -3908,7 +3908,8 @@ final class PipelineShaders {
             // windscreen, along and up, the sill of the driver's window and how far out from
             // the wheel its glass is. uDash is how far across the vehicle's middle line is from
             // the wheel, by sign, and the top of the dashboard. uDoorMirror is the middle of a
-            // door mirror's housing, along, out from the middle line and up, the same each side.
+            // door mirror's housing, along, out from the middle line and up, the same each side,
+            // and uDoorView what of the picture behind its glass shows (Cabins.DOOR_VIEW_MIDDLE).
             // uLamps is whether the engine runs and whether the headlights are on.
             uniform vec3 uSeat;
             uniform float uSteer;
@@ -3917,6 +3918,7 @@ final class PipelineShaders {
             uniform vec4 uScreen;
             uniform vec2 uDash;
             uniform vec3 uDoorMirror;
+            uniform vec3 uDoorView;
             uniform vec3 uPaint;
             uniform vec2 uLamps;
             // The glasshouse the picture builds over the driver. uHouse is the rail over the
@@ -5307,8 +5309,9 @@ final class PipelineShaders {
                         // same picture as the mirror on the screen, and the vehicle's own
                         // flank down its inner edge.
                         float across = -toward * side * housed.y;
-                        vec2 on = vec2(0.5 - toward * side * 0.24 + across / 0.08 * 0.21, 0.5 + housed.z / 0.04 * 0.42);
-                        float flank = smoothstep(0.041, 0.05, -housed.y + (housed.z + 0.04) * 0.12);
+                        vec2 on = vec2(0.5 - toward * side * uDoorView.x + across / 0.08 * uDoorView.y, 0.5 + housed.z / 0.04 * 0.42);
+                        float edge = 0.08 - 0.16 * uDoorView.z;
+                        float flank = smoothstep(edge - 0.004, edge, -housed.y + (housed.z + 0.04) * 0.05);
                         color = mix(behindAt(on), pow(uPaint, vec3(2.2)) * fromSky * (0.1 + 0.7 * skyGives), flank);
                     }
                 }

@@ -177,6 +177,15 @@ final class Cabins {
     }
 
     /**
+     * What of the picture of the road behind each door mirror shows, set as a real one is:
+     * turned out from straight back, so that the vehicle's own flank is a sliver down the
+     * glass's inner edge. Where the middle of what it shows is, and half its width, as parts
+     * of the picture's width out from the picture's middle; and how much of the glass's width
+     * the flank takes.
+     */
+    static final float DOOR_VIEW_MIDDLE = 0.3f, DOOR_VIEW_HALF = 0.18f, DOOR_VIEW_FLANK = 0.08f;
+
+    /**
      * Where the head of whoever sits in a seat is from the driver's, in tiles along the
      * vehicle and across it, across counted the way the wheel is from the vehicle's middle.
      * The script counts across one way and the picture the other or the same: the driver,

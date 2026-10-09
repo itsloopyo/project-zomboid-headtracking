@@ -3080,6 +3080,7 @@ final class Pipeline {
         figureLight.set("uDash", measures[4] / Cabins.SCALE, wheel[2] + measures[5] / Cabins.SCALE);
         float[] doorMirror = Cabins.doorMirror(house, measures);
         figureLight.set("uDoorMirror", doorMirror[0], doorMirror[1], doorMirror[2]);
+        figureLight.set("uDoorView", Cabins.DOOR_VIEW_MIDDLE, Cabins.DOOR_VIEW_HALF, Cabins.DOOR_VIEW_FLANK);
         figureLight.set("uPaint", view.characters.cabin.paint[0], view.characters.cabin.paint[1], view.characters.cabin.paint[2]);
         figureLight.set("uSteer", Cabins.wheelTurn(view.ride.steering));
         figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);

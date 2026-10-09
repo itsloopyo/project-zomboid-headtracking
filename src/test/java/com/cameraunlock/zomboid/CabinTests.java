@@ -19,6 +19,7 @@ final class CabinTests {
         Checks.run("mirrorHangsFromTheVehicleWhicheverWayItFaces", CabinTests::mirrorHangsFromTheVehicleWhicheverWayItFaces);
         Checks.run("mirrorLeavesOutWhatItCannotShow", CabinTests::mirrorLeavesOutWhatItCannotShow);
         Checks.run("doorMirrorStandsOnItsDoorAtTheFootOfThePillar", CabinTests::doorMirrorStandsOnItsDoorAtTheFootOfThePillar);
+        Checks.run("doorMirrorLooksOutFromTheVehicleWithItsFlankASliver", CabinTests::doorMirrorLooksOutFromTheVehicleWithItsFlankASliver);
         Checks.run("cabinTipsAndRollsWithItsBody", CabinTests::cabinTipsAndRollsWithItsBody);
         Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
         Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
@@ -101,6 +102,17 @@ final class CabinTests {
             check(mirror[1] - 0.1f > glass + 0.04f && mirror[1] - 0.1f < glass + 0.1f, "outside the glass, a short arm from it");
             check(mirror[2] - 0.06f > belt && mirror[2] - 0.06f < belt + 0.05f, "and over the foot of the door's glass");
         }
+    }
+
+    private static void doorMirrorLooksOutFromTheVehicleWithItsFlankASliver() {
+        // The picture behind is MIRROR_TAN * width / height either side of straight back.
+        float tan = Pipeline.MIRROR_TAN * Pipeline.MIRROR_WIDTH / Pipeline.MIRROR_HEIGHT;
+        double inner = Math.toDegrees(Math.atan((Cabins.DOOR_VIEW_MIDDLE - Cabins.DOOR_VIEW_HALF) * 2f * tan));
+        double outer = Math.toDegrees(Math.atan((Cabins.DOOR_VIEW_MIDDLE + Cabins.DOOR_VIEW_HALF) * 2f * tan));
+        check(inner >= 4.0, "the inner edge of the glass looks out from straight back, " + inner + " degrees");
+        check(Cabins.DOOR_VIEW_MIDDLE + Cabins.DOOR_VIEW_HALF <= 0.5f, "and the outer edge is within the picture, " + outer + " degrees out");
+        check(outer - inner >= 12.0, "a glass that takes in a door mirror's breadth of the road, " + (outer - inner) + " degrees");
+        check(Cabins.DOOR_VIEW_FLANK > 0f && Cabins.DOOR_VIEW_FLANK <= 0.1f, "with the vehicle's own flank a sliver of the glass");
     }
 
     private static void mirrorLeavesOutWhatItCannotShow() {
