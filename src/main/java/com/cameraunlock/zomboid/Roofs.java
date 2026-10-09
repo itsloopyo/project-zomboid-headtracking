@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
@@ -373,7 +374,7 @@ final class Roofs {
         roof.z = z;
         roof.kept = KEPT / 2 + Math.floorMod(x * 31 + y * 17 + z, KEPT / 2);
         reading.clear();
-        HashMap<Long, Boolean> seen = new HashMap<>();
+        HashSet<Long> seen = new HashSet<>();
         if (!(scale > 0f)) {
             throw new IllegalArgumentException("a roof at " + x + ", " + y + " on level " + z + " was to be read at tile scale " + scale);
         }
@@ -602,8 +603,8 @@ final class Roofs {
         return false;
     }
 
-    private static void take(IsoCell cell, int x, int y, int z, Roof roof, HashMap<Long, Boolean> seen) {
-        if (seen.put(RoofFit.key(x, y, z), Boolean.TRUE) != null) {
+    private static void take(IsoCell cell, int x, int y, int z, Roof roof, HashSet<Long> seen) {
+        if (!seen.add(RoofFit.key(x, y, z))) {
             return;
         }
         IsoGridSquare square = cell.getGridSquare(x, y, z);

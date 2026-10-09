@@ -46,6 +46,8 @@ final class PlantBuilder {
     private final float[] crownLeft = new float[Flora.CROWN_BANDS], crownRight = new float[Flora.CROWN_BANDS], crownSizes = new float[Flora.SIZES];
     private final Flora flora = new Flora();
     private final float[] littered = new float[4];
+    /** The rectangle and texels of the frame as long grass found it, put back once the grass is grown. */
+    private final SpriteGeometry.Frame heldTexels = new SpriteGeometry.Frame();
     /** The tree whose bole was stood last: its square, how thick and tall the bole is, and its bark. Its crown, which comes after it, grows limbs from it. */
     private int boleX = Integer.MIN_VALUE, boleY, boleBark;
     private float boleThick, boleTall;
@@ -207,8 +209,8 @@ final class PlantBuilder {
         if (build.groundTexture[own] == null) {
             return false;
         }
-        float originU = build.frame.originU, originV = build.frame.originV, left = build.frame.left, top = build.frame.top, width = build.frame.width, height = build.frame.height;
-        float uStart = build.frame.uStart, uEnd = build.frame.uEnd, vStart = build.frame.vStart, vEnd = build.frame.vEnd;
+        float originU = build.frame.originU, originV = build.frame.originV;
+        heldTexels.texelsOf(build.frame);
         build.frameOf(build.groundObject[own], build.groundTexture[own]);
         // Nor does it spill through a wall or a fence on the square's edge, and its tufts keep to their own side of one.
         roomFor(x, y, 0);
@@ -242,12 +244,13 @@ final class PlantBuilder {
             // further out they stand, so a patch has a ragged outline. Towards a road, a
             // path or a floor it keeps inside.
             double turn = (hash >>> 16 & 0xff) / 255.0 * Math.PI;
-            float a = Flora.within(lowA + (highA - lowA) * (hash & 0xff) / 255f, Math.abs((float) Math.cos(turn)) * LONG_TUFT_HALF, roomLowA, roomHighA);
-            float b = Flora.within(lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f, Math.abs((float) Math.sin(turn)) * LONG_TUFT_HALF, roomLowB, roomHighB);
+            float cos = (float) Math.cos(turn), sin = (float) Math.sin(turn);
+            float a = Flora.within(lowA + (highA - lowA) * (hash & 0xff) / 255f, Math.abs(cos) * LONG_TUFT_HALF, roomLowA, roomHighA);
+            float b = Flora.within(lowB + (highB - lowB) * (hash >>> 8 & 0xff) / 255f, Math.abs(sin) * LONG_TUFT_HALF, roomLowB, roomHighB);
             float out = Math.max(Math.max(-a, a - 1f), Math.max(-b, b - 1f));
             float tall = (0.45f + 0.5f * (hash >>> 24 & 0xff) / 255f) * (out > 0f ? 1f - 1.8f * out : 1f) * carded;
             float vigour = 1f - 0.7f * woodedAt(build.waterLocalX, build.waterLocalY, Math.clamp(a, 0f, 1f), Math.clamp(b, 0f, 1f));
-            build.geometry.addTuft(mesh, build.frame, x, y, a, b, (float) Math.cos(turn), (float) Math.sin(turn), LONG_TUFT_HALF, tall, SpriteGeometry.LONG_GRASS, vigour);
+            build.geometry.addTuft(mesh, build.frame, x, y, a, b, cos, sin, LONG_TUFT_HALF, tall, SpriteGeometry.LONG_GRASS, vigour);
         }
         if (away < WorldScene.FLOWER_REACH) {
             // Flowers in long grass stand as tall as it does.
@@ -255,14 +258,7 @@ final class PlantBuilder {
         }
         build.frame.originU = originU;
         build.frame.originV = originV;
-        build.frame.left = left;
-        build.frame.top = top;
-        build.frame.width = width;
-        build.frame.height = height;
-        build.frame.uStart = uStart;
-        build.frame.uEnd = uEnd;
-        build.frame.vStart = vStart;
-        build.frame.vEnd = vEnd;
+        build.frame.texelsOf(heldTexels);
         return true;
     }
 

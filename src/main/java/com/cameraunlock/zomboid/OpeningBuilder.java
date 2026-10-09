@@ -58,6 +58,16 @@ final class OpeningBuilder {
     private static final float WOODEN = 0.12f;
     /** A member of a frame wider than this each way, in tiles, is a piece of the wall the window is in and keeps the wall's own picture on its faces. */
     private static final float WALL_MEMBER = 0.14f;
+    /** The cosine and sine of each eighth of a turn, from none to the whole turn: the corners of something of eight sides. */
+    private static final float[] EIGHTH_COS = new float[9], EIGHTH_SIN = new float[9];
+
+    static {
+        for (int turn = 0; turn <= 8; turn++) {
+            EIGHTH_COS[turn] = (float) Math.cos(turn * Math.PI / 4.0);
+            EIGHTH_SIN[turn] = (float) Math.sin(turn * Math.PI / 4.0);
+        }
+    }
+
     /** A number from 0 to 1 that is the same every time for the same seed. */
     private static float chance(int seed) {
         seed = (seed ^ seed >>> 15) * 0x2C1B3C6D;
@@ -71,6 +81,8 @@ final class OpeningBuilder {
     private float windowX, windowY, windowAlongX, windowAlongY, windowFoot;
     /** Which side of the window is being added: 0 its own square's, 1 the far one. */
     private int windowLit;
+    /** The light on each side of the window or the door being built, as windowLit numbers them: see lightSides. */
+    private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2];
 
     OpeningBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -165,7 +177,7 @@ final class OpeningBuilder {
         windowY = y + (far && north ? 1 : 0);
         windowAlongX = north ? 1f : 0f;
         windowAlongY = north ? 0f : 1f;
-        windowFoot = z * ViewCamera.LEVEL_HEIGHT + (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        windowFoot = footOf(z);
         float level = ViewCamera.LEVEL_HEIGHT, into = far ? -1f : 1f, out = into * (WorldScene.WALL_HALF + DRAPE_CLEAR);
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
@@ -176,9 +188,8 @@ final class OpeningBuilder {
             // Rolled up and tied: a roll as thick as the sprite paints it, along the window's head.
             float middle = (shape.foot + shape.head) / 2f, round = Math.min((shape.head - shape.foot) * level / 2f, 0.11f);
             for (int side = 0; side < 8; side++) {
-                double a0 = side * Math.PI / 4.0, a1 = (side + 1) * Math.PI / 4.0;
-                float d0 = out + round * (float) Math.cos(a0), h0 = middle + round * (float) Math.sin(a0) / level;
-                float d1 = out + round * (float) Math.cos(a1), h1 = middle + round * (float) Math.sin(a1) / level;
+                float d0 = out + round * EIGHTH_COS[side], h0 = middle + round * EIGHTH_SIN[side] / level;
+                float d1 = out + round * EIGHTH_COS[side + 1], h1 = middle + round * EIGHTH_SIN[side + 1] / level;
                 windowPoint(c, 0, shape.start, h0, d0);
                 windowPoint(c, 1, shape.end, h0, d0);
                 windowPoint(c, 2, shape.end, h1, d1);
@@ -258,14 +269,9 @@ final class OpeningBuilder {
         windowY = y + da * out;
         windowAlongX = da;
         windowAlongY = db;
-        windowFoot = z * ViewCamera.LEVEL_HEIGHT + (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        windowFoot = footOf(z);
         // A door shut in its doorway has a room or the street on each face. Swung open it stands in its own square.
-        int ownLight = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1, beyondLight = north ? ownLight - 1 : ownLight - WorldScene.LIGHT_SPAN;
-        boolean same = build.doorSwung, unseen = !same && build.lightOpen[beyondLight] < 0;
-        float[] red = {build.frame.red, same ? build.frame.red : unseen ? build.unseenLight.r : build.lightRed[beyondLight]};
-        float[] green = {build.frame.green, same ? build.frame.green : unseen ? build.unseenLight.g : build.lightGreen[beyondLight]};
-        float[] blue = {build.frame.blue, same ? build.frame.blue : unseen ? build.unseenLight.b : build.lightBlue[beyondLight]};
-        float[] open = {build.frame.open, same ? build.frame.open : unseen ? 1f : build.lightOpen[beyondLight]};
+        lightSides(north, build.doorSwung);
 
         boolean wooden = door.kind == Doors.PLANKED || leaf.red - leaf.blue > WOODEN;
         SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(leaf.red, leaf.green, leaf.blue, WallSides.FLAT));
@@ -283,8 +289,8 @@ final class OpeningBuilder {
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
-            float r = red[side], g = green[side], b = blue[side];
-            wood.open = joint.open = open[side] + 32f * (wooden ? WorldScene.WOOD : WorldScene.PAINT);
+            float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
+            wood.open = joint.open = sideOpen[side] + 32f * (wooden ? WorldScene.WOOD : WorldScene.PAINT);
             if (door.kind == Doors.PLANKED) {
                 // Boards side by side with an open joint between each two, on a back a little behind them.
                 float board = door.board > 0.08f ? door.board : BOARD_USUAL;
@@ -333,15 +339,14 @@ final class OpeningBuilder {
                 }
             }
             // The knob: a neck and a head of eight sides.
-            metal.open = open[side] + 32f * BARE_METAL;
+            metal.open = sideOpen[side] + 32f * BARE_METAL;
             float[] c = build.reveal;
             for (int part = 0; part < 2; part++) {
                 float round = part == 0 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
                 float from = face + Math.signum(face) * (part == 0 ? 0f : KNOB_OUT * 0.45f), to = face + Math.signum(face) * (part == 0 ? KNOB_OUT * 0.45f : KNOB_OUT);
                 for (int turn = 0; turn < 8; turn++) {
-                    double a0 = turn * Math.PI / 4.0, a1 = (turn + 1) * Math.PI / 4.0;
-                    float t0 = knob + round * (float) Math.cos(a0), h0 = KNOB_HIGH + round * (float) Math.sin(a0) / level;
-                    float t1 = knob + round * (float) Math.cos(a1), h1 = KNOB_HIGH + round * (float) Math.sin(a1) / level;
+                    float t0 = knob + round * EIGHTH_COS[turn], h0 = KNOB_HIGH + round * EIGHTH_SIN[turn] / level;
+                    float t1 = knob + round * EIGHTH_COS[turn + 1], h1 = KNOB_HIGH + round * EIGHTH_SIN[turn + 1] / level;
                     windowPoint(c, 0, t0, h0, from);
                     windowPoint(c, 1, t1, h1, from);
                     windowPoint(c, 2, t1, h1, to);
@@ -403,13 +408,8 @@ final class OpeningBuilder {
         windowY = y;
         windowAlongX = da;
         windowAlongY = db;
-        windowFoot = z * ViewCamera.LEVEL_HEIGHT + (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
-        int ownLight = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1, beyondLight = north ? ownLight - 1 : ownLight - WorldScene.LIGHT_SPAN;
-        boolean farUnseen = build.lightOpen[beyondLight] < 0;
-        float[] red = {build.frame.red, farUnseen ? build.unseenLight.r : build.lightRed[beyondLight]};
-        float[] green = {build.frame.green, farUnseen ? build.unseenLight.g : build.lightGreen[beyondLight]};
-        float[] blue = {build.frame.blue, farUnseen ? build.unseenLight.b : build.lightBlue[beyondLight]};
-        float[] open = {build.frame.open, farUnseen ? 1f : build.lightOpen[beyondLight]};
+        windowFoot = footOf(z);
+        lightSides(north, false);
 
         SpriteGeometry.Mesh joinery = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         joinery.sway = 0f;
@@ -419,18 +419,18 @@ final class OpeningBuilder {
         float inStart = shape.start + shape.startWide, inEnd = shape.end - shape.endWide;
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
-            joinery.open = open[side] + 32f * made;
-            float r = red[side], g = green[side], b = blue[side];
+            joinery.open = sideOpen[side] + 32f * made;
+            float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
             // A frame with no stile at one end runs on into the window on the next square.
             windowLit = side;
             if (shape.startWide > 0f) {
-                addMember(joinery, wall, x, y, z, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b, open[side]);
+                addMember(joinery, wall, x, y, z, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
             }
             if (shape.endWide > 0f) {
-                addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, open[side]);
+                addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
             }
-            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, open[side]);
-            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, open[side]);
+            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
+            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, sideOpen[side]);
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
             }
@@ -545,6 +545,30 @@ final class OpeningBuilder {
         build.frame.blue = wasBlue;
         build.frame.open = wasOpen;
         build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue);
+    }
+
+    /** The height of the foot of a window or a door on level z of the square being added: the floor there, raised by the mean of the ground's lift at its corners. */
+    private float footOf(int z) {
+        float[] lift = build.geometry.lift;
+        return z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
+    }
+
+    /**
+     * Sets the light on the two sides of the window or the door on the north or west edge of the square being added:
+     * its own square's on side 0, and on side 1 the square's beyond the edge, or unseenLight where that square is not
+     * seen. With same, both sides are lit as the square's own.
+     */
+    private void lightSides(boolean north, boolean same) {
+        int ownLight = (build.waterLocalX + 1) * WorldScene.LIGHT_SPAN + build.waterLocalY + 1, beyondLight = north ? ownLight - 1 : ownLight - WorldScene.LIGHT_SPAN;
+        boolean unseen = !same && build.lightOpen[beyondLight] < 0;
+        sideRed[0] = build.frame.red;
+        sideGreen[0] = build.frame.green;
+        sideBlue[0] = build.frame.blue;
+        sideOpen[0] = build.frame.open;
+        sideRed[1] = same ? build.frame.red : unseen ? build.unseenLight.r : build.lightRed[beyondLight];
+        sideGreen[1] = same ? build.frame.green : unseen ? build.unseenLight.g : build.lightGreen[beyondLight];
+        sideBlue[1] = same ? build.frame.blue : unseen ? build.unseenLight.b : build.lightBlue[beyondLight];
+        sideOpen[1] = same ? build.frame.open : unseen ? 1f : build.lightOpen[beyondLight];
     }
 
     /** Where the point a share along the window's edge, up levels high and across tiles into its square is, into c at i. */

@@ -207,7 +207,7 @@ final class RoofBuilder {
                 build.building.signed &= !Own.textures() || !Masonry.unread(finish);
                 SpriteGeometry.Mesh painted = WorldScene.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
                 painted.open = build.frame.open + 32f * WorldScene.PAINT;
-                float foot = z * ViewCamera.LEVEL_HEIGHT + (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+                float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();
                 float farX = x + alongA, farY = y + alongB;
                 float[] c = build.eave;
                 WorldScene.set(c, 0, x, y, foot);
@@ -260,7 +260,7 @@ final class RoofBuilder {
      */
     private void addPeak(SpriteGeometry.Mesh sheet, RoofFit.Tile tile) {
         boolean alongX = tile.peakAxis == RoofFit.ALONG_X;
-        float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        float lift = meanLift();
         float edge = tile.fitLow * ViewCamera.LEVEL_HEIGHT + lift, top = (tile.fitLow + tile.peak) * ViewCamera.LEVEL_HEIGHT + lift;
         float from = tile.carried || hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z) ? 0f : -RAKE;
         float to = tile.carried || hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z) ? 1f : 1f + RAKE;
@@ -287,6 +287,12 @@ final class RoofBuilder {
                 addBarge(sheet, c[9], c[10], c[11], c[6], c[7], c[8]);
             }
         }
+    }
+
+    /** The mean of the ground's lift at the four corners of the square being added. */
+    private float meanLift() {
+        float[] lift = build.geometry.lift;
+        return (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
     }
 
     /** Sets the ground's lift at the corners of a square of the chunk whose ground is given. */
@@ -367,7 +373,7 @@ final class RoofBuilder {
         float dx = cap.x1 - cap.x0, dy = cap.y1 - cap.y0;
         float length = (float) Math.sqrt(dx * dx + dy * dy);
         float acrossX = -dy / length, acrossY = dx / length;
-        float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        float lift = meanLift();
         float from = cap.high0 * ViewCamera.LEVEL_HEIGHT + lift, to = cap.high1 * ViewCamera.LEVEL_HEIGHT + lift;
         float edge = CAP_CLEAR - cap.fall * ViewCamera.LEVEL_HEIGHT * CAP_HALF;
         float[] c = build.eave;
@@ -591,7 +597,7 @@ final class RoofBuilder {
         if (Math.abs(alongX + alongY) < Roofs.FLAT) {
             return;
         }
-        float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        float lift = meanLift();
         float low = (z + atOrigin) * ViewCamera.LEVEL_HEIGHT + lift, high = (z + atOrigin + alongX + alongY) * ViewCamera.LEVEL_HEIGHT + lift;
         float[] c = build.eave;
         for (int side = 0; side < 2; side++) {
@@ -693,7 +699,7 @@ final class RoofBuilder {
         float out = lowAtFar ? EAVE : -EAVE;
         float edge = lowAtFar ? 1f : 0f;
         float drop = -Math.abs(along) * EAVE;
-        float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
+        float lift = meanLift();
         float high = (z + low) * ViewCamera.LEVEL_HEIGHT + lift, far = (z + low + drop) * ViewCamera.LEVEL_HEIGHT + lift;
         boolean runsY = alongX != 0f;
         int startEnd = Eaves.end(meetsAtStart, hasRoof(runsY ? x : x - 1, runsY ? y - 1 : y, z));

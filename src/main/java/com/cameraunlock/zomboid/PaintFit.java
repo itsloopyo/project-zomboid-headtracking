@@ -39,8 +39,10 @@ final class PaintFit {
     private static final float STRAIGHT = 0.7f;
     /** Two fitted lines this near to one direction, in radians, are tried as one. */
     private static final float SAME_WAY = 0.06f;
+    private static final double SAME_WAY_COS = Math.cos(SAME_WAY);
     /** A line this near, in radians, to a direction lines are laid in runs exactly in it. */
     private static final float NEAR_WAY = 0.05f;
+    private static final double NEAR_WAY_COS = Math.cos(NEAR_WAY);
     /** An edge at least this long, in dots, is fitted with a line of its own direction, and one this long is straight whatever its direction. */
     private static final float FITTED = 5f, LONG = 9f;
     /** Paint smaller than this, in dots squared, is a speck and is left out. A hole larger than it is a shape this does not read. */
@@ -345,7 +347,7 @@ final class PaintFit {
             merged = false;
             for (int k = 0; k < edges.size() && edges.size() > 3; k++) {
                 Edge one = edges.get(k), next = edges.get((k + 1) % edges.size());
-                if (one.nx * next.nx + one.ny * next.ny < Math.cos(SAME_WAY)) {
+                if (one.nx * next.nx + one.ny * next.ny < SAME_WAY_COS) {
                     continue;
                 }
                 Edge both = fitted(loop, count, one.from, next.to);
@@ -701,7 +703,7 @@ final class PaintFit {
             // The line runs along the way, so its normal is the way turned a quarter.
             double nx = way[1] / length, ny = -way[0] / length;
             double along = edge.nx * nx + edge.ny * ny;
-            if (Math.abs(along) < Math.cos(NEAR_WAY)) {
+            if (Math.abs(along) < NEAR_WAY_COS) {
                 continue;
             }
             if (along < 0.0) {

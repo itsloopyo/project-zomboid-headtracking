@@ -959,12 +959,12 @@ final class RoofFit {
         if (beyond == null) {
             return;
         }
+        float[] other = new float[4], higher = new float[4];
         for (Tile down : beyond) {
             if (!down.slopes() || down.fitAxis == axis || down.up() != step) {
                 continue;
             }
             float low = Math.min(down.fitLow, down.fitHigh), rise = Math.abs(down.fitHigh - down.fitLow);
-            float[] other = new float[4], higher = new float[4];
             cornersOf(down.fitAxis, step < 0 ? low : low - rise, step < 0 ? low - rise : low, other);
             float highest = 0f;
             for (int corner = 0; corner < 4; corner++) {
