@@ -4680,6 +4680,11 @@ final class WorldScene {
             if (z > 0 && kind.roofAccent && roofBuilder.underARake(x, y, z)) {
                 return;
             }
+            // The eave the map hangs on the wall under a slope's foot, and the trims painted on
+            // it: the slope's lowest tile makes that eave.
+            if (z > 0 && (kind.roofAccent || Hoods.eave(sprite) != Hoods.NONE) && roofBuilder.eaveRow(x, y, z)) {
+                return;
+            }
 
             if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z)) {
                 return;
@@ -4792,11 +4797,6 @@ final class WorldScene {
                 // with the roof when the player walks under: a church's columns. Laid as a roof
                 // tile a column is a slab leaning on the wall.
                 if (overLayer == 0 && sprite.getName() != null && !kind.roofSheet && postBuilder.addPost(mesh, object, sprite, texture, x, y, z)) {
-                    return;
-                }
-                // The eave the map hangs under a slope's foot, and the trims painted on it, are the
-                // eave the slope's lowest tile makes.
-                if (z > 0 && (Hoods.eave(sprite) != Hoods.NONE || kind.roofAccent) && roofBuilder.eaveRow(x, y, z)) {
                     return;
                 }
                 roofName = sprite.getName();

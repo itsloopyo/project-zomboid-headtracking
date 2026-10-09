@@ -707,9 +707,9 @@ final class RoofBuilder {
     /**
      * Whether the square holds the row of eave the map hangs at the top of a level from the
      * square's west or north wall, under the lowest tile of a slope that falls to that wall
-     * from the square beyond it, a level up: the eave addEave makes of that tile. Drawn as
-     * tiles, the row's pieces each lay at its own tilt under the eave, a row of slabs with the
-     * wall showing in a triangle between each two.
+     * from the square beyond it, a level up: the eave addEave makes of that tile. Hung on the
+     * wall, the row's pieces were a row of dark slabs under the eave with the wall showing in a
+     * triangle between each two.
      */
     boolean eaveRow(int x, int y, int z) {
         int wall = Hoods.on(build.cell, z).eave(x, y);
