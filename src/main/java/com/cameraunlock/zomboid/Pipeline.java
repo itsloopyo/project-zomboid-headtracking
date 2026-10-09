@@ -626,6 +626,11 @@ final class Pipeline {
         return bytes + view.scope.pictureBytes() + view.heldDepth.bytes();
     }
 
+    /** How much snow lies on what grows: none in Low, which draws what grows as the game does. */
+    private static float plantSnow(SkyState state) {
+        return Quality.plain() ? 0f : state.snowLying;
+    }
+
     /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
     private static float[] ones(int count) {
         float[] gains = new float[count];
@@ -1423,7 +1428,7 @@ final class Pipeline {
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uSnowLying", state.snowLying);
+        shadow.set("uPlantSnow", plantSnow(state));
         shadow.set("uFaced", state.facedX, state.facedY);
         shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
         shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
@@ -2271,6 +2276,7 @@ final class Pipeline {
         to.set("uSeconds", state.seconds);
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
+        to.set("uPlantSnow", plantSnow(state));
         // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
         SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         for (int i = 0; i < snowTrod[0]; i++) {

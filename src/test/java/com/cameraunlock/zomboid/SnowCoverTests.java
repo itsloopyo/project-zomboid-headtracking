@@ -19,7 +19,7 @@ final class SnowCoverTests {
     }
 
     /** A function's text, from its name to the brace that closes it, with the space taken out of it. */
-    private static String body(String text, String start) {
+    static String body(String text, String start) {
         int at = text.indexOf(start);
         if (at < 0) {
             throw new AssertionError("the shader has no " + start);
@@ -58,7 +58,7 @@ final class SnowCoverTests {
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("floatrange=max(away-uRangeFrom,0.0);") && main.contains("floatskyOver=open>0.5&&!crown?skyOverAt(vWorld+n*0.1,range):1.0;"),
                 "the ground's pixel asks the sky as snowStood has it");
-        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model){") && main.contains("snowShelter=(1.0-skyOver)/0.62;"),
+        check(main.contains("if(uSnowLying>0.0&&open>0.5&&!water&&!model&&(uPlantSnow>0.0||!(strip||grass||crown||core||card))){") && main.contains("snowShelter=(1.0-skyOver)/0.62;"),
                 "snow is drawn only under the sky, thinned by what hides it, as snowStood has it");
         check(body(SnowShader.COVER, "vec3 snowThick(vec2 q, float foot)").contains("-SNOW_SHELTERED*snowShelter"), "the snow drawn is thinned by the same share");
         check(PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "").contains(",mod(gl_Color.a,32.0)>24.5);"), "a strip's vertex says whether its square is under the sky, and snowStood is told");
@@ -78,7 +78,7 @@ final class SnowCoverTests {
 
     private static void aStripAsksOnceAtItsRootAndNotWhereGrassIsLeftOut() {
         String world = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
-        check(world.contains("deep=uLaid>2.5?0.0:snowStood(vec3(gl_Vertex.xy+gl_MultiTexCoord1.xy,gl_Vertex.z-(gl_Normal.z-level)),"),
+        check(world.contains("deep=uLaid>2.5||uPlantSnow<=0.0?0.0:snowStood(vec3(gl_Vertex.xy+gl_MultiTexCoord1.xy,gl_Vertex.z-(gl_Normal.z-level)),"),
                 "a strip's depth in the snow is asked at its root, and not in the draw its vertices are left out of");
         check(count(world, "snowStood(") == 2, "and nowhere else in the vertex program");
         check(!PipelineShaders.SHADOW_VERTEX.contains("snowStood"), "grass is in no shadow map, and the shadow program asks nothing of where snow lies");

@@ -16,7 +16,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
-import zombie.iso.weather.ClimateManager;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
@@ -709,7 +708,7 @@ public final class FirstPerson {
      * only out of doors, or pacing a room would use up the marks kept from the street.
      */
     private void tread(IsoPlayer player) {
-        if (ClimateManager.getInstance().getSnowFracNow() <= 0f) {
+        if (SkyState.snowDrawn() <= 0f) {
             SnowPrints.forget();
             return;
         }

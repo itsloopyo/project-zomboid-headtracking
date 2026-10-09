@@ -95,6 +95,15 @@ final class SkyState {
     private static float wetness;
     private static final float SECONDS_TO_WET = 12f, SECONDS_TO_DRY = 180f;
     private static long lastNanos;
+    /**
+     * The game works out how much snow lies only on the hour, so it comes in steps, and each
+     * step would raise or let down every plant standing in it at once: what is drawn eases to
+     * it with a time constant of SNOW_SETTLES seconds, a step of 0.3 landing in about fifteen.
+     * After a pause in the pictures longer than SNOW_SNAPS seconds, a load or a jump to another
+     * place, it is taken as it is: so is a frame that hitches that long, which shows a step whole.
+     */
+    static final float SNOW_SETTLES = 3f, SNOW_SNAPS = 1f;
+    private static volatile float snowShown = -1f;
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
@@ -195,8 +204,10 @@ final class SkyState {
 
         this.rain = climate.isSnowing() ? 0f : rain;
         snow = snowing;
-        snowLying = Math.clamp(climate.getSnowFracNow(), 0f, 1f);
         long now = System.nanoTime();
+        float lying = Math.clamp(climate.getSnowFracNow(), 0f, 1f);
+        snowShown = shown(snowShown, lying, (now - lastNanos) / 1e9f, GameTime.isGamePaused());
+        snowLying = snowShown;
         if (lastNanos != 0 && !GameTime.isGamePaused()) {
             float elapsed = Math.min((now - lastNanos) / 1e9f, 0.25f);
             wetness = Math.clamp(wetness + (this.rain > 0.05f ? elapsed / SECONDS_TO_WET : -elapsed / SECONDS_TO_DRY), 0f, 1f);
@@ -252,6 +263,26 @@ final class SkyState {
     private static float seen(float amount) {
         float clamped = Math.clamp(amount, 0f, 1f);
         return clamped < SLIGHTEST ? 0f : clamped;
+    }
+
+    /** How much snow the pictures last drew as lying: none before the first. */
+    static float snowDrawn() {
+        return Math.max(snowShown, 0f);
+    }
+
+    /**
+     * How much snow is drawn as lying, seconds after shown was (negative for nothing drawn yet),
+     * the game having lying: the game's own after a gap longer than SNOW_SNAPS, held while the
+     * game is paused, and eased towards it otherwise.
+     */
+    static float shown(float shown, float lying, float seconds, boolean paused) {
+        return shown < 0f || seconds > SNOW_SNAPS ? lying : paused ? shown : settled(shown, lying, seconds);
+    }
+
+    /** How much snow is drawn as lying elapsed seconds on from shown, the game having lying: none left over once it is within a hair of it, so no snow means none drawn. */
+    static float settled(float shown, float lying, float elapsed) {
+        float next = shown + (lying - shown) * (1f - (float) Math.exp(-elapsed / SNOW_SETTLES));
+        return Math.abs(lying - next) < 0.002f ? lying : next;
     }
 
     private static float mix(float from, float to, float amount) {

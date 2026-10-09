@@ -218,6 +218,9 @@ final class PipelineShaders {
      */
     private static final String GRASS_WIND = """
             uniform vec3 uGust;
+            // How much snow lies on what grows, 0 to 1: uSnowLying, and none in Low, which draws
+            // what grows as the game does, bare whatever lies on the ground.
+            uniform float uPlantSnow;
 
             // Smooth noise that repeats every so many of its cells.
             float gustAt(vec2 q, float cells) {
@@ -263,7 +266,7 @@ final class PipelineShaders {
                 float beat = dot(at.xy, vec2(0.37, 0.29)) + uWind.z;
                 float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
                 // A bough with snow on it is heavier and swings less far.
-                return vec4(at.xy + uWind.xy * (take * lean * (1.0 - 0.35 * uSnowLying)), at.zw);
+                return vec4(at.xy + uWind.xy * (take * lean * (1.0 - 0.35 * uPlantSnow)), at.zw);
             }
 
             // What a vertex of an overhead wire carries where a texel's place would be: a way
@@ -483,7 +486,7 @@ final class PipelineShaders {
                     float form = floor(gl_Normal.y * 0.5);
                     float level = floor(gl_Normal.z);
                     // Not asked for the part of what is laid that grass is left out of: see uLaid below.
-                    deep = uLaid > 2.5 ? 0.0 : snowStood(vec3(gl_Vertex.xy + gl_MultiTexCoord1.xy, gl_Vertex.z - (gl_Normal.z - level)), mod(gl_Color.a, 32.0) > 24.5);
+                    deep = uLaid > 2.5 || uPlantSnow <= 0.0 ? 0.0 : snowStood(vec3(gl_Vertex.xy + gl_MultiTexCoord1.xy, gl_Vertex.z - (gl_Normal.z - level)), mod(gl_Color.a, 32.0) > 24.5);
                     // Only what stands out of the snow blows about and is trodden down.
                     high = max(gl_Normal.z - level - deep, 0.0);
                     float along = gl_Normal.y - 2.0 * form;
@@ -620,6 +623,8 @@ final class PipelineShaders {
             uniform float uWet;
             // How much of the ground snow lies on, 0 to 1.
             uniform float uSnowLying;
+            // How much snow lies on what grows: see GRASS_WIND.
+            uniform float uPlantSnow;
             // 1 where a wet road, a polished floor and glass are mirrors, which the last pass traces: 0 outside the High graphics mode.
             uniform float uMirrors;
             // For the picture drawn from under the water (WaterMirror): the plane nothing under
@@ -1294,6 +1299,17 @@ final class PipelineShaders {
     static final String WORLD_FRAGMENT_MAIN_START = """
             void main() {
                 vec4 texel = texture2D(uTexture, vUv);
+                // How the height and how far the wind takes a vertex change over the screen, for a plant
+                // drawn as a card in lying snow. Asked here, before any pixel is left out, where every
+                // pixel of the screen's two by two takes part: further down the answer would decide what
+                // is left out from neighbours that were left out themselves. The test of a uniform before
+                // them is taken alike by every pixel of the two by two, so Low does not pay for them.
+                vec2 riseScreen = vec2(0.0), coverScreen = vec2(0.0), pictureScreen = vec2(0.0);
+                if (uPlantSnow > 0.0) {
+                    riseScreen = vec2(dFdx(vWorld.z), dFdy(vWorld.z));
+                    coverScreen = vec2(dFdx(vCover), dFdy(vCover));
+                    pictureScreen = vec2(dFdx(vUv.y), dFdy(vUv.y));
+                }
                 // A wall's sprite is drawn on the slant, each column of its dots a step below the
                 // last, and sharpening across those columns rules the wall with stripes: walls
                 // and doors are read plainly.
@@ -2309,6 +2325,31 @@ final class PipelineShaders {
                         discard;
                     }
                 }
+                // A plant that stands as a card under the open sky is in lying snow as far up as
+                // the snow lies round it, and what of it is lower is left out, so the snow on the
+                // ground behind shows in its place. Its vertices take the wind by how high they
+                // stand over its foot, so the pixel stands as high as what it takes over how
+                // fast that grows up the card. Less snow lies under trees, as on the ground: the
+                // sky over the place is asked only of what is low enough to be under the deepest snow.
+                // Only the game's own sprites and the bushes that stand in for them: a frond, a leaf
+                // or a flower Flora builds as a card sways by how far it is along itself, not by how
+                // high it stands. The depth and the sky are asked at the height of the plant's foot under the
+                // pixel, and the sky only where the open sky's depth would bury it.
+                if (uPlantSnow > 0.0 && vKind > 2.5 && vKind < 3.5 && vCover < 0.9995 && (vMaterial < 55.5 || vMaterial > 62.5 && vMaterial < 63.5)) {
+                    float takes = -dot(coverScreen, riseScreen) / max(dot(riseScreen, riseScreen), 1e-12);
+                    float rise = (1.0 - vCover) / max(takes, 1e-4);
+                    vec3 foot = vec3(vWorld.xy, vWorld.z - rise);
+                    vec3 footToEye = uEye - foot;
+                    float away = length(footToEye);
+                    float footPixel = uPixel * away * away / max(abs(footToEye.z), 0.1);
+                    // snowShelter is still 0 here, so the first snowAround is the most the plant could be under, and the sky is asked only within it.
+                    if (rise < SNOW_DEPTH * uSnowLying && rise < snowAround(vPlace.xy, footPixel)) {
+                        snowShelter = (1.0 - skyOverAt(foot + vec3(0.0, 0.0, 0.1), max(away - uRangeFrom, 0.0))) / 0.62;
+                        if (rise < snowAround(vPlace.xy, footPixel)) {
+                            discard;
+                        }
+                    }
+                }
                 // Every pixel that is left out has been left out by here. Asked only where
                 // things are, the program stops: what follows is the light, which is most of
                 // its work. See Pipeline.drawWorld.
@@ -2599,7 +2640,7 @@ final class PipelineShaders {
                 float snowed = 0.0;
                 // How much ground a pixel covers here: what is finer than that is not drawn.
                 float snowFoot = max(length(dFdx(vPlace.xy)), length(dFdy(vPlace.xy)));
-                if (uSnowLying > 0.0 && open > 0.5 && !water && !model) {
+                if (uSnowLying > 0.0 && open > 0.5 && !water && !model && (uPlantSnow > 0.0 || !(strip || grass || crown || core || card))) {
                     // Less of it gets under a tree or the eaves of a house than falls in the open.
                     snowShelter = (1.0 - skyOver) / 0.62;
                     if (strip || grass) {
@@ -2625,15 +2666,20 @@ final class PipelineShaders {
                         // A plant that stands as a card: its vertices take the wind by how high they are, and nothing else that is a card takes any.
                         float take = 1.0 - vCover;
                         if (take > 0.0005) {
-                            // Which way along the picture is up, and how solid the picture is over the pixel: a little way up, and
-                            // as far again, so that a gap between two leaves of one mass is not taken for the top of it.
-                            float upward = dFdx(vUv.y) * dFdx(vWorld.z) + dFdy(vUv.y) * dFdy(vWorld.z) < 0.0 ? -1.0 : 1.0;
-                            vec2 above = vec2(0.0, upward * (1.5 + 5.0 * uSnowLying) * uTexel.y);
-                            float over = uTexel.x > 0.0 ? max(texture2D(uTexture, vUv + above).a, texture2D(uTexture, vUv + 2.0 * above).a) : 1.0;
-                            // Leaves and not bark: of the game's own sprite, by its colour.
+                            // How far along the picture a tile up the card is, by the card's own slope on the screen.
+                            float upPicture = dot(pictureScreen, riseScreen) / max(dot(riseScreen, riseScreen), 1e-12);
+                            // How solid the picture is over the pixel: as far up as the snow on a top is thick, and far enough
+                            // up that a gap between two leaves of one mass is not taken for the top of it. Neither looks
+                            // further than a dozen texels: the next sprite on the game's sheet can be that close.
+                            float band = uTexel.x > 0.0 ? texture2D(uTexture, vUv + vec2(0.0, clamp(upPicture * (0.03 + 0.12 * uSnowLying), -6.0 * uTexel.y, 6.0 * uTexel.y))).a : 1.0;
+                            float clear = uTexel.x > 0.0 ? texture2D(uTexture, vUv + vec2(0.0, clamp(upPicture * 0.4, -12.0 * uTexel.y, 12.0 * uTexel.y))).a : 1.0;
+                            // Leaves and not bark: of the game's own sprite, by its colour, and of Flora's none on a twig.
                             float most = max(texel.r, max(texel.g, texel.b));
-                            float leafy = vMaterial > 5.5 && vMaterial < 6.5 || vMaterial < 0.5 ? smoothstep(0.25, 0.45, (max(texel.r, texel.g) - texel.b) / max(most, 0.001)) : 1.0;
-                            snowed = snowOnCard(vPlace, normalize(vNormal), over, leafy * smoothstep(0.1, 0.36, dot(texel.rgb, vec3(0.299, 0.587, 0.114))));
+                            bool twig = vMaterial > 60.5 && vMaterial < 61.5 && floor(vUv.x / 2.0) > 3.5;
+                            float leafy = twig ? 0.0 : vMaterial > 5.5 && vMaterial < 6.5 || vMaterial < 0.5 ? smoothstep(0.25, 0.45, (max(texel.r, texel.g) - texel.b) / max(most, 0.001)) : 1.0;
+                            // A clump is a few texels of the picture across, so it stays on the plant as the card turns, and round, not a square of texels.
+                            float each = uTexel.x > 0.0 ? snowNoise(vUv / (uTexel * 5.0), vec2(4096.0), 31.0).x : 0.5;
+                            snowed = snowOnCard(band, clear, smoothstep(0.05, 0.6, view.z), leafy, smoothstep(0.1, 0.36, dot(texel.rgb, vec3(0.299, 0.587, 0.114))), each);
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                         }
                     } else {
@@ -2649,16 +2695,13 @@ final class PipelineShaders {
                         if (uRelief > 0.5 && level.z > 0.9) {
                             lain += snowSunk(lain, view, lumpy, 1.0 - smoothstep(6.0, 10.0, range));
                         }
-                        float up = smoothstep(0.35, 0.8, level.z);
+                        // A bole, a limb and the ivy on a bole stay bare: the snow that stays on bark, a
+                        // streak up the weather side or a line along a limb, reads at a distance as white
+                        // paint and as an outline round the wood.
+                        float up = vMaterial > 56.5 && vMaterial < 58.5 ? 0.0 : smoothstep(0.35, 0.8, level.z);
                         snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
                         // The ground just clear of the lip is wet from it, and dark.
                         texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
-                        if (vMaterial > 56.5 && vMaterial < 58.5) {
-                            // A bole, a limb, and the ivy on a bole.
-                            float caught = vMaterial < 57.5 ? snowOnWood(vPlace, level) : snowOnIvy(vPlace);
-                            texel.rgb = mix(texel.rgb, SNOW_WHITE, caught * (1.0 - snowed));
-                            snowed = max(snowed, caught);
-                        }
                         // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
                         n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
                         grit *= 1.0 - snowed;
@@ -3090,7 +3133,6 @@ final class PipelineShaders {
             uniform vec3 uWind;
             varying float vLeaves;
             varying vec3 vAt;
-            uniform float uSnowLying;
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             """ + GRASS_WIND + MODEL_STANDS + FACED + """

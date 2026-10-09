@@ -294,46 +294,32 @@ final class SnowShader {
                 return 0.85 * top * smoothstep(0.05, 0.45, uSnowLying * (0.3 + 1.1 * top));
             }
 
-            // Smooth noise over an upright sheet that faces the way faces does: across the
-            // sheet and up it, whichever way it runs on the map. It is two noises, one for
-            // a sheet along each of the map's ways, mixed by how the sheet is turned, since
-            // the place along a sheet turned any other way does not come round with vPlace's corner.
-            // Up the sheet it comes round every sixty tiles as well, as vPlace's height does.
-            float snowUpright(vec3 at, vec3 faces, vec2 size, float seed) {
-                return mix(snowNoise(vec2(at.x * size.x, at.z * size.y), 60.0 * size, seed).x,
-                        snowNoise(vec2(at.y * size.x, at.z * size.y), 60.0 * size, seed + 1.0).x, faces.x * faces.x);
+            // How deep snow lies round the foot of a plant that stands as a card, in tiles: as
+            // snowStood has it for a strip of grass, by the snow's thickness without its ragged
+            // edge, which a card turned to face the eye would carry across itself as the eye moves.
+            float snowAround(vec2 q, float foot) {
+                return SNOW_DEPTH * uSnowLying * snowCovers(snowThick(q, foot).x);
             }
 
-            // On a plant that stands as a card, the game's sprite or the mod's leaves. over
-            // is how solid the picture is above the pixel, a little way up and as far again:
-            // with nothing over it the pixel is on the top of a bough or a twig, where snow
-            // lies as a cap. leafy is how far the pixel is the lit top of a mass of leaves,
-            // which holds snow in clumps, more of them and larger as more lies. With little
-            // snow lying a plant has a dusting, as the ground has a patch here and there.
-            float snowOnCard(vec3 at, vec3 faces, float over, float leafy) {
+            // On a plant that stands as a card, the game's sprite of a tree or a bush. A card
+            // has no way it faces but the eye's, so what of the plant faces the sky is read off
+            // its picture: band is how solid the picture is a little way over the pixel, as far
+            // as the snow on a top is thick, and clear how solid it is a good way over it, past
+            // the gaps between the leaves of one mass. With nothing over it for both the pixel
+            // is on the top of the crown or of a mass of leaves. above is how far
+            // down on the plant the eye looks, 0 level with it or under it and 1 from high
+            // over it: the game paints its plants as seen from above, and what is looked down
+            // on is their tops, which is where the snow is. leafy is how far the pixel is leaves
+            // and not bark, lit how far it is in the light and not a leaf in shade, and each
+            // the number of the clump of leaves it is in. Snow lies on the tops as a crown of
+            // the mod's own holds it (see snowOnSprig): clump by clump as more lies, little on
+            // the sides and underneath, and none on leaves in shade nor on bark: snow along a bough
+            // of a sprite reads as a white outline round the wood.
+            float snowOnCard(float band, float clear, float above, float leafy, float lit, float each) {
                 float open = clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0);
-                float cap = (1.0 - smoothstep(0.3, 0.7, over)) * smoothstep(0.1, 0.6, uSnowLying);
-                float clump = snowUpright(at, faces, vec2(3.0, 7.0), 21.0) * 0.7 + snowUpright(at, faces, vec2(9.0, 17.0), 23.0) * 0.3;
-                float held = leafy * smoothstep(0.8 - 0.5 * uSnowLying, 0.94 - 0.5 * uSnowLying, clump);
-                return min(max(cap, held) * open, 0.95);
-            }
-
-            // Where the winter's snow has mostly blown from: it sticks to that side of a bole.
-            const vec2 SNOW_FROM = vec2(-0.6, -0.8);
-
-            // On a bole or a limb, whose surface faces the way faces does: along the upper
-            // side of a limb, and plastered in streaks up the weather side of a bole.
-            float snowOnWood(vec3 at, vec3 faces) {
-                float along = 0.92 * smoothstep(0.1, 0.55, faces.z) * smoothstep(0.0, 0.3, uSnowLying);
-                float streak = snowNoise(vec2((at.x + at.y) * 9.0, at.z * 2.5), vec2(540.0, 150.0), 25.0).x;
-                float plastered = smoothstep(0.25, 0.95, dot(faces.xy, SNOW_FROM)) * smoothstep(0.75 - 0.45 * uSnowLying, 0.95 - 0.45 * uSnowLying, streak);
-                return max(along, 0.85 * plastered * smoothstep(0.1, 0.4, uSnowLying));
-            }
-
-            // On the ivy round a bole: caught on its leaves here and there.
-            float snowOnIvy(vec3 at) {
-                float clump = snowNoise(vec2((at.x - at.y) * 11.0, at.z * 13.0), vec2(660.0, 780.0), 27.0).x;
-                return 0.8 * smoothstep(0.8 - 0.4 * uSnowLying, 0.95 - 0.4 * uSnowLying, clump) * smoothstep(0.0, 0.2, uSnowLying);
+                float top = max((1.0 - smoothstep(0.3, 0.7, band)) * (1.0 - smoothstep(0.3, 0.7, clear)), 0.85 * above);
+                float lain = smoothstep(0.05, 0.5, uSnowLying * (0.15 + 1.05 * top) - 0.25 * each);
+                return min(lain * leafy * lit * mix(0.55, 1.0, top) * open, 0.95);
             }
 
             // How far the lumps stand up at a place, 0 to 1: what snowSunk looks into.
