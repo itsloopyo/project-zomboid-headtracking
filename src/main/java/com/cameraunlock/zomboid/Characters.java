@@ -834,8 +834,10 @@ public final class Characters {
                 ViewModelMath.place(heldView, joined[6], joined[7], joined[8], palm);
                 // The middle of the game's hand is beside the weapon, not in it, and the mod's hand closes on the
                 // weapon's own middle: a firearm's is the plane its barrel and its top lie in, and a handle's is its length.
-                float[] off = {palm[0] - view.viewModel.gripSeen[0], palm[1] - view.viewModel.gripSeen[1], palm[2] - view.viewModel.gripSeen[2]};
-                float[] ahead = view.viewModel.pointing, side = new float[3];
+                float[] off = gripOff, ahead = view.viewModel.pointing, side = gripSide;
+                for (int axis = 0; axis < 3; axis++) {
+                    off[axis] = palm[axis] - view.viewModel.gripSeen[axis];
+                }
                 ArmPose.cross(ahead, view.viewModel.over, side);
                 if (hands.firearm() && ArmPose.unit(side[0], side[1], side[2], side)) {
                     float aside = ArmPose.dot(off, side);
@@ -848,7 +850,10 @@ public final class Characters {
                     for (int axis = 0; axis < 3; axis++) {
                         palm[axis] = view.viewModel.gripSeen[axis] + ahead[axis] * along;
                     }
-                    handAside = ArmPose.apart(off, new float[] {ahead[0] * along, ahead[1] * along, ahead[2] * along});
+                    for (int axis = 0; axis < 3; axis++) {
+                        gripAlong[axis] = ahead[axis] * along;
+                    }
+                    handAside = ArmPose.apart(off, gripAlong);
                 }
                 grip = palm;
                 break;
@@ -873,6 +878,8 @@ public final class Characters {
         return placed > 0;
     }
 
+    /** Room for the sums that put the mod's hand on the grip, so that each frame's makes no new arrays. */
+    private final float[] gripOff = new float[3], gripSide = new float[3], gripAlong = new float[3];
     private final ArmHolds.Carried armCarries = new ArmHolds.Carried();
     private final ArmHolds.Settled armSettled = new ArmHolds.Settled();
     private long armsAsOf;
@@ -1092,26 +1099,21 @@ public final class Characters {
         // and the game's model of it and of what is fixed to it is left out.
         ViewModel.Held hands = armHands;
         ModelInstanceRenderData held = weaponOf(data);
+        IsoGridSquare square = data.character.getCurrentSquare();
+        boolean outside = square != null && square.isOutside();
         boolean own = held != null && view.viewModel.hasMuzzle && OwnWeapon.standsFor(hands.item());
         if (own) {
-            Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
-            IsoGridSquare square = data.character.getCurrentSquare();
-            view.ownWeapon.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
-                    ownLight, square != null && square.isOutside(), hands.aim());
+            view.ownWeapon.place(heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside, hands.aim());
         }
         // The hunting rifle is the mod's own too, and whatever is fixed to it but a scope is left out with the game's model of it.
         boolean rifle = !own && held != null && view.viewModel.hasMuzzle && OwnRifle.standsFor(hands.item());
         if (rifle) {
-            Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
-            IsoGridSquare square = data.character.getCurrentSquare();
-            view.ownRifle.place(heldView, weaponPlace, data.finalScale, (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z),
-                    ownLight, square != null && square.isOutside());
+            view.ownRifle.place(heldView, weaponPlace, data.finalScale, muzzleOut(held), ownLight, outside);
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = own || held == null || view.scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
-            IsoGridSquare square = data.character.getCurrentSquare();
-            view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, square != null && square.isOutside());
+            view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, outside);
         }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the
@@ -1129,8 +1131,6 @@ public final class Characters {
             drawPart(model, data);
         }
         if (ownArms) {
-            IsoGridSquare square = data.character.getCurrentSquare();
-            boolean outside = square != null && square.isOutside();
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armHands.female(), armHands.skin(), outside, worn, stains);
@@ -1169,6 +1169,12 @@ public final class Characters {
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
+    }
+
+    /** How far the muzzle of what the hand holds is from where the game hangs it, in the model's own measure. */
+    private static float muzzleOut(ModelInstanceRenderData held) {
+        Vector3f muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE).getOffset();
+        return (float) Math.sqrt(muzzle.x * muzzle.x + muzzle.y * muzzle.y + muzzle.z * muzzle.z);
     }
 
     /**

@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Locale;
@@ -29,14 +30,21 @@ final class VehicleMeshes {
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_ARRAY_BUFFER_BINDING = 0x8894, GL_BUFFER_SIZE = 0x8764;
     private static final float[] NONE = new float[0];
 
-    /** The wheel's middle in each model's own space, or NONE for a model with no such piece. */
-    private static final IdentityHashMap<ModelMesh, float[]> middles = new IdentityHashMap<>();
     /**
-     * The panes of each model, as loose triangles in the model's own space: the vehicle's mask
-     * texture says which of its triangles are glass. Empty for a model with none found.
+     * What is read of a body is read from three things: its mesh, the mask that says which of
+     * its triangles are glass, and the script whose seats tell its steering wheel and its seats.
+     * Two vehicles can share a mesh and differ in either.
      */
-    private static final IdentityHashMap<ModelMesh, FloatBuffer> panes = new IdentityHashMap<>();
-    private static final IdentityHashMap<ModelMesh, Integer> rearPanes = new IdentityHashMap<>();
+    private record Body(ModelMesh mesh, Texture mask, String script) {}
+
+    /** The wheel's middle in each body's own space, or NONE for a body with no such piece. */
+    private static final HashMap<Body, float[]> middles = new HashMap<>();
+    /**
+     * The panes of each body, as loose triangles in the model's own space: the vehicle's mask
+     * texture says which of its triangles are glass. Empty for a body with none found.
+     */
+    private static final HashMap<Body, FloatBuffer> panes = new HashMap<>();
+    private static final HashMap<Body, Integer> rearPanes = new HashMap<>();
     private static final float[] shifted = new float[16], stands = new float[16];
 
     /** The triangles of a body that are not glass, sorted by what part of the cabin each is, in the model's own space. */
@@ -65,7 +73,7 @@ final class VehicleMeshes {
         }
     }
 
-    private static final IdentityHashMap<ModelMesh, Parts> parts = new IdentityHashMap<>();
+    private static final HashMap<Body, Parts> parts = new HashMap<>();
 
     /**
      * The vehicle one viewer sits in, as its body was drawn for that viewer's picture this
@@ -153,7 +161,8 @@ final class VehicleMeshes {
                     Math.toDegrees(Math.acos(Math.clamp(axes[0] * faces[0] + axes[1] * faces[1] + axes[2] * faces[2], -1f, 1f))),
                     Math.toDegrees(Math.acos(Math.clamp(axes[6] * faces[6] + axes[7] * faces[7] + axes[8] * faces[8], -1f, 1f)))));
         }
-        float[] middle = middles.get(mesh);
+        Body read = new Body(mesh, instance.textureMask, script);
+        float[] middle = middles.get(read);
         if (middle == null) {
             // A mask still on its way from the disc reads as empty, and no glass would be the
             // answer kept for the body from then on.
@@ -167,15 +176,15 @@ final class VehicleMeshes {
                     frame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
                 }
             }
-            middle = find(mesh, instance, body.modelInstance.model.name, ride.seats);
-            middles.put(mesh, middle);
+            middle = find(read, instance, body.modelInstance.model.name, ride.seats);
+            middles.put(read, middle);
         }
-        FloatBuffer glass = panes.get(mesh);
+        FloatBuffer glass = panes.get(read);
         if (glass != null && glass.capacity() > 0) {
             seated.panes = glass;
-            seated.rearPanes = rearPanes.get(mesh);
+            seated.rearPanes = rearPanes.get(read);
         }
-        seated.parts = parts.get(mesh);
+        seated.parts = parts.get(read);
         paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seated.paint);
         if (middle == NONE) {
             return;
@@ -220,12 +229,12 @@ final class VehicleMeshes {
     }
 
     /**
-     * The middle of the wheel in a body's vertices, read back from the graphics card once.
+     * The middle of the wheel in a body's vertices, read back from the graphics card once a body.
      *
      * @param seats where the vehicle's script seats its passengers, as Ride has them
      */
-    private static float[] find(ModelMesh mesh, VehicleModelInstance instance, String name, float[] seats) {
-        VertexBufferObject buffer = mesh.vb;
+    private static float[] find(Body body, VehicleModelInstance instance, String name, float[] seats) {
+        VertexBufferObject buffer = body.mesh().vb;
         try {
             if (handleField == null) {
                 handleField = VertexBufferObject.class.getDeclaredField(Links.BUFFER_HANDLE.name());
@@ -265,16 +274,16 @@ final class VehicleMeshes {
                 boolean[] front = new boolean[glass.length];
                 if (wheel != NONE) {
                     Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name, seats);
-                    parts.put(mesh, made);
+                    parts.put(body, made);
                     front = made.front;
                 }
                 FloatBuffer loose = loose(raw, stride, elements, glass, front);
-                panes.put(mesh, loose);
+                panes.put(body, loose);
                 int rear = 0;
                 for (int t = 0; t < glass.length; t++) {
                     rear += glass[t] && !front[t] ? 3 : 0;
                 }
-                rearPanes.put(mesh, rear);
+                rearPanes.put(body, rear);
                 return wheel;
             } finally {
                 read.free();

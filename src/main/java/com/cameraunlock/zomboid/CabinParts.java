@@ -114,17 +114,7 @@ final class CabinParts {
      */
     static int[] wheelOf(float[] at, int[] elements, float[] seat, float middleLine) {
         int vertices = at.length / 3, triangles = elements.length / 3;
-        HashMap<Place, Integer> places = new HashMap<>();
-        int[] parent = new int[vertices];
-        for (int i = 0; i < vertices; i++) {
-            Integer first = places.putIfAbsent(new Place(Math.round(at[i * 3] * 20000f), Math.round(at[i * 3 + 1] * 20000f), Math.round(at[i * 3 + 2] * 20000f)), i);
-            parent[i] = first == null ? i : first;
-        }
-        for (int t = 0; t < triangles; t++) {
-            int a = root(parent, elements[t * 3]);
-            parent[root(parent, elements[t * 3 + 1])] = a;
-            parent[root(parent, elements[t * 3 + 2])] = a;
-        }
+        int[] parent = pieces(at, elements);
         int[] count = new int[vertices];
         for (int t = 0; t < triangles; t++) {
             count[root(parent, elements[t * 3])]++;
@@ -181,21 +171,11 @@ final class CabinParts {
         int vertices = at.length / 3, triangles = elements.length / 3;
         Found found = new Found(triangles);
 
-        // Vertices at one place are one vertex, however many faces meet there.
-        HashMap<Place, Integer> places = new HashMap<>();
-        int[] parent = new int[vertices];
+        int[] parent = pieces(at, elements);
         float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
         for (int i = 0; i < vertices; i++) {
-            Place place = new Place(Math.round(at[i * 3] * 20000f), Math.round(at[i * 3 + 1] * 20000f), Math.round(at[i * 3 + 2] * 20000f));
-            Integer first = places.putIfAbsent(place, i);
-            parent[i] = first == null ? i : first;
             least = Math.min(least, at[i * 3 + 1]);
             most = Math.max(most, at[i * 3 + 1]);
-        }
-        for (int t = 0; t < triangles; t++) {
-            int a = root(parent, elements[t * 3]);
-            parent[root(parent, elements[t * 3 + 1])] = a;
-            parent[root(parent, elements[t * 3 + 2])] = a;
         }
         found.middleAcross = (least + most) / 2f;
         float wheelSide = Math.signum(wheel[1] - found.middleAcross);
@@ -439,6 +419,26 @@ final class CabinParts {
 
     private static float lowest(float[] at, int[] elements, int t) {
         return Math.min(at[elements[t * 3] * 3 + 2], Math.min(at[elements[t * 3 + 1] * 3 + 2], at[elements[t * 3 + 2] * 3 + 2]));
+    }
+
+    /**
+     * The loose pieces of a body: for each vertex one that root takes to the same vertex as every
+     * other of its piece. Vertices at one place are one vertex, however many faces meet there.
+     */
+    private static int[] pieces(float[] at, int[] elements) {
+        int vertices = at.length / 3, triangles = elements.length / 3;
+        HashMap<Place, Integer> places = new HashMap<>();
+        int[] parent = new int[vertices];
+        for (int i = 0; i < vertices; i++) {
+            Integer first = places.putIfAbsent(new Place(Math.round(at[i * 3] * 20000f), Math.round(at[i * 3 + 1] * 20000f), Math.round(at[i * 3 + 2] * 20000f)), i);
+            parent[i] = first == null ? i : first;
+        }
+        for (int t = 0; t < triangles; t++) {
+            int a = root(parent, elements[t * 3]);
+            parent[root(parent, elements[t * 3 + 1])] = a;
+            parent[root(parent, elements[t * 3 + 2])] = a;
+        }
+        return parent;
     }
 
     private static int root(int[] parent, int i) {

@@ -1374,8 +1374,8 @@ final class CharacterDraw {
         FloatBuffer palette = part.matrixPalette;
         for (int point = 0; point < 4; point++) {
             float[] from = point == 0 || point == 3 ? limb.wrist : point == 1 ? limb.elbow : limb.palm;
-            float[] off = point == 3 ? limb.across : NOWHERE;
-            float x = from[0] + off[0], y = from[1] + off[1], z = from[2] + off[2];
+            float[] aside = point == 3 ? limb.across : NOWHERE;
+            float x = from[0] + aside[0], y = from[1] + aside[1], z = from[2] + aside[2];
             for (int axis = 0; axis < 3; axis++) {
                 int row = at + axis * 4;
                 out[point * 3 + axis] = (palette.get(row) * x + palette.get(row + 1) * y + palette.get(row + 2) * z + palette.get(row + 3)) * finalScale;
@@ -1749,10 +1749,11 @@ final class CharacterDraw {
     }
 
     /**
-     * Gives the copies of the game's meshes back to the graphics card. Each is made again the
-     * next time its mesh is drawn, as it was the first time. Render thread.
+     * Gives the copies of the game's meshes back to the graphics card, and lets go of what was
+     * read of the game's skeletons, which it loads anew between saves. Each is made again the
+     * next time it is drawn, as it was the first time. Render thread.
      *
-     * @return how many there were
+     * @return how many copies there were
      */
     static int letGo() {
         int had = copies.size();
@@ -1763,6 +1764,8 @@ final class CharacterDraw {
             }
         }
         copies.clear();
+        arms.clear();
+        heads.clear();
         return had;
     }
 
