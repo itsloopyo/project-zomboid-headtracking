@@ -13,6 +13,7 @@ final class OutdoorTests {
         Checks.run("aDeckChairIsTwoSquaresLongTheWayItFaces", OutdoorTests::aDeckChairIsTwoSquaresLongTheWayItFaces);
         Checks.run("aGravestoneStandsTowardsTheSideItFaces", OutdoorTests::aGravestoneStandsTowardsTheSideItFaces);
         Checks.run("aSpriteOfAnotherSheetOrShapeIsNoPiece", OutdoorTests::aSpriteOfAnotherSheetOrShapeIsNoPiece);
+        Checks.run("aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare", OutdoorTests::aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -159,5 +160,31 @@ final class OutdoorTests {
         Checks.check(Outdoors.of("trashcontainers_01_17", "Green Garbage Bin", null, Outdoors.NONE, 1, 1, 0) == null
                 && Outdoors.of("trashcontainers_01_20", "Round Bin", null, Outdoors.NONE, 1, 1, 0) == null, "a bin that is as often in a room is left to the pieces indoors");
         Checks.check(Outdoors.of("x_01_0", "Gravestone", "Battered", Outdoors.SOUTH, 1, 1, 0) == null, "a broken gravestone");
+    }
+
+    private static void aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare() {
+        // The sprites of the sheet and how many tyres each paints, from the game's GroupName of them ("2 Stacked", "Stacked") and its pictures.
+        int[][] counts = {{40, 2}, {41, 2}, {42, 3}, {43, 3}, {44, 4}, {45, 4}, {48, 1}, {49, 1}, {50, 2}, {51, 3}, {52, 4}};
+        float one = Models.get("tyre").height();
+        Checks.check(Math.abs(one - 0.2f) < 0.005f && Math.abs(Models.get("tyre").width() - 0.64f) < 0.01f, "a tyre is 0.64 across and 0.2 high: " + one);
+        for (int[] sprite : counts) {
+            String name = "location_business_machinery_01_" + sprite[0];
+            Outdoors.Piece piece = Outdoors.of(name, sprite[1] == 1 ? "Tire" : "Tires", null, Outdoors.NORTH, 1, 1, 0);
+            holds(piece, name + " has a model");
+            if (piece == null) {
+                continue;
+            }
+            Models.Model model = Models.get(piece.model);
+            Checks.check(Math.abs(model.height() - sprite[1] * one) < 0.005f, name + " is " + sprite[1] + " tyres high: " + model.height());
+            // The model's origin is the middle of its lowest tyre, and its x is the map's -x.
+            Checks.check(piece.turns == 0 && piece.a - model.maxX >= 0f && piece.a - model.minX <= 1f && piece.b + model.minY >= 0f && piece.b + model.maxY <= 1f,
+                    name + " lies inside its square");
+        }
+        Checks.check(Outdoors.of("location_business_machinery_01_46", "Tires", null, Outdoors.NONE, 1, 1, 0) == null
+                && Outdoors.of("location_business_machinery_01_32", "Tool Cabinet", "Red Mobile", Outdoors.SOUTH, 1, 1, 34) == null,
+                "nothing else on the sheet of tyres");
+        // Thrown on less squarely: the upper tyre of a pair painted to the left of the lower lies off it towards the map's -x and +y.
+        Models.Model pair = Models.get(Outdoors.of("location_business_machinery_01_40", "Tires", "2 Stacked", Outdoors.NORTH, 1, 1, 0).model);
+        Checks.check(pair.maxX > 0.36f && pair.maxY > 0.36f && pair.minX > -0.33f, "the pair facing north has its upper tyre off the lower one: " + pair.maxX + ", " + pair.maxY);
     }
 }

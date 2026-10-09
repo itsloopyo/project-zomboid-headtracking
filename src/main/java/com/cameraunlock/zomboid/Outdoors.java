@@ -152,6 +152,9 @@ final class Outdoors {
         if (!single) {
             return null;
         }
+        if (called.equals("Tire") || called.equals("Tires")) {
+            return tyres(place(name, TYRES));
+        }
         if (called.equals("Recycle Bin")) {
             return new Piece("dustbin", 0).fit();
         }
@@ -191,6 +194,39 @@ final class Outdoors {
             return new Piece(stone, faces).at(a, b).dye(PAINT, a, b, 0.16f);
         }
         return null;
+    }
+
+    /** The sheet the game's loose tyres are on. */
+    private static final String TYRES = "location_business_machinery_01_";
+    /**
+     * Where on its square the middle of the lowest tyre is, for the sprites of tyres from 40 to 52
+     * of their sheet, as a and b: read off each sprite as the middle of the lowest tyre's outline.
+     * A tyre is 0.64 across, so its middle is kept 0.34 in from the square's edges.
+     */
+    private static final float[] TYRE_AT = {0.41f, 0.50f, 0.45f, 0.49f, 0.46f, 0.51f, 0.47f, 0.53f, 0.43f, 0.51f, 0.42f, 0.52f,
+            0f, 0f, 0f, 0f, 0.40f, 0.44f, 0.34f, 0.49f, 0.41f, 0.43f, 0.48f, 0.52f, 0.48f, 0.55f};
+
+    /**
+     * The tyres of their sheet: one alone, straight stacks of two to four, and stacks of two to
+     * four thrown on less squarely, which the game paints once for a piece facing north and once,
+     * thrown another way, for one facing west. Each of those has a model of its own, its tyres
+     * lying where the sprite paints them, so none is turned.
+     */
+    private static Piece tyres(int place) {
+        String model = switch (place) {
+            case 40 -> "tyre_pile_2n";
+            case 41 -> "tyre_pile_2w";
+            case 42 -> "tyre_pile_3n";
+            case 43 -> "tyre_pile_3w";
+            case 44 -> "tyre_pile_4n";
+            case 45 -> "tyre_pile_4w";
+            case 48, 49 -> "tyre";
+            case 50 -> "tyre_stack_2";
+            case 51 -> "tyre_stack_3";
+            case 52 -> "tyre_stack_4";
+            default -> null;
+        };
+        return model == null ? null : new Piece(model, 0).at(TYRE_AT[2 * (place - 40)], TYRE_AT[2 * (place - 40) + 1]);
     }
 
     /** Which way a length of washing line runs from over the middle of its square to over the middle of the next. */

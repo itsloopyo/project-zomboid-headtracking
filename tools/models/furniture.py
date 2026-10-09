@@ -3686,6 +3686,76 @@ def roof_case(name, high):
     return model
 
 
+TYRE_HIGH = 0.2
+TYRE_ACROSS = 0.64
+# The section of a car's tyre lying flat, as (radius, height): from the lip of its upper bead out over the sidewall, down
+# the floor of the tread between its blocks, back under the lower sidewall to the lower lip, and then the inside of the
+# casing back up to the first. The inside is hollow, so the middle is open and the casing can be seen into.
+TYRE_SECTION = [(0.205, 0.185), (0.235, 0.197), (0.275, 0.2), (0.3, 0.19), (0.31, 0.172),
+                (0.31, 0.15), (0.31, 0.1), (0.31, 0.05),
+                (0.31, 0.028), (0.3, 0.01), (0.275, 0.0), (0.235, 0.003), (0.205, 0.015),
+                (0.214, 0.027), (0.296, 0.1), (0.214, 0.173)]
+# The tread: two rows of blocks round the face, a groove round the middle between them, and those of one row half a block
+# on from those of the other. Each block leans along the way round, so its grooves run aslant.
+TREAD_BLOCKS, TREAD_ROWS = 24, ((0.034, 0.097), (0.103, 0.166))
+TREAD_FLOOR, TREAD_FACE, TREAD_FILL, TREAD_LEAN = 0.306, 0.321, 0.66, 0.35
+
+
+def tyre(model, x, y, z):
+    """A tyre lying flat with the middle of its foot at (x, y, z): a hollow ring of rubber with its tread in blocks."""
+    steps = 20 if plain else 24
+    casing = bmesh.new()
+    rings = []
+    for radius, high in TYRE_SECTION:
+        # Without the blocks the floor of the tread is the face.
+        r = TYRE_ACROSS / 2 if plain and radius == 0.31 and 0.03 < high < 0.17 else radius
+        rings.append([casing.verts.new((x + r * math.cos(2 * math.pi * i / steps), y + r * math.sin(2 * math.pi * i / steps), z + high))
+                      for i in range(steps)])
+    for a, b in zip(rings, rings[1:] + rings[:1]):
+        for i in range(steps):
+            j = (i + 1) % steps
+            casing.faces.new((a[i], a[j], b[j], b[i]))
+    model.turned(casing, "rubber", sharp=50.0)
+    if plain:
+        return
+    blocks = bmesh.new()
+    pitch = 2 * math.pi / TREAD_BLOCKS
+    for row, (low, high) in enumerate(TREAD_ROWS):
+        for n in range(TREAD_BLOCKS):
+            middle = (n + row / 2) * pitch
+            corners = []
+            for r in (TREAD_FLOOR, TREAD_FACE):
+                for up, lean in ((low, -1), (high, 1)):
+                    for side in (-1, 1):
+                        turn = middle + (side * TREAD_FILL / 2 + lean * TREAD_LEAN / 2) * pitch
+                        corners.append(blocks.verts.new((x + r * math.cos(turn), y + r * math.sin(turn), z + up)))
+            # corners: inner then outer; within each the low pair then the high pair, each pair one side then the other.
+            i0, i1, i2, i3, o0, o1, o2, o3 = corners
+            for face in ((i0, i1, i3, i2), (o0, o2, o3, o1), (i0, o0, o1, i1), (i2, i3, o3, o2), (i0, i2, o2, o0), (i1, o1, o3, i3)):
+                blocks.faces.new(face)
+    model.plain(blocks, "rubber")
+
+
+def tyre_stack(name, shifts):
+    """Tyres lying one on another, the lowest with its middle at the origin. shifts gives each tyre from the lowest up, as
+    how far it lies to the right of the lowest on the game's sprite, in that sprite's pixels, which this model's x and y
+    take in equal parts: the game draws a tyre 76 of them across. Each is a body of its own, so stands on the one under it."""
+    model = Model(name, centred=False)
+    for n, shift in enumerate(shifts):
+        off = -TYRE_ACROSS * shift / 76 / math.sqrt(2)
+        tyre(model, off, off, n * TYRE_HIGH)
+    return model
+
+
+def tyres():
+    """Car tyres lying loose: one alone, straight stacks of two, three and four, and stacks of each height as the game
+    paints them thrown on less squarely, each tyre a little off the one under it."""
+    return [tyre_stack("tyre", (0,)), tyre_stack("tyre_stack_2", (0, 0)), tyre_stack("tyre_stack_3", (0, 0, 0)), tyre_stack("tyre_stack_4", (0, 0, 0, 0)),
+            tyre_stack("tyre_pile_2n", (0, -8.5)), tyre_stack("tyre_pile_2w", (0, 9.5)),
+            tyre_stack("tyre_pile_3n", (0, -2.5, 3)), tyre_stack("tyre_pile_3w", (0, 3.5, -1)),
+            tyre_stack("tyre_pile_4n", (0, 2.5, 0.5, 7)), tyre_stack("tyre_pile_4w", (0, -4, 2.5, -1.5))]
+
+
 def outdoors():
     """What stands out of doors: on roofs, in yards and along streets."""
     return [duct_run(), duct_down(), duct_elbow(), roof_dome(), roof_fan(), fan_unit(), roof_stacks(), pipe_run(), pipe_corner(), culvert_pipe(),
@@ -3693,7 +3763,7 @@ def outdoors():
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 2, 1)), log_stack("log_stack_5", (3, 2)),
             twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), hand_truck(),
-            roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]
+            roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 
 def every():
