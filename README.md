@@ -14,6 +14,7 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Multiplayer** - works when you join a server, and only you need the mod
 - **Settings in the game's options** - the tracking, aim and yaw modes, the field of view, the graphics mode, the picture style and what the mod draws of its own are under `Mods` in the game's options
 - **Two players at one screen** - each has a first person view and a head tracker of their own. Tap `Delete` for the first player, tap it twice for the second, hold it for both
+- **On a controller** - the first player plays first person on a controller as well as the second. Tap Back twice to switch the view
 
 ## Requirements
 
@@ -160,13 +161,21 @@ The inventory, crafting, the health panel, the map and the game's menus all need
 - `Tab` and every other key are as the game has them.
 - If you have bound something to the middle mouse button, it does both.
 
+### On a controller
+
+The first player can play with a controller, as the game has it: tick the controller in the game's controller options, press A on it in game and pick taking over player 1. The second player at one screen is on a controller too.
+
+- **Back tapped twice** switches that player's first person view. The second tap has to come within 0.4 seconds of the first. A single press or a hold of Back still opens the game's wheel, and the second press of a double tap does not leave it open.
+- **In first person** the aiming stick turns the view, and the movement stick walks the way the view faces. The right trigger attacks. With a firearm in hand the left trigger raises the sights, and does not shove while it does: without one it is the game's shove as before. The controller works the game's panels as it does in the game's own view.
+- While the first player is on a controller, the mouse does not turn the view and is not held by the game window.
+
 ### Two players at one screen
 
 A second player joins the screen with a controller, as the game has it, and has a first person view of their own. Each view is switched by itself: one player can be in first person while the other stays in the game's own view.
 
 - **`Delete` tapped** switches the first player's view, **tapped twice** the second player's, and **held** for 0.4 seconds both players'. A tap acts 0.3 seconds after the key is let go, which is how long a second tap has to follow it.
 - **The second player's tracker** sends the OpenTrack UDP protocol to port `4243`, where the first player's sends to `4242`. Run a second tracker, or a second output, pointed at `127.0.0.1:4243`. The port is `SecondPlayerUdpPort` in [Configuration](#configuration).
-- **On a controller in first person** the aiming stick turns the view, and the movement stick walks the way the view faces. The right trigger attacks. With a firearm in hand the left trigger raises the sights, and does not shove while it does: without one it is the game's shove as before. The controller works the game's panels as it does in the game's own view.
+- **The second player's controller** works first person as in [On a controller](#on-a-controller), Back tapped twice included.
 - **The modes are shared.** Turning tracking on and off, the tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are one setting for both players, on the keys above.
 - **`F7`** turns the screen between side by side and one above the other. Side by side each picture is half the screen's width and all of its height, with the same field of view up and down, so less shows to either side. One above the other each has the whole width.
 
@@ -206,7 +215,7 @@ Where you and another player can hurt each other, four things are held to what t
 | Cycle tracking mode | `Page Up` |
 | Toggle yaw mode | `Page Down` |
 | Cycle aim mode | `Insert` |
-| Toggle first person view | `Delete` tapped; tapped twice for a second player; held for both |
+| Toggle first person view | `Delete` tapped; tapped twice for a second player; held for both. On a controller, Back tapped twice |
 | Cycle graphics mode | `F9` |
 | Cycle picture style | `F8` |
 | Turn split screen | `F7` |

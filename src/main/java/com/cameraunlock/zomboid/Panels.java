@@ -151,7 +151,7 @@ final class Panels {
             Log.info("the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
             return;
         }
-        if (wheel.rawget("javaObject") instanceof UIElementInterface shown && UIManager.getUI().contains(shown)) {
+        if (wheel.rawget("javaObject") instanceof UIElementInterface shown && shown.isVisible() && UIManager.getUI().contains(shown)) {
             Object[] shut = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(wheel, "undisplay"), wheel);
             if (shut.length == 0 || !Boolean.TRUE.equals(shut[0])) {
                 Log.info("the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
