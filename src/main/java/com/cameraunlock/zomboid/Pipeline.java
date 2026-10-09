@@ -301,13 +301,16 @@ final class Pipeline {
      */
     private static final class Lent {
         final String what;
+        /** Makes its pictures: null, or what the driver refused. Null for the whole picture, which resize makes. */
+        final Supplier<String> make;
         final ArrayList<Integer> textures = new ArrayList<>(), targets = new ArrayList<>();
         long usedNanos;
         /** What its textures take on the graphics card. */
         long bytes;
 
-        Lent(String what) {
+        Lent(String what, Supplier<String> make) {
             this.what = what;
+            this.make = make;
         }
 
         boolean made() {
@@ -316,18 +319,18 @@ final class Pipeline {
     }
 
     /** What every frame draws into, at the picture's size. */
-    private final Lent whole = new Lent("picture");
+    private final Lent whole = new Lent("picture", null);
     /** The steadied pair (FrameBlending), the cabin's three (seated), the viewer in a window's glass, and the shade and lit air (High). */
-    private final Lent steadied = new Lent("steadied pictures"), cabin = new Lent("cabin's pictures"), glassed = new Lent("picture of the viewer in the glass"),
-            shaded = new Lent("pictures of shade and lit air");
+    private final Lent steadied = new Lent("steadied pictures", this::makeSteadied), cabin = new Lent("cabin's pictures", this::makeCabin),
+            glassed = new Lent("picture of the viewer in the glass", this::makeGlassed), shaded = new Lent("pictures of shade and lit air", this::makeShaded);
     /** The headlights' shadow map, at the shadow maps' size. */
-    private final Lent beamed = new Lent("headlights' shadow map");
+    private final Lent beamed = new Lent("headlights' shadow map", this::makeBeamed);
     /** The carried torch's shadow map, at TORCH_MAP_MOST across or the shadow maps' size if that is smaller. */
-    private final Lent torched = new Lent("torch's shadow map");
+    private final Lent torched = new Lent("torch's shadow map", this::makeTorched);
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
-    private final Lent mirrored = new Lent("mirror's pictures");
+    private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
-    private final Lent watered = new Lent("picture of what water shows");
+    private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
     private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered};
     private final Lent[] UNSIZED = {beamed, torched, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
@@ -834,7 +837,7 @@ final class Pipeline {
             stage(STAGE_WORLD);
             if (steadying) {
                 // Nothing in the picture moves by itself until the people's light says so.
-                lend(steadied, this::makeSteadied);
+                lend(steadied);
                 GL30.glBindFramebuffer(GL_FRAMEBUFFER, movesAlone);
                 GL11.glClearColor(0f, 0f, 0f, 0f);
                 GL11.glClear(GL_COLOR_BUFFER_BIT);
@@ -928,7 +931,7 @@ final class Pipeline {
         behind.upY = 0f;
         behind.upUp = 1f;
         shownBehind = listBehind(behind, state, fogEnd);
-        lend(mirrored, this::makeMirror);
+        lend(mirrored);
         inMirror = true;
         drawWorld(behind, state, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far, fogStart, fogEnd);
         inMirror = false;
@@ -1007,7 +1010,7 @@ final class Pipeline {
     private void drawOverWater(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
             float fogStart, float fogEnd) {
         WaterMirror.mirror(camera, water, under);
-        lend(watered, this::makeWatered);
+        lend(watered);
         float tan = tanHalfFieldOfView * WaterMirror.MARGIN;
         // The world only where the water is, and the coarser levels of it, which take in what is
         // round it: the rest of the picture is the sky, which nothing reads.
@@ -1459,9 +1462,7 @@ final class Pipeline {
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             shadow.set("uMatrix", map == 0 ? nearMatrix : farMatrix);
-            ChunkBuffers.Listing held = heldBy(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
-            drawRanges(held, 0, held.solidRanges());
-            drawModels(shadow, false, false, null, 0f, 0f);
+            castHeld(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
         }
         if (figures) {
             // The game's own draw of each character, with the light's matrix where its camera
@@ -1501,17 +1502,9 @@ final class Pipeline {
             ViewCamera.view(lamp, seen);
             ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
             multiply(cast, seen, beamMatrix);
-            lend(beamed, this::makeBeamed);
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, beamTarget);
-            GL11.glClearDepth(1.0);
-            GL11.glClear(GL_DEPTH_BUFFER_BIT);
-            shadow.use();
-            shadow.set("uMatrix", beamMatrix);
-            shadow.set("uSunWay", 0f, 0f, 1f);
-            GL13.glActiveTexture(GL_TEXTURE0);
-            ChunkBuffers.Listing held = heldBy(beamMatrix, state, beamListed, BEAM_MAP);
-            drawRanges(held, 0, held.solidRanges());
-            drawModels(shadow, false, false, null, 0f, 0f);
+            lend(beamed);
+            beginCast(beamTarget, beamMatrix);
+            castHeld(beamMatrix, state, beamListed, BEAM_MAP);
             if (figures) {
                 view.characters.castCharacters(beamMatrix, seen, BEAM_TAN, BEAM_FAR);
                 resumeCasting();
@@ -1543,18 +1536,10 @@ final class Pipeline {
         ViewCamera.view(lamp, seen);
         ViewCamera.projection(TORCH_TAN, 1f, TORCH_NEAR, torchAt[3] + TORCH_PAST_REACH, cast);
         multiply(cast, seen, torchMatrix);
-        lend(torched, this::makeTorched);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, torchTarget);
+        lend(torched);
         GL11.glViewport(0, 0, torchSize, torchSize);
-        GL11.glClearDepth(1.0);
-        GL11.glClear(GL_DEPTH_BUFFER_BIT);
-        shadow.use();
-        shadow.set("uMatrix", torchMatrix);
-        shadow.set("uSunWay", 0f, 0f, 1f);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        ChunkBuffers.Listing held = heldBy(torchMatrix, state, torchListed, TORCH_MAP);
-        drawRanges(held, 0, held.solidRanges());
-        drawModels(shadow, false, false, null, 0f, 0f);
+        beginCast(torchTarget, torchMatrix);
+        castHeld(torchMatrix, state, torchListed, TORCH_MAP);
         if (figures) {
             view.characters.castOthers(torchMatrix);
             resumeCasting();
@@ -1573,21 +1558,32 @@ final class Pipeline {
         roofMatrix[10] = -1f / ROOF_RANGE;
         roofMatrix[14] = focusUp / ROOF_RANGE;
         roofMatrix[15] = 1f;
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, roofTarget);
-        GL11.glClearDepth(1.0);
-        GL11.glClear(GL_DEPTH_BUFFER_BIT);
-        shadow.use();
-        shadow.set("uMatrix", roofMatrix);
-        shadow.set("uSunWay", 0f, 0f, 1f);
+        beginCast(roofTarget, roofMatrix);
         shadow.set("uFromAbove", 1f);
         try {
-            ChunkBuffers.Listing held = heldBy(roofMatrix, state, roofListed, ROOF_MAP);
-            drawRanges(held, 0, held.solidRanges());
-            drawModels(shadow, false, false, null, 0f, 0f);
+            castHeld(roofMatrix, state, roofListed, ROOF_MAP);
         } finally {
             // Every other map this program draws has its wires in it.
             shadow.set("uFromAbove", 0f);
         }
+    }
+
+    /** Binds and clears a map that is not the sun's, and has the shadow program cast into it along the matrix. */
+    private void beginCast(int target, float[] matrix) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_DEPTH_BUFFER_BIT);
+        shadow.use();
+        shadow.set("uMatrix", matrix);
+        shadow.set("uSunWay", 0f, 0f, 1f);
+        GL13.glActiveTexture(GL_TEXTURE0);
+    }
+
+    /** Casts the frame's solid chunks and furniture that a map drawn with the matrix can hold into the map bound. */
+    private void castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
+        ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
+        drawRanges(held, 0, held.solidRanges());
+        drawModels(shadow, false, false, null, 0f, 0f);
     }
 
     /**
@@ -2001,6 +1997,8 @@ final class Pipeline {
         ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
         // The picture of what water shows is mostly far off, where little hides anything else, and is drawn once.
         boolean depthFirst = !WITHOUT.contains("depth") && !inWater;
+        // Read once for both drawings of the world: read for each, a mark the logic thread added between them would be in one and not the other.
+        placeSnowPrints(camera);
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         // The solid world is drawn twice. The first time only its depth is kept, and the
@@ -2144,6 +2142,7 @@ final class Pipeline {
         GL11.glEnable(GL_BLEND);
         // The picture's alpha says how much of a mirror each pixel is, and stays what lies behind the pane.
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        placeSnowPrints(camera);
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         world.set("uTexel", 0f, 0f);
@@ -2160,10 +2159,15 @@ final class Pipeline {
         leaveWorld();
     }
 
+    /** Where the viewer has trodden the snow and driven over it, counted from this picture's own eye, for tellWorld. */
+    private void placeSnowPrints(ViewCamera.Pose camera) {
+        SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
+    }
+
     /**
      * Makes one of the world's two programs the one in use and tells it the frame: the eye, the sun, the
-     * shadow maps, the weather. The projection is the one drawWorld last made, so whatever is
-     * drawn later in the frame lies on what was drawn first to the fraction of a pixel.
+     * shadow maps, the weather, and the snow's marks placeSnowPrints last placed. The projection is the one drawWorld
+     * last made, so whatever is drawn later in the frame lies on what was drawn first to the fraction of a pixel.
      */
     private void tellWorld(Program to, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float fogStart, float fogEnd) {
         GL11.glMatrixMode(GL_PROJECTION);
@@ -2284,8 +2288,6 @@ final class Pipeline {
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
         to.set("uPlantSnow", state.snowOnPlants());
-        // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
-        SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         for (int i = 0; i < snowTrod[0]; i++) {
             to.set(PRINT_AT[i], snowPrints[i * 4], snowPrints[i * 4 + 1], snowPrints[i * 4 + 2], snowPrints[i * 4 + 3]);
         }
@@ -2494,7 +2496,7 @@ final class Pipeline {
     }
 
     private void drawOcclusion(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(shaded, this::makeShaded);
+        lend(shaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, occlusionTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         occlusion.use();
@@ -2536,7 +2538,7 @@ final class Pipeline {
     }
 
     private void drawVolume(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        lend(shaded, this::makeShaded);
+        lend(shaded);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, volumeTarget);
         GL11.glViewport(0, 0, levelWidth[0], levelHeight[0]);
         volume.use();
@@ -2791,7 +2793,7 @@ final class Pipeline {
         }
 
         if (seated) {
-            lend(cabin, this::makeCabin);
+            lend(cabin);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);
             GL11.glDepthMask(true);
             GL11.glClearColor(0f, 0f, 0f, 0f);
@@ -3158,7 +3160,7 @@ final class Pipeline {
         if (!drawn) {
             return false;
         }
-        lend(glassed, this::makeGlassed);
+        lend(glassed);
         // The eye that sees the real viewer where this one sees them in the glass: with it
         // the light finds where they stand, in the room and not out in the street.
         OwnReflection.mirror(camera, reflection, inGlass);
@@ -4010,7 +4012,7 @@ final class Pipeline {
      * not. A making binds a texture and a target: the pass sets its own after this. Thrown, as
      * a frame's fault, when the driver will not make them.
      */
-    private void lend(Lent set, Supplier<String> make) {
+    private void lend(Lent set) {
         set.usedNanos = frameNanos;
         if (set.made()) {
             return;
@@ -4019,7 +4021,7 @@ final class Pipeline {
         making = set;
         String problem;
         try {
-            problem = make.get();
+            problem = set.make.get();
         } finally {
             making = null;
         }
