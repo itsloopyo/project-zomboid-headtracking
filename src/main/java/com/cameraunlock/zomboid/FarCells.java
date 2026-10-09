@@ -25,6 +25,8 @@ final class FarCells {
     static final int LAND_VERTICES = SIDE * (2 * CORNERS + 2) - 2;
     /** What the game's map paints water, and open grass, which is also what lies where it has no picture. */
     static final int WATER = 0x6c7f83, GRASS = 0x4b581b;
+    /** How much further under the country a corner of a chunk with water lies than the built world's water does, in tiles. */
+    private static final float WATER_UNDER = 0.05f;
     /**
      * What the game's map paints a pavement, which is a brick pink there so that a street reads on a map, and the
      * concrete it is in the built world.
@@ -132,6 +134,16 @@ final class FarCells {
             for (int i = 0; i < ring; i++) {
                 float x = (i - 1) * STEP, y = (j - 1) * STEP;
                 heights[j * ring + i] = Terrain.far(cellX * CELL + x, cellY * CELL + y, toWater(around, x, y));
+                // A corner of a chunk with water in it lies under the country as the built
+                // world's water does, and a little more: the built world thins out into the far
+                // land pixel by pixel, each as far off as the eye's line meets it, and the far
+                // land's water lying higher met it nearer, where it had not come in yet. Lying
+                // lower it has come in, and is behind the built world while that is there; the
+                // land of such a chunk with it, which is no further than that behind the built land.
+                if (toWater(around, x - STEP / 2f, y - STEP / 2f) == 0f || toWater(around, x + STEP / 2f, y - STEP / 2f) == 0f
+                        || toWater(around, x - STEP / 2f, y + STEP / 2f) == 0f || toWater(around, x + STEP / 2f, y + STEP / 2f) == 0f) {
+                    heights[j * ring + i] -= Terrain.WATER_BELOW + WATER_UNDER;
+                }
             }
         }
         for (int j = 0; j < SIDE; j++) {

@@ -321,7 +321,7 @@ final class Pipeline {
     private final Lent torched = new Lent("torch's shadow map");
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures");
-    /** What water shows, at half the picture's size: only in High, in first person, with water in sight. */
+    /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows");
     private final Lent[] SIZED = {whole, steadied, cabin, glassed, shaded, watered};
     private final Lent[] UNSIZED = {beamed, torched, mirrored};
@@ -519,7 +519,7 @@ final class Pipeline {
     /** While set, the world is drawn into the picture a scope's eyepiece shows. */
     private boolean inScope;
     /**
-     * What water shows: the world over it, drawn from the eye's image under it at half the
+     * What water shows: the world over it, drawn from the eye's image under it at a third of the
      * picture's size. Only in High, in first person, and only in a frame whose picture can
      * have water in it: see waterInSight and WaterMirror.
      */
@@ -529,6 +529,16 @@ final class Pipeline {
     private boolean inWater;
     /** Whether this frame drew it, for the eye's own picture to show. */
     private boolean waterDrawn;
+    /** How far the nearest water in sight is from the eye, in tiles: see waterInSight. */
+    private float waterNearest;
+    /**
+     * The part of that picture the water in sight can show, as its least and greatest x and y
+     * from -1 to 1 (see waterInSight); that and what its coarser levels take in round it, which
+     * is drawn; room for WaterMirror.takeIn; and the projection cut down to what is drawn.
+     */
+    private final float[] waterRect = new float[4], cropRect = new float[4], boxCorners = new float[32], cropped = new float[16];
+    /** How many of its pixels the picture of what water shows is drawn past the part of it that is read: what its coarser levels take in. */
+    private static final int WATER_RECT_TEXELS = 16;
     private static final int WATER_UNIT = 18;
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
     private static final int MIRROR_UNIT = 21;
@@ -810,7 +820,7 @@ final class Pipeline {
             if (view.scope.wanted(view.characters.aim, tanHalfFieldOfView / FieldOfView.setTanHalfVertical())) {
                 drawThroughScope(state, far, fogStart, fogEnd, figures);
             }
-            waterDrawn = water != null && shadedAndLit && !outside && waterInSight(camera, tanHalfFieldOfView, aspect, near, far);
+            waterDrawn = water != null && shadedAndLit && !outside && waterInSight(camera, state, tanHalfFieldOfView, aspect, near, far);
             if (waterDrawn) {
                 drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
@@ -957,18 +967,33 @@ final class Pipeline {
      * the room they stand in but off to a side, the picture of what water shows is a second
      * drawing of the world that nothing would show.
      */
-    private boolean waterInSight(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private boolean waterInSight(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         ViewCamera.turned(camera, viewed);
         mapBounds.ofTurned(projection, viewed);
+        float tan = tanHalfFieldOfView * WaterMirror.MARGIN;
+        float roughness = WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY));
+        waterNearest = Float.POSITIVE_INFINITY;
+        boolean seen = false;
         for (int i = 0; i < drawn.size(); i++) {
             WorldScene.ChunkMeshes build = drawn.get(i);
-            if (build.water && !mapBounds.outside((build.minX + build.maxX) / 2f - camera.eyeX, (build.minY + build.maxY) / 2f - camera.eyeY,
+            // A build with no triangles has no box: its middle is not a number, and is outside nothing.
+            if (!build.water || build.runs == 0 || mapBounds.outside((build.minX + build.maxX) / 2f - camera.eyeX, (build.minY + build.maxY) / 2f - camera.eyeY,
                     (build.minUp + build.maxUp) / 2f - camera.eyeUp, (build.maxX - build.minX) / 2f, (build.maxY - build.minY) / 2f, (build.maxUp - build.minUp) / 2f)) {
-                return true;
+                continue;
             }
+            if (!seen) {
+                WaterMirror.nothingSeen(waterRect);
+                seen = true;
+            }
+            WaterMirror.takeIn(camera, water, build.minX, build.minY, build.maxX, build.maxY, tan, aspect, roughness, boxCorners, waterRect);
+            waterNearest = Math.min(waterNearest, WaterMirror.nearest(camera, water, build.minX, build.minY, build.maxX, build.maxY));
         }
-        return false;
+        if (!seen) {
+            return false;
+        }
+        WaterMirror.keepToPicture(waterRect);
+        return waterRect[0] < waterRect[2] && waterRect[1] < waterRect[3];
     }
 
     /**
@@ -980,9 +1005,28 @@ final class Pipeline {
         WaterMirror.mirror(camera, water, under);
         lend(watered, this::makeWatered);
         float tan = tanHalfFieldOfView * WaterMirror.MARGIN;
+        // The world only where the water is, and the coarser levels of it, which take in what is
+        // round it: the rest of the picture is the sky, which nothing reads.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, waterTarget);
+        GL11.glViewport(0, 0, waterWidth, waterHeight);
+        GL11.glDepthMask(true);
+        GL11.glColorMask(true, true, true, true);
+        GL11.glClearColor(0f, 0f, 0f, 1f);
+        GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        int fromX = Math.max(0, (int) Math.floor((waterRect[0] * 0.5f + 0.5f) * waterWidth) - WATER_RECT_TEXELS);
+        int fromY = Math.max(0, (int) Math.floor((waterRect[1] * 0.5f + 0.5f) * waterHeight) - WATER_RECT_TEXELS);
+        int toX = Math.min(waterWidth, (int) Math.ceil((waterRect[2] * 0.5f + 0.5f) * waterWidth) + WATER_RECT_TEXELS);
+        int toY = Math.min(waterHeight, (int) Math.ceil((waterRect[3] * 0.5f + 0.5f) * waterHeight) + WATER_RECT_TEXELS);
+        GL11.glScissor(fromX, fromY, toX - fromX, toY - fromY);
+        cropRect[0] = Math.max(-1f, waterRect[0] - 2f * WATER_RECT_TEXELS / waterWidth);
+        cropRect[1] = Math.max(-1f, waterRect[1] - 2f * WATER_RECT_TEXELS / waterHeight);
+        cropRect[2] = Math.min(1f, waterRect[2] + 2f * WATER_RECT_TEXELS / waterWidth);
+        cropRect[3] = Math.min(1f, waterRect[3] + 2f * WATER_RECT_TEXELS / waterHeight);
+        GL11.glEnable(GL_SCISSOR_TEST);
         inWater = true;
         drawWorld(under, state, tan, aspect, near, far, fogStart, fogEnd);
         inWater = false;
+        GL11.glDisable(GL_SCISSOR_TEST);
         drawSkyInto(waterTarget, waterWidth, waterHeight, false, under, state, tan, aspect, near, far);
         // Far water reads it coarser than it was drawn: see overWater in the world's program.
         GL11.glBindTexture(GL_TEXTURE_2D, waterColor);
@@ -1228,7 +1272,7 @@ final class Pipeline {
         int told = -1;
         float[] toldOf = null;
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
-            if (inMirror && shownBehind == behindListed && leftOut[chunk]) {
+            if ((inMirror && shownBehind == behindListed || inWater) && leftOut[chunk]) {
                 continue;
             }
             Models.Instances placed = drawn.get(chunk).placed;
@@ -1242,6 +1286,12 @@ final class Pipeline {
                     float ahead = (f[ball] - within.eyeX) * within.forwardX + (f[ball + 1] - within.eyeY) * within.forwardY
                             + (f[ball + 2] - within.eyeUp) * within.forwardUp;
                     if (ahead < -f[ball + 3] || ahead > far + f[ball + 3]) {
+                        continue;
+                    }
+                    // The picture of what water shows is drawn only where the water is, and holds
+                    // nothing nearer than the water: see seenBy.
+                    if (inWater && (mapBounds.outside(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp, f[ball + 3], f[ball + 3], f[ball + 3])
+                            || length(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp) + f[ball + 3] < waterNearest)) {
                         continue;
                     }
                     plain = placed.plain(piece, ahead, pixel);
@@ -1574,7 +1624,19 @@ final class Pipeline {
      */
     private ChunkBuffers.Listing seenBy(ViewCamera.Pose camera, SkyState state) {
         ViewCamera.turned(camera, viewed);
-        mapBounds.ofTurned(projection, viewed);
+        if (inWater) {
+            // The picture of what water shows is drawn only where the water is, and what the rest of it would hold is left out.
+            System.arraycopy(projection, 0, cropped, 0, 16);
+            float halfX = (cropRect[2] - cropRect[0]) / 2f, halfY = (cropRect[3] - cropRect[1]) / 2f;
+            float middleX = (cropRect[2] + cropRect[0]) / 2f, middleY = (cropRect[3] + cropRect[1]) / 2f;
+            cropped[0] /= halfX;
+            cropped[8] = (cropped[8] + middleX) / halfX;
+            cropped[5] /= halfY;
+            cropped[9] = (cropped[9] + middleY) / halfY;
+            mapBounds.ofTurned(cropped, viewed);
+        } else {
+            mapBounds.ofTurned(projection, viewed);
+        }
         if (leftOut.length < drawn.size()) {
             leftOut = new boolean[drawn.size() * 2];
         }
@@ -1590,6 +1652,12 @@ final class Pipeline {
             float reach = blown + build.layered * card;
             leftOut[i] = mapBounds.outside(midX - camera.eyeX, midY - camera.eyeY, midUp - camera.eyeUp, halfX + reach + build.turned,
                     halfY + reach + build.turned, halfUp + reach);
+            // Seen from under the water the eye's line is under the water until it meets it, and
+            // what is all of it nearer than the nearest water in sight is in no reflection.
+            if (inWater && !leftOut[i] && length(Math.abs(midX - camera.eyeX) + halfX + reach + build.turned, Math.abs(midY - camera.eyeY) + halfY + reach + build.turned,
+                    Math.abs(midUp - camera.eyeUp) + halfUp + reach) < waterNearest) {
+                leftOut[i] = true;
+            }
             if (leftOut[i]) {
                 left++;
             }
@@ -1927,7 +1995,8 @@ final class Pipeline {
             view.characters.aside(asideX, asideY);
         }
         ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
-        boolean depthFirst = !WITHOUT.contains("depth");
+        // The picture of what water shows is mostly far off, where little hides anything else, and is drawn once.
+        boolean depthFirst = !WITHOUT.contains("depth") && !inWater;
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         // The solid world is drawn twice. The first time only its depth is kept, and the
@@ -2188,6 +2257,9 @@ final class Pipeline {
             to.set("uWater", 0f, 0f, 0f, 0f);
         }
         to.set("uWaterShare", 1f / WaterMirror.MARGIN);
+        to.set("uWaterRect", waterRect[0], waterRect[1], waterRect[2], waterRect[3]);
+        to.set("uWaterDensity", (float) waterHeight / height);
+        to.set("uWaterThrow", WaterMirror.THROW);
         to.set("uRuffle", WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY)));
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
@@ -4235,8 +4307,8 @@ final class Pipeline {
     }
 
     private String makeWatered() {
-        waterWidth = Math.max(1, width / 2);
-        waterHeight = Math.max(1, height / 2);
+        waterWidth = Math.max(1, width / 3);
+        waterHeight = Math.max(1, height / 3);
         waterColor = texture(GL_RGBA16F, waterWidth, waterHeight, GL_RGBA, GL_FLOAT, GL_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         // Its coarser levels come to a third of it again.

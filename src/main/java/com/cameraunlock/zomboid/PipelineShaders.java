@@ -631,6 +631,12 @@ final class PipelineShaders {
             uniform vec4 uWater;
             // How much of that picture's width and height this one takes up (one over WaterMirror.MARGIN).
             uniform float uWaterShare;
+            // The part of that picture that was drawn, as its least and greatest x and y from -1 to 1.
+            uniform vec4 uWaterRect;
+            // How many of that picture's pixels there are to one of this one's, up and down.
+            uniform float uWaterDensity;
+            // How far off what water shows is taken to stand, in tiles, where a ripple or a rise of the water throws the eye's line aside: WaterMirror.THROW.
+            uniform float uWaterThrow;
             // How rough the wind has the water: 1 in a light breeze.
             uniform float uRuffle;
             // How much of its distance from the eye a pixel of this picture takes in, up and down.
@@ -836,11 +842,9 @@ final class PipelineShaders {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
             }
 
-            // How far off what water shows is taken to stand, in tiles, where a ripple or a
-            // rise of the water throws the eye's line aside; and how long a streak the ripples
-            // a pixel cannot show draw a reflection out into, as a multiple of how much they
-            // tilt the water.
-            const float WATER_THROW = 24.0, WATER_STREAK = 0.52;
+            // How long a streak the ripples a pixel cannot show draw a reflection out into, as a
+            // multiple of how much they tilt the water.
+            const float WATER_STREAK = 0.52;
             const int WATER_TAPS = 8;
 
             // What the water shows of a place, counted from the eye: its image in the water's
@@ -853,7 +857,7 @@ final class PipelineShaders {
             vec3 overWater(vec3 fromEye, float coarser) {
                 vec3 image = fromEye - 2.0 * (dot(uWater.xyz, fromEye) + uWater.w) * uWater.xyz;
                 vec4 seen = gl_ModelViewProjectionMatrix * vec4(image, 1.0);
-                return texture2DLod(uWaterPicture, seen.xy / max(seen.w, 1e-4) * (0.5 * uWaterShare) + 0.5, coarser).rgb;
+                return texture2DLod(uWaterPicture, clamp(seen.xy / max(seen.w, 1e-4) * uWaterShare, uWaterRect.xy, uWaterRect.zw) * 0.5 + 0.5, coarser).rgb;
             }
 
             // How many of them fit across a tile, for the three sizes of ripple on water.
@@ -2020,6 +2024,14 @@ final class PipelineShaders {
                 // the next and the edge comes out straight.
                 vec2 halfTexel = vec2(0.5 * uTexel.x, 0.0);
                 float cover = uTexel.x > 0.0 && !small && !crown && !core ? 0.5 * (texture2D(uTexture, vUv - halfTexel).a + texture2D(uTexture, vUv + halfTexel).a) : texel.a;
+                // Water's sprite is a diamond stretched over its square with half its frame
+                // clear, and the nine samples of a far pixel that reach past the square's edge
+                // land in that clear: their mean came out either side of the cut from one pixel
+                // to the next, holes all over far water. A far pixel of water is there if any
+                // of its samples is solid, which keeps the shape of a piece of shore.
+                if (small && vKind > 3.5 && !grass) {
+                    cover = mostSolid;
+                }
                 // A wire or an aerial painted one texel wide never covers more than half of two
                 // texels, and at the cut for solid things it comes out as a row of dashes. What
                 // stands as a card is cut lower, so a thin line stays whole.
@@ -2991,18 +3003,18 @@ final class PipelineShaders {
                         // as coarse as they are far apart.
                         float drawn = ripple * dot(1.0 - kept, RIPPLES * vec3(0.5, 0.3, 0.2)) / dot(RIPPLES, vec3(0.5, 0.3, 0.2)) * WATER_STREAK;
                         vec2 toward = view.xy / max(length(view.xy), 1e-4);
-                        float coarser = log2(max(4.0 * drawn / uPixel * 0.5 * uWaterShare / float(WATER_TAPS), 1.0));
+                        float coarser = log2(max(4.0 * drawn / uPixel * uWaterDensity * uWaterShare / float(WATER_TAPS), 1.0));
                         if (drawn > 0.0) {
                             shows = vec3(0.0);
                             for (int i = 0; i < WATER_TAPS; i++) {
                                 vec3 tipped = normalize(surface + vec3(toward * (drawn * ((float(i) + 0.5) * 2.0 / float(WATER_TAPS) - 1.0)), 0.0));
                                 vec3 thrown = reflect(-view, tipped);
                                 thrown.z = abs(thrown.z);
-                                shows += overWater(thrown * WATER_THROW - toEye, coarser);
+                                shows += overWater(thrown * uWaterThrow - toEye, coarser);
                             }
                             shows /= float(WATER_TAPS);
                         } else {
-                            shows = overWater(mirrored * WATER_THROW - toEye, 0.0);
+                            shows = overWater(mirrored * uWaterThrow - toEye, 0.0);
                         }
                     } else {
                         shows = ridges(mirrored, atmosphere(mirrored));

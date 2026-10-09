@@ -40,6 +40,7 @@ public final class GL11 {
     public static void glPixelStorei(int pname, int param) { throw stub(); }
     public static void glReadPixels(int x, int y, int width, int height, int format, int type, ByteBuffer pixels) { throw stub(); }
     public static void glViewport(int x, int y, int w, int h) { throw stub(); }
+    public static void glScissor(int x, int y, int w, int h) { throw stub(); }
     public static void glFogi(int pname, int param) { throw stub(); }
     public static void glFinish() { throw stub(); }
     public static void glDrawArrays(int mode, int first, int count) { throw stub(); }

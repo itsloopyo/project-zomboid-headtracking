@@ -7099,6 +7099,11 @@ final class WorldScene {
          */
         private void addCeiling(SpriteGeometry.Mesh mesh, int x, int y, int z) {
             IsoGridSquare below = cell.getGridSquare(x, y, z - 1);
+            // Under water with nothing below it there is nothing to see the ceiling from, and
+            // the picture drawn from under the water would show it in place of the water it leaves out.
+            if (frame.kind != 0f && below == null) {
+                return;
+            }
             if (isCanopy(here, below)) {
                 float drop = canopyDrop(x, y, z);
                 if (drop > 0f) {
@@ -7106,7 +7111,7 @@ final class WorldScene {
                     return;
                 }
             }
-            float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open;
+            float red = frame.red, green = frame.green, blue = frame.blue, open = frame.open, kind = frame.kind;
             System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
             System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
             System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
@@ -7114,9 +7119,12 @@ final class WorldScene {
                     : below == null || below.getRoomID() == -1L || asTheGameShows || gamesView ? unseenLight : lampBurns(cell, below, lampsNear) ? lampLight : roomLight;
             frame.light(light.r, light.g, light.b);
             frame.open = 0f;
+            // The ceiling under a floor of water is a ceiling, not more water.
+            frame.kind = 0f;
             layers.lie(SpriteGeometry.LAYERS_UP, -1f);
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             layers.none();
+            frame.kind = kind;
             frame.red = red;
             frame.green = green;
             frame.blue = blue;

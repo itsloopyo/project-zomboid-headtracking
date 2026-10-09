@@ -66,7 +66,7 @@ final class Terrain {
     /** How far from made ground, a building or water its hold on the height of the land reaches, in tiles. */
     static final int REACH = 6;
     /** How far below the land round it water lies, and how far from it the bank starts to fall, in tiles. */
-    private static final float WATER_BELOW = 0.34f;
+    static final float WATER_BELOW = 0.34f;
     private static final float BANK_WIDTH = 2.6f;
     /**
      * A street is laid at the height the land has, taken over the street within this many tiles

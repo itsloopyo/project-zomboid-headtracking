@@ -11,6 +11,7 @@ final class WaterMirrorTests {
         Checks.run("eyesImageIsAsFarUnderTheWaterAsTheEyeIsOverIt", WaterMirrorTests::eyesImageIsAsFarUnderTheWaterAsTheEyeIsOverIt);
         Checks.run("planeTouchesTheWaterUnderTheEyeAndLiesInItAcrossARiver", WaterMirrorTests::planeTouchesTheWaterUnderTheEyeAndLiesInItAcrossARiver);
         Checks.run("windRoughensWaterAndNeverSmoothsItToGlass", WaterMirrorTests::windRoughensWaterAndNeverSmoothsItToGlass);
+        Checks.run("everyPointOfWaterInThePictureIsInTheRectangleDrawnForIt", WaterMirrorTests::everyPointOfWaterInThePictureIsInTheRectangleDrawnForIt);
     }
 
     private static void pointOnTheWaterShowsTheSamePlaceWhateverWayTheHeadIsTurned() {
@@ -103,6 +104,60 @@ final class WaterMirrorTests {
         check(WaterMirror.ruffle(0f) > 0.5f, "in a dead calm water still has ripples");
         check(WaterMirror.ruffle(0.8f) > 1.5f * WaterMirror.ruffle(0.1f), "a strong wind roughens it well past what a calm does");
         check(WaterMirror.ruffle(2f) == WaterMirror.ruffle(5f), "and a gale no more than a gale");
+    }
+
+    private static void everyPointOfWaterInThePictureIsInTheRectangleDrawnForIt() {
+        float eyeX = 6450.5f, eyeY = 5183.5f;
+        float[] plane = new float[4], rect = new float[4], corners = new float[32], at = new float[2];
+        WaterMirror.plane(Terrain.HILLS, eyeX, eyeY, plane);
+        float eyeUp = Terrain.HILLS.waterLevel(eyeX, eyeY) + 1.9f;
+        float tan = TAN * WaterMirror.MARGIN;
+        // A chunk of water the eye stands at the edge of, one in front, and one far off.
+        float[][] chunks = {{6448f, 5176f, 6456f, 5184f}, {6440f, 5160f, 6448f, 5168f}, {6400f, 5096f, 6408f, 5104f}};
+        ViewCamera.Pose eye = new ViewCamera.Pose();
+        int inside = 0;
+        for (float[] chunk : chunks) {
+            for (int yaw = 0; yaw < 360; yaw += 30) {
+                for (int pitch = -80; pitch <= 30; pitch += 22) {
+                    for (int roll = -40; roll <= 40; roll += 20) {
+                        ViewCamera.clean(eye, eyeX, eyeY, eyeUp, (float) Math.toRadians(yaw), (float) Math.toRadians(pitch));
+                        ViewCamera.turn(eye, 0f, 0f, (float) Math.toRadians(roll), true);
+                        WaterMirror.nothingSeen(rect);
+                        WaterMirror.takeIn(eye, plane, chunk[0], chunk[1], chunk[2], chunk[3], tan, ASPECT, 1f, corners, rect);
+                        for (int i = 0; i <= 16; i++) {
+                            for (int j = 0; j <= 16; j++) {
+                                float x = chunk[0] + (chunk[2] - chunk[0]) * i / 16f, y = chunk[1] + (chunk[3] - chunk[1]) * j / 16f;
+                                if (!ViewCamera.project(eye, tan, ASPECT, x, y, Terrain.HILLS.waterLevel(x, y), at) || Math.abs(at[0]) > 1f || Math.abs(at[1]) > 1f) {
+                                    continue;
+                                }
+                                inside++;
+                                check(at[0] >= rect[0] - 1e-4f && at[0] <= rect[2] + 1e-4f && at[1] >= rect[1] - 1e-4f && at[1] <= rect[3] + 1e-4f,
+                                        "water at " + x + ", " + y + " is in the rectangle at yaw " + yaw + " pitch " + pitch + " roll " + roll);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check(inside > 5000, "the water was in the picture often enough to say: " + inside);
+        // Nothing nearer the eye than the nearest water in sight is in what the water shows: every point of a
+        // chunk of water, and so every place the eye's line meets it, is at least that far off.
+        for (float[] chunk : chunks) {
+            float nearest = WaterMirror.nearest(eye, plane, chunk[0], chunk[1], chunk[2], chunk[3]);
+            for (int i = 0; i <= 16; i++) {
+                for (int j = 0; j <= 16; j++) {
+                    float x = chunk[0] + (chunk[2] - chunk[0]) * i / 16f, y = chunk[1] + (chunk[3] - chunk[1]) * j / 16f, up = Terrain.HILLS.waterLevel(x, y);
+                    check((float) Math.sqrt((x - eyeX) * (x - eyeX) + (y - eyeY) * (y - eyeY) + (up - eyeUp) * (up - eyeUp)) >= nearest - 1e-3f,
+                            "no water in the chunk is nearer than its nearest: " + x + ", " + y);
+                }
+            }
+        }
+        // In front and far off, the rectangle is a small part of the picture.
+        ViewCamera.clean(eye, eyeX, eyeY, eyeUp, (float) Math.toRadians(225), 0f);
+        WaterMirror.nothingSeen(rect);
+        WaterMirror.takeIn(eye, plane, 6400f, 5096f, 6408f, 5104f, tan, ASPECT, WaterMirror.ruffle(0.25f), corners, rect);
+        WaterMirror.keepToPicture(rect);
+        check((rect[2] - rect[0]) * (rect[3] - rect[1]) < 0.2f, "a pond a hundred tiles off takes a twentieth of the picture or less: " + rect[0] + " " + rect[1] + " " + rect[2] + " " + rect[3]);
     }
 
     private static void check(boolean condition, String what) {

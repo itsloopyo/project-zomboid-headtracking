@@ -17,6 +17,7 @@ final class FarLandTests {
         Checks.run("aPictureIsHalvedDownToOnePixel", FarLandTests::aPictureIsHalvedDownToOnePixel);
         Checks.run("waterIsFoundByTheChunk", FarLandTests::waterIsFoundByTheChunk);
         Checks.run("theLandLiesAsTheBuiltWorldsDoes", FarLandTests::theLandLiesAsTheBuiltWorldsDoes);
+        Checks.run("waterLiesUnderTheBuiltWorldsWater", FarLandTests::waterLiesUnderTheBuiltWorldsWater);
         Checks.run("aBuildingIsABlockOfItsFloors", FarLandTests::aBuildingIsABlockOfItsFloors);
         Checks.run("aFloorSmallerThanTheOneUnderItLeavesARoofBeside", FarLandTests::aFloorSmallerThanTheOneUnderItLeavesARoofBeside);
         Checks.run("aCellarAloneIsNoBuilding", FarLandTests::aCellarAloneIsNoBuilding);
@@ -86,6 +87,27 @@ final class FarLandTests {
             check(Math.abs(x * x + y * y + z * z - 1f) < 1e-4f && z > 0.9f, "the land faces up, a little off it on a slope");
             check(to.get(at + 27) == 0, "and is marked as land");
         }
+    }
+
+    private static void waterLiesUnderTheBuiltWorldsWater() {
+        // A river one chunk wide across the middle of the cell, with land either side of it.
+        int[][] river = new int[9][];
+        Arrays.setAll(river, i -> new int[FarCells.SIDE]);
+        river[4][FarCells.SIDE / 2] = -1;
+        ByteBuffer to = buffer(FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES);
+        FarCells.land(river, 49, 5, to);
+        int corners = 0;
+        for (int at = 0; at < to.capacity(); at += FarCells.VERTEX_BYTES) {
+            float x = to.getFloat(at), y = to.getFloat(at + 4), up = to.getFloat(at + 8);
+            float chunkY = (y - 5 * 256f) / FarCells.STEP;
+            if (chunkY == FarCells.SIDE / 2f || chunkY == FarCells.SIDE / 2f + 1f) {
+                corners++;
+                check(up < Terrain.HILLS.waterLevel(x, y) - 0.04f, "a corner of the river's chunks lies under the built world's water at " + x + ", " + y + ": " + up);
+            } else if (chunkY < FarCells.SIDE / 2f - 1f || chunkY > FarCells.SIDE / 2f + 2f) {
+                check(up == Terrain.far(x, y, FarCells.toWater(river, x - 49 * 256f, y - 5 * 256f)), "and the land well off it is the country at " + x + ", " + y);
+            }
+        }
+        check(corners > 0, "the river has corners");
     }
 
     /** The area of the triangles that face up, and the highest any vertex is. */
