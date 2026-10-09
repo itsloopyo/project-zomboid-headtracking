@@ -45,8 +45,8 @@ final class Lights {
             {0.07f, 0.1f, 0.16f, 0.31f, 0.35f, 0.48f, 0.55f, 0.59f, 0.72f, 0.77f, 0.95f, 0.98f, 1.13f, 1.42f, 1.46f, 1.62f, 1.79f}, GLOBES};
     /** How thick a bulb's glass is at its widest, as a radius in tiles, by kind. */
     private static final float[] SIZES = {0.05f, 0.014f, 0.05f};
-    /** How many sides a bulb is turned with, by kind. */
-    private static final int[] SIDES = {8, 5, 8};
+    /** How many sides a bulb is turned with, by kind, near the eye and far from it. */
+    private static final int[] SIDES = {8, 5, 8}, FAR_SIDES = {5, 3, 5};
 
     /** The colour of clear glass with the lamp out and with it burning: red, green and blue, 0 to 255, by kind. */
     private static final int[][] CLEAR = {{178, 178, 178, 244, 233, 194}, {134, 134, 134, 235, 221, 195}};
@@ -65,6 +65,39 @@ final class Lights {
      */
     static final float[] HOLDER = {0f, 0f, 0f, 0.42f, 0.95f, 0.46f};
     static final float[] GLASS = {0.94f, 0.42f, 1.21f, 0.77f, 1.59f, 0.97f, 2.02f, 0.98f, 2.42f, 0.82f, 2.72f, 0.5f, 2.85f, 0f};
+    /**
+     * How near the eye a string is, in tiles, for its bulbs to be turned whole, and for it to
+     * have bulbs at all: further off than the first a bulb is the same holder and glass in four
+     * rings and fewer sides, and further off than the second the cord of a string that is out
+     * hangs bare. A square of
+     * string is some 600 triangles whole, 200 far and 20 bare, in the view and in every shadow
+     * map, and one place on the shipped map has 264 squares within sight.
+     */
+    static final float FINE_WITHIN = 16f, BULBS_WITHIN = 40f;
+    static final float[] FAR_HOLDER = {0f, 0.44f, 0.95f, 0.44f};
+    static final float[] FAR_GLASS = {0.94f, 0.42f, 1.59f, 0.97f, 2.42f, 0.82f, 2.85f, 0f};
+
+    /** How a string's bulbs are made: turned whole, turned plainer, or left off the cord. */
+    static final int WHOLE = 0, FAR = 1, BARE = 2;
+
+    /**
+     * How a string's bulbs are made by whether it is within FINE_WITHIN of the eye and within
+     * BULBS_WITHIN. A bulb that burns is a point of light as far as the string is seen, and stays.
+     */
+    static int made(boolean fine, boolean near, boolean burning) {
+        return fine ? WHOLE : near || burning ? FAR : BARE;
+    }
+
+    /**
+     * The least a vertex of what hangs on a cord is given as hanging below the line between the
+     * cord's supports, in tiles. The picture tells a vertex of the stuff of a lamp that hangs
+     * from one of a lamp that stands by its hanging at all, and only what hangs swings: see hung
+     * in PipelineShaders, whose line is drawn at half of this.
+     */
+    static final float HUNG_LEAST = 0.004f;
+
+    /** The numbers cordEnd and bulb write: a place on the map, how far along its swag that is from the first support, 0 to 1, and how far the cord hangs there below the line between the supports. How many they are. */
+    static final int X = 0, Y = 1, ALONG = 2, HANGS = 3, NUMBERS = 4;
 
     private static final String CALLED = "Lights";
     private static final IdentityHashMap<IsoSprite, Integer> slices = new IdentityHashMap<>();
@@ -150,6 +183,9 @@ final class Lights {
         piece[at + 1] = south ? along : across;
     }
 
+    /** The squares, from the one a corner post stands on the north-west corner of, that a half made fast at that corner may be on: see fastAt. */
+    static final int[] HELD_FROM_X = {0, -1, 0}, HELD_FROM_Y = {0, 0, -1};
+
     /**
      * Whether a half on the square (alongX, alongY) from another is made fast at that other
      * square's north-west corner, where a corner post stands: a first half on the square
@@ -160,6 +196,60 @@ final class Lights {
             return alongX == 0 && alongY == 0;
         }
         return runsSouth(slice) ? alongX == 0 && alongY == -1 : alongX == -1 && alongY == 0;
+    }
+
+    /**
+     * Where an end of one of the straight lengths the half of a swag is hung as lies on the
+     * cord: end 0 is where the half starts and end LENGTHS where it stops, and every end is on
+     * the curve of the whole swag, so the two halves are one cord. sag is how far the swag
+     * hangs in the middle.
+     */
+    static void cordEnd(float[] piece, int end, float sag, float[] at) {
+        float share = end / (float) LENGTHS;
+        at[X] = piece[0] + (piece[2] - piece[0]) * share;
+        at[Y] = piece[1] + (piece[3] - piece[1]) * share;
+        at[ALONG] = Spans.along(piece, 0, at[X], at[Y]);
+        at[HANGS] = Spans.hangs(at[ALONG], sag);
+    }
+
+    /** Where on the cord of a swag a bulb of its kind hangs from. */
+    static void bulb(float[] piece, int kind, int bulb, float sag, float[] at) {
+        float along = place(kind, bulb) / SPAN;
+        at[X] = piece[Spans.FROM] + (piece[Spans.TO] - piece[Spans.FROM]) * along;
+        at[Y] = piece[Spans.FROM + 1] + (piece[Spans.TO + 1] - piece[Spans.FROM + 1]) * along;
+        at[ALONG] = along;
+        at[HANGS] = Spans.hangs(along, sag);
+    }
+
+    /**
+     * Adds a round thing that hangs under a cord and swings with it: turned about the plumb
+     * line under (x, y, up) to a profile of pairs, how far below the cord and how thick, in
+     * units of size. hangs is how far the cord hangs there below the line between its
+     * supports, and each vertex is that much and its own depth under the cord below the
+     * line, so the whole of it is carried round the line as the cord is: see swung in
+     * PipelineShaders. across is what WorldScene.cable gives a cord's vertex where a texel's
+     * place would be, for the first corner. Where a ring closes on the plumb line it is one
+     * triangle a side: the other of the two would have two corners in one place.
+     */
+    static void round(SpriteGeometry.Mesh mesh, float x, float y, float up, float hangs, float acrossX, float acrossY, float[] profile, float size, int sides,
+            float red, float green, float blue) {
+        for (int ring = 0; ring + 3 < profile.length; ring += 2) {
+            float highDeep = profile[ring] * size, highWide = profile[ring + 1] * size, lowDeep = profile[ring + 2] * size, lowWide = profile[ring + 3] * size;
+            float drop = lowDeep - highDeep, swell = lowWide - highWide, slant = (float) Math.sqrt(drop * drop + swell * swell);
+            for (int side = 0; side < sides; side++) {
+                double start = side * 2.0 * Math.PI / sides, stop = (side + 1) * 2.0 * Math.PI / sides;
+                // Two triangles, as SpriteGeometry.addRound makes them: low from, low to, high to, then low from, high to, high from.
+                for (int corner = lowWide == 0f ? 3 : 0; corner < (highWide == 0f ? 3 : 6); corner++) {
+                    boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
+                    float cos = (float) Math.cos(far ? stop : start), sin = (float) Math.sin(far ? stop : start);
+                    float deep = high ? highDeep : lowDeep, wide = high ? highWide : lowWide;
+                    mesh.face(cos * drop / slant, sin * drop / slant, swell / slant);
+                    mesh.sway = hangs + deep + HUNG_LEAST;
+                    mesh.add(x + cos * wide, y + sin * wide, up - deep, acrossX, acrossY, red, green, blue);
+                }
+            }
+        }
+        mesh.sway = 0f;
     }
 
     /** How many bulbs a swag of a kind has, and where along it one hangs, in tiles from the first support. */
@@ -180,8 +270,16 @@ final class Lights {
         return SIZES[kind];
     }
 
-    static int sides(int kind) {
-        return SIDES[kind];
+    static int sides(int kind, boolean far) {
+        return far ? FAR_SIDES[kind] : SIDES[kind];
+    }
+
+    static float[] holder(boolean far) {
+        return far ? FAR_HOLDER : HOLDER;
+    }
+
+    static float[] glass(boolean far) {
+        return far ? FAR_GLASS : GLASS;
     }
 
     /** One part of the colour of a bulb's glass, 0 to 1: part 0 red, 1 green, 2 blue. */

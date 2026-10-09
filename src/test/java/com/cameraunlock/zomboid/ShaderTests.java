@@ -74,6 +74,7 @@ final class ShaderTests {
             throw new AssertionError("the world depth program is not the world's program told to draw depth alone");
         }
         wiresAreOutOfTheMapFromAbove(programs);
+        whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs);
         try {
             if (Files.exists(OUT)) {
                 try (Stream<Path> old = Files.list(OUT)) {
@@ -120,17 +121,97 @@ final class ShaderTests {
      * of the vertex stage puts the vertex outside the clip volume, before it is placed by the matrix, when
      * uFromAbove is set, and that the one draw that sets it is the map from above, which also sets it back.
      */
-    private static void wiresAreOutOfTheMapFromAbove(List<Linked> programs) {
-        String vertex = null;
+    private static String vertex(List<Linked> programs, String name) {
         for (Linked program : programs) {
-            if (program.name.equals("shadow")) {
-                vertex = program.stages.get("vert");
+            if (program.name.equals(name)) {
+                return program.stages.get("vert");
             }
         }
-        if (vertex == null) {
-            throw new AssertionError("no program is linked as \"shadow\"");
+        throw new AssertionError("no program is linked as \"" + name + "\"");
+    }
+
+    private static final Pattern HANGS_OVER = Pattern.compile("dot\\(gl_Normal, gl_Normal\\) > ([0-9.]+)");
+
+    /** The length, squared, of a facing over which a vertex of the stuff of a lamp is one that hangs, as a vertex stage has it written, once. */
+    private static String hangsOver(String stage, String name) {
+        Matcher line = HANGS_OVER.matcher(stage);
+        if (!line.find()) {
+            throw new AssertionError("the " + name + " vertex stage does not tell a lamp that hangs by the length of its facing");
         }
-        String wire = "if (material > 11.5 && material < 12.5 || material > 81.5 && material < 82.5 || material > 13.5 && material < 14.5 && dot(gl_Normal, gl_Normal) > 1.004) {";
+        String over = line.group(1);
+        if (line.find()) {
+            throw new AssertionError("the " + name + " vertex stage tells a lamp that hangs in more than one place");
+        }
+        return over;
+    }
+
+    private static String stuff(String material, float number) {
+        return material + " > " + (number - 0.5f) + " && " + material + " < " + (number + 0.5f);
+    }
+
+    /** What a vertex stage has to ask to know a vertex for one that hangs on a cord: WorldScene's stuff of what hangs unlit, or a lamp's with a facing longer than the line. */
+    private static String hung(String material, String over) {
+        return stuff(material, WorldScene.HUNG) + " || " + stuff(material, WorldScene.LAMP) + " && dot(gl_Normal, gl_Normal) > " + over;
+    }
+
+    private static void once(String stage, String name, String line) {
+        int at = stage.indexOf(line);
+        if (at < 0 || stage.indexOf(line, at + 1) >= 0) {
+            throw new AssertionError("the " + name + " vertex stage has not exactly one line \"" + line + "\"");
+        }
+    }
+
+    /**
+     * A bulb on a string of lights swings with its cord in the view and in the sun's map, each
+     * of which finds out for itself that a vertex hangs. Both have to ask the same, of the
+     * numbers WorldScene gives what hangs, and every vertex Lights.round makes has to pass,
+     * the one right under a support too, which hangs by HUNG_LEAST alone. A lamp that stands
+     * has a facing one long and must not pass.
+     */
+    private static void whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(List<Linked> programs) {
+        String world = vertex(programs, "world"), shadow = vertex(programs, "shadow");
+        String over = hangsOver(world, "world");
+        if (!over.equals(hangsOver(shadow, "shadow"))) {
+            throw new AssertionError("the view tells a lamp that hangs by a facing over " + over + " and its shadow by one over " + hangsOver(shadow, "shadow"));
+        }
+        once(world, "world", "bool hung = uModel < 0.5 && !still && (" + hung("vMaterial", over) + ");");
+        once(world, "world", "bool wire = uModel < 0.5 && " + stuff("vMaterial", WorldScene.WIRE) + " || hung;");
+        once(world, "world", "at.xyz = swung(at.xyz, length(gl_Normal) - 1.0, across, swing);");
+        once(shadow, "shadow", "if (" + stuff("material", WorldScene.WIRE) + " || " + hung("material", over) + ") {");
+        once(shadow, "shadow", "vAt = swung(stands.xyz, length(gl_Normal) - 1.0, across, swing);");
+        float line = Float.parseFloat(over);
+        for (int kind = Lights.LARGE; kind <= Lights.RAINBOW; kind++) {
+            // Holder and glass, near the eye and far from it.
+            for (int shape = 0; shape < 4; shape++) {
+                boolean far = shape >= 2;
+                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                Lights.round(mesh, 0f, 0f, 0f, 0f, 1f, 0f, shape % 2 == 0 ? Lights.holder(far) : Lights.glass(far), Lights.size(kind), Lights.sides(kind, far), 1f, 1f, 1f);
+                for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    float[] v = mesh.vertices;
+                    float squared = v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11];
+                    if (!(squared > line)) {
+                        throw new AssertionError("a vertex of a bulb hung right at a support has a facing of " + squared + " squared, which the vertex stages do not take for hanging (over "
+                                + over + "): it would stand still while its cord swings");
+                    }
+                }
+            }
+        }
+        SpriteGeometry.Mesh stands = new SpriteGeometry.Mesh();
+        for (float[] facing : new float[][] {{1f, 0f, 0f}, {0.3f, -0.7f, 0.2f}, {-0.577f, 0.577f, 0.577f}}) {
+            stands.face(facing[0], facing[1], facing[2]);
+            stands.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        }
+        for (int at = 0; at < stands.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float[] v = stands.vertices;
+            if (v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11] > line) {
+                throw new AssertionError("a lamp that stands, with a facing one long, is taken for one that hangs (over " + over + ")");
+            }
+        }
+    }
+
+    private static void wiresAreOutOfTheMapFromAbove(List<Linked> programs) {
+        String vertex = vertex(programs, "shadow");
+        String wire = "if (" + stuff("material", WorldScene.WIRE) + " || " + hung("material", hangsOver(vertex, "shadow")) + ") {";
         int at = vertex.indexOf(wire);
         if (at < 0 || vertex.indexOf(wire, at + 1) >= 0) {
             throw new AssertionError("the shadow vertex stage has not exactly one branch for an overhead wire");

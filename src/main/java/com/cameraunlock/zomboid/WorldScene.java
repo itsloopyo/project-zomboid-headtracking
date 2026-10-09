@@ -675,11 +675,9 @@ final class WorldScene {
     private WeakReference<IsoCell> builtIn = new WeakReference<>(null);
     private static WeakReference<IsoCell> readIn = new WeakReference<>(null);
     /** How thick an overhead wire is drawn, in tiles: thicker than one is, or a street away it is finer than a pixel and comes and goes. */
-    private static final float WIRE_THICK = 0.03f;
-    /** The least a vertex of what hangs on a cord is given as hanging below the line between the cord's supports, in tiles: the picture tells it from a lamp that stands by its hanging at all. */
-    private static final float HUNG_LEAST = 0.004f;
+    static final float WIRE_THICK = 0.03f;
     /** What hangs on a cord and gives no light: a bulb that is out, and a bulb's holder. The picture swings it with its cord and lights it as any plain thing. */
-    private static final float HUNG = 82f;
+    static final float HUNG = 82f;
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
     private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
     /**
@@ -1152,7 +1150,8 @@ final class WorldScene {
      * stops being made below the High mode, and a bole is made only as far as that. In High the
      * last band has both: see crownedToSight.
      */
-    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f}, BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
+    private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f};
+    static final float[] BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
     private static final float BAND_SLACK = 0.5f;
 
@@ -1412,7 +1411,7 @@ final class WorldScene {
     /** Two triangles of a strip between two ends: each corner is an end, and whether it is the top there. */
     private static final int[] KERB_CORNERS = {0, 2, 3, 0, 3, 1};
 
-    private static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
+    static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
     /** The mod's own kerb, of cast concrete. Its number is past those of what grows. */
     private static final float KERB_STONE = 64f;
     /** A window pane with a lamp burning in the room behind it. */
@@ -2234,9 +2233,10 @@ final class WorldScene {
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
             if (Own.taken(view.index)) {
-                // A row of [Content] was switched: every build holds what the rows were, and so does every roof read, which leaves a parasol out by its row.
+                // A row of [Content] was switched: every build holds what the rows were, and so does every roof read and every square's ground, which leave a parasol out by its row.
                 forgetAll();
                 Roofs.forget();
+                Terrain.reread();
             }
             if (crownedToSight != Quality.crownsToSight()) {
                 // Every build in the last band holds whether its trees were given crowns and boles.
@@ -4861,8 +4861,7 @@ final class WorldScene {
             plain.sway = 0f;
         }
 
-        private final float[] lightSpan = new float[Spans.PIECE];
-
+        private final float[] lightSpan = new float[Spans.PIECE], lightAt = new float[Lights.NUMBERS];
 
         /**
          * Whether a string of lights burns: it is switched on and has power. The game's own test
@@ -4882,6 +4881,8 @@ final class WorldScene {
          *
          * The bulbs burn when the string does: see burns. Burning, a bulb is the colour the lit
          * sprite has it and fully lit, which in the dark is how the picture tells a lamp that is on.
+         * How finely they are turned, and whether they are there, goes by the chunk's band: see
+         * Lights.FINE_WITHIN.
          */
         private boolean addLights(IsoObject object, IsoSprite sprite, int x, int y, int z) {
             int slice = Lights.slice(sprite);
@@ -4900,11 +4901,9 @@ final class WorldScene {
             float swing = Spans.swing(lightSpan, 0);
             for (int length = 0; length < Lights.LENGTHS; length++) {
                 for (int end = 0; end < 2; end++) {
-                    float share = (length + end) / (float) Lights.LENGTHS;
-                    float endX = lightSpan[0] + (lightSpan[2] - lightSpan[0]) * share, endY = lightSpan[1] + (lightSpan[3] - lightSpan[1]) * share;
-                    float along = Spans.along(lightSpan, 0, endX, endY);
-                    wireHangs[end] = Spans.hangs(along, sag);
-                    set(wireEnds, end, endX, endY, fromUp + (toUp - fromUp) * along - wireHangs[end]);
+                    Lights.cordEnd(lightSpan, length + end, sag, lightAt);
+                    wireHangs[end] = lightAt[Lights.HANGS];
+                    set(wireEnds, end, lightAt[Lights.X], lightAt[Lights.Y], fromUp + (toUp - fromUp) * lightAt[Lights.ALONG] - wireHangs[end]);
                 }
                 cable(wireEnds[0], wireEnds[1], wireEnds[2], wireHangs[0], wireEnds[3], wireEnds[4], wireEnds[5], wireHangs[1], swing);
             }
@@ -4916,57 +4915,36 @@ final class WorldScene {
             float turned = Spans.acrossSign(-spanY, spanX) / Lights.SPAN, tells = 1.1f + 0.8f * swing;
             float acrossX = -spanY * turned * tells, acrossY = spanX * turned * tells, size = Lights.size(kind);
             float red = burning ? 1f : frame.red, green = burning ? 1f : frame.green, blue = burning ? 1f : frame.blue;
+            // Both are asked, whatever the first says: each takes out of alike the bands that would answer it otherwise.
+            boolean fine = within(Lights.FINE_WITHIN, false), near = within(Lights.BULBS_WITHIN, false);
+            int made = Lights.made(fine, near, burning);
+            if (made == Lights.BARE) {
+                return true;
+            }
+            boolean far = made == Lights.FAR;
+            int sides = Lights.sides(kind, far);
             SpriteGeometry.Mesh holder = solid.get(PLAIN, WallSides.key(Lights.HOLDER_RED, Lights.HOLDER_GREEN, Lights.HOLDER_BLUE, WallSides.FLAT));
             for (int bulb = 0; bulb < Lights.bulbs(kind); bulb++) {
                 if (!Lights.on(slice, bulb)) {
                     continue;
                 }
-                float along = Lights.place(kind, bulb) / Lights.SPAN, hangs = Spans.hangs(along, sag);
-                float bulbX = lightSpan[from] + spanX * along, bulbY = lightSpan[from + 1] + spanY * along, up = fromUp + (toUp - fromUp) * along - hangs;
+                Lights.bulb(lightSpan, kind, bulb, sag, lightAt);
+                float bulbX = lightAt[Lights.X], bulbY = lightAt[Lights.Y], hangs = lightAt[Lights.HANGS], up = fromUp + (toUp - fromUp) * lightAt[Lights.ALONG] - hangs;
                 SpriteGeometry.Mesh glass = solid.get(PLAIN, WallSides.key(Lights.colour(kind, bulb, burning, 0), Lights.colour(kind, bulb, burning, 1),
                         Lights.colour(kind, bulb, burning, 2), WallSides.FLAT));
-                hungRound(holder, HUNG, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.HOLDER, size, Lights.sides(kind), frame.red, frame.green, frame.blue);
-                hungRound(glass, burning ? LAMP : HUNG, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.GLASS, size, Lights.sides(kind), red, green, blue);
+                holder.open = frame.open + 32f * HUNG;
+                Lights.round(holder, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.holder(far), size, sides, frame.red, frame.green, frame.blue);
+                // Glass that burns is of the stuff of a lamp, and a lamp's vertex that hangs below a line is what the picture swings.
+                glass.open = frame.open + 32f * (burning ? LAMP : HUNG);
+                Lights.round(glass, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.glass(far), size, sides, red, green, blue);
             }
             return true;
         }
 
-        /**
-         * Adds a round thing that hangs under a cord and swings with it: turned about the plumb
-         * line under (x, y, up) to a profile of pairs, how far below the cord and how thick, in
-         * units of size. hangs is how far the cord hangs there below the line between its
-         * supports, and each vertex is that much and its own depth under the cord below the
-         * line, so the whole of it is carried round the line as the cord is: see swung in
-         * PipelineShaders. stuff is LAMP for glass that burns, and a lamp's vertex that hangs
-         * below a line is what the picture swings, or HUNG. across is what cable gives a cord's
-         * vertex where a texel's place would be, for the first corner.
-         */
-        private void hungRound(SpriteGeometry.Mesh mesh, float stuff, float x, float y, float up, float hangs, float acrossX, float acrossY, float[] profile, float size,
-                int sides, float red, float green, float blue) {
-            mesh.open = frame.open + 32f * stuff;
-            for (int ring = 0; ring + 3 < profile.length; ring += 2) {
-                float highDeep = profile[ring] * size, highWide = profile[ring + 1] * size, lowDeep = profile[ring + 2] * size, lowWide = profile[ring + 3] * size;
-                float drop = lowDeep - highDeep, swell = lowWide - highWide, slant = (float) Math.sqrt(drop * drop + swell * swell);
-                for (int side = 0; side < sides; side++) {
-                    double start = side * 2.0 * Math.PI / sides, stop = (side + 1) * 2.0 * Math.PI / sides;
-                    for (int corner = 0; corner < 6; corner++) {
-                        // Two triangles, as SpriteGeometry.addRound makes them: low from, low to, high to, then low from, high to, high from.
-                        boolean far = corner == 1 || corner == 2 || corner == 4, high = corner == 2 || corner >= 4;
-                        float cos = (float) Math.cos(far ? stop : start), sin = (float) Math.sin(far ? stop : start);
-                        float deep = high ? highDeep : lowDeep, wide = high ? highWide : lowWide;
-                        mesh.face(cos * drop / slant, sin * drop / slant, swell / slant);
-                        mesh.sway = hangs + deep + HUNG_LEAST;
-                        mesh.add(x + cos * wide, y + sin * wide, up - deep, acrossX, acrossY, red, green, blue);
-                    }
-                }
-            }
-            mesh.sway = 0f;
-        }
-
         /** Whether a string of lights is made fast at the north-west corner of a square, where its corner post stands. */
         private boolean holdsLights(int x, int y, int z) {
-            for (int beside = 0; beside < 3; beside++) {
-                int alongX = beside == 1 ? -1 : 0, alongY = beside == 2 ? -1 : 0;
+            for (int beside = 0; beside < Lights.HELD_FROM_X.length; beside++) {
+                int alongX = Lights.HELD_FROM_X[beside], alongY = Lights.HELD_FROM_Y[beside];
                 IsoGridSquare square = cell.getGridSquare(x + alongX, y + alongY, z);
                 if (square == null) {
                     continue;
@@ -6276,12 +6254,12 @@ final class WorldScene {
          */
         private boolean addParasol(IsoObject object, IsoSprite sprite, Texture texture, PropertyContainer properties, int x, int y, int z) {
             int quarter = Parasols.quarter(sprite);
-            // The pole is a post of a building's wall, on the south-east square. A fence's corner post there is the fence's.
-            if (quarter == Parasols.NONE && !(properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("walls_"))) {
+            // The pole is a post of a building's wall. A fence's corner post on the south-east square is the fence's.
+            boolean pole = properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("walls_");
+            if (quarter == Parasols.NONE && !pole) {
                 return false;
             }
-            int from = quarter == Parasols.NONE ? Parasols.SOUTH_EAST : quarter;
-            IsoObject front = Parasols.whole(cell, x - Parasols.ALONG_X[from], y - Parasols.ALONG_Y[from], z);
+            IsoObject front = Parasols.front(Parasols.on(cell, z), quarter, pole, x, y);
             if (front == null) {
                 return false;
             }

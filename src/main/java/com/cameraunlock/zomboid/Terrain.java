@@ -241,6 +241,32 @@ final class Terrain {
         LEVEL.padsForNow.clear();
     }
 
+    /**
+     * For what a square is made of read otherwise with the map as it is (a parasol's canopy is
+     * built ground or not by a row of [Content]): lets go of what every square was made of and
+     * has every chunk's heights worked out again the next time they are asked for. The heights
+     * kept stay for any thread to read until then, and keep their version where they come out
+     * the same. Logic thread.
+     */
+    static void reread() {
+        Arrays.fill(known, null);
+        unsure.clear();
+        footings.forget();
+        for (Terrain terrain : new Terrain[] {HILLS, LEVEL}) {
+            terrain.pads.clear();
+            terrain.padsForNow.clear();
+            for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE * WAYS; slot++) {
+                Grid grid = terrain.grids.get(slot);
+                if (grid != null) {
+                    grid.settled = false;
+                    grid.loaded = loaded - 1;
+                    grid.stamp = frame - RETRIED;
+                    grid.stampNanos = frameNanos - RETRIED_NANOS;
+                }
+            }
+        }
+    }
+
     /** The first of the WAYS places a chunk may be kept in. */
     private static int slot(int wx, int wy) {
         return ((wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))) * WAYS;
@@ -760,7 +786,8 @@ final class Terrain {
             if (sprite == null) {
                 continue;
             }
-            if (isStair(sprite.getType()) || isRoof(sprite.getType())) {
+            // A parasol's canopy is marked as a roof tile, and where the mod stands it as a parasol it stands on the ground as furniture does: see Parasols.
+            if (isStair(sprite.getType()) || isRoof(sprite.getType()) && !(Own.furniture() && Parasols.partOfOne(cell, sprite, x, y, 0))) {
                 return true;
             }
             PropertyContainer flags = sprite.getProperties();

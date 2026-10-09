@@ -25,11 +25,13 @@ final class Parasols {
 
     /**
      * Where on the south-east quarter's square its sprite shows the cloth's two colours, and
-     * how high, in levels. Both are four fifths of the way out from the pole, 45 and 65 degrees
+     * how high, in levels. Both are four fifths of the way out from the pole, 45 and 62.5 degrees
      * round from east: on every striped canopy the game has, those two are on stripes of the
-     * two colours, each at least five degrees inside its stripe.
+     * two colours. The blue and the red striped ones have a stripe from 55 to 65 degrees and the
+     * green one a stripe from 60 on, so 62.5 is 2.5 degrees inside each; 45 is 5 degrees inside
+     * the other colour's stripe on all three.
      */
-    static final float FIRST_A = 0.566f, FIRST_B = 0.566f, SECOND_A = 0.338f, SECOND_B = 0.725f, CLOTH_HIGH = 0.82f;
+    static final float FIRST_A = 0.566f, FIRST_B = 0.566f, SECOND_A = 0.369f, SECOND_B = 0.710f, CLOTH_HIGH = 0.82f;
 
     private static final String CANOPY = "Canopy", ROUND = "Curved", DOMED = "Curved light";
 
@@ -91,14 +93,23 @@ final class Parasols {
         return null;
     }
 
+    /** The squares of one level of a map, by what each holds that is a given quarter of a round canopy, or null. */
+    interface Squares<T> {
+        T holds(int x, int y, int quarter);
+    }
+
+    static Squares<IsoObject> on(IsoCell cell, int z) {
+        return (x, y, quarter) -> holding(cell.getGridSquare(x, y, z), quarter);
+    }
+
     /**
      * The south-east quarter of the parasol whose north-west quarter is on a square, when all
-     * four of its quarters are on the map, or null. Every quarter reaches the same answer.
+     * four of its quarters are on the map, or null.
      */
-    static IsoObject whole(IsoCell cell, int northWestX, int northWestY, int z) {
-        IsoObject front = null;
+    static <T> T whole(Squares<T> squares, int northWestX, int northWestY) {
+        T front = null;
         for (int quarter = NORTH_WEST; quarter <= SOUTH_EAST; quarter++) {
-            front = holding(cell.getGridSquare(northWestX + ALONG_X[quarter], northWestY + ALONG_Y[quarter], z), quarter);
+            front = squares.holds(northWestX + ALONG_X[quarter], northWestY + ALONG_Y[quarter], quarter);
             if (front == null) {
                 return null;
             }
@@ -106,9 +117,23 @@ final class Parasols {
         return front;
     }
 
+    /**
+     * The south-east quarter of the whole parasol that what is on a square is part of, or null:
+     * a quarter by where it lies from the corner, and what is no quarter but may be the pole
+     * as the south-east one, on whose square the map stands the pole. Every part of one
+     * parasol reaches the same answer.
+     */
+    static <T> T front(Squares<T> squares, int quarter, boolean pole, int x, int y) {
+        if (quarter == NONE && !pole) {
+            return null;
+        }
+        int lies = quarter == NONE ? SOUTH_EAST : quarter;
+        return whole(squares, x - ALONG_X[lies], y - ALONG_Y[lies]);
+    }
+
     /** Whether a sprite on a square is a quarter of a parasol that is whole. */
     static boolean partOfOne(IsoCell cell, IsoSprite sprite, int x, int y, int z) {
         int quarter = quarter(sprite);
-        return quarter != NONE && whole(cell, x - ALONG_X[quarter], y - ALONG_Y[quarter], z) != null;
+        return quarter != NONE && front(on(cell, z), quarter, false, x, y) != null;
     }
 }

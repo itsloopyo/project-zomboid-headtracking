@@ -521,7 +521,7 @@ final class PipelineShaders {
                 // An overhead wire: the length of its facing says how far it hangs below the line between its insulators, see swung.
                 // What hangs on a cord, a bulb of a string of lights, carries the same and swings with its cord. One that
                 // burns is of the stuff of a lamp and hangs below a line, which no lamp that stands does, and one that is
-                // out is of a stuff of its own. See WorldScene.hungRound.
+                // out is of a stuff of its own. See Lights.round.
                 bool hung = uModel < 0.5 && !still && (vMaterial > 81.5 && vMaterial < 82.5 || vMaterial > 13.5 && vMaterial < 14.5 && dot(gl_Normal, gl_Normal) > 1.004);
                 bool wire = uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5 || hung;
                 vec4 at = strip ? vec4(snowLaden(swayed(snowedIn(stands.xyz, deep), high, vBlade.z), high, deep, vBlade.z), 1.0) : still || wire ? stands : blown(stands, looks);
