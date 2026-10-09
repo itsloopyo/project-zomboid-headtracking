@@ -34,6 +34,21 @@ final class FurnishingBuilder {
         return null;
     }
 
+    /** Whether a square has an object on it whose sprite is called name. */
+    private static boolean holdsNamed(IsoGridSquare square, String name) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && name.equals(sprite.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private final WorldScene.Frame build;
 
     /** Where the piece last found ready takes its colours, and the texture of the sprite that gives them, PLAIN for a piece that takes none. */
@@ -260,6 +275,13 @@ final class FurnishingBuilder {
             IsoObject counter = onSquare(x, y, z, false);
             return counter != null && ready(counter, Furniture.known(counter.getSprite()), x, y, z);
         }
+        if (piece.partner != null && !holdsNamed(build.cell.getGridSquare(x + piece.partnerX, y + piece.partnerY, z), piece.partner)) {
+            return false;
+        }
+        if (piece.follows) {
+            // Dealt with by the other sprite of the pair, which stands the whole piece.
+            return true;
+        }
         if (!ready(object, piece, x, y, z)) {
             return false;
         }
@@ -280,6 +302,15 @@ final class FurnishingBuilder {
         build.building.plain = false;
         build.placed.add(model, build.frame, x, y, x + piece.centreX, y + piece.centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
+        if (piece.pictured) {
+            // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
+            Models.turn(piece.turns, 0f, piece.paneY * piece.scale, build.hungWay);
+            float a = piece.centreX + build.hungWay[0], b = piece.centreY + build.hungWay[1];
+            Models.turn(piece.turns, 1f, 0f, build.hungWay);
+            WallHung.shows(build.frame, a, b, (piece.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT) / ViewCamera.LEVEL_HEIGHT,
+                    build.hungWay[0] * piece.scale, build.hungWay[1] * piece.scale, piece.scaleUp / ViewCamera.LEVEL_HEIGHT, build.hungShows);
+            build.placed.picture(build.hungShows);
+        }
         build.furnished++;
         if (piece.displayCase) {
             DisplayCases.addGlass(build, piece, x, y, foot);

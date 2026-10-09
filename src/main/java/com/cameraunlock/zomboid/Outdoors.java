@@ -28,6 +28,23 @@ final class Outdoors {
         boolean fits;
         /** Whether each square of a piece the game lays on several is a piece of its own. */
         boolean each;
+        /** The surfaces that take their colour from the sprite at a second height over the same place, and that height, in levels. */
+        int alsoDyed;
+        float alsoHigh;
+        /**
+         * For a piece the game paints in two sprites on two squares side by side, with no grid to tie them: the name of the
+         * other one and how far its square is from this one's. Neither stands its model unless the other is there.
+         */
+        String partner;
+        int partnerX, partnerY;
+        /** Whether this is the one of such a pair that stands nothing: the other stands the whole piece. */
+        boolean follows;
+        /**
+         * Whether the model's pane shows the sprite's own painting, each point of it looking at where the sprite paints that
+         * point, and how far along the model's y the pane's face is: a road sign's plate.
+         */
+        boolean pictured;
+        float paneY;
 
         Piece(String model, int turns) {
             this.model = model;
@@ -63,6 +80,25 @@ final class Outdoors {
             return this;
         }
 
+        Piece also(int surfaces, float high) {
+            alsoDyed = surfaces;
+            alsoHigh = high;
+            return this;
+        }
+
+        Piece pictured(float y) {
+            pictured = true;
+            paneY = y;
+            return this;
+        }
+
+        Piece pairedWith(String name, int x, int y) {
+            partner = name;
+            partnerX = x;
+            partnerY = y;
+            return this;
+        }
+
         Piece fit() {
             fits = true;
             return this;
@@ -74,7 +110,9 @@ final class Outdoors {
     static final int NONE = -1, NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3;
 
     private static final String WORKS = "industry_02_", PLANT = "industry_01_", ROOFTOP = "rooftop_furniture_", BUILDING_SITE = "construction_01_", LAUNDRY = "appliances_laundry_01_",
-            MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_";
+            MILITARY_BARRIER = "fencing_01_96", CARPENTRY = "carpentry_02_", FENCES = "fencing_01_",
+            GAS2GO = "location_shop_gas2go_01_", FOSSOIL = "location_shop_fossoil_01_",
+            ROAD_SIGNS = "street_roadsigns_01_", BURNT_FENCES = "fencing_burnt_01_";
     private static final int PAINT = 1 << Models.PAINT;
     /** How far from the edge of its square the middle of a pipe along the foot of a wall is. */
     private static final float PIPE_EDGE = 0.12f;
@@ -90,6 +128,8 @@ final class Outdoors {
     private static final float CASE_DYE = 0.02f;
     /** How far from the middle of its square a gravestone stands, towards the side it faces. */
     private static final float STONE_FORWARD = 0.2f;
+    /** How far from the middle of its square an old worn headstone stands, its plinth being deeper than a newer one's. */
+    private static final float BATTERED_FORWARD = 0.12f;
     /** How high on its sprite a stack of logs gives the colour of its bark, in levels. */
     private static final float LOG_DYE = 0.18f;
     /**
@@ -116,6 +156,10 @@ final class Outdoors {
      */
     static Piece of(String name, String called, String group, int faces, int width, int height, int surface) {
         boolean single = width == 1 && height == 1;
+        Piece burnt = single ? burntPost(name) : null;
+        if (burnt != null) {
+            return burnt;
+        }
         if (called == null) {
             if (!single) {
                 return null;
@@ -131,6 +175,14 @@ final class Outdoors {
             Piece post = fencePost(name);
             if (post != null) {
                 return post;
+            }
+            Piece pump = fuelPump(name);
+            if (pump != null) {
+                return pump;
+            }
+            Piece sign = warningSign(name);
+            if (sign != null) {
+                return sign;
             }
             // Roofing felt in rolls: two long rolls side by side and a banded bundle of short ones, each along y and then along x.
             return switch (place(name, PLANT)) {
@@ -161,6 +213,11 @@ final class Outdoors {
         if (called.equals("Stack") && (kind.equals("6 Log") || kind.equals("5 Log")) && faces != NONE && along == 2 && across == 1 && surface == 0) {
             return new Piece(kind.equals("6 Log") ? "log_stack_6" : "log_stack_5", faces).dye(1 << Models.DARK_WOOD, LOG_DYE).fit();
         }
+        // A heap of sand on a square of four, its top over the middle of them. The first square paints only the back of its foot.
+        if (called.equals("Sand Pile") && width == 2 && height == 2) {
+            return kind.equals("Large") ? new Piece("sand_pile_large", 0).dye(PAINT, 0.9f, 0.9f, 0.23f)
+                    : kind.equals("Medium") || kind.equals("Small") ? new Piece("sand_pile", 0).dye(PAINT, 0.98f, 0.98f, 0.2f) : null;
+        }
         if (!single) {
             return null;
         }
@@ -183,6 +240,10 @@ final class Outdoors {
         }
         if (called.equals("Public Garbage Bin")) {
             return new Piece("slatted_bin", 0).dye(PAINT, BIN_DYE).fit();
+        }
+        Piece street = street(called, kind, faces);
+        if (street != null) {
+            return street;
         }
         if (called.equals("Recycle Bin")) {
             return new Piece("dustbin", 0).fit();
@@ -214,12 +275,13 @@ final class Outdoors {
         }
         if (called.equals("Gravestone") && faces != NONE) {
             String stone = kind.equals("Round") ? "gravestone_round" : kind.equals("Arched") ? "gravestone_gabled"
-                    : kind.equals("Square") ? "gravestone_square" : null;
+                    : kind.equals("Square") ? "gravestone_square" : kind.equals("Battered") ? "gravestone_battered" : null;
             if (stone == null) {
                 return null;
             }
-            float a = 0.5f + (faces == EAST ? STONE_FORWARD : faces == WEST ? -STONE_FORWARD : 0f);
-            float b = 0.5f + (faces == SOUTH ? STONE_FORWARD : faces == NORTH ? -STONE_FORWARD : 0f);
+            float forward = kind.equals("Battered") ? BATTERED_FORWARD : STONE_FORWARD;
+            float a = 0.5f + (faces == EAST ? forward : faces == WEST ? -forward : 0f);
+            float b = 0.5f + (faces == SOUTH ? forward : faces == NORTH ? -forward : 0f);
             return new Piece(stone, faces).at(a, b).dye(PAINT, a, b, 0.16f);
         }
         return null;
@@ -337,6 +399,117 @@ final class Outdoors {
             case 29 -> new Piece("pipe_post", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.2f).fit();
             case 61 -> new Piece("pipe_post_tall", 0).at(0.062f, 0.094f).dye(PAINT, 0.062f, 0.094f, 0.3f).fit();
             case 53 -> new Piece("block_post", 0).at(0.168f, 0.168f).dye(PAINT, 0.168f, 0.168f, 0.5f).fit();
+            default -> null;
+        };
+    }
+
+    /**
+     * What stands along a street or on a building site and has a name of its own, by that name and which way it faces, or
+     * null. Where each stands on its square was read off its sprite: a concrete barrier lies along the edge of its square
+     * behind the way it faces, as the game lets it be hopped over there, and the game has it facing south and east only.
+     */
+    private static Piece street(String called, String kind, int faces) {
+        boolean south = faces == SOUTH, east = faces == EAST;
+        if (called.equals("Block") && kind.equals("Concrete Road") && (south || east)) {
+            return south ? new Piece("jersey_barrier", faces).at(0.5f, BARRIER_IN).dye(PAINT, 0.5f, 0.33f, 0.06f)
+                    : new Piece("jersey_barrier", faces).at(BARRIER_IN, 0.5f).dye(PAINT, 0.33f, 0.5f, 0.06f);
+        }
+        // A road works barricade, dyed from the middle of a stripe of its bright paint.
+        if (called.equals("Block") && kind.equals("Road") && (south || east)) {
+            return south ? new Piece("road_barricade", faces).at(0.47f, 0.44f).dye(PAINT, 0.2f, 0.62f, 0.12f)
+                    : new Piece("road_barricade", faces).at(0.4f, 0.5f).dye(PAINT, 0.62f, 0.5f, 0.14f);
+        }
+        if (called.equals("Lights") && kind.equals("Flood") && faces != NONE) {
+            return new Piece("flood_light", faces).at(0.49f, 0.51f).dye(PAINT, 0.49f, 0.51f, 0.6f);
+        }
+        // A cement mixer stands a little to the front of its square's middle, and its drum gives the colour.
+        if (called.equals("Grinder") && kind.equals("Mortar") && faces != NONE) {
+            float a = 0.5f + (east ? MIXER_FORWARD : faces == WEST ? -MIXER_FORWARD : 0f), b = 0.5f + (south ? MIXER_FORWARD : faces == NORTH ? -MIXER_FORWARD : 0f);
+            return new Piece("cement_mixer", faces).at(a, b).dye(PAINT, a, b, 0.33f).fit();
+        }
+        return null;
+    }
+
+    /** How far the middle of a concrete barrier is from the edge of its square it lies along, and a cement mixer from its square's middle. */
+    private static final float BARRIER_IN = 0.19f, MIXER_FORWARD = 0.05f;
+    /** Where on its square a petrol pump's middle is, along and across its long way, for the sprite that stands it, and where on that square its colour is taken. */
+    private static final float PUMP_ALONG = 0.25f, PUMP_ACROSS = 0.39f, PUMP_FRONT = 0.64f;
+    /** How high on its sprite a pump gives the colour of its low panel and of its head, in levels. */
+    private static final float PUMP_PANEL_DYE = 0.12f, PUMP_HEAD_DYE = 0.88f;
+
+    /**
+     * A petrol pump, which the game paints in two sprites on two squares side by side, the pump straddling the edge between
+     * them though most of it is on the square of the first: facing east the first and the second to its north, facing south
+     * the first and the second to its west. The first stands the whole pump and the second nothing, each only while the other
+     * is there. Two brands of station have the same pump in their own colours.
+     */
+    private static Piece fuelPump(String name) {
+        String sheet = name.startsWith(GAS2GO) ? GAS2GO : name.startsWith(FOSSOIL) ? FOSSOIL : null;
+        if (sheet == null) {
+            return null;
+        }
+        Piece pump = switch (place(name, sheet)) {
+            case 12 -> new Piece("fuel_pump", EAST).at(PUMP_ACROSS, PUMP_ALONG).pairedWith(sheet + "13", 0, -1)
+                    .dye(PAINT, PUMP_FRONT, PUMP_ALONG, PUMP_PANEL_DYE);
+            case 13 -> new Piece(null, EAST).pairedWith(sheet + "12", 0, 1);
+            case 14 -> new Piece("fuel_pump", SOUTH).at(PUMP_ALONG, PUMP_ACROSS).pairedWith(sheet + "15", -1, 0)
+                    .dye(PAINT, PUMP_ALONG, PUMP_FRONT, PUMP_PANEL_DYE);
+            case 15 -> new Piece(null, SOUTH).pairedWith(sheet + "14", 1, 0);
+            default -> null;
+        };
+        if (pump == null) {
+            return null;
+        }
+        if (pump.model == null) {
+            pump.follows = true;
+            return pump;
+        }
+        return pump.also(1 << Models.VINYL, PUMP_HEAD_DYE);
+    }
+
+    /** Where the face of a warning sign's plate is along its model's y: WARNING_PLATE_Y in furniture.py. */
+    static final float WARNING_PLATE_Y = -0.035f;
+    /** How high over its foot a warning sign's plate is painted, in levels: where its colour is looked up, to be sure the sprite is there. */
+    private static final float SIGN_PLATE_HIGH = 0.743f;
+    /**
+     * Where on its square a warning sign's post is painted, for one whose plate faces north, east, south and west. The game
+     * gives these sprites no facing: which way a plate faces was read off its picture, the face shown on those that face
+     * south or east, the bare back on those that face north or west.
+     */
+    private static final float[] SIGN_POST_AT = {0.47f, 0.48f, 0.47f, 0.53f, 0.5f, 0.5f, 0.44f, 0.5f};
+
+    /**
+     * A diamond warning sign on a post, by its place on the sheet of road signs, or null. Its plate shows the sprite's own
+     * painting, so a bend's arrow is the arrow the game paints. Stood up as the lathe of its outline it was a spinning top.
+     */
+    private static Piece warningSign(String name) {
+        int faces = switch (place(name, ROAD_SIGNS)) {
+            case 4 -> NORTH;
+            case 5 -> WEST;
+            case 8, 9, 10, 11, 12 -> SOUTH;
+            case 16, 17, 18, 19, 20 -> EAST;
+            default -> NONE;
+        };
+        if (faces == NONE) {
+            return null;
+        }
+        float a = SIGN_POST_AT[2 * faces], b = SIGN_POST_AT[2 * faces + 1];
+        return new Piece("warning_sign", faces).at(a, b).dye(1 << Models.PANE, a, b, SIGN_PLATE_HIGH).pictured(WARNING_PLATE_Y);
+    }
+
+    /**
+     * A burnt fence's post that stands alone on its square, by its place on the sheet of burnt fences, or null. Each stands
+     * where its sprite paints the middle of its foot, by the north-west corner where the fence's two edges meet, and takes
+     * its colour from its sprite there. Stood up as a card it turned to the eye.
+     */
+    private static Piece burntPost(String name) {
+        return switch (place(name, BURNT_FENCES)) {
+            case 3 -> new Piece("burnt_picket_post", 0).at(0.06f, 0.06f).dye(1 << Models.DARK_WOOD, 0.06f, 0.06f, 0.2f);
+            case 13 -> new Piece("burnt_tall_post", 0).at(0.1f, 0.1f).dye(1 << Models.DARK_WOOD, 0.1f, 0.1f, 0.4f);
+            case 45 -> new Piece("burnt_rail_post", 0).at(0.07f, 0.07f).dye(1 << Models.DARK_WOOD, 0.07f, 0.07f, 0.25f);
+            case 53 -> new Piece("fence_pole", 0).at(0.03f, 0.06f).dye(PAINT, 0.03f, 0.06f, 0.4f);
+            case 61 -> new Piece("fence_pole_wide", 0).at(0.08f, 0.06f).dye(PAINT, 0.08f, 0.06f, 0.4f);
+            case 69 -> new Piece("fence_pole_capped", 0).at(0.03f, 0.06f).dye(PAINT, 0.03f, 0.06f, 0.25f);
             default -> null;
         };
     }

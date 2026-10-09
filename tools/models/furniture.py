@@ -5073,6 +5073,300 @@ def industrial():
             gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank()]
 
 
+def jersey_barrier():
+    """A concrete road barrier a square long, to meet the next: a broad foot that steps in, slopes up and rises to a narrow
+    flat top, with a slot through its foot at each end for the forks that lift it."""
+    model = Model("jersey_barrier")
+    half_long, foot, high = 0.5, 0.19, 0.47
+    profile = [(-foot, 0.0), (foot, 0.0), (foot, 0.06), (foot - 0.035, 0.1), (0.06, 0.29), (0.045, high), (-0.045, high), (-0.06, 0.29),
+               (-foot + 0.035, 0.1), (-foot, 0.06)]
+    concrete = bmesh.new()
+    front = [concrete.verts.new((-half_long, y, z)) for y, z in profile]
+    back = [concrete.verts.new((half_long, y, z)) for y, z in profile]
+    for i in range(len(profile)):
+        j = (i + 1) % len(profile)
+        concrete.faces.new((front[i], back[i], back[j], front[j]))
+    concrete.faces.new(front)
+    concrete.faces.new(back[::-1])
+    model.hard(concrete, "paint", bevel=0.008, segments=2)
+    slots = bmesh.new()
+    for end in (-1, 1):
+        x = end * 0.3
+        cuboid(slots, x - 0.07, x + 0.07, -foot - 0.002, foot + 0.002, 0.0, 0.035)
+    model.plain(slots, "rubber")
+    return model
+
+
+def gravestone_battered():
+    """An old headstone worn by the weather: a thick slab with a level head whose edges and corners are worn round and one
+    corner broken off, on a plinth that has sunk a little."""
+    model = Model("gravestone_battered")
+    plinth = bmesh.new()
+    cuboid(plinth, -0.285, 0.285, -0.15, 0.15, 0.0, 0.08)
+    model.hard(plinth, "paint", bevel=0.02, segments=2)
+    stone = bmesh.new()
+    half, top = 0.22, 0.7
+    outline = [(-half, 0.08), (half, 0.08), (half, top - 0.07), (half - 0.03, top - 0.02), (half - 0.09, top), (-half + 0.03, top),
+               (-half, top - 0.03)]
+    outline_along_y(stone, outline, -0.09, 0.09)
+    model.hard(stone, "paint", bevel=0.018, segments=2)
+    return model
+
+
+def clipped(polygon, x0, x1):
+    """The part of a polygon of (x, z) points between x = x0 and x = x1."""
+    for edge, keep in ((x0, lambda x: x >= x0), (x1, lambda x: x <= x1)):
+        kept = []
+        for i, (ax, az) in enumerate(polygon):
+            bx, bz = polygon[(i + 1) % len(polygon)]
+            if keep(ax):
+                kept.append((ax, az))
+            if keep(ax) != keep(bx):
+                t = (edge - ax) / (bx - ax)
+                kept.append((edge, az + (bz - az) * t))
+        polygon = kept
+    return polygon
+
+
+def road_barricade():
+    """A road works barricade: two folding A frames of steel, two boards across the front frame striped on the slant in the
+    bright paint and white, a plain board across the back, and a flashing lamp on top of each end. Its boards are to the front."""
+    model = Model("road_barricade")
+    half, top, spread = 0.46, 0.8, 0.27
+    lean = spread / top
+    frame = bmesh.new()
+    for x in (-half, half):
+        for way in (-1, 1):
+            beam(frame, (x, way * spread, 0.0), (x, way * 0.02, top), 0.035, 0.035)
+        cuboid(frame, x - 0.02, x + 0.02, -0.03, 0.03, top - 0.02, top + 0.03)
+    model.hard(frame, "metal", bevel=0.004, segments=1)
+    bright, white = bmesh.new(), bmesh.new()
+    period, slant, length = 0.3, 0.5, 2 * half + 0.02
+    for low, high in ((0.25, 0.39), (0.59, 0.74)):
+        for n in range(-4, 6):
+            for colour, shift in ((bright, 0.0), (white, period / 2)):
+                x0 = -length / 2 + n * period + shift
+                band = [(x0 - slant * (low - 0.25), low), (x0 + period / 2 - slant * (low - 0.25), low),
+                        (x0 + period / 2 - slant * (high - 0.25), high), (x0 - slant * (high - 0.25), high)]
+                part = clipped(band, -length / 2, length / 2)
+                if len(part) < 3:
+                    continue
+                before = set(colour.verts)
+                outline_along_y(colour, part, -0.012, 0.012)
+                moved = [vert for vert in colour.verts if vert not in before]
+                # Onto the slope of the front frame, just in front of its legs.
+                for vert in moved:
+                    vert.co.y += -spread + lean * vert.co.z - 0.03
+    model.hard(bright, "paint", bevel=0.003, segments=1)
+    model.hard(white, "enamel", bevel=0.003, segments=1)
+    board = bmesh.new()
+    cuboid(board, -length / 2, length / 2, -0.012, 0.012, 0.6, 0.74)
+    bmesh.ops.transform(board, matrix=Matrix(((1, 0, 0, 0), (0, 1, -lean, spread + 0.03), (0, 0, 1, 0), (0, 0, 0, 1))), verts=board.verts)
+    model.hard(board, "metal", bevel=0.003, segments=1)
+    housings, lenses = bmesh.new(), bmesh.new()
+    for x in (-half, half):
+        cuboid(housings, x - 0.045, x + 0.045, -0.035, 0.035, top + 0.03, top + 0.05)
+        lathe(lenses, [(0.0, -0.03), (0.06, -0.03), (0.06, 0.0), (0.05, 0.025), (0.0, 0.03)], segments=12, to=along_y(x, 0.0, top + 0.11))
+    model.hard(housings, "rubber", bevel=0.004, segments=1)
+    model.turned(lenses, "paint", sharp=50.0)
+    return model
+
+
+def flood_light():
+    """A work light on a tripod: three splayed legs from a low hub, a telescopic yellow mast, and at its head a bar across with a
+    caged floodlight at each end, their glass to the front. The origin is the mast's axis."""
+    model = Model("flood_light", centred=False)
+    hub, bar = 0.15, 2.05
+    legs = bmesh.new()
+    for k in range(3):
+        angle = math.radians(90 + 120 * k)
+        beam(legs, (0.0, 0.0, hub), (0.4 * math.cos(angle), 0.4 * math.sin(angle), 0.015), 0.025, 0.025)
+    lathe(legs, [(0.0, hub - 0.06), (0.04, hub - 0.06), (0.04, hub + 0.1), (0.0, hub + 0.1)], segments=10)
+    model.hard(legs, "paint", bevel=0.003, segments=1)
+    mast = bmesh.new()
+    lathe(mast, [(0.0, hub), (0.022, hub), (0.022, 1.02), (0.032, 1.02), (0.032, 1.08), (0.017, 1.08), (0.017, bar), (0.0, bar)], segments=10)
+    cuboid(mast, -0.5, 0.5, -0.02, 0.02, bar - 0.02, bar + 0.02)
+    model.turned(mast, "paint", sharp=40.0)
+    cases, cages, glass = bmesh.new(), bmesh.new(), bmesh.new()
+    for x in (-0.4, 0.4):
+        cuboid(cases, x - 0.015, x + 0.015, -0.015, 0.015, bar + 0.02, bar + 0.1)
+        prism_y(cases, (x, bar + 0.27, 0.32, 0.32, -0.06), (x, bar + 0.27, 0.26, 0.26, 0.08))
+        cuboid(glass, x - 0.14, x + 0.14, -0.064, -0.06, bar + 0.13, bar + 0.41)
+        for n in range(4):
+            gx = x - 0.12 + n * 0.08
+            cuboid(cages, gx - 0.005, gx + 0.005, -0.09, -0.08, bar + 0.11, bar + 0.43)
+        for z in (bar + 0.11, bar + 0.43):
+            cuboid(cages, x - 0.16, x + 0.16, -0.09, -0.08, z - 0.005, z + 0.005)
+    model.hard(cases, "plastic", bevel=0.006, segments=1)
+    model.plain(cages, "metal")
+    model.plain(glass, "shade")
+    return model
+
+
+def fuel_pump():
+    """A petrol pump, a dispenser on each of its two faces: a white pillar at each end, between them a dark cabinet with its
+    meter windows, its nozzles in their holsters and a coloured panel low down, and over the whole a coloured head. A hose
+    hangs from the head at each end. The pump's long way is across its front."""
+    model = Model("fuel_pump")
+    half, deep, head = 0.36, 0.25, 1.98
+    plinth = bmesh.new()
+    cuboid(plinth, -half, half, -deep, deep, 0.0, 0.08)
+    model.hard(plinth, "plastic", bevel=0.006, segments=1)
+    pillars = bmesh.new()
+    for side in (-1, 1):
+        cuboid(pillars, side * half - side * 0.12, side * half, -deep + 0.01, deep - 0.01, 0.08, head)
+    model.hard(pillars, "enamel", bevel=0.008, segments=1)
+    cabinet = bmesh.new()
+    cuboid(cabinet, -half + 0.12, half - 0.12, -deep + 0.05, deep - 0.05, 0.08, 1.55)
+    prism(cabinet, (0.0, 0.0, 2 * half - 0.24, 2 * deep - 0.1, 1.55), (0.0, 0.0, 2 * half - 0.24, 2 * deep - 0.26, 1.68))
+    model.hard(cabinet, "plastic", bevel=0.008, segments=1)
+    panels, windows, holsters = bmesh.new(), bmesh.new(), bmesh.new()
+    for face in (-1, 1):
+        y = face * (deep - 0.05)
+        cuboid(panels, -half + 0.13, half - 0.13, y - 0.006, y + 0.006, 0.1, 0.62)
+        for x in (-0.1, 0.1):
+            cuboid(windows, x - 0.07, x + 0.07, y - 0.006, y + 0.006, 1.3, 1.38)
+            cuboid(holsters, x - 0.04, x + 0.04, y - face * 0.06, y, 0.95, 1.12)
+    model.hard(panels, "paint", bevel=0.003, segments=1)
+    model.plain(windows, "screen")
+    model.hard(holsters, "metal", bevel=0.004, segments=1)
+    cap = bmesh.new()
+    cuboid(cap, -half - 0.01, half + 0.01, -deep - 0.01, deep + 0.01, head, head + 0.3)
+    model.hard(cap, "vinyl", bevel=0.006, segments=1)
+    lid = bmesh.new()
+    cuboid(lid, -half - 0.015, half + 0.015, -deep - 0.015, deep + 0.015, head + 0.3, head + 0.33)
+    model.hard(lid, "plastic", bevel=0.004, segments=1)
+    hoses = bmesh.new()
+    for side in (-1, 1):
+        x = side * (half + 0.03)
+        points = [(x, -0.12, head), (x, -0.14, 1.2), (x, -0.16, 0.45), (x - side * 0.03, -0.2, 0.2), (x - side * 0.12, -deep - 0.04, 0.22),
+                  (x - side * 0.22, -deep - 0.03, 0.55), (side * 0.12, -deep - 0.06, 0.95)]
+        for start, end in zip(points, points[1:]):
+            beam(hoses, start, end, 0.025, 0.025)
+    model.plain(hoses, "rubber")
+    return model
+
+
+def cement_mixer():
+    """A cement mixer on a frame: the drum tilted with its mouth up and to the front, the frame on two wheels at one end and a
+    leg at the other, the motor's box beside the drum at the wheel end and the tipping wheel at the other."""
+    model = Model("cement_mixer")
+    frame = bmesh.new()
+    rail = 0.42
+    for y in (-0.16, 0.16):
+        beam(frame, (-0.4, y, rail), (0.36, y, rail), 0.035, 0.035)
+        beam(frame, (0.36, y, rail), (0.42, y * 0.6, 0.0), 0.03, 0.03)
+        beam(frame, (-0.4, y, rail), (-0.4, y, 0.12), 0.03, 0.03)
+    beam(frame, (-0.4, -0.27, 0.12), (-0.4, 0.27, 0.12), 0.03, 0.03)
+    beam(frame, (0.0, 0.0, rail), (0.0, 0.0, 0.62), 0.05, 0.05)
+    beam(frame, (0.3, 0.0, rail), (0.3, 0.0, 0.9), 0.03, 0.03)
+    model.hard(frame, "metal", bevel=0.004, segments=1)
+    wheels = bmesh.new()
+    for y in (-0.3, 0.3):
+        lathe(wheels, [(0.0, -0.03), (0.12, -0.03), (0.12, 0.03), (0.0, 0.03)], segments=14, to=along_y(-0.4, y, 0.12))
+    model.turned(wheels, "rubber", sharp=40.0)
+    drum = bmesh.new()
+    tilted = Matrix.Translation((0.0, -0.04, 0.82)) @ Matrix.Rotation(math.radians(55), 4, "X") @ Matrix.Rotation(math.radians(180), 4, "X")
+    lathe(drum, [(0.15, -0.36), (0.17, -0.33), (0.26, -0.24), (0.32, -0.1), (0.33, 0.03), (0.29, 0.17), (0.18, 0.3), (0.0, 0.34)], segments=20,
+          caps=False, to=tilted)
+    model.turned(drum, "paint", sharp=50.0)
+    # What is in the drum, just inside its mouth, so the inside of the shell is never seen.
+    inside = bmesh.new()
+    lathe(inside, [(0.0, -0.345), (0.155, -0.345), (0.155, -0.335), (0.0, -0.335)], segments=20, to=tilted)
+    model.turned(inside, "dark_wood", sharp=50.0)
+    motor = bmesh.new()
+    cuboid(motor, -0.44, -0.3, -0.12, 0.12, 0.66, 0.92)
+    model.hard(motor, "plastic", bevel=0.01, segments=1)
+    tipper = bmesh.new()
+    lathe(tipper, [(0.16, -0.012), (0.18, -0.012), (0.18, 0.012), (0.16, 0.012)], segments=16, closed=True, to=along_x(0.36, 0.0, 0.9))
+    for k in range(3):
+        angle = math.radians(120 * k)
+        beam(tipper, (0.36, 0.0, 0.9), (0.36, 0.17 * math.cos(angle), 0.9 + 0.17 * math.sin(angle)), 0.015, 0.015)
+    model.hard(tipper, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def sand_pile(name, radius, peak, seed):
+    """A heap of sand tipped on the ground: a cone whose sides sag towards a spread foot and whose point is rounded off, its
+    surface uneven."""
+    model = Model(name)
+    random.seed(seed)
+    rings, segments = 8, 28
+    heap = bmesh.new()
+    rows = []
+    for ring in range(rings + 1):
+        out = 1.0 - ring / rings
+        z = peak * (1.0 - out ** 1.25) ** 1.2
+        if ring == rings:
+            rows.append([heap.verts.new((0.0, 0.0, peak))])
+            continue
+        rows.append([heap.verts.new(((radius * out * random.uniform(0.94, 1.06)) * math.cos(2 * math.pi * k / segments),
+                                     (radius * out * random.uniform(0.94, 1.06)) * math.sin(2 * math.pi * k / segments),
+                                     z * (random.uniform(0.95, 1.05) if 0 < ring else 0.0))) for k in range(segments)])
+    for a, b in zip(rows, rows[1:]):
+        for k in range(segments):
+            j = (k + 1) % segments
+            heap.faces.new((a[k], a[j], b[0]) if len(b) == 1 else (a[k], a[j], b[j], b[k]))
+    heap.faces.new(rows[0][::-1])
+    model.turned(heap, "paint", sharp=70.0)
+    return model
+
+
+def warning_sign():
+    """A diamond warning sign on its post: a plate as wide as the sprite paints it and a little less high, that shows the
+    sprite's own painting of it on both its faces, bolted to the front of a square steel post. The origin is the post's axis."""
+    model = Model("warning_sign", centred=False)
+    post_high, middle, half_wide, half_high = 2.1, 1.82, 0.49, 0.4
+    shaft = bmesh.new()
+    cuboid(shaft, -0.025, 0.025, -0.025, 0.025, 0.0, post_high)
+    model.hard(shaft, "metal", bevel=0.004, segments=1)
+    plate = bmesh.new()
+    outline_along_y(plate, [(-half_wide, middle), (0.0, middle - half_high), (half_wide, middle), (0.0, middle + half_high)], WARNING_PLATE_Y - 0.004,
+                    WARNING_PLATE_Y + 0.004)
+    model.plain(plate, "pane")
+    return model
+
+
+# Where the face of a warning sign's plate is, along the model's y: in front of its post. Outdoors.WARNING_PLATE_Y is the same.
+WARNING_PLATE_Y = -0.035
+
+
+def burnt_post(name, half, high, broken, seed):
+    """A fence's post the fire has been at: square timber, charred, its top split and broken off unevenly where broken is set.
+    The origin is the post's axis."""
+    model = Model(name, centred=False)
+    random.seed(seed)
+    wood = bmesh.new()
+    cuboid(wood, -half, half, -half, half, 0.0, high)
+    tops = [vert for vert in wood.verts if vert.co.z > high / 2]
+    for vert in tops:
+        vert.co.z -= random.uniform(0.0, 0.25 if broken else 0.03)
+    model.hard(wood, "dark_wood", bevel=0.006, segments=1)
+    return model
+
+
+def pole(name, radius, high, cap):
+    """A steel pole of a fence, round, on a small flange, with a ball on top where cap is set. The origin is its axis."""
+    model = Model(name, centred=False)
+    steel = bmesh.new()
+    profile = [(0.0, 0.0), (radius * 1.8, 0.0), (radius * 1.8, 0.01), (radius, 0.02), (radius, high)]
+    if cap:
+        profile += [(radius * 1.6, high + 0.01), (radius * 1.7, high + 0.035), (radius * 1.2, high + 0.055)]
+    lathe(steel, profile + [(0.0, profile[-1][1])], segments=10)
+    model.turned(steel, "paint", sharp=40.0)
+    return model
+
+
+def street_clutter():
+    """What stands along streets and lots: road barriers and barricades, work lights, petrol pumps, a cement mixer, sand
+    tipped on the ground, and an old headstone."""
+    return [jersey_barrier(), gravestone_battered(), road_barricade(), flood_light(), fuel_pump(), cement_mixer(),
+            sand_pile("sand_pile", 1.0, 0.59, 3), sand_pile("sand_pile_large", 1.05, 0.68, 5), warning_sign(),
+            burnt_post("burnt_picket_post", 0.04, 0.96, False, 1), burnt_post("burnt_rail_post", 0.055, 1.35, True, 2),
+            burnt_post("burnt_tall_post", 0.08, 2.33, False, 3), pole("fence_pole", 0.022, 2.17, False), pole("fence_pole_capped", 0.022, 1.25, True),
+            pole("fence_pole_wide", 0.05, 2.19, False)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -5092,7 +5386,8 @@ def every():
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
-            + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial())
+            + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
+            + street_clutter())
 
 
 def main():

@@ -18,6 +18,12 @@ final class OutdoorTests {
         Checks.run("aPottedPlantIsItsKindInItsState", OutdoorTests::aPottedPlantIsItsKindInItsState);
         Checks.run("aFencePostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aFencePostStandsWhereItsSpritePaintsItsFoot);
         Checks.run("aPublicLitterBinIsTheSlattedBin", OutdoorTests::aPublicLitterBinIsTheSlattedBin);
+        Checks.run("aConcreteBarrierLiesAlongTheEdgeBehindTheWayItFaces", OutdoorTests::aConcreteBarrierLiesAlongTheEdgeBehindTheWayItFaces);
+        Checks.run("whatStandsAlongAStreetHasAModelAsBigAsItsSprite", OutdoorTests::whatStandsAlongAStreetHasAModelAsBigAsItsSprite);
+        Checks.run("aPetrolPumpIsStoodByOneOfItsTwoSpritesWhileTheOtherIsThere", OutdoorTests::aPetrolPumpIsStoodByOneOfItsTwoSpritesWhileTheOtherIsThere);
+        Checks.run("aHeapOfSandIsOneModelOverItsFourSquares", OutdoorTests::aHeapOfSandIsOneModelOverItsFourSquares);
+        Checks.run("aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted", OutdoorTests::aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted);
+        Checks.run("aBurntFencesPostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aBurntFencesPostStandsWhereItsSpritePaintsItsFoot);
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */
@@ -163,7 +169,110 @@ final class OutdoorTests {
         Checks.check(Outdoors.of("fencing_01_97", "Military Barrier", "Barricade", Outdoors.NONE, 1, 1, 0) == null, "another piece of a barrier");
         Checks.check(Outdoors.of("trashcontainers_01_17", "Green Garbage Bin", null, Outdoors.NONE, 1, 1, 0) == null
                 && Outdoors.of("trashcontainers_01_20", "Round Bin", null, Outdoors.NONE, 1, 1, 0) == null, "a bin that is as often in a room is left to the pieces indoors");
-        Checks.check(Outdoors.of("x_01_0", "Gravestone", "Battered", Outdoors.SOUTH, 1, 1, 0) == null, "a broken gravestone");
+        Checks.check(Outdoors.of("x_01_0", "Gravestone", "Cracked", Outdoors.SOUTH, 1, 1, 0) == null, "a kind of stone the mod has no model of");
+    }
+
+    private static void aConcreteBarrierLiesAlongTheEdgeBehindTheWayItFaces() {
+        Outdoors.Piece south = Outdoors.of("street_decoration_01_28", "Block", "Concrete Road", Outdoors.SOUTH, 1, 1, 0);
+        Outdoors.Piece east = Outdoors.of("street_decoration_01_29", "Block", "Concrete Road", Outdoors.EAST, 1, 1, 0);
+        holds(south, "a concrete barrier that faces south has a model");
+        holds(east, "and one that faces east");
+        Checks.check(south.a == 0.5f && south.b < 0.25f && !south.fits && onMap(south, 1f, 0f)[1] == 0f, "facing south it runs along x by the north edge, a whole square long");
+        Checks.check(east.b == 0.5f && east.a < 0.25f && !east.fits && onMap(east, 1f, 0f)[0] == 0f, "facing east along y by the west edge");
+        Models.Model barrier = Models.get(south.model);
+        Checks.check(Math.abs(barrier.width() - 1f) < 0.005f, "a run of them meets end to end: " + barrier.width());
+        Checks.check(Math.abs(barrier.depth() - 2f * south.b) < 0.02f, "its foot reaches from the edge of its square as far as its sprite paints it: " + barrier.depth());
+        Checks.check(Outdoors.of("street_decoration_01_28", "Block", "Concrete Road", Outdoors.NORTH, 1, 1, 0) == null, "the game has none that faces north");
+    }
+
+    private static void whatStandsAlongAStreetHasAModelAsBigAsItsSprite() {
+        // How high each is, read off its sprite: the top of its paint over where it stands, a level being 2.45 tiles.
+        Object[][] things = {{"location_community_cemetary_01_8", "Gravestone", "Battered", Outdoors.SOUTH, 0.7f},
+                {"construction_01_8", "Block", "Road", Outdoors.SOUTH, 0.95f}, {"lighting_outdoor_01_48", "Lights", "Flood", Outdoors.EAST, 2.5f},
+                {"construction_01_6", "Grinder", "Mortar", Outdoors.SOUTH, 1.18f}};
+        for (Object[] thing : things) {
+            Outdoors.Piece piece = Outdoors.of((String) thing[0], (String) thing[1], (String) thing[2], (int) thing[3], 1, 1, 0);
+            holds(piece, thing[0] + " has a model");
+            if (piece == null) {
+                continue;
+            }
+            Models.Model model = Models.get(piece.model);
+            Checks.check(Math.abs(model.height() - (float) thing[4]) < 0.08f, thing[0] + " is as high as its sprite: " + model.height());
+            Checks.check(piece.turns == (int) thing[3] && piece.dyed != 0, thing[0] + " faces the way its sprite does and takes its colour from it");
+        }
+        Outdoors.Piece stone = Outdoors.of("location_community_cemetary_01_9", "Gravestone", "Battered", Outdoors.EAST, 1, 1, 0);
+        Checks.check(stone.a > 0.55f && stone.a < 0.7f && stone.b == 0.5f, "an old stone that faces east stands a little east of the middle, its plinth being deep");
+        Checks.check(Outdoors.of("lighting_outdoor_01_48", "Lights", "Flood", Outdoors.NONE, 1, 1, 0) == null, "a work light the game gives no facing is none");
+    }
+
+    private static void aPetrolPumpIsStoodByOneOfItsTwoSpritesWhileTheOtherIsThere() {
+        for (String sheet : new String[] {"location_shop_gas2go_01_", "location_shop_fossoil_01_"}) {
+            Outdoors.Piece east = unnamed(sheet + "12"), north = unnamed(sheet + "13"), south = unnamed(sheet + "14"), west = unnamed(sheet + "15");
+            holds(east, sheet + "12 has a model");
+            holds(south, sheet + "14 has a model");
+            Checks.check(north != null && north.follows && north.model == null && west != null && west.follows && west.model == null,
+                    sheet + "13 and 15 stand nothing of their own");
+            Checks.check(east != null && (sheet + "13").equals(east.partner) && east.partnerX == 0 && east.partnerY == -1 && north != null
+                    && (sheet + "12").equals(north.partner) && north.partnerX == 0 && north.partnerY == 1, "facing east the other sprite is on the square to the north, each naming the other");
+            Checks.check(south != null && (sheet + "15").equals(south.partner) && south.partnerX == -1 && south.partnerY == 0 && west != null
+                    && (sheet + "14").equals(west.partner) && west.partnerX == 1, "facing south it is on the square to the west");
+            Checks.check(east != null && east.turns == Outdoors.EAST && east.b < 0.5f && south != null && south.turns == Outdoors.SOUTH && south.a < 0.5f,
+                    "the pump leans to the edge between its two squares");
+            Checks.check(east != null && east.dyed == 1 << Models.PAINT && east.alsoDyed == 1 << Models.VINYL && east.alsoHigh > east.dyeHigh,
+                    "its low panel and its head each take their colour from the sprite");
+        }
+        Models.Model pump = Models.get("fuel_pump");
+        Checks.check(pump.width() > pump.depth() && pump.height() > 2.2f && pump.height() < 2.4f, "the pump is long across its front and as high as its sprite: " + pump.height());
+        Checks.check(unnamed("location_shop_gas2go_01_16") == null && unnamed("location_shop_fossoil_01_11") == null, "the rest of the stations' sheets are no pump");
+    }
+
+    private static void aHeapOfSandIsOneModelOverItsFourSquares() {
+        Outdoors.Piece large = Outdoors.of("construction_01_67", "Sand Pile", "Large", Outdoors.NORTH, 2, 2, 0);
+        Outdoors.Piece small = Outdoors.of("construction_01_75", "Sand Pile", "Small", Outdoors.NORTH, 2, 2, 0);
+        holds(large, "a large heap of sand has a model");
+        holds(small, "and a small one");
+        Checks.check(large != null && small != null && !large.each && Models.get(large.model).height() > Models.get(small.model).height(), "the large one is the higher");
+        Checks.check(Models.get("sand_pile").width() > 1.8f && Models.get("sand_pile").width() < 2.25f, "a heap spreads over its four squares");
+        Checks.check(Outdoors.of("construction_01_75", "Sand Pile", "Small", Outdoors.NORTH, 1, 1, 0) == null, "a square of one alone is none");
+    }
+
+    private static void aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted() {
+        int[][] signs = {{4, Outdoors.NORTH}, {5, Outdoors.WEST}, {8, Outdoors.SOUTH}, {12, Outdoors.SOUTH}, {16, Outdoors.EAST}, {20, Outdoors.EAST}};
+        for (int[] sign : signs) {
+            Outdoors.Piece piece = unnamed("street_roadsigns_01_" + sign[0]);
+            holds(piece, "street_roadsigns_01_" + sign[0] + " has a model");
+            if (piece == null) {
+                continue;
+            }
+            Checks.check(piece.turns == sign[1] && piece.pictured && piece.dyed == 1 << Models.PANE && piece.paneY == Outdoors.WARNING_PLATE_Y,
+                    "street_roadsigns_01_" + sign[0] + " faces " + sign[1] + " and its plate shows its sprite");
+        }
+        // The plate's face, a hand in front of the post, is where the sprite paints the plate: read off the sprite, across 26 to 94 of
+        // its 128 columns and with its middle 81 rows from the top, for one that faces south.
+        Outdoors.Piece south = unnamed("street_roadsigns_01_8");
+        Models.Model sign = Models.get(south.model);
+        float plateB = south.b - Outdoors.WARNING_PLATE_Y;
+        float left = (south.a - sign.width() / 2f - plateB) * 64f + 64f, right = (south.a + sign.width() / 2f - plateB) * 64f + 64f;
+        Checks.check(Math.abs(left - 26f) < 5f && Math.abs(right - 94f) < 5f, "its plate is as wide as the sprite paints it: " + left + " to " + right);
+        Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
+    }
+
+    private static void aBurntFencesPostStandsWhereItsSpritePaintsItsFoot() {
+        Object[][] posts = {{3, "burnt_picket_post", 0.96f}, {13, "burnt_tall_post", 2.33f}, {45, "burnt_rail_post", 1.35f}, {53, "fence_pole", 2.17f},
+                {61, "fence_pole_wide", 2.19f}, {69, "fence_pole_capped", 1.28f}};
+        for (Object[] post : posts) {
+            String name = "fencing_burnt_01_" + post[0];
+            Outdoors.Piece piece = Outdoors.of(name, null, null, Outdoors.NONE, 1, 1, 0);
+            Outdoors.Piece named = Outdoors.of(name, "Fence Post", null, Outdoors.NONE, 1, 1, 0);
+            holds(piece, name + " has a model");
+            if (piece == null) {
+                continue;
+            }
+            Checks.check(piece.model.equals(post[1]) && named != null && named.model.equals(post[1]), name + " is " + post[1] + " whether or not the game names it");
+            Checks.check(piece.a < 0.15f && piece.b < 0.15f && piece.dyeA == piece.a && piece.dyeB == piece.b, name + " stands by its square's north-west corner and is coloured from itself there");
+            Checks.check(Math.abs(Models.get(piece.model).height() - (float) post[2]) < 0.06f, name + " is as high as its sprite: " + Models.get(piece.model).height());
+        }
+        Checks.check(Outdoors.of("fencing_burnt_01_4", null, null, Outdoors.NONE, 1, 1, 0) == null, "another sprite of the sheet is none of them");
     }
 
     private static void aStackOfTyresIsAsManyTyresAsItsSpritePaintsAndStaysOnItsSquare() {

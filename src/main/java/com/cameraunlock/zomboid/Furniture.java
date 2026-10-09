@@ -80,6 +80,13 @@ final class Furniture {
     float rail;
     /** Whether this is a television, which shows a picture when it is on, and whether it is one with no colour. */
     boolean television, blackAndWhite;
+    /** For a piece painted in two sprites with no grid to tie them, the other's name and how far its square is from this one's: see Outdoors.Piece. */
+    String partner;
+    int partnerX, partnerY;
+    /** Whether this sprite is the one of such a pair that stands nothing. */
+    boolean follows;
+    /** For a piece that stands on the floor and whose pane shows its sprite's painting, how far along the model's y the pane's face is. */
+    float paneY;
 
     Furniture(IsoSprite sprite, String model, int turns) {
         this(sprite, model, turns, false);
@@ -580,6 +587,15 @@ final class Furniture {
         if (outside.dyed != 0) {
             piece.dye(outside.dyed, outside.dyeA, outside.dyeB, outside.dyeHigh);
         }
+        if (outside.alsoDyed != 0) {
+            piece.also(outside.alsoDyed, outside.alsoHigh);
+        }
+        piece.partner = outside.partner;
+        piece.partnerX = outside.partnerX;
+        piece.partnerY = outside.partnerY;
+        piece.follows = outside.follows;
+        piece.pictured = outside.pictured;
+        piece.paneY = outside.paneY;
         if (outside.fits) {
             piece.stand(0f, piece.model.height(), false);
         }
