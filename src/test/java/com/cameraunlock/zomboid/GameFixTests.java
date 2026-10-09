@@ -18,15 +18,9 @@ final class GameFixTests {
 
     static void run() {
         Checks.run("aKindIsKeptOnceItIsLearnt", GameFixTests::aKindIsKeptOnceItIsLearnt);
-        try {
-            anAnswerIsWorkedOutOnceForEachThingAsked();
-            falseIsAnsweredAtOnceWhileTheListIsEmpty();
-            anAnswerIsKeptUntilWhatItCameFromChanges();
-        } catch (AssertionError failed) {
-            throw failed;
-        } catch (Throwable thrown) {
-            throw new AssertionError("a rewritten class could not be made or called", thrown);
-        }
+        Checks.run("anAnswerIsWorkedOutOnceForEachThingAsked", GameFixTests::anAnswerIsWorkedOutOnceForEachThingAsked);
+        Checks.run("falseIsAnsweredAtOnceWhileTheListIsEmpty", GameFixTests::falseIsAnsweredAtOnceWhileTheListIsEmpty);
+        Checks.run("anAnswerIsKeptUntilWhatItCameFromChanges", GameFixTests::anAnswerIsKeptUntilWhatItCameFromChanges);
     }
 
     private static void check(boolean condition, String what) {

@@ -130,6 +130,11 @@ final class WorldScene {
 
     /** The land beyond the loaded map, round this view's eye. */
     final FarLand farLand = new FarLand();
+    /**
+     * The frames handed to the render thread in turn. One is filled again only after the
+     * other three were handed on, and by then the render thread has drawn it.
+     */
+    static final int SCENES = 4;
     private final Frame[] scenes = {new Frame(), new Frame(), new Frame(), new Frame()};
     private int nextScene;
 

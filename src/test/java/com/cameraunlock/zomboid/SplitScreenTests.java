@@ -22,16 +22,10 @@ final class SplitScreenTests {
         Checks.run("twoPlayersSideBySideAreAsTheGameHasThem", SplitScreenTests::twoPlayersSideBySideAreAsTheGameHasThem);
         Checks.run("twoPlayersStackedHaveTheWholeWidthAndHalfTheHeightEach", SplitScreenTests::twoPlayersStackedHaveTheWholeWidthAndHalfTheHeightEach);
         Checks.run("anyOtherNumberOfPlayersIsAsTheGameHasIt", SplitScreenTests::anyOtherNumberOfPlayersIsAsTheGameHasIt);
-        try {
-            aCountComparedIsFilteredAndOneUsedOtherwiseIsNot();
-            aCountComparedIsCountedAndItsBranchRequired();
-            theFirstOperandIsFiltered();
-            theFirstArgumentIsFilteredBeforeAnythingRuns();
-        } catch (AssertionError failed) {
-            throw failed;
-        } catch (Throwable thrown) {
-            throw new AssertionError("a rewritten class could not be made or called", thrown);
-        }
+        Checks.run("aCountComparedIsFilteredAndOneUsedOtherwiseIsNot", SplitScreenTests::aCountComparedIsFilteredAndOneUsedOtherwiseIsNot);
+        Checks.run("aCountComparedIsCountedAndItsBranchRequired", SplitScreenTests::aCountComparedIsCountedAndItsBranchRequired);
+        Checks.run("theFirstOperandIsFiltered", SplitScreenTests::theFirstOperandIsFiltered);
+        Checks.run("theFirstArgumentIsFilteredBeforeAnythingRuns", SplitScreenTests::theFirstArgumentIsFilteredBeforeAnythingRuns);
     }
 
     private static void check(boolean condition, String what) {

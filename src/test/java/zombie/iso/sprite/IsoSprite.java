@@ -30,8 +30,12 @@ public final class IsoSprite {
         return grid;
     }
 
+    /** As the game reads Facing: N, S, W or E, and null for anything else. */
     public IsoDirections getFacing() {
         String facing = properties.get("Facing");
-        return facing == null ? null : IsoDirections.valueOf(facing);
+        return facing == null ? null : switch (facing) {
+            case "N", "S", "W", "E" -> IsoDirections.valueOf(facing);
+            default -> null;
+        };
     }
 }

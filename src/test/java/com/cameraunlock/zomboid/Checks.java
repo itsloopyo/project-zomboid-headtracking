@@ -12,6 +12,8 @@ final class Checks {
     /** A loop that only a failed check used to end fails without end: past this many the run is given up, with its tally. */
     private static final int MOST_FAILURES = 1000;
     private static int checks, failures;
+    /** What the tally calls the suite: each suite runs in a process of its own. */
+    static String suite = "tests";
 
     static void check(boolean held, String what) {
         checks++;
@@ -41,9 +43,12 @@ final class Checks {
         }
     }
 
-    /** Prints the one tally and ends the process, with 1 if any check failed. */
+    /**
+     * Prints the suite's tally and ends the process, with 1 if any check failed. Whether every
+     * suite passed is said once, by scripts/test.ps1, after the last has run.
+     */
     static void tally() {
-        System.out.println(failures == 0 ? "tests: all " + checks + " checks passed" : "tests: " + failures + " of " + checks + " checks FAILED");
+        System.out.println(suite + ": " + checks + " checks, " + (failures == 0 ? "none failed" : failures + " FAILED"));
         System.exit(failures == 0 ? 0 : 1);
     }
 }

@@ -25,16 +25,20 @@ public final class PropertyContainer {
         return all.containsKey(flag.name());
     }
 
+    /** As the game reads Surface: a whole number from 0 to 127, and 0 for anything else. */
     public int getSurface() {
-        String surface = all.get("Surface");
-        return surface == null ? 0 : Integer.parseInt(surface);
+        return smallWhole("Surface");
     }
 
     /** As the game reads ItemHeight: a whole number from 0 to 127, and 0 for anything else. */
     public int getItemHeight() {
+        return smallWhole("ItemHeight");
+    }
+
+    private int smallWhole(String property) {
         try {
-            int height = Integer.parseInt(all.getOrDefault("ItemHeight", ""));
-            return height >= 0 && height <= 127 ? height : 0;
+            int number = Integer.parseInt(all.getOrDefault(property, ""));
+            return number >= 0 && number <= 127 ? number : 0;
         } catch (NumberFormatException notAWholeNumber) {
             return 0;
         }

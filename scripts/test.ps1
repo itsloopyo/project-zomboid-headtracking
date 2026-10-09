@@ -10,3 +10,4 @@ $tests = $LASTEXITCODE
 $core = $LASTEXITCODE
 
 if ($tests -ne 0 -or $core -ne 0) { throw "tests failed: Tests exited with $tests, CoreTests with $core" }
+Write-Host 'all tests passed'

@@ -13,7 +13,9 @@ The lettering is set in fonts of this machine's Windows (Impact and Georgia). On
 drawn go into a picture.
 """
 import pathlib
+import shutil
 import sys
+import tempfile
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -193,9 +195,9 @@ def main():
     arguments = [a for a in sys.argv[1:] if a != '--partial']
     partial = len(arguments) != len(sys.argv) - 1
     folder = pathlib.Path(arguments[0])
-    OUT.mkdir(parents=True, exist_ok=True)
-    for old in OUT.glob('*.jpg'):
-        old.unlink()
+    # Made in a folder of its own and moved in only once nothing is missing, so a run
+    # that stops leaves them as they were.
+    made_into = pathlib.Path(tempfile.mkdtemp(prefix='pictures-'))
     sizes = {}
     missing = []
     total = 0
@@ -208,17 +210,24 @@ def main():
         if max(image.size) > longest:
             scale = longest / max(image.size)
             image = image.resize((round(image.width * scale), round(image.height * scale)), Image.LANCZOS)
-        image.save(OUT / f'{name}.jpg', quality=QUALITY)
-        total += (OUT / f'{name}.jpg').stat().st_size
+        image.save(made_into / f'{name}.jpg', quality=QUALITY)
+        total += (made_into / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
     shown = screens(folder)
     missing += [name for name in catalogue.SHOTS if name not in shown]
     for name, image in shown.items():
-        image.save(OUT / f'{name}.jpg', quality=SCREEN_QUALITY)
-        total += (OUT / f'{name}.jpg').stat().st_size
+        image.save(made_into / f'{name}.jpg', quality=SCREEN_QUALITY)
+        total += (made_into / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
     if missing and not partial:
+        shutil.rmtree(made_into)
         raise SystemExit('not made yet: ' + ' '.join(missing))
+    OUT.mkdir(parents=True, exist_ok=True)
+    for old in OUT.glob('*.jpg'):
+        old.unlink()
+    for new in made_into.glob('*.jpg'):
+        shutil.move(new, OUT / new.name)
+    made_into.rmdir()
     with open(OUT / 'index.txt', 'w', encoding='utf-8', newline='\n') as index:
         for name, (wide, high) in sizes.items():
             index.write(f'{name}\t{wide}\t{high}\n')

@@ -48,8 +48,6 @@ public final class CoreTests {
     private static final float ASPECT = 16f / 9f;
     private static final float FRAME_SECONDS = 0.005f;
 
-    private static int checks;
-    private static int failures;
     private static Path scratch, game, defaults, file;
 
     private CoreTests() {}
@@ -70,6 +68,7 @@ public final class CoreTests {
             System.out.println(started());
             return;
         }
+        Checks.suite = "core tests";
         scratch = Path.of("build", "core-test-run").toAbsolutePath();
         if (Files.exists(scratch)) {
             // What the run before left: its log was open until that process ended.
@@ -84,33 +83,28 @@ public final class CoreTests {
         file = game.resolve(Config.FILE_NAME);
         Log.open(game);
 
-        longStackTraceIsLoggedWhole();
-        committedFileIsTheRowsRendered();
-        firstStartCreatesTheCommittedFileAndRunsOnItsValues();
-        trackerAxesBecomeThisViews();
-        mapsAnswerIsHandedToCoreAsAWall();
-        poseTurnsAndMovesTheView();
-        repeatedJumpIsNotFollowed();
-        zoomLeavesTheHeadsTurnTheSameSizeOnScreen();
-        hotkeyActionsActAndSave();
-        stockSightsLeavesTheViewTheHeadsRollAlone();
-        nextStartRunsOnWhatWasSaved();
-        freeLookWithNoMarkerIsReadAsFreeLookWithOne();
-        aFileFromBeforeTheKeysMovedStartsOnTheNavKeys();
-        rowsReadAgainWhileTheGameRuns();
-        settingsOfTheGamesOptionsScreenAreSavedAndTaken();
-        gameRunsUnmoddedBesideALibraryOfAnotherBuild();
-
-        System.out.println(failures == 0 ? "core tests: all " + checks + " passed" : "core tests: " + failures + " of " + checks + " FAILED");
-        System.exit(failures == 0 ? 0 : 1);
+        // In this order: most carry on from the session or the saved file the one before left.
+        Checks.run("longStackTraceIsLoggedWhole", CoreTests::longStackTraceIsLoggedWhole);
+        Checks.run("committedFileIsTheRowsRendered", CoreTests::committedFileIsTheRowsRendered);
+        Checks.run("firstStartCreatesTheCommittedFileAndRunsOnItsValues", CoreTests::firstStartCreatesTheCommittedFileAndRunsOnItsValues);
+        Checks.run("trackerAxesBecomeThisViews", CoreTests::trackerAxesBecomeThisViews);
+        Checks.run("mapsAnswerIsHandedToCoreAsAWall", CoreTests::mapsAnswerIsHandedToCoreAsAWall);
+        Checks.run("poseTurnsAndMovesTheView", CoreTests::poseTurnsAndMovesTheView);
+        Checks.run("repeatedJumpIsNotFollowed", CoreTests::repeatedJumpIsNotFollowed);
+        Checks.run("zoomLeavesTheHeadsTurnTheSameSizeOnScreen", CoreTests::zoomLeavesTheHeadsTurnTheSameSizeOnScreen);
+        Checks.run("hotkeyActionsActAndSave", CoreTests::hotkeyActionsActAndSave);
+        Checks.run("stockSightsLeavesTheViewTheHeadsRollAlone", CoreTests::stockSightsLeavesTheViewTheHeadsRollAlone);
+        Checks.run("nextStartRunsOnWhatWasSaved", CoreTests::nextStartRunsOnWhatWasSaved);
+        Checks.run("freeLookWithNoMarkerIsReadAsFreeLookWithOne", CoreTests::freeLookWithNoMarkerIsReadAsFreeLookWithOne);
+        Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
+        Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
+        Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
+        Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
+        Checks.tally();
     }
 
     private static void check(boolean held, String what) {
-        checks++;
-        if (!held) {
-            failures++;
-            System.out.println("  [FAIL] " + what);
-        }
+        Checks.check(held, what);
     }
 
     private static boolean near(float a, float b) {
@@ -453,6 +447,8 @@ public final class CoreTests {
         ViewCamera.project(turned, fieldOfView.tanHalfVertical(), ASPECT, aheadX, aheadY, clean.eyeUp, aimed);
         check(near(hip[0], aimed[0]) && Math.abs(hip[0]) > 0.3f, "and the head's yaw moves the picture as far as it did unzoomed: " + hip[0] + " and " + aimed[0]);
         check(eyeMoved(0.20f, -0.10f * FieldOfView.AIMED_ZOOM, 0f), "the lean in is whole and the lean across the view is scaled with the picture: " + eye());
+        moveTo(0, 0, 15, 0.10, 0, -0.20);
+        check(looks(0f, 0f, 15f), "and the head's roll is whole, unscaled by the zoom: " + headTracking.describe());
         fieldOfView.rest();
         moveTo(20, 10, 12, 0.10, 0.05, -0.20);
         check(looks(20f, 10f, 12f), "back to the first pose: " + headTracking.describe());

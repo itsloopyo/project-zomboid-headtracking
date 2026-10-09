@@ -123,6 +123,8 @@ public final class FirstPerson {
     private boolean lookCaptured;
     /** Whether a frame of the picture has been queued since its targets were last given back. */
     private boolean pictureUp;
+    /** Logic frames in a row with no player at this view's number. */
+    private int goneFor;
     private final PointerMode pointer = new PointerMode();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
@@ -313,10 +315,16 @@ public final class FirstPerson {
      * give it back, and the other view would wait on it for what the two share.
      */
     void playerGone() {
+        Tracking.gone(view.index);
+        // The render thread may have the player's last frames still to draw, from the builds giveBack
+        // lets go of: it waits as long as the scene ring does before it fills a frame again.
+        if (goneFor < WorldScene.SCENES) {
+            goneFor++;
+            return;
+        }
         if (on || held || pictureUp || !view.flight.home()) {
             giveBack("player " + (view.index + 1) + " is gone");
         }
-        Tracking.gone(view.index);
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */
@@ -417,6 +425,7 @@ public final class FirstPerson {
      * @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say
      */
     void afterWorldRender(int pressed) {
+        goneFor = 0;
         long before = TRACE ? Allocation.byThisThread() : 0L;
         view.controls.frame();
         try {

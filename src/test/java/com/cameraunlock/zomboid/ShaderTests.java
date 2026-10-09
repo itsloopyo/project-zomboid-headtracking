@@ -67,53 +67,53 @@ final class ShaderTests {
 
     static void run() {
         List<Linked> programs = programs();
-        // The depth program is the world's text with one line put in place of another. Were the line reworded in the
-        // shader and not where it is looked for, it would be the world's whole program: the same picture, slower.
+        Checks.run("depthProgramIsTheWorldsToldToDrawDepthAlone", () -> depthProgramIsTheWorldsToldToDrawDepthAlone(programs));
+        Checks.run("wiresAreOutOfTheMapFromAbove", () -> wiresAreOutOfTheMapFromAbove(programs));
+        Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
+        Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
+        Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
+    }
+
+    /**
+     * The depth program is the world's text with one line put in place of another. Were the line reworded in the
+     * shader and not where it is looked for, it would be the world's whole program: the same picture, slower.
+     */
+    private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
         String whole = fragment(programs, "world"), depth = fragment(programs, "world depth");
-        if (whole.equals(depth) || !depth.contains("const bool depthOnly = true;")) {
-            throw new AssertionError("the world depth program is not the world's program told to draw depth alone");
+        Checks.check(!whole.equals(depth) && depth.contains("const bool depthOnly = true;"), "the world depth program is not the world's program told to draw depth alone");
+    }
+
+    private static void everyProgramPassesTheReferenceCompiler(List<Linked> programs) throws IOException, InterruptedException {
+        if (Files.exists(OUT)) {
+            try (Stream<Path> old = Files.list(OUT)) {
+                for (Path file : old.toList()) {
+                    Files.delete(file);
+                }
+            }
         }
-        wiresAreOutOfTheMapFromAbove(programs);
-        wallsAskTheSunFromUnderTheirRoof(programs);
-        whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs);
-        try {
-            if (Files.exists(OUT)) {
-                try (Stream<Path> old = Files.list(OUT)) {
-                    for (Path file : old.toList()) {
-                        Files.delete(file);
-                    }
-                }
+        Files.createDirectories(OUT);
+        int passed = 0;
+        for (Linked program : programs) {
+            List<String> command = new ArrayList<>(List.of(VALIDATOR, "-l", "--validate-io"));
+            for (Map.Entry<String, String> stage : program.stages.entrySet()) {
+                Path file = OUT.resolve(program.name.replace(' ', '-') + "." + stage.getKey());
+                Files.writeString(file, stage.getValue(), StandardCharsets.UTF_8);
+                command.add(file.toString());
             }
-            Files.createDirectories(OUT);
-            StringBuilder refused = new StringBuilder();
-            for (Linked program : programs) {
-                List<String> command = new ArrayList<>(List.of(VALIDATOR, "-l", "--validate-io"));
-                for (Map.Entry<String, String> stage : program.stages.entrySet()) {
-                    Path file = OUT.resolve(program.name.replace(' ', '-') + "." + stage.getKey());
-                    Files.writeString(file, stage.getValue(), StandardCharsets.UTF_8);
-                    command.add(file.toString());
-                }
-                Process validator;
-                try {
-                    validator = new ProcessBuilder(command).redirectErrorStream(true).start();
-                } catch (IOException missing) {
-                    throw new AssertionError(VALIDATOR + " did not start (" + missing.getMessage()
-                            + "): it comes with the pixi environment, so run the tests with pixi run test");
-                }
-                String said = new String(validator.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                if (validator.waitFor() != 0 || said.contains("WARNING") || said.contains("ERROR")) {
-                    refused.append("the ").append(program.name).append(" shader (").append(program.from).append("):\n").append(said.strip()).append("\n\n");
-                }
+            Process validator;
+            try {
+                validator = new ProcessBuilder(command).redirectErrorStream(true).start();
+            } catch (IOException missing) {
+                throw new AssertionError(VALIDATOR + " did not start (" + missing.getMessage()
+                        + "): it comes with the pixi environment, so run the tests with pixi run test");
             }
-            if (refused.length() > 0) {
-                throw new AssertionError("glslangValidator refuses shaders the mod compiles in the game. Each source is in " + OUT + ".\n\n" + refused);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        } catch (InterruptedException e) {
-            throw new AssertionError(e);
+            String said = new String(validator.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            boolean taken = validator.waitFor() == 0 && !said.contains("WARNING") && !said.contains("ERROR");
+            Checks.check(taken, "glslangValidator refuses the " + program.name + " shader (" + program.from + "), which the mod compiles in the game."
+                    + " Its source is in " + OUT + ":\n" + said.strip());
+            passed += taken ? 1 : 0;
         }
-        System.out.println("shader tests: " + programs.size() + " programs pass " + VALIDATOR);
+        System.out.println("shader tests: " + passed + " of " + programs.size() + " programs pass " + VALIDATOR);
     }
 
     /**
@@ -157,9 +157,7 @@ final class ShaderTests {
 
     private static void once(String stage, String name, String line) {
         int at = stage.indexOf(line);
-        if (at < 0 || stage.indexOf(line, at + 1) >= 0) {
-            throw new AssertionError("the " + name + " vertex stage has not exactly one line \"" + line + "\"");
-        }
+        Checks.check(!(at < 0 || stage.indexOf(line, at + 1) >= 0), "the " + name + " vertex stage has not exactly one line \"" + line + "\"");
     }
 
     /**
@@ -172,9 +170,7 @@ final class ShaderTests {
     private static void whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(List<Linked> programs) {
         String world = vertex(programs, "world"), shadow = vertex(programs, "shadow");
         String over = hangsOver(world, "world");
-        if (!over.equals(hangsOver(shadow, "shadow"))) {
-            throw new AssertionError("the view tells a lamp that hangs by a facing over " + over + " and its shadow by one over " + hangsOver(shadow, "shadow"));
-        }
+        Checks.check(over.equals(hangsOver(shadow, "shadow")), "the view tells a lamp that hangs by a facing over " + over + " and its shadow by one over " + hangsOver(shadow, "shadow"));
         once(world, "world", "bool hung = uModel < 0.5 && !still && (" + hung("vMaterial", over) + ");");
         once(world, "world", "bool wire = uModel < 0.5 && " + stuff("vMaterial", WorldScene.WIRE) + " || hung;");
         once(world, "world", "at.xyz = swung(at.xyz, length(gl_Normal) - 1.0, across, swing);");
@@ -190,10 +186,8 @@ final class ShaderTests {
                 for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float[] v = mesh.vertices;
                     float squared = v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11];
-                    if (!(squared > line)) {
-                        throw new AssertionError("a vertex of a bulb hung right at a support has a facing of " + squared + " squared, which the vertex stages do not take for hanging (over "
+                    Checks.check(squared > line, "a vertex of a bulb hung right at a support has a facing of " + squared + " squared, which the vertex stages do not take for hanging (over "
                                 + over + "): it would stand still while its cord swings");
-                    }
                 }
             }
         }
@@ -204,9 +198,7 @@ final class ShaderTests {
         }
         for (int at = 0; at < stands.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] v = stands.vertices;
-            if (v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11] > line) {
-                throw new AssertionError("a lamp that stands, with a facing one long, is taken for one that hangs (over " + over + ")");
-            }
+            Checks.check(!(v[at + 9] * v[at + 9] + v[at + 10] * v[at + 10] + v[at + 11] * v[at + 11] > line), "a lamp that stands, with a facing one long, is taken for one that hangs (over " + over + ")");
         }
     }
 
@@ -219,13 +211,9 @@ final class ShaderTests {
         String vertex = vertex(programs, "shadow");
         String wire = "if (" + stuff("material", WorldScene.WIRE) + " || " + hung("material", hangsOver(vertex, "shadow")) + ") {";
         int at = vertex.indexOf(wire);
-        if (at < 0 || vertex.indexOf(wire, at + 1) >= 0) {
-            throw new AssertionError("the shadow vertex stage has not exactly one branch for an overhead wire");
-        }
+        Checks.check(!(at < 0 || vertex.indexOf(wire, at + 1) >= 0), "the shadow vertex stage has not exactly one branch for an overhead wire");
         String branch = vertex.substring(at + wire.length()).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ").strip();
-        if (!branch.startsWith("if (uFromAbove > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }")) {
-            throw new AssertionError("the shadow vertex stage does not throw an overhead wire out of the map from above before it places it");
-        }
+        Checks.check(branch.startsWith("if (uFromAbove > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }"), "the shadow vertex stage does not throw an overhead wire out of the map from above before it places it");
         String pipeline;
         try {
             pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
@@ -234,9 +222,7 @@ final class ShaderTests {
         }
         int roof = pipeline.indexOf("private void castRoof("), set = pipeline.indexOf("shadow.set(\"uFromAbove\", 1f); try {");
         int back = pipeline.indexOf("} finally { shadow.set(\"uFromAbove\", 0f); } }", set), next = pipeline.indexOf(" private ", roof + 1);
-        if (roof < 0 || set < roof || back < set || back > next || count(pipeline, "\"uFromAbove\", 1f") != 1) {
-            throw new AssertionError("uFromAbove is not set for the map from above alone, and set back whatever the draw does");
-        }
+        Checks.check(!(roof < 0 || set < roof || back < set || back > next || count(pipeline, "\"uFromAbove\", 1f") != 1), "uFromAbove is not set for the map from above alone, and set back whatever the draw does");
     }
 
     /**
@@ -249,28 +235,18 @@ final class ShaderTests {
      */
     private static void wallsAskTheSunFromUnderTheirRoof(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        if (!world.contains("bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;")) {
-            throw new AssertionError("the world's fragment stage does not say what is roofed before it asks the sun maps");
-        }
-        if (!world.contains("float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;")) {
-            throw new AssertionError("a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
-        }
-        if (!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
+        Checks.check(world.contains("bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;"), "the world's fragment stage does not say what is roofed before it asks the sun maps");
+        Checks.check(world.contains("float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;"), "a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
+        Checks.check(!(!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
                 + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); } }")
                 || !world.contains("if (!inNear) { if (roofed) { from.xyz = sunAsked(from.xyz, 1.6, uSunTexelUp.y, beneath); }"
                         + " c = (uFarMatrix * from).xyz * 0.5 + 0.5; reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0; }")
-                || count(world, "shadowAt(uShadow") != 2) {
-            throw new AssertionError("the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof");
-        }
-        if (!world.contains("float top = from.z + (c.z - over) * uRoofDeep; if (top <= vWorld.z + 0.001) { return from; } "
-                + "return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));")) {
-            throw new AssertionError("sunAsked does not lower a point under what is over it by the map's offset and the lookup's spread,"
+                || count(world, "shadowAt(uShadow") != 2), "the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof");
+        Checks.check(world.contains("float top = from.z + (c.z - over) * uRoofDeep; if (top <= vWorld.z + 0.001) { return from; } "
+                + "return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));"), "sunAsked does not lower a point under what is over it by the map's offset and the lookup's spread,"
                     + " or lowers one with nothing over it");
-        }
         String caster = fragment(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        if (!caster.contains("if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) { discard; }")) {
-            throw new AssertionError("the shadow maps let the sun through the clear pixels of a floor or a ceiling's sprite");
-        }
+        Checks.check(caster.contains("if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) { discard; }"), "the shadow maps let the sun through the clear pixels of a floor or a ceiling's sprite");
         String casterVertex = vertex(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         String pipeline;
         try {
@@ -278,28 +254,20 @@ final class ShaderTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        if (!casterVertex.contains("vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;") || SpriteGeometry.SHEET != 6f
-                || SpriteGeometry.LAYERS_UP >= 5.5f) {
-            throw new AssertionError("the shadow maps keep the clear pixels of something that is not a sheet, or of no sheet");
-        }
-        if (!casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))")) {
-            throw new AssertionError("a sheet does not lie up as what lies in layers up does");
-        }
+        Checks.check(!(!casterVertex.contains("vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;") || SpriteGeometry.SHEET != 6f
+                || SpriteGeometry.LAYERS_UP >= 5.5f), "the shadow maps keep the clear pixels of something that is not a sheet, or of no sheet");
+        Checks.check(casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))"), "a sheet does not lie up as what lies in layers up does");
         String scene = LowTests.scene();
-        if (count(scene, "layers.sheet(") != 3 || count(scene, "layers.sheet(-1f); ") != 2
+        Checks.check(!(count(scene, "layers.sheet(") != 3 || count(scene, "layers.sheet(-1f); ") != 2
                 || !scene.contains("private void layFloor(boolean floor) { if (floor && build.floorLayer == 0) { WorldScene.layers.sheet(build.floorLayer++); }"
                         + " else { WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++); } }")
-                || !scene.contains("layFloor(isFloor && build.frame.kind == 0f);")) {
-            throw new AssertionError("the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
-        }
-        if (count(pipeline, "glPolygonOffset(") != 1 || !pipeline.contains("GL11.glPolygonOffset(SLOPE_OFFSET, 6f);")
+                || !scene.contains("layFloor(isFloor && build.frame.kind == 0f);")), "the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
+        Checks.check(!(count(pipeline, "glPolygonOffset(") != 1 || !pipeline.contains("GL11.glPolygonOffset(SLOPE_OFFSET, 6f);")
                 || !pipeline.contains("float across = (float) Math.hypot(state.lightX, state.lightY); "
                         + "to.set(\"uSunTexelUp\", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across); "
                         + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);"
-                        + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")) {
-            throw new AssertionError("the world's program is not told the offset the sun maps are drawn with,"
+                        + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")), "the world's program is not told the offset the sun maps are drawn with,"
                     + " a texel of each map as the light lies, or the depth of the map from above");
-        }
     }
 
     private static String fragment(List<Linked> programs, String name) {
