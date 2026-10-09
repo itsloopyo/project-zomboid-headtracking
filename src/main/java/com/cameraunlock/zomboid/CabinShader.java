@@ -198,6 +198,19 @@ final class CabinShader {
                         }
                     }
                 }
+                // A mirror on each front door: a housing outside the glass, its face to the
+                // back, on a short arm from a sail at the foot of the screen's pillar.
+                vec3 housed = vec3(p.x - uDoorMirror.x, v.y - uDoorMirror.y, p.z - uDoorMirror.z);
+                float round3 = length(housed + vec3(0.0, 0.07, 0.02)) - 0.25;
+                if (gRoughly * round3 > 0.04) {
+                    nearest = min(nearest, round3);
+                } else {
+                    float reach = uDoorMirror.y - wide.x;
+                    d = min(block(housed, vec3(0.03, 0.088, 0.048), 0.012),
+                            rod(housed, vec3(0.0, -0.08, -0.025), vec3(0.012, 0.012 - reach, -0.05), 0.016));
+                    d = min(d, block(housed - vec3(0.03, 0.008 - reach, -0.055), vec3(0.07, 0.004, 0.03), 0.008));
+                    if (d < nearest) { nearest = d; part = 8.0; }
+                }
                 // The pad over the dashboard, from its roll before the driver to the glass.
                 float padTop = max(uDash.y, uScreen.y) + 0.004;
                 float from = padFrom(), to = uScreen.x + 0.1;

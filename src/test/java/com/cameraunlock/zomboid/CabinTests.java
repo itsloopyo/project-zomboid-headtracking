@@ -18,6 +18,7 @@ final class CabinTests {
         Checks.run("passengersSitWhereTheScriptSeatsThemFromTheDriver", CabinTests::passengersSitWhereTheScriptSeatsThemFromTheDriver);
         Checks.run("mirrorHangsFromTheVehicleWhicheverWayItFaces", CabinTests::mirrorHangsFromTheVehicleWhicheverWayItFaces);
         Checks.run("mirrorLeavesOutWhatItCannotShow", CabinTests::mirrorLeavesOutWhatItCannotShow);
+        Checks.run("doorMirrorStandsOnItsDoorAtTheFootOfThePillar", CabinTests::doorMirrorStandsOnItsDoorAtTheFootOfThePillar);
         Checks.run("cabinTipsAndRollsWithItsBody", CabinTests::cabinTipsAndRollsWithItsBody);
         Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
         Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
@@ -84,6 +85,22 @@ final class CabinTests {
         check(east[0] > 10f && north[1] > 20f, "the mirror is ahead of the wheel");
         check(near(east[0] - 10f, north[1] - 20f) && near(east[1] - 20f, -(north[0] - 10f)), "and turns with the vehicle");
         check(near(east[2], north[2]) && east[2] > 1.2f, "above the wheel, the same height either way");
+    }
+
+    private static void doorMirrorStandsOnItsDoorAtTheFootOfThePillar() {
+        // The standard car, and the small hatchback (Base.SmallCar02) as the game measured it:
+        // its own mirrors stand on a panel 0.43 behind the foot of its screen.
+        float[][] bodies = {Cabins.STANDARD_MEASURES, {0.5f, 0.043f, 0.053f, 0.391f, 0.323f, 0.098f, 0.2f}};
+        for (float[] measures : bodies) {
+            float[] house = Cabins.house("Base.SmallCar02", measures);
+            float[] mirror = Cabins.doorMirror(house, measures);
+            float foot = Cabins.EYE_BEHIND / Cabins.SCALE + measures[0] / Cabins.SCALE;
+            float belt = -Cabins.EYE_ABOVE / Cabins.SCALE + Math.min(measures[1], measures[2]) / Cabins.SCALE;
+            float glass = (Math.abs(measures[4]) + measures[3]) / Cabins.SCALE;
+            check(mirror[0] < foot && mirror[0] > foot - 0.25f, "the mirror is just behind the foot of the screen's pillar, " + (foot - mirror[0]) + " behind it");
+            check(mirror[1] - 0.1f > glass + 0.04f && mirror[1] - 0.1f < glass + 0.1f, "outside the glass, a short arm from it");
+            check(mirror[2] - 0.06f > belt && mirror[2] - 0.06f < belt + 0.05f, "and over the foot of the door's glass");
+        }
     }
 
     private static void mirrorLeavesOutWhatItCannotShow() {
@@ -367,7 +384,6 @@ final class CabinTests {
         check(near(found.sillUp, 0.08f) && near(found.glassOut, 0.78f), "the sill is the foot of the driver's window, and its glass is that far out");
         check(near(found.middleAcross, 0f), "the middle line is half way between the sides");
         check(near(found.dashTop, 0.1f), "the dashboard's top is its highest place");
-        check(near(found.mirror[0], 0.72f) && near(found.mirror[1], -0.885f) && near(found.mirror[2], 0.1f), "the driver's door mirror is where the body's own is");
     }
 
     private static void mirroredBodyIsToldTheSame() {
@@ -375,7 +391,6 @@ final class CabinTests {
         CabinParts.Found found = body.told(CabinParts.seats(SCRIPT_SEATS, 0f, 0f, 0.32f));
         body.checkTold(found, "a saloon mirrored");
         check(found.seatPieces == 1 && near(found.glassOut, 0.78f), "with the driver's window on the other side");
-        check(near(found.mirror[1], 0.885f), "and the driver's mirror with it");
     }
 
     private static void bodyWithItsSeatsInItsShellHasNoSeatPieces() {

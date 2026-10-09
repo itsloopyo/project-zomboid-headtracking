@@ -36,8 +36,6 @@ final class CabinParts {
     private static final float SEAT_TOP = 0.35f;
     /** A door mirror or its arm is a loose piece of no more triangles than this. */
     private static final int MIRROR_TRIANGLES = 24;
-    /** Where a door mirror stands on a body that has none of its own: back from the foot of the screen, out from the glass and above the sill. */
-    private static final float MIRROR_BACK = 0.16f, MIRROR_OUT = 0.12f, MIRROR_UP = 0.03f;
     /**
      * The picture builds the front of a cabin's glasshouse itself: its pillars, the rail over
      * the screen and the roof. What the body has of its own there, above the sills and ahead of
@@ -61,8 +59,6 @@ final class CabinParts {
         float dashTop, dashBack;
         /** For each triangle that is a pane, whether it is one of the front of the glasshouse, which the picture builds. */
         final boolean[] front;
-        /** The middle of the mirror on the driver's door: along, across and up. */
-        float[] mirror;
 
         Found(int triangles) {
             kinds = new byte[triangles];
@@ -290,10 +286,9 @@ final class CabinParts {
         found.glassOut = window ? glassOut : Math.abs(wheel[1] - found.middleAcross) + GLASS_OUT;
 
         // The body's own door mirrors are small loose pieces outside the windows, by the sills.
-        // They are seen past, like the glass before them, and the driver's says where the
-        // picture's own is to stand.
+        // They are seen past, like the glass before them: the picture builds its own on the
+        // pillars it builds.
         boolean[] outside = new boolean[vertices];
-        float[] mirror = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
         for (int r = 0; r < vertices; r++) {
             if (count[r] == 0 || count[r] > MIRROR_TRIANGLES || r == wheelPiece || seatPiece[r]) {
                 continue;
@@ -305,17 +300,6 @@ final class CabinParts {
                 continue;
             }
             outside[r] = true;
-            if (Math.signum(box[r * 6 + 1] - found.middleAcross) == wheelSide) {
-                for (int axis = 0; axis < 3; axis++) {
-                    mirror[axis] = Math.min(mirror[axis], box[r * 6 + axis]);
-                    mirror[3 + axis] = Math.max(mirror[3 + axis], box[r * 6 + 3 + axis]);
-                }
-            }
-        }
-        if (mirror[0] <= mirror[3]) {
-            found.mirror = new float[] {(mirror[0] + mirror[3]) / 2f, (mirror[1] + mirror[4]) / 2f, (mirror[2] + mirror[5]) / 2f};
-        } else {
-            found.mirror = new float[] {found.footAlong - MIRROR_BACK, found.middleAcross + wheelSide * (found.glassOut + MIRROR_OUT), found.sillUp + MIRROR_UP};
         }
 
         found.dashTop = -Float.MAX_VALUE;

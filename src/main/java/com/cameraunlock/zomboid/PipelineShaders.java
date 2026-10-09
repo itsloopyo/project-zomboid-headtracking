@@ -3874,8 +3874,9 @@ final class PipelineShaders {
             // between them, and uFittings what is set in the dash. uScreen is the foot of the
             // windscreen, along and up, the sill of the driver's window and how far out from
             // the wheel its glass is. uDash is how far across the vehicle's middle line is from
-            // the wheel, by sign, and the top of the dashboard. uLamps is whether the engine
-            // runs and whether the headlights are on.
+            // the wheel, by sign, and the top of the dashboard. uDoorMirror is the middle of a
+            // door mirror's housing, along, out from the middle line and up, the same each side.
+            // uLamps is whether the engine runs and whether the headlights are on.
             uniform vec3 uSeat;
             uniform float uSteer;
             uniform vec4 uTrim;
@@ -4008,7 +4009,7 @@ final class PipelineShaders {
             // How much of it is a lit display, which glows with the instruments.
             float gGlow = 0.0;
 
-            // Parts past the first seven: 8 the door mirror, 9 what stands between the seats,
+            // Parts past the first seven: 8 a door mirror, 9 what stands between the seats,
             // 10 the boot of a lever on the floor, 11 a post up the middle of the screen. The
             // rest are the glasshouse and the furnishings the picture builds.
             // While set, what is far from a place is only said to be at least so far off,
@@ -4090,17 +4091,6 @@ final class PipelineShaders {
                     if (mirror < nearest) { nearest = mirror; part = 7.0; }
                     float hung = rod(p, uMirror, uMirror + vec3(0.05, 0.0, 0.014), 0.009);
                     if (hung < nearest) { nearest = hung; part = 22.0; }
-                }
-                // The mirror on the driver's door: a housing outside the glass at the foot of
-                // the screen's pillar, on an arm from the door.
-                vec3 housed = p - uDoorMirror;
-                float round3 = length(housed - vec3(0.02, toward * 0.05, -0.02)) - 0.18;
-                if (gRoughly * round3 > 0.04) {
-                    nearest = min(nearest, round3);
-                } else {
-                    float doorMirror = min(block(housed, vec3(0.02, 0.066, 0.04), 0.014),
-                            rod(housed, vec3(0.01, toward * 0.06, -0.03), vec3(0.04, toward * 0.17, -0.055), 0.012));
-                    if (doorMirror < nearest) { nearest = doorMirror; part = 8.0; }
                 }
                 // What stands on the floor is all below the wheel's middle.
                 float over = q.z + 0.11;
@@ -5268,14 +5258,18 @@ final class PipelineShaders {
                     color = behindAt(on);
                 }
                 if (wheel && wheelPart > 7.5 && wheelPart < 8.5) {
-                    vec3 housed = wheelPlace - uDoorMirror;
-                    if (abs(housed.y) < 0.058 && abs(housed.z) < 0.033 && housed.x < 0.0) {
-                        // The door mirror's glass: the road behind on its own side, out of
-                        // the same picture as the mirror on the screen, and the vehicle's
-                        // own flank down its inner edge.
-                        float toward = uDash.x < 0.0 ? -1.0 : 1.0;
-                        vec2 on = vec2(0.5 - toward * 0.24 + housed.y / 0.058 * 0.21, 0.5 + housed.z / 0.033 * 0.42);
-                        float flank = smoothstep(0.03, 0.036, housed.y * toward + (housed.z + 0.033) * 0.12);
+                    float toward = uDash.x < 0.0 ? -1.0 : 1.0;
+                    float c = (wheelPlace.y - uWheel.y) * toward - abs(uDash.x);
+                    // 1 on the driver's side and -1 on the other.
+                    float side = c < 0.0 ? 1.0 : -1.0;
+                    vec3 housed = vec3(wheelPlace.x - uDoorMirror.x, abs(c) - uDoorMirror.y, wheelPlace.z - uDoorMirror.z);
+                    if (abs(housed.y) < 0.084 && abs(housed.z) < 0.044 && housed.x < -0.03) {
+                        // A door mirror's glass: the road behind on its own side, out of the
+                        // same picture as the mirror on the screen, and the vehicle's own
+                        // flank down its inner edge.
+                        float across = -toward * side * housed.y;
+                        vec2 on = vec2(0.5 - toward * side * 0.24 + across / 0.084 * 0.21, 0.5 + housed.z / 0.044 * 0.42);
+                        float flank = smoothstep(0.044, 0.052, -housed.y + (housed.z + 0.044) * 0.12);
                         color = mix(behindAt(on), pow(uPaint, vec3(2.2)) * fromSky * (0.1 + 0.7 * skyGives), flank);
                     }
                 }

@@ -3018,7 +3018,7 @@ final class Pipeline {
         float[] house = Cabins.house(view.ride.seatedIn, measures);
         figureLight.set("uHouse", house[0], house[1], house[2]);
         figureLight.set("uMirror", house[3], house[4], house[5]);
-        figureLight.set("uPad", wheel[0] + measures[9] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
+        figureLight.set("uPad", wheel[0] + measures[6] / Cabins.SCALE, Cabins.PILLAR_BEHIND);
         figureLight.set("uTrade", Cabins.trade(view.ride.seatedIn));
         float[] skin = Cabins.skin(view.ride.skin);
         Cabins.Wear wear = view.ride.dress.worn;
@@ -3039,8 +3039,8 @@ final class Pipeline {
         float sill = wheel[2] + measures[2] / Cabins.SCALE, glassOut = measures[3] / Cabins.SCALE;
         figureLight.set("uScreen", wheel[0] + measures[0] / Cabins.SCALE, wheel[2] + measures[1] / Cabins.SCALE, sill, glassOut);
         figureLight.set("uDash", measures[4] / Cabins.SCALE, wheel[2] + measures[5] / Cabins.SCALE);
-        figureLight.set("uDoorMirror", wheel[0] + measures[6] / Cabins.SCALE, wheel[1] - Math.signum(measures[4]) * measures[7] / Cabins.SCALE,
-                wheel[2] + measures[8] / Cabins.SCALE);
+        float[] doorMirror = Cabins.doorMirror(house, measures);
+        figureLight.set("uDoorMirror", doorMirror[0], doorMirror[1], doorMirror[2]);
         figureLight.set("uPaint", view.characters.cabin.paint[0], view.characters.cabin.paint[1], view.characters.cabin.paint[2]);
         figureLight.set("uSteer", Cabins.wheelTurn(view.ride.steering));
         figureLight.set("uLamps", view.ride.instrumentsLit ? 1f : 0f, view.ride.lampsOn ? 1f : 0f);

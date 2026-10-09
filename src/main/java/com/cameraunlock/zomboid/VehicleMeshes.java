@@ -58,8 +58,7 @@ final class VehicleMeshes {
          * From the wheel's middle, in tiles: the foot of the windscreen, along and up; the
          * sill of the driver's window, up; how far out from the wheel that window is; how far
          * across the vehicle's middle line is, by sign; the top of the dashboard, up; and
-         * the mirror on the driver's door, along, out and up; and where the shelf of the
-         * dashboard begins, along.
+         * where the shelf of the dashboard begins, along.
          */
         final float[] measures;
         /** For each triangle of the body, whether it is a pane of the front of the glasshouse. */
@@ -468,9 +467,7 @@ final class VehicleMeshes {
         CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
-                    found.middleAcross - middle[1], found.dashTop - middle[2],
-                    found.mirror[0] - middle[0], Math.abs(found.mirror[1] - found.middleAcross) - Math.abs(middle[1] - found.middleAcross), found.mirror[2] - middle[2],
-                    found.dashBack - middle[0]}, found.front);
+                    found.middleAcross - middle[1], found.dashTop - middle[2], found.dashBack - middle[0]}, found.front);
         for (int kind = 0; kind < CabinParts.KINDS; kind++) {
             made.first[kind] = made.triangles.position() / 3;
             for (int t = 0; t < found.kinds.length; t++) {
@@ -486,10 +483,10 @@ final class VehicleMeshes {
         made.triangles.flip();
         Log.info(String.format(Locale.ROOT,
                 "cabin of %s: %d seat pieces, and %d seat, %d dashboard, %d door and %d bonnet vertices; the driver sits %.3f behind the wheel and %.3f beside it;"
-                        + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f, door mirror %.3f ahead, %.3f out, %.3f above",
+                        + " windscreen foot %.3f ahead of the wheel and %.3f above, sill %.3f above, dashboard up to %.3f",
                 name, found.seatPieces, made.count[CabinParts.SEAT], made.count[CabinParts.DASH], made.count[CabinParts.DOOR], made.count[CabinParts.BONNET],
                 seats.length == 0 ? Float.NaN : middle[0] - seats[0], seats.length == 0 ? Float.NaN : seats[1] - middle[1],
-                made.measures[0], made.measures[1], made.measures[2], made.measures[5], made.measures[6], made.measures[7], made.measures[8]));
+                made.measures[0], made.measures[1], made.measures[2], made.measures[5]));
         if (!made.seats) {
             Log.info("the vehicle model " + name + " has no seat that is a piece of its own: its seats are told by their colour");
         }

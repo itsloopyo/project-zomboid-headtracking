@@ -152,6 +152,30 @@ final class Cabins {
             house[1] - (house[1] - footUp) * down - 0.01f};
     }
 
+    /** A door mirror's housing stands with its middle this far over the foot of the door's glass, this far out from the glass, and this far behind the screen's pillar at that height. */
+    private static final float DOOR_MIRROR_UP = 0.075f, DOOR_MIRROR_OUT = 0.165f, DOOR_MIRROR_BEHIND = 0.04f;
+
+    /**
+     * Where the middle of the housing of each door mirror is, as the driver's place is laid
+     * out: along from the eye, out from the vehicle's middle line, and up from the eye. It
+     * stands on its door at the foot of the screen's pillar the picture builds, on both sides,
+     * and not where the body has its own: a body may carry its mirrors on a panel ahead of its
+     * door's glass, which the picture's glasshouse has as glass.
+     *
+     * @param house    the glasshouse, as house gives it
+     * @param measures where the body's cabin is from its wheel, as VehicleMeshes.Parts has it
+     */
+    static float[] doorMirror(float[] house, float[] measures) {
+        float belt = PLACE[2] + Math.min(measures[1], measures[2]) / SCALE;
+        // The pillar runs as CabinShader stands it: from a little below and behind the foot of
+        // the screen, at the glass, up to the rail.
+        float footAlong = PLACE[0] + measures[0] / SCALE - 0.02f, footUp = belt - 0.03f;
+        float up = belt + DOOR_MIRROR_UP;
+        float pillarAlong = footAlong + (house[0] - footAlong) * (up - footUp) / (house[1] - footUp);
+        float glass = (Math.abs(measures[4]) + measures[3]) / SCALE;
+        return new float[] {pillarAlong - DOOR_MIRROR_BEHIND, glass + DOOR_MIRROR_OUT, up};
+    }
+
     /**
      * Where the head of whoever sits in a seat is from the driver's, in tiles along the
      * vehicle and across it, across counted the way the wheel is from the vehicle's middle.
@@ -434,5 +458,5 @@ final class Cabins {
      * Where a body's cabin is from the middle of its wheel, as VehicleMeshes.Parts has it, for
      * a body not yet measured: the standard car's.
      */
-    static final float[] STANDARD_MEASURES = {0.37f, 0.07f, 0.07f, 0.41f, 0.323f, 0.12f, 0.21f, 0.53f, 0.09f, 0.2f};
+    static final float[] STANDARD_MEASURES = {0.37f, 0.07f, 0.07f, 0.41f, 0.323f, 0.12f, 0.2f};
 }
