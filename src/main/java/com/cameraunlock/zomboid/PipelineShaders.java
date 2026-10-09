@@ -5263,13 +5263,13 @@ final class PipelineShaders {
                     // 1 on the driver's side and -1 on the other.
                     float side = c < 0.0 ? 1.0 : -1.0;
                     vec3 housed = vec3(wheelPlace.x - uDoorMirror.x, abs(c) - uDoorMirror.y, wheelPlace.z - uDoorMirror.z);
-                    if (abs(housed.y) < 0.084 && abs(housed.z) < 0.044 && housed.x < -0.03) {
+                    if (abs(housed.y) < 0.08 && abs(housed.z) < 0.04 && housed.x < -0.03) {
                         // A door mirror's glass: the road behind on its own side, out of the
                         // same picture as the mirror on the screen, and the vehicle's own
                         // flank down its inner edge.
                         float across = -toward * side * housed.y;
-                        vec2 on = vec2(0.5 - toward * side * 0.24 + across / 0.084 * 0.21, 0.5 + housed.z / 0.044 * 0.42);
-                        float flank = smoothstep(0.044, 0.052, -housed.y + (housed.z + 0.044) * 0.12);
+                        vec2 on = vec2(0.5 - toward * side * 0.24 + across / 0.08 * 0.21, 0.5 + housed.z / 0.04 * 0.42);
+                        float flank = smoothstep(0.041, 0.05, -housed.y + (housed.z + 0.04) * 0.12);
                         color = mix(behindAt(on), pow(uPaint, vec3(2.2)) * fromSky * (0.1 + 0.7 * skyGives), flank);
                     }
                 }

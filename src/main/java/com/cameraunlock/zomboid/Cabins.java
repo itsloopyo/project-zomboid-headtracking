@@ -153,7 +153,7 @@ final class Cabins {
     }
 
     /** A door mirror's housing stands with its middle this far over the foot of the door's glass, this far out from the glass, and this far behind the screen's pillar at that height. */
-    private static final float DOOR_MIRROR_UP = 0.075f, DOOR_MIRROR_OUT = 0.165f, DOOR_MIRROR_BEHIND = 0.04f;
+    private static final float DOOR_MIRROR_UP = 0.1f, DOOR_MIRROR_OUT = 0.18f, DOOR_MIRROR_BEHIND = 0.04f;
 
     /**
      * Where the middle of the housing of each door mirror is, as the driver's place is laid
