@@ -2153,6 +2153,7 @@ final class WorldScene {
                 Furniture.forget();
                 Parasols.forget();
                 Awnings.forget();
+                Tents.forget();
                 Hoods.forget();
                 Towers.forget();
                 Lights.forget();
@@ -4660,6 +4661,10 @@ final class WorldScene {
                 return;
             }
 
+            if (addTent(mesh, sprite, x, y, z)) {
+                return;
+            }
+
             if (Own.furniture() && addLights(object, sprite, x, y, z)) {
                 return;
             }
@@ -5050,6 +5055,39 @@ final class WorldScene {
                     texture.getID(), 1 << Models.CLOTH, SpriteGeometry.textureU(frame, hung.firstA, hung.firstB), SpriteGeometry.textureV(frame, hung.firstA, hung.firstB, hung.dyeHigh),
                     1 << Models.LINEN, SpriteGeometry.textureU(frame, hung.secondA, hung.secondB), SpriteGeometry.textureV(frame, hung.secondA, hung.secondB, hung.dyeHigh));
             furnished++;
+            return true;
+        }
+
+        /**
+         * Lays a piece of a tent or of a market stall's canopy on the plane its sprite paints,
+         * and strings its rope from under the eaves to the ground: see Tents. The rope is the
+         * mod's own line, and with the mod's furniture off its sprite is left to be drawn as it
+         * was. False for any other sprite.
+         */
+        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, int x, int y, int z) {
+            Tents.Piece piece = Tents.of(sprite), rope = Own.furniture() ? Tents.ropeOf(sprite) : null;
+            if (piece == null && rope == null) {
+                return false;
+            }
+            building.plain = false;
+            if (piece != null) {
+                boolean alongX = piece.alongX();
+                switch (piece.kind()) {
+                    case Tents.CANOPY -> {
+                        float rise = piece.to() - piece.from();
+                        geometry.addFace(mesh, frame, x, y, z, 0f, 0f, piece.from(), 1f, 0f, alongX ? rise : 0f, 0f, 1f, alongX ? 0f : rise);
+                    }
+                    case Tents.GABLE -> geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, alongX ? 1f : 0f, alongX ? 0f : 1f, 0f, 0f, 0f, Tents.GABLE_HIGH);
+                    case Tents.FLAP -> geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 1f, alongX ? 1f : 0f, alongX ? 0f : 1f, 0f,
+                            alongX ? 0f : Tents.FLAP_OUT, alongX ? Tents.FLAP_OUT : 0f, -Tents.STEP * Tents.FLAP_OUT);
+                    default -> throw new IllegalStateException("a tent's piece of kind " + piece.kind());
+                }
+            }
+            if (rope != null && overLayer == 0) {
+                float topX = x + rope.topA(), topY = y + rope.topB(), footX = x + rope.footA(), footY = y + rope.footB();
+                float floor = z * ViewCamera.LEVEL_HEIGHT;
+                wireBuilder.cable(topX, topY, floor + landAt(topX, topY) + rope.topH() * ViewCamera.LEVEL_HEIGHT, 0f, footX, footY, floor + landAt(footX, footY), 0f, 0f);
+            }
             return true;
         }
 

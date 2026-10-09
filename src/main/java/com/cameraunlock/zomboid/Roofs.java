@@ -627,6 +627,10 @@ final class Roofs {
                     || Hoods.endPiece(sprite) && Hoods.endOfAHood(Hoods.on(cell, z), x, y))) {
                 continue;
             }
+            // Nor a tent's or a market stall's canopy: see Tents.
+            if (Tents.of(sprite) != null) {
+                continue;
+            }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
             if (!WorldScene.usable(texture)) {
                 continue;

@@ -166,6 +166,7 @@ public final class Tests {
         Checks.run("ParasolTests", ParasolTests::run);
         Checks.run("GroundItemTests", GroundItemTests::run);
         Checks.run("AwningTests", AwningTests::run);
+        Checks.run("TentTests", TentTests::run);
         Checks.run("TowerTests", TowerTests::run);
         Checks.run("AerialTests", AerialTests::run);
         Checks.run("LightsTests", LightsTests::run);
