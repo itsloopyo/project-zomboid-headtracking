@@ -230,8 +230,9 @@ final class OwnArms {
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
     private static int projectionAt, femaleAt, toneAt, outsideAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt;
-    private static final int[] boneAt = new int[MOST_BONES];
-    private static final FloatBuffer loaded = ByteBuffer.allocateDirect(16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    /** The first of uBones: the rest follow it, so one call sets them all. */
+    private static int bonesAt;
+    private static final FloatBuffer loaded = ByteBuffer.allocateDirect(MOST_BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
 
     /** The arm's bones and poses, or null if the jar's file or the driver would not have it, which the log then says once. */
     static ArmModel model() {
@@ -328,9 +329,7 @@ final class OwnArms {
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
         GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
         GL20.glUseProgram(0);
-        for (int bone = 0; bone < MOST_BONES; bone++) {
-            boneAt[bone] = GL20.glGetUniformLocation(id, "uBones[" + bone + "]");
-        }
+        bonesAt = GL20.glGetUniformLocation(id, "uBones[0]");
     }
 
     private static void make(ArmModel read) {
@@ -465,7 +464,7 @@ final class OwnArms {
         GL20.glUniformMatrix4fv(projectionAt, false, projection);
         loaded.clear();
         loaded.put(at, 0, 16).flip();
-        GL20.glUniformMatrix4fv(boneAt[0], false, loaded);
+        GL20.glUniformMatrix4fv(bonesAt, false, loaded);
         GL20.glUniform1f(femaleAt, 0f);
         GL20.glUniform1f(outsideAt, outside ? 1f : 0f);
         GL20.glUniform1f(handedAt, 1f);
@@ -573,11 +572,9 @@ final class OwnArms {
         GL11.glDisable(GL_BLEND);
         GL20.glUseProgram(program);
         GL20.glUniformMatrix4fv(projectionAt, false, projection);
-        for (int bone = 0; bone < model.bones.length; bone++) {
-            loaded.clear();
-            loaded.put(skins, bone * 16, 16).flip();
-            GL20.glUniformMatrix4fv(boneAt[bone], false, loaded);
-        }
+        loaded.clear();
+        loaded.put(skins, 0, model.bones.length * 16).flip();
+        GL20.glUniformMatrix4fv(bonesAt, false, loaded);
         GL20.glUniform1f(femaleAt, female ? 1f : 0f);
         float[] tone = TONES[Math.clamp(skin, 0, TONES.length - 1)];
         GL20.glUniform3f(toneAt, tone[0], tone[1], tone[2]);

@@ -520,8 +520,6 @@ public final class FirstPerson {
             mouseMost = 0;
             Log.info(String.format(Locale.ROOT, "first person landed looking %.0f, %s, movement keys (%.2f, %.2f), %s",
                     Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, view.headTracking.describe()));
-        }
-        if (landed && !wasLanded) {
             stride.landed(now);
         } else if (!on) {
             stride.reset();
