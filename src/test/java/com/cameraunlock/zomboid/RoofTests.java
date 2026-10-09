@@ -35,6 +35,26 @@ final class RoofTests {
         Checks.run("eaveRowHangsUnderTheFootOfASlopeOnly", RoofTests::eaveRowHangsUnderTheFootOfASlopeOnly);
         Checks.run("wingsRidgeRunsOnToTheMiddleOfTheMainRidge", RoofTests::wingsRidgeRunsOnToTheMiddleOfTheMainRidge);
         Checks.run("secondSpriteOnAValleyTileLiesOnItsFold", RoofTests::secondSpriteOnAValleyTileLiesOnItsFold);
+        Checks.run("unclearTileOnAValleysLineIsFoldedAsTheValleyIs", RoofTests::unclearTileOnAValleysLineIsFoldedAsTheValleyIs);
+    }
+
+    private static void unclearTileOnAValleysLineIsFoldedAsTheValleyIs() {
+        RoofFit.Tile unclear = null;
+        for (RoofFit.Tile tile : crossGable()) {
+            if (tile.x == 7 && tile.y == 7) {
+                unclear = tile;
+            }
+        }
+        float high = 2f + 2f * THIRD, low = 2f + THIRD;
+        check(unclear.shaped && unclear.fitted && unclear.crease == RoofFit.NW_SE,
+                "the sprite between the valley's tiles that reads neither way is folded along the valley, where it was laid as read and left a hole by the gable");
+        check(near(unclear.corners[0], high) && near(unclear.corners[1], high) && near(unclear.corners[2], low) && near(unclear.corners[3], high),
+                "with the higher of the two slopes at each corner, its south-east corner the valley's foot: " + unclear.corners[0] + " " + unclear.corners[1] + " " + unclear.corners[2] + " " + unclear.corners[3]);
+        RoofFit.Tile alone = new RoofFit.Tile(1, 1, 2, RoofFit.ALONG_Y, false, 2.82f, 2f + THIRD);
+        List<RoofFit.Tile> plain = new ArrayList<>(List.of(alone, new RoofFit.Tile(1, 2, 2, RoofFit.ALONG_X, true, 2f + 2f * THIRD, 2f + THIRD),
+                new RoofFit.Tile(2, 1, 2, RoofFit.ALONG_Y, true, 2f + 2f * THIRD, 2f + THIRD)));
+        RoofFit.fit(plain);
+        check(!alone.shaped && !alone.fitted, "with no valley or hip tile of the map along the diagonal it is left as read");
     }
 
     private static void wingsRidgeRunsOnToTheMiddleOfTheMainRidge() {

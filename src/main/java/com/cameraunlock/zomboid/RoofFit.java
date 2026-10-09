@@ -1180,10 +1180,13 @@ final class RoofFit {
     /**
      * A tile whose sprite does not say clearly how it lies takes the plane of the tile beside
      * it in the same row of a fitted slope. Where slopes of both ways lie beside it, it is
-     * where two of them meet, a hip or a valley, and is left as read.
+     * where two of them meet: on the line of a valley, where the map's valley tiles are the
+     * squares before and after it along the diagonal, it is folded as they are, the higher of
+     * the two slopes at each corner, and on the line of a hip the lower. Elsewhere it is left
+     * as read.
      */
     private static void adopt(Tile tile, HashMap<Long, Tile> at) {
-        Tile from = null;
+        Tile alongX = null, alongY = null;
         for (int side = 0; side < 4; side++) {
             int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
             Tile beside = at.get(key(tile.x + dx, tile.y + dy, tile.z));
@@ -1191,16 +1194,49 @@ final class RoofFit {
             if (beside == null || !beside.fitted || !beside.slopes() || (beside.fitAxis == ALONG_X) != (dx == 0)) {
                 continue;
             }
-            if (from != null && from.fitAxis != beside.fitAxis) {
-                return;
+            if (beside.fitAxis == ALONG_X) {
+                alongX = beside;
+            } else {
+                alongY = beside;
             }
-            from = beside;
         }
+        if (alongX != null && alongY != null) {
+            between(tile, alongX, alongY, at);
+            return;
+        }
+        Tile from = alongX != null ? alongX : alongY;
         if (from != null) {
             tile.fitAxis = from.fitAxis;
             tile.fitLow = from.fitLow;
             tile.fitHigh = from.fitHigh;
             tile.fitted = true;
         }
+    }
+
+    /** Folds a tile between a slope along x and one along y in the same rows as it, where the map's tiles either side along the diagonal say which fold it is. */
+    private static void between(Tile tile, Tile alongX, Tile alongY, HashMap<Long, Tile> at) {
+        int kind = -1;
+        for (int step = -1; step <= 1; step += 2) {
+            Tile diagonal = at.get(key(tile.x + step, tile.y + step, tile.z));
+            if (diagonal != null && (diagonal.axis == SOUTH_EAST_ODD || diagonal.axis == NORTH_WEST_ODD)) {
+                if (kind >= 0 && kind != diagonal.axis) {
+                    return;
+                }
+                kind = diagonal.axis;
+            }
+        }
+        if (kind < 0) {
+            return;
+        }
+        float[] x = new float[4], y = new float[4];
+        cornersOf(ALONG_X, alongX.fitLow, alongX.fitHigh, x);
+        cornersOf(ALONG_Y, alongY.fitLow, alongY.fitHigh, y);
+        for (int corner = 0; corner < 4; corner++) {
+            tile.corners[corner] = kind == SOUTH_EAST_ODD ? Math.max(x[corner], y[corner]) : Math.min(x[corner], y[corner]);
+        }
+        tile.crease = NW_SE;
+        tile.shaped = true;
+        tile.own = 3;
+        tile.fitted = true;
     }
 }
