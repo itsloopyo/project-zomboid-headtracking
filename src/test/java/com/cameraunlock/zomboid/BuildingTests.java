@@ -11,6 +11,7 @@ final class BuildingTests {
 
     static void run() {
         Checks.run("plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor", BuildingTests::plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor);
+        Checks.run("coursesStandOnTheirWallNotASquareOut", BuildingTests::coursesStandOnTheirWallNotASquareOut);
         Checks.run("canopyIsLinedWithPanelsAndALightEveryThirdSquare", BuildingTests::canopyIsLinedWithPanelsAndALightEveryThirdSquare);
         Checks.run("finishIsWhatMostWallsShow", BuildingTests::finishIsWhatMostWallsShow);
         Checks.run("roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen", BuildingTests::roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen);
@@ -57,6 +58,32 @@ final class BuildingTests {
             float x = mesh.vertices[at], up = mesh.vertices[at + 2];
             check(up > 1f || x <= 4.3f + 1e-5f || x >= 4.7f - 1e-5f, "and none of it crosses the doorway");
         }
+    }
+
+    private static void coursesStandOnTheirWallNotASquareOut() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        // The north wall of square (4, 9), out of doors to the north, then its west wall, out of doors to the west.
+        Courses.onEdge(mesh, 4, 9, 0f, 0f, 1f, 0f, 0f, 0f, 0f, -1f, -1f, -1f, 1f, 1f, 1f);
+        float[] box = bounds(mesh);
+        check(box[0] >= 4f - 1e-5f && box[1] <= 5f + 1e-5f && box[2] >= 9f - Courses.PROUD - 1e-5f && box[3] <= 9f + 1e-5f,
+                "a north wall's plinth and course stand on its edge, proud of it to the north: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
+        mesh.clear();
+        Courses.onEdge(mesh, 4, 9, 0f, 0f, 0f, 1f, 0f, 0f, -1f, 0f, -1f, -1f, 1f, 1f, 1f);
+        box = bounds(mesh);
+        check(box[0] >= 4f - Courses.PROUD - 1e-5f && box[1] <= 4f + 1e-5f && box[2] >= 9f - 1e-5f && box[3] <= 10f + 1e-5f,
+                "a west wall's plinth and course stand on its edge, proud of it to the west: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
+    }
+
+    /** The least and most x, then the least and most y, of a mesh's vertices. */
+    private static float[] bounds(SpriteGeometry.Mesh mesh) {
+        float[] box = {Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            box[0] = Math.min(box[0], mesh.vertices[at]);
+            box[1] = Math.max(box[1], mesh.vertices[at]);
+            box[2] = Math.min(box[2], mesh.vertices[at + 1]);
+            box[3] = Math.max(box[3], mesh.vertices[at + 1]);
+        }
+        return box;
     }
 
     private static void canopyIsLinedWithPanelsAndALightEveryThirdSquare() {

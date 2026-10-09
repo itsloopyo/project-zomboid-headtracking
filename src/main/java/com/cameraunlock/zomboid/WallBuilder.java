@@ -791,9 +791,9 @@ final class WallBuilder {
             doorFrom = opening[at + OPENING_START];
             doorTo = opening[at + OPENING_END];
         }
-        float x0 = x + a + outX, y0 = y + b + outY, base = z * ViewCamera.LEVEL_HEIGHT;
+        float base = z * ViewCamera.LEVEL_HEIGHT;
         float lift0 = build.geometry.liftAt(a, b), lift1 = build.geometry.liftAt(a + da, b + db);
-        Courses.add(plain, x0, y0, base + lift0, x0 + da, y0 + db, base + lift1, outX, outY, doorFrom, doorTo,
+        Courses.onEdge(plain, x, y, a, b, da, db, base + lift0, base + lift1, outX, outY, doorFrom, doorTo,
                 farColour[0] * build.frame.red, farColour[1] * build.frame.green, farColour[2] * build.frame.blue);
     }
 

@@ -1,6 +1,6 @@
 package com.cameraunlock.zomboid;
 
-/** The plinth and the top course on the outside of a plain wall: see WorldScene.addCourses. */
+/** The plinth and the top course on the outside of a plain wall: see WallBuilder.addCourses. */
 final class Courses {
     /** How high the plinth is and how deep the course under the wall's top, in tiles, and how far both stand out from the middle of the wall. */
     static final float PLINTH = 0.2f, COURSE = 0.12f, PROUD = 0.062f;
@@ -10,6 +10,18 @@ final class Courses {
     static final float DOORWAY_FOOT = 0.04f;
 
     private Courses() {}
+
+    /**
+     * Adds both along the wall on an edge of square (x, y): the edge runs from the square's
+     * corner (x + a, y + b) by (da, db), at height base0 above the ground at its start and base1
+     * at its end, and (outX, outY) is the way out of doors from it, a square's side long. Both
+     * stand on the edge's own line, proud of it by PROUD: the way out says which side, not how far.
+     */
+    static void onEdge(SpriteGeometry.Mesh mesh, int x, int y, float a, float b, float da, float db, float base0, float base1, float outX, float outY,
+            float doorFrom, float doorTo, float red, float green, float blue) {
+        float x0 = x + a, y0 = y + b;
+        add(mesh, x0, y0, base0, x0 + da, y0 + db, base1, outX, outY, doorFrom, doorTo, red, green, blue);
+    }
 
     /**
      * Adds both along a wall that runs from (x0, y0) at height base0 to (x1, y1) at base1, on
