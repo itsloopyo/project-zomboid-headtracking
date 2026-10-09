@@ -100,7 +100,13 @@ final class Tracking {
         int port = open(gameDirectory, null);
         firstPort = port;
         listen(port);
-        core.hotkeysStart();
+        try {
+            core.hotkeysStart();
+        } catch (RuntimeException failure) {
+            // The mod stays out of the game, and its port is let go for whatever else listens on it.
+            core.stop();
+            throw failure;
+        }
         saver.scheduleWithFixedDelay(Tracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS, TimeUnit.MILLISECONDS);
     }
 

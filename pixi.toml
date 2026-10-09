@@ -48,8 +48,9 @@ validate-notices = "node cameraunlock-core/scripts/validate-notices.mjs"
 # Deploys the development jar (the development keys in), cameraunlock-core's DLL and the site JVM config to every installed copy
 # of the game. A path after the task name deploys to that one folder instead.
 install = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy.ps1", depends-on = ["build"] }
-# /y keeps it prompt-free: pixi gives a task no console to read from.
-uninstall = "cmd /c scripts\\uninstall.cmd /y"
+# Runs uninstall.cmd /y against every copy install deploys to. /y keeps it prompt-free: pixi gives a
+# task no console to read from.
+uninstall = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/undeploy.ps1"
 
 release = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1"
 release-nightly = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-nightly.ps1"

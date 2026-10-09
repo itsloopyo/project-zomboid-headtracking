@@ -355,6 +355,12 @@ final class VehicleMeshes {
             Log.info("the vehicle model " + name + " has an empty mask: its windows are told by their colour");
             return none;
         }
+        if ((long) width * height > MOST_TEXELS) {
+            // Four bytes a texel would pass what an int holds at 32768 a side, and the read would write past the block.
+            GL11.glBindTexture(GL_TEXTURE_2D, was);
+            Log.info("the vehicle model " + name + " has a mask of " + width + " by " + height + ", too large to read back: its windows are told by their colour");
+            return none;
+        }
         // The mask is as big as the vehicle's skin: read out of memory that goes back when the triangles are told apart.
         OffHeap.Block read = OffHeap.take(width * height * 4);
         try {

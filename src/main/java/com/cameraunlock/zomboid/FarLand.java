@@ -1,10 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -12,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -23,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
@@ -229,13 +230,15 @@ final class FarLand {
             return null;
         }
         int[] bounds = null, size = null;
-        try (BufferedReader lines = new BufferedReader(new InputStreamReader(file.getInputStream(index), StandardCharsets.UTF_8))) {
-            for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-                if (line.startsWith("bounds=")) {
-                    bounds = numbers(line.substring("bounds=".length()));
-                } else if (line.startsWith("imageSize=")) {
-                    size = numbers(line.substring("imageSize=".length()));
-                }
+        String text;
+        try (InputStream in = file.getInputStream(index)) {
+            text = indexText(in, zip);
+        }
+        for (String line : text.split("\\R")) {
+            if (line.startsWith("bounds=")) {
+                bounds = numbers(line.substring("bounds=".length()));
+            } else if (line.startsWith("imageSize=")) {
+                size = numbers(line.substring("imageSize=".length()));
             }
         }
         if (bounds == null || size == null || bounds.length != 4 || size.length != 2) {
@@ -248,6 +251,18 @@ final class FarLand {
             return null;
         }
         return new Source(zip, bounds[0], bounds[1], bounds[2], bounds[3]);
+    }
+
+    /** The game's own are under a hundred bytes. */
+    static final int MOST_INDEX_BYTES = 64 * 1024;
+
+    /** A pyramid.txt as text, read no further than a sane index runs: a zip entry can say it is any size and unpack to gigabytes. */
+    static String indexText(InputStream in, Path zip) throws IOException {
+        byte[] bytes = in.readNBytes(MOST_INDEX_BYTES + 1);
+        if (bytes.length > MOST_INDEX_BYTES) {
+            throw new IOException("the pyramid.txt of " + zip + " is larger than " + MOST_INDEX_BYTES + " bytes");
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private static int[] numbers(String text) {
@@ -354,10 +369,7 @@ final class FarLand {
             }
             BufferedImage image;
             try (InputStream in = file.getInputStream(tile)) {
-                image = ImageIO.read(in);
-            }
-            if (image == null) {
-                throw new IOException(tile.getName() + " of " + source.zip + " is not a picture this Java can read");
+                image = tile(in, tile.getName() + " of " + source.zip);
             }
             int[] pixels = new int[FarCells.CELL * FarCells.CELL];
             Arrays.fill(pixels, FarCells.GRASS);
@@ -370,6 +382,31 @@ final class FarLand {
             return pixels;
         }
         return null;
+    }
+
+    /**
+     * A cell's picture, its size read before its dots: a header can claim any size, and Java's
+     * readers make room for all of it before reading a dot, so a file of a few hundred bytes
+     * could take the heap the game runs in.
+     */
+    static BufferedImage tile(InputStream from, String what) throws IOException {
+        try (ImageInputStream in = ImageIO.createImageInputStream(from)) {
+            Iterator<ImageReader> decoders = in == null ? null : ImageIO.getImageReaders(in);
+            if (decoders == null || !decoders.hasNext()) {
+                throw new IOException(what + " is not a picture this Java can read");
+            }
+            ImageReader decoder = decoders.next();
+            try {
+                decoder.setInput(in);
+                int wide = decoder.getWidth(0), high = decoder.getHeight(0);
+                if (wide <= 0 || high <= 0 || wide > FarCells.CELL || high > FarCells.CELL) {
+                    throw new IOException(what + " is " + wide + " by " + high + " pixels, where a cell is at most " + FarCells.CELL + " a side");
+                }
+                return decoder.read(0);
+            } finally {
+                decoder.dispose();
+            }
+        }
     }
 
     /**

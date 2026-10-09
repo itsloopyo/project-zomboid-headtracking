@@ -37,7 +37,8 @@ final class Log {
         try {
             core = Core.library();
             core.logOpen(file);
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException | Error failure) {
+            // An Error too: a DLL whose layouts this build cannot link throws one, and the game would start with nothing in the file to say why.
             StringWriter trace = new StringWriter();
             failure.printStackTrace(new PrintWriter(trace, true));
             Files.writeString(file, LocalTime.now().truncatedTo(ChronoUnit.MILLIS) + " ERROR Project Zomboid Head Tracking could not start,"

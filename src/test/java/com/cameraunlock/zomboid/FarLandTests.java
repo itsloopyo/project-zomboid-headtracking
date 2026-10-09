@@ -1,8 +1,17 @@
 package com.cameraunlock.zomboid;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.zip.CRC32;
+import javax.imageio.ImageIO;
 
 final class FarLandTests {
     private FarLandTests() {}
@@ -23,6 +32,57 @@ final class FarLandTests {
         Checks.run("aCellarAloneIsNoBuilding", FarLandTests::aCellarAloneIsNoBuilding);
         Checks.run("roomsOverNothingStandOnTheGround", FarLandTests::roomsOverNothingStandOnTheGround);
         Checks.run("aCellOfNothingIsToldFromOneWithSomething", FarLandTests::aCellOfNothingIsToldFromOneWithSomething);
+        Checks.run("anIndexIsReadNoFurtherThanAnIndexRuns", FarLandTests::anIndexIsReadNoFurtherThanAnIndexRuns);
+        Checks.run("aTileLargerThanACellIsRefusedBeforeItsDots", FarLandTests::aTileLargerThanACellIsRefusedBeforeItsDots);
+    }
+
+    private static void anIndexIsReadNoFurtherThanAnIndexRuns() throws IOException {
+        Path zip = Path.of("pyramid.zip");
+        String game = "VERSION=1\nbounds=0 0 19968 16128\nimageSize=19968 16128";
+        check(FarLand.indexText(new ByteArrayInputStream(game.getBytes(StandardCharsets.UTF_8)), zip).equals(game), "the game's own index is read as it is");
+        // Endless digits and no line end, as a tiny zip entry can unpack to.
+        InputStream endless = new InputStream() {
+            @Override
+            public int read() {
+                return '7';
+            }
+        };
+        boolean refused = false;
+        try {
+            FarLand.indexText(endless, zip);
+        } catch (IOException expected) {
+            refused = true;
+        }
+        check(refused, "an index larger than " + FarLand.MOST_INDEX_BYTES + " bytes is refused");
+    }
+
+    private static void aTileLargerThanACellIsRefusedBeforeItsDots() throws IOException {
+        BufferedImage cell = new BufferedImage(FarCells.CELL, FarCells.CELL, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream written = new ByteArrayOutputStream();
+        ImageIO.write(cell, "png", written);
+        byte[] png = written.toByteArray();
+        BufferedImage read = FarLand.tile(new ByteArrayInputStream(png), "a cell");
+        check(read.getWidth() == FarCells.CELL && read.getHeight() == FarCells.CELL, "a tile a cell across is read");
+        // The header claims 20000 a side and no dots follow: reading it whole would take 1.6 GB first.
+        byte[] huge = Arrays.copyOf(png, 33);
+        ByteBuffer.wrap(huge, 16, 8).putInt(20000).putInt(20000);
+        CRC32 crc = new CRC32();
+        crc.update(huge, 12, 17);
+        ByteBuffer.wrap(huge, 29, 4).putInt((int) crc.getValue());
+        boolean refused = false;
+        try {
+            FarLand.tile(new ByteArrayInputStream(huge), "a claimed 20000 a side");
+        } catch (IOException expected) {
+            refused = expected.getMessage().contains("20000 by 20000");
+        }
+        check(refused, "a tile whose header claims 20000 a side is refused by its size");
+        boolean unreadable = false;
+        try {
+            FarLand.tile(new ByteArrayInputStream(new byte[] {1, 2, 3}), "three bytes");
+        } catch (IOException expected) {
+            unreadable = true;
+        }
+        check(unreadable, "a tile that is no picture is refused");
     }
 
     private static void check(boolean condition, String what) {
