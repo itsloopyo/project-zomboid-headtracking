@@ -2265,7 +2265,10 @@ final class Pipeline {
         to.set("uWaterRect", waterRect[0], waterRect[1], waterRect[2], waterRect[3]);
         to.set("uWaterDensity", (float) waterHeight / height);
         to.set("uWaterThrow", WaterMirror.THROW);
-        to.set("uRuffle", WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY)));
+        // Low's water is as rough in any wind.
+        boolean plainWater = Quality.plain();
+        to.set("uRuffle", plainWater ? 1f : WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY)));
+        to.set("uPlainWater", plainWater ? 1f : 0f);
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
         to.set("uFaced", state.facedX, state.facedY);

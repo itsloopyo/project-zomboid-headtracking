@@ -90,11 +90,12 @@ final class Own {
 
     /**
      * Whether the lines painted on roads are laid as paint: see RoadPaint. They are the game's
-     * own markings in the game's own colours and need no picture of the mod's, so they are
-     * laid in every graphics mode, Low too, and it is the row as the file has it that says.
+     * own markings in the game's own colours and need no picture of the mod's, so outside Low
+     * it is the row as the file has it that says, whether or not the pictures are made yet.
+     * Low draws the game's sprites of them.
      */
     static boolean paint() {
-        return (on & TEXTURES) != 0;
+        return !Quality.plain() && (on & TEXTURES) != 0;
     }
 
     /**
@@ -104,7 +105,7 @@ final class Own {
      */
     static boolean taken(int view) {
         // The rows the mode shows, and over them the one row that is asked as the file has it: see paint.
-        int now = on() | (on & TEXTURES) << 16;
+        int now = on() | (paint() ? TEXTURES << 16 : 0);
         if (now == built[view]) {
             return false;
         }

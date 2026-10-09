@@ -644,6 +644,9 @@ final class PipelineShaders {
             uniform float uWaterThrow;
             // How rough the wind has the water: 1 in a light breeze.
             uniform float uRuffle;
+            // 1 where water's ripples are all drawn whatever a pixel takes in and fade from 14 to 55
+            // tiles off, as a wet road's do, and are as high in any wind: in Low.
+            uniform float uPlainWater;
             // How much of its distance from the eye a pixel of this picture takes in, up and down.
             uniform float uPixel;
             varying vec2 vUv;
@@ -3028,10 +3031,11 @@ final class PipelineShaders {
                     // water a size of ripple goes as the stretch of water a pixel takes in,
                     // which seen at a glance is long, comes up to the size of one of them.
                     float spot = away * uPixel / max(dot(view, n), 0.02);
-                    vec3 kept = water ? 1.0 - smoothstep(0.25, 0.6, spot * RIPPLES) : vec3(1.0);
+                    bool sized = water && uPlainWater < 0.5;
+                    vec3 kept = sized ? 1.0 - smoothstep(0.25, 0.6, spot * RIPPLES) : vec3(1.0);
                     float level = swellOf(vWorld.xy, kept);
                     vec2 wave = vec2(swellOf(vWorld.xy + vec2(e, 0.0), kept) - level, swellOf(vWorld.xy + vec2(0.0, e), kept) - level) * (9.0 / e) * 0.1;
-                    float near = water ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);
+                    float near = sized ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);
                     vec3 surface = normalize(vec3(n.xy + wave * (ripple * near) + rings, n.z));
                     vec3 mirrored = reflect(-view, surface);
                     mirrored.z = abs(mirrored.z);

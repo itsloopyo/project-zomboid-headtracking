@@ -196,7 +196,7 @@ Where you and another player can hurt each other, four things are held to what t
 
 - Leaning does not move a shot. With the sights up in sights locked, the lean across the aim eases out and the round leaves from your character, where the other players see your weapon. Alone, your arms and weapon move with your head and the round leaves from where your eye is.
 - Walking sideways or backwards puts your character in the game's own aiming stance, at the pace the game gives that stance, with the sights down. The game shows a player what is in front of their character, and other players read which way a character faces to tell what its player can see. In first person you see where the view faces, so there your character faces it too. Walking forward, and forward with a sideways key, is as it is alone.
-- A room is filled as the game shows it. What stands in a room, and a body lying in it, is drawn once the game has shown your character the room, as it is for every player. Alone, a room within 40 tiles is whole before you can see into it, and its walls and doors hide it.
+- A room is filled as the game shows it. What stands in a room, and a body lying in it, is drawn once the game has shown your character the room, as it is for every player. Alone, in `Medium` and `High`, a room within 40 tiles is whole before you can see into it, and its walls and doors hide it.
 - A zombie is shown as the game shows it to every player. Alone, and on a server where nobody can be fought, a zombie before your eye is drawn whole up to the distance the game lets your character see in that weather and at that hour, hidden by what stands between and by fog, rain and snow.
 
 ### Hotkeys
@@ -246,7 +246,7 @@ The mod's own picture costs a graphics card far more than the game's own view do
 
 Each frame of the first person picture is drawn on its own. `FrameBlending=true` in `CameraUnlock.ini` mixes each frame with the one before it instead: fine edges, leaves and the grain of soft shadows are smoother and steadier, and the whole picture is a little softer, as much standing still as while you turn or walk. It is `false` unless you change it, and it is read again while the game runs.
 
-The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors, curtains and handrails built as shapes, skins for zombies and for the living, the cloth, leather and hair of what they wear, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople`, `OwnArms` and `OwnClothes`. Set a row to `false` and the mod draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. In `Low` the game's own view is the game's own picture and shows none of the mod's. The one thing a row switches in every mode is the lines painted on roads: with `OwnTextures` on, the first person view draws them as paint with clean edges in `Low` as well. In `Medium` and `High` the mod draws that view too, and the rows switch what it shows there as they do in first person.
+The first person view shows a good deal that the mod made itself in place of the game's own: models of two firearms and of rifle scopes, furniture, pictures on walls, leaves, trunks and grass, textures for the ground and for buildings, windows, doors, curtains and handrails built as shapes, skins for zombies and for the living, the cloth, leather and hair of what they wear, and your character's arms and hands on a held weapon. Each of those is a row of the `[Content]` section of `CameraUnlock.ini`, `true` unless you change it: `OwnWeapons`, `OwnFurniture`, `OwnPictures`, `OwnPlants`, `OwnTextures`, `OwnBuildings`, `OwnZombies`, `OwnPeople`, `OwnArms` and `OwnClothes`. Set a row to `false` and the mod draws the game's own there, which is how to see a weapon, a piece of furniture or a texture that another mod has changed as that mod made it. These rows are read again while the game runs too, so the change shows a second or so after you save the file. In `Low` the game's own view is the game's own picture, and first person draws the game's own whatever the rows say. In `Medium` and `High` the mod draws that view too, and the rows switch what it shows there as they do in first person.
 
 What the rows do not switch is how the first person view is put together from the game's flat sprites: walls with a thickness, fitted roofs, kerbs, the shape of the land, the sky, the light and the inside of a vehicle are the view itself, and `Delete` is the switch for that.
 
@@ -460,7 +460,8 @@ LightMultiplier=default
 ; false: the game's own weapon and scope models, and no picture through the scope.
 OwnWeapons=true
 ; true: the mod's models of furniture, appliances, street lamps, clocks and picture
-; frames. false: the game's sprites of them.
+; frames, banners hung as cloth, and bunting and flags laid on their wall. false:
+; the game's sprites of them.
 OwnFurniture=true
 ; true: the mod's photographs, paintings, posters and signs on walls, and programmes on a
 ; television that is on. false: the game's pictures, and only colour bars on a
@@ -471,11 +472,11 @@ OwnPictures=true
 OwnPlants=true
 ; true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,
 ; paint, carpet, cloth and wallpaper, and the lines painted on roads drawn as paint
-; with clean edges, which is so in every graphics mode. false: the colours of the
-; game's sprites alone, and the lines as the game's sprites have them.
+; with clean edges. false: the colours of the game's sprites alone, and the lines
+; as the game's sprites have them.
 OwnTextures=true
-; true: windows, doors, curtains and handrails built by the mod, the posts under an
-; open flight of stairs, and the outside of a wall finished as its building is.
+; true: windows, doors, curtains and handrails built by the mod, the strings and posts
+; of an open flight of stairs, and the outside of a wall finished as its building is.
 ; false: the game's sprites of them, on both sides of the wall.
 OwnBuildings=true
 ; true: the mod's own skins for zombies near the eye, each with a lifelike face.

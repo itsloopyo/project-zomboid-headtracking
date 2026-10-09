@@ -2350,7 +2350,8 @@ final class WorldScene {
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
             goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
-            boolean showing = Online.contested() || withoutSightline;
+            // Low shows a room as the game does, as it shows everything else the game's way.
+            boolean showing = Online.contested() || withoutSightline || Quality.plain();
             if (showing != asTheGameShows) {
                 // A build made by the other rule, seen before it falls due, would fill or empty its rooms a frame or more late.
                 asTheGameShows = showing;
@@ -2530,7 +2531,7 @@ final class WorldScene {
             int aheadStep = -1;
             for (int step = 0; step <= walk.length; step += 2) {
                 boolean ahead = step == walk.length;
-                if (ahead && (aheadStep < 0 || withoutSightline || rehearsing || chunksWaiting > 0 || waitedLast > 0
+                if (ahead && (aheadStep < 0 || withoutSightline || Quality.plain() || rehearsing || chunksWaiting > 0 || waitedLast > 0
                         || System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing)) {
                     break;
                 }
@@ -4452,7 +4453,8 @@ final class WorldScene {
             int flat = flatOf(texture, Flats.FLOOR, 0f, 0f, 0f);
             frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             // The picture's own wood is laid on a boarded floor only as the sprite's boards (see addBoards), which a floor a kerb cuts is not built as: it shows its sprite.
-            if (frame.material == WOOD) {
+            // Where the picture lays none of its own textures a wooden floor stays wood, which is how its board joints and its gloss are drawn.
+            if (frame.material == WOOD && Own.textures()) {
                 frame.material = TILE;
             }
             geometry.addFace(solid.get(flat != 0 ? flat : texture.getID()), frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
@@ -5395,7 +5397,7 @@ final class WorldScene {
                 }
                 return;
             }
-            if (kind.banner == Banners.STRUNG || kind.banner == Banners.POSTED) {
+            if ((kind.banner == Banners.STRUNG || kind.banner == Banners.POSTED) && Own.furniture()) {
                 addBanner(mesh, kind.banner == Banners.STRUNG, x, y, z);
                 return;
             }
@@ -5474,7 +5476,8 @@ final class WorldScene {
                 // it stood in every corner of every room as a card turned to the eye.
                 boolean both = properties.has(IsoFlagType.WallNW) || properties.has(IsoFlagType.WallSE) || kind.cornerTrim;
                 // Bunting and a flag some squares long are marked for no wall. Which edge each is on is in its picture.
-                boolean cloth = kind.banner == Banners.ON_WALL;
+                // With the mod's furniture off it is a card turned to the eye, as a strung banner is the game's sprite.
+                boolean cloth = kind.banner == Banners.ON_WALL && Own.furniture();
                 west = both || standsOnWestEdge(properties, type) || cloth && !Banners.alongX(frame);
                 north = both || standsOnNorthEdge(properties, type) || cloth && Banners.alongX(frame);
             }
@@ -5681,14 +5684,16 @@ final class WorldScene {
                 mesh = solid.get(flat);
             }
             // A floor shows one pattern of boards, the sprite's: the picture's own wood is laid on it only as boards of the sprite's size and lie.
-            Flats.Boards boards = frame.material == WOOD && flat != 0 ? Flats.boards(flat) : null;
-            if (frame.material == WOOD && isFloor && boards == null) {
+            // Where the picture lays none of its own textures a wooden floor stays wood, which is how its board joints and its gloss are drawn.
+            boolean ownWood = frame.material == WOOD && Own.textures();
+            Flats.Boards boards = ownWood && flat != 0 ? Flats.boards(flat) : null;
+            if (ownWood && isFloor && boards == null) {
                 frame.material = TILE;
             }
             if (floorLayer == 0 && z > lowestLevel) {
                 // The ceiling under a boarded floor is the sprite's own, as under any other floor: not the picture's wood.
                 float made = frame.material;
-                frame.material = made == WOOD ? TILE : made;
+                frame.material = ownWood ? TILE : made;
                 addCeiling(mesh, x, y, z);
                 frame.material = made;
             }
@@ -8943,7 +8948,8 @@ final class WorldScene {
             float middle = third + 0.5f, band = middle / 3f - Stairs.STRING / 2f;
             float sideA = west ? 0.5f : 1f, sideB = west ? 1f : 0.5f;
             boolean closed = painted(texture, sideA, sideB, band);
-            float riser = closed ? Stairs.RISE : Flights.TREAD;
+            // Without the mod's buildings an open flight is its sprite's four steps, each riser showing what the sprite has there.
+            float riser = closed || !Own.buildings() ? Stairs.RISE : Flights.TREAD;
             int added = 0;
             for (int step = 0; step < Stairs.STEPS; step++) {
                 // The tread runs from its riser at near back to far, the way the flight climbs.
@@ -8965,6 +8971,9 @@ final class WorldScene {
             if (added == 0) {
                 return true;
             }
+            if (!closed && !Own.buildings()) {
+                return true;
+            }
             if (!closed) {
                 // What carries the treads is in the mean of what the sprite paints. The build
                 // that first meets the sprite has no colour for it yet and is made again.
@@ -8982,7 +8991,7 @@ final class WorldScene {
                 boolean joinedLow = flightThirdAt(west ? x : x - 1, west ? y - 1 : y, z, west) == third;
                 boolean joinedHigh = flightThirdAt(west ? x : x + 1, west ? y + 1 : y, z, west) == third;
                 // The posts are the mod's own. Under a fire escape the map stands a post of its own, which is left out where these are built: see underAFlightsHead.
-                flights.open(third, !hangsInAir && Own.buildings(), joinedLow, joinedHigh);
+                flights.open(third, !hangsInAir, joinedLow, joinedHigh);
                 return true;
             }
             mesh.open = frame.open + 32f * frame.material;

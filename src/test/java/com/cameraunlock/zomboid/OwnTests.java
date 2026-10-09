@@ -12,7 +12,7 @@ final class OwnTests {
             aSwitchedRowHasTheWorldBuiltAgainOnce();
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
-            paintedLinesGoByTheFilesRowInEveryMode();
+            paintedLinesGoByTheFilesRowOutsideLow();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
             Own.picturesMade(true);
@@ -69,18 +69,26 @@ final class OwnTests {
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
     }
 
-    private static void paintedLinesGoByTheFilesRowInEveryMode() {
+    private static void paintedLinesGoByTheFilesRowOutsideLow() {
         Own.set(Own.ALL);
-        Quality.set(Quality.LOW);
+        Quality.set(Quality.MEDIUM);
         Own.taken(0);
-        check(Own.paint() && !Own.textures(), "in Low the lines of a road are laid as paint though no texture of the mod's is shown");
+        Own.picturesMade(false);
+        check(Own.paint() && !Own.textures(), "in Medium the lines of a road are laid as paint before the mod's pictures are made");
+        Own.picturesMade(true);
+        Own.taken(0);
         Own.set(Own.ALL & ~Own.TEXTURES);
         check(!Own.paint(), "the textures row off in the file has them drawn from the game's sprites");
-        check(Own.taken(0) && !Own.taken(0), "and the world is built again for it in Low too, once");
-        Own.set(Own.ALL & ~Own.TEXTURES & ~Own.PLANTS);
-        check(!Own.taken(0), "another row switched in Low changes nothing that is built");
+        check(Own.taken(0) && !Own.taken(0), "and the world is built again for it, once");
         Own.set(Own.ALL);
         check(Own.taken(0) && Own.paint(), "the row back on has the paint back");
+        Quality.set(Quality.LOW);
+        check(!Own.paint(), "in Low they are the game's sprites whatever the file says");
+        check(Own.taken(0) && !Own.taken(0), "and going to Low has the world built again without them, once");
+        Own.set(Own.ALL & ~Own.TEXTURES);
+        check(!Own.taken(0), "the textures row switched in Low changes nothing that is built");
+        Own.set(Own.ALL);
+        check(!Own.taken(0), "nor does it switched back");
         Quality.set(Quality.HIGH);
         Own.taken(0);
     }

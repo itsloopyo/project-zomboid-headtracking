@@ -139,6 +139,7 @@ public final class Tests {
         Checks.run("WaterMirrorTests", WaterMirrorTests::run);
         Checks.run("DecorTests", DecorTests::run);
         Checks.run("OwnTests", OwnTests::run);
+        Checks.run("LowTests", LowTests::run);
         Checks.run("ScopeTests", ScopeTests::run);
         Checks.run("RifleTests", RifleTests::run);
         Checks.run("KerbTests", KerbTests::run);

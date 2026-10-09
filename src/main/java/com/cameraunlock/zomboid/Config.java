@@ -173,7 +173,8 @@ final class Config {
                     writable | live, true),
             core.configLocalBool("Content", "OwnFurniture",
                     "true: the mod's models of furniture, appliances, street lamps, clocks and picture\n"
-                            + "frames. false: the game's sprites of them.",
+                            + "frames, banners hung as cloth, and bunting and flags laid on their wall. false:\n"
+                            + "the game's sprites of them.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPictures",
                     "true: the mod's photographs, paintings, posters and signs on walls, and programmes on a\n"
@@ -187,12 +188,12 @@ final class Config {
             core.configLocalBool("Content", "OwnTextures",
                     "true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,\n"
                             + "paint, carpet, cloth and wallpaper, and the lines painted on roads drawn as paint\n"
-                            + "with clean edges, which is so in every graphics mode. false: the colours of the\n"
-                            + "game's sprites alone, and the lines as the game's sprites have them.",
+                            + "with clean edges. false: the colours of the game's sprites alone, and the lines\n"
+                            + "as the game's sprites have them.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors, curtains and handrails built by the mod, the posts under an\n"
-                            + "open flight of stairs, and the outside of a wall finished as its building is.\n"
+                    "true: windows, doors, curtains and handrails built by the mod, the strings and posts\n"
+                            + "of an open flight of stairs, and the outside of a wall finished as its building is.\n"
                             + "false: the game's sprites of them, on both sides of the wall.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
