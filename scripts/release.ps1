@@ -121,9 +121,10 @@ try {
             'cameraunlock-core'
         ) -Maintenance:$Force | Out-Null
     } catch {
-        & git -C $ProjectRoot checkout -- THIRD-PARTY-NOTICES.md
         Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host 'Re-run with -Force for a maintenance release.' -ForegroundColor Yellow
+        & git -C $ProjectRoot checkout -q -- THIRD-PARTY-NOTICES.md
+        if ($LASTEXITCODE -ne 0) { Write-Host 'Could not put THIRD-PARTY-NOTICES.md back: discard its edit by hand.' -ForegroundColor Red }
         exit 1
     }
 
