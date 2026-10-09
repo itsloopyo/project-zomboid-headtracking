@@ -62,7 +62,8 @@ final class KerbBuilder {
             return street ? Terrain.KERB : 0f;
         }
         build.kerbed = true;
-        build.kerbNorth = build.kerbWest = false;
+        build.kerbNorth = Kerbs.alongEdge(build.kerbs, localX, localY, true);
+        build.kerbWest = Kerbs.alongEdge(build.kerbs, localX, localY, false);
         build.geometry.kerb = build.kerbs;
         build.geometry.kerbX = localX;
         build.geometry.kerbY = localY;

@@ -236,7 +236,8 @@ final class KerbTests {
 
     /**
      * A fence of one sheet on the edge of a street's square stands in the plane of a kerb that
-     * runs along that edge, and has to be told so, or it is drawn through the kerb's face.
+     * runs along that edge, or along a stretch of it, and has to be told so, or it is drawn
+     * through the kerb's face.
      */
     private static void kerbAlongTheEdgeOfAStreetsSquareIsFoundForWhatStandsOnIt() {
         float[] south = field((x, y) -> y >= 3);
@@ -246,8 +247,10 @@ final class KerbTests {
         float[] east = field((x, y) -> x - 6464 >= 5, 6464, 5248, null, null);
         check(Kerbs.alongEdge(east, 5, 1, false), "a kerb along the west edge of the street's first column is along that edge, far across the map");
         check(!Kerbs.alongEdge(east, 5, 1, true) && !Kerbs.alongEdge(east, 6, 1, false), "edges that cross the kerb or lie in the street are not along it");
-        // Round a corner the line leaves the squares' edges, and a square there has its kerb across it, not along an edge.
-        float[] corner = field((x, y) -> x >= 4 || y >= 4);
-        check(!Kerbs.alongEdge(corner, 4, 3, false) || !Kerbs.alongEdge(corner, 3, 4, true), "at a rounded corner the kerb is not along both edges that meet there");
+        // A drive's mouth: the kerb comes round the corner of the lawn beside it and closes on
+        // the edge by the square's far end, a few hundredths off it. The sheet there is all but in the kerb's face.
+        float[] mouth = field((x, y) -> x >= 4 || y < 3);
+        check(Kerbs.alongEdge(mouth, 4, 3, false), "a kerb that leaves the edge round a corner still runs along the rest of it");
+        check(!Kerbs.alongEdge(mouth, 4, 3, true), "the edge between the drive and the pavement has no kerb along it");
     }
 }

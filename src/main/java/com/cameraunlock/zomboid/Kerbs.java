@@ -126,17 +126,24 @@ final class Kerbs {
     }
 
     /**
-     * Whether a kerb runs the whole length of the north edge of the chunk's square (x, y), or
-     * of its west edge: every point of the field along it is on the line or on the land's side.
+     * Whether a kerb runs along some stretch of the north edge of the chunk's square (x, y), or
+     * of its west edge: two neighbouring points of the field on the edge both lie nearer the
+     * line than a wall's skin is to its own line. Its face is then as good as in the plane of
+     * the edge there: round the corner of a lawn at a drive's mouth the line comes back onto
+     * the edge by a few hundredths of a square. Where the line only crosses the edge, no two
+     * neighbours are that near: they are an eighth of a square apart.
      */
     static boolean alongEdge(float[] field, int x, int y, boolean north) {
+        boolean last = false;
         for (int i = 0; i <= FINE; i++) {
             int p = x * FINE + (north ? i : 0), q = y * FINE + (north ? 0 : i);
-            if (field[p * POINTS + q] > 0f) {
-                return false;
+            boolean on = Math.abs(field[p * POINTS + q]) <= WorldScene.WALL_HALF;
+            if (on && last) {
+                return true;
             }
+            last = on;
         }
-        return true;
+        return false;
     }
 
     /** The field at a point of the chunk, (x, y) in squares from its corner. */
