@@ -257,6 +257,13 @@ final class Indoors {
     private static final String BAR = "location_restaurant_bar_01_";
     /** How high over the back of its square, in levels, a length of panelling shows its wood, and where on its square the post that ends a run stands. */
     private static final float PANELLING_DYE = 0.2f, PANELLING_POST = 0.08f;
+    /**
+     * Where the tall run's sprites paint the brass of its foot rail, which its metal takes its colour from: how far along
+     * its edge, how far out from it, and how high, in levels. The line is two to four texels thick, so the place was found
+     * on the sprites themselves (84 and 85 of Tiles2x, the only pack that has them): every point within 0.3 of a texel of
+     * it is painted, and the shader's nine taps there, sampled nearest or bilinear, take the brass and none of the wood.
+     */
+    private static final float FOOT_RAIL_ALONG = 0.7f, FOOT_RAIL_OUT = 0.25f, FOOT_RAIL_DYE = 0.0725f;
 
     /**
      * A bar's panelling, by its place on the sheet: a run of low boards under a rail stands along the north edge of its
@@ -269,11 +276,11 @@ final class Indoors {
             return null;
         }
         return switch (Sheets.place(name, BAR)) {
-            case 77 -> panelling(sprite, "wainscot", 2);
-            case 76 -> panelling(sprite, "wainscot", 1);
-            case 85 -> panelling(sprite, "bar_panelling", 2);
-            case 84 -> panelling(sprite, "bar_panelling", 1);
-            case 78 -> new Furniture(sprite, "wainscot_corner", 2).dyeAtBack(1 << Models.WOOD, PANELLING_DYE).meet(0f, 0f, false);
+            case 77 -> panelling(sprite, "wainscot_north", 2);
+            case 76 -> panelling(sprite, "wainscot_west", 1);
+            case 85 -> panelling(sprite, "bar_panelling", 2).alsoAt(1 << Models.METAL, FOOT_RAIL_ALONG, FOOT_RAIL_OUT, FOOT_RAIL_DYE);
+            case 84 -> panelling(sprite, "bar_panelling_west", 1).alsoAt(1 << Models.METAL, FOOT_RAIL_OUT, FOOT_RAIL_ALONG, FOOT_RAIL_DYE);
+            case 78 -> new Furniture(sprite, "wainscot_north_west", 2).dyeAtBack(1 << Models.WOOD, PANELLING_DYE).meet(0f, 0f, false);
             case 79 -> {
                 Furniture post = new Furniture(sprite, "wainscot_post", 0).dye(1 << Models.WOOD, PANELLING_POST, PANELLING_POST, PANELLING_DYE).meet(0f, 0f, false);
                 post.centreX = PANELLING_POST;

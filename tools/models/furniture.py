@@ -9882,12 +9882,12 @@ def dumpsters():
 WAINSCOT_TOP, BAR_PANEL_TOP, WAINSCOT_RAIL, WAINSCOT_NOSE, WAINSCOT_LEDGE, FOOT_RAIL_OUT = 0.88, 1.13, 0.075, 0.0375, 0.12, 0.17
 
 
-def wainscot_run(model, x0, x1, top, tall, place=None, butted=False):
+def wainscot_run(model, x0, x1, top, tall, place=None, butted=False, pilaster=None):
     """One length of a bar's panelling from x0 to x1 along x, its back at y 0 and its face to -y: boards, or framed
-    raised panels when tall, on a skirting, a pilaster in the middle with a carved scroll under a rounded rail, and a
-    brass foot rail before a tall one. place moves every part afterwards, for a length that runs another way. butted
-    ends each layer at x1 less its own depth, where it meets the same layer of a length along x1's edge."""
-    mid = (x0 + x1) / 2
+    raised panels when tall, on a skirting, a pilaster at x pilaster (the middle if None) with a carved scroll under a
+    rounded rail, and a brass foot rail before a tall one. place moves every part afterwards, for a length that runs
+    another way. butted ends each layer at x1 less its own depth, where it meets the same layer of a length along x1's edge."""
+    mid = (x0 + x1) / 2 if pilaster is None else pilaster
     under = top - WAINSCOT_RAIL
 
     def end(depth):
@@ -9906,7 +9906,7 @@ def wainscot_run(model, x0, x1, top, tall, place=None, butted=False):
             for a, b in ((x0 + 0.03, mid - 0.035), (mid + 0.035, x1 - 0.03)):
                 cx, cz, sx, sz = (a + b) / 2, (z0 + z1) / 2, b - a - 0.004, z1 - z0 - 0.004
                 prism_y(parts["fields"], (cx, cz, sx - 0.07, sz - 0.07, -0.034), (cx, cz, sx, sz, -0.02))
-        for x in (mid - 0.25, mid + 0.25):
+        for x in ((x0 + x1) / 2 - 0.25, (x0 + x1) / 2 + 0.25):
             cuboid(parts["brass"], x - 0.01, x + 0.01, -FOOT_RAIL_OUT, -0.035, 0.105, 0.135)
         lathe(parts["brass"], [(0.022, x0), (0.022, x1)], segments=14, to=along_x(0.0, -FOOT_RAIL_OUT, 0.12))
     else:
@@ -9940,21 +9940,29 @@ def wainscot_run(model, x0, x1, top, tall, place=None, butted=False):
     model.turned(parts["carving"], "wood", sharp=50.0)
 
 
-def wainscot(name, top, tall):
+# Where the game's sprites paint each run's pilaster, along the model's x from the middle of its square: facing south, on
+# a square's north edge, x is the map's east; facing east, on its west edge, x is the map's north. Read off the sprites'
+# plinths and the pilaster's sides on their face: the low run at 0.45 of the north edge and 0.51 of the west, the tall
+# one at 0.50 and 0.54.
+PILASTER_NORTH, PILASTER_WEST, TALL_PILASTER_NORTH, TALL_PILASTER_WEST = -0.05, -0.01, 0.0, -0.04
+
+
+def wainscot(name, top, tall, pilaster):
     """A square's length of a bar's panelling against a wall, a metre long so that each meets the next."""
     model = Model(name)
-    wainscot_run(model, -0.5, 0.5, top, tall)
+    wainscot_run(model, -0.5, 0.5, top, tall, pilaster=pilaster)
     return model
 
 
 def wainscot_corner():
     """Where two runs of a bar's low panelling meet, on one square: along its back and the side on its left as it is
-    looked at, each standing off its edge as far as a straight length is stood off it."""
-    model = Model("wainscot_corner", centred=False)
+    looked at, each standing off its edge as far as a straight length is stood off it, its pilaster where a straight
+    length along that edge has its own."""
+    model = Model("wainscot_north_west", centred=False)
     back = 0.44
-    wainscot_run(model, -back, 0.5, WAINSCOT_TOP, False, place=Matrix.Translation((0.0, back, 0.0)))
+    wainscot_run(model, -back, 0.5, WAINSCOT_TOP, False, place=Matrix.Translation((0.0, back, 0.0)), pilaster=PILASTER_NORTH)
     wainscot_run(model, -0.5, back, WAINSCOT_TOP, False, butted=True,
-                 place=Matrix.Translation((-back, 0.0, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "Z"))
+                 place=Matrix.Translation((-back, 0.0, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "Z"), pilaster=PILASTER_WEST)
     return model
 
 
@@ -9972,7 +9980,9 @@ def wainscot_post():
 def bar_panelling():
     """A bar's wooden panelling: low runs with a rail along their top, their corner and the post at the end of a run, and
     tall runs with a foot rail before them."""
-    return [wainscot("wainscot", WAINSCOT_TOP, False), wainscot("bar_panelling", BAR_PANEL_TOP, True), wainscot_corner(), wainscot_post()]
+    return [wainscot("wainscot_north", WAINSCOT_TOP, False, PILASTER_NORTH), wainscot("wainscot_west", WAINSCOT_TOP, False, PILASTER_WEST),
+            wainscot("bar_panelling", BAR_PANEL_TOP, True, TALL_PILASTER_NORTH), wainscot("bar_panelling_west", BAR_PANEL_TOP, True, TALL_PILASTER_WEST),
+            wainscot_corner(), wainscot_post()]
 
 
 def every():

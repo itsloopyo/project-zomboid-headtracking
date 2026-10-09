@@ -522,6 +522,30 @@ final class FurnitureTests {
         return out;
     }
 
+    /**
+     * How far along its north or west edge a piece of a bar's panelling has its pilaster: the middle of the plinth at the
+     * pilaster's foot, the wood that stands more than 6 cm out from the piece's back at the plinth's top, 11 to 13.5 cm up.
+     */
+    private static float plinthAlong(Furniture piece, boolean north) {
+        Models.Model model = piece.model;
+        float back = footprint(piece)[north ? 1 : 0];
+        float[] turned = new float[2];
+        float sum = 0f;
+        int count = 0;
+        for (int v = model.first[Models.WOOD]; v < model.first[Models.WOOD + 1]; v++) {
+            float x = model.vertices[v * Models.VERTEX_FLOATS], y = model.vertices[v * Models.VERTEX_FLOATS + 1], z = model.vertices[v * Models.VERTEX_FLOATS + 2];
+            Models.turn(piece.turns, x * piece.scale, y * piece.scale, turned);
+            float a = piece.centreX + turned[0], b = piece.centreY + turned[1], up = (z - model.minZ) * piece.scaleUp;
+            float out = (north ? b : a) - back, along = north ? a : b;
+            if (up > 0.11f && up < 0.135f && out > 0.06f && out < 0.1f && along > 0.2f) {
+                sum += along;
+                count++;
+            }
+        }
+        check(count > 0, piece.model.name + " has a plinth on its " + (north ? "north" : "west") + " length");
+        return count == 0 ? Float.NaN : sum / count;
+    }
+
     private static void aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom() {
         // The game's rows for these: no properties but a CustomName that is the placeholder itself.
         String row = "|CustomName|CustomName|";
@@ -529,8 +553,13 @@ final class FurnitureTests {
         float[] front = new float[2];
         for (int place : new int[] {77, 85, 76, 84}) {
             Furniture run = Furniture.known(sprite("location_restaurant_bar_01_" + place + row));
-            boolean north = place == 77 || place == 85;
-            String want = place == 77 || place == 76 ? "wainscot" : "bar_panelling";
+            boolean north = place == 77 || place == 85, tall = place == 85 || place == 84;
+            String want = switch (place) {
+                case 77 -> "wainscot_north";
+                case 76 -> "wainscot_west";
+                case 85 -> "bar_panelling";
+                default -> "bar_panelling_west";
+            };
             check(model(run).equals(want), "the bar's panelling " + place + " is the " + want + ": " + model(run));
             if (run == null || run.model == null) {
                 continue;
@@ -545,14 +574,29 @@ final class FurnitureTests {
                     + from + " to " + to);
             check(run.dyed == 1 << Models.WOOD && (north ? run.dyeB : run.dyeA) < 0.25f, place + " takes its wood's colour from the sprite, over the panel at the back of its square");
             float top = run.model.height() * run.scaleUp;
-            check(want.equals("wainscot") ? top > 0.8f && top < 0.95f : top > 1.05f && top < 1.2f, place + " is as high as its sprite paints it: " + top);
+            float pilaster = place == 77 ? 0.45f : place == 76 ? 0.51f : place == 85 ? 0.5f : 0.54f;
+            float at = plinthAlong(run, north);
+            check(Math.abs(at - pilaster) < 0.006f, place + "'s pilaster stands where its sprite paints it, " + pilaster + " along its edge: " + at);
+            if (tall) {
+                // The place on the sprite where the foot rail's brass is read was found on the sprites; see Indoors.FOOT_RAIL_ALONG.
+                check(run.alsoDyed == 1 << Models.METAL && Math.abs((north ? run.alsoA : run.alsoB) - 0.7f) < eps
+                        && Math.abs((north ? run.alsoB : run.alsoA) - 0.25f) < eps && Math.abs(run.alsoHigh - 0.0725f) < eps,
+                        place + "'s foot rail takes the brass the sprite paints it in, from the place on the rail's line where it always reads: "
+                        + run.alsoDyed + " at (" + run.alsoA + ", " + run.alsoB + ", " + run.alsoHigh + ")");
+            } else {
+                check(run.alsoDyed == 0, place + " has no second colour");
+            }
+            check(!tall ? top > 0.8f && top < 0.95f : top > 1.05f && top < 1.2f, place + " is as high as its sprite paints it: " + top);
         }
         Furniture corner = Furniture.known(sprite("location_restaurant_bar_01_78" + row));
-        check(model(corner).equals("wainscot_corner"), "78 is the corner where a north run meets a west one: " + model(corner));
+        check(model(corner).equals("wainscot_north_west"), "78 is the corner where a north run meets a west one: " + model(corner));
         if (corner != null && corner.model != null) {
             float[] lies = footprint(corner);
             check(lies[0] > clear && lies[0] < near && lies[1] > clear && lies[1] < near, "its backs are against the north and west edges: " + lies[0] + ", " + lies[1]);
             check(Math.abs(lies[2] - 1f) < eps && Math.abs(lies[3] - 1f) < eps, "and each length reaches the far edge of the square, to meet the next: " + lies[2] + ", " + lies[3]);
+            float northAt = plinthAlong(corner, true), westAt = plinthAlong(corner, false);
+            check(Math.abs(northAt - 0.45f) < 0.006f && Math.abs(westAt - 0.51f) < 0.006f, "with each length's pilaster where a straight length along that edge has it: "
+                    + northAt + ", " + westAt);
         }
         Furniture post = Furniture.known(sprite("location_restaurant_bar_01_79" + row));
         check(model(post).equals("wainscot_post"), "79 is the post that ends a run: " + model(post));
