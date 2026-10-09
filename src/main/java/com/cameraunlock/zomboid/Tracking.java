@@ -252,11 +252,14 @@ final class Tracking {
 
     /**
      * What an option reads as now. A row of [Graphics] reads as the picture being drawn, so in Low,
-     * Medium, High and Automatic the screen shows that mode's, and in Custom the row itself.
+     * Medium, High and Automatic the screen shows that mode's, and in Custom the row itself. The
+     * graphics mode reads as the session's: core has the mode an apply went to only once its save,
+     * which follows on the config thread, is made.
      */
     static double optionValue(int option) {
-        int part = Config.graphicsPart(config.optionId(option));
-        return part < 0 ? config.optionValue(option) : Config.values(Quality.drawn())[part];
+        String id = config.optionId(option);
+        int part = Config.graphicsPart(id);
+        return part >= 0 ? Config.values(Quality.drawn())[part] : id.equals(QUALITY_OPTION) ? Quality.row() : config.optionValue(option);
     }
 
     private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
@@ -388,13 +391,12 @@ final class Tracking {
     static int pressedFor(int playerIndex, boolean first) {
         if (first) {
             int pressed = 0, told = 0;
+            boolean enteringSave = outOfSave;
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
                 outOfSave = false;
                 core.hotkeysDrop();
-                graphicsToSay();
             } else {
-                told = graphicsToSay() ? Config.CYCLE_QUALITY : 0;
                 pressed = act(core.hotkeysTake());
                 if ((pressed & Config.CYCLE_QUALITY) != 0) {
                     cycleGraphicsMode();
@@ -410,6 +412,13 @@ final class Tracking {
                         Log.info("the split screen key turns the split of two players and does nothing with " + IsoPlayer.numPlayers + " at the screen");
                     }
                 }
+            }
+            if (enteringSave) {
+                graphicsToSay.set(false);
+            } else if (graphicsToSay.get() && !OptionsPage.menuShown() && graphicsToSay()) {
+                // Not while the game's menu is up, which the options screen is opened from in a save: drawn under it, it was gone before the menu was shut.
+                told = Config.CYCLE_QUALITY;
+                Log.info("said on the screen: Graphics: " + Quality.name());
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;

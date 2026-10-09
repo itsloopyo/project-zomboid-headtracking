@@ -8,6 +8,7 @@ import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
 import zombie.Lua.LuaManager;
+import zombie.ui.UIElement;
 import zombie.ui.UIManager;
 
 /**
@@ -239,6 +240,12 @@ final class OptionsPage {
             }
         }
         return 0;
+    }
+
+    /** Whether the game's menu is up, the one Esc brings up in a save, which the options screen is opened from there. Logic thread. */
+    static boolean menuShown() {
+        return LuaManager.env.rawget("MainScreen") instanceof KahluaTable screen && screen.rawget("instance") instanceof KahluaTable instance
+                && instance.rawget("javaObject") instanceof UIElement element && element.isVisible();
     }
 
     /** A value as the control holds it: a slider's on its nearest notch. */

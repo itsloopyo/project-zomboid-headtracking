@@ -704,7 +704,19 @@ public final class CoreTests {
 
         screen.set("ViewDistance", 56);
         screen.set("Quality", Quality.LOW);
+        // The config thread held, as it is when the screen reads the mode back straight after Apply: the saves are still to come.
+        CountDownLatch held = new CountDownLatch(1);
+        Tracking.saver.execute(() -> {
+            try {
+                held.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
         screen.apply();
+        boolean readsCustom = Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM;
+        held.countDown();
+        check(readsCustom, "the screen's mode list reads Custom as soon as it is applied, before the save is made");
         check(Quality.name().equals("Custom") && Quality.sight() == 56 && Quality.scale() == 1f && Quality.shadowSize() == 4096 && Quality.crownsToSight(),
                 "a graphics row changed there goes straight to Custom, drawn as High was but for that row, whatever the mode list was set to: "
                         + Quality.name());
