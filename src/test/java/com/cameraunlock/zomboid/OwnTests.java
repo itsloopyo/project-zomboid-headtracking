@@ -12,6 +12,7 @@ final class OwnTests {
             aSwitchedRowHasTheWorldBuiltAgainOnce();
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
+            customsStockLookAndSpritePlantsAreLowsAndMediums();
             paintedLinesGoByTheFilesRowOutsideLow();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
         } finally {
@@ -64,9 +65,27 @@ final class OwnTests {
         check(Quality.next() == Quality.HIGH, "the hotkey goes from Medium to High");
         Quality.set(Quality.HIGH);
         check(Own.plants() && Own.taken(0), "High has the mod's plants back");
-        check(Quality.next() == Quality.LOW, "from High round to Low");
+        check(Quality.next() == Quality.CUSTOM, "from High to Custom");
         Quality.set(Quality.LOW);
         check(Quality.next() == Quality.MEDIUM, "and from Low to Medium");
+    }
+
+    private static void customsStockLookAndSpritePlantsAreLowsAndMediums() {
+        Own.set(Own.ALL);
+        Quality.custom(Quality.HIGH_PICTURE);
+        Quality.set(Quality.CUSTOM);
+        Own.taken(0);
+        check(Own.plants() && Own.textures() && Own.paint(), "Custom with High's rows shows all of the mod's own");
+        double[] values = Config.values(Quality.HIGH_PICTURE);
+        values[1] = 1;
+        Quality.custom(Config.picture(values));
+        check(!Own.plants() && Own.furniture() && Own.taken(0) && !Own.taken(0), "SpritePlants has the plants the game's, as Medium does, and the world built again once");
+        values[0] = 1;
+        Quality.custom(Config.picture(values));
+        check(!Own.furniture() && !Own.textures() && !Own.paint() && Own.taken(0), "StockLook shows nothing of the mod's own, as Low does");
+        Quality.custom(Quality.HIGH_PICTURE);
+        Quality.set(Quality.HIGH);
+        Own.taken(0);
     }
 
     private static void paintedLinesGoByTheFilesRowOutsideLow() {

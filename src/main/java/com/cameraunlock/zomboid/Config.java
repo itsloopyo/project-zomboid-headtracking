@@ -39,13 +39,25 @@ final class Config {
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
-    /** What the rows read again while the game runs hold: the field of view in degrees, Own's bits, the Quality row, the Style row, the FrameBlending row and the SplitScreen row. */
-    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, int splitScreen) {}
+    /**
+     * What the rows read again while the game runs hold: the field of view in degrees, Own's bits,
+     * the Quality row, the Style row, the FrameBlending row, the SplitScreen row and the rows of [Graphics].
+     */
+    record Live(float fieldOfView, int own, int quality, int style, boolean frameBlending, int splitScreen, Quality.Picture custom) {}
+
+    /** The keys of [Graphics], the Custom graphics mode, in the order of Quality.Picture's parts. */
+    static final String[] GRAPHICS = {"StockLook", "SpritePlants", "RenderScale", "SharpShadows", "ViewDistance", "RainOnGlass",
+        "ShadingAndReflections", "FullSizeTextures", "FarTrees", "SurfaceDepth"};
+    private static final int RENDER_SCALE = 2;
+    static final float MIN_RENDER_SCALE = 0.5f;
+    static final int MIN_VIEW_DISTANCE = 32;
 
     private final CameraUnlock core;
     private final int fieldOfView, quality, style, frameBlending, splitScreen, secondPlayerPort;
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
+    /** The rows of [Graphics], in the order of GRAPHICS. */
+    private final int[] graphics;
     /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
     private final Map<String, DoubleConsumer> puts = new HashMap<>();
 
@@ -55,7 +67,8 @@ final class Config {
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
      * FrameBlending, SplitScreen and the rows of [Content] are the mod's own, and the ones read
-     * again while the game runs. They are writable too, and a writable row that is not a key
+     * again while the game runs, and so are the rows of [Graphics], which are what the Custom
+     * graphics mode draws. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
      * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
@@ -110,21 +123,22 @@ final class Config {
                         + "is saved.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality = core.configLocalEnum("General", "Quality",
-                "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey\n"
-                        + "goes from one to the next, Low, Medium, High, and saves it here. Low is as near\n"
-                        + "the game's own look as there is: the game's own view is the game's own picture,\n"
-                        + "and first person is drawn with the game's own sprites, models and textures in\n"
-                        + "place of everything the mod made, at a little over three fifths of the pixels\n"
-                        + "each way, sight to 48 tiles, smaller shadow maps, and no shading of corners, lit\n"
-                        + "air, reflections or depth in surfaces. Medium and High draw both views with what\n"
-                        + "the mod made. High: the whole picture. Medium: the game's own grass, trees,\n"
-                        + "bushes and rocks whatever OwnPlants says, no shading of corners, lit air,\n"
-                        + "reflections or depth in surfaces either, four fifths of the pixels each way,\n"
-                        + "sight to 64 tiles and smaller shadow maps. Automatic, which the key never goes\n"
-                        + "to: begins at High and draws less, as Medium and then Low do but still with\n"
-                        + "everything the mod made, each time the picture is drawn fewer than 45 times a\n"
-                        + "second for three seconds, until the game is closed. Read again while the game\n"
-                        + "runs.",
+                "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey goes\n"
+                        + "from one to the next, Low, Medium, High, Custom, and saves it here. Low is as near\n"
+                        + "the game's own look as there is: the game's own view is the game's own picture, and\n"
+                        + "first person is drawn with the game's own sprites, models and textures in place of\n"
+                        + "everything the mod made, at a little over three fifths of the pixels each way, sight\n"
+                        + "to 48 tiles, smaller shadow maps, and no shading of corners, lit air, reflections or\n"
+                        + "depth in surfaces. Medium and High draw both views with what the mod made. High: the\n"
+                        + "whole picture. Medium: the game's own grass, trees, bushes and rocks whatever\n"
+                        + "OwnPlants says, no shading of corners, lit air, reflections or depth in surfaces\n"
+                        + "either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow\n"
+                        + "maps. Custom: the picture the rows of [Graphics] describe. A change to any of those\n"
+                        + "rows on the game's options screen, or in this file while the game runs, goes to\n"
+                        + "Custom. Automatic, which the key never goes to: begins at High and draws less, as\n"
+                        + "Medium and then Low do but still with everything the mod made, each time the picture\n"
+                        + "is drawn fewer than 45 times a second for three seconds, until the game is closed.\n"
+                        + "Read again while the game runs.",
                 writable | live, Quality.words(), Quality.LOW);
         style = core.configLocalEnum("General", "Style",
                 "How the mod's picture is developed, in every graphics mode. CycleStyleKey goes\n"
@@ -150,12 +164,68 @@ final class Config {
                         + "a quarter each, as the game has it, whichever this says. Read again while the game\n"
                         + "runs.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
+        Quality.Picture high = Quality.HIGH_PICTURE;
+        graphics = new int[] {
+            core.configLocalBool("Graphics", "StockLook",
+                    "The rows of this section are the Custom graphics mode: what is drawn while Quality is\n"
+                            + "Custom. Until you change them they are High's. Low, Medium and High draw their own\n"
+                            + "picture and leave these rows as they are. Changing any of them on the game's options\n"
+                            + "screen, or here while the game runs, sets Quality to Custom. On the options screen\n"
+                            + "they show the picture of the mode you are in, and what you apply there is kept here.\n"
+                            + "Read again while the game runs.\n"
+                            + "true: as near the game's own look as there is, as in Low: the game's own view is the\n"
+                            + "game's own picture, and first person is drawn with the game's own sprites, models and\n"
+                            + "textures in place of everything the mod made. false: both views are drawn with what\n"
+                            + "the mod made, as the rows of [Content] say.",
+                    writable | live, high.stockLook()),
+            core.configLocalBool("Graphics", "SpritePlants",
+                    "true: grass, trees, bushes and rocks are the game's own sprites whatever OwnPlants\n"
+                            + "says, as in Medium. The mod's are the dearest thing in the picture to draw. false:\n"
+                            + "as OwnPlants says.",
+                    writable | live, high.spritePlants()),
+            core.configLocalFloat("Graphics", "RenderScale",
+                    "How many of the first person picture's pixels there are to each of the window's, each\n"
+                            + "way: 0.5 to 1. Low draws 0.62, Medium 0.8 and High 1.",
+                    writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
+            core.configLocalBool("Graphics", "SharpShadows",
+                    "true: shadow maps 4096 texels across, as in High. false: 2048, as in Low and Medium,\n"
+                            + "which take a quarter of the memory on the graphics card.",
+                    writable | live, high.sharpShadows()),
+            core.configLocalInt("Graphics", "ViewDistance",
+                    "How far the first person view is built and drawn, in tiles, where the loaded map\n"
+                            + "reaches that far: 32 to 80. Low draws 48, Medium 64 and High 80.",
+                    writable | live, high.viewDistance(), MIN_VIEW_DISTANCE, high.viewDistance()),
+            core.configLocalEnum("Graphics", "RainOnGlass",
+                    "How much of the rain on the windows of your vehicle is drawn. Low: drops of one size.\n"
+                            + "Medium: specks among them, and trickles down the panes no wiper reaches. High: three\n"
+                            + "sizes of drop, and drops that run down and leave a line of wet behind them.",
+                    writable | live, "Low,Medium,High", high.rainOnGlass()),
+            core.configLocalBool("Graphics", "ShadingAndReflections",
+                    "true: corners are shaded and lent the light of what stands near, the air is lit, and\n"
+                            + "wet roads, polished floors and glass mirror, as in High. false: none of these.",
+                    writable | live, high.shadingAndLight()),
+            core.configLocalBool("Graphics", "FullSizeTextures",
+                    "true: the mod's pictures of surfaces, on walls and of skin are made at their full size,\n"
+                            + "as in High. false: at half their width and height, a quarter of what they take on\n"
+                            + "the graphics card and in the PC's memory.",
+                    writable | live, high.fullSizeTextures()),
+            core.configLocalBool("Graphics", "FarTrees",
+                    "true: every tree and bush is the mod's own as far as the view is built, as in High.\n"
+                            + "false: one further off than " + (int) Crowns.REACH + " tiles is the game's sprite on a fan of cards,\n"
+                            + "which costs less and changes to the mod's as you near it.",
+                    writable | live, high.farTrees()),
+            core.configLocalBool("Graphics", "SurfaceDepth",
+                    "true: near surfaces are given the depth of what they show, as in High. false: they are\n"
+                            + "drawn flat.",
+                    writable | live, high.surfaceDepth()),
+        };
+
         core.configLocalHotkeyTaps("FirstPersonKey",
                 "Goes into the first person view and back to the game's own. Tapped, for the first\n"
                         + "player. Tapped twice, for a second player at the same screen. Held for " + CameraUnlock.HOLD_MS + " ms,\n"
                         + "for both.",
                 0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_BOTH);
-        core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Low, Medium, High (Quality).", 0, "F9",
+        core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Low, Medium, High, Custom (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);
@@ -238,9 +308,36 @@ final class Config {
         }
     }
 
-    /** Whether put has somewhere to put a row's value. */
+    /** Whether put has somewhere to put a row's value. The rows of [Graphics] are put by Tracking.applyScreen. */
     boolean takes(String key) {
-        return puts.containsKey(key);
+        return puts.containsKey(key) || graphicsPart(key) >= 0;
+    }
+
+    /** A key's place in GRAPHICS, or -1 for a key that is not one of the rows of [Graphics]. */
+    static int graphicsPart(String key) {
+        for (int part = 0; part < GRAPHICS.length; part++) {
+            if (GRAPHICS[part].equals(key)) {
+                return part;
+            }
+        }
+        return -1;
+    }
+
+    /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
+    static double[] values(Quality.Picture picture) {
+        return new double[] {bit(picture.stockLook()), bit(picture.spritePlants()), picture.renderScale(), bit(picture.sharpShadows()),
+            picture.viewDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.fullSizeTextures()), bit(picture.farTrees()),
+            bit(picture.surfaceDepth())};
+    }
+
+    /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS. */
+    static Quality.Picture picture(double[] values) {
+        return new Quality.Picture(values[0] != 0, values[1] != 0, (float) values[2], values[3] != 0, (int) Math.rint(values[4]),
+                (int) Math.rint(values[5]), values[6] != 0, values[7] != 0, values[8] != 0, values[9] != 0);
+    }
+
+    private static double bit(boolean on) {
+        return on ? 1 : 0;
     }
 
     /** Puts a value of one of the mod's own rows, as an option's number, on the running game. */
@@ -270,8 +367,12 @@ final class Config {
         for (int i = 0; i < own.length; i++) {
             rows |= core.configGetInt(own[i]) << i;
         }
+        double[] custom = new double[graphics.length];
+        for (int part = 0; part < graphics.length; part++) {
+            custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
+        }
         return new Live(core.configGetFloat(fieldOfView), rows, core.configGetInt(quality), core.configGetInt(style),
-                core.configGetInt(frameBlending) != 0, core.configGetInt(splitScreen));
+                core.configGetInt(frameBlending) != 0, core.configGetInt(splitScreen), picture(custom));
     }
 
     /**
@@ -295,6 +396,11 @@ final class Config {
             options[option] = core.configOption(option);
         }
         return options;
+    }
+
+    /** An option's key. */
+    String optionId(int option) {
+        return core.configOption(option).id;
     }
 
     /** What core holds for an option now, as one number: the last value the file gave it or a save put there. */

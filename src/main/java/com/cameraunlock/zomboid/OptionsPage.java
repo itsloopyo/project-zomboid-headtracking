@@ -19,7 +19,9 @@ import zombie.ui.UIManager;
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
  * back when it builds the page. The mod never takes a value from there: the controls are filled
  * from core each time the screen opens, and what the player applies there the session takes at
- * once and CameraUnlock.ini is saved with.
+ * once and CameraUnlock.ini is saved with. The rows of [Graphics] show the picture of the graphics
+ * mode the session is in, and a change to any of them goes to the Custom mode: see
+ * Tracking.applyScreen.
  *
  * Everything runs on the game's logic thread, which is the one its Lua runs on.
  */
@@ -200,19 +202,63 @@ final class OptionsPage {
         if (!filled) {
             return 0;
         }
-        for (Control control : controls) {
+        int count = controls.size();
+        int[] options = new int[count];
+        CameraUnlock.Option[] described = new CameraUnlock.Option[count];
+        double[] shown = new double[count], held = new double[count];
+        for (int i = 0; i < count; i++) {
+            Control control = controls.get(i);
+            options[i] = control.option;
+            described[i] = control.described;
+            shown[i] = control.shown;
             try {
-                double value = held(control);
-                if (value != control.shown) {
-                    Tracking.applyOption(control.option, control.described, value);
-                    control.shown = value;
-                }
+                held[i] = held(control);
             } catch (RuntimeException failure) {
                 // Thrown on, it would stop the game from applying and saving its own options, and the mod's other settings with them.
-                Log.error(control.described.id + " as applied on the game's options screen was not taken", failure);
+                held[i] = control.shown;
+                Log.error(control.described.id + " as applied on the game's options screen was not read, and is not taken", failure);
+            }
+        }
+        Tracking.applyScreen(options, described, shown, held);
+        for (int i = 0; i < count; i++) {
+            controls.get(i).shown = shown[i];
+        }
+        // The screen stays open after Apply. The graphics mode and the rows of [Graphics] may now read otherwise than the
+        // screen holds: Custom after a row was changed, or another mode's picture after the mode was.
+        for (Control control : controls) {
+            if (!control.described.id.equals(Tracking.QUALITY_OPTION) && Config.graphicsPart(control.described.id) < 0) {
+                continue;
+            }
+            try {
+                double now = Tracking.optionValue(control.option);
+                if (notch(control, now) != control.shown) {
+                    put(control, now);
+                }
+            } catch (RuntimeException failure) {
+                Log.error(control.described.id + " on the game's options screen was not set to what it is now, and shows what was applied until the screen opens again", failure);
             }
         }
         return 0;
+    }
+
+    /** A value as the control holds it: a slider's on its nearest notch. */
+    private static double notch(Control control, double value) {
+        return control.described.kind == CameraUnlock.OPTION_BOOL || control.values != null ? value
+                : Math.rint(value / control.described.step) * control.described.step;
+    }
+
+    /** Sets a control on the open screen to a value, through the game's own setValue of the control, which moves what is drawn. */
+    private static void put(Control control, double value) {
+        if (control.described.kind == CameraUnlock.OPTION_BOOL) {
+            call(control.table, "setValue", value != 0);
+            control.shown = value;
+        } else if (control.values == null) {
+            call(control.table, "setValue", notch(control, value));
+            control.shown = (Double) call((KahluaTable) control.table.rawget("element"), "getCurrentValue");
+        } else {
+            call(control.table, "setValue", (double) (lineOf(control, (int) value) + 1));
+            control.shown = value;
+        }
     }
 
     /** What a control's table holds, as core's value for the option. */

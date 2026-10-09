@@ -10,6 +10,11 @@ final class QualityTests {
         Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
         Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
         Checks.run("twoViewsAreCountedAsOnePicture", QualityTests::twoViewsAreCountedAsOnePicture);
+        Checks.run("theKeyGoesLowMediumHighCustomAndRound", QualityTests::theKeyGoesLowMediumHighCustomAndRound);
+        Checks.run("customDrawsWhatEachPresetDrewFromItsRows", QualityTests::customDrawsWhatEachPresetDrewFromItsRows);
+        Checks.run("eachRowOfCustomReachesItsOwnAnswer", QualityTests::eachRowOfCustomReachesItsOwnAnswer);
+        Checks.run("thePresetsLeaveCustomAsItWas", QualityTests::thePresetsLeaveCustomAsItWas);
+        Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(Quality.HIGH);
     }
 
@@ -101,5 +106,93 @@ final class QualityTests {
         now = frames(now + 60 * SECOND, 100f, 2f);
         now = frames(now + 6 * SECOND, 100f, 2f);
         check(Quality.sight() == 80, "one frame of six seconds among fast ones is a hitch and takes nothing down");
+    }
+
+    private static void theKeyGoesLowMediumHighCustomAndRound() {
+        Quality.set(Quality.LOW);
+        check(Quality.next() == Quality.MEDIUM, "the key goes from Low to Medium");
+        Quality.set(Quality.MEDIUM);
+        check(Quality.next() == Quality.HIGH, "from Medium to High");
+        Quality.set(Quality.HIGH);
+        check(Quality.next() == Quality.CUSTOM, "from High to Custom");
+        Quality.set(Quality.CUSTOM);
+        check(Quality.next() == Quality.LOW && Quality.name().equals("Custom"), "and from Custom round to Low");
+        Quality.set(Quality.AUTOMATIC);
+        check(Quality.next() == Quality.LOW, "from Automatic, which only the file sets, to Low");
+        check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words have Custom last: " + Quality.words());
+    }
+
+    /** Every answer a graphics mode gives, as one line. */
+    private static String answers() {
+        return Quality.plain() + " " + Quality.gamesPlants() + " " + Quality.scale() + " " + Quality.shadowSize() + " " + Quality.sight() + " "
+                + Quality.glassRain() + " " + Quality.shadedAndLit() + " " + Quality.smallerPictures() + " " + Quality.crownsToSight() + " "
+                + Quality.relief() + " " + Quality.sightBehind();
+    }
+
+    private static void customDrawsWhatEachPresetDrewFromItsRows() {
+        String[] expected = {
+            "true false 0.62 2048 48 0 false true false false 48",
+            "false true 0.8 2048 64 1 false true false false 48",
+            "false false 1.0 4096 80 2 true false true true 48",
+        };
+        for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
+            Quality.set(mode);
+            String preset = answers();
+            check(preset.equals(expected[mode - Quality.LOW]), Quality.name() + " draws as it always has: " + preset);
+            Quality.custom(Config.picture(Config.values(Quality.preset(mode))));
+            Quality.set(Quality.CUSTOM);
+            check(answers().equals(preset), "Custom with the rows " + Quality.preset(mode) + " written as the options screen holds them draws as "
+                    + Quality.name() + " did: " + answers());
+        }
+    }
+
+    /** Each part of Custom's picture changed alone, from High's, changes the one answer that part is and no other. */
+    private static void eachRowOfCustomReachesItsOwnAnswer() {
+        Quality.custom(Quality.HIGH_PICTURE);
+        Quality.set(Quality.CUSTOM);
+        String high = answers();
+        double[] changed = {1, 1, 0.7, 0, 40, 0, 0, 0, 0, 0};
+        String[] answer = {
+            "true false 1.0 4096 80 2 true false true true 48",
+            "false true 1.0 4096 80 2 true false true true 48",
+            "false false 0.7 4096 80 2 true false true true 48",
+            "false false 1.0 2048 80 2 true false true true 48",
+            "false false 1.0 4096 40 2 true false true true 48",
+            "false false 1.0 4096 80 0 true false true true 48",
+            "false false 1.0 4096 80 2 false false true true 48",
+            "false false 1.0 4096 80 2 true true true true 48",
+            "false false 1.0 4096 80 2 true false false true 48",
+            "false false 1.0 4096 80 2 true false true false 48",
+        };
+        for (int part = 0; part < Config.GRAPHICS.length; part++) {
+            double[] values = Config.values(Quality.HIGH_PICTURE);
+            values[part] = changed[part];
+            Quality.custom(Config.picture(values));
+            check(answers().equals(answer[part]), Config.GRAPHICS[part] + " in Custom is its own answer and no other's: " + answers());
+            Quality.custom(Quality.HIGH_PICTURE);
+            check(answers().equals(high), "and back, it is High's again");
+        }
+    }
+
+    private static void thePresetsLeaveCustomAsItWas() {
+        double[] values = Config.values(Quality.MEDIUM_PICTURE);
+        values[4] = 56;
+        Quality.Picture mine = Config.picture(values);
+        Quality.set(Quality.CUSTOM);
+        Quality.custom(mine);
+        check(Quality.sight() == 56 && Quality.drawn().equals(mine), "Custom draws the rows given it");
+        Quality.set(Quality.LOW);
+        check(Quality.sight() == 48 && Quality.plain(), "Low draws Low's picture");
+        Quality.set(Quality.MEDIUM);
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        check(Quality.custom().equals(mine), "and Low, Medium, High and Automatic leave Custom's rows as they were");
+        Quality.set(Quality.CUSTOM);
+        check(Quality.sight() == 56 && Quality.gamesPlants() && Quality.drawn().equals(mine), "so back in Custom it is the player's own again");
+        Quality.set(Quality.HIGH);
+        Quality.custom(Quality.HIGH_PICTURE);
+        check(Quality.sight() == 80, "and rows given while another mode is drawn are kept for Custom and draw nothing yet");
+        Quality.custom(mine);
+        check(Quality.sight() == 80 && Quality.custom().equals(mine), "in either direction");
     }
 }

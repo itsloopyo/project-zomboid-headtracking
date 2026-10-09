@@ -99,6 +99,9 @@ public final class CoreTests {
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
+        Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
+        Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
+        Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("gameRunsUnmoddedBesideALibraryOfAnotherBuild", CoreTests::gameRunsUnmoddedBesideALibraryOfAnotherBuild);
         Checks.tally();
     }
@@ -609,7 +612,8 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending SplitScreen OwnWeapons OwnFurniture "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality Style FrameBlending SplitScreen StockLook SpritePlants "
+                        + "RenderScale SharpShadows ViewDistance RainOnGlass ShadingAndReflections FullSizeTextures FarTrees SurfaceDepth OwnWeapons OwnFurniture "
                         + "OwnPictures OwnPlants OwnTextures OwnBuildings OwnZombies OwnPeople OwnArms OwnClothes "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list or port: " + ids);
         int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
@@ -650,6 +654,111 @@ public final class CoreTests {
         Tracking.cycleMode();
         check(Tracking.trackingModeLabel().equals("rotation and position") && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_ROTATION_AND_POSITION,
                 "a mode the key cycles after that goes on from it, and is what the screen then reads");
+    }
+
+    /** The options screen as it opens: each setting's place, what it is, what it shows, and what it holds, which is what it shows until the player changes it. */
+    private record Screen(int[] options, CameraUnlock.Option[] described, double[] shown, double[] held) {
+        static Screen opened() {
+            CameraUnlock.Option[] described = Tracking.options();
+            int[] options = new int[described.length];
+            double[] shown = new double[described.length];
+            for (int option = 0; option < described.length; option++) {
+                options[option] = option;
+                shown[option] = Tracking.optionValue(option);
+            }
+            return new Screen(options, described, shown, shown.clone());
+        }
+
+        void set(String id, double value) {
+            held[optionNamed(described, id)] = value;
+        }
+
+        double shows(String id) {
+            return shown[optionNamed(described, id)];
+        }
+
+        void apply() {
+            Tracking.applyScreen(options, described, shown, held);
+        }
+    }
+
+    private static void inMode(String mode) {
+        while (!Quality.name().equals(mode)) {
+            Tracking.cycleGraphicsMode();
+        }
+    }
+
+    private static void aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom() throws IOException, InterruptedException {
+        inMode("High");
+        Tracking.graphicsToSay();
+        check(saved("Quality=High", "ViewDistance=80", "RenderScale=1.0", "StockLook=false"), "High, with the rows of [Graphics] as a first start writes them");
+
+        Screen screen = Screen.opened();
+        check(screen.shows("ViewDistance") == 80 && screen.shows("RenderScale") == 1 && screen.shows("SharpShadows") == 1 && screen.shows("StockLook") == 0
+                        && screen.shows("Quality") == Quality.HIGH,
+                "the screen shows High's picture in the rows of [Graphics]");
+        screen.set("FieldOfView", 70);
+        screen.apply();
+        check(FieldOfView.degrees() == 70f && Quality.name().equals("High") && saved("FieldOfView=70.0", "Quality=High") && !Tracking.graphicsToSay(),
+                "a setting that is not a graphics setting applied there leaves the graphics mode as it was");
+
+        screen.set("ViewDistance", 56);
+        screen.set("Quality", Quality.LOW);
+        screen.apply();
+        check(Quality.name().equals("Custom") && Quality.sight() == 56 && Quality.scale() == 1f && Quality.shadowSize() == 4096 && Quality.crownsToSight(),
+                "a graphics row changed there goes straight to Custom, drawn as High was but for that row, whatever the mode list was set to: "
+                        + Quality.name());
+        check(Tracking.graphicsToSay() && !Tracking.graphicsToSay(), "the next frame says so, once, as the key does");
+        check(saved("Quality=Custom", "ViewDistance=56", "RenderScale=1.0", "SharpShadows=true"), "Custom is saved, with the rows as applied");
+        check(Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM && screen.shows("ViewDistance") == 56,
+                "and the screen's mode list now reads Custom");
+
+        inMode("Low");
+        Screen fromLow = Screen.opened();
+        check(fromLow.shows("ViewDistance") == 48 && fromLow.shows("StockLook") == 1 && saved("Quality=Low", "ViewDistance=56"),
+                "in Low the screen shows Low's picture, and the file still holds Custom's rows");
+        fromLow.set("RenderScale", 0.7);
+        fromLow.apply();
+        check(Quality.name().equals("Custom") && Quality.plain() && Quality.sight() == 48 && Quality.scale() == 0.7f,
+                "a row changed in Low is Low's picture with that row: " + Quality.described(Quality.drawn()));
+        check(saved("Quality=Custom", "StockLook=true", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),
+                "and that is what Custom's rows then hold");
+    }
+
+    private static void customKeepsItsRowsThroughTheOtherModes() throws IOException, InterruptedException {
+        Quality.Picture mine = Quality.custom();
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Low") && Quality.sight() == 48 && saved("Quality=Low", "RenderScale=0.7"),
+                "the key goes from Custom to Low and saves it, and Custom's rows stay");
+        Tracking.cycleGraphicsMode();
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("High") && Quality.scale() == 1f && saved("Quality=High", "RenderScale=0.7", "StockLook=true"),
+                "Medium and High draw their own and leave Custom's rows in the file");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Custom") && Quality.drawn().equals(mine) && saved("Quality=Custom"), "and the key comes round to Custom as the player left it");
+        check(nextStart("custom-start").contains("graphics Custom"), "which the next start begins in");
+    }
+
+    private static void aGraphicsRowEditedInTheFileGoesToCustom() throws IOException, InterruptedException {
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Low"), "the key goes round to Low");
+        Tracking.graphicsToSay();
+        edit(text().replace("ViewDistance=48", "ViewDistance=72"));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Custom") && Quality.sight() == 72 && Quality.scale() == 0.7f, "a row of [Graphics] edited in the file goes to Custom with it");
+        check(saved("Quality=Custom", "ViewDistance=72") && Tracking.graphicsToSay(), "saved, and said");
+        edit(text().replace("Quality=Custom", "Quality=Medium"));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Medium") && Quality.sight() == 64 && Quality.custom().viewDistance() == 72 && !Tracking.graphicsToSay(),
+                "the mode edited alone goes to that mode, and leaves Custom's rows");
+        String style = Style.current() == Style.NATURAL ? "Bleak" : "Natural";
+        edit(text().replace("Style=" + Style.current().label, "Style=" + style));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Medium") && Style.current().label.equals(style), "and another row edited leaves the mode");
+        edit(text().replace("Quality=Medium", "Quality=Custom").replace("ViewDistance=72", "ViewDistance=60"));
+        Tracking.watchSettings();
+        check(Quality.name().equals("Custom") && Quality.sight() == 60 && saved("Quality=Custom", "ViewDistance=60"),
+                "and the mode and a row edited together is Custom with the edit");
     }
 
     /**

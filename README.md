@@ -10,9 +10,9 @@ An unofficial head tracking mod for Project Zomboid that moves the view with you
 - **Decoupled look and aim** - your head moves the view while your mouse or controller keeps the aim
 - **6DOF positional tracking** - lean and peek with head position
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
-- **Redrawn graphics in both views** - in the `Medium` and `High` graphics modes the mod draws the isometric view as well as first person, with its own lighting, shadows, textures and models. `F9` cycles the modes, and `Low` leaves the isometric view as the game draws it
+- **Redrawn graphics in both views** - in the `Medium` and `High` graphics modes the mod draws the isometric view as well as first person, with its own lighting, shadows, textures and models. `F9` cycles the modes, `Low` leaves the isometric view as the game draws it, and `Custom` draws the mix of settings you choose
 - **Multiplayer** - works when you join a server, and only you need the mod
-- **Settings in the game's options** - the tracking, aim and yaw modes, the field of view, the graphics mode, the picture style and what the mod draws of its own are under `Mods` in the game's options
+- **Settings in the game's options** - the tracking, aim and yaw modes, the field of view, the graphics mode and the settings of its `Custom` mode, the picture style and what the mod draws of its own are under `Mods` in the game's options
 - **Two players at one screen** - each has a first person view and a head tracker of their own. Tap `Delete` for the first player, tap it twice for the second, hold it for both
 - **On a controller** - the first player plays first person on a controller as well as the second. Tap Back twice to switch the view
 
@@ -104,7 +104,7 @@ A phone on WiFi is a remote connection, and the mod smooths a remote connection 
 
 ## Controls
 
-`Delete` switches between the game's own view and the first person view, and the camera flies from one to the other in a little over half a second. In the `Low` graphics mode nothing of the first person view is loaded until you first ask for it, so the first press of a session shows `First person: getting ready` while the view is made, and then flies. In `Medium` and `High` the mod draws the game's own view as well, so what it draws with is loaded as play begins. `F9` goes to the next graphics mode, `Low`, `Medium` or `High`, in either view, and `F8` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press the key. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. On a multiplayer server it works: see [On a server](#on-a-server).
+`Delete` switches between the game's own view and the first person view, and the camera flies from one to the other in a little over half a second. In the `Low` graphics mode nothing of the first person view is loaded until you first ask for it, so the first press of a session shows `First person: getting ready` while the view is made, and then flies. In `Medium` and `High` the mod draws the game's own view as well, so what it draws with is loaded as play begins. `F9` goes to the next graphics mode, `Low`, `Medium`, `High` or `Custom`, in either view, and `F8` to the next picture style, `Vivid`, `Natural` or `Bleak`: see [Configuration](#configuration). The view lands facing the way your character faced when you pressed it. In first person the mouse turns the view and the movement keys follow it, from the moment you press the key. Movement keys you were already holding keep the walk they were making, steered by the mouse, until you let go or press other keys, and other movement keys keep that walk too until half a second after the camera lands. On a multiplayer server it works: see [On a server](#on-a-server).
 
 ### In first person
 
@@ -246,7 +246,9 @@ In `High`, a window in first person also shows your character in its glass, with
 
 Project Zomboid has no field of view setting, so the first person view has one of its own: `FieldOfView` in `CameraUnlock.ini`, in degrees from the bottom of the picture to the top, `65` unless you change it and anything from `40` to `110`. A wider screen shows more to the sides at the same number. The mod reads it again while the game runs: save the file and the view changes within a second or so, with no restart. The reticle and head tracking follow the angle the picture is drawn with.
 
-The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through three graphics modes, `Low`, `Medium` and `High`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at a little over three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air, the reflections or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with what the mod made. Drawn by the mod, the game's own view opens a building as the game does: the floors over yours are left out of the buildings the game leaves them out of, the walls the game cuts away are cut down to a low course, and a room has the game's light for it, so one your character has not seen into is dark. `High` is the whole picture: corners are shaded and take the light of what stands near them, the air is lit, wet roads, polished floors, glass and car paint mirror, and near surfaces have depth. `Medium` has none of those four, shows the game's own grass, trees, bushes and rocks in place of the mod's whatever `OwnPlants` says, draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. In first person in `High`, water mirrors the sky, its banks and what is built and grows on them, though not people, zombies or vehicles, and a piece of water shows the same thing whichever way your head is turned. The wind roughens it. A vehicle's mirrors show the road behind as `Low` draws it in every mode: 48 tiles of it, with no depth in its surfaces. The game starts in `Low` until you change it. The row also takes `Automatic`, which the key never goes to and the file or the game's options set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`. The surfaces, plants and weapon pictures the mod made are held on the graphics card in BC7 texture compression, which a card with OpenGL 4.2 or the `ARB_texture_compression_bptc` extension reads. On a card with neither they are unpacked as they are read and take four times the video memory.
+The mod's own picture costs a graphics card far more than the game's own view does. `F9` goes through four graphics modes, `Low`, `Medium`, `High` and `Custom`, says on the screen which one it went to and saves it as `Quality` in `CameraUnlock.ini`, so the game starts in it next time. `Low` is as near the game's own look as there is: the game's own view is the game's own picture, and first person is drawn with the game's own sprites, models and textures in place of everything the mod made, at a little over three fifths of the pixels each way, seeing 48 tiles, without the shading of corners, the lit air, the reflections or the depth in near surfaces. `Medium` and `High` draw both views, the game's own view too, with what the mod made. Drawn by the mod, the game's own view opens a building as the game does: the floors over yours are left out of the buildings the game leaves them out of, the walls the game cuts away are cut down to a low course, and a room has the game's light for it, so one your character has not seen into is dark. `High` is the whole picture: corners are shaded and take the light of what stands near them, the air is lit, wet roads, polished floors, glass and car paint mirror, and near surfaces have depth. `Medium` has none of those four, shows the game's own grass, trees, bushes and rocks in place of the mod's whatever `OwnPlants` says, draws four fifths of the pixels each way, sees 64 tiles instead of 80 and uses smaller shadow maps. In first person in `High`, water mirrors the sky, its banks and what is built and grows on them, though not people, zombies or vehicles, and a piece of water shows the same thing whichever way your head is turned. The wind roughens it. A vehicle's mirrors show the road behind as `Low` draws it in every mode: 48 tiles of it, with no depth in its surfaces. The game starts in `Low` until you change it. The row also takes `Automatic`, which the key never goes to and the file or the game's options set: it begins as `High` and draws less, as `Medium` and then `Low` do but still with everything the mod made, each time the picture has been drawn fewer than 45 times a second for three seconds. It does not go back up until the game is closed. The row is read again while the game runs, like `FieldOfView`. The surfaces, plants and weapon pictures the mod made are held on the graphics card in BC7 texture compression, which a card with OpenGL 4.2 or the `ARB_texture_compression_bptc` extension reads. On a card with neither they are unpacked as they are read and take four times the video memory.
+
+`Custom` draws the picture the `[Graphics]` section of `CameraUnlock.ini` describes, a row for each thing the other modes decide: `StockLook` (the game's own look, as `Low` has it), `SpritePlants` (the game's own grass, trees, bushes and rocks, as `Medium` has them), `RenderScale` (how many of the window's pixels the first person picture has each way, `0.5` to `1`), `SharpShadows` (shadow maps 4096 texels across where they are otherwise 2048), `ViewDistance` (how far first person is built and drawn, `32` to `80` tiles), `RainOnGlass` (`Low`, `Medium` or `High`), `ShadingAndReflections` (the shaded corners, the lit air and the reflections), `FullSizeTextures` (the mod's pictures of surfaces, walls and skin at full size where they are otherwise half), `FarTrees` (the mod's own trees and bushes to the end of sight, where past 40 tiles they are otherwise the game's sprites) and `SurfaceDepth` (the depth in near surfaces). In the game's options those rows show the picture of the mode you are in. Change any of them there and apply, and the graphics mode goes straight to `Custom` with the rows as you set them, says `Graphics: Custom` on the screen as `F9` does, and saves the mode and the rows. A row edited in the file while the game runs goes to `Custom` the same way. Until you change them the rows hold `High`'s picture, so the first `F9` from `High` to `Custom` draws the same picture. `Low`, `Medium` and `High` never change them, so `F9` coming round to `Custom` again draws them as you left them.
 
 `F8` goes through three picture styles, says on the screen which one it went to and saves it as `Style` in `CameraUnlock.ini`. A style is how the mod's picture is developed from the light in it, and nothing else: the light, the weather, the hour and what the world is built of are the same in all three, and none costs more to draw than another. `Vivid`, which the game starts in, has strong contrast and full colours, cool in the shade and warm in the sun, with dark corners, glare off the sun and a glow round bright lights. `Natural` shows the colours as they are lit, with no tint, less contrast, and less of the dark corners, the glare and the glow. `Bleak` is washed out and low in contrast under a faint drab cast, with no glare off the sun, nearer the colours of the game's own view. The style applies wherever the mod draws the picture: first person in every graphics mode, and the game's own view in `Medium` and `High`. The row is read again while the game runs.
 
@@ -260,7 +262,7 @@ Aiming a firearm narrows the view to 0.73 of that angle's half tangent, a magnif
 
 The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved to `CameraUnlock.ini` when their keys change them. Head tracking is on or off as `EnableOnStartup` says. An uninstall leaves the file in place.
 
-The same settings are in the game's own options, from the main menu and from the menu `Esc` brings up in a save: the `Mods` tab has a `Head Tracking` section with the tracking mode, the aim mode, `World space yaw`, `Field of view`, `Quality`, `Style`, `Frame blending`, `Split screen` and the ten rows of `[Content]`. `Apply` or `Accept` saves what you changed to `CameraUnlock.ini` and the game runs on it at once. Each time the options open, the section shows what the mod is running on then, so a mode a key changed or a row you edited in the file is there as it is. The field of view moves a whole degree at a time there, and the file takes any value from 40 to 110. The key lists, the tracker's ports, the smoothing and the limits of a lean are in the file alone. A setting saved from the options is written as a value, like one a hotkey saves, so it no longer follows `Defaults.ini` in this game until you set it to `default` again.
+The same settings are in the game's own options, from the main menu and from the menu `Esc` brings up in a save: the `Mods` tab has a `Head Tracking` section with the tracking mode, the aim mode, `World space yaw`, `Field of view`, `Quality`, `Style`, `Frame blending`, `Split screen`, the ten rows of `[Graphics]` and the ten rows of `[Content]`. `Apply` or `Accept` saves what you changed to `CameraUnlock.ini` and the game runs on it at once. Each time the options open, the section shows what the mod is running on then, so a mode a key changed or a row you edited in the file is there as it is. The field of view moves a whole degree at a time there, and the file takes any value from 40 to 110. The key lists, the tracker's ports, the smoothing and the limits of a lean are in the file alone. A setting saved from the options is written as a value, like one a hotkey saves, so it no longer follows `Defaults.ini` in this game until you set it to `default` again.
 
 `LocalSmoothing` applies to a tracker sending from `127.0.0.1` and `RemoteSmoothing` to one sending from any other address, this PC's own network address included. Both smoothing values cover rotation and position. A lean is also held back from walls, so the view does not end up inside one.
 
@@ -346,21 +348,22 @@ DataFreshnessMs=default
 ; same ratio. Read again while the game runs, so a change shows as soon as the file
 ; is saved.
 FieldOfView=65.0
-; The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey
-; goes from one to the next, Low, Medium, High, and saves it here. Low is as near
-; the game's own look as there is: the game's own view is the game's own picture,
-; and first person is drawn with the game's own sprites, models and textures in
-; place of everything the mod made, at a little over three fifths of the pixels
-; each way, sight to 48 tiles, smaller shadow maps, and no shading of corners, lit
-; air, reflections or depth in surfaces. Medium and High draw both views with what
-; the mod made. High: the whole picture. Medium: the game's own grass, trees,
-; bushes and rocks whatever OwnPlants says, no shading of corners, lit air,
-; reflections or depth in surfaces either, four fifths of the pixels each way,
-; sight to 64 tiles and smaller shadow maps. Automatic, which the key never goes
-; to: begins at High and draws less, as Medium and then Low do but still with
-; everything the mod made, each time the picture is drawn fewer than 45 times a
-; second for three seconds, until the game is closed. Read again while the game
-; runs.
+; The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey goes
+; from one to the next, Low, Medium, High, Custom, and saves it here. Low is as near
+; the game's own look as there is: the game's own view is the game's own picture, and
+; first person is drawn with the game's own sprites, models and textures in place of
+; everything the mod made, at a little over three fifths of the pixels each way, sight
+; to 48 tiles, smaller shadow maps, and no shading of corners, lit air, reflections or
+; depth in surfaces. Medium and High draw both views with what the mod made. High: the
+; whole picture. Medium: the game's own grass, trees, bushes and rocks whatever
+; OwnPlants says, no shading of corners, lit air, reflections or depth in surfaces
+; either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow
+; maps. Custom: the picture the rows of [Graphics] describe. A change to any of those
+; rows on the game's options screen, or in this file while the game runs, goes to
+; Custom. Automatic, which the key never goes to: begins at High and draws less, as
+; Medium and then Low do but still with everything the mod made, each time the picture
+; is drawn fewer than 45 times a second for three seconds, until the game is closed.
+; Read again while the game runs.
 Quality=Low
 ; How the mod's picture is developed, in every graphics mode. CycleStyleKey goes
 ; from one to the next and saves it here. Vivid: strong contrast and full colours,
@@ -437,7 +440,7 @@ TrueFreeLookKey=Insert
 ; player. Tapped twice, for a second player at the same screen. Held for 400 ms,
 ; for both.
 FirstPersonKey=Delete
-; Goes to the next graphics mode: Low, Medium, High (Quality).
+; Goes to the next graphics mode: Low, Medium, High, Custom (Quality).
 CycleQualityKey=F9
 ; Goes to the next picture style: Vivid, Natural, Bleak (Style).
 CycleStyleKey=F8
@@ -449,6 +452,50 @@ SplitScreenKey=F7
 ; How far the light turns for each degree your head turns.
 ; 1 matches the view, 0 keeps the light on your aim.
 LightMultiplier=default
+
+[Graphics]
+; The rows of this section are the Custom graphics mode: what is drawn while Quality is
+; Custom. Until you change them they are High's. Low, Medium and High draw their own
+; picture and leave these rows as they are. Changing any of them on the game's options
+; screen, or here while the game runs, sets Quality to Custom. On the options screen
+; they show the picture of the mode you are in, and what you apply there is kept here.
+; Read again while the game runs.
+; true: as near the game's own look as there is, as in Low: the game's own view is the
+; game's own picture, and first person is drawn with the game's own sprites, models and
+; textures in place of everything the mod made. false: both views are drawn with what
+; the mod made, as the rows of [Content] say.
+StockLook=false
+; true: grass, trees, bushes and rocks are the game's own sprites whatever OwnPlants
+; says, as in Medium. The mod's are the dearest thing in the picture to draw. false:
+; as OwnPlants says.
+SpritePlants=false
+; How many of the first person picture's pixels there are to each of the window's, each
+; way: 0.5 to 1. Low draws 0.62, Medium 0.8 and High 1.
+RenderScale=1.0
+; true: shadow maps 4096 texels across, as in High. false: 2048, as in Low and Medium,
+; which take a quarter of the memory on the graphics card.
+SharpShadows=true
+; How far the first person view is built and drawn, in tiles, where the loaded map
+; reaches that far: 32 to 80. Low draws 48, Medium 64 and High 80.
+ViewDistance=80
+; How much of the rain on the windows of your vehicle is drawn. Low: drops of one size.
+; Medium: specks among them, and trickles down the panes no wiper reaches. High: three
+; sizes of drop, and drops that run down and leave a line of wet behind them.
+RainOnGlass=High
+; true: corners are shaded and lent the light of what stands near, the air is lit, and
+; wet roads, polished floors and glass mirror, as in High. false: none of these.
+ShadingAndReflections=true
+; true: the mod's pictures of surfaces, on walls and of skin are made at their full size,
+; as in High. false: at half their width and height, a quarter of what they take on
+; the graphics card and in the PC's memory.
+FullSizeTextures=true
+; true: every tree and bush is the mod's own as far as the view is built, as in High.
+; false: one further off than 40 tiles is the game's sprite on a fan of cards,
+; which costs less and changes to the mod's as you near it.
+FarTrees=true
+; true: near surfaces are given the depth of what they show, as in High. false: they are
+; drawn flat.
+SurfaceDepth=true
 
 [Content]
 ; What the mod made itself and shows in place of the game's own. Set a row to false

@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import zombie.characters.IsoPlayer;
 import zombie.input.JoypadButton;
 
@@ -67,6 +68,14 @@ final class Tracking {
     }
     /** Whose Back button is still down from a double tap: the game's wheel it put up is taken down until it is let go. */
     private static final boolean[] backHeld = new boolean[View.COUNT];
+
+    /**
+     * The rows of [Graphics] as the file holds them, as far as the config thread knows: what the
+     * watch tells an edit of them by. Only the config thread has it once the file is read.
+     */
+    private static Quality.Picture customInFile;
+    /** The graphics mode went to Custom other than by its key, and the next frame drawn says so as the key does. */
+    private static final AtomicBoolean graphicsToSay = new AtomicBoolean();
 
     private Tracking() {}
 
@@ -144,6 +153,8 @@ final class Tracking {
 
         Config.Live live = config.live();
         Own.set(live.own());
+        customInFile = live.custom();
+        Quality.custom(live.custom());
         Quality.set(live.quality());
         Style.set(live.style());
         FrameBlending.set(live.frameBlending());
@@ -191,7 +202,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, Style, FrameBlending, SplitScreen and the rows of [Content] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, Quality, Style, FrameBlending, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             Config.Live live = config.reload();
@@ -212,7 +223,19 @@ final class Tracking {
             FieldOfView.set(live.fieldOfView());
             Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
         }
-        Quality.set(live.quality());
+        boolean edited = !live.custom().equals(customInFile);
+        if (edited) {
+            customInFile = live.custom();
+            Quality.custom(live.custom());
+        }
+        if (edited && live.quality() != Quality.CUSTOM) {
+            Log.info(Config.FILE_NAME + " changed: a row of [Graphics] was edited, which goes to the Custom graphics mode");
+            Quality.set(Quality.CUSTOM);
+            graphicsToSay.set(true);
+            config.saveQuality(Quality.CUSTOM);
+        } else {
+            Quality.set(live.quality());
+        }
         Style.set(live.style());
         FrameBlending.set(live.frameBlending());
         SplitScreen.set(live.splitScreen());
@@ -227,11 +250,17 @@ final class Tracking {
         return config.options();
     }
 
+    /**
+     * What an option reads as now. A row of [Graphics] reads as the picture being drawn, so in Low,
+     * Medium, High and Automatic the screen shows that mode's, and in Custom the row itself.
+     */
     static double optionValue(int option) {
-        return config.optionValue(option);
+        int part = Config.graphicsPart(config.optionId(option));
+        return part < 0 ? config.optionValue(option) : Config.values(Quality.drawn())[part];
     }
 
     private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
+    static final String QUALITY_OPTION = "Quality";
 
     /** Whether applyOption has somewhere to put an option's value. */
     static boolean takes(CameraUnlock.Option described) {
@@ -269,6 +298,81 @@ final class Tracking {
         }
     }
 
+    /**
+     * What the player applied on the game's options screen: for each of its settings by its place
+     * in options(), what the screen showed as it opened or was last applied and what it holds now.
+     * Each setting that changed is taken as applyOption takes it. If any of the rows of [Graphics]
+     * changed, the graphics mode goes to Custom, whatever the Quality setting holds, and every row
+     * of [Graphics] takes what the screen holds: what it showed was the mode's picture, which the
+     * player changed. Each setting taken has its shown value set to what it holds. Logic thread.
+     *
+     * One setting that cannot be taken is written to the log and the rest are still taken: thrown
+     * on, it would stop the game from applying and saving its own options.
+     */
+    static void applyScreen(int[] options, CameraUnlock.Option[] described, double[] shown, double[] held) {
+        boolean custom = false;
+        for (int i = 0; i < options.length; i++) {
+            custom |= Config.graphicsPart(described[i].id) >= 0 && held[i] != shown[i];
+        }
+        for (int i = 0; i < options.length; i++) {
+            if (held[i] == shown[i] || custom && (Config.graphicsPart(described[i].id) >= 0 || described[i].id.equals(QUALITY_OPTION))) {
+                continue;
+            }
+            try {
+                applyOption(options[i], described[i], held[i]);
+                shown[i] = held[i];
+            } catch (RuntimeException failure) {
+                Log.error(described[i].id + " as applied on the game's options screen was not taken", failure);
+            }
+        }
+        if (!custom) {
+            return;
+        }
+        try {
+            double[] values = new double[Config.GRAPHICS.length];
+            int[] rows = new int[Config.GRAPHICS.length];
+            int found = 0;
+            for (int i = 0; i < options.length; i++) {
+                int part = Config.graphicsPart(described[i].id);
+                if (part >= 0) {
+                    values[part] = held[i];
+                    rows[part] = options[i];
+                    found++;
+                }
+            }
+            if (found != Config.GRAPHICS.length) {
+                throw new IllegalStateException("the options screen has " + found + " of the " + Config.GRAPHICS.length + " rows of [Graphics]");
+            }
+            Quality.Picture picture = Config.picture(values);
+            Quality.custom(picture);
+            Quality.set(Quality.CUSTOM);
+            graphicsToSay.set(true);
+            for (int part = 0; part < rows.length; part++) {
+                int option = rows[part];
+                double value = values[part];
+                if (config.optionValue(option) != value) {
+                    save(() -> config.saveOption(option, value));
+                }
+            }
+            save(() -> {
+                customInFile = picture;
+                config.saveQuality(Quality.CUSTOM);
+            });
+            for (int i = 0; i < options.length; i++) {
+                if (Config.graphicsPart(described[i].id) >= 0) {
+                    shown[i] = held[i];
+                }
+            }
+        } catch (RuntimeException failure) {
+            Log.error("the rows of [Graphics] as applied on the game's options screen were not taken", failure);
+        }
+    }
+
+    /** Whether the graphics mode went to Custom other than by its key since this was last asked, which the next frame says. */
+    static boolean graphicsToSay() {
+        return graphicsToSay.getAndSet(false);
+    }
+
     /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
     static void dropTheNextPresses() {
         outOfSave = true;
@@ -283,12 +387,14 @@ final class Tracking {
      */
     static int pressedFor(int playerIndex, boolean first) {
         if (first) {
-            int pressed = 0;
+            int pressed = 0, told = 0;
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
                 outOfSave = false;
                 core.hotkeysDrop();
+                graphicsToSay();
             } else {
+                told = graphicsToSay() ? Config.CYCLE_QUALITY : 0;
                 pressed = act(core.hotkeysTake());
                 if ((pressed & Config.CYCLE_QUALITY) != 0) {
                     cycleGraphicsMode();
@@ -306,7 +412,7 @@ final class Tracking {
                 }
             }
             SplitScreen.frame();
-            int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN);
+            int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;
             // Tapped, the first person key is the first player's. Tapped twice it is the second player's, and held it is both's.
             boolean firsts = (pressed & (Config.FIRST_PERSON | Config.FIRST_PERSON_BOTH)) != 0;
             boolean seconds = (pressed & (Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH)) != 0;
