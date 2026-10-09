@@ -46,9 +46,9 @@ import zombie.vehicles.VehiclePart;
  * and fog to snow half melted and a blizzard over lying snow, and after the last gives it back
  * to the game. The game keeps what it is held at in the save.
  *
- * The semicolon puts a pump action shotgun in the player's hands, and from then on whatever firearm is
- * held is kept loaded, sound and unjammed: for trying the view as a shooter without first
- * finding a gun and shells.
+ * The semicolon puts a pump action shotgun in the player's hands. Whatever firearm is held is
+ * kept loaded, sound and unjammed, from the moment the game loads, so a gun the save was left
+ * holding fires too: for trying the view as a shooter without first finding a gun and shells.
  *
  * The left square bracket does the same with a hunting rifle that has a scope on it: the
  * weakest of the game's three on the first press, the next on each press after, and round
@@ -156,7 +156,6 @@ public final class DevKeys {
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
 
-    private static boolean armed;
     private static boolean invincible, wasInvincible;
     private static Field cannotDie;
     private static Field godModes;
@@ -179,13 +178,12 @@ public final class DevKeys {
     static void poll() {
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next kind of weather, ; gives a shotgun that never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next kind of weather, ; gives a shotgun, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle");
         }
         // On a server every one of these would be a cheat against the other players.
         if (GameClient.client) {
             invincible = false;
             cleared = false;
-            armed = false;
             return;
         }
         IsoPlayer safe = IsoPlayer.getInstance();
@@ -238,7 +236,6 @@ public final class DevKeys {
             InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
             safe.setPrimaryHandItem(shotgun);
             safe.setSecondaryHandItem(shotgun);
-            armed = true;
             Log.info(";: a shotgun in hand, kept loaded");
         }
         if (safe != null && GameKeyboard.isKeyPressed(SCOPED_KEY)) {
@@ -248,7 +245,6 @@ public final class DevKeys {
             rifle.attachWeaponPart(InventoryItemFactory.<WeaponPart>CreateItem(part));
             safe.setPrimaryHandItem(rifle);
             safe.setSecondaryHandItem(rifle);
-            armed = true;
             Log.info("[: a hunting rifle in hand with " + part + " on it, kept loaded");
         }
         if (safe != null && GameKeyboard.isKeyPressed(TORCH_KEY)) {
@@ -258,7 +254,7 @@ public final class DevKeys {
             torch.setActivated(true);
             Log.info("/: a flashlight in the left hand, charged and lit");
         }
-        if (armed && safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
+        if (safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
             held.setCurrentAmmoCount(held.getMaxAmmo());
             held.setRoundChambered(true);
             held.setJammed(false);
