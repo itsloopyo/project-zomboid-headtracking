@@ -3,7 +3,7 @@ package com.cameraunlock.zomboid;
 /**
  * What stands in a farmyard or a garden that the mod has a model of: hay bales, log stacks and
  * loads of long logs, troughs and a hay feeder, a kennel, a post bound with straw, a compost bin,
- * a rain crate, a raised bed, a laundry cart, a bird bath, a salt lick, a log bench, stumps, a
+ * a rain crate, a mall's planter, a raised bed, a laundry cart, a bird bath, a salt lick, a log bench, stumps, a
  * fallen trunk, a gnome, and the small plants that stand on a table. Asked by
  * Outdoors before its own rules, so a sprite here is told nowhere else.
  *
@@ -14,7 +14,7 @@ final class Farm {
     private Farm() {}
 
     private static final String HAY = "vegetation_farm_01_", CARPENTRY = "carpentry_02_", POTS = "vegetation_indoor_01_", ORNAMENTS = "vegetation_ornamental_01_",
-            CRAFTED = "crafted_02_", FARMYARD = "location_farm_accesories_01_", DEBRIS = "d_generic_1_";
+            CRAFTED = "crafted_02_", FARMYARD = "location_farm_accesories_01_", DEBRIS = "d_generic_1_", MALL = "location_shop_mall_01_";
     private static final int CLOTH = 1 << Models.CLOTH, WOOD = 1 << Models.WOOD, DARK_WOOD = 1 << Models.DARK_WOOD, PAINT = 1 << Models.PAINT,
             PLASTIC = 1 << Models.PLASTIC, VINYL = 1 << Models.VINYL, CERAMIC = 1 << Models.CERAMIC, ENAMEL = 1 << Models.ENAMEL;
     /** How high a bale of hay is, in levels: the model's 0.41 m. A bale the game paints on others is raised by as many. */
@@ -26,6 +26,11 @@ final class Farm {
     /** Where on its sprite each thing gives its colour, in levels over its foot. */
     private static final float TROUGH_DYE = 0.12f, ROOF_DYE = 0.32f, BENCH_DYE = 0.15f, COMPOST_DYE = 0.12f, CART_DYE = 0.25f, BATH_DYE = 0.15f,
             BATH_WATER = 0.322f, LICK_DYE = 0.05f, COAT_DYE = 0.08f, BED_DYE = 0.12f, FRONDS_DYE = 0.32f;
+    /**
+     * Where a mall's planter gives the colour of its stone, low on the face its sprite paints over the square's middle, and
+     * over the same place the colour of its leaves, in levels.
+     */
+    private static final float PLANTER_DYE = 0.1f, PLANTER_LEAVES_DYE = 0.34f;
     /** Where a rain crate gives the colour of the sheet folded over its near corner, and over the same place the rain in it. */
     private static final float CRATE_CORNER = 0.84f, SHEET_DYE = 0.245f, RAIN_DYE = 0.311f;
     /** Where the middle of the fallen trunk is painted on its square, and how high on it its bark gives its colour, in levels. */
@@ -89,6 +94,9 @@ final class Farm {
                 case 32 -> new Outdoors.Piece("raised_bed_bare", 0).dye(WOOD, BED_DYE).fit();
                 default -> null;
             };
+        }
+        if (called.equals("Mall Decoration") && single && Sheets.place(name, MALL) == 47) {
+            return new Outdoors.Piece("mall_planter", 0).dye(PAINT, PLANTER_DYE).also(PLASTIC, PLANTER_LEAVES_DYE).fit();
         }
         if (called.equals("Bin") && kind.equals("Washing") && single && faces != Outdoors.NONE) {
             return new Outdoors.Piece("washing_bin", faces).dye(CLOTH, CART_DYE).fit();

@@ -11,6 +11,7 @@ final class FarmTests {
         Checks.run("aLoadOfLogsFillsItsSixSquares", FarmTests::aLoadOfLogsFillsItsSixSquares);
         Checks.run("aTroughLiesAcrossTheWayItFaces", FarmTests::aTroughLiesAcrossTheWayItFaces);
         Checks.run("whatStandsInAYardHasItsModel", FarmTests::whatStandsInAYardHasItsModel);
+        Checks.run("aMallPlanterIsStoneWithLeavesGrowingOverItsRim", FarmTests::aMallPlanterIsStoneWithLeavesGrowingOverItsRim);
         Checks.run("aPlantOnATableStandsOnItWhereItsSpritePaintsIt", FarmTests::aPlantOnATableStandsOnItWhereItsSpritePaintsIt);
         Checks.run("whatIsNoneOfTheseIsLeftAlone", FarmTests::whatIsNoneOfTheseIsLeftAlone);
     }
@@ -148,6 +149,24 @@ final class FarmTests {
                 && Outdoors.of("carpentry_02_54", "Rain Collector Barrel", null, Outdoors.NONE, 1, 1, 0).alsoDyed == 0, "only a crate with rain in it takes the rain's colour");
         Outdoors.Piece kennel = Outdoors.of("location_farm_accesories_01_10", "House", "Dog", Outdoors.WEST, 1, 1, 0);
         Checks.check(kennel.turns == Outdoors.WEST, "a kennel's door is on the side it faces");
+    }
+
+    private static void aMallPlanterIsStoneWithLeavesGrowingOverItsRim() {
+        Outdoors.Piece planter = Outdoors.of("location_shop_mall_01_47", "Mall Decoration", null, Outdoors.NONE, 1, 1, 0);
+        Models.Model shape = model(planter, "the mall's planter");
+        if (planter == null) {
+            return;
+        }
+        Checks.check(planter.model.equals("mall_planter") && planter.fits && shape.width() < 0.96f && shape.depth() < 0.96f,
+                "is the stone planter, inside its square: " + planter.model + " " + shape.width());
+        // The blocks are 0.74 m high; only leaves reach higher.
+        Checks.check(shape.height() > 0.9f && shape.height() < 1.15f, "with leaves standing a hand or two over its rim, as the sprite paints them: " + shape.height());
+        Checks.check(planter.dyed == 1 << Models.PAINT && planter.alsoDyed == 1 << Models.PLASTIC && planter.alsoHigh > planter.dyeHigh,
+                "its stone and its leaves each coloured from the sprite, the leaves from higher up it");
+        Checks.check(Outdoors.of("location_shop_mall_01_44", "Empty Mall Decoration", null, Outdoors.NONE, 1, 1, 0) == null
+                && Outdoors.of("location_shop_mall_01_46", "Mall Decoration", null, Outdoors.NONE, 1, 1, 0) == null
+                && Outdoors.of("location_shop_mall_01_47", "Mall Decoration", null, Outdoors.NONE, 2, 1, 0) == null,
+                "the stone bin beside it, another place on the sheet and a piece of two squares are none of it");
     }
 
     private static void aPlantOnATableStandsOnItWhereItsSpritePaintsIt() {

@@ -4326,6 +4326,66 @@ def raised_bed(name, plant, droop=0.0):
     return model
 
 
+# A mall's planter of stone blocks: how wide it is outside, how high, how thick its walls are, and how far under its top the
+# earth in it lies, in metres.
+PLANTER_SIDE, PLANTER_HIGH, PLANTER_WALL, PLANTER_EARTH = 0.95, 0.74, 0.09, 0.1
+
+
+def mall_planter():
+    """A square planter of stone blocks laid in two courses, each course's corners the other way about, so the joints of one
+    fall between those of the other; filled with earth to a hand under its top and planted with five clumps of broad
+    leaves, each a ring of leaves arching out round a heart of cupped ones, all inside the walls."""
+    model = Model("mall_planter")
+    half, wall, course = PLANTER_SIDE / 2, PLANTER_WALL, PLANTER_HIGH / 2
+    blocks = bmesh.new()
+    for k in range(2):
+        z0, z1 = k * course, (k + 1) * course
+        for s in (-1, 1):
+            # The walls that own the corners in this course run the whole side, the others between them. A wall is two blocks
+            # in the lower course and three in the upper, so no joint runs from the floor to the top.
+            for along_x in (k == 0, k == 1):
+                reach = half if along_x == (k == 0) else half - wall
+                inner, outer = sorted((s * half, s * (half - wall)))
+                cuts = (-reach, 0.0, reach) if k == 0 else (-reach, -reach / 2, reach / 2, reach)
+                for a0, a1 in zip(cuts, cuts[1:]):
+                    if along_x:
+                        cuboid(blocks, a0, a1, inner, outer, z0, z1)
+                    else:
+                        cuboid(blocks, inner, outer, a0, a1, z0, z1)
+    model.hard(blocks, "paint", bevel=0.008, segments=1)
+    ground = PLANTER_HIGH - PLANTER_EARTH
+    inside = half - wall
+    earth = bmesh.new()
+    cuboid(earth, -inside, inside, -inside, inside, 0.0, ground)
+    # Brown and not black like a pot's earth: a span of black this wide reads as a hole.
+    model.plain(earth, "dark_wood")
+    leaves = bmesh.new()
+    rng = random.Random(47)
+    for cx, cy in ((-0.17, -0.17), (0.17, -0.16), (-0.16, 0.17), (0.17, 0.17), (0.0, 0.01)):
+        turn = rng.uniform(0, 2 * math.pi)
+        for n in range(8):
+            yaw = turn + 2 * math.pi * n / 8 + rng.uniform(-0.15, 0.15)
+            foot = (cx + 0.02 * math.cos(yaw), cy + 0.02 * math.sin(yaw), ground - 0.005)
+            blade(leaves, foot, yaw, math.radians(rng.uniform(55, 65)), rng.uniform(1.3, 1.6), rng.uniform(0.36, 0.42), rng.uniform(0.17, 0.2), "oval",
+                  fold=0.12)
+        for n in range(4):
+            yaw = turn + 2 * math.pi * (n + 0.5) / 4
+            foot = (cx + 0.01 * math.cos(yaw), cy + 0.01 * math.sin(yaw), ground - 0.005)
+            blade(leaves, foot, yaw, math.radians(rng.uniform(84, 88)), rng.uniform(0.6, 0.8), rng.uniform(0.34, 0.4), rng.uniform(0.14, 0.16), "oval",
+                  fold=0.25)
+    # Every leaf stays over the earth, clear of the blocks round it: what reaches past the knee is drawn in, the more the further out
+    # it is, and nothing nearer the middle moves.
+    room = inside - 0.015
+    knee = room - 0.1
+    for vert in leaves.verts:
+        for axis in (0, 1):
+            out = abs(vert.co[axis])
+            if out > knee:
+                vert.co[axis] = math.copysign(knee + (room - knee) * math.tanh((out - knee) / (room - knee)), vert.co[axis])
+    model.turned(leaves, "plastic", sharp=60.0)
+    return model
+
+
 def washing_bin():
     """A laundry cart: a frame of steel tube on four castors with a canvas bag hung from its top rails."""
     model = Model("washing_bin")
@@ -4607,11 +4667,11 @@ def fallen_log():
 
 
 def farm_and_garden():
-    """What stands in a farmyard or a garden: hay, troughs, a kennel, compost and rain, a raised bed, a laundry cart, a bird bath,
+    """What stands in a farmyard or a garden: hay, troughs, a kennel, compost and rain, a mall's planter, a raised bed, a laundry cart, a bird bath,
     a salt lick, a log bench, stumps, a gnome, and the plants that stand on a table."""
     return [hay_bales("hay_bale", 1), hay_bales("hay_bales_2", 2), log_bundle(), feed_trough("feed_trough", 1.88), feed_trough("feed_trough_small", 0.92),
             stock_tank("stock_tank", 1.86), stock_tank("stock_tank_long", 2.8), dog_house(), composter("composter", False), composter("composter_full", True),
-            rain_crate("rain_crate", False), rain_crate("rain_crate_water", True), raised_bed("raised_bed", True), raised_bed("raised_bed_dry", True, 0.6),
+            rain_crate("rain_crate", False), rain_crate("rain_crate_water", True), mall_planter(), raised_bed("raised_bed", True), raised_bed("raised_bed_dry", True, 0.6),
             raised_bed("raised_bed_bare", False), washing_bin(), bird_bath("bird_bath", True), bird_bath("bird_bath_round", False), salt_lick(),
             log_bench("log_bench"), stump("stump", 0.33, 0.28, 5), stump("chopping_block", 0.33, 0.23, 0), gnome(),
             potted_flowers("pot_flowers", [(0.0, 0.0), (0.04, 0.0), (0.05, 0.075), (0.055, 0.08), (0.055, 0.09), (0.0, 0.09)], 0.05, 0.09, 12, 0.06, 0.05),
@@ -4957,7 +5017,7 @@ def curve(start, yaw, rise, bend, length, pieces):
 def blade(bm, start, yaw, rise, bend, length, width, shape, fold=0.15, twist=0.0, thick=0.004):
     """A leaf as a thin body: its middle along a curve, as wide across as shape says at each place along it, folded
     a little along its rib so its two halves catch the light apart. shape is "lance" (wide in the middle, pointed
-    at both ends), "sword" (wide from the foot and pointed at the tip) or "strap" (long and narrow)."""
+    at both ends), "oval" (wide for most of its length, its tip rounded), "sword" (wide from the foot and pointed at the tip) or "strap" (long and narrow)."""
     pieces = max(2, math.ceil(length / 0.09))
     points, ways = curve(start, yaw, rise, bend, length, pieces)
     level = Vector((-math.sin(yaw), math.cos(yaw), 0.0))
@@ -4966,6 +5026,8 @@ def blade(bm, start, yaw, rise, bend, length, width, shape, fold=0.15, twist=0.0
         t = i / pieces
         if shape == "lance":
             wide = width * math.sin(math.pi * min(0.05 + t, 1.0)) ** 0.7
+        elif shape == "oval":
+            wide = width * math.sin(math.pi * (0.04 + 0.92 * t)) ** 0.4
         elif shape == "sword":
             wide = width * (1.0 - t ** 3) * (0.75 + 0.25 * min(1.0, t * 4))
         else:
