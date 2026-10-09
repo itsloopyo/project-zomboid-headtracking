@@ -6,6 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import zombie.characters.IsoPlayer;
+import zombie.input.JoypadButton;
 
 /**
  * What every view at this screen has in common: cameraunlock-core, CameraUnlock.ini, whether
@@ -56,6 +57,16 @@ final class Tracking {
     private static final boolean[] viewed = new boolean[View.COUNT], seated = new boolean[View.COUNT];
     /** What was pressed this frame that a view drawn later in it has still to be given. */
     private static final int[] owed = new int[View.COUNT];
+    /** Each player's controller's Back button, tapped twice to switch first person. */
+    private static final DoubleTap[] backTaps = new DoubleTap[View.COUNT];
+
+    static {
+        for (int i = 0; i < View.COUNT; i++) {
+            backTaps[i] = new DoubleTap();
+        }
+    }
+    /** Whose Back button is still down from a double tap: the game's wheel it put up is taken down until it is let go. */
+    private static final boolean[] backHeld = new boolean[View.COUNT];
 
     private Tracking() {}
 
@@ -304,6 +315,7 @@ final class Tracking {
             if ((pressed & Config.FIRST_PERSON_SECOND) != 0 && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
                 Log.info("the first person key was tapped twice, which is a second player's, and there is none at the screen");
             }
+            backButtons();
         }
         if (playerIndex >= View.COUNT) {
             return 0;
@@ -311,6 +323,28 @@ final class Tracking {
         int mine = owed[playerIndex];
         owed[playerIndex] = 0;
         return mine;
+    }
+
+    /**
+     * A player on a controller switches their own first person with the Back button tapped
+     * twice. The game puts its wheel up on every press of the button, the second's as well,
+     * and that is taken down again for as long as the button is held.
+     */
+    private static void backButtons() {
+        long now = System.nanoTime();
+        for (int i = 0; i < View.COUNT; i++) {
+            IsoPlayer player = IsoPlayer.players[i];
+            boolean down = player != null && View.onController(player) && JoypadButton.Back.isDown(player.getJoypadBind());
+            if (backTaps[i].press(down, now)) {
+                owed[i] |= Config.FIRST_PERSON;
+                backHeld[i] = true;
+                Log.info("player " + (i + 1) + "'s Back button tapped twice, which asks for their first person to be switched");
+            }
+            backHeld[i] &= down;
+            if (backHeld[i]) {
+                Panels.shutBackWheel(i);
+            }
+        }
     }
 
     /** A save was left: what is pressed until a frame of the next is not acted on. */

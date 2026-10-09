@@ -139,4 +139,25 @@ final class Panels {
             LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, visible);
         }
     }
+
+    /**
+     * Takes down a player's Back button wheel where it is up, the way letting go of the button
+     * does but with nothing on it chosen. A wheel that is not up is left alone: taking it down
+     * hands the player's controller back to the game, and it may be on another panel.
+     */
+    static void shutBackWheel(int playerIndex) {
+        Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(BACK_WHEEL), Double.valueOf(playerIndex));
+        if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable wheel)) {
+            Log.info("the game's " + BACK_WHEEL + "(" + playerIndex + ") gave no wheel to take down: " + Arrays.toString(found));
+            return;
+        }
+        if (wheel.rawget("javaObject") instanceof UIElementInterface shown && UIManager.getUI().contains(shown)) {
+            Object[] shut = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(wheel, "undisplay"), wheel);
+            if (shut.length == 0 || !Boolean.TRUE.equals(shut[0])) {
+                Log.info("the game's Back button wheel of player " + (playerIndex + 1) + " could not be taken down: " + Arrays.toString(shut));
+            }
+        }
+    }
+
+    private static final String BACK_WHEEL = "getPlayerBackButtonWheel";
 }

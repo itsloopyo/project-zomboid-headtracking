@@ -533,9 +533,9 @@ public final class FirstPerson {
         // The game stops drawing the world of a player who sleeps once their screen has faded, and with it this frame:
         // the look is let go of as the sleep begins, while frames still come to let go of the mouse.
         active = landed && !GameTime.isGamePaused() && !player.isDead() && !player.isAsleep();
-        if (!landed) {
+        if (!landed || !view.onMouse()) {
             pointer.reset();
-        } else if (active && view.hasMouse()) {
+        } else if (active) {
             point();
         }
         lookCaptured = active && !pointer.on();
@@ -556,7 +556,7 @@ public final class FirstPerson {
         boolean flown = on || !view.flight.home();
         view.characters.wanted = flown || overhead && allowed && !player.isDead();
         if (view.hasMouse()) {
-            MouseGrab.wanted = lookCaptured;
+            MouseGrab.wanted = lookCaptured && view.onMouse();
             MouseGrab.kept = active && pointer.on();
         }
         ModelHead.sayGap();
@@ -1029,7 +1029,7 @@ public final class FirstPerson {
             return false;
         }
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
-        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell, view.hasMouse());
+        CentreUse.Outcome outcome = view.centreUse.press(cleanView, floorUp, player, IsoWorld.instance.currentCell, view.onMouse());
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
@@ -1126,9 +1126,14 @@ public final class FirstPerson {
         return !MouseGrab.ISOLATED && (MouseGrab.applied || MouseGrab.keeping);
     }
 
+    /** Whether the mouse turns the view: a player on a controller turns it with the stick, and the mouse is the game's. */
+    private boolean mouseLooks() {
+        return lookCaptured && view.onMouse();
+    }
+
     /** Called at the end of the game's Mouse.update with the cursor column it read. */
     public int cursorX(int raw) {
-        if (!lookCaptured) {
+        if (!mouseLooks()) {
             haveRawX = false;
             return raw;
         }
@@ -1148,7 +1153,7 @@ public final class FirstPerson {
 
     /** Called at the end of the game's Mouse.update with the cursor row it read, counted from the top. */
     public int cursorY(int raw) {
-        if (!lookCaptured) {
+        if (!mouseLooks()) {
             haveRawY = false;
             return raw;
         }

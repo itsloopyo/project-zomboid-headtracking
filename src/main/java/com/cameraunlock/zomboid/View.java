@@ -94,11 +94,18 @@ final class View {
     }
 
     /**
-     * Whether this view has the mouse and the keyboard. The first player's does, with or
-     * without a controller as well. A player who joined the screen has a controller alone.
+     * Whether the mouse and the keyboard are this view's to hold and let go of. The first
+     * player's are, whether they play with them or with a controller. A player who joined the
+     * screen has a controller alone.
      */
     boolean hasMouse() {
         return index == 0;
+    }
+
+    /** Whether this view's player plays with the mouse and the keyboard now, and not a controller. */
+    boolean onMouse() {
+        IsoPlayer player = player();
+        return hasMouse() && (player == null || !onController(player));
     }
 
     /** Whether a player's aim, attack and look are a controller's. */

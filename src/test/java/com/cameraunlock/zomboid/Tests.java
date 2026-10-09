@@ -167,6 +167,7 @@ public final class Tests {
         Checks.run("EyesightTests", EyesightTests::run);
         Checks.run("HearingTests", HearingTests::run);
         Checks.run("SplitScreenTests", SplitScreenTests::run);
+        Checks.run("DoubleTapTests", DoubleTapTests::run);
         Checks.run("CrowdTests", CrowdTests::run);
         Checks.run("TailorTests", TailorTests::run);
         Checks.run("usualColourIsWhatMostOfTheSpriteIsPaintedIn", Tests::usualColourIsWhatMostOfTheSpriteIsPaintedIn);
