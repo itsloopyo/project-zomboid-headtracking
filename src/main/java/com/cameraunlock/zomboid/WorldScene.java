@@ -3834,6 +3834,9 @@ final class WorldScene {
             if (!isFloor && furnishingBuilder.addHung(object, over, texture, x, y, z)) {
                 return;
             }
+            if (!isFloor && furnishingBuilder.addCountertop(object, under, over, texture, x, y, z)) {
+                return;
+            }
             // A poster or a notice the game has pinned to a wall is laid over the wall's own sprite,
             // and stood as that sprite stands it goes onto both walls of a corner piece, on one of
             // them slewed. It says which wall it was painted for, and goes on that one. Only what

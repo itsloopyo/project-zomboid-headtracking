@@ -270,6 +270,10 @@ final class FurnishingBuilder {
         if (piece == null || piece.wall != WallHung.NONE) {
             return false;
         }
+        // A counter's top that is no overlay has no counter under it to stand over, and is drawn as the game's sprite.
+        if (piece.countertop) {
+            return false;
+        }
         if (piece.basin) {
             // Dealt with when the counter under it is: the counter's model has the basin in it.
             IsoObject counter = onSquare(x, y, z, false);
@@ -324,6 +328,42 @@ final class FurnishingBuilder {
                 addLitScreen(piece, model, Screens.held(set, Own.pictures() ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
             }
         }
+        return true;
+    }
+
+    /**
+     * Stands the board the game lays over a counter as its top, over the mod's model of that counter, coloured from the
+     * board's own sprite, and says whether the board is thereby dealt with. The counter's model has a top of its own,
+     * coloured from the counter's sprite, which the game's board covers: this one covers it the same way.
+     *
+     * False, which leaves the board to be as it was, for a sprite that is no such board, and for one over a counter
+     * the mod stands no model of or whose board has nothing painted where its colour is taken.
+     */
+    boolean addCountertop(IsoObject object, IsoSprite counterSprite, IsoSprite board, Texture texture, int x, int y, int z) {
+        Furniture top = Own.furniture() ? Furniture.known(board) : null;
+        Furniture counter = top != null && top.countertop ? Furniture.known(counterSprite) : null;
+        if (counter == null || counter.model == null || !ready(object, counter, x, y, z)) {
+            return false;
+        }
+        Models.Model under = counter.withBasin != null && onSquare(x, y, z, true) != null ? counter.withBasin : counter.model;
+        String worktop = HomeFittings.worktopOver(under.name);
+        if (worktop == null) {
+            return false;
+        }
+        build.dyeFrame.scale = build.frame.scale;
+        WorldScene.frameOf(build.dyeFrame, object, texture);
+        float high = board.getProperties().getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, 0.5f, 0.5f)), Math.round(SpriteGeometry.frameV(build.dyeFrame, 0.5f, 0.5f, high)))) {
+            return false;
+        }
+        float[] lift = build.geometry.lift;
+        build.building.plain = false;
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + counter.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT
+                + (HomeFittings.WORKTOP_HIGH - HomeFittings.WORKTOP_THICK + HomeFittings.WORKTOP_PROUD) * counter.scaleUp;
+        build.placed.add(Models.get(worktop), build.frame, x, y, x + counter.centreX, y + counter.centreY, foot, counter.turns, counter.scale, counter.scaleUp,
+                texture.getID(), 1 << Models.WORKTOP, SpriteGeometry.textureU(build.dyeFrame, 0.5f, 0.5f), SpriteGeometry.textureV(build.dyeFrame, 0.5f, 0.5f, high),
+                0, 0f, 0f);
+        build.furnished++;
         return true;
     }
 

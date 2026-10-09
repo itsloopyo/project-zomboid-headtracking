@@ -37,6 +37,8 @@ final class FurnitureTests {
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
         Checks.run("aPoolTableIsOneModelOverItsTwoSquares", FurnitureTests::aPoolTableIsOneModelOverItsTwoSquares);
+        Checks.run("homeFittingsStandAsTheirSpritesDo", FurnitureTests::homeFittingsStandAsTheirSpritesDo);
+        Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
     }
 
     private static IsoSprite sprite(String row) {
@@ -369,5 +371,89 @@ final class FurnitureTests {
             }
             check(seat.model.width() * seat.scale <= 2f && seat.model.depth() * seat.scale <= 1f, piece[0] + " is no bigger than its two squares");
         }
+    }
+
+    private static void homeFittingsStandAsTheirSpritesDo() {
+        String china = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|25|CustomName|Cabinet|Facing|S|GroupName|China|IsMoveAble||Material|Nails|Material2|Wood|"
+                + "MaterialType|Glass|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|200|PlaceTool|Hammer|Surface|76|attachedN||container|dishescabinet|solid||SpriteGridPos|";
+        IsoSprite left = sprite("furniture_storage_02_34" + china + "0,0"), right = sprite("furniture_storage_02_35" + china + "1,0");
+        piece(2, 1, left, right);
+        Furniture cabinet = Furniture.known(left);
+        check(model(cabinet).equals("china_cabinet") && model(Furniture.known(right)).equals("china_cabinet"),
+                "each square of a china cabinet on its wall is the cabinet, not a picture of it laid on the wall: " + model(cabinet));
+        check(cabinet != null && cabinet.wall == WallHung.NONE && cabinet.turns == 2, "standing on the floor, facing south as its sprite does");
+        check(cabinet != null && cabinet.model != null && Math.abs(HomeFittings.CHINA_TOP * cabinet.scaleUp - 76 * SURFACE_TILES) < 1e-3f,
+                "its cornice as high as the game says its top is");
+
+        String fire = "|ContainerCapacity|20|CustomName|Fireplace|WallOverlay||container|fireplace|";
+        Furniture north = Furniture.known(sprite("fixtures_fireplaces_01_0" + fire + "collideN|"));
+        Furniture west = Furniture.known(sprite("fixtures_fireplaces_01_5" + fire + "collideW|"));
+        check(model(north).equals("fireplace") && model(west).equals("fireplace"), "a fire in a wall is the fireplace, which the game gives no facing: " + model(north));
+        check(north != null && west != null && north.turns == 2 && west.turns == 1, "facing out of the wall it is let into, south of a north wall and east of a west one");
+        check(north != null && north.dyeB < 0.5f && west != null && west.dyeA < 0.5f, "its hearth's colour taken before its wall, where the sprite paints the hearth");
+
+        String cell = "|BlocksPlacement||CanScrap||CustomName|Toilet|GroupName|Chemical|IsLow||IsMoveAble||Material|Plumbing|Material2|Screws|PickUpTool|Wrench|"
+                + "PickUpWeight|100|PlaceTool|Wrench|ScrapSize|Small|SeatMaterial|Metal|Facing|";
+        String[][] toilets = {{"4", "S", "steel_toilet_left"}, {"5", "E", "steel_toilet"}, {"14", "W", "steel_toilet_left"}, {"15", "N", "steel_toilet"}};
+        for (String[] toilet : toilets) {
+            Furniture one = Furniture.known(sprite("fixtures_bathroom_02_" + toilet[0] + cell + toilet[1] + "|"));
+            check(model(one).equals(toilet[2]), "a cell's toilet facing " + toilet[1] + " has its bowl on the side its sprite paints it: " + model(one));
+            if (one != null && one.model != null) {
+                // Where the bowl is on the map: the side of the model it is built on, turned as the piece is.
+                float[] side = new float[2];
+                Models.turn(one.turns, toilet[2].endsWith("left") ? -1f : 1f, 0f, side);
+                boolean alongX = toilet[1].equals("S") || toilet[1].equals("N");
+                check(alongX ? side[0] < -0.5f : side[1] < -0.5f, "the bowl is to the west along a north or south wall and to the north along a west or east one: " + toilet[1]);
+            }
+        }
+
+        String trailer = "|BlocksPlacement||CanBreak||CanScrap||CustomName|Table|Facing|E|GroupName|Lightwood Trailer|IsLow||IsMoveAble||IsTable||Material|Wood|"
+                + "Material2|Nails|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|100|PlaceTool|Hammer|Surface|27|solidtrans||SpriteGridPos|";
+        IsoSprite near = sprite("location_trailer_02_12" + trailer + "0,0"), far = sprite("location_trailer_02_13" + trailer + "1,0");
+        piece(2, 1, near, far);
+        Furniture table = Furniture.known(near);
+        check(model(table).equals("trailer_table"), "a trailer's table is the table on one column: " + model(table));
+        if (table != null && table.model != null) {
+            float[] length = new float[2];
+            Models.turn(table.turns, 1f, 0f, length);
+            check(Math.abs(length[0]) > 0.5f, "lying along x, the way its two squares do");
+            check(Math.abs(table.model.height() * table.scaleUp - 27 * SURFACE_TILES) < 1e-3f, "its top as high as the game says");
+        }
+
+        String shelves = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|30|CustomName|Shelves|Facing|S|IsMoveAble||ItemHeight|64|Material|Wood|"
+                + "Material2|Screws|MaterialType|Wood|PickUpTool|Hammer|PickUpWeight|75|PlaceTool|Hammer|ScrapSize|Large|container|shelves|solid||GroupName|";
+        check(model(Furniture.known(sprite("furniture_shelving_01_9" + shelves + "Big Wall|"))).equals("wall_shelving"), "tall shelves on a wall are the shelving");
+        check(model(Furniture.known(sprite("furniture_shelving_01_8" + shelves + "Big Wall Corner|"))).equals("wall_shelving_corner"), "and in a corner, the corner's");
+
+        Furniture rocker = Furniture.known(sprite("furniture_seating_indoor_03_148|BedType|averageBed|BlocksPlacement||CanScrap||CustomName|Chair|Facing|E|"
+                + "GroupName|Rocking 2|IsLow||IsMoveAble||Material|Wood|Material2|Nails|PickUpWeight|75|ScrapSize|Small|Surface|15|bed||solidtrans||SeatMaterial|Wooden|"));
+        check(model(rocker).equals("rocking_chair_black"), "the black rocking chair is not the armchair: " + model(rocker));
+        check(rocker != null && rocker.model != null && Math.abs(HomeFittings.ROCKER_SEAT * rocker.scaleUp - 15 * SURFACE_TILES) < 1e-3f, "its seat as high as the game says");
+
+        Furniture fryer = Furniture.known(sprite("appliances_cooking_01_52|BlocksPlacement||CanScrap||ContainerCapacity|5|CustomName|Industrial 2000|Facing|E|"
+                + "GroupName|Fryers Club|IsLow||IsMoveAble||IsoType|IsoStove|ItemHeight|34|Material|Electric|Material2|MetalPlates|Material3|MetalScrap|MaterialType|Metal|"
+                + "PickUpLevel|2|PickUpTool|Electrician|PickUpWeight|300|PlaceTool|Electrician|container|stove|solidtrans||"));
+        check(model(fryer).equals("deep_fryer"), "a kitchen's fryer is the fryer: " + model(fryer));
+        Furniture coffee = Furniture.known(sprite("appliances_cooking_01_56|BlocksPlacement||CanScrap||CustomName|X-press|Facing|S|GroupName|Coffee|IsMoveAble||"
+                + "IsSurfaceOffset||IsTableTop||IsoType|IsoStove|Material|Electric|Material2|MetalScrap|MaterialType|Plastic|PickUpWeight|40|ScrapSize|Small|Surface|34|"));
+        check(model(coffee).equals("coffee_maker") && coffee.raised > 0.8f, "a coffee maker stands on the counter it was painted on: " + model(coffee));
+    }
+
+    private static void aCountersTopIsABoardOverTheCountersOwnTop() {
+        Furniture board = Furniture.known(sprite("fixtures_counters_01_89|BlocksPlacement||CanScrap||Countertop||GenericCraftingSurface|true|IsTable||Material|Wood|"
+                + "ScrapSize|Small|Surface|35|"));
+        check(board != null && board.countertop && board.model == null, "a counter's top is no model of its own, but the board over the counter under it");
+        for (String counter : new String[] {"counter", "counter_sink", "counter_corner"}) {
+            String worktop = HomeFittings.worktopOver(counter);
+            check(worktop != null, "each counter that takes a top has a board: " + counter);
+            if (worktop == null) {
+                continue;
+            }
+            Models.Model under = Models.get(counter), over = Models.get(worktop);
+            check(Math.abs(Models.get("counter").height() - HomeFittings.WORKTOP_HIGH) < 1e-3f, "the counter's top is where the board is laid over it: " + counter + " " + under.height());
+            check(Math.abs(over.height() - HomeFittings.WORKTOP_THICK) < 1e-3f, "the board is as thick as it is stood: " + over.height());
+            check(over.width() >= under.width() - 0.05f && over.depth() >= 0.6f, "and covers the counter's own top: " + worktop);
+        }
+        check(HomeFittings.worktopOver("shop_counter") == null, "a shop's counter keeps its own top");
     }
 }

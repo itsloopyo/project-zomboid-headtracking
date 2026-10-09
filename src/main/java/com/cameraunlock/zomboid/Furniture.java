@@ -74,6 +74,8 @@ final class Furniture {
     int picture = Decor.NONE;
     /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
     boolean pinned;
+    /** Whether this is the board the game lays over a counter as its top: see FurnishingBuilder.addCountertop. */
+    boolean countertop;
     /** Whether it is a lettered board, which shows the mod's picture only where every square of it can: half a name in one hand and half in another reads as neither. */
     boolean lettered;
     /** How wide a frame is painted round that picture, in tiles: a painting on a board with no moulding has one. */
@@ -260,6 +262,10 @@ final class Furniture {
         }
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
+        }
+        Furniture home = HomeFittings.of(sprite, name, called, properties);
+        if (home != null) {
+            return home;
         }
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;
