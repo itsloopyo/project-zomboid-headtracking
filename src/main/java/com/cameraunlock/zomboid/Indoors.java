@@ -164,6 +164,50 @@ final class Indoors {
         if (called.equals("School Bench") && holds.equals("desk") && single && properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
             return new Furniture(sprite, "school_desk", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, DESK_TOP, false);
         }
-        return null;
+        return restaurant(sprite, called, group, properties, turns, along, across);
+    }
+
+    /** Where on its sprite, in levels, a diner chair's seat gives its colour, and how far over its laminate a diner table's wooden band does. */
+    private static final float SWIVEL_SEAT_DYE = 0.229f, BAND_OVER_LAMINATE = 0.1167f;
+    /** Where a cafe chair's seat gives its colour: how far in front of the middle of its square, and how high, in levels. */
+    private static final float CAFE_SEAT_FORWARD = 0.15f, CAFE_SEAT_DYE = 0.18f;
+
+    /**
+     * A restaurant's tables and chairs: a diner's tables on one column, a square one or two
+     * side by side or one long one, which lie along the way they face, and its chairs that
+     * turn on a column; a fifties diner's long table on one column, which lies across the
+     * way it faces; and a cafe's square table on a column and its wooden chairs.
+     */
+    private static Furniture restaurant(IsoSprite sprite, String called, String group, PropertyContainer properties, int turns, int along, int across) {
+        int surface = properties.getSurface();
+        float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
+        boolean single = along == 1 && across == 1;
+        boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
+        if (called.equals("Chair") && group.equals("Spiffos Dinner") && single) {
+            return new Furniture(sprite, "swivel_chair", turns).dye(1 << Models.VINYL, SWIVEL_SEAT_DYE).stand(0f, 0f, false);
+        }
+        if (called.equals("Chair") && group.equals("Pile o' Crepe") && single) {
+            float[] front = new float[2];
+            Models.turn(turns, 0f, -1f, front);
+            return new Furniture(sprite, "cafe_chair", turns)
+                    .dye(1 << Models.WOOD, 0.5f + front[0] * CAFE_SEAT_FORWARD, 0.5f + front[1] * CAFE_SEAT_FORWARD, CAFE_SEAT_DYE).stand(0f, 0f, false);
+        }
+        if (!called.equals("Table") || !tableHigh) {
+            return null;
+        }
+        String model = group.equals("Spiffos Type B") && along == 2 && across == 1 ? "diner_tables"
+                : group.equals("Spiffos Type A") && along == 2 && across == 1 ? "diner_table_long"
+                : group.equals("50s Diner") && along == 1 && across == 2 ? "fifties_table"
+                : group.equals("Light Wood Restaurant") && single ? "cafe_table" : null;
+        if (model == null) {
+            return null;
+        }
+        Furniture table = new Furniture(sprite, model, turns);
+        if (model.startsWith("diner")) {
+            table.dye(1 << Models.WORKTOP, surfaceHigh).also(1 << Models.WOOD, surfaceHigh + BAND_OVER_LAMINATE);
+        } else {
+            table.dye(1 << (model.equals("cafe_table") ? Models.WOOD : Models.WORKTOP), surfaceHigh);
+        }
+        return table.stand(surfaceUp, table.model.height(), false);
     }
 }

@@ -2848,6 +2848,143 @@ def school_desk():
     return model
 
 
+def rounded_rect(cx, cy, sx, sy, radius, steps=4):
+    """The outline of a rectangle with rounded corners, going round anticlockwise seen from above."""
+    hx, hy = sx / 2 - radius, sy / 2 - radius
+    points = []
+    for (x, y), start in (((hx, -hy), -90), ((hx, hy), 0), ((-hx, hy), 90), ((-hx, -hy), 180)):
+        points += arc(cx + x, cy + y, radius, start, start + 90, steps)
+    return points
+
+
+# A restaurant's table on one column: how high its top is, how thick, and how wide the wooden band round its laminate is.
+DINER_TOP, DINER_BOARD, DINER_BAND = 0.918, 0.038, 0.07
+
+
+def pedestal_table(name, tops, columns, foot, banded=True, made="steel"):
+    """Tops on columns, each column on a round foot of that radius. A top is (centre x, centre y, width, depth).
+
+    banded: the top is laminate in a wooden band, a restaurant's; else laminate to its edge."""
+    model = Model(name)
+    under = DINER_TOP - DINER_BOARD
+    for cx, cy, sx, sy in tops:
+        board = bmesh.new()
+        outline_up(board, rounded_rect(cx, cy, sx, sy, 0.07), under, DINER_TOP - (0.004 if banded else 0.0))
+        model.hard(board, "wood" if banded else "worktop", bevel=0.008, segments=2)
+        if banded:
+            inlay = bmesh.new()
+            outline_up(inlay, rounded_rect(cx, cy, sx - 2 * DINER_BAND, sy - 2 * DINER_BAND, 0.04), DINER_TOP - 0.01, DINER_TOP)
+            model.hard(inlay, "worktop", bevel=0.002, segments=1)
+    steel = bmesh.new()
+    for cx, cy in columns:
+        lathe(steel, [(0.0, 0.0), (foot, 0.0), (foot, 0.012), (foot * 0.82, 0.03), (0.07, 0.045), (0.042, 0.06), (0.035, 0.08),
+                      (0.035, under - 0.06), (0.05, under - 0.04), (0.0, under - 0.04)], cx=cx, cy=cy, segments=24)
+        # A spider of flat bars under the top, screwed to it.
+        for angle in (45, 135):
+            reach = 0.24
+            dx, dy = reach * math.cos(math.radians(angle)), reach * math.sin(math.radians(angle))
+            beam(steel, (cx - dx, cy - dy, under - 0.02), (cx + dx, cy + dy, under - 0.02), 0.04, 0.02)
+        cuboid(steel, cx - 0.06, cx + 0.06, cy - 0.06, cy + 0.06, under - 0.04, under - 0.01)
+    model.hard(steel, made, bevel=0.004, segments=1)
+    return model
+
+
+def swivel_chair():
+    """A diner's chair: a round padded seat on a drum of wood, turning on a steel column, and a bentwood hoop back with two spindles. Its seat is 0.48 high."""
+    model = Model("swivel_chair")
+    seat = 0.48
+    steel = bmesh.new()
+    lathe(steel, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.12, 0.03), (0.05, 0.05), (0.032, 0.07), (0.032, seat - 0.11), (0.06, seat - 0.1),
+                  (0.06, seat - 0.085), (0.0, seat - 0.085)], segments=24)
+    model.hard(steel, "steel", bevel=0.004, segments=1)
+    drum = bmesh.new()
+    lathe(drum, [(0.0, seat - 0.09), (0.19, seat - 0.09), (0.2, seat - 0.08), (0.2, seat - 0.05), (0.0, seat - 0.05)], segments=32)
+    model.hard(drum, "wood", bevel=0.006, segments=2)
+    pad = bmesh.new()
+    lathe(pad, [(0.0, seat - 0.05), (0.205, seat - 0.05), (0.215, seat - 0.04), (0.215, seat - 0.02), (0.2, seat - 0.004), (0.15, seat),
+                (0.0, seat + 0.004)], segments=32)
+    model.turned(pad, "vinyl", sharp=60.0)
+
+    def rake(z):
+        """How far back the hoop stands at height z."""
+        return 0.17 + max(z - seat, 0.0) * 0.12
+
+    back = bmesh.new()
+    low, spring, half = seat - 0.07, 0.83, 0.16
+    for side in (-1, 1):
+        beam(back, (side * half, rake(low), low), (side * half, rake(spring), spring), 0.03, 0.026)
+    hoop = arc(0.0, spring, half, 0, 180, 10)
+    for (x0, z0), (x1, z1) in zip(hoop, hoop[1:]):
+        beam(back, (x0, rake(z0), z0), (x1, rake(z1), z1), 0.03, 0.026)
+    beam(back, (-half, rake(seat + 0.06), seat + 0.06), (half, rake(seat + 0.06), seat + 0.06), 0.03, 0.022)
+    for x in (-0.055, 0.055):
+        top = spring + math.sqrt(half * half - x * x)
+        beam(back, (x, rake(seat + 0.06), seat + 0.06), (x, rake(top), top), 0.024, 0.018)
+    model.hard(back, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def cafe_table():
+    """A square cafe table on a column with four feet reaching to its corners. Its top is 0.816 high, as the game gives it."""
+    model = Model("cafe_table")
+    top, half = 0.816, 0.43
+    board = bmesh.new()
+    cuboid(board, -half, half, -half, half, top - 0.034, top)
+    model.hard(board, "wood", bevel=0.008, segments=2)
+    iron = bmesh.new()
+    lathe(iron, [(0.0, 0.04), (0.06, 0.04), (0.06, 0.09), (0.03, 0.12), (0.026, top - 0.08), (0.04, top - 0.06), (0.11, top - 0.045),
+                 (0.11, top - 0.034), (0.0, top - 0.034)], segments=20)
+    for n in range(4):
+        angle = math.radians(45 + 90 * n)
+        x, y = math.cos(angle), math.sin(angle)
+        beam(iron, (x * 0.04, y * 0.04, 0.09), (x * 0.25, y * 0.25, 0.035), 0.035, 0.03)
+        beam(iron, (x * 0.25, y * 0.25, 0.035), (x * 0.36, y * 0.36, 0.015), 0.035, 0.03)
+        lathe(iron, [(0.0, 0.0), (0.025, 0.0), (0.025, 0.02), (0.0, 0.02)], cx=x * 0.36, cy=y * 0.36, segments=10)
+    model.hard(iron, "steel", bevel=0.004, segments=1)
+    return model
+
+
+def cafe_chair():
+    """A cafe's wooden chair: a dished seat on four legs, the back legs running up into posts with knobs, a deep top rail and a slat under it."""
+    model = Model("cafe_chair")
+    half, seat, front, back = 0.2, 0.45, -0.19, 0.18
+
+    def rake(z):
+        """How far back the posts stand at height z."""
+        return back + max(z - seat, 0.0) * 0.12
+
+    frame = bmesh.new()
+    for side in (-1, 1):
+        prism(frame, (side * (half + 0.01), front - 0.01, 0.03, 0.03, 0.0), (side * half, front, 0.036, 0.036, seat - 0.03))
+        prism(frame, (side * (half + 0.01), back + 0.03, 0.03, 0.03, 0.0), (side * half, back, 0.036, 0.036, seat - 0.03))
+        prism(frame, (side * half, back, 0.036, 0.036, seat - 0.03), (side * half, rake(0.9), 0.034, 0.03, 0.9))
+        lathe(frame, [(0.0, 0.9), (0.02, 0.9), (0.024, 0.915), (0.016, 0.935), (0.0, 0.94)], cx=side * half, cy=rake(0.92), segments=10)
+        cuboid(frame, side * half - 0.01, side * half + 0.01, front + 0.02, back - 0.02, 0.16, 0.185)
+    cuboid(frame, -half + 0.02, half - 0.02, -0.012 + (front + back) / 2, 0.012 + (front + back) / 2, 0.16, 0.185)
+    for y in (front, back):
+        cuboid(frame, -half + 0.02, half - 0.02, y - 0.012, y + 0.012, seat - 0.09, seat - 0.03)
+    for side in (-1, 1):
+        cuboid(frame, side * half - 0.012, side * half + 0.012, front + 0.02, back - 0.02, seat - 0.09, seat - 0.03)
+    prism(frame, (0.0, rake(0.76), 2 * half - 0.03, 0.022, 0.76), (0.0, rake(0.87), 2 * half - 0.03, 0.022, 0.87))
+    prism(frame, (0.0, rake(0.6), 2 * half - 0.03, 0.018, 0.6), (0.0, rake(0.64), 2 * half - 0.03, 0.018, 0.64))
+    model.hard(frame, "wood", bevel=0.004, segments=1)
+    board = bmesh.new()
+    cage = grid_box(board, spread(-half - 0.02, half + 0.02, 2), spread(front - 0.03, back + 0.01, 2), [seat - 0.03, seat])
+    cage[(1, 1, 1)].co.z -= 0.012
+    crease(board, cage, 0.7)
+    model.soft(board, "wood", levels=2)
+    return model
+
+
+def restaurant_seating():
+    """A diner's tables on one column and the chairs that turn at them, and a cafe's table and chairs."""
+    side = 0.8
+    return [pedestal_table("diner_tables", [(0.0, -0.5, side, side), (0.0, 0.5, side, side)], [(0.0, -0.5), (0.0, 0.5)], 0.19),
+            pedestal_table("diner_table_long", [(0.0, 0.0, side, 1.8)], [(0.0, 0.0)], 0.22),
+            pedestal_table("fifties_table", [(0.0, 0.0, 1.84, 0.88)], [(0.0, 0.0)], 0.38, banded=False, made="metal"),
+            swivel_chair(), cafe_table(), cafe_chair()]
+
+
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
@@ -2858,7 +2995,7 @@ def indoors():
             cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
             cabinet("steel_counter_sink", 0.62, 0.90, True, sink=True, made="steel", top_of="steel"),
             cabinet("steel_counter_corner", 0.62, 0.90, True, corner=True, made="steel", top_of="steel"),
-            wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()]
+            wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()] + restaurant_seating()
 
 
 def beam(bm, start, end, wide, deep):

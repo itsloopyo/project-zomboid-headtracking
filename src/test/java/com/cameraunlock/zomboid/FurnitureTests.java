@@ -33,6 +33,8 @@ final class FurnitureTests {
         Checks.run("aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn", FurnitureTests::aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn);
         Checks.run("eachSquareOfAStreetBenchIsABenchOfItsOwn", FurnitureTests::eachSquareOfAStreetBenchIsABenchOfItsOwn);
         Checks.run("whatStandsOnARoofCaseIsRaisedToItsTop", FurnitureTests::whatStandsOnARoofCaseIsRaisedToItsTop);
+        Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
+        Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
     }
 
     private static IsoSprite sprite(String row) {
@@ -255,5 +257,57 @@ final class FurnitureTests {
         check(Furniture.known(unlettered) == null, "a sign the mod has no picture of is left to its sprite");
         IsoSprite facingAway = sprite("appliances_laundry_01_20" + row.replace("Facing|S", "Facing|N") + "GroupName|Laundromat");
         check(Furniture.known(facingAway) == null, "nor is a sign hung whose face the game's view never shows");
+    }
+
+    private static void aDinersTablesStandOnColumnsAlongTheWayTheyFace() {
+        String row = "|BlocksPlacement||CanScrap||CustomName|Table|Facing|E|GroupName|Spiffos Type B|IsLow||IsMoveAble||IsTable||Material|MetalPipe|Material2|Plastic|"
+                + "PickUpTool|Crowbar|PickUpWeight|100|Surface|36|solidtrans||SpriteGridPos|";
+        IsoSprite first = sprite("location_restaurant_spiffos_02_32" + row + "0,0"), second = sprite("location_restaurant_spiffos_02_33" + row + "1,0");
+        piece(2, 1, first, second);
+        float top = 36 * SURFACE_TILES;
+        for (IsoSprite square : new IsoSprite[] {first, second}) {
+            Furniture tables = Furniture.known(square);
+            check(model(tables).equals("diner_tables"), "each square of a diner's pair of tables is the pair, two along the way it faces: " + model(tables));
+        }
+        Furniture pair = Furniture.known(first);
+        if (pair == null || pair.model == null) {
+            return;
+        }
+        check(pair.turns == 1, "facing east as its sprite does: " + pair.turns);
+        check(Math.abs(pair.model.height() * pair.scaleUp - top) < 1e-3f, "its tops as high as the game says: " + pair.model.height() * pair.scaleUp + " against " + top);
+        check(pair.dyed == 1 << Models.WORKTOP && pair.alsoDyed == 1 << Models.WOOD && pair.alsoHigh > pair.dyeHigh,
+                "its laminate and the wooden band round it each take their colour from the sprite");
+        String rowA = row.replace("Type B", "Type A").replace("Facing|E", "Facing|S");
+        IsoSprite near = sprite("location_restaurant_spiffos_02_36" + rowA + "0,1"), far = sprite("location_restaurant_spiffos_02_37" + rowA + "0,0");
+        piece(1, 2, near, far);
+        Furniture longOne = Furniture.known(far);
+        check(model(longOne).equals("diner_table_long") && longOne.turns == 2, "a long one lies along y facing south: " + model(longOne));
+        String fifties = "|BlocksPlacement||CanBreak||CanScrap||CustomName|Table|Facing|S|GenericCraftingSurface|true|GroupName|50s Diner|IsLow||IsMoveAble||IsTable||"
+                + "Material|Wood|Material2|Steel|PickUpLevel|2|PickUpTool|Hammer|PickUpWeight|150|PlaceTool|Hammer|Surface|36|bed||solidtrans||SpriteGridPos|";
+        IsoSprite left = sprite("location_restaurant_diner_01_6" + fifties + "0,0"), right = sprite("location_restaurant_diner_01_7" + fifties + "1,0");
+        piece(2, 1, left, right);
+        check(model(Furniture.known(left)).equals("fifties_table"), "a fifties diner's table on one column is not the table on four legs: " + model(Furniture.known(left)));
+        Furniture cafe = Furniture.known(sprite("location_restaurant_pileocrepe_01_36|BlocksPlacement||CanBreak||CanScrap||CustomName|Table|Facing|S|"
+                + "GroupName|Light Wood Restaurant|IsLow||IsMoveAble||IsTable||Material|Wood|PickUpTool|Hammer|PickUpWeight|50|PlaceTool|Hammer|Surface|32|solidtrans|"));
+        check(model(cafe).equals("cafe_table"), "a cafe's square table on a column is: " + model(cafe));
+        check(cafe != null && cafe.model != null && Math.abs(cafe.model.height() * cafe.scaleUp - 32 * SURFACE_TILES) < 1e-3f, "as high as the game says its top is");
+    }
+
+    private static void aRestaurantsChairsFaceTheWayTheirSpritesDo() {
+        String swivel = "|BedType|badBed|BlocksPlacement||CanScrap||CustomName|Chair|GroupName|Spiffos Dinner|IsLow||IsMoveAble||Material|MetalBars|PickUpWeight|50|"
+                + "ScrapSize|Small|bed||SeatMaterial|Leather|Facing|";
+        Furniture south = Furniture.known(sprite("location_restaurant_spiffos_02_24" + swivel + "S|chairS|"));
+        Furniture north = Furniture.known(sprite("location_restaurant_spiffos_02_26" + swivel + "N|chairN|"));
+        check(model(south).equals("swivel_chair") && model(north).equals("swivel_chair"), "a diner's chair is the chair that turns on its column: " + model(south));
+        check(south != null && north != null && south.turns == 2 && north.turns == 0, "facing the way its sprite does");
+        check(south != null && south.dyed == 1 << Models.VINYL, "its seat takes its colour from the sprite");
+        String cafe = "|BlocksPlacement||CanScrap||CustomName|Chair|GroupName|Pile o' Crepe|IsLow||IsMoveAble||Material|Wood|PickUpWeight|50|ScrapSize|Small|bed||"
+                + "SeatMaterial|Wooden|Facing|";
+        Furniture east = Furniture.known(sprite("location_restaurant_pileocrepe_01_40" + cafe + "E"));
+        Furniture west = Furniture.known(sprite("location_restaurant_pileocrepe_01_42" + cafe + "W"));
+        check(model(east).equals("cafe_chair") && model(west).equals("cafe_chair"), "a cafe's wooden chair is the cafe chair: " + model(east));
+        check(east != null && west != null && east.turns == 1 && west.turns == 3, "facing the way its sprite does");
+        check(east != null && west != null && east.dyeA > 0.5f && west.dyeA < 0.5f,
+                "its colour is taken from the front of its seat, clear of its back, whichever way it faces: " + (east == null ? "-" : east.dyeA));
     }
 }
