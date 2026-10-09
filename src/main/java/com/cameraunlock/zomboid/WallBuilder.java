@@ -3,7 +3,11 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /**
  * The walls of a chunk being built: a wall stood on the edge of its square with its two skins, its courses, the caps that
@@ -56,9 +60,46 @@ final class WallBuilder {
     /** How far the skin being added runs on past its wall's two ends, in tiles: see WallJoins. */
     private float skinStart, skinEnd;
 
+    /** Whether the sprite being added to an edge is a sign, which may run on over the next squares: see EdgeRuns. */
+    boolean sign;
+    private final float[] run = new float[2], next = new float[2];
+    private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
+
     WallBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
         this.build = build;
+    }
+
+    /**
+     * Whether the square step squares along the edge (da, db) holds a sign on the same edge
+     * that one piece with the sprite now being added makes, painted where run says this one is.
+     */
+    private boolean runsOn(int x, int y, int z, float da, float db, int step) {
+        IsoGridSquare square = build.cell.getGridSquare(x + step * (int) da, y + step * (int) db, z);
+        if (square == null) {
+            return false;
+        }
+        IsoFlagType attached = da != 0f ? IsoFlagType.attachedN : IsoFlagType.attachedW;
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || !sprite.getProperties().has(attached) || sprite.getProperties().has(IsoFlagType.WallOverlay)
+                    || !EdgeRuns.sign(sprite.getName(), sprite.getProperties().get("CustomName"))) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (!WorldScene.usable(texture)) {
+                continue;
+            }
+            runFrame.scale = build.frame.scale;
+            WorldScene.frameOf(runFrame, object, texture);
+            EdgeRuns.along(runFrame, da, db, next);
+            if (step > 0 ? EdgeRuns.meets(run[0], run[1], next[0], next[1]) : EdgeRuns.meets(next[0], next[1], run[0], run[1])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -120,9 +161,18 @@ final class WallBuilder {
             }
             // And three layers more, which are thicker the further off: there the picture's depth is coarser.
             WorldScene.layers.lie(way, layer + 3f);
+            // A sign several squares long is laid over all each square's piece paints: see EdgeRuns.
+            float from = 0f, length = 1f;
+            if (sign && material != WorldScene.GLASS) {
+                EdgeRuns.along(build.frame, da, db, run);
+                if (EdgeRuns.overhangs(run[0], run[1]) && (runsOn(x, y, z, da, db, -1) || runsOn(x, y, z, da, db, 1))) {
+                    from = Math.min(0f, run[0]);
+                    length = Math.max(1f, run[1]) - from;
+                }
+            }
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
-            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, door ? doorTop(texture, 0f, 0f, da, db) : 1f);
+            build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, length * da, length * db, 0f, 0f, 0f, door ? doorTop(texture, 0f, 0f, da, db) : 1f);
             if (build.casing && build.overLayer == 0) {
                 // A door's frame goes round the doorway on both sides of the wall. The game
                 // has it on the side its view saw, and from the other the doorway was bare.

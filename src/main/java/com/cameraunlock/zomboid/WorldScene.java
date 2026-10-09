@@ -4713,12 +4713,14 @@ final class WorldScene {
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
+            wallBuilder.sign = overLayer == 0 && !door && west != north && EdgeRuns.sign(sprite.getName(), properties.get("CustomName"));
             if (west) {
                 wallBuilder.addEdge(mesh, texture, isWall(properties, type), door, x, y, z, westLayer++, 0f, 1f);
             }
             if (north) {
                 wallBuilder.addEdge(mesh, texture, isWall(properties, type), door, x, y, z, northLayer++, 1f, 0f);
             }
+            wallBuilder.sign = false;
             if (west || north) {
                 return;
             }
