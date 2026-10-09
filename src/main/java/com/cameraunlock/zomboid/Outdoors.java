@@ -178,6 +178,10 @@ final class Outdoors {
         if (farm != null) {
             return farm;
         }
+        Piece play = Leisure.of(name, called, group, faces, width, height);
+        if (play != null) {
+            return play;
+        }
         boolean single = width == 1 && height == 1;
         Piece burnt = single ? burntPost(name) : null;
         if (burnt != null) {

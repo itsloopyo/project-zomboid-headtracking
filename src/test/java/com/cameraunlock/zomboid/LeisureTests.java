@@ -1,0 +1,129 @@
+package com.cameraunlock.zomboid;
+
+/** Tests of which model stands for a sprite of a park, a gym, a track, a church or a music room, and where it stands. */
+final class LeisureTests {
+    private LeisureTests() {}
+
+    static void run() {
+        Checks.run("everyPieceOfPlayNamesAModelTheJarHolds", LeisureTests::everyPieceOfPlayNamesAModelTheJarHolds);
+        Checks.run("aSwingsFrameStandsAtTheEndOfItsBeamAndItsLegsSpreadAcrossIt", LeisureTests::aSwingsFrameStandsAtTheEndOfItsBeamAndItsLegsSpreadAcrossIt);
+        Checks.run("aSwingsBeamMeetsTheTopOfItsFrame", LeisureTests::aSwingsBeamMeetsTheTopOfItsFrame);
+        Checks.run("aTyreStackIsAsHighAsItsSprite", LeisureTests::aTyreStackIsAsHighAsItsSprite);
+        Checks.run("aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo", LeisureTests::aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo);
+        Checks.run("aBasketballBoardStandsInFrontOfItsPole", LeisureTests::aBasketballBoardStandsInFrontOfItsPole);
+        Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
+    }
+
+    private static void holds(Outdoors.Piece piece, String what) {
+        Checks.check(piece != null, what);
+        if (piece != null) {
+            Models.get(piece.model);
+        }
+    }
+
+    private static Outdoors.Piece unnamed(String name) {
+        return Outdoors.of(name, null, null, Outdoors.NONE, 1, 1, 0);
+    }
+
+    private static void everyPieceOfPlayNamesAModelTheJarHolds() {
+        for (int place : new int[] {0, 1, 2, 3, 4, 10, 11, 12, 13, 14}) {
+            String name = "location_community_park_01_" + place;
+            holds(Outdoors.of(name, "Swingset", "Playground", place < 5 ? Outdoors.SOUTH : Outdoors.EAST, 1, 1, 0), name + " is a part of a swing");
+        }
+        for (int place : new int[] {40, 41, 42, 43, 44, 45, 46, 47, 48}) {
+            holds(unnamed("location_community_park_01_" + place), "location_community_park_01_" + place + " is a part of a fountain");
+        }
+        for (int place : new int[] {16, 17, 18, 19, 20, 21, 24, 25, 26, 27, 32, 33, 88, 89, 90, 91, 92, 93}) {
+            holds(unnamed("recreational_sports_01_" + place), "recreational_sports_01_" + place + " is a part of a goal, a hoop or a net");
+        }
+        String[][] grids = {{"Play Castle", "Childrens", "2", "2"}, {"Round", "Merry Go", "2", "2"}, {"Slide", "Playground", "1", "2"},
+                {"Hamster Wheel", "Human", "1", "2"}, {"Contraption", "Fitness", "1", "2"}, {"Piano", "Western", "2", "1"}, {"Stool", "Piano", "2", "1"},
+                {"Grand Piano", "Black", "2", "3"}, {"Machine", "PAWS Pinball", "1", "2"}, {"Altar", "Decorated", "2", "1"}};
+        for (String[] piece : grids) {
+            holds(Outdoors.of("sheet_01_0", piece[0], piece[1], Outdoors.SOUTH, Integer.parseInt(piece[2]), Integer.parseInt(piece[3]), 0),
+                    piece[0] + " / " + piece[1] + " facing south has a model");
+            holds(Outdoors.of("sheet_01_0", piece[0], piece[1], Outdoors.EAST, Integer.parseInt(piece[3]), Integer.parseInt(piece[2]), 0),
+                    "and facing east");
+        }
+        String[][] singles = {{"Jukebox", "Oldies"}, {"Speaker Cabinet", "Wood"}, {"Speaker Cabinet", "Guitar"}, {"Amplifier", "Guitar"},
+                {"Stand", "Lectern"}, {"Drum", "Kick"}, {"Drum", "Tom"}, {"Drum", "Snare"}};
+        for (String[] piece : singles) {
+            holds(Outdoors.of("sheet_01_0", piece[0], piece[1], Outdoors.WEST, 1, 1, 0), piece[0] + " / " + piece[1] + " has a model");
+        }
+    }
+
+    private static void aSwingsFrameStandsAtTheEndOfItsBeamAndItsLegsSpreadAcrossIt() {
+        Outdoors.Piece end = Outdoors.of("location_community_park_01_1", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0);
+        Outdoors.Piece leg = Outdoors.of("location_community_park_01_0", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0);
+        Outdoors.Piece seat = Outdoors.of("location_community_park_01_3", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0);
+        Checks.check(end.a == Leisure.SWING_APEX && end.b == Leisure.SWING_BEAM && seat.b == Leisure.SWING_BEAM && seat.a == 0.5f,
+                "facing south the beam runs along x and the frame stands at its east end");
+        Checks.check(leg.a == end.a && Math.abs(leg.b - (end.b - 1f)) < 1e-6f, "the other leg's model is placed from the square north of it, under the beam");
+        float[] legRuns = new float[2];
+        Models.turn(end.turns, 0f, 1f, legRuns);
+        Checks.check(legRuns[0] == 0f && legRuns[1] == -1f, "the leg on the beam's square stands out to the north");
+        Outdoors.Piece endEast = Outdoors.of("location_community_park_01_13", "Swingset", "Playground", Outdoors.EAST, 1, 1, 0);
+        Models.turn(endEast.turns, 0f, 1f, legRuns);
+        Checks.check(endEast.a == Leisure.SWING_BEAM && endEast.b == Leisure.SWING_APEX && legRuns[0] == -1f && legRuns[1] == 0f,
+                "facing east the same, its x and y swapped");
+        Checks.check(end.dyeA == end.a && Math.abs(end.dyeB - 0.48f) < 1e-5f && Math.abs(leg.dyeB - 0.2f) < 1e-5f, "each leg is coloured from half way up itself");
+        Checks.check(Outdoors.of("location_community_park_01_5", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0) == null, "a place of the sheet that is no part of one");
+    }
+
+    private static void aSwingsBeamMeetsTheTopOfItsFrame() {
+        Outdoors.Piece beam = Outdoors.of("location_community_park_01_4", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0);
+        Outdoors.Piece seat = Outdoors.of("location_community_park_01_2", "Swingset", "Playground", Outdoors.SOUTH, 1, 1, 0);
+        float beamTop = beam.raised + Models.get(beam.model).height(), seatTop = seat.raised + Models.get(seat.model).height();
+        Checks.check(Math.abs(beamTop - seatTop) < 0.005f, "a length with a seat is as high as one without: " + beamTop + ", " + seatTop);
+        float apex = Models.get("swing_end").height();
+        Checks.check(beamTop > apex - 0.03f && beamTop < apex, "the beam's top is just under the cap of the frame: " + beamTop + " under " + apex);
+        Checks.check(Math.abs(beam.dyeHigh - seat.dyeHigh) < 1e-5f, "both are coloured from the beam");
+    }
+
+    private static void aTyreStackIsAsHighAsItsSprite() {
+        int[][] high = {{136, 4}, {137, 4}, {138, 4}, {139, 3}, {140, 3}, {141, 3}, {144, 4}, {149, 3}, {152, 1}, {153, 2}, {154, 2}, {155, 2}, {160, 1}, {163, 2}};
+        for (int[] stack : high) {
+            Outdoors.Piece piece = unnamed("recreational_sports_01_" + stack[0]);
+            holds(piece, "recreational_sports_01_" + stack[0] + " is a stack of tyres");
+            float tall = Models.get(piece.model).height();
+            Checks.check(Math.abs(tall - 0.205f * stack[1]) < 0.01f, "recreational_sports_01_" + stack[0] + " is " + stack[1] + " tyres high, not " + tall);
+        }
+        for (int place : new int[] {142, 143, 150, 151, 156, 157, 158, 159, 164}) {
+            Checks.check(unnamed("recreational_sports_01_" + place) == null, "recreational_sports_01_" + place + " is no stack");
+        }
+    }
+
+    private static void aGoalsCrossbarMeetsItsPostsAndARunLiesAlongTheWayItsSpritesDo() {
+        Outdoors.Piece post = unnamed("recreational_sports_01_19"), bar = unnamed("recreational_sports_01_20");
+        float barTop = bar.raised + Models.get(bar.model).height(), postTop = Models.get(post.model).height();
+        Checks.check(Math.abs(barTop - postTop) < 0.005f, "a goal's crossbar is as high as the top of its post: " + barTop + ", " + postTop);
+        float[] along = new float[2];
+        Models.turn(post.turns, 1f, 0f, along);
+        Checks.check(along[0] == 1f && along[1] == 0f && post.b == Leisure.GOAL_ACROSS, "recreational_sports_01_19 runs along x");
+        Outdoors.Piece net = unnamed("recreational_sports_01_92");
+        Models.turn(net.turns, 1f, 0f, along);
+        Checks.check(along[0] == 0f && along[1] == 1f && net.a == Leisure.NET_ACROSS && net.raised == 0f, "recreational_sports_01_92 runs along y, on the ground");
+    }
+
+    private static void aBasketballBoardStandsInFrontOfItsPole() {
+        int[] faces = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
+        for (int i = 0; i < 4; i++) {
+            Outdoors.Piece board = unnamed("recreational_sports_01_" + (24 + i));
+            float[] front = new float[2];
+            Models.turn(board.turns, 0f, -1f, front);
+            Checks.check(board.turns == faces[i] && Math.abs(board.a - 0.5f - front[0] * Leisure.BOARD_AHEAD) < 1e-6f
+                    && Math.abs(board.b - 0.5f - front[1] * Leisure.BOARD_AHEAD) < 1e-6f, "board " + (24 + i) + " stands out from the pole the way it faces");
+        }
+        Outdoors.Piece pole = unnamed("recreational_sports_01_32");
+        Checks.check(pole.a == 0.5f && pole.b == 0.5f && Models.get(pole.model).height() > ViewCamera.LEVEL_HEIGHT,
+                "the pole is in the middle of its square and reaches up behind the board a storey up");
+    }
+
+    private static void aPieceLaidOutOtherwiseThanItsModelIsNone() {
+        Checks.check(Outdoors.of("sheet_01_0", "Piano", "Western", Outdoors.SOUTH, 1, 2, 0) == null, "a piano two squares along the way it faces");
+        Checks.check(Outdoors.of("sheet_01_0", "Slide", "Playground", Outdoors.SOUTH, 2, 1, 0) == null, "a slide two squares across");
+        Checks.check(Outdoors.of("sheet_01_0", "Drum", "Cymbal", Outdoors.SOUTH, 1, 1, 0) == null, "a drum the mod has no model of");
+        Checks.check(Outdoors.of("sheet_01_0", "Jukebox", "Oldies", Outdoors.NONE, 1, 1, 0) == null, "a jukebox with no front");
+        Checks.check(unnamed("location_community_park_01_49") == null && unnamed("recreational_sports_01_34") == null, "what else is on the sheets");
+    }
+}

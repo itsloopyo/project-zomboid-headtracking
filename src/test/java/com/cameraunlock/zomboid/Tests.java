@@ -133,6 +133,7 @@ public final class Tests {
         Checks.run("OverheadTests", OverheadTests::run);
         Checks.run("CampTests", CampTests::run);
         Checks.run("FarmTests", FarmTests::run);
+        Checks.run("LeisureTests", LeisureTests::run);
         Checks.run("FurnitureTests", FurnitureTests::run);
         Checks.run("DisplayCaseTests", DisplayCaseTests::run);
         Checks.run("ClinicTests", ClinicTests::run);

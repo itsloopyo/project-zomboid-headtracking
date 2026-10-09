@@ -5672,6 +5672,646 @@ def outdoors():
             twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
+def rod(bm, start, end, radius, segments=10):
+    """A round bar from start to end."""
+    start, end = Vector(start), Vector(end)
+    way = end - start
+    turn = Vector((0.0, 0.0, 1.0)).rotation_difference(way.normalized()).to_matrix().to_4x4()
+    lathe(bm, [(radius, 0.0), (radius, way.length)], segments=segments, to=Matrix.Translation(start) @ turn)
+
+
+def strip_path(bm, path, x0, x1, thick):
+    """A closed strip from x0 to x1 that follows a path of (y, z) down its middle, thick deep under it."""
+    rows = [[bm.verts.new((x, y, z - drop)) for drop in (0.0, thick) for x in (x0, x1)] for y, z in path]
+    for a, b in zip(rows, rows[1:]):
+        bm.faces.new((a[0], a[1], b[1], b[0]))
+        bm.faces.new((a[3], a[2], b[2], b[3]))
+        bm.faces.new((a[2], a[0], b[0], b[2]))
+        bm.faces.new((a[1], a[3], b[3], b[1]))
+    bm.faces.new((rows[0][1], rows[0][0], rows[0][2], rows[0][3]))
+    bm.faces.new((rows[-1][0], rows[-1][1], rows[-1][3], rows[-1][2]))
+
+
+# How high the beam of a park's swing is, in metres, and how far each leg of its frame stands out from under the beam.
+SWING_TOP, SWING_SPREAD = 2.23, 0.72
+
+
+def swing_end():
+    """The end of a swing's frame on the square of its beam: the leg on that square, the brace across the frame and the cap over the
+    apex. Its origin is on the ground under the end of the beam, and the leg stands out to +Y."""
+    model = Model("swing_end", centred=False)
+    frame = bmesh.new()
+    rod(frame, (0.0, SWING_SPREAD, 0.0), (0.0, 0.03, SWING_TOP), 0.038)
+    model.turned(frame, "paint")
+    brace = bmesh.new()
+    across = SWING_SPREAD * (1.0 - 0.95 / SWING_TOP)
+    rod(brace, (0.0, across, 0.95), (0.0, -across, 0.95), 0.022, segments=8)
+    model.turned(brace, "metal")
+    cap = bmesh.new()
+    cuboid(cap, -0.055, 0.055, -0.07, 0.07, SWING_TOP - 0.12, SWING_TOP + 0.05)
+    model.hard(cap, "paint", bevel=0.008, segments=1)
+    return model
+
+
+def swing_leg():
+    """The other leg of a swing's frame, on the square beside the beam's, from the same origin to -Y."""
+    model = Model("swing_leg", centred=False)
+    frame = bmesh.new()
+    rod(frame, (0.0, -SWING_SPREAD, 0.0), (0.0, -0.03, SWING_TOP), 0.038)
+    model.turned(frame, "paint")
+    return model
+
+
+def swing_beam(name, seat=None):
+    """A square's length of a swing's beam, and the seat that hangs from it on two chains where seat says how far along the
+    beam its middle is. Its origin is on the ground under the middle of the length."""
+    model = Model(name, centred=False)
+    beam_bm = bmesh.new()
+    cuboid(beam_bm, -0.5, 0.5, -0.045, 0.045, SWING_TOP - 0.045, SWING_TOP + 0.045)
+    model.hard(beam_bm, "paint", bevel=0.01, segments=2)
+    if seat is None:
+        return model
+    chains = bmesh.new()
+    for x in (seat - 0.27, seat + 0.27):
+        rod(chains, (x, 0.0, 0.47), (x, 0.0, SWING_TOP - 0.045), 0.009, segments=6)
+        cuboid(chains, x - 0.03, x + 0.03, -0.01, 0.01, SWING_TOP - 0.06, SWING_TOP - 0.04)
+    model.turned(chains, "metal", sharp=50.0)
+    sling = bmesh.new()
+    bottom = [(seat + 0.27 * t / 6, 0.44 + 0.07 * (t / 6) ** 2) for t in range(-6, 7)]
+    top = [(x, z + 0.025) for x, z in reversed(bottom)]
+    outline_along_y(sling, bottom + top, -0.085, 0.085)
+    model.turned(sling, "plastic", sharp=40.0)
+    return model
+
+
+def sport_tyres(name, count, wobble=0.0):
+    """A stack of old tyres painted for a track's barrier, every other one set off its neighbours by wobble."""
+    model = Model(name)
+    stack = bmesh.new()
+    for n in range(count):
+        off = wobble * (1 if n % 2 else -1)
+        z = n * 0.205
+        lathe(stack, [(0.215, z + 0.02), (0.3, z), (0.355, z + 0.02), (0.372, z + 0.1), (0.355, z + 0.185), (0.3, z + 0.205), (0.215, z + 0.185),
+                      (0.205, z + 0.1)], cx=off, cy=off * 0.5, segments=24, closed=True)
+    model.turned(stack, "paint", sharp=50.0)
+    return model
+
+
+def play_castle():
+    """A child's play house on two squares by two: four walls of moulded plastic on posts round a deck, a doorway in two of them, and a
+    slide out of the one at +Y. It stands in the back of its squares, the slide in front of it. Each wall is its own colour, as the
+    moulded ones are; the one at +X takes the sprite's."""
+    model = Model("play_castle", centred=False)
+    x0, x1, y0, y1, high, deck = -0.58, 0.58, -0.83, 0.26, 1.27, 0.5
+    posts = bmesh.new()
+    for x in (x0, x1):
+        for y in (y0, y1):
+            cuboid(posts, x - 0.05, x + 0.05, y - 0.05, y + 0.05, 0.0, high + 0.08)
+    model.hard(posts, "plastic", bevel=0.02, segments=2)
+    floor = bmesh.new()
+    cuboid(floor, x0, x1, y0, y1, deck - 0.05, deck)
+    model.hard(floor, "metal", bevel=0.01, segments=1)
+
+    def wall(surface, along_x, at, door):
+        part = bmesh.new()
+        t = 0.03
+        lo, hi = (x0, x1) if along_x else (y0, y1)
+        lo, hi = lo + 0.05, hi - 0.05
+        mid = (lo + hi) / 2 + (0.1 if along_x else 0.0)
+        if door:
+            pieces = [(lo, mid - 0.2, 0.06, high), (mid + 0.2, hi, 0.06, high), (mid - 0.2, mid + 0.2, 0.06, deck),
+                      (mid - 0.2, mid + 0.2, deck + 0.6, high)]
+        else:
+            pieces = [(lo, hi, 0.06, high)]
+        for a0, a1, z0, z1 in pieces:
+            if along_x:
+                cuboid(part, a0, a1, at - t, at + t, z0, z1)
+            else:
+                cuboid(part, at - t, at + t, a0, a1, z0, z1)
+        model.hard(part, surface, bevel=0.012, segments=2)
+
+    wall("paint", False, x1, True)
+    wall("vinyl", True, y0, False)
+    wall("cloth", False, x0, False)
+    wall("shade", True, y1, True)
+    chute = bmesh.new()
+    path = [(y1 + 0.02 + 0.62 * t / 10, deck - (deck - 0.12) * (0.5 - 0.5 * math.cos(math.pi * t / 10))) for t in range(11)]
+    path += [(path[-1][0] + 0.12, 0.12)]
+    strip_path(chute, path, -0.08, 0.28, 0.03)
+    for edge in (-0.12, 0.28):
+        strip_path(chute, [(y, z + 0.09) for y, z in path], edge, edge + 0.04, 0.12)
+    model.hard(chute, "vinyl", bevel=0.008, segments=1)
+    return model
+
+
+def treadmill():
+    """A running machine two squares long: a deck with its belt, two posts up from the back and the console across their tops. Its
+    back is +Y."""
+    model = Model("treadmill", centred=False)
+    deck = bmesh.new()
+    cuboid(deck, -0.37, 0.37, -0.85, 0.62, 0.05, 0.2)
+    model.hard(deck, "metal", bevel=0.02, segments=2)
+    belt = bmesh.new()
+    cuboid(belt, -0.25, 0.25, -0.8, 0.5, 0.2, 0.215)
+    model.hard(belt, "rubber", bevel=0.004, segments=1)
+    feet = bmesh.new()
+    for x in (-0.33, 0.33):
+        for y in (-0.8, 0.55):
+            cuboid(feet, x - 0.03, x + 0.03, y - 0.03, y + 0.03, 0.0, 0.05)
+    model.hard(feet, "rubber", bevel=0.004, segments=1)
+    frame = bmesh.new()
+    for x in (-0.34, 0.34):
+        rod(frame, (x, 0.52, 0.18), (x, 0.42, 1.28), 0.028, segments=8)
+        rod(frame, (x, 0.42, 1.08), (x, 0.05, 1.08), 0.02, segments=8)
+    model.turned(frame, "metal")
+    console = bmesh.new()
+    prism_y(console, (0.0, 1.32, 0.78, 0.16, 0.33), (0.0, 1.4, 0.78, 0.12, 0.5))
+    model.hard(console, "metal", bevel=0.015, segments=2)
+    screen = bmesh.new()
+    prism_y(screen, (0.0, 1.33, 0.24, 0.07, 0.325), (0.0, 1.34, 0.24, 0.07, 0.34))
+    model.plain(screen, "screen")
+    return model
+
+
+def weight_bench():
+    """A flat bench for lifting with a rack for the bar at its head, two squares long. Its head is +Y."""
+    model = Model("weight_bench", centred=False)
+    pads = bmesh.new()
+    cuboid(pads, -0.15, 0.15, -0.9, -0.12, 0.38, 0.47)
+    cuboid(pads, -0.15, 0.15, -0.1, 0.42, 0.38, 0.47)
+    model.hard(pads, "plastic", bevel=0.02, segments=2)
+    frame = bmesh.new()
+    cuboid(frame, -0.03, 0.03, -0.85, 0.42, 0.3, 0.37)
+    for y in (-0.8, 0.0):
+        cuboid(frame, -0.03, 0.03, y - 0.03, y + 0.03, 0.05, 0.3)
+        cuboid(frame, -0.2, 0.2, y - 0.03, y + 0.03, 0.0, 0.05)
+    for x in (-0.35, 0.35):
+        cuboid(frame, x - 0.035, x + 0.035, 0.47, 0.54, 0.0, 0.82)
+        cuboid(frame, x - 0.035, x + 0.035, 0.36, 0.65, 0.0, 0.05)
+    cuboid(frame, -0.35, 0.35, 0.47, 0.54, 0.25, 0.31)
+    cuboid(frame, -0.03, 0.03, 0.42, 0.54, 0.25, 0.31)
+    model.hard(frame, "paint", bevel=0.006, segments=1)
+    hooks = bmesh.new()
+    for x in (-0.35, 0.35):
+        cuboid(hooks, x - 0.03, x + 0.03, 0.45, 0.56, 0.82, 0.86)
+        cuboid(hooks, x - 0.03, x + 0.03, 0.45, 0.48, 0.86, 0.93)
+        cuboid(hooks, x - 0.03, x + 0.03, 0.53, 0.56, 0.86, 0.93)
+    model.hard(hooks, "plastic", bevel=0.004, segments=1)
+    return model
+
+
+def upright_piano():
+    """An upright piano across two squares, its back to +Y: the case on two front legs, the keys on their bed and a lid over the top."""
+    model = Model("upright_piano", centred=False)
+    case = bmesh.new()
+    cuboid(case, -0.74, 0.74, -0.02, 0.42, 0.02, 1.06)
+    cuboid(case, -0.78, 0.78, -0.07, 0.45, 1.06, 1.1)
+    cuboid(case, -0.74, 0.74, -0.33, -0.02, 0.6, 0.68)
+    for x in (-0.74, 0.65):
+        cuboid(case, x, x + 0.09, -0.36, -0.02, 0.6, 0.83)
+    cuboid(case, -0.65, 0.65, -0.06, -0.02, 0.82, 1.04)
+    cuboid(case, -0.65, 0.65, -0.05, -0.02, 0.1, 0.58)
+    model.hard(case, "dark_wood", bevel=0.008, segments=2)
+    legs = bmesh.new()
+    for x in (-0.695, 0.695):
+        lathe(legs, [(0.0, 0.0), (0.03, 0.0), (0.025, 0.08), (0.03, 0.45), (0.04, 0.55), (0.04, 0.6), (0.0, 0.6)], cx=x, cy=-0.3, segments=12)
+    model.turned(legs, "dark_wood", sharp=50.0)
+    keys = bmesh.new()
+    cuboid(keys, -0.64, 0.64, -0.3, -0.12, 0.68, 0.71)
+    model.hard(keys, "ceramic", bevel=0.003, segments=1)
+    sharps = bmesh.new()
+    cuboid(sharps, -0.64, 0.64, -0.12, -0.06, 0.68, 0.725)
+    model.hard(sharps, "rubber", bevel=0.003, segments=1)
+    pedals = bmesh.new()
+    for x in (-0.06, 0.0, 0.06):
+        cuboid(pedals, x - 0.018, x + 0.018, -0.17, -0.02, 0.05, 0.07)
+    model.hard(pedals, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def piano_bench():
+    """A piano's bench across two squares: a padded top with an apron under it on four turned legs."""
+    model = Model("piano_bench", centred=False)
+    top = bmesh.new()
+    cuboid(top, -0.4, 0.4, -0.18, 0.18, 0.43, 0.5)
+    model.hard(top, "dark_wood", bevel=0.01, segments=2)
+    legs = bmesh.new()
+    for x in (-0.35, 0.35):
+        for y in (-0.13, 0.13):
+            lathe(legs, [(0.0, 0.0), (0.022, 0.0), (0.02, 0.1), (0.027, 0.3), (0.027, 0.43), (0.0, 0.43)], cx=x, cy=y, segments=10)
+    model.turned(legs, "dark_wood", sharp=50.0)
+    return model
+
+
+def slide():
+    """A park's slide two squares long: a ladder up to a little platform at +Y and the chute curving down from it to -Y."""
+    model = Model("slide", centred=False)
+    top, half = 1.3, 0.24
+    chute = bmesh.new()
+    path = []
+    for t in range(16):
+        f = t / 15
+        y = 0.45 - 1.38 * f
+        z = 0.24 + (top - 0.24) * (0.5 + 0.5 * math.cos(math.pi * min(f * 1.08, 1.0)))
+        path.append((y, z))
+    path.append((-0.98, 0.24))
+    strip_path(chute, path, -half + 0.03, half - 0.03, 0.03)
+    model.hard(chute, "steel", bevel=0.004, segments=1)
+    rails = bmesh.new()
+    for x0 in (-half, half - 0.045):
+        strip_path(rails, [(y, z + 0.11) for y, z in path], x0, x0 + 0.045, 0.14)
+    model.hard(rails, "vinyl", bevel=0.01, segments=1)
+    steel = bmesh.new()
+    for x in (-half + 0.02, half - 0.02):
+        rod(steel, (x, -0.92, 0.0), (x, -0.92, 0.2), 0.02, segments=8)
+        rod(steel, (x, 0.95, 0.0), (x, 0.55, top + 0.6), 0.022, segments=8)
+    for n in range(1, 6):
+        z = n * top / 6
+        y = 0.95 - 0.4 * z / (top + 0.6)
+        rod(steel, (-half + 0.02, y, z), (half - 0.02, y, z), 0.015, segments=6)
+    for x in (-half + 0.02, half - 0.02):
+        rod(steel, (x, 0.45, top), (x, 0.52, top + 0.5), 0.016, segments=6)
+    cuboid(steel, -half, half, 0.42, 0.66, top - 0.03, top)
+    model.turned(steel, "metal")
+    return model
+
+
+def merry_go_round():
+    """A roundabout on two squares by two: a turning deck round a post, with six bars to hold that bend in to the post."""
+    model = Model("merry_go_round")
+    deck = bmesh.new()
+    lathe(deck, [(0.0, 0.23), (0.95, 0.23), (0.97, 0.26), (0.97, 0.32), (0.95, 0.34), (0.0, 0.34)], segments=48)
+    model.turned(deck, "paint", sharp=50.0)
+    under = bmesh.new()
+    lathe(under, [(0.0, 0.0), (0.22, 0.0), (0.16, 0.23), (0.0, 0.23)], segments=16)
+    model.turned(under, "metal", sharp=50.0)
+    bars = bmesh.new()
+    lathe(bars, [(0.0, 0.34), (0.06, 0.34), (0.06, 1.0), (0.08, 1.02), (0.08, 1.08), (0.0, 1.1)], segments=14)
+    for n in range(6):
+        c, s = math.cos(n * math.pi / 3), math.sin(n * math.pi / 3)
+        rod(bars, (0.8 * c, 0.8 * s, 0.34), (0.8 * c, 0.8 * s, 1.0), 0.018, segments=6)
+        rod(bars, (0.8 * c, 0.8 * s, 1.0), (0.07 * c, 0.07 * s, 1.0), 0.018, segments=6)
+    model.turned(bars, "metal")
+    return model
+
+
+def speaker_cabinet(name, wide, deep, high, made):
+    """A speaker cabinet on the floor, its two cones in its front at -Y."""
+    model = Model(name)
+    box = bmesh.new()
+    cuboid(box, -wide / 2, wide / 2, -deep / 2, deep / 2, 0.0, high)
+    model.hard(box, made, bevel=0.008, segments=2)
+    cones = bmesh.new()
+    for z, r in ((high * 0.32, wide * 0.36), (high * 0.72, wide * 0.18)):
+        lathe(cones, [(0.0, 0.006), (r * 0.3, 0.004), (r, -0.012), (r * 1.08, -0.014), (r * 1.08, 0.0)], segments=20,
+              to=Matrix.Translation((0.0, -deep / 2 - 0.0005, z)) @ Matrix.Rotation(math.radians(90), 4, "X"))
+    model.turned(cones, "rubber", sharp=45.0)
+    return model
+
+
+def jukebox():
+    """A jukebox: a cabinet with a round top, the glass of its selector and the lit bands round its face at -Y."""
+    model = Model("jukebox")
+    wide, deep, high = 0.86, 0.62, 1.5
+    side = [(-wide / 2, 0.0), (wide / 2, 0.0)] + [(wide / 2 * math.cos(math.radians(a)), high - wide / 2 + wide / 2 * math.sin(math.radians(a)))
+                                                    for a in range(0, 181, 15)]
+    body = bmesh.new()
+    outline_along_y(body, side, -deep / 2, deep / 2)
+    model.hard(body, "plastic", bevel=0.012, segments=2)
+    bands = bmesh.new()
+    inner = [(x * 0.82, z * 0.94 + 0.04) for x, z in side]
+    outline_along_y(bands, inner, -deep / 2 - 0.02, -deep / 2 + 0.01)
+    model.hard(bands, "shade", bevel=0.006, segments=1)
+    glass = bmesh.new()
+    cuboid(glass, -0.26, 0.26, -deep / 2 - 0.03, -deep / 2 - 0.01, 0.72, 1.12)
+    model.hard(glass, "screen", bevel=0.004, segments=1)
+    grille = bmesh.new()
+    cuboid(grille, -0.26, 0.26, -deep / 2 - 0.03, -deep / 2 - 0.01, 0.12, 0.55)
+    model.hard(grille, "linen", bevel=0.004, segments=1)
+    return model
+
+
+def grand_piano():
+    """A grand piano two squares by three, its keys at -Y and its tail curving round to +Y, on three legs, the lid shut."""
+    model = Model("grand_piano", centred=False)
+    front, back, half = -1.25, 1.3, 0.92
+    # The bass side is straight, at -X. The treble side runs straight back from the keys, curves in, and rounds into the tail.
+    waist, neck = front + 0.6, back - 0.5
+    plan = [(-half, front), (half, front), (half, waist)]
+    plan += [(half - (half - 0.15) * (0.5 - 0.5 * math.cos(math.pi * t / 8)), waist + (neck - waist) * t / 8) for t in range(1, 9)]
+    tail = (half + 0.15) / 2
+    plan += [(0.15 - tail + tail * math.cos(math.radians(a)), neck + tail * math.sin(math.radians(a))) for a in range(15, 181, 15)]
+    case = bmesh.new()
+    outline_up(case, plan, 0.66, 1.02)
+    model.hard(case, "screen", bevel=0.01, segments=2)
+    lid = bmesh.new()
+    outline_up(lid, [(x * 1.01, y) for x, y in plan], 1.02, 1.04)
+    cuboid(lid, -0.36, 0.36, front + 0.12, front + 0.16, 1.04, 1.28)
+    model.hard(lid, "screen", bevel=0.004, segments=1)
+    legs = bmesh.new()
+    for x, y in ((-half + 0.1, front + 0.15), (half - 0.1, front + 0.15), (-0.38, back - 0.3)):
+        lathe(legs, [(0.0, 0.0), (0.035, 0.0), (0.04, 0.05), (0.035, 0.44), (0.06, 0.64), (0.0, 0.66)], cx=x, cy=y, segments=12)
+    rod(legs, (0.0, front + 0.3, 0.0), (0.0, front + 0.3, 0.66), 0.02, segments=8)
+    model.turned(legs, "screen", sharp=50.0)
+    keys = bmesh.new()
+    cuboid(keys, -0.82, 0.82, front - 0.2, front, 0.72, 0.75)
+    model.hard(keys, "ceramic", bevel=0.003, segments=1)
+    sharps = bmesh.new()
+    cuboid(sharps, -0.82, 0.82, front - 0.05, front, 0.72, 0.765)
+    cuboid(sharps, -0.88, 0.88, front - 0.24, front, 0.66, 0.72)
+    for x in (-0.88, 0.82):
+        cuboid(sharps, x, x + 0.06, front - 0.24, front, 0.72, 0.8)
+    model.hard(sharps, "screen", bevel=0.003, segments=1)
+    return model
+
+
+def lectern():
+    """A lectern: a plinth, a post, and a sloped desk for the book that faces whoever reads from it at +Y."""
+    model = Model("lectern")
+    wood = bmesh.new()
+    cuboid(wood, -0.26, 0.26, -0.22, 0.22, 0.0, 0.08)
+    cuboid(wood, -0.12, 0.12, -0.09, 0.09, 0.08, 0.84)
+    prism_y(wood, (0.0, 0.87, 0.5, 0.07, -0.2), (0.0, 0.97, 0.5, 0.12, 0.2))
+    model.hard(wood, "dark_wood", bevel=0.008, segments=2)
+    return model
+
+
+def pinball():
+    """A pinball machine two squares long: its table sloping up to the box at its head, +Y, on four legs."""
+    model = Model("pinball", centred=False)
+    side = [(-0.6, 0.68), (0.45, 0.68), (0.45, 1.0), (-0.6, 0.9)]
+    table = bmesh.new()
+    outline_along_x(table, side, -0.36, 0.36)
+    cuboid(table, -0.36, 0.36, 0.45, 0.62, 0.68, 1.8)
+    model.hard(table, "paint", bevel=0.01, segments=2)
+    glass = bmesh.new()
+    prism_y(glass, (0.0, 0.905, 0.64, 0.01, -0.58), (0.0, 0.995, 0.64, 0.01, 0.43))
+    model.plain(glass, "pane")
+    face = bmesh.new()
+    cuboid(face, -0.32, 0.32, 0.43, 0.45, 1.06, 1.74)
+    model.hard(face, "shade", bevel=0.004, segments=1)
+    legs = bmesh.new()
+    for x in (-0.31, 0.31):
+        for y in (-0.53, 0.52):
+            cuboid(legs, x - 0.025, x + 0.025, y - 0.025, y + 0.025, 0.0, 0.68)
+    model.hard(legs, "metal", bevel=0.004, segments=1)
+    return model
+
+
+def altar():
+    """A church's altar on two squares, its length across them and shorter than they are: a wooden table with a cloth over its top
+    that hangs down the front at -Y."""
+    model = Model("altar")
+    body = bmesh.new()
+    cuboid(body, -0.6, 0.6, -0.3, 0.38, 0.0, 0.82)
+    cuboid(body, -0.65, 0.65, -0.34, 0.42, 0.82, 0.87)
+    model.hard(body, "dark_wood", bevel=0.01, segments=2)
+    cloth = bmesh.new()
+    cuboid(cloth, -0.38, 0.38, -0.36, 0.44, 0.87, 0.89)
+    cuboid(cloth, -0.38, 0.38, -0.37, -0.35, 0.3, 0.89)
+    model.hard(cloth, "linen", bevel=0.004, segments=1)
+    return model
+
+
+def amplifier():
+    """A guitar amplifier: a covered box with its grille at -Y and its knobs on top."""
+    model = Model("amplifier")
+    box = bmesh.new()
+    cuboid(box, -0.24, 0.24, -0.13, 0.13, 0.0, 0.42)
+    model.hard(box, "wood", bevel=0.012, segments=2)
+    grille = bmesh.new()
+    cuboid(grille, -0.2, 0.2, -0.14, -0.13, 0.04, 0.32)
+    model.hard(grille, "cloth", bevel=0.003, segments=1)
+    panel = bmesh.new()
+    cuboid(panel, -0.2, 0.2, -0.14, -0.13, 0.34, 0.39)
+    model.hard(panel, "plastic", bevel=0.003, segments=1)
+    return model
+
+
+def drum(bm, heads, x, y, z, radius, deep, lying=False):
+    """A drum's shell into bm and its two heads into heads, its middle at (x, y, z), upright or lying along Y."""
+    to = Matrix.Translation((x, y, z)) @ (Matrix.Rotation(math.radians(90), 4, "X") if lying else Matrix.Identity(4))
+    lathe(bm, [(radius, -deep / 2 + 0.01), (radius, deep / 2 - 0.01)], segments=20, caps=False, to=to)
+    for end in (-1, 1):
+        lathe(heads, [(0.0, end * deep / 2), (radius * 1.02, end * deep / 2), (radius * 1.02, end * (deep / 2 - 0.012)), (0.0, end * (deep / 2 - 0.012))],
+              segments=20, to=to)
+
+
+def drum_kick():
+    """A bass drum lying on its side, its face to -Y, with two drums on a mount over it."""
+    model = Model("drum_kick")
+    shells, heads = bmesh.new(), bmesh.new()
+    drum(shells, heads, 0.0, 0.0, 0.34, 0.33, 0.45, lying=True)
+    drum(shells, heads, -0.16, -0.1, 0.9, 0.16, 0.2)
+    drum(shells, heads, 0.17, -0.1, 0.92, 0.17, 0.21)
+    model.turned(shells, "vinyl", sharp=50.0)
+    model.turned(heads, "linen", sharp=50.0)
+    stand = bmesh.new()
+    rod(stand, (0.0, -0.1, 0.66), (0.0, -0.1, 0.8), 0.014, segments=6)
+    rod(stand, (-0.2, -0.05, 0.0), (-0.24, -0.1, 0.06), 0.01, segments=6)
+    rod(stand, (0.2, -0.05, 0.0), (0.24, -0.1, 0.06), 0.01, segments=6)
+    model.turned(stand, "metal")
+    return model
+
+
+def drum_stand():
+    """A drum on a stand of three legs, a snare or a tom, with a cymbal on a stand of its own beside it."""
+    model = Model("drum_stand")
+    shells, heads = bmesh.new(), bmesh.new()
+    drum(shells, heads, 0.0, 0.0, 0.58, 0.17, 0.15)
+    model.turned(shells, "vinyl", sharp=50.0)
+    model.turned(heads, "linen", sharp=50.0)
+    steel = bmesh.new()
+    for x, y, top in ((0.0, 0.0, 0.5), (0.22, 0.12, 1.02)):
+        rod(steel, (x, y, 0.15), (x, y, top), 0.011, segments=6)
+        for n in range(3):
+            a = n * 2 * math.pi / 3
+            rod(steel, (x + 0.2 * math.cos(a), y + 0.2 * math.sin(a), 0.0), (x, y, 0.16), 0.008, segments=6)
+    model.turned(steel, "metal")
+    cymbal = bmesh.new()
+    lathe(cymbal, [(0.0, 1.06), (0.03, 1.05), (0.2, 1.02), (0.2, 1.015), (0.03, 1.045), (0.0, 1.055)], cx=0.22, cy=0.12, segments=24)
+    model.turned(cymbal, "worktop", sharp=45.0)
+    return model
+
+
+def basket_pole():
+    """The post a basketball hoop stands on: a steel pole a little more than a storey high."""
+    model = Model("basket_pole")
+    pole = bmesh.new()
+    lathe(pole, [(0.0, 0.0), (0.055, 0.0), (0.055, 2.67), (0.045, 2.69), (0.0, 2.69)], segments=14)
+    model.turned(pole, "paint", sharp=50.0)
+    return model
+
+
+def basket_board():
+    """A basketball backboard a storey up, its face to -Y with the hoop and its net out in front, and the bracket at its back."""
+    model = Model("basket_board", centred=False)
+    board = bmesh.new()
+    outline = [(-0.5, 0.0), (0.5, 0.0)] + [(0.5 * math.cos(math.radians(a)), 0.5 + 0.17 * math.sin(math.radians(a))) for a in range(0, 181, 15)]
+    outline_along_y(board, outline, -0.02, 0.02)
+    model.hard(board, "paint", bevel=0.008, segments=2)
+    mark = bmesh.new()
+    for x0, x1, z0, z1 in ((-0.2, 0.2, 0.08, 0.11), (-0.2, 0.2, 0.38, 0.41), (-0.2, -0.17, 0.08, 0.41), (0.17, 0.2, 0.08, 0.41)):
+        cuboid(mark, x0, x1, -0.025, -0.02, z0, z1)
+    rim = bmesh.new()
+    lathe(rim, [(0.21, 0.12), (0.23, 0.12), (0.23, 0.14), (0.21, 0.14)], cy=-0.26, segments=24, closed=True)
+    cuboid(rim, -0.05, 0.05, -0.06, -0.02, 0.1, 0.16)
+    model.hard(mark, "vinyl", bevel=0.002, segments=1)
+    model.turned(rim, "vinyl", sharp=50.0)
+    net = bmesh.new()
+    for n in range(12):
+        a = n * math.pi / 6
+        rod(net, (0.13 * math.cos(a), -0.26 + 0.13 * math.sin(a), -0.24), (0.22 * math.cos(a + 0.3), -0.26 + 0.22 * math.sin(a + 0.3), 0.12), 0.005, segments=4)
+    model.turned(net, "linen", sharp=60.0)
+    back = bmesh.new()
+    cuboid(back, -0.18, 0.18, 0.02, 0.06, 0.05, 0.45)
+    model.hard(back, "plastic", bevel=0.006, segments=1)
+    return model
+
+
+# A park's fountain: a round basin over three squares by three, how far its wall is from the middle and how high its rim, its water.
+FOUNTAIN_RADIUS, FOUNTAIN_RIM, FOUNTAIN_WATER = 1.18, 0.5, 0.4
+
+
+def fountain_part(name, sector):
+    """The part of a fountain's basin on one of the squares round its middle, or the middle itself (sector None): the wall, rim and
+    water of the angles the square takes, its sprite's square being the one at sector * 45 degrees from the middle, +X first and
+    turning to +Y. The model is built on its own square's middle, the basin's middle a square away along that way. The corner square
+    the game puts nothing on, at -X -Y, is shared between its two neighbours."""
+    model = Model(name, centred=False)
+    if sector is None:
+        cx = cy = 0.0
+        spans = []
+    else:
+        a = math.radians(sector * 45)
+        cx, cy = -round(math.cos(a)), -round(math.sin(a))
+        lo, hi = sector * 45 - 22.5, sector * 45 + 22.5
+        if sector == 4:
+            hi += 22.5
+        if sector == 6:
+            lo -= 22.5
+        spans = [(lo, hi)]
+    steps = 6
+    wall, rim, water = bmesh.new(), bmesh.new(), bmesh.new()
+    inner = FOUNTAIN_RADIUS - 0.16
+    for lo, hi in spans:
+        n = max(2, round((hi - lo) / 45 * steps))
+        ring = [math.radians(lo + (hi - lo) * i / n) for i in range(n + 1)]
+        for r0, r1, z0, z1, into in ((inner + 0.02, FOUNTAIN_RADIUS - 0.03, 0.0, FOUNTAIN_RIM - 0.07, wall),
+                                     (inner, FOUNTAIN_RADIUS, FOUNTAIN_RIM - 0.07, FOUNTAIN_RIM, rim)):
+            for t0, t1 in zip(ring, ring[1:]):
+                corners = [(r * math.cos(t), r * math.sin(t)) for r, t in ((r0, t0), (r1, t0), (r1, t1), (r0, t1))]
+                low = [into.verts.new((cx + x, cy + y, z0)) for x, y in corners]
+                high = [into.verts.new((cx + x, cy + y, z1)) for x, y in corners]
+                into.faces.new(low[::-1])
+                into.faces.new(high)
+                for i in range(4):
+                    j = (i + 1) % 4
+                    into.faces.new((low[i], low[j], high[j], high[i]))
+        for t0, t1 in zip(ring, ring[1:]):
+            corners = [(r * math.cos(t), r * math.sin(t)) for r, t in ((0.5, t0), (inner + 0.03, t0), (inner + 0.03, t1), (0.5, t1))]
+            low = [water.verts.new((cx + x, cy + y, 0.02)) for x, y in corners]
+            high = [water.verts.new((cx + x, cy + y, FOUNTAIN_WATER)) for x, y in corners]
+            water.faces.new(low[::-1])
+            water.faces.new(high)
+            for i in range(4):
+                j = (i + 1) % 4
+                water.faces.new((low[i], low[j], high[j], high[i]))
+    if sector is None:
+        lathe(water, [(0.0, 0.02), (0.5, 0.02), (0.5, FOUNTAIN_WATER), (0.0, FOUNTAIN_WATER)], segments=24)
+    else:
+        # Built as the map lies, +X east: a model's +X is the map's west.
+        for part in (wall, rim):
+            bmesh.ops.scale(part, vec=(-1.0, 1.0, 1.0), verts=part.verts)
+        model.hard(wall, "metal", bevel=0.01, segments=1)
+        model.hard(rim, "worktop", bevel=0.012, segments=2)
+    bmesh.ops.scale(water, vec=(-1.0, 1.0, 1.0), verts=water.verts)
+    model.plain(water, "pane")
+    return model
+
+
+def fountain_tiers():
+    """The fountain in the middle of the basin: three bowls one over the other on a turned stem."""
+    model = Model("fountain_tiers")
+    tiers = bmesh.new()
+    lathe(tiers, [(0.0, 0.0), (0.16, 0.0), (0.16, 0.1), (0.1, 0.16), (0.08, 0.5), (0.12, 0.62), (0.5, 0.72), (0.53, 0.8), (0.5, 0.82),
+                  (0.12, 0.76), (0.06, 0.8), (0.05, 1.05), (0.09, 1.1), (0.32, 1.17), (0.34, 1.23), (0.31, 1.24), (0.08, 1.2),
+                  (0.04, 1.24), (0.035, 1.42), (0.16, 1.48), (0.17, 1.53), (0.06, 1.55), (0.05, 1.62), (0.0, 1.66)], segments=28)
+    bmesh.ops.scale(tiers, vec=(1.15, 1.15, 1.15), verts=tiers.verts)
+    model.turned(tiers, "plastic", sharp=40.0)
+    return model
+
+
+# A net across a court: how high its foot and its top are, where its posts stand along the first and the last of its squares.
+NET_FOOT, NET_TOP, NET_FIRST_POST, NET_LAST_POST = 1.02, 1.9, 0.02, 0.85
+
+
+def court_net(name, first, last):
+    """A square's length of a net across a court, along the model's X, with its post where the net starts on the first square of its
+    run or ends on the last, and the bar the posts are joined by along the ground. Its origin is at the middle of its square."""
+    model = Model(name, centred=False)
+    x0 = NET_FIRST_POST + 0.04 - 0.5 if first else -0.5
+    x1 = NET_LAST_POST - 0.04 - 0.5 if last else 0.5
+    mesh = bmesh.new()
+    cells = max(1, round((x1 - x0) / 0.1))
+    for i in range(cells + 1):
+        x = x0 + (x1 - x0) * i / cells
+        cuboid(mesh, x - 0.004, x + 0.004, -0.004, 0.004, NET_FOOT, NET_TOP)
+    for k in range(10):
+        z = NET_FOOT + (NET_TOP - NET_FOOT) * k / 9
+        cuboid(mesh, x0, x1, -0.004, 0.004, z - 0.004, z + 0.004)
+    model.plain(mesh, "rubber")
+    band = bmesh.new()
+    cuboid(band, x0, x1, -0.008, 0.008, NET_TOP, NET_TOP + 0.05)
+    model.hard(band, "linen", bevel=0.003, segments=1)
+    steel = bmesh.new()
+    rod(steel, (NET_FIRST_POST - 0.5 if first else -0.5, 0.0, 0.03), (NET_LAST_POST - 0.5 if last else 0.5, 0.0, 0.03), 0.02, segments=8)
+    model.turned(steel, "metal")
+    if first or last:
+        posts = bmesh.new()
+        for at, here in ((NET_FIRST_POST - 0.5, first), (NET_LAST_POST - 0.5, last)):
+            if here:
+                cuboid(posts, at - 0.03, at + 0.03, -0.03, 0.03, 0.0, NET_TOP + 0.1)
+                cuboid(posts, at - 0.04, at + 0.04, -0.28, 0.28, 0.0, 0.03)
+        model.hard(posts, "plastic", bevel=0.006, segments=1)
+    return model
+
+
+# A football goal: how high its crossbar is, where its posts stand along the first and the last of its squares.
+GOAL_TOP, GOAL_FIRST_POST, GOAL_LAST_POST = 2.44, 0.42, 0.55
+
+
+def goal(name, first, last):
+    """A square's length of a goal's frame along the model's X, with a post where it starts on the first square of its run or ends on
+    the last, and a round joint where the post meets the bar. Its origin is at the middle of its square."""
+    model = Model(name, centred=False)
+    frame = bmesh.new()
+    x0 = GOAL_FIRST_POST - 0.5 if first else -0.5
+    x1 = GOAL_LAST_POST - 0.5 if last else 0.5
+    rod(frame, (x0, 0.0, GOAL_TOP), (x1, 0.0, GOAL_TOP), 0.06, segments=12)
+    for x, here in ((x0, first), (x1, last)):
+        if here:
+            rod(frame, (x, 0.0, 0.0), (x, 0.0, GOAL_TOP), 0.06, segments=12)
+            lathe(frame, [(0.0, GOAL_TOP - 0.06)] + [(0.06 * math.sin(math.pi * k / 6), GOAL_TOP - 0.06 * math.cos(math.pi * k / 6)) for k in range(1, 6)]
+                  + [(0.0, GOAL_TOP + 0.06)], cx=x, segments=12)
+    model.turned(frame, "paint", sharp=50.0)
+    return model
+
+
+def leisure():
+    """Play, sport and music: a park's swings, slides, play house, roundabout and fountain, a gym's machines, tyre walls of a track,
+    a basketball hoop, pianos, speakers, a jukebox, drums, a pinball table, and a church's lectern and altar."""
+    return [swing_end(), swing_leg(), swing_beam("swing_beam"), swing_beam("swing_near", -0.05), swing_beam("swing_far", -0.25),
+            swing_beam("swing_near_e", 0.05), swing_beam("swing_far_e", 0.25),
+            sport_tyres("tyres_1", 1), sport_tyres("tyres_2", 2), sport_tyres("tyres_3", 3), sport_tyres("tyres_4", 4), sport_tyres("tyres_2_askew", 2, 0.04),
+            sport_tyres("tyres_3_askew", 3, 0.04), sport_tyres("tyres_4_askew", 4, 0.04),
+            play_castle(), treadmill(), weight_bench(), upright_piano(), piano_bench(), slide(), merry_go_round(),
+            speaker_cabinet("speaker_tall", 0.46, 0.36, 0.82, "dark_wood"), speaker_cabinet("speaker_low", 0.46, 0.34, 0.64, "plastic"),
+            jukebox(), grand_piano(), lectern(), pinball(), altar(), amplifier(), drum_kick(), drum_stand(),
+            basket_pole(), basket_board(), court_net("net_first", True, False), court_net("net_middle", False, False),
+            court_net("net_last", False, True), goal("goal_first", True, False), goal("goal_middle", False, False), goal("goal_last", False, True)] + \
+        [fountain_part("fountain_%d" % sector, sector) for sector in range(8) if sector != 5] + [fountain_part("fountain_middle", None), fountain_tiers()]
+
 
 # What a works, a warehouse, a garage and a distillery have: belt conveyors and the machines a line of them runs
 # through, a fuel tank lying on saddles, a pipe down from the ceiling, crates, a rack of casks and the casks, a
@@ -8270,7 +8910,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + farm_and_garden())
+            + towers() + farm_and_garden() + leisure())
 
 
 def main():
