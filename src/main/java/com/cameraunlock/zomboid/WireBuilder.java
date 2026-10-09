@@ -51,9 +51,11 @@ final class WireBuilder {
                 build.hungFrame.scale = build.frame.scale;
                 WorldScene.frameOf(build.hungFrame, object, texture);
                 float[] lines = wiresOn(texture, sprite.getName(), build.hungFrame);
-                for (int line = 0; line < lines.length; line += 2) {
-                    out[count++] = x + lines[line];
-                    out[count++] = y + lines[line + 1];
+                for (int line = 0; line < lines.length; line += 2, count += 2) {
+                    if (count + 2 <= out.length) {
+                        out[count] = x + lines[line];
+                        out[count + 1] = y + lines[line + 1];
+                    }
                 }
             }
             return count;

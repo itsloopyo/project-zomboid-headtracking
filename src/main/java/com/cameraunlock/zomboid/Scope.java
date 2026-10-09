@@ -422,14 +422,16 @@ final class Scope {
     }
 
     /**
-     * Whether the game's own reticle is left out. Behind a scope that the aim mode keeps the
-     * eye behind, sights locked and stock sights, the scope's reticle is on the point the
-     * rounds go to and the game's would only lie over it. In free look the scope's
-     * is true only from behind the scope, and the game's stays as the mark of where the
-     * rounds go.
+     * Whether the game's own reticle is left out. With the sights more than half way up
+     * behind a scope that the aim mode keeps the eye behind, sights locked and stock sights,
+     * the scope's reticle is on the point the rounds go to and the game's would only lie over
+     * it. At the hip the eye is beside the scope, which shows nothing, and an attack held
+     * there aims too, so the game's reticle is the only mark of where the rounds go. In free
+     * look the scope's is true only from behind the scope, and the game's stays.
      */
     boolean hidesReticle() {
-        return fitted != null && !Tracking.freeLook();
+        ViewModel.Held held = view.viewModel.held;
+        return fitted != null && !Tracking.freeLook() && held != null && held.aim() > 0.5f;
     }
 
     /** How far a lean along the aim may take the eye towards the eyepiece with the sights up, in tiles. */

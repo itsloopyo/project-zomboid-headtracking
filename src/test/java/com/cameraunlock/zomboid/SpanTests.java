@@ -17,6 +17,7 @@ final class SpanTests {
         Checks.run("spanTheMapIsNotLoadedToTheEndOfIsTakenForAUsualOne", SpanTests::spanTheMapIsNotLoadedToTheEndOfIsTakenForAUsualOne);
         Checks.run("wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds", SpanTests::wireHangsLowestInTheMiddleAndNotAtAllAtItsEnds);
         Checks.run("lengthsOfASpanSwingAsOne", SpanTests::lengthsOfASpanSwingAsOne);
+        Checks.run("squareStackedWithMoreWireThanUsualIsFollowedLikeAnother", SpanTests::squareStackedWithMoreWireThanUsualIsFollowedLikeAnother);
     }
 
     /** A map of one level: the lines on each square, the poles, and how far along x it is loaded. */
@@ -52,7 +53,9 @@ final class SpanTests {
             }
             int count = 0;
             for (float[] line : lines.getOrDefault(key(x, y), List.of())) {
-                System.arraycopy(line, 0, out, count, 4);
+                if (count + 4 <= out.length) {
+                    System.arraycopy(line, 0, out, count, 4);
+                }
                 count += 4;
             }
             return count;
@@ -264,6 +267,24 @@ final class SpanTests {
         }
         check(Spans.acrossSign(-0.012f, 0.9999f) == Spans.acrossSign(0.012f, 0.9999f) && Spans.acrossSign(0.7f, 0.72f) == Spans.acrossSign(0.72f, 0.7f),
                 "and two lengths that run a hair apart have the same one");
+    }
+
+    /** A map that stacks a square with more lengths than Spans.MOST_LINES holds: twenty copies of the one a run has there. */
+    private static void squareStackedWithMoreWireThanUsualIsFollowedLikeAnother() {
+        Map usual = new Map(), stacked = new Map();
+        for (Map map : List.of(usual, stacked)) {
+            map.pole(10, 5, 0f, -0.8f);
+            map.pole(36, 5, 0f, -0.8f);
+            wire(map, 10, 36, 4, 4.7f);
+        }
+        float[] length = stacked.lines.get(Map.key(20, 4)).get(0);
+        for (int copy = 0; copy < 19; copy++) {
+            stacked.line(20, 4, length[0], length[1], length[2], length[3]);
+        }
+        check(stacked.lines.get(Map.key(20, 4)).size() * 4 > Spans.MOST_LINES, "the stacked square holds more than usual");
+        float[] ends = ends(piecesOf(stacked, 15, 4, 0), 0), usualEnds = ends(piecesOf(usual, 15, 4, 0), 0);
+        check(java.util.Arrays.equals(ends, usualEnds), "a run over a stacked square hangs between the same insulators: "
+                + java.util.Arrays.toString(ends) + " against " + java.util.Arrays.toString(usualEnds));
     }
 
     private static void check(boolean condition, String what) {

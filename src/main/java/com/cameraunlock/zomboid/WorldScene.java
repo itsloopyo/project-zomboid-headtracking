@@ -772,6 +772,8 @@ final class WorldScene {
     private int strungWith;
     /** The run each length of a banner strung across a street is part of, as Banners finds it, by the square it hangs on. Kept and dropped as strung is. */
     private final HashMap<Long, float[]> bannerRuns = new HashMap<>();
+    /** The banner sprites the log has said paint nothing at an end of their square. */
+    private static final Set<String> bannersUnpainted = ConcurrentHashMap.newKeySet();
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
@@ -2615,6 +2617,9 @@ final class WorldScene {
                         ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
                         solid.clear();
                         laid.clear();
+                        // Shared by every view: a build that threw half way through a layer turned
+                        // its own view off, and the other's builds are not to inherit its count.
+                        layers.none();
                         fresh.placed.clear();
                         if (SightTrace.ON) {
                             if (fresh.traced == null) {
@@ -4127,8 +4132,14 @@ final class WorldScene {
                 IsoObject length = length(x, y, alongX);
                 float top = Banners.top(picture::isMaskSet, hungFrame, alongX, atStart);
                 if (Float.isNaN(top)) {
-                    throw new IllegalStateException("the banner's length " + length.getSprite().getName() + " at " + x + "," + y + "," + hungOn
-                            + " paints nothing at the end of its square, so where its cable is made fast cannot be read");
+                    // A retextured sheet can leave the cable short of the square's end: the
+                    // length is still drawn, swaying from the top of its picture there.
+                    String name = length == null ? "of no sprite" : length.getSprite().getName();
+                    if (bannersUnpainted.add(name)) {
+                        Log.info("the banner's length " + name + " at " + x + "," + y + "," + hungOn
+                                + " paints nothing at the end of its square, so its cable is taken to be at the top of its picture there");
+                    }
+                    top = Banners.frameTop(hungFrame, alongX, atStart);
                 }
                 return top;
             }

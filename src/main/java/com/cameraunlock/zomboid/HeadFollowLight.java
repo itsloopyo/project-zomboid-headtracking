@@ -14,16 +14,18 @@ import zombie.iso.Vector2;
  * the game's is written, so there is nothing to put back, and its vision cone,
  * aim and facing still read the look direction as it was.
  *
- * The beam lies on the ground, so it has a heading and nothing else. The
- * heading it is given is the one the view would have with the head's angles
- * as cameraunlock-core multiplies them for a light (LightMultiplier), which at
- * a multiplier of 1 is the middle of the picture.
+ * The game's beam lies on the ground, so it has a heading and nothing else.
+ * The heading it is given is the one the view would have with the head's
+ * angles as cameraunlock-core multiplies them for a light (LightMultiplier),
+ * which at a multiplier of 1 is the middle of the picture. The beam first
+ * person draws has the height of that same view as well.
  */
 public final class HeadFollowLight {
     private static final ViewCamera.Pose scaled = new ViewCamera.Pose();
     /** Radians. Written on the logic thread, read wherever the game updates its lights. */
     private volatile float turn;
-
+    /** How far up the view with the light's angles faces, or NaN with the beam where the game points it. Written on the logic thread. */
+    private volatile float up = Float.NaN;
 
     /**
      * How far the heading of a view turns when the light's angles are composed
@@ -41,15 +43,23 @@ public final class HeadFollowLight {
     /** The beam follows this frame's angles for a light, in radians, over the clean view. */
     void follow(ViewCamera.Pose clean, float lightYaw, float lightPitch, float lightRoll, boolean worldYaw) {
         turn = headingTurn(clean, lightYaw, lightPitch, lightRoll, worldYaw);
+        up = scaled.forwardUp;
     }
 
     /** The beam goes back to where the game points it. */
     void release() {
         turn = 0f;
+        up = Float.NaN;
     }
 
     float turn() {
         return turn;
+    }
+
+    /** How far up the beam faces, as the up share of its direction: the clean view's while the beam is the game's. */
+    float up(ViewCamera.Pose clean) {
+        float now = up;
+        return Float.isNaN(now) ? clean.forwardUp : now;
     }
 
     /**

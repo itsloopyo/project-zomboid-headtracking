@@ -5,6 +5,7 @@ import zombie.characterTextures.BloodBodyPartType;
 import zombie.characters.IsoPlayer;
 import zombie.characters.WornItems.WornItems;
 import zombie.core.ImmutableColor;
+import zombie.core.skinnedmodel.population.ClothingItem;
 import zombie.core.skinnedmodel.visual.HumanVisual;
 import zombie.core.skinnedmodel.visual.ItemVisual;
 import zombie.core.textures.Texture;
@@ -373,7 +374,9 @@ final class Cabins {
                     soil[place * 2 + 1] = visual.getDirt(Places.OF_ARMS[place]);
                 }
             }
-            ImmutableColor dye = visual == null ? null : visual.getTint(visual.getClothingItem());
+            // The game's getTint reads the garment's model without asking whether it has one, and a mod's may not.
+            ClothingItem model = visual == null ? null : visual.getClothingItem();
+            ImmutableColor dye = model == null ? null : visual.getTint(model);
             Garment garment = dye == null ? new Garment(clothing.getTex(), 1f, 1f, 1f) : new Garment(clothing.getTex(), dye.r, dye.g, dye.b);
             glove = hand ? garment : glove;
             fore = lower ? garment : fore;

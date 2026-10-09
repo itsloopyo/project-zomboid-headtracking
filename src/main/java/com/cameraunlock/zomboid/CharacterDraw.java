@@ -1224,9 +1224,12 @@ final class CharacterDraw {
         }
         cutBones = armBones(skeleton)[(held ? 2 : 0) + (bothArms ? 1 : 0)];
         cutKeepsThem = held;
-        boolean drawn = part(part);
-        cutBones = null;
-        return drawn;
+        try {
+            return part(part);
+        } finally {
+            // A throw turns one view off, and the other's people are not to be drawn cut.
+            cutBones = null;
+        }
     }
 
     /** Draws the left hand of one part of the viewer begun, and nothing else of it. */
@@ -1236,9 +1239,11 @@ final class CharacterDraw {
         }
         cutBones = armBones(skeleton)[4];
         cutKeepsThem = true;
-        boolean drawn = part(part);
-        cutBones = null;
-        return drawn;
+        try {
+            return part(part);
+        } finally {
+            cutBones = null;
+        }
     }
 
     /**

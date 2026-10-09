@@ -37,12 +37,13 @@ public final class SplitScreen {
 
     private SplitScreen() {}
 
-    static void set(int asked) {
-        if (asked == row) {
+    static void set(int wanted) {
+        if (wanted == row) {
             return;
         }
-        row = asked;
-        Log.info("split screen: " + NAMES[asked]);
+        row = wanted;
+        // The screen changes as frame lays it out, and says so there.
+        Log.info("split screen row set to " + described());
     }
 
     static int row() {
@@ -51,6 +52,11 @@ public final class SplitScreen {
 
     static String name() {
         return NAMES[row];
+    }
+
+    /** The row's name, and that the screen stays side by side where the patches are known not to be in. */
+    static String described() {
+        return asked && !patched && row != VERTICAL ? NAMES[row] + ", but the screen stays side by side: the game's code did not take the change" : NAMES[row];
     }
 
     /** The words CameraUnlock.ini holds for the row, in the order of their numbers, with commas between. */

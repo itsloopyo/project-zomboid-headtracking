@@ -56,7 +56,8 @@ final class Spans {
     interface Hung {
         /**
          * The lengths of wire the sprites on a square show, into out: four numbers each, the
-         * two ends on the map. How many numbers, or -1 for a square the map has not loaded.
+         * two ends on the map. How many numbers, or -1 for a square the map has not loaded. A
+         * count past the end of out is how many there are, of which only what fits was written.
          */
         int lines(int x, int y, float[] out);
 
@@ -67,11 +68,13 @@ final class Spans {
         int pins(int x, int y, float[] out, int at);
     }
 
-    /** The most numbers the lines of one square come to, and the pins of one pole. */
+    /** The numbers the lines of one square usually come to, and the pins of one pole. */
     static final int MOST_LINES = 64, POLE_PINS = 12;
 
     private final Hung map;
-    private final float[] lines = new float[MOST_LINES], pins = new float[(2 * POLES_WITHIN + 1) * (2 * POLES_WITHIN + 1) * POLE_PINS];
+    /** Grown when a square, stacked with wire by a map, shows more than it holds. */
+    private float[] lines = new float[MOST_LINES];
+    private final float[] pins = new float[(2 * POLES_WITHIN + 1) * (2 * POLES_WITHIN + 1) * POLE_PINS];
     private final float[] own = new float[pins.length], end = new float[5];
     /** What touch found: the pin each end of a length is made fast to, or -1, and those it passes over between them, in the order it passes them. */
     private int first, last, passed;
@@ -281,6 +284,10 @@ final class Spans {
             for (int beside = 0; beside < 9; beside++) {
                 int squareX = middleX + beside % 3 - 1, squareY = middleY + beside / 3 - 1;
                 int count = map.lines(squareX, squareY, lines);
+                if (count > lines.length) {
+                    lines = new float[count];
+                    count = map.lines(squareX, squareY, lines);
+                }
                 if (count < 0) {
                     unloaded = true;
                     continue;

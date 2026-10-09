@@ -93,15 +93,8 @@ final class Banners {
      * sprite that paints nothing there.
      */
     static float top(SpriteShape.Painted painted, SpriteGeometry.Frame frame, boolean alongX, boolean atStart) {
-        float tile = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale;
-        // Along x the square's start is the frame's middle and its end a tile to the right; along y the start is the middle and the end a tile to the left.
-        int column = Math.round(frame.originU + (atStart ? 0f : alongX ? tile : -tile));
+        int column = endColumn(frame, alongX, atStart);
         int inward = atStart == alongX ? 1 : -1;
-        if (atStart == alongX) {
-            column = Math.max(column, (int) frame.left);
-        } else {
-            column = Math.min(column - 1, (int) (frame.left + frame.width) - 1);
-        }
         float[] at = new float[2];
         for (int step = 0; step < END_COLUMNS; step++) {
             int u = column + inward * step;
@@ -113,6 +106,21 @@ final class Banners {
             }
         }
         return Float.NaN;
+    }
+
+    /** How high the top of a sprite's frame is at one end of its square, in levels over the floor: where top looks down from. */
+    static float frameTop(SpriteGeometry.Frame frame, boolean alongX, boolean atStart) {
+        float[] at = new float[2];
+        place(frame, alongX, 0f, endColumn(frame, alongX, atStart) + 0.5f, frame.top, at);
+        return at[1];
+    }
+
+    /** The first column of the frame inside the square at one of its ends. */
+    private static int endColumn(SpriteGeometry.Frame frame, boolean alongX, boolean atStart) {
+        float tile = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale;
+        // Along x the square's start is the frame's middle and its end a tile to the right; along y the start is the middle and the end a tile to the left.
+        int column = Math.round(frame.originU + (atStart ? 0f : alongX ? tile : -tile));
+        return atStart == alongX ? Math.max(column, (int) frame.left) : Math.min(column - 1, (int) (frame.left + frame.width) - 1);
     }
 
     /**

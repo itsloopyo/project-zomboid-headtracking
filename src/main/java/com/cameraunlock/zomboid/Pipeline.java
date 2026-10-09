@@ -386,6 +386,11 @@ final class Pipeline {
      * square to it and how far along it the plane is, see WaterMirror. Null with no water.
      */
     float[] water;
+    /**
+     * The headlights as the frame's first read found them. The logic thread gathers them anew
+     * while a frame is drawn, and the beam's shadow map and its cone are to be of one gathering.
+     */
+    private float[] beams = new float[Headlights.BEAMS * Headlights.STRIDE];
     /** Builds the frame does not draw, of chunks the view does not face, which it hands to the graphics card with the ones it draws: see ChunkBuffers.loadAhead. */
     ArrayList<WorldScene.ChunkMeshes> ahead;
     float rangeFrom;
@@ -758,6 +763,7 @@ final class Pipeline {
     private void picture(ArrayList<WorldScene.ChunkMeshes> chunks, ViewCamera.Pose camera, SkyState state,
             float tanHalfFieldOfView, float near, float far, float fogStart, float fogEnd, float exposure, int[] viewport,
             int drawTarget) {
+        beams = view.headlights.beams;
         while (broken == null && !prepared) {
             // Asked to draw before the pieces were made one a frame: they are made here and now, each reading what it needs itself.
             if (!coreBegun) {
@@ -1482,7 +1488,6 @@ final class Pipeline {
     private void castBeams(SkyState state, boolean figures) {
         // The scene as the nearest lit headlights see it, so that what stands in their beam
         // throws its shadow down the road.
-        float[] beams = view.headlights.beams;
         heldChunks[BEAM_MAP] = 0;
         if (beams[6] > 0f) {
             lamp.eyeX = beams[0];
@@ -3380,7 +3385,6 @@ final class Pipeline {
     private static final float BEAM_STRENGTH = 9f;
 
     private void setBeams(Program program, int torchUnit) {
-        float[] beams = view.headlights.beams;
         for (int i = 0; i < Headlights.BEAMS; i++) {
             int at = i * Headlights.STRIDE;
             program.set(BEAM_AT[i], beams[at], beams[at + 1], beams[at + 2], beams[at + 6] * BEAM_STRENGTH);

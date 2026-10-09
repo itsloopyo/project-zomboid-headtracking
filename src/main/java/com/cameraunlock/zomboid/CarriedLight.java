@@ -35,7 +35,7 @@ final class CarriedLight {
     volatile float[] light = new float[8];
     private final ArrayList<InventoryItem> items = new ArrayList<>();
 
-    /** The eye is the character's own, and the way is a unit vector: the way the game's beam is turned on the ground, and as far up or down as the view. */
+    /** The eye is the character's own, and the way is a unit vector: the way the game's beam is turned on the ground, and as far up or down as the view with the head's share for a light (HeadFollowLight.up). */
     void gather(IsoPlayer player, float eyeX, float eyeY, float eyeUp, float wayX, float wayY, float wayUp) {
         player.getActiveLightItems(items);
         float[] found = new float[8];

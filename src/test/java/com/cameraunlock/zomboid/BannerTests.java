@@ -177,6 +177,9 @@ final class BannerTests {
         near(start, 1f, 0.02f, "the cable is read a level up where the square starts");
         near(end, 0.75f, 0.02f, "and three quarters of one where it ends");
         check(Float.isNaN(Banners.top((u, v) -> false, frame, false, true)), "a sprite that paints nothing has no cable to read");
+        float frameStart = Banners.frameTop(frame, false, true), frameEnd = Banners.frameTop(frame, false, false);
+        check(frameStart >= start && frameEnd >= end && Float.isFinite(frameStart) && Float.isFinite(frameEnd),
+                "the top of the frame at an end, taken for a cable that is not painted there, is above any the sprite paints: " + frameStart + " " + frameEnd);
         // Along x: the column 64 is the start, at 0.75 of a level, and the column 128 the end, at one.
         SpriteGeometry.Frame east = frame(64f, 0f, 64f, 256f);
         SpriteShape.Painted rising = (u, v) -> {

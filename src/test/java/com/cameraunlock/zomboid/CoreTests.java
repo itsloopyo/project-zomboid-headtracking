@@ -389,6 +389,11 @@ public final class CoreTests {
                 "tracking says it is applied, from a tracker on this machine");
         check(near(headFollowLight.turn(), HeadFollowLight.headingTurn(clean, radians(30), radians(15), radians(18), true)),
                 "and the carried light is turned by core's angles for it, one and a half times the head's");
+        ViewCamera.Pose lit = new ViewCamera.Pose();
+        lit.set(clean);
+        ViewCamera.turn(lit, radians(30), radians(15), radians(18), true);
+        check(near(headFollowLight.up(clean), lit.forwardUp) && Math.abs(lit.forwardUp - clean.forwardUp) > 0.05f,
+                "and the beam's height is that same pose's, not the view's at one times the head: " + headFollowLight.up(clean) + " against " + lit.forwardUp);
         check(Files.readString(game.resolve(Log.FILE_NAME)).contains("the lean is not held off walls: there is no map to measure it against"),
                 "with no map to measure the lean against, the log says the lean is not held off walls");
 

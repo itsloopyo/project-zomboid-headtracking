@@ -486,7 +486,7 @@ public final class FirstPerson {
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.SPLIT_SCREEN) != 0) {
-            said = "Split screen: " + SplitScreen.name();
+            said = "Split screen: " + SplitScreen.described();
             saidAt = System.nanoTime();
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
@@ -627,10 +627,12 @@ public final class FirstPerson {
         // The head is in the view the camera flies to and from, so it lands on what is drawn next.
         view.headTracking.view(!GameTime.isGamePaused() && !player.isDead(), cleanView, yaw, view.ride.tilt, world, sightsUp,
                 vehicle == null && Online.leanCarriesTheShot(), view.viewModel.forwardStop(), vehicle != null, trackedView);
-        // The game's beam has the clean view's heading turned by the head's share, and no height: it is given the view's.
+        // The game's beam has the clean view's heading turned by the head's share for a light, and no height: it is
+        // given the height the view has with that same share, so the beam is one pose and not two.
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
-        float beamFlat = (float) Math.sqrt(Math.max(1f - trackedView.forwardUp * trackedView.forwardUp, 0f));
-        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, trackedView.forwardUp);
+        float beamUp = view.headFollowLight.up(cleanView);
+        float beamFlat = (float) Math.sqrt(Math.max(1f - beamUp * beamUp, 0f));
+        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
         float[] carried = view.headTracking.carried();
         aimView.set(cleanView);
         aimView.eyeX += carried[0];
