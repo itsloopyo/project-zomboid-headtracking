@@ -89,6 +89,10 @@ final class Furniture {
     boolean follows;
     /** For a piece that stands on the floor and whose pane shows its sprite's painting, how far along the model's y the pane's face is. */
     float paneY;
+    /** Whether this is a shop's fitting that ShopFittings stands goods or clothes on while the game paints what it holds. */
+    boolean stocked;
+    /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass. */
+    boolean glazed;
 
     Furniture(IsoSprite sprite, String model, int turns) {
         this(sprite, model, turns, false);
@@ -280,6 +284,12 @@ final class Furniture {
         if (name != null && called == null && grid == null && name.startsWith(Clinic.OFFICE)) {
             return Clinic.unnamedDesk(sprite, name);
         }
+        if (name != null && called == null) {
+            Furniture unnamed = ShopFittings.unnamed(sprite, name);
+            if (unnamed != null) {
+                return unnamed;
+            }
+        }
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;
         }
@@ -294,6 +304,10 @@ final class Furniture {
         Furniture indoors = Indoors.anyWay(sprite, name, called, group, holds, properties, facing, blocks);
         if (indoors != null) {
             return indoors;
+        }
+        Furniture shop = ShopFittings.anyWay(sprite, called, holds, facing);
+        if (shop != null) {
+            return shop;
         }
         if (facing != null && !blocks && holds.isEmpty() && !onTable && surface == 0) {
             // The game gives a facing as one of the four ways along the map's axes.
@@ -383,6 +397,10 @@ final class Furniture {
         Furniture onWall = WallObjects.model(sprite, called, group, properties, turns, along, across);
         if (onWall != null) {
             return onWall;
+        }
+        shop = ShopFittings.facing(sprite, called, group, holds, properties, turns, along, across);
+        if (shop != null) {
+            return shop;
         }
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.

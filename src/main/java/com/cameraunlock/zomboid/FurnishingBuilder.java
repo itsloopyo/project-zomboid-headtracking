@@ -298,6 +298,11 @@ final class FurnishingBuilder {
             build.building.plain = false;
             DisplayCases.addStock(build, object, piece, x, y, foot);
         }
+        // What the game paints a shop's fitting holding, over each square of it, made.
+        if (piece.stocked && build.overLayer == 0) {
+            build.building.plain = false;
+            ShopFittings.addStock(build, object, piece, x, y, foot);
+        }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
         if (piece.gridX != 0 || piece.gridY != 0 || build.overLayer > 0) {
             return true;
@@ -318,6 +323,9 @@ final class FurnishingBuilder {
         build.furnished++;
         if (piece.displayCase) {
             DisplayCases.addGlass(build, piece, x, y, foot);
+        }
+        if (piece.glazed) {
+            ShopFittings.addGlass(build, piece, x, y, foot);
         }
         if (piece.television && object instanceof IsoTelevision set) {
             // The game's sprite of a lit screen is painted for its own view and has no place on

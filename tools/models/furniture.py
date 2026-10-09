@@ -5661,6 +5661,640 @@ def towers():
             pylon_arm("pylon_arm_long", 5.0, 0.0, 0.6 * STOREY, 0.03 * STOREY, False),
             insulator("insulator_pair", 2), insulator("insulator_string", 1), lattice_post("lattice_post", False),
             lattice_post("lattice_post_foot", True), lattice_post("lattice_post_white", False, "enamel"), water_tank(), storage_tank(), silo_storey(), vent_tank()]
+# Shop fittings, as ShopFittings.java stands them: the runs of shelving shops sell from, the rails and stands clothes hang
+# on, a shop's open chiller, the seats of malls, bars and salons, and what the game paints on a fitting while it holds
+# something, made: goods on shelves, clothes on rails. What a fitting holds is a model of its own, stood on one square of
+# the fitting while the game paints that square's goods, so it is built where the fitting has its shelves or its rail
+# and keeps the origin it was built round: see Model's centred.
+
+# A run of shop shelving four squares long, its front to -Y: half its length, its front and back, the tops of its deck
+# and its two shelves, how high its back stands and the pegboard of its last square, and where that square begins.
+GONDOLA_HALF, GONDOLA_FRONT, GONDOLA_BACK = 1.975, -0.265, 0.265
+GONDOLA_SHELVES = (0.14, 0.48, 0.82)
+GONDOLA_TOP, PEGBOARD_TOP, PEGBOARD_FROM = 1.02, 1.19, 1.0
+# The middle of the last square, where the pegboard is; where on that square the pegboard's hooks are, from its middle,
+# and how high; and how far under the top of a shelf's edge the tickets on it come down to.
+LAST_SQUARE, HOOKS_X, HOOKS_Z, TICKETS = 1.5, (-0.2, 0.2), (0.55, 0.88), 0.04
+# How far either way from the middle of its square the goods on a square of shelving reach: clear of the end of the run.
+GOODS_REACH = 0.43
+# A clothes shop's long wooden run: half its length; its two ends stand higher than its back.
+LONG_HALF, LONG_ENDS = 1.64, 1.28
+# How high the top of the rail of a small clothes rail is, of a large rack's two rails and of an open wardrobe's, and
+# how far apart a large rack's rails are, front to back.
+RAIL_TOP, RACK_TOP, WARDROBE_RAIL_TOP, RACK_RAILS = 1.3, 1.65, 1.27, 0.56
+# A clothes stand's four arms: the two along x stand higher than the two along y.
+STAND_HIGH, STAND_LOW, STAND_ARM = 1.42, 1.24, 0.42
+# A shop's open chiller one square wide: half its width, its front and back, and the tops of its deck and its shelves
+# with how far back from the front each one's front edge is.
+CHILLER_HALF, CHILLER_FRONT, CHILLER_BACK, CHILLER_TOP = 0.49, -0.4, 0.4, 2.2
+CHILLER_SHELVES = ((0.32, 0.0), (0.66, 0.12), (0.98, 0.19), (1.30, 0.26), (1.62, 0.33))
+# The colours of what is sold: packets, tins, bottles and clothes. Every one is a surface the mod already has.
+PACKETS = ("books", "books", "vinyl", "cloth", "linen", "worktop", "dark_wood", "pillow", "shade")
+TINS = ("steel", "steel", "vinyl", "enamel", "cloth")
+BOTTLES = ("plastic", "vinyl", "linen", "ceramic", "cloth")
+CLOTHES = ("cloth", "vinyl", "dark_wood", "rubber", "linen", "books", "plastic", "pillow", "cloth", "vinyl")
+
+
+def parts(model):
+    """A bmesh for each surface, made as it is first asked for, and the whole taken into the model by finish."""
+    made = {}
+
+    def part(surface):
+        if surface not in made:
+            made[surface] = bmesh.new()
+        return made[surface]
+
+    def finish(bevel=0.0):
+        for surface, bm in made.items():
+            if bevel:
+                model.hard(bm, surface, bevel=bevel, segments=1)
+            else:
+                model.plain(bm, surface)
+    return part, finish
+
+
+def tube(bm, start, end, radius, segments=10):
+    """A round bar from start to end."""
+    start, end = Vector(start), Vector(end)
+    way = end - start
+    turn = way.normalized().to_track_quat("Z", "Y").to_matrix().to_4x4()
+    lathe(bm, [(radius, 0.0), (radius, way.length)], segments=segments, to=Matrix.Translation(start) @ turn)
+
+
+def mirrored(x0, x1, side):
+    """x0 to x1 on the side +1, or the same on the other side of the middle for -1, low end first."""
+    return (x0, x1) if side > 0 else (-x1, -x0)
+
+
+def gondola(name, side, trim):
+    """A run of shop shelving four squares long that stands in the middle of its squares: a deck and two shelves along
+    three of them before a back, and on the fourth, at +X for side 1 and -X for -1, a pegboard with hooks over a foot
+    rounded at its front corners. Its boards take the colour the sprite gives them; trim is what its edges are."""
+    model = Model(name)
+    half, front, back = GONDOLA_HALF, GONDOLA_FRONT, GONDOLA_BACK
+    deck = GONDOLA_SHELVES[0]
+    boards, edges, slats, hooks = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    run = mirrored(-half, PEGBOARD_FROM, side)
+    cuboid(boards, *run, back - 0.03, back, deck, GONDOLA_TOP)
+    cuboid(edges, *run, front + 0.015, back - 0.03, 0.0, deck - 0.025)
+    cuboid(boards, *run, front + 0.015, back - 0.03, deck - 0.025, deck)
+    cuboid(edges, *run, front, front + 0.015, 0.02, deck + 0.01)
+    for z in GONDOLA_SHELVES[1:]:
+        cuboid(boards, *run, front + 0.015, back - 0.03, z - 0.022, z)
+        cuboid(edges, *run, front, front + 0.015, z - 0.045, z + 0.008)
+    # The plain end, its front and top edged.
+    end = mirrored(-half, -half + 0.035, side)
+    cuboid(boards, *end, front + 0.012, back, 0.0, GONDOLA_TOP - 0.012)
+    edged = mirrored(-half - 0.003, -half + 0.038, side)
+    cuboid(edges, *edged, front - 0.003, front + 0.012, 0.0, GONDOLA_TOP)
+    cuboid(edges, *edged, front - 0.003, back + 0.003, GONDOLA_TOP - 0.012, GONDOLA_TOP)
+    # The last square: a pegboard in a frame over a foot rounded at its front corners.
+    near, far = PEGBOARD_FROM, half
+    round_off = 0.09
+    outline = [(near, back - 0.03), (near, front + round_off)] + arc(near + round_off, front + round_off, round_off, 180.0, 270.0, 4)[1:] \
+        + arc(far - round_off, front + round_off, round_off, 270.0, 360.0, 4) + [(far, back - 0.03)]
+    if side < 0:
+        outline = [(-x, y) for x, y in reversed(outline)]
+    outline_up(edges, outline, 0.0, deck - 0.02)
+    outline_up(boards, outline, deck - 0.02, deck)
+    cuboid(boards, *mirrored(near + 0.04, far - 0.04, side), back - 0.04, back - 0.012, deck, PEGBOARD_TOP - 0.04)
+    for x0, x1 in ((near, near + 0.04), (far - 0.04, far)):
+        cuboid(edges, *mirrored(x0, x1, side), back - 0.05, back, 0.0, PEGBOARD_TOP)
+    cuboid(edges, *mirrored(near, far, side), back - 0.05, back, PEGBOARD_TOP - 0.04, PEGBOARD_TOP)
+    z = deck + 0.1
+    while z < PEGBOARD_TOP - 0.08:
+        cuboid(slats, *mirrored(near + 0.04, far - 0.04, side), back - 0.0425, back - 0.039, z, z + 0.006)
+        z += 0.12
+    for x in HOOKS_X:
+        for z in HOOKS_Z:
+            hx = side * (LAST_SQUARE + x)
+            beam(hooks, (hx, back - 0.04, z), (hx, back - 0.25, z + 0.025), 0.007, 0.007)
+            beam(hooks, (hx, back - 0.25, z + 0.025), (hx, back - 0.26, z + 0.05), 0.007, 0.007)
+    model.hard(boards, "paint", bevel=0.004, segments=1)
+    model.hard(edges, trim, bevel=0.004, segments=1)
+    model.plain(slats, "plastic")
+    model.hard(hooks, "metal", bevel=0.002, segments=1)
+    return model
+
+
+def long_shelves():
+    """A clothes shop's run of wooden shelves along three squares and a little of a fourth: a back, a deck and two
+    shelves between two ends that stand higher than the back."""
+    model = Model("long_shelves")
+    half, front, back = LONG_HALF, GONDOLA_FRONT, GONDOLA_BACK
+    wood = bmesh.new()
+    inner = (-half + 0.04, half - 0.04)
+    cuboid(wood, *inner, back - 0.025, back, 0.0, GONDOLA_TOP)
+    cuboid(wood, *inner, front + 0.02, back - 0.025, 0.0, GONDOLA_SHELVES[0])
+    for z in GONDOLA_SHELVES[1:]:
+        cuboid(wood, *inner, front + 0.01, back - 0.025, z - 0.025, z)
+    for x in (-1, 1):
+        cuboid(wood, *mirrored(half - 0.04, half, x), front, back, 0.0, LONG_ENDS)
+    model.hard(wood, "wood", bevel=0.004, segments=1)
+    return model
+
+
+def packet(part, pick, x0, x1, y0, y1, z, high):
+    cuboid(part(pick.choice(PACKETS)), x0, x1, y0, y1, z, z + high)
+
+
+def tin(part, pick, x, y, z, radius, high):
+    lathe(part(pick.choice(TINS)), [(0.0, z), (radius, z), (radius, z + high), (radius * 0.9, z + high + 0.004), (0.0, z + high + 0.004)],
+          cx=x, cy=y, segments=8)
+
+
+def bottle(part, pick, x, y, z, radius, high):
+    lathe(part(pick.choice(BOTTLES)), [(0.0, z), (radius, z), (radius, z + high * 0.62), (radius * 0.4, z + high * 0.82), (radius * 0.32, z + high),
+                                       (0.0, z + high)], cx=x, cy=y, segments=8)
+
+
+def stocked(part, pick, levels, x0, x1, fill, depth_rows):
+    """Fills shelves with what a shop sells, in rows across from x0 to x1: each row one kind of thing, as many deep as
+    fit up to depth_rows, and a row's place left empty for 1 - fill of them. levels are (top of the board, the room over
+    it, its front, its back)."""
+    for z, room, y0, y1 in levels:
+        x = x0
+        while True:
+            kind = pick.random()
+            if kind < 0.45:
+                wide, deep, high = pick.uniform(0.07, 0.16), pick.uniform(0.06, 0.18), min(pick.uniform(0.12, 0.26), room)
+            elif kind < 0.75:
+                radius = pick.uniform(0.032, 0.045)
+                wide = deep = 2 * radius + 0.006
+                high = min(pick.uniform(0.09, 0.14), room)
+            else:
+                radius = pick.uniform(0.035, 0.045)
+                wide = deep = 2 * radius + 0.008
+                high = min(pick.uniform(0.2, 0.3), room)
+            if x + wide > x1:
+                break
+            if pick.random() < fill:
+                rows = min(depth_rows, max(1, int((y1 - y0) / (deep + 0.01))))
+                rows = pick.randint(1, rows) if fill < 0.6 else rows
+                for row in range(rows):
+                    y = y0 + 0.005 + row * (deep + 0.01)
+                    if kind < 0.45:
+                        packet(part, pick, x + 0.003, x + wide - 0.003, y, y + deep, z, high)
+                    elif kind < 0.75:
+                        tin(part, pick, x + wide / 2, y + deep / 2, z, wide / 2 - 0.003, high)
+                    else:
+                        bottle(part, pick, x + wide / 2, y + deep / 2, z, wide / 2 - 0.004, high)
+            x += wide
+
+
+def tickets(part, pick, tops, front, reach):
+    """The price tickets on the front edge of each board that holds goods, from -reach to reach along it. A ticket on
+    every board, the lowest included, comes down TICKETS under the board's top, which is where the goods' model has its foot."""
+    for z in tops:
+        for x in (-reach * 0.6, 0.0, reach * 0.6):
+            x += pick.uniform(-0.06, 0.06)
+            cuboid(part("pillow"), x - 0.03, x + 0.03, front - 0.003, front - 0.0005, z - TICKETS, z - TICKETS + 0.03)
+
+
+def shelf_goods(name, seed, fill, depth_rows):
+    """The goods on one square's length of a run of shelving, a square's length less a hand at each end: on its deck and
+    both its shelves, with the tickets on their edges. Its foot is the foot of the tickets on the deck's edge."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    tops = list(GONDOLA_SHELVES) + [GONDOLA_SHELVES[-1] + 0.3]
+    levels = [(z, tops[i + 1] - z - 0.04, GONDOLA_FRONT + 0.03, GONDOLA_BACK - 0.04) for i, z in enumerate(GONDOLA_SHELVES)]
+    stocked(part, pick, levels, -GOODS_REACH, GOODS_REACH, fill, depth_rows)
+    tickets(part, pick, GONDOLA_SHELVES, GONDOLA_FRONT, GOODS_REACH)
+    finish()
+    return model
+
+
+def hook_goods(name, seed, count):
+    """Packets hung on the four hooks of a pegboard, count to a hook, as many as fit on it. Its top is the top of the
+    packets on the higher hooks."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    for x in HOOKS_X:
+        for z in HOOKS_Z:
+            colour = pick.choice(PACKETS)
+            wide, high = pick.uniform(0.1, 0.14), pick.uniform(0.15, 0.2)
+            for n in range(count):
+                y = GONDOLA_BACK - 0.07 - n * 0.04
+                cuboid(part(colour), x - wide / 2, x + wide / 2, y - 0.018, y, z - high + 0.02 - 0.004 * n, z + 0.02 - 0.004 * n)
+    finish()
+    return model
+
+
+def folded(name, seed, stacks):
+    """Folded clothes in piles on one square's length of the long wooden shelves, stacks piles to a board."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    tops = list(GONDOLA_SHELVES) + [GONDOLA_SHELVES[-1] + 0.3]
+    for i, z in enumerate(GONDOLA_SHELVES):
+        room = tops[i + 1] - z - 0.05
+        places = [-0.28, 0.0, 0.28]
+        for x in pick.sample(places, stacks):
+            colour = pick.choice(CLOTHES)
+            pile = z
+            for n in range(pick.randint(3, max(3, int(room / 0.04)))):
+                thick = pick.uniform(0.028, 0.04)
+                if pile + thick > z + room:
+                    break
+                lean = pick.uniform(-0.01, 0.01)
+                cuboid(part(colour if pick.random() < 0.6 else pick.choice(CLOTHES)), x - 0.13 + lean, x + 0.13 + lean, GONDOLA_FRONT + 0.03,
+                       GONDOLA_FRONT + 0.3, pile, pile + thick - 0.002)
+                pile += thick
+    finish(bevel=0.008)
+    return model
+
+
+def garment(part, pick, x, y, top, across_y=True, longest=0.95, widest=0.46):
+    """A garment on a hanger: the hook over the rail at top, the hanger's bar, and the garment hung from it with its
+    shoulders sloping down from the hanger's neck and its hem a little wider or narrower than its shoulders. Its width
+    is across y, or across x where across_y is False."""
+    colour = pick.choice(CLOTHES)
+    long = pick.uniform(0.55, longest)
+    wide, thick = pick.uniform(widest - 0.08, widest), pick.uniform(0.035, 0.06)
+    shoulder = top - 0.075
+    hem = wide / 2 * pick.uniform(0.85, 1.15)
+    outline = [(-0.07, shoulder + 0.01), (0.07, shoulder + 0.01), (wide / 2, shoulder - 0.06), (hem, shoulder - long), (-hem, shoulder - long),
+               (-wide / 2, shoulder - 0.06)]
+    if across_y:
+        outline_along_x(part(colour), [(y + across, z) for across, z in outline], x - thick / 2, x + thick / 2)
+        beam(part("metal"), (x, y - wide / 2 + 0.03, shoulder + 0.005), (x, y + wide / 2 - 0.03, shoulder + 0.005), 0.006, 0.006)
+    else:
+        outline_along_y(part(colour), [(x + across, z) for across, z in outline], y - thick / 2, y + thick / 2)
+        beam(part("metal"), (x - wide / 2 + 0.03, y, shoulder + 0.005), (x + wide / 2 - 0.03, y, shoulder + 0.005), 0.006, 0.006)
+    beam(part("metal"), (x, y, shoulder + 0.005), (x, y, top), 0.005, 0.005)
+
+
+def rail_garments(name, seed, rails, length, count, longest=0.95, widest=0.46):
+    """Clothes hung along rails that run along x, one square's length of them: rails is where each rail is across y.
+    Its top is the tops of the hooks, which hang over the rail's top."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    for y in rails:
+        step = length / count
+        for n in range(count):
+            garment(part, pick, -length / 2 + step * (n + 0.5) + pick.uniform(-0.015, 0.015), y, 0.0, longest=longest, widest=widest)
+    finish(bevel=0.006)
+    return model
+
+
+def stand_garments(name, seed, count):
+    """Clothes on the four arms of a clothes stand: along each arm, count of them, from its high end out. Its top is the
+    tops of the hooks on the two higher arms."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    for axis, top in ((0, 0.0), (1, STAND_LOW - STAND_HIGH)):
+        for side in (-1, 1):
+            for n in range(count):
+                out = side * (0.12 + (STAND_ARM - 0.14) * (n + 0.5) / count)
+                if axis == 0:
+                    garment(part, pick, out, 0.0, top, across_y=True, longest=0.75)
+                else:
+                    garment(part, pick, 0.0, out, top, across_y=False, longest=0.65)
+    finish(bevel=0.006)
+    return model
+
+
+def castor_foot(bm, wheels, x, reach):
+    """The foot of a rail that can be wheeled: a bar across y under the upright at x, a wheel under each end."""
+    beam(bm, (x, -reach, 0.06), (x, reach, 0.06), 0.03, 0.024)
+    for y in (-reach + 0.02, reach - 0.02):
+        lathe(wheels, [(0.0, -0.012), (0.026, -0.012), (0.03, 0.0), (0.026, 0.012), (0.0, 0.012)], segments=10, to=along_x(x - 0.012, y, 0.03))
+
+
+def clothes_rail():
+    """A shop's clothes rail on wheels, two squares long: two uprights on wheeled feet and the rail across their tops."""
+    model = Model("clothes_rail")
+    steel, wheels = bmesh.new(), bmesh.new()
+    reach = 0.82
+    for x in (-reach, reach):
+        tube(steel, (x, 0.0, 0.06), (x, 0.0, RAIL_TOP - 0.013), 0.013)
+        castor_foot(steel, wheels, x, 0.22)
+    tube(steel, (-reach - 0.06, 0.0, RAIL_TOP - 0.013), (reach + 0.06, 0.0, RAIL_TOP - 0.013), 0.013)
+    model.turned(steel, "steel", sharp=40.0)
+    model.turned(wheels, "rubber", sharp=60.0)
+    return model
+
+
+def clothes_rack():
+    """A shop's large clothes rack, two squares long: a frame of tube with a rail along each side at the top, joined at
+    the ends, on a frame of tube on the floor."""
+    model = Model("clothes_rack")
+    steel = bmesh.new()
+    half, across, r = 0.94, RACK_RAILS / 2, 0.013
+    for y in (-across, across):
+        tube(steel, (-half, y, RACK_TOP - r), (half, y, RACK_TOP - r), r)
+        tube(steel, (-half + 0.08, y, 0.03), (half - 0.08, y, 0.03), r)
+        for x in (-half + 0.08, half - 0.08):
+            tube(steel, (x, y, 0.0), (x, y, RACK_TOP - r), r)
+    for x in (-half + 0.08, half - 0.08):
+        tube(steel, (x, -across, 0.03), (x, across, 0.03), r)
+        tube(steel, (x, -across, RACK_TOP - 0.2), (x, across, RACK_TOP - 0.2), r)
+    model.turned(steel, "steel", sharp=40.0)
+    return model
+
+
+def clothes_stand():
+    """A shop's clothes stand: an upright on a cross of feet, and four arms out from it, the two along x higher than the
+    two along y."""
+    model = Model("clothes_stand")
+    steel = bmesh.new()
+    r = 0.012
+    tube(steel, (0.0, 0.0, 0.02), (0.0, 0.0, STAND_HIGH + 0.08), 0.016)
+    for x, y in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        tube(steel, (0.0, 0.0, 0.02), (x * 0.3, y * 0.3, 0.02), 0.014)
+    for top, axis in ((STAND_HIGH, 0), (STAND_LOW, 1)):
+        for side in (-1, 1):
+            end = (side * STAND_ARM, 0.0) if axis == 0 else (0.0, side * STAND_ARM)
+            tube(steel, (0.0, 0.0, top - 0.06), (end[0] * 0.3, end[1] * 0.3, top - r), r)
+            tube(steel, (end[0] * 0.3, end[1] * 0.3, top - r), (end[0], end[1], top - r), r)
+            tube(steel, (end[0], end[1], top - r), (end[0] * 1.03, end[1] * 1.03, top + 0.03), r)
+    model.turned(steel, "steel", sharp=40.0)
+    return model
+
+
+def open_wardrobe():
+    """A clothes shop's open cupboard three squares long that coats hang in: two ends, a back, a top and a plinth, and a
+    rail along under the top."""
+    model = Model("open_wardrobe")
+    half, front, back, top = 1.45, -0.29, 0.29, 1.45
+    wood, panels, steel = bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(wood, -half + 0.03, half - 0.03, back - 0.02, back, 0.0, top - 0.03)
+    cuboid(wood, -half, half, front - 0.02, back, top - 0.03, top)
+    cuboid(wood, -half + 0.03, half - 0.03, front + 0.02, back - 0.02, 0.0, 0.08)
+    for side in (-1, 1):
+        cuboid(wood, *mirrored(half - 0.03, half, side), front, back, 0.0, top - 0.03)
+        # A panelled face to each end.
+        for z0, z1 in ((0.12, 0.62), (0.7, top - 0.12)):
+            cuboid(panels, *mirrored(half - 0.001, half + 0.008, side), front + 0.08, back - 0.08, z0, z1)
+    tube(steel, (-half + 0.03, 0.02, WARDROBE_RAIL_TOP - 0.012), (half - 0.03, 0.02, WARDROBE_RAIL_TOP - 0.012), 0.012)
+    model.hard(wood, "wood", bevel=0.005, segments=1)
+    model.hard(panels, "wood", bevel=0.006, segments=1)
+    model.turned(steel, "steel", sharp=40.0)
+    return model
+
+
+def open_chiller():
+    """One square of a shop's open chiller: a cabinet open at the front, its sides cut back as they rise, a deck and four
+    shelves that each stop further back, a lit sign along the canopy and a grille along its foot."""
+    model = Model("open_chiller")
+    half, front, back, top = CHILLER_HALF, CHILLER_FRONT, CHILLER_BACK, CHILLER_TOP
+    body, shelves, dark, lit = bmesh.new(), bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(body, -half, half, back - 0.05, back, 0.0, top)
+    cuboid(body, -half, half, front + 0.15, back - 0.05, top - 0.06, top)
+    cuboid(body, -half, half, front + 0.02, back - 0.05, 0.06, CHILLER_SHELVES[0][0])
+    side = [(front, 0.0), (back, 0.0), (back, top), (front + 0.15, top), (front + 0.15, top - 0.28), (front + 0.32, 1.85), (front + 0.03, 0.9),
+            (front, CHILLER_SHELVES[0][0])]
+    for x in (-1, 1):
+        outline_along_x(body, side, *mirrored(half - 0.03, half, x))
+    # The canopy over the open front, with the sign along it.
+    prism_y(body, (0.0, top - 0.14, 2 * half - 0.06, 0.16, front + 0.15), (0.0, top - 0.14, 2 * half - 0.06, 0.16, front + 0.4))
+    cuboid(lit, -half + 0.03, half - 0.03, front + 0.135, front + 0.15, top - 0.21, top - 0.07)
+    cuboid(dark, -half + 0.03, half - 0.03, front + 0.0, front + 0.02, 0.0, CHILLER_SHELVES[0][0] - 0.02)
+    for z, setback in CHILLER_SHELVES[1:]:
+        prism_y(shelves, (0.0, z - 0.03, 2 * half - 0.06, 0.02, front + setback), (0.0, z - 0.008, 2 * half - 0.06, 0.02, back - 0.05))
+        cuboid(shelves, -half + 0.03, half - 0.03, front + setback - 0.01, front + setback, z - 0.05, z)
+    model.hard(body, "enamel", bevel=0.006, segments=1)
+    model.hard(shelves, "steel", bevel=0.003, segments=1)
+    model.plain(dark, "rubber")
+    model.plain(lit, "worktop")
+    return model
+
+
+def chiller_goods(name, seed, fill, depth_rows):
+    """The drinks, cartons and packets on the deck and the shelves of one square of an open chiller, with the tickets on
+    their edges. Its foot is the foot of the tickets on the deck's edge."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    tops = [z for z, _ in CHILLER_SHELVES] + [CHILLER_SHELVES[-1][0] + 0.33]
+    levels = [(z, tops[i + 1] - z - 0.05, CHILLER_FRONT + setback + 0.03, CHILLER_BACK - 0.08) for i, (z, setback) in enumerate(CHILLER_SHELVES)]
+    stocked(part, pick, levels, -CHILLER_HALF + 0.04, CHILLER_HALF - 0.04, fill, depth_rows)
+    for z, setback in CHILLER_SHELVES:
+        tickets(part, pick, (z,), CHILLER_FRONT + (setback - 0.01 if setback else 0.0), CHILLER_HALF - 0.08)
+    finish()
+    return model
+
+
+def padded(model, surface, x0, x1, y0, y1, z0, z1, crown):
+    """A pad of upholstery: a box with soft edges, fuller in the middle of its top."""
+    part = bmesh.new()
+    cage = grid_box(part, spread(x0, x1, 2), spread(y0, y1, 2), [z0, z1])
+    cage[(1, 1, 1)].co.z += crown
+    crease(part, cage, 0.3)
+    model.soft(part, surface, levels=2)
+
+
+def mall_chair():
+    """A mall's swivel chair: a round padded seat on a column and a foot, in a low shell back that wraps round its rear
+    half. Its seat is 0.47 high."""
+    model = Model("mall_chair")
+    seat = 0.47
+    base = bmesh.new()
+    lathe(base, [(0.0, 0.0), (0.24, 0.0), (0.245, 0.012), (0.2, 0.035), (0.05, 0.05), (0.035, 0.06), (0.035, seat - 0.09), (0.12, seat - 0.07),
+                 (0.0, seat - 0.06)], segments=24)
+    model.turned(base, "plastic", sharp=50.0)
+    cushion = bmesh.new()
+    lathe(cushion, [(0.0, seat - 0.07), (0.235, seat - 0.07), (0.255, seat - 0.05), (0.258, seat - 0.02), (0.24, seat), (0.0, seat + 0.012)], segments=24)
+    model.turned(cushion, "vinyl", sharp=60.0)
+    shell = bmesh.new()
+    outer, inner, low, high = 0.27, 0.235, seat - 0.08, seat + 0.38
+    steps = 12
+    rings = []
+    for radius in (outer, inner):
+        ring = []
+        for i in range(steps + 1):
+            angle = math.radians(15 + 150 * i / steps)
+            ring.append((radius * math.cos(angle), radius * math.sin(angle)))
+        rings.append(ring)
+    outline = rings[0] + rings[1][::-1]
+    outline_up(shell, outline, low, high)
+    model.turned(shell, "dark_wood", sharp=35.0)
+    return model
+
+
+def pedestal_stool():
+    """A diner's or a bar's stool fixed on one column: a round foot, a ring for the feet and a round padded seat. Its seat
+    is 0.75 high."""
+    model = Model("pedestal_stool")
+    seat = 0.75
+    steel = bmesh.new()
+    lathe(steel, [(0.0, 0.0), (0.2, 0.0), (0.2, 0.012), (0.12, 0.04), (0.03, 0.06), (0.028, seat - 0.08), (0.1, seat - 0.075), (0.11, seat - 0.065),
+                  (0.0, seat - 0.065)], segments=24)
+    lathe(steel, [(0.16, 0.26), (0.172, 0.27), (0.16, 0.28), (0.148, 0.27)], segments=20, closed=True)
+    for n in range(3):
+        angle = math.radians(90 + n * 120)
+        tube(steel, (0.0, 0.0, 0.27), (0.152 * math.cos(angle), 0.152 * math.sin(angle), 0.27), 0.008, segments=8)
+    model.turned(steel, "steel", sharp=50.0)
+    cushion = bmesh.new()
+    lathe(cushion, [(0.0, seat - 0.075), (0.18, seat - 0.075), (0.195, seat - 0.055), (0.198, seat - 0.02), (0.18, seat), (0.0, seat + 0.01)],
+          segments=24)
+    model.turned(cushion, "vinyl", sharp=60.0)
+    return model
+
+
+def salon_chair():
+    """A hairdresser's chair: a padded seat with padded arms and a high back on a column over a round foot, and a bar
+    before it for the feet. Its seat is 0.52 high, its back at +Y."""
+    model = Model("salon_chair")
+    seat = 0.52
+    steel = bmesh.new()
+    lathe(steel, [(0.0, 0.0), (0.28, 0.0), (0.28, 0.015), (0.2, 0.05), (0.05, 0.07), (0.045, 0.3), (0.035, 0.32), (0.035, seat - 0.12), (0.0, seat - 0.12)],
+          segments=24)
+    cuboid(steel, -0.2, 0.2, -0.22, 0.2, seat - 0.13, seat - 0.1)
+    for x in (-0.25, 0.25):
+        beam(steel, (x, 0.12, seat - 0.11), (x, -0.16, seat + 0.18), 0.03, 0.012)
+    tube(steel, (-0.12, -0.42, 0.14), (0.12, -0.42, 0.14), 0.014)
+    for x in (-0.12, 0.12):
+        beam(steel, (x, -0.42, 0.14), (x * 1.2, -0.2, seat - 0.1), 0.02, 0.012)
+    model.hard(steel, "steel", bevel=0.004, segments=1)
+    padded(model, "plastic", -0.24, 0.24, -0.25, 0.22, seat - 0.1, seat, 0.02)
+    back = bmesh.new()
+    cage = grid_box(back, spread(-0.23, 0.23, 2), [0.17, 0.25], spread(seat, seat + 0.62, 2))
+    for (i, j, k), vert in cage.items():
+        vert.co.y += 0.09 * (vert.co.z - seat) / 0.62
+    cage[(1, 0, 1)].co.y -= 0.02
+    crease(back, cage, 0.3)
+    model.soft(back, "plastic", levels=2)
+    for x in (-1, 1):
+        padded(model, "plastic", *mirrored(0.215, 0.29, x), -0.2, 0.16, seat + 0.16, seat + 0.22, 0.008)
+    return model
+
+
+# A shop's glass counter one square across, its back to +Y: half its width, the top of its black cabinet, the foot and
+# the top of the glass round its case, the top of the case, how thick its corner posts are and where its back stands.
+# ShopFittings.java lays the glass by these numbers.
+COUNTER_HALF, COUNTER_BASE, COUNTER_GLASS_FOOT, COUNTER_GLASS_TOP, COUNTER_TOP, COUNTER_POST, COUNTER_BACK = 0.49, 0.42, 0.44, 0.85, 0.87, 0.025, 0.47
+
+
+def glass_counter():
+    """A shop's glass counter: a black cabinet with a case on it, glass on the top, the front and the two ends in a
+    frame of steel, and at the back, where whoever serves stands, a black board with two sliding doors in it."""
+    model = Model("glass_counter")
+    half, post = COUNTER_HALF, COUNTER_POST
+    black, steel, felt = bmesh.new(), bmesh.new(), bmesh.new()
+    cuboid(black, -half + 0.02, half - 0.02, -half + 0.02, half - 0.02, 0.0, 0.06)
+    cuboid(black, -half, half, -half, half, 0.06, COUNTER_BASE)
+    cuboid(black, -half + post, half - post, COUNTER_BACK, half - 0.004, COUNTER_BASE, COUNTER_TOP - 0.02)
+    cuboid(felt, -half + post, half - post, -half + post, COUNTER_BACK, COUNTER_BASE, COUNTER_GLASS_FOOT)
+    for x in (-half, half - post):
+        for y in (-half, half - post):
+            cuboid(steel, x, x + post, y, y + post, COUNTER_BASE, COUNTER_TOP)
+    for z0, z1 in ((COUNTER_BASE, COUNTER_GLASS_FOOT), (COUNTER_GLASS_TOP, COUNTER_TOP)):
+        for y in (-half, half - post):
+            cuboid(steel, -half, half, y, y + post, z0, z1)
+        for x in (-half, half - post):
+            cuboid(steel, x, x + post, -half, half, z0, z1)
+    # The seams of the doors in the back, and their pulls.
+    seams = bmesh.new()
+    for x in (-0.45, 0.0, 0.45):
+        cuboid(seams, x - 0.004, x + 0.004, half - 0.004, half - 0.001, COUNTER_BASE + 0.03, COUNTER_GLASS_TOP - 0.03)
+    for x in (-0.06, 0.06):
+        cuboid(seams, x - 0.012, x + 0.012, half - 0.004, half, 0.6, 0.7)
+    model.hard(black, "rubber", bevel=0.004, segments=1)
+    model.hard(steel, "steel", bevel=0.003, segments=1)
+    model.plain(felt, "linen")
+    model.plain(seams, "metal")
+    return model
+
+
+# A magazine stand, its back to +Y: its front and back, how high its back stands, and its four tiers, each the height
+# of its front edge and how far back from the stand's front that edge is. A tier's board rises MAGAZINE_LEAN for every
+# metre it goes back, over MAGAZINE_BOARD.
+MAGAZINE_FRONT, MAGAZINE_BACK, MAGAZINE_TOP = -0.3, 0.3, 1.34
+MAGAZINE_TIERS = ((0.22, 0.02), (0.5, 0.15), (0.78, 0.28), (1.06, 0.41))
+MAGAZINE_LEAN, MAGAZINE_BOARD = 2.0, 0.13
+# A mall's high table, made of a quarter on each of four squares: how high its top is.
+MALL_TABLE_TOP = 0.93
+
+
+def magazine_stand(name, half, trim):
+    """A stand for magazines, half long either way: a back, two ends, and four tiers stepping back and up from the front,
+    each a board leaning back with a rail along its front edge for the magazines to rest on."""
+    model = Model(name)
+    front, back, top = MAGAZINE_FRONT, MAGAZINE_BACK, MAGAZINE_TOP
+    body, rails = bmesh.new(), bmesh.new()
+    cuboid(body, -half + 0.02, half - 0.02, back - 0.03, back, 0.0, top)
+    cuboid(body, -half + 0.02, half - 0.02, front + 0.03, back - 0.03, 0.0, 0.12)
+    side = [(front, 0.0), (back, 0.0), (back, top)] + [(front + y + 0.0, z + 0.04) for z, y in reversed(MAGAZINE_TIERS)] + [(front, 0.12)]
+    for x in (-1, 1):
+        outline_along_x(body, side, *mirrored(half - 0.02, half, x))
+    for z, y in MAGAZINE_TIERS:
+        prism_y(body, (0.0, z, 2 * half - 0.04, 0.02, front + y), (0.0, z + MAGAZINE_BOARD * MAGAZINE_LEAN, 2 * half - 0.04, 0.02, front + y + MAGAZINE_BOARD))
+        cuboid(rails, -half + 0.02, half - 0.02, front + y - 0.018, front + y, z - 0.02, z + 0.05)
+    model.hard(body, "paint", bevel=0.004, segments=1)
+    model.hard(rails, trim, bevel=0.004, segments=1)
+    return model
+
+
+def magazines(name, seed, fill):
+    """The magazines on one square's length of a magazine stand: on each tier, a row of them standing on its board behind
+    its rail and leaning back as the board does, with the tickets on the rails. Its foot is the foot of the tickets on
+    the lowest rail."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    slope = math.hypot(1.0, MAGAZINE_LEAN)
+    up_y, up_z = 1.0 / slope, MAGAZINE_LEAN / slope
+    for z, y in MAGAZINE_TIERS:
+        x = -0.44
+        while True:
+            wide = pick.uniform(0.2, 0.23)
+            if x + wide > 0.44:
+                break
+            if pick.random() < fill:
+                high, thick = pick.uniform(0.24, 0.28), 0.008
+                foot_y, foot_z = MAGAZINE_FRONT + y + 0.004, z + 0.012
+                outline = [(foot_y, foot_z), (foot_y - thick * up_z, foot_z + thick * up_y),
+                           (foot_y - thick * up_z + high * up_y, foot_z + thick * up_y + high * up_z), (foot_y + high * up_y, foot_z + high * up_z)]
+                outline_along_x(part(pick.choice(PACKETS)), outline, x + 0.003, x + wide - 0.003)
+            x += wide
+    for z, y in MAGAZINE_TIERS:
+        tickets(part, pick, (z + 0.05,), MAGAZINE_FRONT + y - 0.018, 0.4)
+    finish()
+    return model
+
+
+def mall_table_quarter():
+    """A quarter of a mall's high table four squares big, on one square: a square of its top, rounded at its outer corner
+    and edged with a dark lip, and the quarter of the column under the middle of the table. The table's middle is the
+    square's corner at -X, +Y, and its origin is the middle of the square."""
+    model = Model("mall_table_quarter", centred=False)
+    top, lip, round_off = MALL_TABLE_TOP, 0.04, 0.12
+    outline = [(-0.5, -0.5), (0.5 - round_off, -0.5)] + arc(0.5 - round_off, -0.5 + round_off, round_off, 270.0, 360.0, 4)[1:] + [(0.5, 0.5), (-0.5, 0.5)]
+    board, edge, column = bmesh.new(), bmesh.new(), bmesh.new()
+    outline_up(edge, outline, top - lip, top)
+    outline_up(board, [(x * 0.96 - 0.02, y * 0.96 + 0.02) for x, y in outline], top - 0.002, top + 0.004)
+    lathe(column, [(0.0, 0.0), (0.42, 0.0), (0.42, 0.02), (0.3, 0.05), (0.07, 0.07), (0.06, top - lip), (0.0, top - lip)], cx=-0.5, cy=0.5, segments=40)
+    for normal in ((1.0, 0.0, 0.0), (0.0, -1.0, 0.0)):
+        bmesh.ops.bisect_plane(column, geom=column.verts[:] + column.edges[:] + column.faces[:], plane_co=(-0.5, 0.5, 0.0), plane_no=normal,
+                               clear_inner=True)
+    model.hard(edge, "dark_wood", bevel=0.006, segments=1)
+    model.plain(board, "worktop")
+    model.turned(column, "plastic", sharp=50.0)
+    return model
+
+
+def shop_fittings():
+    """What stands in shops, malls, bars and salons: the pieces ShopFittings.java places, and what they hold."""
+    return [gondola("shop_gondola", 1, "wood"), gondola("shop_gondola_m", -1, "wood"), gondola("shop_gondola_red", 1, "vinyl"),
+            gondola("shop_gondola_red_m", -1, "vinyl"), long_shelves(),
+            shelf_goods("shelf_goods_many", 41, 0.95, 3), shelf_goods("shelf_goods_few", 42, 0.45, 1),
+            hook_goods("hook_goods_many", 43, 5), hook_goods("hook_goods_few", 44, 2),
+            folded("folded_many", 45, 3), folded("folded_few", 46, 1),
+            clothes_rail(), clothes_rack(), clothes_stand(), open_wardrobe(),
+            rail_garments("rail_garments_many", 47, (0.0,), 0.86, 11), rail_garments("rail_garments_few", 48, (0.0,), 0.86, 4),
+            rail_garments("rack_garments_many", 49, (-RACK_RAILS / 2, RACK_RAILS / 2), 0.86, 10, widest=0.38),
+            rail_garments("rack_garments_few", 50, (-RACK_RAILS / 2, RACK_RAILS / 2), 0.86, 3, widest=0.38),
+            stand_garments("stand_garments_many", 51, 4), stand_garments("stand_garments_few", 52, 1),
+            rail_garments("coat_garments_many", 53, (0.03,), 0.9, 10, longest=0.95), rail_garments("coat_garments_few", 54, (0.03,), 0.9, 4, longest=0.95),
+            open_chiller(), chiller_goods("chiller_goods_many", 55, 0.95, 3), chiller_goods("chiller_goods_few", 56, 0.45, 1),
+            mall_chair(), pedestal_stool(), salon_chair(), glass_counter(),
+            magazine_stand("magazine_stand", 0.49, "wood"), magazine_stand("magazine_stand_red", 0.98, "vinyl"),
+            magazines("magazines_many", 57, 0.95), magazines("magazines_few", 58, 0.4), mall_table_quarter()]
 
 
 def outdoors():
@@ -8910,7 +9544,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + farm_and_garden() + leisure())
+            + towers() + farm_and_garden() + leisure() + shop_fittings())
 
 
 def main():
