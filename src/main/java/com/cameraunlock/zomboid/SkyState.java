@@ -79,6 +79,11 @@ final class SkyState {
     float rain;
     /** How hard it is snowing, 0 to 1, and how much of the ground snow lies on, 0 to 1. */
     float snow, snowLying;
+
+    /** How much snow lies on what grows: none in Low, which draws what grows as the game does. */
+    float snowOnPlants() {
+        return Quality.plain() ? 0f : snowLying;
+    }
     /** How fast the air moves, in tiles a second, how far it has carried the rain and the snow, in tiles, and the clocks each falls by: see Wind. */
     float airX, airY, carriedX, carriedY, rainClock, snowClock;
     /** How wet the ground is, 0 to 1: it takes a while to wet in rain and longer to dry after it. */

@@ -7,14 +7,28 @@ final class ParasolTests {
     private ParasolTests() {}
 
     static void run() {
-        quarterIsWhereItsValanceFacesFromTheCorner();
-        paleBlueCanopyIsOneParasolThoughItsQuartersHaveTwoKinds();
-        straightCanopyIsNoParasol();
-        everyPartOfAWholeParasolFindsItsSouthEastQuarterAndThatOneAloneStandsIt();
-        poleIsTheCornerPostOnTheSouthEastSquareAndNoOther();
-        canopyWithAQuarterMissingOrOutOfPlaceIsNoParasol();
-        clothIsLookedUpInsideTheSouthEastSquareWhereTheModelHasCloth();
-        modelsShadeTheFourSquaresAndStandOnTheGround();
+        Checks.run("quarterIsWhereItsValanceFacesFromTheCorner", ParasolTests::quarterIsWhereItsValanceFacesFromTheCorner);
+        Checks.run("quarterIsReadOffTheSpritesOwnProperties", ParasolTests::quarterIsReadOffTheSpritesOwnProperties);
+        Checks.run("paleBlueCanopyIsOneParasolThoughItsQuartersHaveTwoKinds", ParasolTests::paleBlueCanopyIsOneParasolThoughItsQuartersHaveTwoKinds);
+        Checks.run("straightCanopyIsNoParasol", ParasolTests::straightCanopyIsNoParasol);
+        Checks.run("everyPartOfAWholeParasolFindsItsSouthEastQuarterAndThatOneAloneStandsIt", ParasolTests::everyPartOfAWholeParasolFindsItsSouthEastQuarterAndThatOneAloneStandsIt);
+        Checks.run("poleIsTheCornerPostOnTheSouthEastSquareAndNoOther", ParasolTests::poleIsTheCornerPostOnTheSouthEastSquareAndNoOther);
+        Checks.run("canopyWithAQuarterMissingOrOutOfPlaceIsNoParasol", ParasolTests::canopyWithAQuarterMissingOrOutOfPlaceIsNoParasol);
+        Checks.run("clothIsLookedUpInsideTheSouthEastSquareWhereTheModelHasCloth", ParasolTests::clothIsLookedUpInsideTheSouthEastSquareWhereTheModelHasCloth);
+        Checks.run("modelsShadeTheFourSquaresAndStandOnTheGround", ParasolTests::modelsShadeTheFourSquaresAndStandOnTheGround);
+    }
+
+    /** As the build asks it of a sprite, with the properties of the tiles' own rows. */
+    private static void quarterIsReadOffTheSpritesOwnProperties() {
+        String row = "|BlocksPlacement||CustomName|Canopy|GroupName|Curved blue and white striped|IsHigh||IsMoveAble||PickUpTool|Screwdriver|PickUpWeight|50|"
+                + "PlaceTool|Screwdriver|WestRoofT||Facing|";
+        String[][] quarters = {{"95", "N"}, {"94", "E"}, {"87", "W"}, {"86", "S"}};
+        for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+            int read = Parasols.quarter(TileRows.sprite("walls_decoration_01_" + quarters[quarter][0] + row + quarters[quarter][1]));
+            check(read == quarter, "walls_decoration_01_" + quarters[quarter][0] + ", facing " + quarters[quarter][1] + ", is quarter " + quarter + " of a parasol: " + read);
+        }
+        check(Parasols.quarter(TileRows.sprite("walls_decoration_01_86" + row.replace("Curved blue", "Straight blue") + "S")) == Parasols.NONE,
+                "the same sprite grouped as a straight awning is no quarter");
     }
 
     private static void quarterIsWhereItsValanceFacesFromTheCorner() {
@@ -162,8 +176,6 @@ final class ParasolTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 }

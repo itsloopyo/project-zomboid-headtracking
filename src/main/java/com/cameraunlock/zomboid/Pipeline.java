@@ -631,11 +631,6 @@ final class Pipeline {
         return bytes + view.scope.pictureBytes() + view.heldDepth.bytes();
     }
 
-    /** How much snow lies on what grows: none in Low, which draws what grows as the game does. */
-    private static float plantSnow(SkyState state) {
-        return Quality.plain() ? 0f : state.snowLying;
-    }
-
     /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
     private static float[] ones(int count) {
         float[] gains = new float[count];
@@ -1002,8 +997,7 @@ final class Pipeline {
         if (!seen) {
             return false;
         }
-        WaterMirror.keepToPicture(waterRect);
-        return waterRect[0] < waterRect[2] && waterRect[1] < waterRect[3];
+        return WaterMirror.showsAny(waterRect);
     }
 
     /**
@@ -1433,7 +1427,7 @@ final class Pipeline {
         shadow.set("uTexture", 0);
         shadow.set("uWind", state.windX, state.windY, state.seconds);
         shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uPlantSnow", plantSnow(state));
+        shadow.set("uPlantSnow", state.snowOnPlants());
         shadow.set("uFaced", state.facedX, state.facedY);
         shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
         shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
@@ -2277,10 +2271,8 @@ final class Pipeline {
         to.set("uWaterRect", waterRect[0], waterRect[1], waterRect[2], waterRect[3]);
         to.set("uWaterDensity", (float) waterHeight / height);
         to.set("uWaterThrow", WaterMirror.THROW);
-        // Low's water is as rough in any wind.
-        boolean plainWater = Quality.plain();
-        to.set("uRuffle", plainWater ? 1f : WaterMirror.ruffle((float) Math.hypot(state.windX, state.windY)));
-        to.set("uPlainWater", plainWater ? 1f : 0f);
+        to.set("uRuffle", WaterMirror.ruffleDrawn((float) Math.hypot(state.windX, state.windY)));
+        to.set("uPlainWater", Quality.plain() ? 1f : 0f);
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
         to.set("uFaced", state.facedX, state.facedY);
@@ -2291,7 +2283,7 @@ final class Pipeline {
         to.set("uSeconds", state.seconds);
         to.set("uRaining", state.rain);
         to.set("uSnowLying", state.snowLying);
-        to.set("uPlantSnow", plantSnow(state));
+        to.set("uPlantSnow", state.snowOnPlants());
         // Where the viewer has trodden the snow and driven over it, counted from this picture's own eye.
         SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
         for (int i = 0; i < snowTrod[0]; i++) {

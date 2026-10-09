@@ -210,6 +210,11 @@ final class ShaderTests {
         }
     }
 
+    /**
+     * An overhead wire in the map from above combs lines into lying snow beside it. Read, not
+     * run: the wire is thrown out by the shadow vertex stage, which only a graphics card runs,
+     * and the map is drawn by Pipeline, which only loads in the game.
+     */
     private static void wiresAreOutOfTheMapFromAbove(List<Linked> programs) {
         String vertex = vertex(programs, "shadow");
         String wire = "if (" + stuff("material", WorldScene.WIRE) + " || " + hung("material", hangsOver(vertex, "shadow")) + ") {";

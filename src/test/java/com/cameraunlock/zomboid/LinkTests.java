@@ -41,6 +41,36 @@ final class LinkTests {
         Checks.run("aFieldReadByNameIsDeclaredAsRead", LinkTests::aFieldReadByNameIsDeclaredAsRead);
         Checks.run("aClassMadeOfOneOfTheGamesFitsIt", LinkTests::aClassMadeOfOneOfTheGamesFitsIt);
         Checks.run("aGameThatIsNotThereResolvesNothing", LinkTests::aGameThatIsNotThereResolvesNothing);
+        Checks.run("aMethodIsHandedOnOnlyWhereItIsInheritedWithABody", LinkTests::aMethodIsHandedOnOnlyWhereItIsInheritedWithABody);
+    }
+
+    /**
+     * A patch that gives a class a method of its own, to hand on to the one it inherits, goes
+     * in only where that one is inherited and can be called on: a game update that made it
+     * final, static, private or abstract, or took it away, is named and the patch stays out.
+     */
+    private static void aMethodIsHandedOnOnlyWhereItIsInheritedWithABody() {
+        String base = "game/Base", thing = "game/Thing", shape = "game/Shape";
+        Map<String, byte[]> game = new HashMap<>();
+        game.put(thing, thing(type -> { }));
+        game.put(base, base());
+        Checks.check(Links.notInherited(thing, "inherited", "()I", game::get) == null, "a public method of the class above, with a body, is handed on to");
+        Checks.check(Links.notInherited(base, "inherited", "()I", game::get) == null, "and so is one asked of the class that has it");
+        String missing = Links.notInherited(thing, "gone", "()I", game::get);
+        Checks.check(missing != null && missing.contains("neither " + thing), "a method nothing above has is named as missing: " + missing);
+        Checks.check(Links.notInherited(thing, "inherited", "()J", game::get) != null, "and so is one of another type");
+        Map<Integer, String> flags = Map.of(FINAL, "final", STATIC, "static", ClassFile.ACC_PRIVATE, "private", ABSTRACT, "abstract");
+        for (int flag : flags.keySet()) {
+            game.put(base, type(BASE, PUBLIC | (flag == ABSTRACT ? ABSTRACT : 0), OBJECT, method("inherited", TO_INT, PUBLIC & ~(flag == ClassFile.ACC_PRIVATE ? PUBLIC : 0) | flag)));
+            String why = Links.notInherited(thing, "inherited", "()I", game::get);
+            Checks.check((base + " has it " + flags.get(flag)).equals(why), "a method the class above has made " + flags.get(flag) + " is refused, and where and why are said: " + why);
+        }
+        game.put(base, base());
+        game.put(shape, type(ClassDesc.of("game.Shape"), PUBLIC | INTERFACE | ABSTRACT, OBJECT, method("sides", TO_INT, PUBLIC)));
+        game.put(thing, ClassFile.of().build(THING, type -> type.withFlags(PUBLIC).withSuperclass(BASE).withInterfaceSymbols(ClassDesc.of("game.Shape"))));
+        Checks.check(Links.notInherited(thing, "sides", "()I", game::get) == null, "a default method of an interface the class has is handed on to");
+        game.put(shape, type(ClassDesc.of("game.Shape"), PUBLIC | INTERFACE | ABSTRACT, OBJECT, method("sides", TO_INT, PUBLIC | ABSTRACT)));
+        Checks.check(Links.notInherited(thing, "sides", "()I", game::get) != null, "and an interface's method with no body is refused");
     }
 
     private static byte[] type(ClassDesc name, int flags, ClassDesc parent, Consumer<ClassBuilder> members) {

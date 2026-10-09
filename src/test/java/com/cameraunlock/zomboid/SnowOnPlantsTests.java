@@ -44,14 +44,27 @@ final class SnowOnPlantsTests {
         String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
         check(vertex.contains("deep=uLaid>2.5||uPlantSnow<=0.0?0.0:snowStood("), "nor does grass stand in it or bend under it");
         check(vertex.contains("take*lean*(1.0-0.35*uPlantSnow)") && !vertex.contains("take*lean*(1.0-0.35*uSnowLying)"), "nor does a bough swing the less for it");
+        SkyState state = new SkyState();
+        state.snowLying = 0.7f;
+        try {
+            Quality.set(Quality.LOW);
+            check(state.snowOnPlants() == 0f, "in Low, the plain mode, no snow lies on what grows with snow lying on the ground");
+            Quality.set(Quality.MEDIUM);
+            check(state.snowOnPlants() == 0.7f, "in Medium as much as on the ground");
+            Quality.set(Quality.HIGH);
+            check(state.snowOnPlants() == 0.7f, "and in High");
+        } finally {
+            Quality.set(Quality.HIGH);
+        }
+        // Pipeline hands the world's program and the shadows' their uniforms and runs only with a graphics card: what it hands them is read.
         String pipeline;
         try {
             pipeline = Files.readString(Path.of("src/main/java/com/cameraunlock/zomboid/Pipeline.java"));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        check(pipeline.contains("return Quality.plain() ? 0f : state.snowLying;") && pipeline.contains("to.set(\"uPlantSnow\", plantSnow(state));")
-                && pipeline.contains("shadow.set(\"uPlantSnow\", plantSnow(state));"), "in Low, the plain mode, no snow lies on what grows, in the world's program and the shadows'");
+        check(count(pipeline, "\"uPlantSnow\", state.snowOnPlants())") == 2 && count(pipeline, "\"uPlantSnow\"") == 2,
+                "and both programs are told that, and nothing else, as the snow on what grows");
     }
 
     private static void aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut() {

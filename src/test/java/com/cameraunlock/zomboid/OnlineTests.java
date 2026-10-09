@@ -13,6 +13,7 @@ public final class OnlineTests {
 
     static void run() {
         Checks.run("keysAheadAreToldFromKeysAside", OnlineTests::keysAheadAreToldFromKeysAside);
+        Checks.run("onlyAServerThatLetsPlayersFightHoldsAnythingBack", OnlineTests::onlyAServerThatLetsPlayersFightHoldsAnythingBack);
         Checks.run("aViewIsOnAPersonFromFeetToHead", OnlineTests::aViewIsOnAPersonFromFeetToHead);
         try {
             aCallIsHandedToItsReplacement();
@@ -25,6 +26,19 @@ public final class OnlineTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    private static void onlyAServerThatLetsPlayersFightHoldsAnythingBack() {
+        Servers.in(Servers.Where.ALONE, () -> check(!Online.joined() && !Online.contested() && Online.leanCarriesTheShot() && !Online.bodyFacesTheView(),
+                "alone the lean carries the shot and the body walks as it likes"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.joined() && !Online.contested() && Online.leanCarriesTheShot() && !Online.bodyFacesTheView(),
+                "on a server where players cannot hurt each other nothing is held back either"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(Online.joined() && Online.contested() && !Online.leanCarriesTheShot() && Online.bodyFacesTheView(),
+                "on one where they can, the lean does not carry the shot and the body faces the view"));
+        Servers.in(Servers.Where.ALONE, () -> {
+            zombie.network.ServerOptions.getInstance().pvp.setValue(true);
+            check(!Online.contested(), "a game played alone is no fight whatever its own server options say");
+        });
     }
 
     private static void keysAheadAreToldFromKeysAside() {

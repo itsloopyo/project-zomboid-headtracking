@@ -129,6 +129,7 @@ public final class Tests {
         Checks.run("wallTintSurvivesItsPacking", Tests::wallTintSurvivesItsPacking);
         Checks.run("meshesAreKeptByTextureAndTint", Tests::meshesAreKeptByTextureAndTint);
         Checks.run("OutdoorTests", OutdoorTests::run);
+        Checks.run("FurnitureTests", FurnitureTests::run);
         Checks.run("BuildingTests", BuildingTests::run);
         Checks.run("RoofTests", RoofTests::run);
         Checks.run("ShapeTests", ShapeTests::run);

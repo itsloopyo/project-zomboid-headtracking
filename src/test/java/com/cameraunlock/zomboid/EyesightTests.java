@@ -13,6 +13,7 @@ final class EyesightTests {
         Checks.run("aViewNarrowsAsTheGameNarrowsItsCone", EyesightTests::aViewNarrowsAsTheGameNarrowsItsCone);
         Checks.run("whereNobodyCanBeFoughtZombiesAreWholeWithinTheGamesSight", EyesightTests::whereNobodyCanBeFoughtZombiesAreWholeWithinTheGamesSight);
         Checks.run("wherePlayersCanFightZombiesAreTheGamesAndTheSightStaysOn", EyesightTests::wherePlayersCanFightZombiesAreTheGamesAndTheSightStaysOn);
+        Checks.run("theSwitchTakesTheSightOutOnlyWhereNobodyCanBeFought", EyesightTests::theSwitchTakesTheSightOutOnlyWhereNobodyCanBeFought);
     }
 
     private static void check(boolean condition, String what) {
@@ -84,5 +85,22 @@ final class EyesightTests {
     private static void wherePlayersCanFightZombiesAreTheGamesAndTheSightStaysOn() {
         check(!Eyesight.shownWhole(true, true, 4f, 43.3f), "where players can fight, even a zombie two tiles off is drawn only as the game shows it");
         check(Eyesight.on(true, true), "and the development switch cannot take the sight out");
+    }
+
+    /** As the frame asks it, of the server the game is joined to. */
+    private static void theSwitchTakesTheSightOutOnlyWhereNobodyCanBeFought() {
+        boolean was = Eyesight.without;
+        try {
+            Eyesight.without = false;
+            for (Servers.Where where : Servers.Where.values()) {
+                Servers.in(where, () -> check(Eyesight.on(), "the character's sight is on " + where + " with the switch left alone"));
+            }
+            Eyesight.without = true;
+            Servers.in(Servers.Where.ALONE, () -> check(!Eyesight.on(), "alone the development switch takes it out"));
+            Servers.in(Servers.Where.FRIENDLY, () -> check(!Eyesight.on(), "and on a server where players cannot hurt each other"));
+            Servers.in(Servers.Where.CONTESTED, () -> check(Eyesight.on(), "and not where they can"));
+        } finally {
+            Eyesight.without = was;
+        }
     }
 }

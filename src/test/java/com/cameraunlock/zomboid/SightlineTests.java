@@ -25,6 +25,7 @@ final class SightlineTests {
         Checks.run("theGamesOwnViewLeavesNothingOut", SightlineTests::theGamesOwnViewLeavesNothingOut);
         Checks.run("aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff", SightlineTests::aRoomNotShownIsFilledNearTheEyeAndEmptyFarOff);
         Checks.run("aLineThatEndsWhereItStartsIsClear", SightlineTests::aLineThatEndsWhereItStartsIsClear);
+        Checks.run("roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow", SightlineTests::roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow);
         Checks.run("theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem", SightlineTests::theLightOfRoomsNotShownMovesInStepsAndHoldsBetweenThem);
     }
 
@@ -122,13 +123,12 @@ final class SightlineTests {
         return built(asTheGameShows, gamesView, true);
     }
 
-    /** As addSquare decides it, with the chunk near enough to fill the rooms the game has not shown or not. */
+    /** By Sightline's rule, with the chunk near enough to fill the rooms the game has not shown or not. */
     private static List<Prop> built(boolean asTheGameShows, boolean gamesView, boolean near) {
         List<Prop> built = new ArrayList<>();
         for (Prop each : PROPS) {
-            boolean shown = !each.inTheBathroom();
-            boolean leftOut = Sightline.leftOut(asTheGameShows, gamesView, true, shown);
-            if (!Sightline.leftEmpty(leftOut, !gamesView && !shown, near)) {
+            int emptied = Sightline.emptied(asTheGameShows, gamesView, true, !each.inTheBathroom());
+            if (emptied == Sightline.KEPT || emptied == Sightline.LEFT_OUT_FAR && near) {
                 built.add(each);
             }
         }
@@ -179,7 +179,33 @@ final class SightlineTests {
         check(!far.contains(prop("toilet")) && !far.contains(prop("sink")), "far off what stands in that room is not");
         check(far.contains(prop("hall table")), "and what stands in a room the game has shown is, however far off");
         check(built(false, true, false).size() == PROPS.size(), "as the game's own view nothing is left out far off either");
+        check(Sightline.emptied(false, false, false, false) == Sightline.KEPT && Sightline.emptied(true, false, false, false) == Sightline.KEPT,
+                "and what stands out of doors is built however far off, shown or not");
         check(!built(true, false, true).contains(prop("toilet")), "where players can fight the room is empty however near");
+    }
+
+    /** The rule the frame builds by, asked of the server the game is joined to and the graphics mode. */
+    private static void roomsAreFilledAsTheGameShowsThemWherePlayersFightAndInLow() {
+        try {
+            Quality.set(Quality.HIGH);
+            Servers.in(Servers.Where.ALONE, () -> {
+                check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
+                        "alone in High the room the game has not shown is filled");
+                check(Sightline.buildsAhead(false), "and a chunk the view does not face is built ahead of a turn");
+                check(Sightline.asTheGameShows(true) && !Sightline.buildsAhead(true), "the development switch puts both back as the game has them");
+            });
+            Servers.in(Servers.Where.FRIENDLY, () -> check(!Sightline.asTheGameShows(false), "on a server where players cannot hurt each other the room is filled too"));
+            Servers.in(Servers.Where.CONTESTED, () -> check(Sightline.asTheGameShows(false) && !built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
+                    "where they can, it is left empty until the game shows it"));
+            Quality.set(Quality.LOW);
+            Servers.in(Servers.Where.ALONE, () -> {
+                check(Sightline.asTheGameShows(false) && !built(Sightline.asTheGameShows(false), false).contains(prop("sink")),
+                        "in Low, alone, a room is filled only as the game shows it");
+                check(!Sightline.buildsAhead(false), "and nothing is built ahead of a turn");
+            });
+        } finally {
+            Quality.set(Quality.HIGH);
+        }
     }
 
     private static void theGamesOwnViewLeavesNothingOut() {

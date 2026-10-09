@@ -27,6 +27,8 @@ final class RoadPaintTests {
         Checks.run("noPointOfThePaintIsCoatedTwice", RoadPaintTests::noPointOfThePaintIsCoatedTwice);
         Checks.run("everyCornerIsANumber", RoadPaintTests::everyCornerIsANumber);
         Checks.run("onlyMarkingsAreRead", RoadPaintTests::onlyMarkingsAreRead);
+        Checks.run("everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints", RoadPaintTests::everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints);
+        Checks.run("aReadingAgreesWithItsOwnDotsAndNotWithAnothers", RoadPaintTests::aReadingAgreesWithItsOwnDotsAndNotWithAnothers);
     }
 
     private static void check(boolean condition, String what) {
@@ -80,6 +82,67 @@ final class RoadPaintTests {
 
     private static void near(double value, double wanted, double within, String what) {
         check(Math.abs(value - wanted) <= within, what + ": " + value + " where " + wanted + " was wanted");
+    }
+
+    /**
+     * The shapes the map's markings come in beside the straight lines and bars above: a corner
+     * where an edge line turns or an arrow's shaft elbows, a tee of a shaft, a broad crossing
+     * rung and an arrowhead. Each is laid where its sprite paints and nowhere else, but within a
+     * dot of its outline, where the fit straightens a stair.
+     */
+    private static void everyKindOfMarkingIsLaidAsTheShapeItsSpritePaints() {
+        java.util.Map<String, Painted> kinds = new java.util.LinkedHashMap<>();
+        kinds.put("a corner of an edge line", (x, y) -> y > 0 && y < 60 && x > 40 && x < 54 || y > 46 && y < 60 && x > 40 && x < SIDE);
+        kinds.put("a tee of an arrow's shaft", (x, y) -> y > 0 && y < SIDE && x > 57 && x < 71 || y > 57 && y < 71 && x > 57 && x < SIDE);
+        kinds.put("a broad crossing rung", (x, y) -> y > 30 && y < 98 && x > 0 && x < SIDE);
+        kinds.put("an arrowhead", (x, y) -> y > 20 && y < 100 && Math.abs(x - 64) < (y - 20) * 0.5);
+        for (java.util.Map.Entry<String, Painted> kind : kinds.entrySet()) {
+            Painted painted = kind.getValue();
+            float[] triangles = PaintFit.triangles(cover(painted), SIDE, MARGIN);
+            check(triangles != null, kind.getKey() + " is read");
+            if (triangles == null) {
+                continue;
+            }
+            int wrong = 0, inPaint = 0;
+            for (int i = 0; i < SIDE; i++) {
+                for (int j = 0; j < SIDE; j++) {
+                    double x = i + 0.5, y = j + 0.5;
+                    boolean paint = painted.at(x, y);
+                    boolean clear = paint;
+                    for (int k = 0; k < 8 && clear == paint; k++) {
+                        clear = painted.at(x + Math.cos(k * Math.PI / 4), y + Math.sin(k * Math.PI / 4));
+                    }
+                    if (clear != paint) {
+                        continue;
+                    }
+                    inPaint += paint ? 1 : 0;
+                    if (inside(triangles, x / SIDE, y / SIDE) != paint) {
+                        wrong++;
+                    }
+                }
+            }
+            check(inPaint > 300, kind.getKey() + " has paint to look at: " + inPaint + " dots");
+            check(wrong == 0, kind.getKey() + " is laid where its sprite paints and not where it does not, a dot or more from its outline: " + wrong + " dots wrong");
+        }
+    }
+
+    /** What decides whether a reading is used or the sprite drawn as it is: how many of the dots either paints both paint. */
+    private static void aReadingAgreesWithItsOwnDotsAndNotWithAnothers() {
+        float[] stair = cover((x, y) -> y > 0 && y < SIDE && x > 2 + (Math.floor(y / 2) % 2 == 0 ? -1 : 1) && x < 16 + (Math.floor(y / 2) % 2 == 0 ? -1 : 1));
+        float[] read = PaintFit.triangles(stair, SIDE, MARGIN);
+        check(read != null, "a stripe with a staircase edge is read");
+        if (read == null) {
+            return;
+        }
+        float own = PaintFit.agreement(stair, SIDE, MARGIN, read);
+        check(own > 0.85f && own <= 1f, "and its reading agrees with its own dots but for the stair straightened: " + own);
+        float[] bar = cover((x, y) -> y > 0 && y < 70 && x > 50 && x < 78);
+        float other = PaintFit.agreement(bar, SIDE, MARGIN, read);
+        check(other < 0.1f, "a reading laid over another sprite's dots agrees with them hardly at all: " + other);
+        float[] wider = cover((x, y) -> y > 0 && y < SIDE && x > 2 && x < 30);
+        float half = PaintFit.agreement(wider, SIDE, MARGIN, read);
+        check(half > 0.4f && half < 0.6f, "and with a stripe twice as wide by about half: " + half);
+        check(PaintFit.agreement(cover((x, y) -> false), SIDE, MARGIN, new float[0]) == 0f, "nothing laid over nothing painted agrees with nothing");
     }
 
     private static void stripeWithAStaircaseEdgeIsOneStraightStripeOnTheSpritesDots() {

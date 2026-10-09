@@ -5,24 +5,36 @@ final class LightsTests {
     private LightsTests() {}
 
     static void run() {
-        halfIsToldByItsKindItsFacingAndItsPlaceInThePiece();
-        whatIsNoStringOfLightsIsNone();
-        twoHalvesAreOneSwagBetweenSupportsTwoSquaresApart();
-        halfWithNoOtherHalfStillHangsFromItsSupportToTheMiddle();
-        cordOfTheTwoHalvesIsOneCurve();
-        everyBulbHangsOnOneHalfClearOfTheNext();
-        bulbHangsFromItsCordAndUnderIt();
-        bulbIsTurnedRoundThePlumbLineAndSwingsWithItsCord();
-        farBulbIsTheSameBulbInFarFewerTrianglesAndFurtherOffThereIsNone();
-        postHoldsTheHalvesWhoseCordEndsAtItsCorner();
-        rainbowStringHasABulbOfEachColourAndTheRestAreClear();
-        stringIsMadeFastAtTheCornerPostItsSwagEndsAt();
-        bulbsAreWholeNearPlainerFurtherOffAndGoneOnlyFromAStringThatIsOut();
-        wholeBulbsHolderIsClosedOnTop();
+        Checks.run("halfIsToldByItsKindItsFacingAndItsPlaceInThePiece", LightsTests::halfIsToldByItsKindItsFacingAndItsPlaceInThePiece);
+        Checks.run("halfIsReadOffTheSpritesOwnProperties", LightsTests::halfIsReadOffTheSpritesOwnProperties);
+        Checks.run("whatIsNoStringOfLightsIsNone", LightsTests::whatIsNoStringOfLightsIsNone);
+        Checks.run("twoHalvesAreOneSwagBetweenSupportsTwoSquaresApart", LightsTests::twoHalvesAreOneSwagBetweenSupportsTwoSquaresApart);
+        Checks.run("halfWithNoOtherHalfStillHangsFromItsSupportToTheMiddle", LightsTests::halfWithNoOtherHalfStillHangsFromItsSupportToTheMiddle);
+        Checks.run("cordOfTheTwoHalvesIsOneCurve", LightsTests::cordOfTheTwoHalvesIsOneCurve);
+        Checks.run("everyBulbHangsOnOneHalfClearOfTheNext", LightsTests::everyBulbHangsOnOneHalfClearOfTheNext);
+        Checks.run("bulbHangsFromItsCordAndUnderIt", LightsTests::bulbHangsFromItsCordAndUnderIt);
+        Checks.run("bulbIsTurnedRoundThePlumbLineAndSwingsWithItsCord", LightsTests::bulbIsTurnedRoundThePlumbLineAndSwingsWithItsCord);
+        Checks.run("farBulbIsTheSameBulbInFarFewerTrianglesAndFurtherOffThereIsNone", LightsTests::farBulbIsTheSameBulbInFarFewerTrianglesAndFurtherOffThereIsNone);
+        Checks.run("postHoldsTheHalvesWhoseCordEndsAtItsCorner", LightsTests::postHoldsTheHalvesWhoseCordEndsAtItsCorner);
+        Checks.run("rainbowStringHasABulbOfEachColourAndTheRestAreClear", LightsTests::rainbowStringHasABulbOfEachColourAndTheRestAreClear);
+        Checks.run("stringIsMadeFastAtTheCornerPostItsSwagEndsAt", LightsTests::stringIsMadeFastAtTheCornerPostItsSwagEndsAt);
+        Checks.run("bulbsAreWholeNearPlainerFurtherOffAndGoneOnlyFromAStringThatIsOut", LightsTests::bulbsAreWholeNearPlainerFurtherOffAndGoneOnlyFromAStringThatIsOut);
+        Checks.run("wholeBulbsHolderIsClosedOnTop", LightsTests::wholeBulbsHolderIsClosedOnTop);
     }
 
     private static int large(boolean south, boolean second) {
         return Lights.sliceOf("Lights", "Large", south ? "E" : "S", !second ? "0,0" : south ? "0,1" : "1,0");
+    }
+
+    /** As the build asks it of a sprite, with the properties of the tiles' own rows. */
+    private static void halfIsReadOffTheSpritesOwnProperties() {
+        String row = "|CustomName|Lights|Facing|S|ForceSingleItem||HasLightOnSprite||IsHigh||IsMoveAble||LightRadius|3|PickUpWeight|10|exterior||lightswitch||GroupName|";
+        check(Lights.slice(TileRows.sprite("walls_decoration_01_96" + row + "Large|SpriteGridPos|0,0")) == large(false, false), "the first half of a large string is told off its sprite");
+        check(Lights.slice(TileRows.sprite("walls_decoration_01_97" + row + "Large|SpriteGridPos|1,0")) == large(false, true), "and the second");
+        int small = Lights.slice(TileRows.sprite("walls_decoration_01_88" + row + "Small|SpriteGridPos|0,0"));
+        int rainbow = Lights.slice(TileRows.sprite("walls_decoration_01_76" + row + "Rainbow|SpriteGridPos|0,0"));
+        check(small != Lights.NONE && Lights.kind(small) == Lights.SMALL && rainbow != Lights.NONE && Lights.kind(rainbow) == Lights.RAINBOW, "small and rainbow strings are told by their group");
+        check(Lights.slice(TileRows.sprite("lighting_indoor_01_58|CustomName|Lights|GroupName|Lamp on|lightswitch|")) == Lights.NONE, "a lamp of the same name is no string");
     }
 
     private static void halfIsToldByItsKindItsFacingAndItsPlaceInThePiece() {
@@ -324,9 +336,7 @@ final class LightsTests {
     }
 
     private static void check(boolean condition, String what) {
-        if (!condition) {
-            throw new AssertionError(what);
-        }
+        Checks.check(condition, what);
     }
 
     private static boolean near(float a, float b) {

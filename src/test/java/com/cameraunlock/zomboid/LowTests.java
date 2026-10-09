@@ -30,12 +30,16 @@ final class LowTests {
         anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings();
     }
 
+    /**
+     * The rule itself is run in SightlineTests, in Low and out of it. That the frame builds by
+     * it is a fact of WorldScene's build, which runs only against the game's map: read here.
+     */
     private static void aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow() {
         String scene = scene();
-        check(count(scene, "boolean showing = Online.contested() || withoutSightline || Quality.plain();") == 1,
-                "in Low what stands in a room is built only once the game has shown the room");
-        check(count(scene, "if (ahead && (aheadStep < 0 || withoutSightline || Quality.plain() ||") == 1,
-                "and no chunk the view does not face is built ahead of a turn");
+        check(count(scene, "boolean showing = Sightline.asTheGameShows(withoutSightline);") == 1,
+                "the frame fills a room by Sightline's rule, which in Low is the game's");
+        check(count(scene, "if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(withoutSightline) ||") == 1,
+                "and builds a chunk ahead of a turn by it, which in Low is never");
     }
 
     private static void anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings() {
@@ -71,12 +75,15 @@ final class LowTests {
                         + gated + " of " + asks + " places ask");
     }
 
+    /**
+     * How rough Low's water is drawn is run in WaterMirrorTests. That the world's program is
+     * told it, and what the program does with plain water, run only with a graphics card: read.
+     */
     private static void lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance() {
         String pipeline = source("Pipeline.java");
-        check(count(pipeline, "boolean plainWater = Quality.plain();") == 1
-                && count(pipeline, "to.set(\"uRuffle\", plainWater ? 1f : WaterMirror.ruffle(") == 1
-                && count(pipeline, "to.set(\"uPlainWater\", plainWater ? 1f : 0f);") == 1,
-                "the world's program is told the water is plain, and as rough as in a light breeze, in Low");
+        check(count(pipeline, "to.set(\"uRuffle\", WaterMirror.ruffleDrawn(") == 1 && count(pipeline, "\"uRuffle\"") == 1
+                && count(pipeline, "to.set(\"uPlainWater\", Quality.plain() ? 1f : 0f);") == 1,
+                "the world's program is told the water is plain, and as rough as WaterMirror draws it, in Low");
         String shaders = source("PipelineShaders.java");
         check(count(shaders, "bool sized = water && uPlainWater < 0.5;") == 1
                 && count(shaders, "vec3 kept = sized ? ") == 1 && count(shaders, "float near = sized ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);") == 1,

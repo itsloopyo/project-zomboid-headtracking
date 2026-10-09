@@ -12,12 +12,26 @@ package com.cameraunlock.zomboid;
  * shut door, a drawn curtain. So everything in a room is built whether or not the game has
  * shown the room, ahead of any line to it, and the picture's own walls and doors hide it
  * until the line opens: a door swings, a corner is turned, the head leans round a frame.
- * That holds within 40 tiles of the eye (WorldScene.UNSHOWN_FILLED_WITHIN): see leftEmpty.
+ * That holds within 40 tiles of the eye (WorldScene.UNSHOWN_FILLED_WITHIN): see emptied.
  *
  * Where players can fight, a room is filled only as the game shows it to everyone.
  */
 final class Sightline {
     private Sightline() {}
+
+    /**
+     * Whether a room is filled only as the game shows it: where players can fight (see
+     * Online.contested), in Low, which shows everything the game's way, and with the
+     * development switch that turns the line of sight off.
+     */
+    static boolean asTheGameShows(boolean switchedOff) {
+        return Online.contested() || switchedOff || Quality.plain();
+    }
+
+    /** Whether the chunk the view does not face is built ahead of a turn: with the development switch left alone, and out of Low. */
+    static boolean buildsAhead(boolean switchedOff) {
+        return !switchedOff && !Quality.plain();
+    }
 
     /**
      * Whether what stands in a room is left out of a build of the room's square.
@@ -31,19 +45,22 @@ final class Sightline {
         return asTheGameShows && !gamesView && inRoom && !shown;
     }
 
+    /** What emptied answers: what stands on the square is built, left out, or left out only when its chunk is far from the eye. */
+    static final int KEPT = 0, LEFT_OUT = 1, LEFT_OUT_FAR = 2;
+
     /**
      * Whether what stands on a square is left out of the build: in a room shown as the game shows
-     * it (leftOut), and in a room the game has not shown when the chunk is further from the eye
-     * than such rooms are filled. Every room of a town is one the game has not shown, and
-     * filling all of them to the end of sight is building every house's contents in view; past
-     * that distance a room stands empty and is filled as its chunk comes nearer.
-     *
-     * @param leftOut     what leftOut answered for the square
-     * @param unshownRoom the square is in a room the game has not shown, in a frame from the eye
-     * @param near        the chunk is near enough for such a room to be filled
+     * it (leftOut), and in a room the game has not shown, from the eye, when the chunk is further
+     * from the eye than such rooms are filled. Every room of a town is one the game has not
+     * shown, and filling all of them to the end of sight is building every house's contents in
+     * view; past that distance a room stands empty and is filled as its chunk comes nearer.
+     * The arguments are leftOut's.
      */
-    static boolean leftEmpty(boolean leftOut, boolean unshownRoom, boolean near) {
-        return leftOut || unshownRoom && !near;
+    static int emptied(boolean asTheGameShows, boolean gamesView, boolean inRoom, boolean shown) {
+        if (leftOut(asTheGameShows, gamesView, inRoom, shown)) {
+            return LEFT_OUT;
+        }
+        return !gamesView && inRoom && !shown ? LEFT_OUT_FAR : KEPT;
     }
 
     /**

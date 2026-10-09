@@ -114,12 +114,27 @@ final class WaterMirror {
         return (float) Math.sqrt(awayX * awayX + awayY * awayY + over * over);
     }
 
+    /**
+     * Keeps the rectangle to the picture, as keepToPicture does, and says whether the water
+     * taken into it puts any pixel in the picture. Water behind the eye or off to a side takes
+     * in nothing of it, and the picture of what water shows is then not drawn at all.
+     */
+    static boolean showsAny(float[] rect) {
+        keepToPicture(rect);
+        return rect[0] < rect[2] && rect[1] < rect[3];
+    }
+
     /** Widens the rectangle by a little more and keeps it to the picture. */
     static void keepToPicture(float[] rect) {
         rect[0] = Math.max(-1f, rect[0] - SPARE);
         rect[1] = Math.max(-1f, rect[1] - SPARE);
         rect[2] = Math.min(1f, rect[2] + SPARE);
         rect[3] = Math.min(1f, rect[3] + SPARE);
+    }
+
+    /** How rough the picture draws water: in Low as a light breeze leaves it in any wind, elsewhere as ruffle has it. */
+    static float ruffleDrawn(float push) {
+        return Quality.plain() ? 1f : ruffle(push);
     }
 
     /**

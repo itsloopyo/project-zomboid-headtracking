@@ -37,6 +37,7 @@ public final class Agent {
     private static final String INT_FILTER = "(I)I";
     private static final String BOOLEAN_FILTER = "(Z)Z";
     private static final String VECTOR2_FILTER = "(Lzombie/iso/Vector2;)Lzombie/iso/Vector2;";
+    static final String GAME_DIRECTORY_PROPERTY = "cameraunlock.zomboid.gameDirectory";
 
     /** A rewrite of one method of one game class. */
     record Patch(String owner, String what, UnaryOperator<byte[]> rewrite) {}
@@ -147,7 +148,9 @@ public final class Agent {
             Log.info("the agent was started a second time: the first start stands");
             return;
         }
-        Path gameDirectory = Path.of("").toAbsolutePath();
+        // The offline harness runs the game's classes in the game's folder and keeps the mod's log
+        // and CameraUnlock.ini in a folder of its own, named by this property. The game never sets it.
+        Path gameDirectory = Path.of(System.getProperty(GAME_DIRECTORY_PROPERTY, "")).toAbsolutePath();
         Log.open(gameDirectory);
         // Only once there is a log: a second start after a first that could not open one has nowhere to say so.
         loaded = true;

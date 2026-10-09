@@ -22,6 +22,16 @@ final class CrownTests {
         Checks.run("crownsMadeOnTheirThreadAreTheSameCrowns", CrownTests::crownsMadeOnTheirThreadAreTheSameCrowns);
         Checks.run("spriteMeasuredAsNoCrownMakesNone", CrownTests::spriteMeasuredAsNoCrownMakesNone);
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
+        Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
+    }
+
+    /** Where a fern's root or a tuft of long grass stands in its room, as the build places it with Flora.within. */
+    private static void aRootIsHeldInFromAFenceByAsFarAsItReaches() {
+        float fence = 0.06f, open = Float.MAX_VALUE;
+        check(Flora.within(0.5f, 0.3f, fence, open) == 0.5f, "a root that reaches no fence is where it grows");
+        check(Math.abs(Flora.within(0.2f, 0.3f, fence, open) - (fence + 0.3f)) < 1e-6f, "one that would reach through is moved in until it reaches the fence and no further");
+        check(Math.abs(Flora.within(0.9f, 0.3f, -open, 1f - fence) - (1f - fence - 0.3f)) < 1e-6f, "from a fence on the far side as well");
+        check(Math.abs(Flora.within(0.1f, 0.6f, fence, 1f - fence) - 0.5f) < 1e-6f, "and one too big for a square fenced both sides stands in its middle");
     }
 
     /** A round crown painted in the upper half of the sprite, over a bare stick of trunk that is no part of it. */

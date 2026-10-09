@@ -624,7 +624,7 @@ final class WorldScene {
     private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
     private float roomShare = -1f, lampLevel = -1f;
     private long roomLightTakenAt;
-    /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.leftEmpty. */
+    /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.emptied. */
     private static final float UNSHOWN_FILLED_WITHIN = 40f;
     /** How bright the open ground has to be for roomShare to be taken: under it, a sixty-fourth of light, which is as fine as the tally counts, is more than a step of the share. */
     private static final float ROOM_SHARE_TAKEN_FROM = 0.25f;
@@ -2148,8 +2148,7 @@ final class WorldScene {
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
             goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
-            // Low shows a room as the game does, as it shows everything else the game's way.
-            boolean showing = Online.contested() || withoutSightline || Quality.plain();
+            boolean showing = Sightline.asTheGameShows(withoutSightline);
             if (showing != asTheGameShows) {
                 // A build made by the other rule, seen before it falls due, would fill or empty its rooms a frame or more late.
                 asTheGameShows = showing;
@@ -2329,7 +2328,7 @@ final class WorldScene {
             int aheadStep = -1;
             for (int step = 0; step <= walk.length; step += 2) {
                 boolean ahead = step == walk.length;
-                if (ahead && (aheadStep < 0 || withoutSightline || Quality.plain() || rehearsing || chunksWaiting > 0 || waitedLast > 0
+                if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(withoutSightline) || rehearsing || chunksWaiting > 0 || waitedLast > 0
                         || System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing)) {
                     break;
                 }
@@ -4355,10 +4354,10 @@ final class WorldScene {
             // A room the game has not shown the player yet is black in the game's own view. From
             // the eye it is built whole, and its walls hide it. Only where the viewer is shown no
             // more than the game shows does the house stand with the room left empty: see Sightline.
-            boolean unexplored = unexplored(square);
-            boolean unshownRoom = !gamesView && square.getRoomID() != -1L && !square.isSeen(playerIndex);
+            int emptied = Sightline.emptied(asTheGameShows, gamesView, square.getRoomID() != -1L, square.isSeen(playerIndex));
+            boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
-            boolean empty = Sightline.leftEmpty(unexplored, unshownRoom, !unshownRoom || unexplored || within(UNSHOWN_FILLED_WITHIN, false));
+            boolean empty = unexplored || emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();

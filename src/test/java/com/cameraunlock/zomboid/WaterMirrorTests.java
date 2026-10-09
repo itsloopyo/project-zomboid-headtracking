@@ -12,6 +12,56 @@ final class WaterMirrorTests {
         Checks.run("planeTouchesTheWaterUnderTheEyeAndLiesInItAcrossARiver", WaterMirrorTests::planeTouchesTheWaterUnderTheEyeAndLiesInItAcrossARiver);
         Checks.run("windRoughensWaterAndNeverSmoothsItToGlass", WaterMirrorTests::windRoughensWaterAndNeverSmoothsItToGlass);
         Checks.run("everyPointOfWaterInThePictureIsInTheRectangleDrawnForIt", WaterMirrorTests::everyPointOfWaterInThePictureIsInTheRectangleDrawnForIt);
+        Checks.run("waterBehindOrBesideTheViewHasNoPictureDrawnForIt", WaterMirrorTests::waterBehindOrBesideTheViewHasNoPictureDrawnForIt);
+        Checks.run("lowsWaterIsAsRoughInAnyWind", WaterMirrorTests::lowsWaterIsAsRoughInAnyWind);
+    }
+
+    /**
+     * The second drawing of the world is the cost of water in sight, and is skipped where no
+     * water is: a chunk of it ahead puts some in the picture, the same chunk behind the eye or
+     * well off to a side none, in a calm and in a gale. A chunk just past the picture's edge is
+     * still taken in by as far as a ripple can throw what it shows, which in a gale reaches it
+     * from straight beside the eye: so "well off" is a little behind that.
+     */
+    private static void waterBehindOrBesideTheViewHasNoPictureDrawnForIt() {
+        float eyeX = 6450.5f, eyeY = 5183.5f;
+        float[] plane = new float[4], rect = new float[4], corners = new float[32];
+        WaterMirror.plane(Terrain.HILLS, eyeX, eyeY, plane);
+        float eyeUp = Terrain.HILLS.waterLevel(eyeX, eyeY) + 1.9f, tan = TAN * WaterMirror.MARGIN;
+        ViewCamera.Pose eye = new ViewCamera.Pose();
+        for (float roughness : new float[] {WaterMirror.ruffle(0f), WaterMirror.ruffle(2f)}) {
+            for (int towards = 0; towards < 360; towards += 45) {
+                double way = Math.toRadians(towards);
+                float midX = eyeX + 14f * (float) Math.cos(way), midY = eyeY + 14f * (float) Math.sin(way);
+                for (int off = 0; off < 360; off += 15) {
+                    ViewCamera.clean(eye, eyeX, eyeY, eyeUp, (float) Math.toRadians(towards + off), (float) Math.toRadians(-10));
+                    WaterMirror.nothingSeen(rect);
+                    WaterMirror.takeIn(eye, plane, midX - 4f, midY - 4f, midX + 4f, midY + 4f, tan, ASPECT, roughness, corners, rect);
+                    boolean drawn = WaterMirror.showsAny(rect);
+                    int away = Math.min(off, 360 - off);
+                    if (away <= 30) {
+                        check(drawn, "water 14 tiles ahead is in sight, looking " + off + " degrees from it");
+                    } else if (away >= 105) {
+                        check(!drawn, "water 14 tiles off towards " + towards + " is not in sight looking " + off + " degrees from it, and its picture is not drawn: " + java.util.Arrays.toString(rect));
+                    }
+                    if (drawn) {
+                        check(rect[0] >= -1f && rect[2] <= 1f && rect[1] >= -1f && rect[3] <= 1f, "and what is drawn is within the picture");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void lowsWaterIsAsRoughInAnyWind() {
+        try {
+            Quality.set(Quality.LOW);
+            check(WaterMirror.ruffleDrawn(0f) == 1f && WaterMirror.ruffleDrawn(2f) == 1f, "in Low the picture draws water as a light breeze leaves it, calm or gale");
+            Quality.set(Quality.HIGH);
+            check(WaterMirror.ruffleDrawn(2f) == WaterMirror.ruffle(2f) && WaterMirror.ruffleDrawn(2f) > WaterMirror.ruffleDrawn(0.1f),
+                    "in High a gale roughens it as the wind says");
+        } finally {
+            Quality.set(Quality.HIGH);
+        }
     }
 
     private static void pointOnTheWaterShowsTheSamePlaceWhateverWayTheHeadIsTurned() {
