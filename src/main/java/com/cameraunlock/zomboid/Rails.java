@@ -129,11 +129,8 @@ final class Rails {
 
     /** Whether a sprite is a square of the fire escape, the open flight of iron the map stands that post under. */
     static boolean fireEscape(String name) {
-        if (name == null || !name.startsWith(FIRE_ESCAPE)) {
-            return false;
-        }
-        String square = name.substring(FIRE_ESCAPE.length());
-        return square.equals("3") || square.equals("4") || square.equals("5") || square.equals("11") || square.equals("12") || square.equals("13");
+        int square = name == null ? -1 : Sheets.place(name, FIRE_ESCAPE);
+        return square >= 3 && square <= 5 || square >= 11 && square <= 13;
     }
 
     private static final String FIRE_ESCAPE = "fixtures_stairs_01_";

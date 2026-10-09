@@ -275,7 +275,8 @@ final class Footings {
         }
         search++;
         touchedCount = 0;
-        byte start = answered[place(site, x, y)];
+        int startAt = place(site, x, y);
+        byte start = answered[startAt];
         if (start == UNLOADED) {
             settled = false;
             return;
@@ -290,7 +291,7 @@ final class Footings {
             found = site.house(x, y);
             return;
         }
-        answered[place(site, x, y)] |= QUEUED;
+        answered[startAt] |= QUEUED;
         push(x, y);
         long nearest = NONE;
         boolean structured = false;
@@ -447,7 +448,7 @@ final class Footings {
 
     /** Where in the table the square is, asking the site about it if this search has not yet. */
     private int place(Site site, int x, int y) {
-        long square = (long) x << 32 | y & 0xFFFFFFFFL;
+        long square = square(x, y);
         int at = (int) (square * 0x9E3779B97F4A7C15L >>> 64 - Integer.numberOfTrailingZeros(PLACES));
         while (askedIn[at] == search) {
             if (asked[at] == square) {

@@ -72,11 +72,7 @@ final class Poles {
 
     /** Which sprite of the sheet a name is, or -1 for one of another sheet. */
     static int index(String name) {
-        if (name == null || !name.startsWith(SHEET)) {
-            return -1;
-        }
-        String index = name.substring(SHEET.length());
-        return !index.isEmpty() && index.chars().allMatch(Character::isDigit) ? Integer.parseInt(index) : -1;
+        return name == null ? -1 : Sheets.place(name, SHEET);
     }
 
     /** Whether a sprite is a length of a pole, with an arm or without. */

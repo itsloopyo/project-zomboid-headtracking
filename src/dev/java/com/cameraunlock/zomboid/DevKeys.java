@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Set;
 import zombie.GameTime;
@@ -158,6 +159,7 @@ public final class DevKeys {
 
     private static boolean invincible, wasInvincible;
     private static Field cannotDie;
+    private static Method cheatsOf;
     private static Field godModes;
     private static Object godMode;
     private static boolean said;
@@ -327,15 +329,14 @@ public final class DevKeys {
             // has of setting one asks first whether cheats are allowed, which they are not
             // outside its debug mode. The set itself is written to.
             if (godModes == null) {
-                Object cheats = IsoGameCharacter.class.getMethod("getCheats").invoke(safe);
-                Field held = cheats.getClass().getDeclaredField("cheats");
+                cheatsOf = IsoGameCharacter.class.getMethod("getCheats");
+                Field held = cheatsOf.invoke(safe).getClass().getDeclaredField("cheats");
                 held.setAccessible(true);
                 godModes = held;
                 godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
             }
             @SuppressWarnings("unchecked")
-            Set<Object> set = (Set<Object>) godModes.get(
-                    IsoGameCharacter.class.getMethod("getCheats").invoke(safe));
+            Set<Object> set = (Set<Object>) godModes.get(cheatsOf.invoke(safe));
             if (invincible) {
                 set.add(godMode);
             } else {
