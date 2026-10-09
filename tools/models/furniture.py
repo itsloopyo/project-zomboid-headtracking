@@ -3457,7 +3457,100 @@ def indoors():
             cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
             cabinet("steel_counter_sink", 0.62, 0.90, True, sink=True, made="steel", top_of="steel"),
             cabinet("steel_counter_corner", 0.62, 0.90, True, corner=True, made="steel", top_of="steel"),
-            wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()] + restaurant_seating()
+            wall_shelf("wire_wall_shelves", 2, made="plastic"), school_desk()] + restaurant_seating() + [pool_table()]
+
+
+# A pool table's six pockets, each a leather cup let into the rails: where it stands, how far out its rim reaches and how wide its hole is.
+POOL_POCKETS = [(sx * 0.875, sy * 0.395, 0.085, 0.06) for sx in (-1, 1) for sy in (-1, 1)] + [(0.0, sy * 0.43, 0.06, 0.047) for sy in (-1, 1)]
+POOL_RAIL_OUT, POOL_RAIL_IN, POOL_RAIL_LOW, POOL_RAIL_TOP, POOL_RIM = (0.96, 0.48), (0.86, 0.38), 0.77, 0.842, 0.845
+
+
+def round_to(cx, cy, radius, start, end, clockwise, steps=8):
+    """Points on the circle round (cx, cy) from the angle start to end, in degrees, going the way asked."""
+    if clockwise:
+        while end > start:
+            end -= 360.0
+    else:
+        while end < start:
+            end += 360.0
+    return arc(cx, cy, radius, start, end, steps)
+
+
+def angle_of(cx, cy, x, y):
+    return math.degrees(math.atan2(y - cy, x - cx))
+
+
+def pool_table():
+    """A pool table two squares long: a cloth bed inside cushioned rails, a leather cup at each of six pockets, a deep
+    apron and four square legs. Width along x. The cloth is 0.80 high and the rails 0.842."""
+    model = Model("pool_table")
+    (ox, oy), (ix, iy) = POOL_RAIL_OUT, POOL_RAIL_IN
+    corner_r, middle_r = POOL_POCKETS[0][2], POOL_POCKETS[4][2]
+    corner_x, corner_y, middle_y = abs(POOL_POCKETS[0][0]), abs(POOL_POCKETS[0][1]), abs(POOL_POCKETS[4][1])
+
+    # The bed of slate under its cloth, reaching under the cushions to the rails. Each corner is cut off on the slant
+    # between the cup's hole and its rim, so the hole shows the cup's dark and the cut is under the rim.
+    bed = bmesh.new()
+    xs = [-0.83, -0.8] + spread(-0.6, 0.6, 4) + [0.8, 0.83]
+    ys = [-iy, -0.35] + spread(-0.2, 0.2, 2) + [0.35, iy]
+    cage = grid_box(bed, xs, ys, [0.74, 0.8])
+    for (i, j, k), vert in cage.items():
+        if i in (0, len(xs) - 1) and j in (0, len(ys) - 1):
+            vert.co.x = math.copysign(0.815, vert.co.x)
+            vert.co.y = math.copysign(0.365, vert.co.y)
+    model.hard(bed, "cloth", bevel=0.003, segments=1)
+
+    # The cushions along the rails, in the same cloth: a nose that overhangs the bed, cut short at each pocket.
+    cushions = bmesh.new()
+    nose = [(0.0, 0.795), (0.03, 0.795), (0.035, 0.815), (0.03, 0.828), (0.0, 0.835)]
+    for sy in (-1, 1):
+        section = [(sy * (iy - inward), z) for inward, z in nose]
+        for x0, x1 in ((-0.81, -0.045), (0.045, 0.81)):
+            outline_along_x(cushions, section, x0, x1)
+    for sx in (-1, 1):
+        section = [(sx * (ix - inward), z) for inward, z in nose]
+        outline_along_y(cushions, section, -0.33, 0.33)
+    model.hard(cushions, "cloth", bevel=0.004, segments=2)
+
+    # The rails, each ending on the round of the cup at either end of it.
+    rails = bmesh.new()
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            mx, my = 0.0, sy * middle_y
+            cx, cy = sx * corner_x, sy * corner_y
+            middle_in = math.sqrt(middle_r ** 2 - (iy - middle_y) ** 2)
+            middle_out = math.sqrt(middle_r ** 2 - (oy - middle_y) ** 2)
+            corner_in = corner_x - math.sqrt(corner_r ** 2 - (corner_y - iy) ** 2)
+            start, end = (sx * middle_in, sy * iy), (sx * middle_out, sy * oy)
+            outline = round_to(mx, my, middle_r, angle_of(mx, my, *start), angle_of(mx, my, *end), clockwise=sx * sy < 0)
+            outline.append((sx * corner_x, sy * oy))
+            far = (sx * corner_in, sy * iy)
+            outline += round_to(cx, cy, corner_r, angle_of(cx, cy, sx * corner_x, sy * oy), angle_of(cx, cy, *far), clockwise=sx * sy < 0)[1:]
+            outline_up(rails, outline, POOL_RAIL_LOW, POOL_RAIL_TOP)
+        end_in = corner_y - math.sqrt(corner_r ** 2 - (corner_x - ix) ** 2)
+        low, high = (sx * corner_x, -corner_y), (sx * corner_x, corner_y)
+        outline = [(sx * ix, -end_in), (sx * ix, end_in)]
+        outline += round_to(*high, corner_r, angle_of(*high, sx * ix, end_in), angle_of(*high, sx * ox, corner_y), clockwise=sx < 0)[1:]
+        outline += round_to(*low, corner_r, angle_of(*low, sx * ox, -corner_y), angle_of(*low, sx * ix, -end_in), clockwise=sx < 0)
+        outline_up(rails, outline[:-1], POOL_RAIL_LOW, POOL_RAIL_TOP)
+    model.hard(rails, "dark_wood", bevel=0.006, segments=2)
+
+    # The apron under the rails, and the legs.
+    body = bmesh.new()
+    cuboid(body, -0.93, 0.93, -0.45, 0.45, 0.6, 0.765)
+    cuboid(body, -0.94, 0.94, -0.46, 0.46, 0.595, 0.63)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            prism(body, (sx * 0.8, sy * 0.34, 0.11, 0.11, 0.045), (sx * 0.8, sy * 0.34, 0.14, 0.14, 0.62))
+            cuboid(body, sx * 0.8 - 0.08, sx * 0.8 + 0.08, sy * 0.34 - 0.08, sy * 0.34 + 0.08, 0.0, 0.05)
+    model.hard(body, "dark_wood", bevel=0.006, segments=2)
+
+    # The cups, their rims a hair proud of the rails, each a dark hole down to its floor.
+    cups = bmesh.new()
+    for x, y, rim, hole in POOL_POCKETS:
+        lathe(cups, [(0.0, 0.68), (rim - 0.015, 0.68), (rim, 0.71), (rim, POOL_RIM), (hole, POOL_RIM), (hole, 0.72), (0.0, 0.72)], cx=x, cy=y, segments=20)
+    model.turned(cups, "rubber", sharp=50.0)
+    return model
 
 
 def beam(bm, start, end, wide, deep):

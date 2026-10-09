@@ -1269,7 +1269,8 @@ public final class Tests {
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
                 "metal_rack", "store_shelves", "plastic_chair", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster",
                 "radio", "microwave", "dishwasher", "chest_freezer", "register", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
-                "mini_fridge", "large_fridge"};
+                "mini_fridge", "large_fridge",
+                "pool_table"};
         for (String name : names) {
             Models.Model model = Models.get(name);
             // A length of canvas is a bare slab. Everything else has parts.

@@ -36,6 +36,7 @@ final class FurnitureTests {
         Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
+        Checks.run("aPoolTableIsOneModelOverItsTwoSquares", FurnitureTests::aPoolTableIsOneModelOverItsTwoSquares);
     }
 
     private static IsoSprite sprite(String row) {
@@ -143,6 +144,29 @@ final class FurnitureTests {
         IsoSprite stone = sprite("furniture_seating_indoor_02_17" + row.replace("Sturdy", "Park") + "0,0"), other = sprite("furniture_seating_indoor_02_16" + row + "0,1");
         piece(1, 2, stone, other);
         check(!model(Furniture.known(stone)).equals("plank_bench"), "the same bench grouped as a park's is not planks on two legs");
+    }
+
+    private static void aPoolTableIsOneModelOverItsTwoSquares() {
+        String row = "|BlocksPlacement||CanScrap||CustomName|Table|ForceSingleItem||GroupName|Pool|IsLow||IsMoveAble||IsTable||Material|Wood|Material2|Nails|"
+                + "PickUpLevel|1|PickUpTool|Hammer|PickUpWeight|400|PlaceTool|Hammer|Surface|34|solidtrans||Facing|";
+        IsoSprite south0 = sprite("recreational_01_2" + row + "S|SpriteGridPos|0,0"), south1 = sprite("recreational_01_3" + row + "S|SpriteGridPos|1,0");
+        piece(2, 1, south0, south1);
+        IsoSprite east0 = sprite("recreational_01_7" + row + "E|SpriteGridPos|0,0"), east1 = sprite("recreational_01_6" + row + "E|SpriteGridPos|0,1");
+        piece(1, 2, east0, east1);
+        for (IsoSprite square : new IsoSprite[] {south0, south1, east0, east1}) {
+            Furniture table = Furniture.known(square);
+            check(model(table).equals("pool_table"), "each half of a pool table is the pool table, not half a top over a card: " + model(table));
+            if (table == null || table.model == null) {
+                continue;
+            }
+            boolean alongX = table.width == 2;
+            check((table.turns & 1) == (alongX ? 0 : 1), "its length lies along the squares it is laid on: " + table.turns + " quarter turns over " + table.width + " by " + table.height);
+            check(table.model.width() * table.scale <= 2f && table.model.depth() * table.scale <= 1f,
+                    "inside its two squares: " + table.model.width() * table.scale + " by " + table.model.depth() * table.scale);
+            check(Math.abs(0.8f * table.scaleUp - 34 * SURFACE_TILES) < 1e-4f, "its cloth as high as the game says the table's top is: " + 0.8f * table.scaleUp);
+            check(table.dyed == 1 << Models.CLOTH, "and its cloth the colour its sprite's cloth is");
+        }
+        check(Furniture.known(south0).gridX == 0 && Furniture.known(south1).gridX == 1, "one model, stood by the first square");
     }
 
     private static void ventsAreToldByTheirPlaceOnTheSheet() {

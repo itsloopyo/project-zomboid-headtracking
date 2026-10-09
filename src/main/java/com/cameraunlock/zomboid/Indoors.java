@@ -24,6 +24,8 @@ final class Indoors {
     private static final float BASIN_RIM = 0.87f, CHEST_TOP = 0.88f, BAR_SEAT = 0.75f, DRYER_TOP = 0.92f, BENCH_SEAT = 0.45f, PEW_SEAT = 0.44f, DESK_TOP = 0.74f;
     /** Where on its sprite, in levels, a thing gives its colour: the side of a box, a can or a cabinet, the foot of a lamp, a bottle of water. */
     private static final float BOX_DYE = 0.08f, CAN_DYE = 0.2f, FOOT_DYE = 0.01f, BOTTLE_DYE = 0.45f;
+    /** How high the cloth of the pool table model is, in metres, and where on its sprite, in levels, the cloth gives its colour: under the height the game gives its rails. */
+    private static final float POOL_CLOTH = 0.8f, POOL_DYE = 0.33f;
     private static final String VENTS = "rooftop_furniture_", FLOOR_LAMPS = "lighting_indoor_01_", BEDDING = "furniture_bedding";
 
     /** The number a sprite's name ends in, its place on its sheet, or -1. */
@@ -165,6 +167,11 @@ final class Indoors {
         }
         if (name.startsWith(BEDDING) && called.equals("Beds") && along == 2 && across == 1) {
             return new Furniture(sprite, group.equals("Bunk") ? "steel_bunk_bed" : "bunk_bed", turns).stand(0f, 0f, false);
+        }
+        // Two squares across the way it faces: each square's sprite is half the table, and stood up
+        // as half a top over a card it was a cloth folded over its rail on flat legs.
+        if (called.equals("Table") && group.equals("Pool") && along == 1 && across == 2 && properties.isTable() && surface > 0) {
+            return new Furniture(sprite, "pool_table", turns).dye(1 << Models.CLOTH, POOL_DYE).stand(0f, 0f, false).seat(surfaceUp, POOL_CLOTH);
         }
         if (called.equals("School Bench") && holds.equals("desk") && single && properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
             return new Furniture(sprite, "school_desk", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, DESK_TOP, false);
