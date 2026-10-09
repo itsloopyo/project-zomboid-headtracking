@@ -164,6 +164,10 @@ final class Outdoors {
             if (!single) {
                 return null;
             }
+            Piece overhead = Overhead.of(name);
+            if (overhead != null) {
+                return overhead;
+            }
             int works = place(name, WORKS);
             if (works >= 0) {
                 return works(works);
@@ -335,7 +339,7 @@ final class Outdoors {
     }
 
     /** Which sprite of a sheet a name is, or -1 for a name that is not of the sheet. */
-    private static int place(String name, String sheet) {
+    static int place(String name, String sheet) {
         if (!name.startsWith(sheet) || name.length() == sheet.length() || name.length() > sheet.length() + 3) {
             return -1;
         }

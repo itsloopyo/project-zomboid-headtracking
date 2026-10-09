@@ -130,6 +130,7 @@ public final class Tests {
         Checks.run("meshesAreKeptByTextureAndTint", Tests::meshesAreKeptByTextureAndTint);
         Checks.run("OutdoorTests", OutdoorTests::run);
         Checks.run("IndustryTests", IndustryTests::run);
+        Checks.run("OverheadTests", OverheadTests::run);
         Checks.run("FurnitureTests", FurnitureTests::run);
         Checks.run("DisplayCaseTests", DisplayCaseTests::run);
         Checks.run("BuildingTests", BuildingTests::run);

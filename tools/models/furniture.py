@@ -5992,6 +5992,169 @@ def home_fittings():
             rocking_chair("rocking_chair", "dark_wood"), rocking_chair("rocking_chair_black", "rubber"), espresso_machine(), hood_dishwasher(), outhouse_seat()]
 
 
+# A building's steel frame: a girder's flanges and its depth, and a column's.
+STEEL_BEAM_HALF, STEEL_BEAM_HIGH, STEEL_FLANGE, STEEL_WEB = 0.1, 0.245, 0.02, 0.012
+STEEL_COLUMN_HALF = 0.1175
+
+
+def steel_beam():
+    """A square's length of I girder of a building's frame, along y: a metre long, to meet the next. The mod hangs it under a ceiling or lays it on a floor."""
+    model = Model("steel_beam")
+    steel = bmesh.new()
+    cuboid(steel, -STEEL_BEAM_HALF, STEEL_BEAM_HALF, -0.5, 0.5, 0.0, STEEL_FLANGE)
+    cuboid(steel, -STEEL_BEAM_HALF, STEEL_BEAM_HALF, -0.5, 0.5, STEEL_BEAM_HIGH - STEEL_FLANGE, STEEL_BEAM_HIGH)
+    cuboid(steel, -STEEL_WEB / 2, STEEL_WEB / 2, -0.5, 0.5, STEEL_FLANGE, STEEL_BEAM_HIGH - STEEL_FLANGE)
+    model.plain(steel, "paint")
+    return model
+
+
+def steel_column():
+    """An H column of a building's frame, a storey high, on a base plate."""
+    model = Model("steel_column")
+    steel = bmesh.new()
+    half, flange, web, high = STEEL_COLUMN_HALF, 0.02, 0.014, 2.45
+    cuboid(steel, -half, half, -half, -half + flange, 0.0, high)
+    cuboid(steel, -half, half, half - flange, half, 0.0, high)
+    cuboid(steel, -web / 2, web / 2, -half + flange, half - flange, 0.0, high)
+    model.plain(steel, "paint")
+    plate = bmesh.new()
+    cuboid(plate, -half - 0.03, half + 0.03, -half - 0.03, half + 0.03, 0.0, 0.016)
+    model.plain(plate, "metal")
+    return model
+
+
+def church_column(name, plinth):
+    """A round plastered column a storey high, on a square plinth where plinth is (half its width, its height), or none where the column goes on from the storey under it."""
+    model = Model(name)
+    radius, high = 0.2875, 2.45
+    if plinth is not None:
+        half, up = plinth
+        block = bmesh.new()
+        cuboid(block, -half, half, -half, half, 0.0, up)
+        model.hard(block, "paint", bevel=0.012, segments=2)
+        foot = bmesh.new()
+        lathe(foot, [(0.0, up), (radius + 0.04, up), (radius + 0.04, up + 0.04), (radius + 0.015, up + 0.08), (0.0, up + 0.08)], segments=28)
+        model.turned(foot, "paint", sharp=50.0)
+    shaft = bmesh.new()
+    lathe(shaft, [(radius, 0.0), (radius, high)], segments=28)
+    model.turned(shaft, "paint")
+    return model
+
+
+# A sheet steel duct that climbs a wall: half its width, and how far apart the seams between its lengths are.
+DUCT_UP_HALF, DUCT_UP_SEAM_EVERY = 0.19, 0.6
+
+
+def duct_up(name, high):
+    """A square duct standing on the floor and climbing a wall, high metres, with a seam round it between each length and the next."""
+    model = Model(name)
+    body = bmesh.new()
+    cuboid(body, -DUCT_UP_HALF, DUCT_UP_HALF, -DUCT_UP_HALF, DUCT_UP_HALF, 0.0, high)
+    model.plain(body, "paint")
+    seams = bmesh.new()
+    out = DUCT_UP_HALF + DUCT_SEAM
+    z = DUCT_UP_SEAM_EVERY
+    while z < high - 0.1:
+        cuboid(seams, -out, out, -out, out, z - DUCT_BAND / 2, z + DUCT_BAND / 2)
+        z += DUCT_UP_SEAM_EVERY
+    model.plain(seams, "paint")
+    return model
+
+
+# The wide pipe on a works' floor, as culvert_pipe has it: its outer and inner radius, and how high its middle is.
+CULVERT_OUT, CULVERT_IN = 0.14, 0.118
+
+
+def culvert_length(bm, start, end, along):
+    """A length of the wide pipe from start to end, in metres from the square's middle, along "x" or "y", open at both ends."""
+    profile = [(CULVERT_IN, start), (CULVERT_OUT, start), (CULVERT_OUT, end), (CULVERT_IN, end)]
+    if along == "y":
+        # along_y turns a height h to y = -h.
+        profile = [(r, -h) for r, h in profile]
+        lathe(bm, profile, segments=18, closed=True, to=along_y(0.0, 0.0, CULVERT_OUT))
+    else:
+        lathe(bm, profile, segments=18, closed=True, to=along_x(0.0, 0.0, CULVERT_OUT))
+
+
+def culvert_fitting(name, lengths):
+    """The wide pipe turning, branching or stopping in the middle of its square: lengths of it from there to the edges, given as
+    (start, end, along), round a ball that closes the joint. The origin is the middle of the square, so each end is at its edge."""
+    model = Model(name, centred=False)
+    pipe = bmesh.new()
+    for start, end, along in lengths:
+        culvert_length(pipe, start, end, along)
+    model.turned(pipe, "paint", sharp=50.0)
+    ball = bmesh.new()
+    lathe(ball, [(CULVERT_OUT * math.sin(math.pi * i / 10), CULVERT_OUT - CULVERT_OUT * math.cos(math.pi * i / 10)) for i in range(11)], segments=18)
+    model.turned(ball, "paint", sharp=50.0)
+    return model
+
+
+# A timber of a frame built of sawn wood, as the sprites of one paint it: how wide it is and how deep.
+TIMBER_WIDE, TIMBER_DEEP = 0.2, 0.12
+
+
+def timber_corner():
+    """Two timbers of a frame along two edges of a square, each its whole length, meeting at a corner: the north and west edges as the
+    mod turns it first, which in the model are its front and its +x side. The origin is the middle of the square."""
+    model = Model("timber_corner", centred=False)
+    wood = bmesh.new()
+    cuboid(wood, -0.5, 0.5, -0.5, -0.5 + TIMBER_WIDE, 0.0, TIMBER_DEEP)
+    cuboid(wood, 0.5 - TIMBER_WIDE, 0.5, -0.5 + TIMBER_WIDE, 0.5, 0.0, TIMBER_DEEP)
+    model.hard(wood, "wood", bevel=0.006, segments=1)
+    return model
+
+
+def timber_block():
+    """A short block of the same timber standing on end."""
+    model = Model("timber_block")
+    wood = bmesh.new()
+    cuboid(wood, -0.095, 0.095, -0.095, 0.095, 0.0, 0.15)
+    model.hard(wood, "wood", bevel=0.006, segments=1)
+    return model
+
+
+# A frame of scaffolding as the sprites of one paint it: the tube's radius, the standards' distance from the middle of the frame along it,
+# and how high its three ledgers are.
+SCAFFOLD_TUBE, SCAFFOLD_STANDARD, SCAFFOLD_LEDGERS = 0.024, 0.455, (0.34, 2.11, 2.42)
+
+
+def scaffold_tube(bm, start, end):
+    """A length of scaffold tube from start to end."""
+    start, end = Vector(start), Vector(end)
+    way = end - start
+    turned = Vector((0.0, 0.0, 1.0)).rotation_difference(way.normalized()).to_matrix().to_4x4()
+    lathe(bm, [(SCAFFOLD_TUBE, 0.0), (SCAFFOLD_TUBE, way.length)], segments=10, to=Matrix.Translation(start) @ turned)
+
+
+def scaffold(name, standards, braced):
+    """A square's frame of scaffolding along y: three ledgers its whole length, a standard a storey high at each end in standards (-1
+    the front, 1 the back), and where braced a brace that zigzags from the foot of the back standard to the middle of the front end and
+    up to the back standard's head again. The frames of the squares along a run meet end to end."""
+    model = Model(name)
+    tubes = bmesh.new()
+    for end in standards:
+        scaffold_tube(tubes, (0.0, end * SCAFFOLD_STANDARD, 0.0), (0.0, end * SCAFFOLD_STANDARD, 2.45))
+    for z in SCAFFOLD_LEDGERS:
+        scaffold_tube(tubes, (0.0, -0.5, z), (0.0, 0.5, z))
+    if braced:
+        low, high = SCAFFOLD_LEDGERS[0], SCAFFOLD_LEDGERS[1]
+        scaffold_tube(tubes, (0.0, SCAFFOLD_STANDARD, low), (0.0, -0.5, (low + high) / 2))
+        scaffold_tube(tubes, (0.0, -0.5, (low + high) / 2), (0.0, SCAFFOLD_STANDARD, high))
+    model.turned(tubes, "metal", sharp=40.0)
+    return model
+
+
+def overhead():
+    """What runs along a building's frame or hangs under its ceiling: steel girders and columns, ducts, a works' wide pipe, a church's columns."""
+    front, side, back, other = (-0.5, 0.0, "y"), (0.0, 0.5, "x"), (0.0, 0.5, "y"), (-0.5, 0.0, "x")
+    return [steel_beam(), steel_column(), church_column("church_column", None), church_column("church_column_base", (0.274, 0.61)),
+            duct_up("duct_up", 2.45), duct_up("duct_up_short", 0.93 * 2.45),
+            culvert_fitting("culvert_elbow", [front, side]), culvert_fitting("culvert_tee", [front, side, other]),
+            culvert_fitting("culvert_cross", [front, side, back, other]), culvert_fitting("culvert_end", [front]),
+            timber_corner(), timber_block(), scaffold("scaffold_frame", (-1, 1), False), scaffold("scaffold_braced", (1,), True)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -6012,7 +6175,7 @@ def every():
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
-            + street_clutter() + home_fittings())
+            + street_clutter() + home_fittings() + overhead())
 
 
 def main():

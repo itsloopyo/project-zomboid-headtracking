@@ -656,6 +656,8 @@ final class WorldScene {
         final int banner;
         /** Which way a length of washing line runs from its square, or Outdoors.NO_LINE. */
         final int line;
+        /** Which edges a sprite on a wall is laid on where its picture overrules its marks, or Overhead.ANY_EDGE. */
+        final int edge;
 
         Kind(IsoSprite sprite) {
             PropertyContainer properties = sprite.getProperties();
@@ -694,6 +696,7 @@ final class WorldScene {
             banner = Banners.kind(name, properties.get("CustomName"), properties.has(IsoFlagType.attachedN)
                     || properties.has(IsoFlagType.attachedW) || properties.has(IsoFlagType.attachedE) || properties.has(IsoFlagType.attachedS));
             line = name == null ? Outdoors.NO_LINE : Outdoors.washingLine(name);
+            edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
         }
     }
 
@@ -4702,6 +4705,10 @@ final class WorldScene {
                 boolean cloth = kind.banner == Banners.ON_WALL && Own.furniture();
                 west = both || standsOnWestEdge(properties, type) || cloth && !Banners.alongX(frame);
                 north = both || standsOnNorthEdge(properties, type) || cloth && Banners.alongX(frame);
+                if (kind.edge != Overhead.ANY_EDGE) {
+                    west = kind.edge != Overhead.NORTH_EDGE;
+                    north = kind.edge != Overhead.WEST_EDGE;
+                }
             }
             // A light switch says nothing of where it is. It is on a wall of its square, and is
             // laid on whichever the square has; stood up to face the eye it is a grey panel
