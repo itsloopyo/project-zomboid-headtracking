@@ -212,10 +212,11 @@ final class FurnishingBuilder {
                 if (piece.alsoDyed == 0) {
                     return true;
                 }
-                alsoU = dyeU;
-                alsoV = SpriteGeometry.textureV(build.dyeFrame, piece.dyeA, piece.dyeB, piece.alsoHigh);
-                return dye.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, piece.dyeA, piece.dyeB)),
-                        Math.round(SpriteGeometry.frameV(build.dyeFrame, piece.dyeA, piece.dyeB, piece.alsoHigh)));
+                float alsoA = Float.isNaN(piece.alsoA) ? piece.dyeA : piece.alsoA, alsoB = Float.isNaN(piece.alsoB) ? piece.dyeB : piece.alsoB;
+                alsoU = SpriteGeometry.textureU(build.dyeFrame, alsoA, alsoB);
+                alsoV = SpriteGeometry.textureV(build.dyeFrame, alsoA, alsoB, piece.alsoHigh);
+                return dye.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, alsoA, alsoB)),
+                        Math.round(SpriteGeometry.frameV(build.dyeFrame, alsoA, alsoB, piece.alsoHigh)));
             }
         }
         return false;
@@ -262,19 +263,27 @@ final class FurnishingBuilder {
         if (!ready(object, piece, x, y, z)) {
             return false;
         }
+        float[] lift = build.geometry.lift;
+        // The game draws a thing that stands on a table higher than its sprite has it where the
+        // table is higher than the one the sprite was painted on: a set on a chest of drawers.
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
+        // A case's cakes are the game's painting of them over each of its squares, made.
+        if (piece.displayCase && build.overLayer == 0) {
+            build.building.plain = false;
+            DisplayCases.addStock(build, object, piece, x, y, foot);
+        }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
         if (piece.gridX != 0 || piece.gridY != 0 || build.overLayer > 0) {
             return true;
         }
-        float[] lift = build.geometry.lift;
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
         build.building.plain = false;
-        // The game draws a thing that stands on a table higher than its sprite has it where the
-        // table is higher than the one the sprite was painted on: a set on a chest of drawers.
-        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         build.placed.add(model, build.frame, x, y, x + piece.centreX, y + piece.centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
         build.furnished++;
+        if (piece.displayCase) {
+            DisplayCases.addGlass(build, piece, x, y, foot);
+        }
         if (piece.television && object instanceof IsoTelevision set) {
             // The game's sprite of a lit screen is painted for its own view and has no place on
             // the model: it is never drawn over one. With the mod's pictures switched off a set

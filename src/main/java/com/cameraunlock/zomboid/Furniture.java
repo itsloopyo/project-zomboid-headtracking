@@ -54,6 +54,10 @@ final class Furniture {
     int dyed, alsoDyed;
     /** Where on its square the sprite gives the colour, and how high, in levels: the first place and the second. */
     float dyeA = 0.5f, dyeB = 0.5f, dyeHigh, alsoHigh;
+    /** Where on the square the second colour is given, where that is not over the first: NaN for over it. */
+    float alsoA = Float.NaN, alsoB = Float.NaN;
+    /** Whether this is a cake shop's glass case: DisplayCases lays its glass and stands its cakes. */
+    boolean displayCase;
     /** The square whose sprite gives the colour. */
     int dyeX, dyeY;
     /** Tiles to a metre of the model along the ground and up, and how far above the floor its foot is, in tiles. */
@@ -122,6 +126,13 @@ final class Furniture {
         alsoDyed = surfaces;
         alsoHigh = high;
         return this;
+    }
+
+    /** As also, from (a, b) on the square. */
+    Furniture alsoAt(int surfaces, float a, float b, float high) {
+        alsoA = a;
+        alsoB = b;
+        return also(surfaces, high);
     }
 
     /**
@@ -333,6 +344,10 @@ final class Furniture {
         indoors = Indoors.facing(sprite, name, called, group, holds, properties, turns, along, across);
         if (indoors != null) {
             return indoors;
+        }
+        Furniture glassCase = DisplayCases.of(sprite, group, holds, properties, turns, along, across);
+        if (glassCase != null) {
+            return glassCase;
         }
         // A bed faces the way its foot points, so its head is the model's back. Its blanket's
         // colour is on the squares of its foot: the squares of its head show the pillows.

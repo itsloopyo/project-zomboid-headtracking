@@ -3061,6 +3061,178 @@ def upholstered():
     return [lounge_booth(), leather_booth(), waiting_chairs()]
 
 
+# A cake shop's display case, two squares long: its numbers in metres from the middle of its footprint, its front to -Y.
+# DisplayCases.java lays the glass of the case where these say it is (a model is solid, and glass is not), and stands
+# the cakes on its deck and its shelf: the two must give the same numbers.
+CASE_HALF, CASE_FRONT, CASE_BACK, CASE_TOP, CASE_UNDER = 0.98, -0.37, 0.37, 0.97, 0.94
+CASE_ARC_FOOT, CASE_CURVE_Y, CASE_KICK, CASE_DECK, CASE_SHELF, CASE_SHELF_FRONT, CASE_END = 0.45, 0.0, 0.08, 0.30, 0.62, -0.22, 0.03
+CASE_ARC_STEPS = 12
+
+
+def bakery_case():
+    """A glass-fronted counter for cakes: solid ends whose front edge rises straight from the floor and then curves back
+    to the top, a top board over the back half, a deck over a low cupboard, a glass shelf on steel bars, and sliding
+    doors at the back. The glass is not in the model: the mod lays it in the world, where it is drawn as glass."""
+    model = Model("bakery_case")
+    inner = CASE_HALF - CASE_END
+    rise, deep = CASE_UNDER - CASE_ARC_FOOT, CASE_CURVE_Y - CASE_FRONT
+    outline = [(CASE_BACK, 0.0), (CASE_FRONT, 0.0)]
+    outline += [(CASE_CURVE_Y - deep * math.cos(math.pi / 2 * i / CASE_ARC_STEPS), CASE_ARC_FOOT + rise * math.sin(math.pi / 2 * i / CASE_ARC_STEPS))
+                for i in range(CASE_ARC_STEPS + 1)]
+    outline += [(CASE_BACK, CASE_UNDER)]
+    ends = bmesh.new()
+    for side in (-1, 1):
+        outline_along_x(ends, outline, side * inner, side * CASE_HALF)
+    model.hard(ends, "wood", bevel=0.006, segments=2)
+    body = bmesh.new()
+    cuboid(body, -inner, inner, CASE_FRONT, CASE_FRONT + 0.04, 0.0, CASE_KICK)
+    cuboid(body, -inner, inner, CASE_FRONT + 0.04, CASE_BACK - 0.02, 0.0, CASE_DECK - 0.015)
+    # The back's frame: a rail under the top, one over the deck and a stile where the two doors overlap.
+    cuboid(body, -inner, inner, CASE_BACK - 0.04, CASE_BACK, CASE_UNDER - 0.05, CASE_UNDER)
+    cuboid(body, -inner, inner, CASE_BACK - 0.04, CASE_BACK, CASE_DECK - 0.015, CASE_DECK + 0.04)
+    cuboid(body, -0.02, 0.02, CASE_BACK - 0.04, CASE_BACK, CASE_DECK + 0.04, CASE_UNDER - 0.05)
+    model.hard(body, "wood", bevel=0.004, segments=1)
+    top = bmesh.new()
+    cuboid(top, -CASE_HALF, CASE_HALF, CASE_CURVE_Y - 0.03, CASE_BACK, CASE_UNDER, CASE_TOP)
+    model.hard(top, "worktop", bevel=0.006, segments=2)
+    deck = bmesh.new()
+    cuboid(deck, -inner, inner, CASE_FRONT + 0.04, CASE_BACK - 0.04, CASE_DECK - 0.015, CASE_DECK)
+    model.plain(deck, "enamel")
+    # The glass shelf's nosing and the bars it rests on, along its ends and its back.
+    shelf = bmesh.new()
+    cuboid(shelf, -inner, inner, CASE_SHELF_FRONT - 0.006, CASE_SHELF_FRONT + 0.006, CASE_SHELF - 0.014, CASE_SHELF + 0.004)
+    cuboid(shelf, -inner, inner, CASE_BACK - 0.06, CASE_BACK - 0.04, CASE_SHELF - 0.02, CASE_SHELF)
+    for side in (-1, 1):
+        cuboid(shelf, min(side * inner, side * (inner - 0.02)), max(side * inner, side * (inner - 0.02)), CASE_SHELF_FRONT, CASE_BACK - 0.06,
+               CASE_SHELF - 0.02, CASE_SHELF)
+    model.hard(shelf, "steel", bevel=0.002, segments=1)
+    lamp = bmesh.new()
+    cuboid(lamp, -inner + 0.04, inner - 0.04, 0.04, 0.08, CASE_UNDER - 0.022, CASE_UNDER)
+    model.plain(lamp, "plastic")
+    return model
+
+
+def sphere(bm, x, y, z, radius, segments=8, squash=1.0):
+    """A ball round (x, y, z), squash times as high as it is wide."""
+    rings = max(segments // 2, 3)
+    lathe(bm, [(radius * math.sin(math.pi * i / rings), z - radius * squash * math.cos(math.pi * i / rings)) for i in range(rings + 1)],
+          cx=x, cy=y, segments=segments)
+
+
+def torus(bm, x, y, z, ring, tube, segments=16, start=0.0, end=360.0, steps=8):
+    """A ring: a circle of radius tube swept round the upright at radius ring. From start to end of the circle only, for
+    the icing on a doughnut."""
+    whole = end - start >= 360.0
+    profile = [(ring + tube * math.cos(math.radians(start + (end - start) * i / steps)), z + tube * math.sin(math.radians(start + (end - start) * i / steps)))
+               for i in range(steps if whole else steps + 1)]
+    lathe(bm, profile, cx=x, cy=y, segments=segments, closed=whole, caps=False)
+
+
+class Bake:
+    """The cakes of one model, a part for each thing they are made of: crust, jam, cream, sponge, chocolate, the tin
+    they stand on and the paper of a cupcake."""
+    def __init__(self):
+        self.parts = {made: bmesh.new() for made in ("wood", "vinyl", "pillow", "linen", "dark_wood", "steel", "ceramic")}
+
+    def pie(self, x, y, z, radius, lattice=True):
+        lathe(self.parts["wood"], [(0.0, z), (radius * 0.86, z), (radius, z + 0.03), (radius * 1.02, z + 0.038), (radius * 0.9, z + 0.042),
+                                   (radius * 0.86, z + 0.03), (0.0, z + 0.03)], cx=x, cy=y, segments=14)
+        lathe(self.parts["vinyl"], [(radius * 0.88, z + 0.03), (radius * 0.6, z + 0.036), (0.0, z + 0.037)], cx=x, cy=y, segments=14, caps=False)
+        if lattice:
+            for i in (-1, 0, 1):
+                along = radius * 0.5 * i
+                reach = math.sqrt(max(radius * radius * 0.78 - along * along, 0.0))
+                beam(self.parts["wood"], (x + along, y - reach, z + 0.041), (x + along, y + reach, z + 0.041), 0.016, 0.008)
+                beam(self.parts["wood"], (x - reach, y + along, z + 0.046), (x + reach, y + along, z + 0.046), 0.016, 0.008)
+
+    def cake(self, x, y, z, radius, high, chocolate=False):
+        lathe(self.parts["dark_wood" if chocolate else "linen"], [(0.0, z), (radius, z), (radius, z + high), (0.0, z + high)], cx=x, cy=y, segments=16)
+        lathe(self.parts["dark_wood" if chocolate else "pillow"], [(radius * 1.015, z + high - 0.012), (radius * 1.02, z + high + 0.004),
+                                                                   (radius * 0.9, z + high + 0.012), (0.0, z + high + 0.014)], cx=x, cy=y, segments=16, caps=False)
+        for i in range(6):
+            turn = 2 * math.pi * i / 6
+            if chocolate:
+                sphere(self.parts["pillow"], x + radius * 0.78 * math.cos(turn), y + radius * 0.78 * math.sin(turn), z + high + 0.022, 0.012, segments=6, squash=0.8)
+            else:
+                sphere(self.parts["vinyl"], x + radius * 0.75 * math.cos(turn), y + radius * 0.75 * math.sin(turn), z + high + 0.024, 0.011, segments=6)
+        sphere(self.parts["vinyl"], x, y, z + high + 0.026, 0.014, segments=6)
+
+    def tray(self, x, y, z, wide, deep):
+        cuboid(self.parts["steel"], x - wide / 2, x + wide / 2, y - deep / 2, y + deep / 2, z, z + 0.008)
+        return z + 0.008
+
+    def doughnuts(self, x, y, z, glaze):
+        top = self.tray(x, y, z, 0.2, 0.19)
+        for dx, dy in ((-0.05, -0.045), (0.05, -0.045), (0.0, 0.05)):
+            torus(self.parts["wood"], x + dx, y + dy, top + 0.017, 0.028, 0.017, segments=10, steps=6)
+            torus(self.parts[glaze], x + dx, y + dy, top + 0.019, 0.028, 0.0175, segments=10, start=-10.0, end=190.0, steps=4)
+
+    def cupcakes(self, x, y, z, count):
+        top = self.tray(x, y, z, 0.2, 0.17)
+        across = (count + 1) // 2
+        for i in range(count):
+            cx, cy = x + 0.055 * (i % across - (across - 1) / 2), y - 0.04 + 0.08 * (i // across)
+            lathe(self.parts["ceramic"], [(0.0, top), (0.026, top), (0.033, top + 0.038), (0.0, top + 0.038)], cx=cx, cy=cy, segments=8)
+            lathe(self.parts["wood"], [(0.035, top + 0.036), (0.034, top + 0.05), (0.022, top + 0.062), (0.0, top + 0.066)], cx=cx, cy=cy, segments=8, caps=False)
+            lathe(self.parts["pillow"], [(0.027, top + 0.058), (0.02, top + 0.075), (0.008, top + 0.088), (0.0, top + 0.09)], cx=cx, cy=cy, segments=8, caps=False)
+            sphere(self.parts["vinyl"], cx, cy, top + 0.096, 0.008, segments=6)
+
+    def cookies(self, x, y, z):
+        top = self.tray(x, y, z, 0.2, 0.17)
+        for i, (dx, dy) in enumerate(((-0.05, -0.035), (0.045, -0.04), (-0.04, 0.045), (0.05, 0.04))):
+            for layer in range(1 + i % 2):
+                lathe(self.parts["wood"], [(0.0, top + 0.012 * layer), (0.036, top + 0.012 * layer), (0.038, top + 0.012 * layer + 0.006),
+                                           (0.034, top + 0.012 * layer + 0.011), (0.0, top + 0.012 * layer + 0.012)],
+                      cx=x + dx + 0.004 * layer, cy=y + dy - 0.003 * layer, segments=10)
+
+    def croissants(self, x, y, z):
+        top = self.tray(x, y, z, 0.2, 0.17)
+        for dy in (-0.04, 0.045):
+            # A crescent of swellings, fattest in the middle, each overlapping the next.
+            for k in range(7):
+                bend = math.radians(-75 + 25 * k)
+                thick = 0.025 - 0.005 * abs(k - 3)
+                sphere(self.parts["wood"], x + 0.05 * math.sin(bend), y + dy - 0.03 * math.cos(bend) + 0.02, top + thick * 0.75, thick, segments=8, squash=0.75)
+
+    def into(self, model):
+        for made, part in self.parts.items():
+            if part.verts:
+                model.turned(part, made, sharp=50.0)
+            else:
+                part.free()
+
+
+def pastries(name, seed, on_deck, on_shelf):
+    """The cakes the game paints over one square of a case while it holds something, made: on_deck and on_shelf are how
+    many of the places on each hold a cake. The model's middle is the middle of the square along the case and of the case
+    across it, and its lowest point is the deck's top, where the mod stands it."""
+    rng = random.Random(seed)
+    model = Model(name, centred=False)
+    bake = Bake()
+    deck_places = [(x, y) for y in (-0.15, 0.16) for x in (-0.33, -0.11, 0.11, 0.33)]
+    shelf_places = [(x, 0.06) for x in (-0.33, -0.11, 0.11, 0.33)]
+    big = [lambda x, y, z: bake.pie(x, y, z, 0.1), lambda x, y, z: bake.cake(x, y, z, 0.095, 0.085),
+           lambda x, y, z: bake.cake(x, y, z, 0.09, 0.09, chocolate=True), lambda x, y, z: bake.pie(x, y, z, 0.1, lattice=False),
+           lambda x, y, z: bake.doughnuts(x, y, z, "pillow"), lambda x, y, z: bake.cupcakes(x, y, z, 4)]
+    small = [lambda x, y, z: bake.doughnuts(x, y, z, "dark_wood"), lambda x, y, z: bake.doughnuts(x, y, z, "vinyl"),
+             lambda x, y, z: bake.cupcakes(x, y, z, 3), lambda x, y, z: bake.cookies(x, y, z), lambda x, y, z: bake.croissants(x, y, z),
+             lambda x, y, z: bake.pie(x, y, z, 0.075, lattice=False)]
+    for places, count, kinds, z in ((deck_places, on_deck, big, CASE_DECK), (shelf_places, on_shelf, small, CASE_SHELF)):
+        for x, y in sorted(rng.sample(places, count)):
+            rng.choice(kinds)(x, y, z)
+    bake.into(model)
+    low = min(position.z for position, _, _ in model.vertices)
+    if abs(low - CASE_DECK) > 1e-4:
+        raise SystemExit("%s does not stand on the case's deck: its lowest point is at %f" % (name, low))
+    return model
+
+
+def display_cases():
+    """A cake shop's case and the cakes the game shows on its shelves: the pieces DisplayCases.java places."""
+    return [bakery_case(), pastries("pastries_many_a", 31, 8, 4), pastries("pastries_many_b", 32, 8, 4),
+            pastries("pastries_few_a", 33, 2, 2), pastries("pastries_few_b", 34, 3, 1)]
+
+
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
@@ -4189,7 +4361,7 @@ def every():
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
-            + upholstered() + barrels_and_pots() + street())
+            + upholstered() + barrels_and_pots() + street() + display_cases())
 
 
 def main():
