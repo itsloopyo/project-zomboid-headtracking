@@ -71,6 +71,7 @@ public final class Tests {
         Checks.run("GlassPullTests", GlassPullTests::run);
         Checks.run("MoversTests", MoversTests::run);
         Checks.run("SnowPrintTests", SnowPrintTests::run);
+        Checks.run("SnowCoverTests", SnowCoverTests::run);
         Checks.run("TorchLessTests", TorchLessTests::run);
         Checks.run("AimTests", AimTests::run);
         Checks.run("ArmTests", ArmTests::run);

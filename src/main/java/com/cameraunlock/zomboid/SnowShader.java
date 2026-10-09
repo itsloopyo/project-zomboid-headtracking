@@ -18,8 +18,148 @@ package com.cameraunlock.zomboid;
 final class SnowShader {
     private SnowShader() {}
 
-    /** Joined on after WORLD_FRAGMENT_RELIEF and before the world's main: it uses facHash and uSnowLying. */
-    static final String GLSL = """
+    /**
+     * Where snow lies and how deep, for the world's fragment shader and for the vertex shaders
+     * that stand grass in it. It uses uSnowLying, which the shader it is joined into declares.
+     */
+    static final String COVER = """
+            // How deep snow lies where it covers the ground, in tiles, for each 1 of uSnowLying: what grows there stands in it that far.
+            const float SNOW_DEPTH = 0.45;
+            // How much thinner the snow is for each 1 of snowShelter.
+            const float SNOW_SHELTERED = 1.3;
+            // Set by the caller: how much of the sky is hidden from the place by what stands over it, 0 to 1.
+            float snowShelter = 0.0;
+
+            // A number from 0 to 1 for each cell of the snow's unevenness, with no pattern from one cell to the next.
+            // It is the hash12 of Hash without Sine, as the world shader's facHash is (THIRD-PARTY-NOTICES.md), which a vertex shader does not have.
+            float snowHash(vec2 p) {
+                vec3 q = fract(vec3(p.xyx) * 0.1031);
+                q += dot(q, q.yzx + 33.33);
+                return fract((q.x + q.y) * q.z);
+            }
+
+            // How much of an unevenness of that many cells to a tile can be drawn where a pixel
+            // covers foot tiles: finer than two pixels to a cell it would only crawl.
+            float snowDrawn(float foot, float size) {
+                return 1.0 - smoothstep(0.2, 0.5, foot * size);
+            }
+
+            // Smooth noise at a place and how fast it changes each way. The corner vPlace is
+            // counted from moves sixty tiles at a time, so the noise is made to come round
+            // again every wrap of its own cells, which the caller makes a whole share of sixty tiles.
+            // The noise and its slopes are worked as Inigo Quilez sets them out (THIRD-PARTY-NOTICES.md, Acknowledgements).
+            vec3 snowNoise(vec2 p, vec2 wrap, float seed) {
+                vec2 cell = floor(p), f = p - cell;
+                vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+                vec2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
+                float a = snowHash(mod(cell, wrap) + seed), b = snowHash(mod(cell + vec2(1.0, 0.0), wrap) + seed);
+                float c = snowHash(mod(cell + vec2(0.0, 1.0), wrap) + seed), d = snowHash(mod(cell + vec2(1.0, 1.0), wrap) + seed);
+                float k = a - b - c + d;
+                return vec3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y, du * vec2(b - a + k * u.y, c - a + k * u.x));
+            }
+
+            // One size of unevenness, so many of its cells to a tile: sixty times that has to be a whole number.
+            vec3 snowLayer(vec2 q, float size, float seed) {
+                vec3 s = snowNoise(q * size, vec2(60.0 * size), seed);
+                return vec3(s.x, s.yz * size);
+            }
+
+            // The same laid askew of the map's own lines, which the noise's cells would
+            // otherwise square every patch and lump off along. turn is the cosine and sine
+            // of the angle, 0.8 and 0.6 or 0.6 and 0.8: turned by either, sixty tiles
+            // along the map are a whole number of twelfths of a tile along the noise, so
+            // twelve times size has to be a whole number.
+            vec3 snowAskew(vec2 q, float size, float seed, vec2 turn) {
+                vec3 s = snowNoise(vec2(q.x * turn.x - q.y * turn.y, q.x * turn.y + q.y * turn.x) * size, vec2(12.0 * size), seed);
+                return vec3(s.x, (s.y * turn.x + s.z * turn.y) * size, (s.z * turn.x - s.y * turn.y) * size);
+            }
+
+            // How thick the snow is at a place, in the measure its edge is found by, under 0.3
+            // none and over 0.6 its full depth, with how fast that changes each way. It
+            // comes in patches that spread and join as more of it lies, and it is thinner
+            // where snowShelter says less of it fell.
+            vec3 snowThick(vec2 q, float foot) {
+                // What is too fine to draw at this distance counts as its own mean, or far snow would lie thicker than near.
+                vec3 mean = vec3(0.5, 0.0, 0.0);
+                vec3 broad = snowAskew(q, 0.75, 1.0, vec2(0.8, 0.6)) * 0.6 + mix(mean, snowLayer(q, 1.5, 12.0), snowDrawn(foot, 1.5)) * 0.24
+                        + mix(mean, snowAskew(q, 3.0, 2.0, vec2(0.6, 0.8)), snowDrawn(foot, 3.0)) * 0.16;
+                return vec3((uSnowLying * 1.4 - 0.2 - broad.x) / 0.4 + 0.5 - SNOW_SHELTERED * snowShelter, broad.yz / -0.4);
+            }
+
+            // The edge of a patch is ragged, for the ground it thins out over is not flat:
+            // what is added to the thickness there, with how fast it changes each way.
+            vec3 snowRagged(vec2 q, float foot) {
+                return (snowAskew(q, 9.0, 3.0, vec2(0.6, 0.8)) - vec3(0.5, 0.0, 0.0)) * (0.2 * snowDrawn(foot, 9.0))
+                        + (snowAskew(q, 31.0, 4.0, vec2(0.8, 0.6)) - vec3(0.5, 0.0, 0.0)) * (0.07 * snowDrawn(foot, 31.0));
+            }
+
+            // How much snow covers a place where it is that thick, ragged edge and all, 0 to 1.
+            float snowCovers(float thick) {
+                return smoothstep(0.3, 0.44, thick);
+            }
+
+            // How much snow covers a place, 0 to 1, for what stands in it and does not need its shape: a blade of grass, a crown.
+            float snowCover(vec2 q, float foot) {
+                return snowCovers(snowThick(q, foot).x + snowRagged(q, foot).x);
+            }
+
+            """;
+
+    /**
+     * How deep a strip of grass stands in lying snow, for the world's vertex shader. Grass
+     * throws no shadow: it is in none of the sun's or the lamps' maps. Joined on after COVER
+     * and PipelineShaders.SKY_SEEN: it uses uEye, uRangeFrom and uPixel, which the shader it
+     * is joined into declares.
+     */
+    static final String STOOD = """
+            // How deep a plant rooted at a place stands in the snow, in tiles: none with no snow
+            // lying, and none where the world's fragment shader draws none on the ground at the
+            // root, which it decides by the same things. open is whether the plant's square is
+            // under the sky. Less snow lies where the sky is hidden, as the fragment shader has
+            // it: see skyOverAt. What of the snow's unevenness is too fine to
+            // draw at the root's distance counts as its mean, by the ground a pixel of the view
+            // covers there: uPixel of its distance across, and more along the view as the view
+            // lies flatter to the ground. The sky is only asked about where snow would lie in the open.
+            float snowStood(vec3 root, bool open) {
+                if (uSnowLying <= 0.0 || !open) {
+                    return 0.0;
+                }
+                vec3 toEye = uEye - root;
+                float away = length(toEye);
+                float foot = uPixel * away * away / max(abs(toEye.z), 0.1);
+                vec2 q = mod(root.xy, 60.0);
+                snowShelter = 0.0;
+                float thick = snowThick(q, foot).x + snowRagged(q, foot).x;
+                if (thick <= 0.3) {
+                    return 0.0;
+                }
+                float skyOver = skyOverAt(root + vec3(0.0, 0.0, 0.1), max(away - uRangeFrom, 0.0));
+                return SNOW_DEPTH * uSnowLying * snowCovers(thick - SNOW_SHELTERED * (1.0 - skyOver) / 0.62);
+            }
+
+            // A plant that stands that deep in snow, at one of its vertices: the whole of it is
+            // let down by the snow's depth, so that what is under the snow is under the ground
+            // and out of sight, and what stands out of the snow stands on it.
+            // The snow is drawn on the ground and has no height of its own.
+            vec3 snowedIn(vec3 at, float deep) {
+                at.z -= deep;
+                return at;
+            }
+
+            // The snow on what of a blade stands out of it weighs it over and down, each
+            // blade its own way, the more the taller it stands and the deeper the snow it
+            // stands in: none where no snow lies at its root. It is done after the wind,
+            // which still moves the blade under its load.
+            vec3 snowLaden(vec3 at, float high, float deep, float seed) {
+                float turn = seed * 6.2831853;
+                float bent = 0.45 * high * deep / SNOW_DEPTH;
+                return vec3(at.xy + vec2(cos(turn), sin(turn)) * bent, at.z - bent);
+            }
+
+            """;
+
+    /** COVER and the snow's shape, joined on after WORLD_FRAGMENT_RELIEF and before the world's main: it uses facHash and uSnowLying. */
+    static final String GLSL = COVER + """
             // How high snow stands at its lip over what it lies on, and how far its swells,
             // its lumps, its wind ripples and the grains of its crust stand out of it, in tiles.
             const float SNOW_RIM = 0.035, SNOW_SWELL = 0.05, SNOW_LUMP = 0.02, SNOW_RIPPLE = 0.005, SNOW_CRUST = 0.0011;
@@ -38,8 +178,6 @@ final class SnowShader {
             // the snow's lip is wet from it, and how far a boot or a tyre has pressed the snow down, 0 to 1.
             vec3 snowForm = vec3(0.0);
             float snowHollow = 0.0, snowMelt = 0.0, snowTrodden = 0.0;
-            // Set by the caller: how much of the sky is hidden from the place by what stands over it, 0 to 1.
-            float snowShelter = 0.0;
 
             // Where the viewer has walked and driven since the snow came: see SnowPrints. A
             // footprint is its place, counted as vPlace is, with the way the foot pointed
@@ -57,12 +195,6 @@ final class SnowShader {
             const float SNOW_TROD = 0.04, SNOW_HALF_TRACK = 0.5;
             // A mark is on the ground it was made on and not on the roof over it: within this of its height, half a storey, which a hillside stays inside from one end of a rut to the other.
             const float SNOW_SAME_FLOOR = 1.2;
-
-            // How much of an unevenness of that many cells to a tile can be drawn where a pixel
-            // covers foot tiles: finer than two pixels to a cell it would only crawl.
-            float snowDrawn(float foot, float size) {
-                return 1.0 - smoothstep(0.2, 0.5, foot * size);
-            }
 
             // How far snow is pressed down at a place by a mark whose edge is at 1 of far:
             // -1 on its floor, a little over 0 on the lip thrown up round it, with how fast that changes as far does.
@@ -138,58 +270,70 @@ final class SnowShader {
                 return pressed;
             }
 
-            // Smooth noise at a place and how fast it changes each way. The corner vPlace is
-            // counted from moves sixty tiles at a time, so the noise is made to come round
-            // again every wrap of its own cells, which the caller makes a whole share of sixty tiles.
-            // The noise and its slopes are worked as Inigo Quilez sets them out (THIRD-PARTY-NOTICES.md, Acknowledgements).
-            vec3 snowNoise(vec2 p, vec2 wrap, float seed) {
-                vec2 cell = floor(p), f = p - cell;
-                vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-                vec2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);
-                float a = facHash(mod(cell, wrap) + seed), b = facHash(mod(cell + vec2(1.0, 0.0), wrap) + seed);
-                float c = facHash(mod(cell + vec2(0.0, 1.0), wrap) + seed), d = facHash(mod(cell + vec2(1.0, 1.0), wrap) + seed);
-                float k = a - b - c + d;
-                return vec3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y, du * vec2(b - a + k * u.y, c - a + k * u.x));
+            // Snow on what grows. None of it is a wash of white over the plant: it lies
+            // where it would, by which way the surface faces and how open it is to the
+            // sky, and comes sprig by sprig and clump by clump as more of it lies.
+
+            // On a sprig of a crown. outward is how far up the crown's outside faces where
+            // the sprig grows, 1 on a bough's top and under 0 beneath the crown; leafUp how
+            // far up the leaf at the pixel faces on the side that is seen, so a leaf looked
+            // at from below shows its dark underside; solid how solid the sprig's picture
+            // is there, least at a leaf's edge, where the snow on the leaf's top shows from
+            // below as a white rim; each is the sprig's own number. A bough of needles is
+            // level and holds more than a spray of leaves does.
+            float snowOnSprig(float outward, float leafUp, float solid, float each, bool needled) {
+                float top = smoothstep(-0.1, 0.65, outward) * (needled ? 1.25 : 1.0);
+                float lain = smoothstep(0.05, 0.5, uSnowLying * (0.25 + 0.95 * top) - 0.25 * each);
+                float rim = top * (1.0 - smoothstep(0.55, 0.8, solid)) * 0.7;
+                return min(lain * max(mix(0.2, 1.0, smoothstep(-0.05, 0.6, leafUp)), rim), 0.96);
             }
 
-            // One size of unevenness, so many of its cells to a tile: sixty times that has to be a whole number.
-            vec3 snowLayer(vec2 q, float size, float seed) {
-                vec3 s = snowNoise(q * size, vec2(60.0 * size), seed);
-                return vec3(s.x, s.yz * size);
+            // On the closed mass of leaves inside a crown, by how far up it faces.
+            float snowOnMass(float up) {
+                float top = smoothstep(0.1, 0.8, up);
+                return 0.85 * top * smoothstep(0.05, 0.45, uSnowLying * (0.3 + 1.1 * top));
             }
 
-            // The same laid askew of the map's own lines, which the noise's cells would
-            // otherwise square every patch and lump off along. turn is the cosine and sine
-            // of the angle, 0.8 and 0.6 or 0.6 and 0.8: turned by either, sixty tiles
-            // along the map are a whole number of twelfths of a tile along the noise, so
-            // twelve times size has to be a whole number.
-            vec3 snowAskew(vec2 q, float size, float seed, vec2 turn) {
-                vec3 s = snowNoise(vec2(q.x * turn.x - q.y * turn.y, q.x * turn.y + q.y * turn.x) * size, vec2(12.0 * size), seed);
-                return vec3(s.x, (s.y * turn.x + s.z * turn.y) * size, (s.z * turn.x - s.y * turn.y) * size);
+            // Smooth noise over an upright sheet that faces the way faces does: across the
+            // sheet and up it, whichever way it runs on the map. It is two noises, one for
+            // a sheet along each of the map's ways, mixed by how the sheet is turned, since
+            // the place along a sheet turned any other way does not come round with vPlace's corner.
+            // Up the sheet it comes round every sixty tiles as well, as vPlace's height does.
+            float snowUpright(vec3 at, vec3 faces, vec2 size, float seed) {
+                return mix(snowNoise(vec2(at.x * size.x, at.z * size.y), 60.0 * size, seed).x,
+                        snowNoise(vec2(at.y * size.x, at.z * size.y), 60.0 * size, seed + 1.0).x, faces.x * faces.x);
             }
 
-            // How thick the snow is at a place, in the measure its edge is found by, under 0.3
-            // none and over 0.6 its full depth, with how fast that changes each way. It
-            // comes in patches that spread and join as more of it lies, and it is thinner
-            // where snowShelter says less of it fell.
-            vec3 snowThick(vec2 q, float foot) {
-                // What is too fine to draw at this distance counts as its own mean, or far snow would lie thicker than near.
-                vec3 mean = vec3(0.5, 0.0, 0.0);
-                vec3 broad = snowAskew(q, 0.75, 1.0, vec2(0.8, 0.6)) * 0.6 + mix(mean, snowLayer(q, 1.5, 12.0), snowDrawn(foot, 1.5)) * 0.24
-                        + mix(mean, snowAskew(q, 3.0, 2.0, vec2(0.6, 0.8)), snowDrawn(foot, 3.0)) * 0.16;
-                return vec3((uSnowLying * 1.4 - 0.2 - broad.x) / 0.4 + 0.5 - 1.3 * snowShelter, broad.yz / -0.4);
+            // On a plant that stands as a card, the game's sprite or the mod's leaves. over
+            // is how solid the picture is above the pixel, a little way up and as far again:
+            // with nothing over it the pixel is on the top of a bough or a twig, where snow
+            // lies as a cap. leafy is how far the pixel is the lit top of a mass of leaves,
+            // which holds snow in clumps, more of them and larger as more lies. With little
+            // snow lying a plant has a dusting, as the ground has a patch here and there.
+            float snowOnCard(vec3 at, vec3 faces, float over, float leafy) {
+                float open = clamp(1.0 - 0.8 * snowShelter, 0.0, 1.0);
+                float cap = (1.0 - smoothstep(0.3, 0.7, over)) * smoothstep(0.1, 0.6, uSnowLying);
+                float clump = snowUpright(at, faces, vec2(3.0, 7.0), 21.0) * 0.7 + snowUpright(at, faces, vec2(9.0, 17.0), 23.0) * 0.3;
+                float held = leafy * smoothstep(0.8 - 0.5 * uSnowLying, 0.94 - 0.5 * uSnowLying, clump);
+                return min(max(cap, held) * open, 0.95);
             }
 
-            // The edge of a patch is ragged, for the ground it thins out over is not flat:
-            // what is added to the thickness there, with how fast it changes each way.
-            vec3 snowRagged(vec2 q, float foot) {
-                return (snowAskew(q, 9.0, 3.0, vec2(0.6, 0.8)) - vec3(0.5, 0.0, 0.0)) * (0.2 * snowDrawn(foot, 9.0))
-                        + (snowAskew(q, 31.0, 4.0, vec2(0.8, 0.6)) - vec3(0.5, 0.0, 0.0)) * (0.07 * snowDrawn(foot, 31.0));
+            // Where the winter's snow has mostly blown from: it sticks to that side of a bole.
+            const vec2 SNOW_FROM = vec2(-0.6, -0.8);
+
+            // On a bole or a limb, whose surface faces the way faces does: along the upper
+            // side of a limb, and plastered in streaks up the weather side of a bole.
+            float snowOnWood(vec3 at, vec3 faces) {
+                float along = 0.92 * smoothstep(0.1, 0.55, faces.z) * smoothstep(0.0, 0.3, uSnowLying);
+                float streak = snowNoise(vec2((at.x + at.y) * 9.0, at.z * 2.5), vec2(540.0, 150.0), 25.0).x;
+                float plastered = smoothstep(0.25, 0.95, dot(faces.xy, SNOW_FROM)) * smoothstep(0.75 - 0.45 * uSnowLying, 0.95 - 0.45 * uSnowLying, streak);
+                return max(along, 0.85 * plastered * smoothstep(0.1, 0.4, uSnowLying));
             }
 
-            // How much snow covers a place, 0 to 1, for what stands in it and does not need its shape: a blade of grass, a crown.
-            float snowCover(vec2 q, float foot) {
-                return smoothstep(0.3, 0.44, snowThick(q, foot).x + snowRagged(q, foot).x);
+            // On the ivy round a bole: caught on its leaves here and there.
+            float snowOnIvy(vec3 at) {
+                float clump = snowNoise(vec2((at.x - at.y) * 11.0, at.z * 13.0), vec2(660.0, 780.0), 27.0).x;
+                return 0.8 * smoothstep(0.8 - 0.4 * uSnowLying, 0.95 - 0.4 * uSnowLying, clump) * smoothstep(0.0, 0.2, uSnowLying);
             }
 
             // How far the lumps stand up at a place, 0 to 1: what snowSunk looks into.

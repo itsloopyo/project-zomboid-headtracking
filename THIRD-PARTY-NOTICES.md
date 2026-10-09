@@ -230,7 +230,7 @@ the jar as shader source text.
 
 ### Hash without Sine
 
-- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; and `facHash` in the world shader of `PipelineShaders.java`, its `hash12`
+- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; `facHash` in the world shader of `PipelineShaders.java`, its `hash12`; and `snowHash` in `SnowShader.java`, the same `hash12`
 - **License:** MIT
 - **Upstream:** https://www.shadertoy.com/view/4djSRW
 - **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, the difference in shade from one brick or board of a wall to the next, and the lie of settled snow and the crystals that glint in it.

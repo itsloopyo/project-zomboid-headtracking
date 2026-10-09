@@ -8,6 +8,7 @@ final class GrassTests {
 
     static void run() {
         Checks.run("stripCarriesItsEdgeItsKindAndItsHeight", GrassTests::stripCarriesItsEdgeItsKindAndItsHeight);
+        Checks.run("everyCornerOfAPlantFarAcrossTheMapFindsOneRoot", GrassTests::everyCornerOfAPlantFarAcrossTheMapFindsOneRoot);
         Checks.run("pointedStripEndsInOneCorner", GrassTests::pointedStripEndsInOneCorner);
         Checks.run("fanWidensFromItsFoot", GrassTests::fanWidensFromItsFoot);
         Checks.run("headStartsWhereItsStemEnds", GrassTests::headStartsWhereItsStemEnds);
@@ -58,6 +59,22 @@ final class GrassTests {
         return (float) Math.floor((carried + 3f) * 0.5f) - 1f;
     }
 
+    private static void everyCornerOfAPlantFarAcrossTheMapFindsOneRoot() {
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Frame frame = frame();
+        geometry.plant(frame, 10766, 9752, 0.37f, 0.81f);
+        geometry.addStrip(mesh, frame, 0.6f, 0.8f, 0f, 0f, 0.5f, 0.9f, 0.6f, 0.08f, 0.4f, 4, SpriteGeometry.POINTED, Grass.BLADE, 0.37f, 0.5f);
+        float[] v = mesh.vertices;
+        float rootX = v[0] + v[12], rootY = v[1] + v[13];
+        near(rootX, 10766.37f, 2e-3f, "the root is where the plant was stood");
+        near(rootY, 9752.81f, 2e-3f, "the root is where the plant was stood");
+        for (int at = 0; at < mesh.floats; at += F) {
+            check(v[at] + v[at + 12] == rootX && v[at + 1] + v[at + 13] == rootY,
+                    "ten thousand tiles across the map every corner of a plant still finds the same root, to the bit: one depth of snow for the whole plant");
+        }
+    }
+
     private static void stripCarriesItsEdgeItsKindAndItsHeight() {
         float seed = 0.37f, vigour = 0.5f;
         SpriteGeometry.Mesh mesh = strip(3, SpriteGeometry.EVEN, Grass.PANICLE, seed, vigour);
@@ -75,6 +92,9 @@ final class GrassTests {
             check(level == Math.floor(vigour * 15.99f), "how well the grass does is carried in sixteenths, got " + level);
             near(high, v[at + 2], 1e-5f, "a vertex carries its own height over the root, which the wind moves it by");
             check(v[at + 8] == 1f + SpriteGeometry.BLADES, "a strip is marked as one over its openness");
+            check(v[at] + v[at + 12] == 3.5f && v[at + 1] + v[at + 13] == 4.5f && v[at + 14] == 0f,
+                    "every vertex carries the way to the plant's root, to the bit: lying snow is asked for there, the same for the whole plant, got "
+                            + (v[at] + v[at + 12]) + ", " + (v[at + 1] + v[at + 13]));
             highest = Math.max(highest, high);
         }
         check(highest > 0.15f && highest < 0.3f, "a strip 0.3 long that leans and bends over ends lower than its length, got " + highest);

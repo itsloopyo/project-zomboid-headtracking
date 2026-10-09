@@ -1008,7 +1008,9 @@ final class SpriteGeometry {
      * shape and move the strip: which edge the vertex is on (-2 and 2, 0 at a point) with the
      * strip's own random number added; twice what the strip is, with how far along it the
      * vertex is added; and how well the grass does there in sixteenths, with the vertex's
-     * height over the root added, which is how far the wind moves it.
+     * height over the root added, which is how far the wind moves it. Where a card's vertex
+     * carries how it stands off its plane they carry the way along the ground to the plant's
+     * root: lying snow is as deep for the whole plant as it is there.
      */
     void addStrip(Mesh mesh, Frame frame, float dirX, float dirY, float fromAlong, float fromUp, float lean, float curl, float length, float width,
             float twist, int steps, int shape, int form, float seed, float vigour) {
@@ -1079,8 +1081,8 @@ final class SpriteGeometry {
         to[at + 9] = edge;
         to[at + 10] = code;
         to[at + 11] = high;
-        to[at + 12] = 0f;
-        to[at + 13] = 0f;
+        to[at + 12] = plantX - x;
+        to[at + 13] = plantY - y;
         to[at + 14] = 0f;
         return at + VERTEX_FLOATS;
     }

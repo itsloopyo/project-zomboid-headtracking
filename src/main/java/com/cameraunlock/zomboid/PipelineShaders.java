@@ -262,7 +262,8 @@ final class PipelineShaders {
                 }
                 float beat = dot(at.xy, vec2(0.37, 0.29)) + uWind.z;
                 float lean = 0.05 + 0.045 * sin(beat * 1.7) + 0.02 * sin(beat * 4.3 + 1.3);
-                return vec4(at.xy + uWind.xy * (take * lean), at.zw);
+                // A bough with snow on it is heavier and swings less far.
+                return vec4(at.xy + uWind.xy * (take * lean * (1.0 - 0.35 * uSnowLying)), at.zw);
             }
 
             // What a vertex of an overhead wire carries where a texel's place would be: a way
@@ -300,6 +301,41 @@ final class PipelineShaders {
                 float beat = sin(uWind.z * 1.2566371 + swing) * (0.65 + 0.35 * sin(uWind.z * 0.4799655 + 1.7 * swing));
                 float turn = min(blows, 1.5) * (0.08 * square + 0.07 * (0.4 + 0.6 * abs(square)) * beat);
                 return at + hangs * vec3(across * sin(turn), 1.0 - cos(turn));
+            }
+            """;
+
+    /** How much of the sky a place can see, for the world's fragment shader and for the vertex shaders that stand grass in lying snow. It uses uHeights and uRoofMatrix, which the shader it is joined into declares. */
+    static final String SKY_SEEN = """
+            // How much of the sky a point can see. The land round the eye is kept as a map of
+            // heights seen from straight above, and from the point rays are sent out along
+            // the ground six ways, three lengths each: how high the land stands over the
+            // point at each says how much of the sky that way is hidden. A path between two
+            // houses is dim, the ground under a tree is dim, a lawn in the open is not.
+            float skySeen(vec3 at) {
+                float hidden = 0.0;
+                for (int way = 0; way < 6; way++) {
+                    float a = float(way) * 1.0471976 + 0.4;
+                    vec2 dir = vec2(cos(a), sin(a));
+                    float highest = 0.0;
+                    for (int far = 0; far < 3; far++) {
+                        float d = far == 0 ? 0.7 : far == 1 ? 1.7 : 3.6;
+                        vec3 c = (uRoofMatrix * vec4(at.xy + dir * d, at.z, 1.0)).xyz * 0.5 + 0.5;
+                        if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) {
+                            continue;
+                        }
+                        float above = (c.z - texture2D(uHeights, c.xy).r) * 80.0 - 0.2;
+                        highest = max(highest, above / d);
+                    }
+                    hidden += clamp(highest * 0.6, 0.0, 1.0);
+                }
+                return 1.0 - hidden / 6.0 * 0.75;
+            }
+
+            // How much of the sky's light gets to a place that far from the eye. Under trees it
+            // is thinned and green, not gone. The sky is asked about only near the eye, and
+            // counts for less towards where it stops being asked.
+            float skyOverAt(vec3 at, float range) {
+                return range < 16.0 ? mix(max(skySeen(at), 0.38), 1.0, smoothstep(10.0, 16.0, range)) : 1.0;
             }
             """;
 
@@ -374,7 +410,13 @@ final class PipelineShaders {
             varying vec4 vBlade;
             uniform vec3 uWind;
             uniform float uLaid;
-            """ + GRASS_WIND + MODEL_STANDS + FACED + """
+            uniform float uSnowLying;
+            uniform vec3 uEye;
+            uniform float uPixel;
+            uniform float uRangeFrom;
+            uniform sampler2D uHeights;
+            uniform mat4 uRoofMatrix;
+            """ + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + """
             uniform vec3 uLit;
             uniform vec3 uLitAlong;
             uniform vec3 uLitDown;
@@ -382,8 +424,6 @@ final class PipelineShaders {
             uniform vec3 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
-            uniform vec3 uEye;
-            uniform float uPixel;
 
             // Whether the surface's bit is set in a whole number of them. The half is there for a
             // power of two worked out a hair too large, which would otherwise divide the
@@ -395,7 +435,9 @@ final class PipelineShaders {
                 vec4 stands = gl_Vertex;
                 vec3 looks = gl_Normal;
                 vec3 lies = vec3(0.0);
-                if (uModel < 0.5) {
+                // A strip of grass is no card: where a card's vertex carries how it stands off its plane, a strip's carries the way to its root.
+                bool strip = uModel < 0.5 && mod(gl_Color.a, 32.0) > 23.5;
+                if (uModel < 0.5 && !strip) {
                     vec2 right;
                     stands = faced(gl_Vertex, right, lies);
                     if (gl_MultiTexCoord1.z > 0.5 && gl_MultiTexCoord1.z < 1.5) {
@@ -432,13 +474,17 @@ final class PipelineShaders {
                 // A strip of grass has no facing. What its vertex carries in a facing's place is
                 // taken apart here: see SpriteGeometry.addStrip.
                 vBlade = vec4(0.0);
-                bool strip = uModel < 0.5 && mod(gl_Color.a, 32.0) > 23.5;
                 float high = 0.0;
+                // How deep the snow lies that a strip of grass stands in: see snowStood.
+                float deep = 0.0;
                 if (strip) {
                     float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
                     float form = floor(gl_Normal.y * 0.5);
                     float level = floor(gl_Normal.z);
-                    high = gl_Normal.z - level;
+                    // Not asked for the part of what is laid that grass is left out of: see uLaid below.
+                    deep = uLaid > 2.5 ? 0.0 : snowStood(vec3(gl_Vertex.xy + gl_MultiTexCoord1.xy, gl_Vertex.z - (gl_Normal.z - level)), mod(gl_Color.a, 32.0) > 24.5);
+                    // Only what stands out of the snow blows about and is trodden down.
+                    high = max(gl_Normal.z - level - deep, 0.0);
                     float along = gl_Normal.y - 2.0 * form;
                     // How far to one side the vertex is, as a share of the strip's full width:
                     // a strip that narrows or widens is then cut and shaded along true lines
@@ -478,7 +524,7 @@ final class PipelineShaders {
                 // out is of a stuff of its own. See WorldScene.hungRound.
                 bool hung = uModel < 0.5 && !still && (vMaterial > 81.5 && vMaterial < 82.5 || vMaterial > 13.5 && vMaterial < 14.5 && dot(gl_Normal, gl_Normal) > 1.004);
                 bool wire = uModel < 0.5 && vMaterial > 11.5 && vMaterial < 12.5 || hung;
-                vec4 at = strip ? vec4(swayed(stands.xyz, high, vBlade.z), 1.0) : still || wire ? stands : blown(stands, looks);
+                vec4 at = strip ? vec4(snowLaden(swayed(snowedIn(stands.xyz, deep), high, vBlade.z), high, deep, vBlade.z), 1.0) : still || wire ? stands : blown(stands, looks);
                 if (strip) {
                     // Grass parts round whoever stands in it. The eye is over the viewer's
                     // feet: what grows within a pace of them is pressed outward and down, the
@@ -816,30 +862,7 @@ final class PipelineShaders {
                 return swellOf(p, vec3(1.0));
             }
 
-            // How much of the sky a point can see. The land round the eye is kept as a map of
-            // heights seen from straight above, and from the point rays are sent out along
-            // the ground six ways, three lengths each: how high the land stands over the
-            // point at each says how much of the sky that way is hidden. A path between two
-            // houses is dim, the ground under a tree is dim, a lawn in the open is not.
-            float skySeen(vec3 at) {
-                float hidden = 0.0;
-                for (int way = 0; way < 6; way++) {
-                    float a = float(way) * 1.0471976 + 0.4;
-                    vec2 dir = vec2(cos(a), sin(a));
-                    float highest = 0.0;
-                    for (int far = 0; far < 3; far++) {
-                        float d = far == 0 ? 0.7 : far == 1 ? 1.7 : 3.6;
-                        vec3 c = (uRoofMatrix * vec4(at.xy + dir * d, at.z, 1.0)).xyz * 0.5 + 0.5;
-                        if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) {
-                            continue;
-                        }
-                        float over = (c.z - texture2D(uHeights, c.xy).r) * 80.0 - 0.2;
-                        highest = max(highest, over / d);
-                    }
-                    hidden += clamp(highest * 0.6, 0.0, 1.0);
-                }
-                return 1.0 - hidden / 6.0 * 0.75;
-            }
+            """ + SKY_SEEN + """
 
             // A number from 0 to 1 that is different at every pixel and different again every
             // frame, sixty-four frames round. What is let through by it at one pixel in so
@@ -1455,6 +1478,8 @@ final class PipelineShaders {
                     small = false;
                 }
                 vec2 sprigAt = vec2(0.0);
+                // How solid the sprig's picture is at the pixel: least at a leaf's edge.
+                float sprigSolid = 1.0;
                 if (crown) {
                     // A sprig of a crown: a branch tip in leaf, cut out of its card. Its texture
                     // coordinate is two things at once. The whole number is where on the
@@ -1484,6 +1509,7 @@ final class PipelineShaders {
                     if (sprig.a < mix(0.5, 0.4, smoothstep(0.004, 0.02, fine))) {
                         discard;
                     }
+                    sprigSolid = sprig.a;
                     vec2 at = (cell + 0.5) / 2048.0;
                     vec2 wide = uTexel * 4.0;
                     vec4 sum = vec4(0.0);
@@ -2509,7 +2535,7 @@ final class PipelineShaders {
                 float open = grass ? vKind - (strip ? 24.0 : 16.0) : water ? vKind - 4.0 : card ? vKind - 2.0 : vKind;
                 // How much of the sky's light gets to the place. Under trees it is thinned and
                 // green, not gone. A crown is the leaves the sky is seen through, not something under them.
-                float skyOver = open > 0.5 && range < 16.0 && !crown ? mix(max(skySeen(vWorld + n * 0.1), 0.38), 1.0, smoothstep(10.0, 16.0, range)) : 1.0;
+                float skyOver = open > 0.5 && !crown ? skyOverAt(vWorld + n * 0.1, range) : 1.0;
                 // Snow that has settled. It lies on whatever is under the open sky and faces up:
                 // the ground, a roof, the top of a wall or a car, and it is a surface of its
                 // own there, with a shape and a depth: see SnowShader. It comes in patches that
@@ -2528,16 +2554,35 @@ final class PipelineShaders {
                         // with snow caught on a blade here and there.
                         float lies = snowCover(vPlace.xy, snowFoot);
                         float depth = lies * (0.15 + 0.6 * uSnowLying);
-                        float buried = (1.0 - smoothstep(depth - 0.1, depth + 0.1, bladeUp)) * min(lies * 4.0, 1.0);
+                        // A strip stands in the snow already, what is under it out of sight: see
+                        // snowStood. A card of far grass cannot, and is white as far up as the snow lies.
+                        float buried = strip ? 0.0 : (1.0 - smoothstep(depth - 0.1, depth + 0.1, bladeUp)) * min(lies * 4.0, 1.0);
                         float caught = lies * uSnowLying * smoothstep(0.55, 0.8, snowNoise(vPlace.xy * 14.0, vec2(840.0), 12.0).x) * snowDrawn(snowFoot, 14.0);
                         texel.rgb = mix(texel.rgb, vec3(1.15, 1.05, 0.8) * dot(texel.rgb, vec3(0.299, 0.587, 0.114)), 0.6 * lies);
                         snowed = clamp(max(buried, 0.85 * caught), 0.0, 1.0);
                         texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
-                    } else if (crown || core) {
-                        // More of it on a leaf that lies open to the sky than on one that hangs.
-                        snowed = snowCover(vPlace.xy, snowFoot) * smoothstep(0.35, 0.8, n.z) * (crown ? mix(0.3, 0.9, smoothstep(0.2, 0.75, leafFace.z)) : 0.55);
+                    } else if (crown) {
+                        snowed = snowOnSprig(n.z, leafFace.z, sprigSolid, grain(floor(vUv)), vMaterial > 74.5 && vMaterial < 76.5);
                         texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
-                    } else if (!card) {
+                    } else if (core) {
+                        snowed = snowOnMass(n.z);
+                        texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                    } else if (card) {
+                        // A plant that stands as a card: its vertices take the wind by how high they are, and nothing else that is a card takes any.
+                        float take = 1.0 - vCover;
+                        if (take > 0.0005) {
+                            // Which way along the picture is up, and how solid the picture is over the pixel: a little way up, and
+                            // as far again, so that a gap between two leaves of one mass is not taken for the top of it.
+                            float upward = dFdx(vUv.y) * dFdx(vWorld.z) + dFdy(vUv.y) * dFdy(vWorld.z) < 0.0 ? -1.0 : 1.0;
+                            vec2 above = vec2(0.0, upward * (1.5 + 5.0 * uSnowLying) * uTexel.y);
+                            float over = uTexel.x > 0.0 ? max(texture2D(uTexture, vUv + above).a, texture2D(uTexture, vUv + 2.0 * above).a) : 1.0;
+                            // Leaves and not bark: of the game's own sprite, by its colour.
+                            float most = max(texel.r, max(texel.g, texel.b));
+                            float leafy = vMaterial > 5.5 && vMaterial < 6.5 || vMaterial < 0.5 ? smoothstep(0.25, 0.45, (max(texel.r, texel.g) - texel.b) / max(most, 0.001)) : 1.0;
+                            snowed = snowOnCard(vPlace, normalize(vNormal), over, leafy * smoothstep(0.1, 0.36, dot(texel.rgb, vec3(0.299, 0.587, 0.114))));
+                            texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                        }
+                    } else {
                         // The way the surface itself faces: what it is made of has bent n by now, a stone at a time.
                         vec3 level = normalize(vNormal);
                         if (dot(level, view) < 0.0) {
@@ -2554,6 +2599,12 @@ final class PipelineShaders {
                         snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
                         // The ground just clear of the lip is wet from it, and dark.
                         texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
+                        if (vMaterial > 56.5 && vMaterial < 58.5) {
+                            // A bole, a limb, and the ivy on a bole.
+                            float caught = vMaterial < 57.5 ? snowOnWood(vPlace, level) : snowOnIvy(vPlace);
+                            texel.rgb = mix(texel.rgb, SNOW_WHITE, caught * (1.0 - snowed));
+                            snowed = max(snowed, caught);
+                        }
                         // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
                         n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
                         grit *= 1.0 - snowed;
@@ -2607,6 +2658,11 @@ final class PipelineShaders {
                     // the sun gets into from any side: it is lit whichever way the card faces.
                     facing = 0.5 + 0.4 * facing;
                 }
+                if (snowed > 0.0 && card) {
+                    // Snow on a plant lies open to the sky whichever way the leaf under it is
+                    // turned, and is lit as the snow on the ground beside it is.
+                    facing = mix(facing, clamp((dot(normalize(vec3(n.xy * 0.35, 1.0)), uLight) + 0.25) / 1.25, 0.0, 1.0), snowed);
+                }
                 float sun = 0.0;
                 float reached = 0.0;
                 if (facing > 0.0) {
@@ -2647,7 +2703,8 @@ final class PipelineShaders {
                     if (crown) {
                         // Inside a crown the sun still arrives, through the leaves above and
                         // between them: the shade a tree gives itself is green and never deep.
-                        reached = mix(0.42, 1.0, reached);
+                        // The snow on it passes none: in shade it is in shade.
+                        reached = mix(mix(0.42, 1.0, reached), reached, snowed);
                     }
                     // A stone's foot is in the shade of the next stone, and a groove of its own lip.
                     reached *= reliefShade;
@@ -2665,10 +2722,10 @@ final class PipelineShaders {
                 // The game's light for the square is the light that is there without the sun
                 // falling straight on it. Out of doors that light comes from the sky, more of it
                 // onto what faces up and bluer than the sun.
-                vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), open);
+                vec3 fromSky = mix(vec3(1.0), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * (card ? mix(n.z, 1.0, snowed) : n.z)), open);
                 if (crown) {
                     // A leaf turned up has more of the sky on it than one turned down.
-                    fromSky *= 0.88 + 0.16 * leafFace.z;
+                    fromSky *= mix(0.88 + 0.16 * leafFace.z, 1.0, snowed);
                 }
                 fromSky *= skyOver;
                 if (model) {
@@ -2724,12 +2781,13 @@ final class PipelineShaders {
                     // A crown's leaves each pass what their own turn and thickness let them, and
                     // a little more, as all foliage does, straight towards the eye.
                     float through = grass ? 0.55 + 0.9 * bladeUp : crown ? LEAF_GLOW_AGAINST * leafThrough : core ? 0.2 : 1.0;
-                    color += leaf * pow(uLightColor, vec3(2.2)) * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z));
+                    // Snow on a leaf lets none of it through.
+                    color += leaf * pow(uLightColor, vec3(2.2)) * ((2.8 * through * against + LEAF_GLOW * leafBehind) * reached * step(0.0, uLight.z) * (1.0 - snowed));
                     if (crown && reached > 0.0) {
                         // The upper skin of a leaf is waxed, and throws the sun off as a
                         // white glint where the leaf is turned just so. Far off, where a
                         // leaf is under a pixel, the glints would only crawl.
-                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * step(0.0, uLight.z) * (1.0 - smoothstep(16.0, 34.0, range))
+                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * step(0.0, uLight.z) * (1.0 - smoothstep(16.0, 34.0, range)) * (1.0 - snowed)
                                 * glossed(leafFace, view, uLight, LEAF_ROUGH, 0.05));
                     }
                     if (grass && reached > 0.0) {
@@ -2748,11 +2806,11 @@ final class PipelineShaders {
                             vec3 breadth = normalize(cross(flatOf, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
                             facet = normalize(flatOf + breadth * (vBlade.x * 0.45));
                         }
-                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (strip ? stripGloss : 1.0) * (0.25 + 0.75 * bladeUp) * glossed(facet, view, uLight, 0.42, 0.04));
+                        color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * (strip ? stripGloss : 1.0) * (0.25 + 0.75 * bladeUp) * (1.0 - snowed) * glossed(facet, view, uLight, 0.42, 0.04));
                     }
                     // Deep in the plant the leaves stand in each other's light: darker towards
                     // the foot of a card than at its top.
-                    color *= strip ? 1.0 : 0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0);
+                    color *= strip ? 1.0 : mix(0.72 + 0.28 * clamp(vCover < 1.0 ? 1.0 - vCover : 1.0, 0.0, 1.0), 1.0, snowed);
                 }
 
                 // Water, and ground that rain has wetted, show the sky: little of it looking
@@ -2973,6 +3031,7 @@ final class PipelineShaders {
             uniform vec3 uWind;
             varying float vLeaves;
             varying vec3 vAt;
+            uniform float uSnowLying;
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             """ + GRASS_WIND + MODEL_STANDS + FACED + """
@@ -2995,17 +3054,18 @@ final class PipelineShaders {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
                     return;
                 }
+                // A strip of grass carries its height over its root and the way to it, not a facing nor how a card stands: see SpriteGeometry.addStrip.
+                if (mod(gl_Color.a, 32.0) > 23.5) {
+                    vAt = gl_Vertex.xyz;
+                    float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
+                    gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
+                    return;
+                }
                 vec2 right;
                 vec3 lies;
                 vec4 stands = faced(gl_Vertex, right, lies);
                 stands.xyz += lies;
                 vAt = stands.xyz;
-                // A strip of grass carries its height over its root, not a facing: see SpriteGeometry.addStrip.
-                if (mod(gl_Color.a, 32.0) > 23.5) {
-                    float edge = floor((gl_Normal.x + 3.0) * 0.5) - 1.0;
-                    gl_Position = uMatrix * vec4(swayed(gl_Vertex.xyz, fract(gl_Normal.z), gl_Normal.x - 2.0 * edge), 1.0);
-                    return;
-                }
                 // An overhead wire swings where the view has it, and so does a bulb that hangs on a cord: see swung.
                 if (material > 11.5 && material < 12.5 || material > 81.5 && material < 82.5 || material > 13.5 && material < 14.5 && dot(gl_Normal, gl_Normal) > 1.004) {
                     // A wire keeps neither the sky's light nor the weather off what is under it,
