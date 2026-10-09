@@ -252,4 +252,39 @@ final class Indoors {
         }
         return null;
     }
+
+    /** The sheet of a bar's fittings. Its wooden panelling has no name but the placeholder "CustomName" and no facing. */
+    private static final String BAR = "location_restaurant_bar_01_";
+    /** How high over the back of its square, in levels, a length of panelling shows its wood, and where on its square the post that ends a run stands. */
+    private static final float PANELLING_DYE = 0.2f, PANELLING_POST = 0.08f;
+
+    /**
+     * A bar's panelling, by its place on the sheet: a run of low boards under a rail stands along the north edge of its
+     * square (77) or the west edge (76), its corner where the two meet (78), the post that ends a run at the north corner
+     * of the square past its end (79), and a run of tall framed panels with a foot rail before it, north (85) and west
+     * (84). The game's picture of each is seen from the room, so each faces into its square. Null for the rest of the sheet.
+     */
+    static Furniture barPanelling(IsoSprite sprite, String name) {
+        if (sprite.getSpriteGrid() != null) {
+            return null;
+        }
+        return switch (Sheets.place(name, BAR)) {
+            case 77 -> panelling(sprite, "wainscot", 2);
+            case 76 -> panelling(sprite, "wainscot", 1);
+            case 85 -> panelling(sprite, "bar_panelling", 2);
+            case 84 -> panelling(sprite, "bar_panelling", 1);
+            case 78 -> new Furniture(sprite, "wainscot_corner", 2).dyeAtBack(1 << Models.WOOD, PANELLING_DYE).meet(0f, 0f, false);
+            case 79 -> {
+                Furniture post = new Furniture(sprite, "wainscot_post", 0).dye(1 << Models.WOOD, PANELLING_POST, PANELLING_POST, PANELLING_DYE).meet(0f, 0f, false);
+                post.centreX = PANELLING_POST;
+                post.centreY = PANELLING_POST;
+                yield post;
+            }
+            default -> null;
+        };
+    }
+
+    private static Furniture panelling(IsoSprite sprite, String model, int turns) {
+        return new Furniture(sprite, model, turns).dyeAtBack(1 << Models.WOOD, PANELLING_DYE).meet(0f, 0f, true);
+    }
 }

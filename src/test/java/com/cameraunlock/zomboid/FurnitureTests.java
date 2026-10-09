@@ -36,6 +36,7 @@ final class FurnitureTests {
         Checks.run("aPoolTableIsOneModelOverItsTwoSquares", FurnitureTests::aPoolTableIsOneModelOverItsTwoSquares);
         Checks.run("homeFittingsStandAsTheirSpritesDo", FurnitureTests::homeFittingsStandAsTheirSpritesDo);
         Checks.run("aCountersTopIsABoardOverTheCountersOwnTop", FurnitureTests::aCountersTopIsABoardOverTheCountersOwnTop);
+        Checks.run("aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom", FurnitureTests::aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom);
     }
 
     private static IsoSprite sprite(String row) {
@@ -502,5 +503,66 @@ final class FurnitureTests {
             check(over.width() >= under.width() - 0.05f && over.depth() >= 0.6f, "and covers the counter's own top: " + worktop);
         }
         check(HomeFittings.worktopOver("shop_counter") == null, "a shop's counter keeps its own top");
+    }
+
+    /** Where a piece's model lies on its square, as least x, least y, greatest x, greatest y, in tiles from the square's corner. */
+    private static float[] footprint(Furniture piece) {
+        Models.Model model = piece.model;
+        float[] out = {Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE}, turned = new float[2];
+        for (float x : new float[] {model.minX, model.maxX}) {
+            for (float y : new float[] {model.minY, model.maxY}) {
+                Models.turn(piece.turns, x * piece.scale, y * piece.scale, turned);
+                float a = piece.centreX + turned[0], b = piece.centreY + turned[1];
+                out[0] = Math.min(out[0], a);
+                out[1] = Math.min(out[1], b);
+                out[2] = Math.max(out[2], a);
+                out[3] = Math.max(out[3], b);
+            }
+        }
+        return out;
+    }
+
+    private static void aBarsPanellingStandsAlongTheEdgeItsSpritePaintsFacingTheRoom() {
+        // The game's rows for these: no properties but a CustomName that is the placeholder itself.
+        String row = "|CustomName|CustomName|";
+        float clear = WorldScene.WALL_HALF, near = 0.1f, eps = 1e-3f;
+        float[] front = new float[2];
+        for (int place : new int[] {77, 85, 76, 84}) {
+            Furniture run = Furniture.known(sprite("location_restaurant_bar_01_" + place + row));
+            boolean north = place == 77 || place == 85;
+            String want = place == 77 || place == 76 ? "wainscot" : "bar_panelling";
+            check(model(run).equals(want), "the bar's panelling " + place + " is the " + want + ": " + model(run));
+            if (run == null || run.model == null) {
+                continue;
+            }
+            Models.turn(run.turns, 0f, -1f, front);
+            check(north ? front[1] > 0.99f : front[0] > 0.99f, place + " faces into its square, away from the " + (north ? "north" : "west")
+                    + " edge its sprite paints it on: front (" + front[0] + ", " + front[1] + ")");
+            float[] lies = footprint(run);
+            float back = north ? lies[1] : lies[0], from = north ? lies[0] : lies[1], to = north ? lies[2] : lies[3];
+            check(back > clear && back < near, place + " has its back against its edge, clear of a wall's skin there: " + back);
+            check(Math.abs(from) < eps && Math.abs(to - 1f) < eps && run.scale == 1f, place + " is as long as its square's edge, so a run has no gaps: "
+                    + from + " to " + to);
+            check(run.dyed == 1 << Models.WOOD && (north ? run.dyeB : run.dyeA) < 0.25f, place + " takes its wood's colour from the sprite, over the panel at the back of its square");
+            float top = run.model.height() * run.scaleUp;
+            check(want.equals("wainscot") ? top > 0.8f && top < 0.95f : top > 1.05f && top < 1.2f, place + " is as high as its sprite paints it: " + top);
+        }
+        Furniture corner = Furniture.known(sprite("location_restaurant_bar_01_78" + row));
+        check(model(corner).equals("wainscot_corner"), "78 is the corner where a north run meets a west one: " + model(corner));
+        if (corner != null && corner.model != null) {
+            float[] lies = footprint(corner);
+            check(lies[0] > clear && lies[0] < near && lies[1] > clear && lies[1] < near, "its backs are against the north and west edges: " + lies[0] + ", " + lies[1]);
+            check(Math.abs(lies[2] - 1f) < eps && Math.abs(lies[3] - 1f) < eps, "and each length reaches the far edge of the square, to meet the next: " + lies[2] + ", " + lies[3]);
+        }
+        Furniture post = Furniture.known(sprite("location_restaurant_bar_01_79" + row));
+        check(model(post).equals("wainscot_post"), "79 is the post that ends a run: " + model(post));
+        if (post != null && post.model != null) {
+            float[] lies = footprint(post);
+            check(lies[0] > 0f && lies[1] > 0f && lies[2] < 0.2f && lies[3] < 0.2f, "at the north corner of its square, where the runs' boards end: "
+                    + lies[0] + ", " + lies[1] + " to " + lies[2] + ", " + lies[3]);
+        }
+        for (int place : new int[] {75, 80, 83, 86}) {
+            check(Furniture.known(sprite("location_restaurant_bar_01_" + place + row)) == null, "the bar sheet's " + place + " is no panelling");
+        }
     }
 }

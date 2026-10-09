@@ -329,6 +329,12 @@ final class Furniture {
         if (home != null) {
             return home;
         }
+        if (name != null) {
+            Furniture panelling = Indoors.barPanelling(sprite, name);
+            if (panelling != null) {
+                return panelling;
+            }
+        }
         if (name != null && called == null && grid == null && name.startsWith(Clinic.OFFICE)) {
             return Clinic.unnamedDesk(sprite, name);
         }

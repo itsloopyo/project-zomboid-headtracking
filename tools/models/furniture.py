@@ -9877,6 +9877,103 @@ def dumpsters():
     """The game's two dumpsters, each one model over its two squares."""
     return [dumpster_sloped(), dumpster_domed()]
 
+# A bar's panelling: how high the top of its rail is, low and tall, how thick the rail is and the radius of its rounded
+# nose, how far the nose's straight top runs out from the back, and how far in front of the panels a tall one's foot rail runs.
+WAINSCOT_TOP, BAR_PANEL_TOP, WAINSCOT_RAIL, WAINSCOT_NOSE, WAINSCOT_LEDGE, FOOT_RAIL_OUT = 0.88, 1.13, 0.075, 0.0375, 0.12, 0.17
+
+
+def wainscot_run(model, x0, x1, top, tall, place=None, butted=False):
+    """One length of a bar's panelling from x0 to x1 along x, its back at y 0 and its face to -y: boards, or framed
+    raised panels when tall, on a skirting, a pilaster in the middle with a carved scroll under a rounded rail, and a
+    brass foot rail before a tall one. place moves every part afterwards, for a length that runs another way. butted
+    ends each layer at x1 less its own depth, where it meets the same layer of a length along x1's edge."""
+    mid = (x0 + x1) / 2
+    under = top - WAINSCOT_RAIL
+
+    def end(depth):
+        return x1 - depth if butted else x1
+
+    parts = {name: bmesh.new() for name in ("boards", "fields", "trim", "rail", "carving", "brass")}
+    cuboid(parts["trim"], x0, end(0.05), -0.05, 0.0, 0.0, 0.09)
+    cuboid(parts["trim"], x0, end(0.06), -0.06, 0.0, under - 0.025, under)
+    if tall:
+        cuboid(parts["boards"], x0, end(0.02), -0.02, 0.0, 0.09, under - 0.025)
+        for z0, z1 in ((0.09, 0.15), (0.55, 0.6), (under - 0.105, under - 0.025)):
+            cuboid(parts["trim"], x0, x1, -0.035, -0.02, z0, z1)
+        for z0, z1 in ((0.15, 0.55), (0.6, under - 0.105)):
+            cuboid(parts["trim"], x0, x0 + 0.03, -0.035, -0.02, z0, z1)
+            cuboid(parts["trim"], x1 - 0.03, x1, -0.035, -0.02, z0, z1)
+            for a, b in ((x0 + 0.03, mid - 0.035), (mid + 0.035, x1 - 0.03)):
+                cx, cz, sx, sz = (a + b) / 2, (z0 + z1) / 2, b - a - 0.004, z1 - z0 - 0.004
+                prism_y(parts["fields"], (cx, cz, sx - 0.07, sz - 0.07, -0.034), (cx, cz, sx, sz, -0.02))
+        for x in (mid - 0.25, mid + 0.25):
+            cuboid(parts["brass"], x - 0.01, x + 0.01, -FOOT_RAIL_OUT, -0.035, 0.105, 0.135)
+        lathe(parts["brass"], [(0.022, x0), (0.022, x1)], segments=14, to=along_x(0.0, -FOOT_RAIL_OUT, 0.12))
+    else:
+        boards = 9
+        width = (end(0.03) - x0) / boards
+        for n in range(boards):
+            cuboid(parts["boards"], x0 + n * width, x0 + (n + 1) * width, -0.03, 0.0, 0.09, under - 0.025)
+    cuboid(parts["trim"], mid - 0.035, mid + 0.035, -0.055, -0.02, 0.09, under - 0.1)
+    cuboid(parts["trim"], mid - 0.05, mid + 0.05, -0.085, -0.02, 0.0, 0.13)
+    # The scroll under the rail: a bracket that bellies out from the pilaster's head to under the rail's nose, with a
+    # curl near its top and one at its foot.
+    belly = [(-0.055 - 0.05 * t * t * (3 - 2 * t), under - 0.125 + 0.1 * t) for t in (k / 8 for k in range(9))]
+    outline_along_x(parts["carving"], [(-0.02, under - 0.125), (-0.02, under - 0.025)] + belly[::-1], mid - 0.025, mid + 0.025)
+    for y, z, radius in ((-0.085, under - 0.05, 0.02), (-0.062, under - 0.11, 0.016)):
+        lathe(parts["carving"], [(radius, mid - 0.028), (radius, mid + 0.028)], segments=12, to=along_x(0.0, y, z))
+    nose = [(-WAINSCOT_LEDGE - WAINSCOT_NOSE * math.sin(math.pi * k / 8), top - WAINSCOT_NOSE - WAINSCOT_NOSE * math.cos(math.pi * k / 8))
+            for k in range(9)]
+    outline_along_x(parts["rail"], [(0.0, under)] + nose + [(0.0, top)], x0, end(WAINSCOT_LEDGE + WAINSCOT_NOSE))
+    if place is not None:
+        for bm in parts.values():
+            bmesh.ops.transform(bm, matrix=place, verts=bm.verts[:])
+    model.hard(parts["boards"], "wood", bevel=0.004, segments=1)
+    model.hard(parts["trim"], "wood", bevel=0.004, segments=1)
+    if tall:
+        model.hard(parts["fields"], "wood", bevel=0.003, segments=1)
+        model.turned(parts["brass"], "metal", sharp=50.0)
+    else:
+        parts["fields"].free()
+        parts["brass"].free()
+    model.turned(parts["rail"], "wood", sharp=35.0)
+    model.turned(parts["carving"], "wood", sharp=50.0)
+
+
+def wainscot(name, top, tall):
+    """A square's length of a bar's panelling against a wall, a metre long so that each meets the next."""
+    model = Model(name)
+    wainscot_run(model, -0.5, 0.5, top, tall)
+    return model
+
+
+def wainscot_corner():
+    """Where two runs of a bar's low panelling meet, on one square: along its back and the side on its left as it is
+    looked at, each standing off its edge as far as a straight length is stood off it."""
+    model = Model("wainscot_corner", centred=False)
+    back = 0.44
+    wainscot_run(model, -back, 0.5, WAINSCOT_TOP, False, place=Matrix.Translation((0.0, back, 0.0)))
+    wainscot_run(model, -0.5, back, WAINSCOT_TOP, False, butted=True,
+                 place=Matrix.Translation((-back, 0.0, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "Z"))
+    return model
+
+
+def wainscot_post():
+    """The square post that ends a run of a bar's low panelling."""
+    model = Model("wainscot_post")
+    post = bmesh.new()
+    cuboid(post, -0.035, 0.035, -0.035, 0.035, 0.11, WAINSCOT_TOP)
+    cuboid(post, -0.045, 0.045, -0.045, 0.045, 0.0, 0.11)
+    cuboid(post, -0.048, 0.048, -0.048, 0.048, WAINSCOT_TOP, WAINSCOT_TOP + 0.03)
+    model.hard(post, "wood", bevel=0.005, segments=2)
+    return model
+
+
+def bar_panelling():
+    """A bar's wooden panelling: low runs with a rail along their top, their corner and the post at the end of a run, and
+    tall runs with a foot rail before them."""
+    return [wainscot("wainscot", WAINSCOT_TOP, False), wainscot("bar_panelling", BAR_PANEL_TOP, True), wainscot_corner(), wainscot_post()]
+
 
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
@@ -9899,7 +9996,8 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters())
+            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
+            + bar_panelling())
 
 
 def main():
