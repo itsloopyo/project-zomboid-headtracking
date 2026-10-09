@@ -5,10 +5,11 @@
 #
 # Running this command is the authorization: the release runs end to end with
 # no prompt. A release that is not on main with a clean tree stops before
-# anything is written. THIRD-PARTY-NOTICES.md is then re-synced, and committed
-# if that changed it. The other preconditions (valid semver, tag absent, nothing
-# under .lab tracked, the full test suite) each stop the release with a non-zero
-# exit before any other file is edited.
+# anything is written. The other preconditions (valid semver, tag absent,
+# nothing under .lab tracked, the full test suite, a user-facing commit) each
+# stop the release with a non-zero exit before any file is edited.
+# THIRD-PARTY-NOTICES.md is re-synced after them and goes in the release commit.
+# A nightly re-syncs and commits it before handing over to release-nightly.ps1.
 
 [CmdletBinding()]
 param(
@@ -34,8 +35,7 @@ if (-not $Version) {
 Import-Module (Join-Path $ProjectRoot 'cameraunlock-core/powershell/ReleaseWorkflow.psm1') -Force
 
 # --- 1. On main, with a clean tree ------------------------------------------
-# Before the re-sync below, which commits. A nightly makes its own check of
-# the tree, which -AllowDirty skips.
+# A nightly makes its own check of the tree, which -AllowDirty skips.
 if ($Version -ne 'nightly') {
     Push-Location $ProjectRoot
     try {
@@ -47,29 +47,35 @@ if ($Version -ne 'nightly') {
     }
 }
 
-# --- 2. Notices re-sync -----------------------------------------------------
 # THIRD-PARTY-NOTICES.md names the cameraunlock-core commit whose scripts go in
-# the release ZIP, and packaging refuses a stale one. Re-sync it here so the
-# release carries the correction instead of failing in CI after the tag is out.
-& git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
-if ($LASTEXITCODE -ne 0) { throw 'THIRD-PARTY-NOTICES.md has uncommitted edits. Commit or discard them, then re-run.' }
-& (Join-Path $ProjectRoot 'cameraunlock-core\scripts\sync-core-notices.ps1') -Repo $ProjectRoot
-if ($LASTEXITCODE -ne 0) { throw "sync-core-notices.ps1 exited $LASTEXITCODE. Fix THIRD-PARTY-NOTICES.md before releasing." }
-& git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
-if ($LASTEXITCODE -ne 0) {
-    & git -C $ProjectRoot commit -q -m 'chore: record the cameraunlock-core commit this build ships' -- THIRD-PARTY-NOTICES.md
-    if ($LASTEXITCODE -ne 0) { throw 'Could not commit the re-synced THIRD-PARTY-NOTICES.md.' }
-    Write-Host 'THIRD-PARTY-NOTICES.md re-synced to the pinned cameraunlock-core commit.' -ForegroundColor Yellow
+# the release ZIP, and packaging refuses a stale one. Re-syncing it before
+# packaging means the release carries the correction instead of failing in CI
+# after the tag is out.
+function Sync-CoreNotices {
+    & git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
+    if ($LASTEXITCODE -ne 0) { throw 'THIRD-PARTY-NOTICES.md has uncommitted edits. Commit or discard them, then re-run.' }
+    & (Join-Path $ProjectRoot 'cameraunlock-core\scripts\sync-core-notices.ps1') -Repo $ProjectRoot
+    if ($LASTEXITCODE -ne 0) { throw "sync-core-notices.ps1 exited $LASTEXITCODE. Fix THIRD-PARTY-NOTICES.md before releasing." }
+    & git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'THIRD-PARTY-NOTICES.md re-synced to the pinned cameraunlock-core commit.' -ForegroundColor Yellow
+    }
 }
 
 if ($Version -eq 'nightly') {
+    Sync-CoreNotices
+    & git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
+    if ($LASTEXITCODE -ne 0) {
+        & git -C $ProjectRoot commit -q -m 'chore: record the cameraunlock-core commit this build ships' -- THIRD-PARTY-NOTICES.md
+        if ($LASTEXITCODE -ne 0) { throw 'Could not commit the re-synced THIRD-PARTY-NOTICES.md.' }
+    }
     & (Join-Path $PSScriptRoot 'release-nightly.ps1') -AllowDirty:$AllowDirty
     exit $LASTEXITCODE
 }
 
 Push-Location $ProjectRoot
 try {
-    # --- 3. Resolve and validate the target version ------------------------
+    # --- 2. Resolve and validate the target version ------------------------
     # pixi.toml is the version source. build.ps1 reads it into the jar's
     # manifest, and scripts/install.cmd (MOD_VERSION) and launcher-manifest.json
     # (mod_info.version) each carry a copy.
@@ -79,7 +85,7 @@ try {
     Assert-ReleaseNotBelowCanonicalSince -RepoRoot $ProjectRoot -Version $target
     $tag = "v$target"
 
-    # --- 4. Tag absent, nothing under .lab tracked -------------------------
+    # --- 3. Tag absent, nothing under .lab tracked -------------------------
     if (Test-GitTagExists -Tag $tag) { throw "Tag $tag already exists." }
 
     & git check-ignore -q .lab/x
@@ -88,7 +94,7 @@ try {
 
     Write-Host "Releasing $current -> $target" -ForegroundColor Cyan
 
-    # --- 5. Full test suite, before any other file is edited ---------------
+    # --- 4. Full test suite, before any other file is edited ---------------
     Write-Host 'Running the full test suite...' -ForegroundColor Cyan
     try {
         Invoke-ReleaseTestSuite -ProjectRoot $ProjectRoot
@@ -97,7 +103,7 @@ try {
         exit 1
     }
 
-    # --- 6. Changelog -------------------------------------------------------
+    # --- 5. Changelog -------------------------------------------------------
     # Before the version bump: this is the step that stops a release with no
     # user-facing commit, and stopping here leaves the tree clean.
     Write-Host 'Writing the CHANGELOG entry...' -ForegroundColor Cyan
@@ -113,6 +119,9 @@ try {
         Write-Host 'Re-run with -Force for a maintenance release.' -ForegroundColor Yellow
         exit 1
     }
+
+    # --- 6. Notices re-sync -------------------------------------------------
+    Sync-CoreNotices
 
     # --- 7. Version bump ----------------------------------------------------
     $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -137,7 +146,7 @@ try {
     # --- 9. Commit, tag, push ----------------------------------------------
     # The subject starts 'Release v' because build.yml skips a commit that
     # does: release.yml builds the tag.
-    git add pixi.toml scripts/install.cmd launcher-manifest.json CHANGELOG.md
+    git add pixi.toml scripts/install.cmd launcher-manifest.json CHANGELOG.md THIRD-PARTY-NOTICES.md
     if ($LASTEXITCODE -ne 0) { throw 'git add failed.' }
     git commit -m "Release $tag"
     if ($LASTEXITCODE -ne 0) { throw 'git commit failed.' }

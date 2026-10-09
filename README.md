@@ -2,12 +2,12 @@
 
 ![Project Zomboid running with this mod](https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/assets/readme-clip.gif)
 
-An unofficial head tracking mod for Project Zomboid that moves the view with your head while your mouse keeps aiming, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
+An unofficial head tracking mod for Project Zomboid that moves the view with your head while your mouse or controller keeps aiming, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
 ## Features
 
 - **First person view** - `Delete` switches from the game's isometric view to a first person one, where head tracking moves the view. In the isometric view your character's head turns with yours
-- **Decoupled look and aim** - your head moves the view while your mouse keeps the aim
+- **Decoupled look and aim** - your head moves the view while your mouse or controller keeps the aim
 - **6DOF positional tracking** - lean and peek with head position
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 - **Redrawn graphics in both views** - in the `Medium` and `High` graphics modes the mod draws the isometric view as well as first person, with its own lighting, shadows, textures and models. `F9` cycles the modes, and `Low` leaves the isometric view as the game draws it
@@ -176,7 +176,7 @@ A second player joins the screen with a controller, as the game has it, and has 
 - **`Delete` tapped** switches the first player's view, **tapped twice** the second player's, and **held** for 0.4 seconds both players'. A tap acts 0.3 seconds after the key is let go, which is how long a second tap has to follow it.
 - **The second player's tracker** sends the OpenTrack UDP protocol to port `4243`, where the first player's sends to `4242`. Run a second tracker, or a second output, pointed at `127.0.0.1:4243`. The port is `SecondPlayerUdpPort` in [Configuration](#configuration).
 - **The second player's controller** works first person as in [On a controller](#on-a-controller), Back tapped twice included.
-- **The modes are shared.** Turning tracking on and off, the tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are one setting for both players, on the keys above.
+- **The modes are shared.** The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are one setting for both players, on the keys above.
 - **`F7`** turns the screen between side by side and one above the other. Side by side each picture is half the screen's width and all of its height, with the same field of view up and down, so less shows to either side. One above the other each has the whole width.
 
 Two players can ride in one vehicle, each seeing it from their own seat.
@@ -619,7 +619,7 @@ Run `uninstall.cmd`. This removes the mod's jar and DLL, the `ProjectZomboid64.s
 
 ## Building from Source
 
-Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake, Visual Studio with the C++ workload, and Node.js for `pixi run package`. Pixi provides the JDK, CMake and Visual Studio build `CameraUnlockCore.dll` from the cameraunlock-core submodule, and the build needs no game install.
+Prerequisites: Windows, Git, [pixi](https://pixi.sh), CMake, Visual Studio with the C++ workload, and Node.js for `pixi run package`. Pixi provides the JDK; CMake and Visual Studio build `CameraUnlockCore.dll` from the cameraunlock-core submodule, and the build needs no game install.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git

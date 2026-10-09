@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds this project's own classes, three of which
+ProjectZomboidHeadTracking.jar holds this project's own classes, four of which
 carry the pieces of shader code listed under Shader code below, and two classes
 of cameraunlock-core's. CameraUnlockCore.dll is cameraunlock-core's code alone.
 The components below are what they ship beside, link against at run time, or
