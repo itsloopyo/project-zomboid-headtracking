@@ -33,6 +33,50 @@ final class RoofTests {
         Checks.run("bothRidgesOfACrossGableArePeakedAndCappedWhole", RoofTests::bothRidgesOfACrossGableArePeakedAndCappedWhole);
         Checks.run("deepWingIsCarriedIntoTheMainRoofUpToItsRidge", RoofTests::deepWingIsCarriedIntoTheMainRoofUpToItsRidge);
         Checks.run("eaveRowHangsUnderTheFootOfASlopeOnly", RoofTests::eaveRowHangsUnderTheFootOfASlopeOnly);
+        Checks.run("wingsRidgeRunsOnToTheMiddleOfTheMainRidge", RoofTests::wingsRidgeRunsOnToTheMiddleOfTheMainRidge);
+        Checks.run("secondSpriteOnAValleyTileLiesOnItsFold", RoofTests::secondSpriteOnAValleyTileLiesOnItsFold);
+    }
+
+    private static void wingsRidgeRunsOnToTheMiddleOfTheMainRidge() {
+        List<RoofFit.Tile> tiles = crossGable();
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, CROSS_GABLE);
+        RoofFit.peaks(tiles, made);
+        RoofFit.Tile end = null, foot = null, main = null;
+        for (RoofFit.Tile tile : made) {
+            if (tile.peak > 0f && tile.x == 4 && tile.y == 5) {
+                end = tile;
+            } else if (tile.peak > 0f && tile.x == 4 && tile.y == 17) {
+                foot = tile;
+            } else if (tile.peak > 0f && tile.x == 4 && tile.y == 4) {
+                main = tile;
+            }
+        }
+        check(end != null && end.peakBefore == 0.5f && end.peakAfter == 0f,
+                "the wing's ridge runs on from its last square to the middle of the main roof's ridge, where the two meet: " + (end == null ? "none" : end.peakBefore));
+        check(foot != null && foot.peakBefore == 0f && foot.peakAfter == 0f, "and stops at its own gable at the other end");
+        check(main != null && main.peakBefore == 0f && main.peakAfter == 0f, "the main roof's ridge goes on along its own squares, past the wing's");
+        float from = Float.MAX_VALUE;
+        for (RoofFit.Cap cap : RoofFit.caps(tiles, made)) {
+            if (cap.x0 == 4.5f && cap.x1 == 4.5f) {
+                from = Math.min(from, Math.min(cap.y0, cap.y1));
+            }
+        }
+        check(from == 4.5f, "and its cap with it, to the main ridge's line: " + from);
+    }
+
+    private static void secondSpriteOnAValleyTileLiesOnItsFold() {
+        RoofFit.Tile valley = null, slope = null;
+        for (RoofFit.Tile tile : crossGable()) {
+            if (tile.x == 5 && tile.y == 5) {
+                valley = tile;
+            } else if (tile.x == 2 && tile.y == 6) {
+                slope = tile;
+            }
+        }
+        check(valley.shaped && RoofFit.laidOn(valley, false) == valley,
+                "the piece the map paints over the top of the valley, on the valley tile's square, lies on the valley's fold and not as it reads");
+        check(RoofFit.laidOn(valley, true) == valley && RoofFit.laidOn(slope, true) == slope, "a tile's own sprite lies on the tile");
+        check(RoofFit.laidOn(slope, false) == null && RoofFit.laidOn(null, false) == null, "a second sprite on a plain slope, or on a square the fit has nothing on, lies as it reads");
     }
 
     private static void eaveRowHangsUnderTheFootOfASlopeOnly() {

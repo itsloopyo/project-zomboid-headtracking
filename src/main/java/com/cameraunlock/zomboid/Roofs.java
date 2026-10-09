@@ -226,6 +226,7 @@ final class Roofs {
                 | (tile.sure ? 1 << 24 : 0) | (tile.fitted ? 1 << 25 : 0) | (tile.fitting ? 1 << 26 : 0) | (tile.shaped ? 1 << 27 : 0) | (tile.carried ? 1 << 28 : 0));
         sum = mix(mix(mix(mix(sum, Float.floatToRawIntBits(tile.low)), Float.floatToRawIntBits(tile.high)), Float.floatToRawIntBits(tile.fitLow)), Float.floatToRawIntBits(tile.fitHigh));
         sum = mix(mix(sum, Float.floatToRawIntBits(tile.halfEdge)), Float.floatToRawIntBits(tile.peak));
+        sum = mix(mix(sum, Float.floatToRawIntBits(tile.peakBefore)), Float.floatToRawIntBits(tile.peakAfter));
         for (float corner : tile.corners) {
             sum = mix(sum, Float.floatToRawIntBits(corner));
         }

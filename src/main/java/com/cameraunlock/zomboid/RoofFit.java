@@ -85,6 +85,12 @@ final class RoofFit {
          */
         float peak;
         int peakAxis;
+        /**
+         * How far a ridge along the middle of the tile runs on past the tile's edge nearer the
+         * map's origin and past its far edge, in tiles: half a tile where the ridge runs into the
+         * middle of a ridge across it, a wing's into the main roof's, and 0 elsewhere. See peaks.
+         */
+        float peakBefore, peakAfter;
         /** Whether the tile is a slope carried on over the square of another, to meet it in a valley: see valleys. */
         boolean carried;
         /**
@@ -154,6 +160,16 @@ final class RoofFit {
         out[0] = a + slid;
         out[1] = b + slid;
         out[2] = slid * PITCH;
+    }
+
+    /**
+     * The tile a roof sprite on a square is laid on, given the tile the fit left there and
+     * whether the sprite is that tile's own: its own sprite on it, and a second sprite on a
+     * tile the fit folded, which is a piece of the same picture of where two slopes meet (the
+     * top of a valley). Any other second sprite on none, null: it lies as it reads.
+     */
+    static Tile laidOn(Tile fitted, boolean itsOwn) {
+        return fitted != null && (itsOwn || fitted.shaped) ? fitted : null;
     }
 
     /**
@@ -857,8 +873,9 @@ final class RoofFit {
                         float high = (peaked ? level : Math.max(level, Math.max(before.fitHigh, after.fitLow))) + (peaked ? tile.peak : 0f);
                         // The roof is level under this one from side to side, unless it peaks there.
                         float fall = peaked ? 2f * tile.peak : 0f;
-                        caps.add(alongX ? new Cap(tile.x + 0.5f, tile.y, high, tile.x + 0.5f, tile.y + 1f, high, fall)
-                                : new Cap(tile.x, tile.y + 0.5f, high, tile.x + 1f, tile.y + 0.5f, high, fall));
+                        float from = peaked ? -tile.peakBefore : 0f, to = 1f + (peaked ? tile.peakAfter : 0f);
+                        caps.add(alongX ? new Cap(tile.x + 0.5f, tile.y + from, high, tile.x + 0.5f, tile.y + to, high, fall)
+                                : new Cap(tile.x + from, tile.y + 0.5f, high, tile.x + to, tile.y + 0.5f, high, fall));
                     }
                 }
             }
@@ -935,6 +952,23 @@ final class RoofFit {
                 }
             }
         }
+        // Where a wing's ridge comes to the square of the main roof's, it runs on to the middle
+        // of that square, where the two meet: stopped at the square's edge it ends half a tile
+        // short, an open gable end standing on the main roof's slope.
+        for (Tile ridge : ridges.values()) {
+            if (ridge.peak <= 0f) {
+                continue;
+            }
+            boolean alongY = ridge.peakAxis == ALONG_X;
+            ridge.peakBefore = meets(ridges, ridge, ridge.x - (alongY ? 0 : 1), ridge.y - (alongY ? 1 : 0)) ? 0.5f : 0f;
+            ridge.peakAfter = meets(ridges, ridge, ridge.x + (alongY ? 0 : 1), ridge.y + (alongY ? 1 : 0)) ? 0.5f : 0f;
+        }
+    }
+
+    /** Whether the square holds a ridge across the given one's, as high. */
+    private static boolean meets(HashMap<Long, Tile> ridges, Tile ridge, int x, int y) {
+        Tile across = ridges.get(key(x, y, 0));
+        return across != null && across.peak > 0f && across.peakAxis != ridge.peakAxis && Math.abs(across.fitLow + across.peak - ridge.fitLow - ridge.peak) <= SAME;
     }
 
     /**

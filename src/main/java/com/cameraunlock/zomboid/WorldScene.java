@@ -4912,9 +4912,9 @@ final class WorldScene {
             if (z > 0 && kind.roofAccent && roofBuilder.underARake(x, y, z)) {
                 return;
             }
-            // The eave the map hangs on the wall under a slope's foot, and the trims painted on
-            // it: the slope's lowest tile makes that eave.
-            if ((kind.roofAccent || Hoods.eave(sprite) != Hoods.NONE) && roofBuilder.eaveRow(x, y, z)) {
+            // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
+            // the corner piece past each end of it: the slope's lowest tile makes that eave.
+            if ((kind.roofAccent || Hoods.eave(sprite) != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || Hoods.endPiece(sprite) && roofBuilder.eaveRowEnd(x, y, z)) {
                 return;
             }
 

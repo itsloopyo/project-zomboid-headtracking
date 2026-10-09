@@ -133,12 +133,22 @@ final class Hoods {
 
     /** Whether the piece of eave on a square is the end of a hood, which the hood's model has: past the end of the hood's run, along its wall. */
     static boolean endOfAHood(Squares squares, int x, int y) {
+        return endOf(squares, x, y, (nx, ny) -> hood(squares, nx, ny));
+    }
+
+    /** Squares of a run of eave: which ones the run holds. */
+    interface Run {
+        boolean holds(int x, int y);
+    }
+
+    /** Whether the piece of eave on a square is the end of a run of eave tiles: past the end of the run, along its wall. */
+    static boolean endOf(Squares squares, int x, int y, Run run) {
         if (!squares.endPiece(x, y)) {
             return false;
         }
         for (int[] step : STEPS) {
             int nx = x + step[0], ny = y + step[1];
-            if (hood(squares, nx, ny) && (squares.eave(nx, ny) == Outdoors.WEST) == (step[0] == 0)) {
+            if (run.holds(nx, ny) && (squares.eave(nx, ny) == Outdoors.WEST) == (step[0] == 0)) {
                 return true;
             }
         }

@@ -262,8 +262,10 @@ final class RoofBuilder {
         boolean alongX = tile.peakAxis == RoofFit.ALONG_X;
         float lift = meanLift();
         float edge = tile.fitLow * ViewCamera.LEVEL_HEIGHT + lift, top = (tile.fitLow + tile.peak) * ViewCamera.LEVEL_HEIGHT + lift;
-        float from = tile.carried || hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z) ? 0f : -RAKE;
-        float to = tile.carried || hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z) ? 1f : 1f + RAKE;
+        // Into the middle of a ridge across this one's end, or out over a gable as a rake.
+        boolean rakeFrom = tile.peakBefore == 0f && !tile.carried && !hasRoof(alongX ? tile.x : tile.x - 1, alongX ? tile.y - 1 : tile.y, tile.z);
+        boolean rakeTo = tile.peakAfter == 0f && !tile.carried && !hasRoof(alongX ? tile.x : tile.x + 1, alongX ? tile.y + 1 : tile.y, tile.z);
+        float from = rakeFrom ? -RAKE : -tile.peakBefore, to = rakeTo ? 1f + RAKE : 1f + tile.peakAfter;
         float[] c = build.eave;
         for (int side = 0; side < 2; side++) {
             float low = side, high = 0.5f;
@@ -280,10 +282,10 @@ final class RoofBuilder {
             }
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
             // At a gable the half slope's edge has its board, as a whole slope's has.
-            if (from < 0f) {
+            if (rakeFrom) {
                 addBarge(sheet, c[0], c[1], c[2], c[3], c[4], c[5]);
             }
-            if (to > 1f) {
+            if (rakeTo) {
                 addBarge(sheet, c[9], c[10], c[11], c[6], c[7], c[8]);
             }
         }
@@ -396,9 +398,16 @@ final class RoofBuilder {
     void addRoof(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
         build.building.plain = false;
         Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
-        // A square with two roof sprites has one of them fitted. The other lies as it reads.
-        // The fitted one holds what its sprite read as, which the fit leaves as it was.
-        RoofFit.Tile tile = laid != null && laid.texture == texture ? laid.tile : Roofs.measure(build.frame, texture, x, y, z);
+        // A square with two roof sprites has one of them fitted, which holds what its sprite read
+        // as. The other lies as it reads, but on a square the fit folded, where it is a piece of
+        // the same picture of where two slopes meet.
+        boolean itsOwn = laid != null && laid.texture == texture;
+        RoofFit.Tile on = RoofFit.laidOn(laid == null ? null : laid.tile, itsOwn);
+        if (on != null && !itsOwn) {
+            onFold(mesh, on, 3, x, y, z);
+            return;
+        }
+        RoofFit.Tile tile = on != null ? on : Roofs.measure(build.frame, texture, x, y, z);
         // Half a tile at a ridge is not where the map has it: the ridge is made, see RoofFit.peaks.
         if (tile.half != 0) {
             return;
@@ -419,17 +428,7 @@ final class RoofBuilder {
         if (tile.shaped) {
             // Two slopes on one square: each half of the sprite goes on its own, and where
             // the map's slope is only one of the two the other half is the mod's own sheet.
-            int[] order = RoofFit.TRIANGLES[tile.crease];
-            for (int triangle = 0; triangle < 2; triangle++) {
-                if ((tile.own >> triangle & 1) == 0) {
-                    continue;
-                }
-                for (int i = 0; i < 3; i++) {
-                    int corner = order[triangle * 3 + i];
-                    WorldScene.set(folded, i, RoofFit.cornerX(corner), RoofFit.cornerY(corner), tile.corners[corner] - z);
-                }
-                build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
-            }
+            onFold(mesh, tile, tile.own, x, y, z);
             build.roofsFolded++;
             SpriteGeometry.Mesh sheet = roofSheet();
             addFolded(sheet, tile, tile.own, true);
@@ -489,6 +488,21 @@ final class RoofBuilder {
             // stands out of the roof. A level one at the tile's lowest height cannot: it
             // is under the tile whichever way it slopes, and still closes the roof.
             underRoof(x, y, z, Math.min(low, high), 0f, 0f);
+        }
+    }
+
+    /** The sprite on the triangles of a folded tile that which names, bit 0 the first of RoofFit.TRIANGLES and bit 1 the second. */
+    private void onFold(SpriteGeometry.Mesh mesh, RoofFit.Tile tile, int which, int x, int y, int z) {
+        int[] order = RoofFit.TRIANGLES[tile.crease];
+        for (int triangle = 0; triangle < 2; triangle++) {
+            if ((which >> triangle & 1) == 0) {
+                continue;
+            }
+            for (int i = 0; i < 3; i++) {
+                int corner = order[triangle * 3 + i];
+                WorldScene.set(folded, i, RoofFit.cornerX(corner), RoofFit.cornerY(corner), tile.corners[corner] - z);
+            }
+            build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
         }
     }
 
@@ -719,6 +733,11 @@ final class RoofBuilder {
         boolean west = wall == Outdoors.WEST;
         Roofs.Laid slope = Roofs.at(build.cell, west ? x - 1 : x, west ? y : y - 1, z + 1, world.roundNow, build.frame.scale);
         return slope != null && RoofFit.fallsToItsFloor(slope.tile, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y);
+    }
+
+    /** Whether the square holds the piece the map ends a row of eave with, a corner past the row's end, where eaveRow holds that row. */
+    boolean eaveRowEnd(int x, int y, int z) {
+        return Hoods.endOf(Hoods.on(build.cell, z), x, y, (nx, ny) -> eaveRow(nx, ny, z));
     }
 
     /**

@@ -15,6 +15,7 @@ final class AwningTests {
         Checks.run("anAwningsColoursAreReadWhereItsModelHasCloth", AwningTests::anAwningsColoursAreReadWhereItsModelHasCloth);
         Checks.run("anEaveIsTheEaveRowOfARoofSheet", AwningTests::anEaveIsTheEaveRowOfARoofSheet);
         Checks.run("aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo", AwningTests::aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo);
+        Checks.run("theCornerPastARoofsEaveRowGoesWithTheRow", AwningTests::theCornerPastARoofsEaveRowGoesWithTheRow);
         Checks.run("anEaveWithARoofBehindItIsNoHood", AwningTests::anEaveWithARoofBehindItIsNoHood);
         Checks.run("aHoodHangsFromTheTopOfItsWallAndItsHipsReachPastIt", AwningTests::aHoodHangsFromTheTopOfItsWallAndItsHipsReachPastIt);
     }
@@ -187,6 +188,29 @@ final class AwningTests {
         pier.ends.add("0,0");
         pier.ends.add("0,3");
         return pier;
+    }
+
+    /**
+     * The one-storey house at (6409..6416, 5358): the eave row of its roof on the north wall of
+     * six squares of the ground level, under the roof on the squares north of them, and the
+     * corner piece past its west end. Under a roof it is no hood, and its corner is the row's.
+     */
+    private static void theCornerPastARoofsEaveRowGoesWithTheRow() {
+        Pier house = new Pier();
+        HashSet<String> row = new HashSet<>();
+        for (int x = 1; x <= 6; x++) {
+            house.eaves.put(x + ",0", Outdoors.NORTH);
+            house.walls.put(x + ",0", Outdoors.NORTH);
+            house.filledAbove.add(x + ",-1");
+            row.add(x + ",0");
+        }
+        house.ends.add("0,0");
+        house.ends.add("3,1");
+        Hoods.Run eaves = (x, y) -> row.contains(x + "," + y);
+        check(!Hoods.hood(house, 1, 0) && !Hoods.endOfAHood(house, 0, 0), "an eave row with a roof behind it is no hood, nor its corner a hood's");
+        check(Hoods.endOf(house, 0, 0, eaves), "the corner piece past the west end of the row goes with the row");
+        check(!Hoods.endOf(house, 3, 1, eaves), "an end piece in front of the row, across its wall, is none of its");
+        check(!Hoods.endOf(house, 7, 0, eaves) && !Hoods.endOf(house, 0, 0, (x, y) -> false), "nor is a square with no end piece, or one by no row");
     }
 
     private static void aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo() {
