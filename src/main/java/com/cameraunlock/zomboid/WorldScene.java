@@ -274,6 +274,12 @@ final class WorldScene {
         private boolean gamesView;
         /** The light of its seen squares out of doors, as its last reading left them: see OpenLight. Null until it has been read. */
         private OpenLight seen;
+        /** The light of its room squares in the character's sight, those with no lamp burning in their room and those with one. Null until it has been read. */
+        private OpenLight seenRooms, seenLamplit;
+        /** Dev only: what the build holds, for SightTrace. Null unless the trace is on. */
+        java.util.Set<Object> traced;
+        /** Dev only: the last frame that showed the build. */
+        int shownFrame = -1;
         /** Dev only: every float of the build as one number. */
         private long auditFloats;
         /** Dev only, for auditStale: each mesh of the build as its set, texture and tint in one number, then how many floats it had, then their sum. */
@@ -599,6 +605,24 @@ final class WorldScene {
     private long openLightTakenAt;
     private boolean openLightTaken;
     private float unseenRed = -1f, unseenGreen, unseenBlue;
+    /**
+     * The light of the rooms the character has in sight, counted with the open ground's, and
+     * what a room the game has not shown yet is lit by until it has a light of its own. With
+     * no lamp burning in it that is the open ground's light times roomShare, how bright most
+     * room squares in sight are beside the open ground: it follows the hour as the open
+     * ground's does. With a lamp burning it is lampLevel, how bright most lamplit squares in
+     * sight are, which the hour does not change. Both are every build's, so they move in
+     * steps of Sightline.LIGHT_STEP and no finer. Less than 0 until rooms have been in sight.
+     */
+    private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
+    private float roomShare = -1f, lampLevel = -1f;
+    private long roomLightTakenAt;
+    /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.leftEmpty. */
+    private static final float UNSHOWN_FILLED_WITHIN = 40f;
+    /** How bright the open ground has to be for roomShare to be taken: under it, a sixty-fourth of light, which is as fine as the tally counts, is more than a step of the share. */
+    private static final float ROOM_SHARE_TAKEN_FROM = 0.25f;
+    /** Fewer squares than this in sight say nothing of what most rooms have. */
+    private static final int ROOM_LIGHT_FROM = 12;
     /** The light a square out of doors has with no lamp on it: see OpenLight.floor. */
     private float floorRed, floorGreen, floorBlue;
     /** The open ground's light the last time the game had it full night. */
@@ -761,6 +785,16 @@ final class WorldScene {
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
+    /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
+    private long tollAhead, tollAheadNanos;
+    /** Dev only: see SightTrace. */
+    private SightTrace sightTrace;
+
+    /** Dev only: the build a chunk has, shown or not, or null. */
+    ChunkMeshes latestOf(int wx, int wy) {
+        ChunkMeshes held = latest[(wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))];
+        return held == null || held.wx != wx || held.wy != wy ? null : held;
+    }
     /** Dev only: the game's marks are left unused when set, for a comparison within one run. */
     private volatile boolean withoutMarks;
     /**
@@ -768,14 +802,20 @@ final class WorldScene {
      * are made on the logic thread, and a chunk is built again in every band it passes into.
      */
     private volatile boolean withoutKeptCrowns, withoutCrownThread, withoutAlikeBands;
+    /**
+     * Dev only, for the same: a room is filled only as the game shows it, wherever the game is
+     * played, and no chunk is built before the view turns to it.
+     */
+    private volatile boolean withoutSightline;
 
-    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", or several with commas), and everything else is on. */
+    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", "sightline", or several with commas), and everything else is on. */
     void without(String what) {
         java.util.List<String> off = Arrays.asList(what.split(","));
         withoutMarks = off.contains("marks");
         withoutKeptCrowns = off.contains("kept");
         withoutCrownThread = off.contains("thread");
         withoutAlikeBands = off.contains("bands");
+        withoutSightline = off.contains("sightline");
     }
 
     /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
@@ -832,6 +872,8 @@ final class WorldScene {
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
+        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms", tollAhead, tollAheadNanos / 1e6);
+        tollAhead = tollAheadNanos = 0;
         told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
                 tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsLate, tollSumsDiffered);
         tollSumsByLevel = tollLevelsRead = tollLevelsKept = tollSumsChecked = tollSumsDiffered = tollSumsLate = 0;
@@ -1187,6 +1229,10 @@ final class WorldScene {
                 release(scene.shown.get(i));
             }
             scene.shown.clear();
+            for (int i = 0; i < scene.builtAheadOf.size(); i++) {
+                release(scene.builtAheadOf.get(i));
+            }
+            scene.builtAheadOf.clear();
         }
         forgetAll();
         forgetTheOpened();
@@ -1511,7 +1557,7 @@ final class WorldScene {
     private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
 
     /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
-    private static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
+    static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
         if (object instanceof IsoDoor || object instanceof IsoWindow || object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
             return true;
         }
@@ -1710,19 +1756,25 @@ final class WorldScene {
 
     /** How bright the game's light on a square has to be for a lamp burning in its room to count as reaching it. */
     private static final float LAMPLIT = 0.55f;
+    /** What a room with a lamp burning is lit by before any lamplit room has been in sight: just what counts as lamplit. */
+    private static final float LAMP_AT_LEAST = LAMPLIT + 0.05f;
 
     /**
      * Whether a lamp burns in the room a square is in and lights the square. How bright the
      * square is does not say so alone. The game keeps every square at full daylight for an
      * hour after the picture's sky is the night's, and it lights whole squares in the beam of
-     * a torch or of a car's headlights.
+     * a torch or of a car's headlights. A room the game has not shown has no light to go by:
+     * from the eye a lamp burning in it lights it, and shown only as the game shows it, it is dark.
      */
-    static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex) {
-        if (square.getRoom() == null || !square.isSeen(playerIndex)) {
+    private static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex, boolean asTheGameShows, java.util.List<IsoLightSource> lamps) {
+        if (square.getRoom() == null) {
             return false;
         }
+        if (!square.isSeen(playerIndex)) {
+            return !asTheGameShows && lampBurns(cell, square, lamps);
+        }
         ColorInfo light = square.lighting[playerIndex].lightInfo();
-        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, cell.getLamppostPositions());
+        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, lamps);
     }
 
     /** How high a wall has to stand short of its level for its top to be closed: a full wall's top is under the floor or the roof over it. */
@@ -1836,6 +1888,8 @@ final class WorldScene {
 
         /** The chunk builds this frame draws. */
         private final ArrayList<ChunkMeshes> shown = new ArrayList<>();
+        /** The builds this frame made of chunks the view does not face, which the frame hands to the graphics card and does not draw. */
+        private final ArrayList<ChunkMeshes> builtAheadOf = new ArrayList<>();
         /** Whether any of them has water on it, and the plane that water lies in round the eye: see WaterMirror. */
         private boolean waterShown;
         private final float[] waterPlane = new float[4];
@@ -2039,6 +2093,11 @@ final class WorldScene {
         private int ring;
         /** The light of the seen squares out of doors of the chunk being read. */
         private final OpenLight reading = new OpenLight();
+        /** And of its room squares in the character's sight: see seenRooms. */
+        private final OpenLight readingRooms = new OpenLight(), readingLamplit = new OpenLight();
+        private final ColorInfo roomLight = new ColorInfo(), lampLight = new ColorInfo();
+        /** Whether what stands in a room the game has not shown is left out of this frame's builds: see Sightline. */
+        private boolean asTheGameShows;
         private boolean tallying;
         private int chunksQuiet;
 
@@ -2180,6 +2239,10 @@ final class WorldScene {
                 release(shown.get(i));
             }
             shown.clear();
+            for (int i = 0; i < builtAheadOf.size(); i++) {
+                release(builtAheadOf.get(i));
+            }
+            builtAheadOf.clear();
             waterShown = false;
             frames++;
             Terrain.frame(roundNow);
@@ -2255,6 +2318,7 @@ final class WorldScene {
             if (cell != builtIn.get()) {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
+                roomShare = lampLevel = -1f;
                 strung.clear();
                 bannerRuns.clear();
                 forgetAll();
@@ -2285,6 +2349,14 @@ final class WorldScene {
             mainsOn = IsoWorld.instance.isHydroPowerOn();
             long goesBy = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenRed)), Float.floatToRawIntBits(unseenGreen)), Float.floatToRawIntBits(unseenBlue));
             goesBy = sum(sum(goesBy, mainsOn ? 1 : 0), Float.floatToRawIntBits(Core.tileScale));
+            boolean showing = Online.contested() || withoutSightline;
+            if (showing != asTheGameShows) {
+                // A build made by the other rule, seen before it falls due, would fill or empty its rooms a frame or more late.
+                asTheGameShows = showing;
+                forgetAll();
+            }
+            // No build reads the rooms' light where a room is shown only as the game shows it.
+            goesBy = sum(sum(sum(goesBy, asTheGameShows ? 1 : 0), asTheGameShows ? 0 : Float.floatToRawIntBits(roomShare)), asTheGameShows ? 0 : Float.floatToRawIntBits(lampLevel));
             glass.found = false;
             if (!fromOutside && !seated && drawnAspect > 0f && Quality.shadedAndLit()) {
                 OwnReflection.find(cell, player, terrain, pose, tanHalfFieldOfView * drawnAspect, glass);
@@ -2404,6 +2476,15 @@ final class WorldScene {
             unseenLight.r = unseenRed;
             unseenLight.g = unseenGreen;
             unseenLight.b = unseenBlue;
+            // Until a room has been in sight, a room is lit as the open ground is, and one with a lamp burning at least as a lamp lights.
+            float share = roomShare < 0f ? 1f : roomShare;
+            roomLight.r = Math.min(unseenRed * share, 1f);
+            roomLight.g = Math.min(unseenGreen * share, 1f);
+            roomLight.b = Math.min(unseenBlue * share, 1f);
+            float lamp = lampLevel < 0f ? LAMP_AT_LEAST : lampLevel;
+            lampLight.r = Math.max(roomLight.r, lamp);
+            lampLight.g = Math.max(roomLight.g, lamp);
+            lampLight.b = Math.max(roomLight.b, lamp);
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not
@@ -2438,13 +2519,23 @@ final class WorldScene {
             int eyeGridX = Math.floorDiv((int) Math.floor(pose.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
             int eyeGridY = Math.floorDiv((int) Math.floor(pose.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
             int builtLate = 0;
+            float nearestWaiting = Float.MAX_VALUE;
+            long aheadBegan = 0L;
             int swept = 0;
             for (Crowns.Work back = crownsBack.poll(); back != null; back = crownsBack.poll()) {
                 land(back);
             }
-            for (int step = 0; step < walk.length; step += 2) {
+            // The chunks in view, and after them the nearest one the view does not face that has no build: see where it is found aside.
+            int aheadStep = -1;
+            for (int step = 0; step <= walk.length; step += 2) {
+                boolean ahead = step == walk.length;
+                if (ahead && (aheadStep < 0 || withoutSightline || rehearsing || chunksWaiting > 0 || waitedLast > 0
+                        || System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing)) {
+                    break;
+                }
                 {
-                    int gridX = eyeGridX + walk[step], gridY = eyeGridY + walk[step + 1];
+                    int walked = ahead ? aheadStep : step;
+                    int gridX = eyeGridX + walk[walked], gridY = eyeGridY + walk[walked + 1];
                     if (gridX < 0 || gridY < 0 || gridX >= side || gridY >= side) {
                         continue;
                     }
@@ -2465,14 +2556,26 @@ final class WorldScene {
                             ChunkBuffers.shadowReach(sky.lightUp, Math.max(TALL_AS_A_HOUSE, (chunk.getMaxLevel() + 1) * ViewCamera.LEVEL_HEIGHT)))) {
                         continue;
                     }
-                    if (distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
-                            && !(mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH)) {
-                        continue;
-                    }
-                    chunksDrawn++;
+                    boolean aside = distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
+                            && !(mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH);
                     int slot = (chunk.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (chunk.wy & (TABLE_SIDE - 1));
                     ChunkMeshes current = latest[slot];
                     boolean missing = current == null || current.wx != chunk.wx || current.wy != chunk.wy;
+                    if (aside != ahead) {
+                        if (aside && missing && aheadStep < 0) {
+                            aheadStep = step;
+                        }
+                        continue;
+                    }
+                    if (aside) {
+                        // What the view does not face is not drawn, and a head turns to it faster than its chunks can be
+                        // built. So one that has no build is given it ahead of the turn: one a frame, after everything in
+                        // view, in a frame that left nothing in view waiting and has not spent its time for building.
+                        // It is handed to the graphics card with the frame and kept as any build is.
+                        aheadBegan = System.nanoTime();
+                    } else {
+                        chunksDrawn++;
+                    }
                     // A chunk that is only due to be made again can wait a frame when many fall due
                     // together: its old build is still good enough to show. Without this the frames
                     // on which dozens fall due are several times as long as the rest.
@@ -2481,11 +2584,12 @@ final class WorldScene {
                     // fast, hundreds of chunks want building at once, and built in one frame they held it
                     // for most of a second. What is near is built whatever it takes. The rest is built
                     // until the frame has spent its time on building, and the others come on the next frames.
-                    boolean late = (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
+                    boolean late = !aside && (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
                     // One chunk a frame is built however late the frame is: on a PC where what is near takes all
                     // of the frame's time, nothing further off would otherwise ever be built.
                     if (missing && late && builtLate++ > 0) {
                         chunksWaiting++;
+                        nearestWaiting = Math.min(nearestWaiting, distance);
                         continue;
                     }
                     // While chunks wait for their first build, the time goes to them: one built already
@@ -2705,6 +2809,12 @@ final class WorldScene {
                         solid.clear();
                         laid.clear();
                         fresh.placed.clear();
+                        if (SightTrace.ON) {
+                            if (fresh.traced == null) {
+                                fresh.traced = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+                            }
+                            fresh.traced.clear();
+                        }
                         fresh.wx = chunk.wx;
                         fresh.wy = chunk.wy;
                         fresh.builtFrame = frames;
@@ -2760,8 +2870,12 @@ final class WorldScene {
                         fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
                         if (fresh.seen == null) {
                             fresh.seen = new OpenLight();
+                            fresh.seenRooms = new OpenLight();
+                            fresh.seenLamplit = new OpenLight();
                         }
                         reading.copyTo(fresh.seen);
+                        readingRooms.copyTo(fresh.seenRooms);
+                        readingLamplit.copyTo(fresh.seenLamplit);
                         if (AUDIT_STALE) {
                             fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
                             fresh.auditMeshes = meshesOf();
@@ -2809,13 +2923,20 @@ final class WorldScene {
                         crown(slot, chunk.wx, chunk.wy, unchanged && (cause == MOVED || cause == AGED));
                     }
                     current.users++;
-                    shown.add(current);
                     current.water = Terrain.holdsWater(chunk.wx, chunk.wy);
-                    waterShown |= current.water;
+                    if (aside) {
+                        builtAheadOf.add(current);
+                    } else {
+                        shown.add(current);
+                        if (SightTrace.ON) {
+                            current.shownFrame = frames;
+                        }
+                        waterShown |= current.water;
+                    }
                     ChunkMeshes crowned = latestCrowned[slot];
                     if (crowned != null && crowned.wx == chunk.wx && crowned.wy == chunk.wy) {
                         crowned.users++;
-                        shown.add(crowned);
+                        (aside ? builtAheadOf : shown).add(crowned);
                     }
                     // What grows on the chunk's ground is made again with the chunk, and by itself
                     // as the eye moves while any of it is near enough to be made by how far off it is.
@@ -2872,7 +2993,11 @@ final class WorldScene {
                     }
                     if (grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
                         grown.users++;
-                        shown.add(grown);
+                        (aside ? builtAheadOf : shown).add(grown);
+                    }
+                    if (aside) {
+                        tollAhead++;
+                        tollAheadNanos += System.nanoTime() - aheadBegan;
                     }
                 }
             }
@@ -2896,6 +3021,30 @@ final class WorldScene {
                     }
                 }
             }
+            // As often as the open ground's, and kept while too few room squares are in sight to say.
+            if (!asTheGameShows && !gamesView && start - roomLightTakenAt >= OPEN_LIGHT_TAKEN_EVERY_NANOS) {
+                roomLightTakenAt = start;
+                for (int i = 0; i < shown.size(); i++) {
+                    ChunkMeshes each = shown.get(i);
+                    if (!each.grown && each.crowns == null && each.seen != null) {
+                        each.seenRooms.addTo(seenRooms);
+                        each.seenLamplit.addTo(seenLamplit);
+                    }
+                }
+                // Taken by day alone. In the dark a room's light beside the open ground's is one small number over
+                // another, which no step holds still, and what it comes to is not what it is by day.
+                float open = (unseenRed + unseenGreen + unseenBlue) / 3f;
+                if (seenRooms.counted() >= ROOM_LIGHT_FROM && open >= ROOM_SHARE_TAKEN_FROM) {
+                    seenRooms.commonest(openLight);
+                    roomShare = Sightline.stepped(Math.min((openLight[0] + openLight[1] + openLight[2]) / 3f / open, 1f), roomShare);
+                }
+                if (seenLamplit.counted() >= ROOM_LIGHT_FROM) {
+                    seenLamplit.commonest(openLight);
+                    lampLevel = Sightline.stepped(Math.max(openLight[0], Math.max(openLight[1], openLight[2])), lampLevel);
+                }
+                seenRooms.clear();
+                seenLamplit.clear();
+            }
             if (!seenOutside.isEmpty() && (!openLightTaken || start - openLightTakenAt >= OPEN_LIGHT_TAKEN_EVERY_NANOS)) {
                 seenOutside.commonest(openLight);
                 if (!openLightTaken || stepped(openLight, unseenRed, unseenGreen, unseenBlue)) {
@@ -2917,6 +3066,12 @@ final class WorldScene {
                 triangles += shown.get(i).triangles() + shown.get(i).placed.triangles();
             }
             waitedLast = chunksWaiting;
+            if (SightTrace.ON && !fromOutside) {
+                if (sightTrace == null) {
+                    sightTrace = new SightTrace(WorldScene.this);
+                }
+                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, frames, chunksWaiting, nearestWaiting, asTheGameShows);
+            }
             buildMillis = (System.nanoTime() - start) / 1e6f;
             tollFrames++;
             tollQuiet += chunksQuiet;
@@ -3211,6 +3366,11 @@ final class WorldScene {
             tallying = !kept && !growing && !afresh;
             if (tallying) {
                 reading.clear();
+                readingRooms.clear();
+                readingLamplit.clear();
+            }
+            if (!kept) {
+                lampsRound(chunkX, chunkY);
             }
             for (int z = Math.max(lowest, chunk.getMinLevel()); z <= (growing ? 0 : chunk.getMaxLevel()); z++) {
                 if (kept && z >= keptFrom && z <= keptTo) {
@@ -3339,6 +3499,8 @@ final class WorldScene {
         private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
             readUnseen = sum(sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(unseenLight.r)), Float.floatToRawIntBits(unseenLight.g)), Float.floatToRawIntBits(unseenLight.b)), gamesView ? 1 : 0);
+            readUnseen = sum(sum(sum(sum(readUnseen, asTheGameShows ? 1 : 0), Float.floatToRawIntBits(roomLight.r)), Float.floatToRawIntBits(roomLight.g)), Float.floatToRawIntBits(roomLight.b));
+            readUnseen = sum(sum(sum(readUnseen, Float.floatToRawIntBits(lampLight.r)), Float.floatToRawIntBits(lampLight.g)), Float.floatToRawIntBits(lampLight.b));
             readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
             readFrom = from;
             readTo = to;
@@ -3386,15 +3548,9 @@ final class WorldScene {
             restless = false;
             tallying = true;
             reading.clear();
-            lampsNear.clear();
-            Stack<IsoLightSource> lamps = cell.getLamppostPositions();
-            for (int i = 0; i < lamps.size(); i++) {
-                IsoLightSource lamp = lamps.get(i);
-                if (lamp.active && lamp.x + lamp.radius >= chunkX - 1 && lamp.x - lamp.radius <= chunkX + CHUNK_TILES && lamp.y + lamp.radius >= chunkY - 1
-                        && lamp.y - lamp.radius <= chunkY + CHUNK_TILES) {
-                    lampsNear.add(lamp);
-                }
-            }
+            readingRooms.clear();
+            readingLamplit.clear();
+            lampsRound(chunkX, chunkY);
             for (int z = from; z <= to; z++) {
                 if (readByLevel && readLit[z - from] == readFor.litSeen[z - from]) {
                     readSums[z - from] = readFor.levelSums[z - from];
@@ -3686,6 +3842,19 @@ final class WorldScene {
             return indoors + (outdoors - indoors) * eyeOpen;
         }
 
+        /** The lamps that burn near enough to reach a square of a chunk or of the ring of squares round it, into lampsNear. */
+        private void lampsRound(int chunkX, int chunkY) {
+            lampsNear.clear();
+            Stack<IsoLightSource> lamps = cell.getLamppostPositions();
+            for (int i = 0; i < lamps.size(); i++) {
+                IsoLightSource lamp = lamps.get(i);
+                if (lamp.active && lamp.x + lamp.radius >= chunkX - 1 && lamp.x - lamp.radius <= chunkX + CHUNK_TILES && lamp.y + lamp.radius >= chunkY - 1
+                        && lamp.y - lamp.radius <= chunkY + CHUNK_TILES) {
+                    lampsNear.add(lamp);
+                }
+            }
+        }
+
         /**
          * The light of every square of one level of a chunk and of the ring of squares round it,
          * into lightRed, lightGreen, lightBlue and lightOpen, a LIGHT_SPAN wide grid whose first
@@ -3718,12 +3887,22 @@ final class WorldScene {
                     // been seen: none in a room the player has not seen into, and less in one
                     // they have seen and cannot see now, which is how the game shows them.
                     boolean seen = square.isSeen(playerIndex);
-                    if (!seen && !(gamesView && square.getRoomID() != -1L)) {
-                        light = unseenLight;
+                    boolean inRoom = square.getRoomID() != -1L;
+                    if (!seen && !(gamesView && inRoom)) {
+                        // From the eye a room the game has not shown is a room like the ones in sight: see seenRooms.
+                        // Shown only as the game shows it, it stands empty and lit as the open ground is.
+                        light = !inRoom || asTheGameShows ? unseenLight : lampBurns(cell, square, lampsNear) ? lampLight : roomLight;
                     } else if (seen && inChunk) {
                         squaresSeen++;
                         if (outside && tallying) {
                             reading.add(light.r, light.g, light.b);
+                        } else if (inRoom && tallying && !gamesView && square.isCanSee(playerIndex)) {
+                            // In sight now: one seen and out of sight has the game's darkening on it.
+                            if (Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, lampsNear)) {
+                                readingLamplit.add(light.r, light.g, light.b);
+                            } else {
+                                readingRooms.add(light.r, light.g, light.b);
+                            }
                         }
                     }
                     lightRed[at] = light.r;
@@ -5008,18 +5187,25 @@ final class WorldScene {
                     wallWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
                 }
             }
-            // A room the game has not shown the player yet is black in the game's own view. Here
-            // the house still stands, and what is in the room is left out until the game has it seen.
+            // A room the game has not shown the player yet is black in the game's own view. From
+            // the eye it is built whole, and its walls hide it. Only where the viewer is shown no
+            // more than the game shows does the house stand with the room left empty: see Sightline.
             boolean unexplored = unexplored(square);
+            boolean unshownRoom = !gamesView && square.getRoomID() != -1L && !square.isSeen(playerIndex);
+            // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
+            boolean empty = Sightline.leftEmpty(unexplored, unshownRoom, !unshownRoom || unexplored || within(UNSHOWN_FILLED_WITHIN, false));
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
-                if (sprite == null || unexplored && object != floor && !partOfTheBuilding(object, sprite)) {
+                if (sprite == null || empty && object != floor && !partOfTheBuilding(object, sprite)) {
                     continue;
                 }
                 Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
                 if (!usable(texture)) {
                     continue;
+                }
+                if (SightTrace.ON && building.traced != null) {
+                    building.traced.add(object);
                 }
                 frameOf(object, texture);
                 standOn(object);
@@ -5083,7 +5269,7 @@ final class WorldScene {
             }
 
             ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
-            for (int i = 0; i < bodies.size() && !unexplored; i++) {
+            for (int i = 0; i < bodies.size() && !empty; i++) {
                 if (bodies.get(i) instanceof IsoDeadBody body) {
                     addBody(body);
                 }
@@ -5103,6 +5289,9 @@ final class WorldScene {
             Texture texture = picture == null ? null : picture.getTexture();
             if (!usable(texture) || !texture.isReady()) {
                 return;
+            }
+            if (SightTrace.ON && building.traced != null) {
+                building.traced.add(body);
             }
             SpriteGeometry.Mesh mesh = solid.get(texture.getID());
             mesh.open = frame.open;
@@ -5125,11 +5314,11 @@ final class WorldScene {
 
         /**
          * Whether a square is in a room the game has never had in the player's sight, in a frame
-         * that leaves out what is in such a room. As the game's own view the frame leaves nothing
-         * out of it: the room has the engine's light, which is what hides it.
+         * that leaves out what is in such a room: see Sightline.leftOut. As the game's own view
+         * the frame leaves nothing out of it: the room has the engine's light, which is what hides it.
          */
         private boolean unexplored(IsoGridSquare square) {
-            return !gamesView && square.getRoomID() != -1L && !square.isSeen(playerIndex);
+            return Sightline.leftOut(asTheGameShows, gamesView, square.getRoomID() != -1L, square.isSeen(playerIndex));
         }
 
         /**
@@ -6920,7 +7109,8 @@ final class WorldScene {
             System.arraycopy(frame.cornerRed, 0, heldRed, 0, 4);
             System.arraycopy(frame.cornerGreen, 0, heldGreen, 0, 4);
             System.arraycopy(frame.cornerBlue, 0, heldBlue, 0, 4);
-            ColorInfo light = below != null && below.isSeen(playerIndex) ? view.torchLess.light(below, playerIndex, torchless) : unseenLight;
+            ColorInfo light = below != null && below.isSeen(playerIndex) ? view.torchLess.light(below, playerIndex, torchless)
+                    : below == null || below.getRoomID() == -1L || asTheGameShows || gamesView ? unseenLight : lampBurns(cell, below, lampsNear) ? lampLight : roomLight;
             frame.light(light.r, light.g, light.b);
             frame.open = 0f;
             layers.lie(SpriteGeometry.LAYERS_UP, -1f);
@@ -7623,7 +7813,7 @@ final class WorldScene {
             IsoGridSquare beyond = cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
             boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
             boolean beyondIsRoom = beyond != null && beyond.getRoomID() != -1L;
-            boolean lit = lamplit(cell, ownIsRoom ? here : beyond, playerIndex);
+            boolean lit = lamplit(cell, ownIsRoom ? here : beyond, playerIndex, asTheGameShows || gamesView, lampsNear);
 
             windowX = x;
             windowY = y;
@@ -7866,7 +8056,7 @@ final class WorldScene {
             boolean ownIsRoom = here.getRoomID() != -1L || beyond == null || beyond.getRoomID() == -1L;
             // A face on a north edge looks north, out of its square, and one on a west edge east, into it.
             geometry.turned = north == ownIsRoom;
-            if (lamplit(cell, ownIsRoom ? here : beyond, playerIndex)) {
+            if (lamplit(cell, ownIsRoom ? here : beyond, playerIndex, asTheGameShows || gamesView, lampsNear)) {
                 frame.material = LIT_GLASS;
             }
         }
@@ -9029,6 +9219,7 @@ final class WorldScene {
                 WaterMirror.plane(terrain, camera.eyeX, camera.eyeY, waterPlane);
             }
             view.pipeline.water = waterShown ? waterPlane : null;
+            view.pipeline.ahead = builtAheadOf;
             if (outside) {
                 view.pipeline.rangeFrom = Math.max(outsideAway - OVERHEAD_RANGE, 0f);
                 // From far overhead nothing fades into the sky: the edge of the loaded map is beyond

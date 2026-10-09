@@ -183,10 +183,12 @@ The first person view and head tracking work when you join a multiplayer server.
 - Your character's head turns with yours on your own screen only. The mod sends nothing to the server, so other players do not see it turn.
 - Dying and coming back as a new character leaves you in first person.
 
-Where you and another player can hurt each other, two things are held to what the game gives a player without the mod, so that nobody loses a fight to it. That is any server with PvP on, whatever your own safety is set to: the game lets a player whose safety is off hurt one whose safety is on. On a server with PvP off neither applies and the mod plays as it does alone.
+Where you and another player can hurt each other, four things are held to what the game gives a player without the mod, so that nobody loses a fight to it. That is any server with PvP on, whatever your own safety is set to: the game lets a player whose safety is off hurt one whose safety is on. On a server with PvP off none of them applies and the mod plays as it does alone.
 
 - Leaning does not move a shot. With the sights up in sights locked, the lean across the aim eases out and the round leaves from your character, where the other players see your weapon. Alone, your arms and weapon move with your head and the round leaves from where your eye is.
 - Walking sideways or backwards puts your character in the game's own aiming stance, at the pace the game gives that stance, with the sights down. The game shows a player what is in front of their character, and other players read which way a character faces to tell what its player can see. In first person you see where the view faces, so there your character faces it too. Walking forward, and forward with a sideways key, is as it is alone.
+- A room is filled as the game shows it. What stands in a room, and a body lying in it, is drawn once the game has shown your character the room, as it is for every player. Alone, a room within 40 tiles is whole before you can see into it, and its walls and doors hide it.
+- A zombie is shown as the game shows it to every player. Alone, a zombie before your eye is hidden only by what stands between the two.
 
 ### Hotkeys
 

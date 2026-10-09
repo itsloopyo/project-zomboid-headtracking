@@ -99,7 +99,7 @@ final class ChunkBuffers {
      * Makes ready to draw a frame's chunks: hands the graphics card the builds it does not hold
      * as they now are. Leaves no buffer bound.
      */
-    static void load(ArrayList<WorldScene.ChunkMeshes> chunks) {
+    static void load(ArrayList<WorldScene.ChunkMeshes> chunks, ArrayList<WorldScene.ChunkMeshes> ahead) {
         if (buffer == 0) {
             buffer = GL15.glGenBuffers();
         }
@@ -135,11 +135,30 @@ final class ChunkBuffers {
             remake(chunks, chunks.size());
             slackSince = now;
         }
+        loadAhead(ahead);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         usedMegabytes = ((long) capacity - space.free()) * Float.BYTES / 1048576f;
         allMegabytes = (long) capacity * Float.BYTES / 1048576f;
         sentMegabytes = sentFloats * Float.BYTES / 1048576f;
         sent = sentBuilds;
+    }
+
+    /**
+     * Hands the graphics card builds that no frame draws yet, where the buffer has room for
+     * them as it is, so that the frame that first draws them has nothing to wait for and
+     * their vertices are not kept in this process meanwhile. One the buffer has no room for
+     * is left as it was, and goes over with the frame that draws it. Called by load, with its buffer bound.
+     */
+    private static void loadAhead(ArrayList<WorldScene.ChunkMeshes> builds) {
+        for (int i = 0; i < builds.size(); i++) {
+            WorldScene.ChunkMeshes build = builds.get(i);
+            if (build.held && build.heldVersion != build.version) {
+                drop(build);
+            }
+            if (!build.held) {
+                send(build);
+            }
+        }
     }
 
     /** How long a buffer is made for this many floats in use: half as much again, in whole grains. */

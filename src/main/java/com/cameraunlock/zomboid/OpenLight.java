@@ -62,6 +62,10 @@ final class OpenLight {
         return counted == 0;
     }
 
+    int counted() {
+        return counted;
+    }
+
     /**
      * The mean light of the squares in the band of brightness that holds most of them, into
      * out as red, green and blue. Of two bands as full as each other, the darker.

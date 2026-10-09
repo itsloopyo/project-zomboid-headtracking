@@ -378,6 +378,8 @@ final class Pipeline {
      * square to it and how far along it the plane is, see WaterMirror. Null with no water.
      */
     float[] water;
+    /** Builds the frame does not draw, of chunks the view does not face, which it hands to the graphics card with the ones it draws: see ChunkBuffers.loadAhead. */
+    ArrayList<WorldScene.ChunkMeshes> ahead;
     float rangeFrom;
     float focusX, focusY, focusUp;
     /**
@@ -784,7 +786,7 @@ final class Pipeline {
             SpriteColours.read(view.index);
             FineSkins.tend();
             drawn = chunks;
-            ChunkBuffers.load(chunks);
+            ChunkBuffers.load(chunks, ahead);
             // Seen from outside the viewer, the picture is of the built world alone, as it was.
             beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
             all.of(chunks, null, true);
