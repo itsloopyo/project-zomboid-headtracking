@@ -3809,7 +3809,10 @@ final class WorldScene {
                 return;
             }
             int before = FirstPerson.TRACE ? worn(texture) : 0;
+            // The map hangs a road's lines on the road's own floor, and what is added next is added as that floor's: see addFloor.
+            paintOver = kindOf(over).paint;
             addSprite(solid.get(texture.getID()), object, under, texture, isFloor, x, y, z);
+            paintOver = false;
             vergeOver = false;
             if (FirstPerson.TRACE) {
                 tally(under, worn(texture) - before);
@@ -4075,6 +4078,8 @@ final class WorldScene {
 
         /** Whether what is being laid is grass the map paints over the edge of a street's square. */
         private boolean vergeOver;
+        /** Whether the sprite being added over an object's own is a marking painted on the ground: see RoadPaint. */
+        private boolean paintOver;
 
         /** For a square with no kerb to do with it. */
         private float noKerb() {
@@ -5339,7 +5344,7 @@ final class WorldScene {
                 addCeiling(mesh, x, y, z);
             }
             // A line painted on the road is laid as paint, not as its sprite: see RoadPaint.
-            boolean painted = sprite.paint && !isFloor && frame.kind == 0f && Own.paint();
+            boolean painted = (overLayer > 0 ? paintOver : sprite.paint && !isFloor) && frame.kind == 0f && Own.paint();
             RoadPaint.Shape paint = painted ? RoadPaint.of(texture, frame) : null;
             if (painted && paint == null && RoadPaint.unread(texture)) {
                 building.signed = false;
