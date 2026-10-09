@@ -33,6 +33,32 @@ final class EdgeRuns {
         out[1] = Math.max(one, other);
     }
 
+    /**
+     * Into out, as WallHung.extent leaves it, how high the face a sign is laid on stands: from
+     * its square's floor to the top of its level, and further down or up where the sprite paints
+     * further. The board over a shop front is on the square of the level above and paints
+     * below that level's floor: Mandy's Eatery from 0.10 of a level below it to 0.18 above,
+     * resting on its awning. Cut at the floor, the board lost the lower half of its letters.
+     */
+    static void upright(SpriteGeometry.Frame frame, float da, float db, float[] out) {
+        WallHung.extent(frame, da != 0f ? WallHung.NORTH : WallHung.WEST, out);
+        out[WallHung.BOTTOM] = Math.min(0f, out[WallHung.BOTTOM]);
+        out[WallHung.TOP] = Math.max(1f, out[WallHung.TOP]);
+    }
+
+    /**
+     * How far up a sign whose foot is that far below its floor, in levels, is hung so that it
+     * rests on the cloth of the awning on the level below, which meets the wall cloth levels up
+     * that level (0 for no awning). The game draws the board over the awning, so its whole face
+     * shows; the awning's cloth runs up to the wall above the board's foot, so where they are
+     * stood together the cloth hides the foot of the lettering from the street. Mandy's
+     * Eatery's foot is 0.10 below its floor and the cloth 0.03: hung as painted, the cloth hid
+     * the lower quarter of the letters.
+     */
+    static float onAwning(float foot, float cloth) {
+        return Math.max(0f, cloth - 1f - foot);
+    }
+
     /** The sheets lettering and signs are on. A pipe, a gutter or a roof's edge carries on from square to square too, but is no sheet flat on the wall. */
     private static final String[] SIGN_SHEETS = {"signs_", "advertising_", "location_", "walls_decoration_"};
 

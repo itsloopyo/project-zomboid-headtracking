@@ -12,6 +12,8 @@ final class SignRunTests {
         Checks.run("aWestWallsSignIsReadAlongItsY", SignRunTests::aWestWallsSignIsReadAlongItsY);
         Checks.run("onlyLetteringAndSignsRunOn", SignRunTests::onlyLetteringAndSignsRunOn);
         Checks.run("aPieceLaidOverAllItPaintsKeepsItsFirstQuarter", SignRunTests::aPieceLaidOverAllItPaintsKeepsItsFirstQuarter);
+        Checks.run("aBoardPaintedBelowItsFloorIsLaidDownToItsFoot", SignRunTests::aBoardPaintedBelowItsFloorIsLaidDownToItsFoot);
+        Checks.run("aBoardOverAnAwningRestsOnItsCloth", SignRunTests::aBoardOverAnAwningRestsOnItsCloth);
     }
 
     /** A frame as the game gives a sprite of a square, trimmed to the rectangle it paints. */
@@ -94,6 +96,47 @@ final class SignRunTests {
         check(westmost(square) > 4.99f, "laid on its square alone, the piece starts at the square's edge: " + westmost(square));
         check(westmost(whole) < 4.73f && westmost(whole) > 4.70f, "laid over all it paints, a quarter of a square before it: " + westmost(whole));
         check(Math.abs(eastmost(whole) - eastmost(square)) < 0.01f, "and its other end is where it was, to within its inset: " + eastmost(whole) + " and " + eastmost(square));
+    }
+
+    // signs_miscbrands_01_32 and _36, the first piece of Mandy's and of Eatery, on the level above the shop's awning.
+    private static final float[] MANDYS = {52f, 162f, 72f, 80f}, EATERY = {60f, 163f, 64f, 72f};
+
+    private static void aBoardPaintedBelowItsFloorIsLaidDownToItsFoot() {
+        float[] upright = new float[4];
+        EdgeRuns.upright(trimmed(MANDYS[0], MANDYS[1], MANDYS[2], MANDYS[3]), 1f, 0f, upright);
+        check(upright[WallHung.BOTTOM] < -0.09f && upright[WallHung.BOTTOM] > -0.11f, "the board's face reaches down to its foot, a tenth of a level below the floor: " + upright[WallHung.BOTTOM]);
+        check(upright[WallHung.TOP] == 1f, "and up to the top of its level: " + upright[WallHung.TOP]);
+        EdgeRuns.upright(trimmed(128f - EATERY[0] - EATERY[2], EATERY[1], EATERY[2], EATERY[3]), 0f, 1f, upright);
+        check(upright[WallHung.BOTTOM] < -0.05f, "on a west wall too: " + upright[WallHung.BOTTOM]);
+        float[] garage = GARAGE[1];
+        EdgeRuns.upright(trimmed(garage[0], garage[1], garage[2], garage[3]), 1f, 0f, upright);
+        check(upright[WallHung.BOTTOM] == 0f && upright[WallHung.TOP] == 1f, "a sign painted within its level stands on its floor: " + upright[WallHung.BOTTOM] + " to " + upright[WallHung.TOP]);
+
+        SpriteGeometry.Frame frame = trimmed(MANDYS[0], MANDYS[1], MANDYS[2], MANDYS[3]);
+        EdgeRuns.upright(frame, 1f, 0f, upright);
+        float foot = upright[WallHung.BOTTOM];
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        geometry.addFace(mesh, frame, 5, 7, 1, 0f, 0f, foot, 1f, 0f, 0f, 0f, 0f, upright[WallHung.TOP] - foot);
+        float lowest = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+        }
+        float floor = ViewCamera.LEVEL_HEIGHT;
+        check(lowest < floor - 0.08f * ViewCamera.LEVEL_HEIGHT, "laid, the board's face goes below the floor of its level: " + lowest + " against " + floor);
+    }
+
+    private static void aBoardOverAnAwningRestsOnItsCloth() {
+        float[] upright = new float[4];
+        EdgeRuns.upright(trimmed(MANDYS[0], MANDYS[1], MANDYS[2], MANDYS[3]), 1f, 0f, upright);
+        float foot = upright[WallHung.BOTTOM];
+        Awnings.Hung awning = Awnings.of("walls_decoration_01_84", "Canopy", null, "S");
+        float up = EdgeRuns.onAwning(foot, awning.wall);
+        check(Math.abs(1f + foot + up - awning.wall) < 1e-5f, "Mandy's board is hung up to the top of the awning's cloth at the wall: foot " + (1f + foot + up) + ", cloth " + awning.wall);
+        check(up > 0.06f, "which is most of a tenth of a level up: " + up);
+        check(EdgeRuns.onAwning(foot, 0f) == 0f, "with no awning below it hangs where it is painted");
+        check(EdgeRuns.onAwning(0.05f, awning.wall) == 0f, "and a board painted clear of the cloth stays where it is");
+        check(Awnings.of("walls_decoration_01_145", "Canopy", null, "S").wall > awning.wall, "a dome meets the wall higher than a sloped awning");
     }
 
     private static float westmost(SpriteGeometry.Mesh mesh) {

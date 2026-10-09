@@ -62,7 +62,7 @@ final class WallBuilder {
 
     /** Whether the sprite being added to an edge is a sign, which may run on over the next squares: see EdgeRuns. */
     boolean sign;
-    private final float[] run = new float[2], next = new float[2];
+    private final float[] run = new float[2], next = new float[2], upright = new float[4];
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
 
     WallBuilder(WorldScene world, WorldScene.Frame build) {
@@ -161,18 +161,25 @@ final class WallBuilder {
             }
             // And three layers more, which are thicker the further off: there the picture's depth is coarser.
             WorldScene.layers.lie(way, layer + 3f);
-            // A sign several squares long is laid over all each square's piece paints: see EdgeRuns.
-            float from = 0f, length = 1f;
+            // A sign is laid over all it paints up and down its wall, and along it where it runs on over the next squares: see EdgeRuns.
+            float from = 0f, length = 1f, foot = 0f, up = door ? doorTop(texture, 0f, 0f, da, db) : 1f;
             if (sign && material != WorldScene.GLASS) {
                 EdgeRuns.along(build.frame, da, db, run);
                 if (EdgeRuns.overhangs(run[0], run[1]) && (runsOn(x, y, z, da, db, -1) || runsOn(x, y, z, da, db, 1))) {
                     from = Math.min(0f, run[0]);
                     length = Math.max(1f, run[1]) - from;
                 }
+                EdgeRuns.upright(build.frame, da, db, upright);
+                foot = upright[WallHung.BOTTOM];
+                up = upright[WallHung.TOP] - foot;
+                IsoGridSquare below = foot < 0f && z > 0 && Own.furniture() ? build.cell.getGridSquare(x, y, z - 1) : null;
+                if (below != null) {
+                    build.geometry.shownUp = EdgeRuns.onAwning(foot, Awnings.meetsWall(below, da != 0f));
+                }
             }
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
-            build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, length * da, length * db, 0f, 0f, 0f, door ? doorTop(texture, 0f, 0f, da, db) : 1f);
+            build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, foot, length * da, length * db, 0f, 0f, 0f, up);
             if (build.casing && build.overLayer == 0) {
                 // A door's frame goes round the doorway on both sides of the wall. The game
                 // has it on the side its view saw, and from the other the doorway was bare.
@@ -181,7 +188,7 @@ final class WallBuilder {
                 WorldScene.layers.lie(way, layer - 3f);
                 build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
             }
-            build.geometry.shownA = build.geometry.shownB = 0f;
+            build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
             build.geometry.turned = false;
             build.frame.material = material;
             return;

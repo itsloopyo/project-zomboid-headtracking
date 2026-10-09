@@ -2,7 +2,10 @@ package com.cameraunlock.zomboid;
 
 import java.util.IdentityHashMap;
 import zombie.core.properties.PropertyContainer;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /**
  * A shop's awning as the map has one: a sprite on each square along the shop front, of a
@@ -25,13 +28,16 @@ final class Awnings {
         final int turns;
         /** How high the foot of the valance is, in levels: the lowest point of the model. */
         final float foot;
+        /** How high the top of the cloth is where it meets the wall, in levels. */
+        final float wall;
         /** Where on the square the sprite gives the first colour and the second, and how high, in levels. */
         final float firstA, firstB, secondA, secondB, dyeHigh;
 
-        Hung(String model, int turns, float foot, float firstA, float firstB, float secondA, float secondB, float dyeHigh) {
+        Hung(String model, int turns, float foot, float wall, float firstA, float firstB, float secondA, float secondB, float dyeHigh) {
             this.model = model;
             this.turns = turns;
             this.foot = foot;
+            this.wall = wall;
             this.firstA = firstA;
             this.firstB = firstB;
             this.secondA = secondA;
@@ -61,6 +67,8 @@ final class Awnings {
 
     /** How high the foot of each kind's valance is, in levels, read off the sprites: tools/models/furniture.py awnings(). */
     static final float LONG_FOOT = 0.727f, SHORT_FOOT = 0.80f, DOME_FOOT = 0.625f;
+    /** How high the top of each kind's cloth is where it meets the wall, in levels: tools/models/furniture.py awnings(). */
+    static final float LONG_WALL = 0.969f, SHORT_WALL = 0.969f, DOME_WALL = 0.985f;
     /**
      * Where the cloth's colours are read on the sprite of each kind, as a share of the square
      * along the wall, how far out from it, and how high the cloth is there, in levels. On every
@@ -111,9 +119,9 @@ final class Awnings {
             return null;
         }
         return switch (model) {
-            case "awning_short" -> hang(model, faces, SHORT_FOOT, SHORT_ALONG, SHORT_OUT, SHORT_HIGH);
-            case "awning_dome" -> hang(model, faces, DOME_FOOT, DOME_ALONG, DOME_OUT, DOME_HIGH);
-            default -> hang(model, faces, LONG_FOOT, faces == Outdoors.SOUTH || faces == Outdoors.EAST ? LONG_ALONG_SOUTH_EAST : LONG_ALONG_NORTH_WEST,
+            case "awning_short" -> hang(model, faces, SHORT_FOOT, SHORT_WALL, SHORT_ALONG, SHORT_OUT, SHORT_HIGH);
+            case "awning_dome" -> hang(model, faces, DOME_FOOT, DOME_WALL, DOME_ALONG, DOME_OUT, DOME_HIGH);
+            default -> hang(model, faces, LONG_FOOT, LONG_WALL, faces == Outdoors.SOUTH || faces == Outdoors.EAST ? LONG_ALONG_SOUTH_EAST : LONG_ALONG_NORTH_WEST,
                     LONG_OUT, LONG_HIGH);
         };
     }
@@ -147,9 +155,27 @@ final class Awnings {
      * along is the two places along the wall, as a share of the square from its west or north
      * corner, and out how far from the wall the cloth's colours are read.
      */
-    private static Hung hang(String model, int faces, float foot, float[] along, float out, float high) {
+    private static Hung hang(String model, int faces, float foot, float wall, float[] along, float out, float high) {
         float[] first = onSquare(faces, along[0], out), second = onSquare(faces, along[1], out);
-        return new Hung(model, faces, foot, first[0], first[1], second[0], second[1], high);
+        return new Hung(model, faces, foot, wall, first[0], first[1], second[0], second[1], high);
+    }
+
+    /**
+     * How high the cloth of the awning on a square meets the wall on its north edge (north) or
+     * its west edge, in levels: what hangs on the wall above it rests on it there. 0 for a
+     * square with no awning hung on that wall.
+     */
+    static float meetsWall(IsoGridSquare square, boolean north) {
+        int faces = north ? Outdoors.SOUTH : Outdoors.EAST;
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            Hung hung = sprite == null ? null : of(sprite);
+            if (hung != null && hung.turns == faces) {
+                return hung.wall;
+            }
+        }
+        return 0f;
     }
 
     /** Where on the square a place is that far along the wall from its west or north corner and that far out from it. */
