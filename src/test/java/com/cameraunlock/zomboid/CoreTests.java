@@ -94,9 +94,9 @@ public final class CoreTests {
         zoomLeavesTheHeadsTurnTheSameSizeOnScreen();
         hotkeyActionsActAndSave();
         stockSightsLeavesTheViewTheHeadsRollAlone();
-        toggleSwitchesTrackingOffForTheSessionAndWritesNothing();
         nextStartRunsOnWhatWasSaved();
         freeLookWithNoMarkerIsReadAsFreeLookWithOne();
+        aFileFromBeforeTheKeysMovedStartsOnTheNavKeys();
         rowsReadAgainWhileTheGameRuns();
         settingsOfTheGamesOptionsScreenAreSavedAndTaken();
         gameRunsUnmoddedBesideALibraryOfAnotherBuild();
@@ -234,9 +234,9 @@ public final class CoreTests {
         check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Low | style Vivid | frame blending false"),
                 "65 degrees, everything of the mod's own on, the Low graphics mode, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
-        check(Integer.bitCount(Config.TOGGLE | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
-                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH) == 10,
-                "the eight actions have a bit each, and the first person key three");
+        check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
+                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH) == 9,
+                "the seven actions have a bit each, and the first person key three");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
@@ -518,7 +518,7 @@ public final class CoreTests {
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();
         check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
-        check(holds("UdpPort=default") && holds("ToggleKey=default") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
+        check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
     }
 
     /** The session is in stock sights here. */
@@ -539,20 +539,6 @@ public final class CoreTests {
         check(saved("StockSights=true"), "stock sights again, for the next start");
     }
 
-    private static void toggleSwitchesTrackingOffForTheSessionAndWritesNothing() throws IOException, InterruptedException {
-        byte[] before = bytes();
-        Tracking.act(Config.TOGGLE);
-        frame();
-        check(looks(0f, 0f, 0f) && eyeMoved(0f, 0f, 0f) && headTracking.headTurn() == null && headTracking.describe().startsWith("tracking off"),
-                "the toggle key leaves the view the clean one");
-        Tracking.act(Config.TOGGLE);
-        frame();
-        check(looks(20f, 10f, 12f) && eyeMoved(0.20f, -0.10f, 0.05f), "and pressed again puts it at the tracker's pose at once: " + eye());
-        Tracking.act(Config.TOGGLE);
-        check(Arrays.equals(bytes(), before), "neither press writes the file");
-    }
-
-    /** Tracking is off in this session here, by the toggle key, which the file knows nothing of. */
     private static void nextStartRunsOnWhatWasSaved() throws IOException, InterruptedException {
         String next = nextStart("second-start");
         check(next.contains(Config.FILE_NAME + ": read"), "the saved file is read at the next start");
@@ -566,6 +552,17 @@ public final class CoreTests {
         edit(saved.replace("TrueFreeLook=false", "TrueFreeLook=true").replace("StockSights=true", "StockSights=false"));
         check(holds("TrueFreeLook=true") && holds("FreeLookMarker=false") && holds("StockSights=false"), "a file that holds free look with no marker");
         check(nextStart("third-start").contains("Aim mode: free look with marker"), "starts in free look with a marker, the game's own reticle");
+        edit(saved);
+    }
+
+    /** A file written before the tracking keys were the game's own: a toggle row, and the three following Defaults.ini. */
+    private static void aFileFromBeforeTheKeysMovedStartsOnTheNavKeys() throws IOException, InterruptedException {
+        String saved = text();
+        edit(saved.replace("CycleTrackingModeKey=PageUp", "ToggleKey=End, Ctrl+Shift+Y\r\nCycleTrackingModeKey=default")
+                .replace("YawModeKey=PageDown", "YawModeKey=default").replace("TrueFreeLookKey=Insert", "TrueFreeLookKey=default"));
+        String next = nextStart("keys-from-before");
+        check(next.contains(Config.FILE_NAME + ": read"), "a file with the old toggle row and the keys at default is read: " + next);
+        check(next.contains("ToggleKey is not a setting this mod reads, so it is ignored"), "and the toggle row is said to be left alone, not acted on");
         edit(saved);
     }
 

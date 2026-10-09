@@ -314,9 +314,6 @@ final class Tracking {
 
     /** Acts on the head tracking actions among the bits, and hands them all back. */
     static int act(int pressed) {
-        if ((pressed & Config.TOGGLE) != 0) {
-            toggleEnabled();
-        }
         if ((pressed & Config.CYCLE_TRACKING_MODE) != 0) {
             cycleMode();
         }
@@ -339,12 +336,6 @@ final class Tracking {
                 Log.error("a changed setting was not saved", failure);
             }
         });
-    }
-
-    /** The session only: End never writes the file. */
-    static void toggleEnabled() {
-        enabled = !enabled;
-        Log.info("head tracking " + (enabled ? "on" : "off"));
     }
 
     static void cycleMode() {

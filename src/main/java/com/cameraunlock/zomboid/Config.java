@@ -24,11 +24,11 @@ final class Config {
     static final float MIN_FIELD_OF_VIEW = 40f, MAX_FIELD_OF_VIEW = 110f;
 
     /**
-     * The bits of pressed keys: core's four, then the mod's own. The first person key is the
+     * The bits of pressed keys: core's three, then the mod's own. The first person key is the
      * first player's tapped, a second player's tapped twice and both players' held, and a view
      * is handed FIRST_PERSON for whichever of those is its own.
      */
-    static final int TOGGLE = CameraUnlock.HOTKEY_TOGGLE, CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
+    static final int CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3,
@@ -51,7 +51,9 @@ final class Config {
 
     /**
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
-     * writable: their hotkeys save. End changes the session only. FieldOfView, Quality, Style,
+     * writable: their hotkeys save. There is no key that switches head tracking off: the
+     * owner ruled the action out for this game, and the three keys there are are the game's own
+     * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, Quality, Style,
      * FrameBlending, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs. They are writable too, and a writable row that is not a key
      * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
@@ -67,7 +69,7 @@ final class Config {
                         + "one screen (OpenTrack protocol). The first player's tracker is on UdpPort, and the\n"
                         + "two have to differ.",
                 0, SECOND_PLAYER_PORT, 1, 65535);
-        core.configConcept("EnableOnStartup", 0, null, null);
+        core.configConcept("EnableOnStartup", 0, "true: head tracking is on when the game starts. false: it is off. No key turns it on or off.", null);
         core.configConcept("WorldSpaceYaw", writable, null, null);
         core.configConcept("RotationEnabled", writable, null, null);
         core.configConcept("DataFreshnessMs", 0, null, null);
@@ -92,12 +94,12 @@ final class Config {
         core.configConcept("CollisionMargin", 0, "How far the view is held off a wall when you lean into it, in map tiles.",
                 COLLISION_MARGIN);
         core.configConcept("CollisionReleaseSmoothing", 0, null, null);
-        core.configConcept("ToggleKey", 0, null, null);
-        core.configConcept("CycleTrackingModeKey", 0, null, null);
-        core.configConcept("YawModeKey", 0, null, null);
-        core.configConcept("TrueFreeLookKey", 0,
+        int perGame = CameraUnlock.ROW_PER_GAME;
+        core.configConcept("CycleTrackingModeKey", perGame, null, "PageUp");
+        core.configConcept("YawModeKey", perGame, null, "PageDown");
+        core.configConcept("TrueFreeLookKey", perGame,
                 "Cycles the aim mode: sights locked, free look with a marker, stock sights\n"
-                        + "(TrueFreeLook, FreeLookMarker, StockSights).", null);
+                        + "(TrueFreeLook, FreeLookMarker, StockSights).", "Insert");
         core.configConcept("LightMultiplier", 0, null, null);
 
         fieldOfView = core.configLocalFloat("General", "FieldOfView",

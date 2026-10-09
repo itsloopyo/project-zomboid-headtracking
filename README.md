@@ -201,18 +201,15 @@ Where you and another player can hurt each other, four things are held to what t
 
 ### Hotkeys
 
-The two columns below do the same things. Use whichever your keyboard has. In first person `Left Ctrl` and `Left Shift` also crouch and sprint; the right hand `Ctrl` and `Shift` work for the chords and do neither.
-
-| Action | Nav cluster | Chord |
-|--------|-------------|-------|
-| Toggle tracking | `End` | `Ctrl+Shift+Y` |
-| Cycle tracking mode | `Page Up` | `Ctrl+Shift+G` |
-| Toggle yaw mode | `Page Down` | `Ctrl+Shift+H` |
-| Cycle aim mode | `Insert` | `Ctrl+Shift+U` |
-| Toggle first person view | `Delete` tapped; tapped twice for a second player; held for both | - |
-| Cycle graphics mode | `F9` | - |
-| Cycle picture style | `F8` | - |
-| Turn split screen | `F7` | - |
+| Action | Key |
+|--------|-----|
+| Cycle tracking mode | `Page Up` |
+| Toggle yaw mode | `Page Down` |
+| Cycle aim mode | `Insert` |
+| Toggle first person view | `Delete` tapped; tapped twice for a second player; held for both |
+| Cycle graphics mode | `F9` |
+| Cycle picture style | `F8` |
+| Turn split screen | `F7` |
 
 - **Tracking mode** cycles rotation and position, rotation only, then position only. Rotation only is how you turn the positional lean off.
 - **Yaw mode** switches head yaw between turning about straight up and turning about the view's own up. In a vehicle the view tips and rolls with it, and head yaw there is always about the view's own up; on foot it is as you set it.
@@ -220,13 +217,13 @@ The two columns below do the same things. Use whichever your keyboard has. In fi
 - **Graphics mode** and **picture style** are `Quality` and `Style` in [Configuration](#configuration).
 - **Split screen** is for two players at one screen: the key goes between side by side, as the game has them, and player 1 above player 2, each with the whole width and half the height, says on the screen which it went to and saves it as `SplitScreen`. With one, three or four players the key does nothing and the screen is laid out as the game lays it out.
 
-Project Zomboid acts on a letter key whatever is held with it, and on `End`. With the game's default bindings `Ctrl+Shift+Y` also brings up its walk-to cursor, `Ctrl+Shift+H` its health panel and `Ctrl+Shift+U` its vehicle mechanics from the driver's seat, and `End` also switches its search mode. `Page Up`, `Page Down`, `Insert`, `Delete`, `F7`, `F8` and `F9` do nothing in the game. The last four actions have no chord for that reason: every letter a chord could use is one the game acts on.
+These keys do nothing in the game itself. There are no `Ctrl+Shift` chords, because Project Zomboid acts on a letter key whatever is held with it, and no key turns head tracking off: `EnableOnStartup` in `CameraUnlock.ini` does that. The tracking mode, the yaw mode and the aim mode are also in the game's own options (see [Configuration](#configuration)).
 
 Every key here is a row of `[Hotkeys]` in `CameraUnlock.ini`: change a row to move an action to other keys, or leave it empty to take its keys away. The rows are read when the game starts. A key pressed while you are typing in one of the game's text boxes, or in its menus, does nothing.
 
 From a seat in a vehicle head yaw always turns about the view's own up, whatever the yaw mode is, and `Page Down` does nothing until you get out. The yaw mode you chose applies again on foot.
 
-The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved when you change them. Turning tracking off with `End` lasts until the game closes, and so does the first person view: each save starts in the game's own view.
+The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved when you change them. The first person view is not: each save starts in the game's own view.
 
 ### Head tracking
 
@@ -252,7 +249,7 @@ What the rows do not switch is how the first person view is put together from th
 
 Aiming a firearm narrows the view to 0.73 of that angle's half tangent, a magnification of 1.37, which is 50 degrees at the default. That ratio is built in and is not a setting.
 
-The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved to `CameraUnlock.ini` when their keys change them. `End` is not: head tracking starts as `EnableOnStartup` says every time. An uninstall leaves the file in place.
+The tracking mode, the yaw mode, the aim mode, the graphics mode and the picture style are saved to `CameraUnlock.ini` when their keys change them. Head tracking is on or off as `EnableOnStartup` says. An uninstall leaves the file in place.
 
 The same settings are in the game's own options, from the main menu and from the menu `Esc` brings up in a save: the `Mods` tab has a `Head Tracking` section with the tracking mode, the aim mode, `World space yaw`, `Field of view`, `Quality`, `Style`, `Frame blending`, `Split screen` and the ten rows of `[Content]`. `Apply` or `Accept` saves what you changed to `CameraUnlock.ini` and the game runs on it at once. Each time the options open, the section shows what the mod is running on then, so a mode a key changed or a row you edited in the file is there as it is. The field of view moves a whole degree at a time there, and the file takes any value from 40 to 110. The key lists, the tracker's ports, the smoothing and the limits of a lean are in the file alone. A setting saved from the options is written as a value, like one a hotkey saves, so it no longer follows `Defaults.ini` in this game until you set it to `default` again.
 
@@ -295,10 +292,6 @@ The built-in value of each setting set to `default` below:
 - `PositionLimitZBack=0.1`
 - `CollisionEnabled=true`
 - `CollisionReleaseSmoothing=0.9`
-- `ToggleKey=End, Ctrl+Shift+Y`
-- `CycleTrackingModeKey=PageUp, Ctrl+Shift+G`
-- `YawModeKey=PageDown, Ctrl+Shift+H`
-- `TrueFreeLookKey=Insert, Ctrl+Shift+U`
 - `LightMultiplier=1.5`
 
 With every setting at its default, the file reads:
@@ -328,7 +321,7 @@ UdpPort=default
 SecondPlayerUdpPort=4243
 
 [General]
-; true: head tracking is on when the game starts. ToggleKey turns it on and off.
+; true: head tracking is on when the game starts. false: it is off. No key turns it on or off.
 EnableOnStartup=default
 ; true: yaw turns around the world's up axis. false: around the camera's own up axis.
 WorldSpaceYaw=default
@@ -424,15 +417,13 @@ CollisionMargin=0.12
 CollisionReleaseSmoothing=default
 
 [Hotkeys]
-; Turns head tracking on and off.
-ToggleKey=default
 ; Changes the tracking mode: rotation and position, rotation only, position only.
-CycleTrackingModeKey=default
+CycleTrackingModeKey=PageUp
 ; Switches yaw between the world's up axis and the camera's own (WorldSpaceYaw).
-YawModeKey=default
+YawModeKey=PageDown
 ; Cycles the aim mode: sights locked, free look with a marker, stock sights
 ; (TrueFreeLook, FreeLookMarker, StockSights).
-TrueFreeLookKey=default
+TrueFreeLookKey=Insert
 ; Goes into the first person view and back to the game's own. Tapped, for the first
 ; player. Tapped twice, for a second player at the same screen. Held for 400 ms,
 ; for both.
@@ -505,7 +496,7 @@ one side with its sights still lined up, and your rounds land where those sights
 point. Head movement is scaled to the zoom, so the narrowed view does not
 magnify it.
 
-`Insert` / `Ctrl+Shift+U` cycles three ways of aiming, and the mod saves the one
+`Insert` cycles three ways of aiming, and the mod saves the one
 you pick, so it holds the next time you start the game:
 
 1. **Sights locked** (default) - leaning never takes your eye off the sights,
@@ -585,7 +576,7 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 - Look for `Listening for OpenTrack datagrams on UDP port 4242` in the log. A `Failed to bind UDP port 4242` line in its place means the port could not be opened, and it carries the error number Windows gave. Error 10048 is another program holding the port, usually another game with a head tracking mod that is still running: close that program. The mod tries the port again every half second, with no restart needed, and logs `Bound UDP port 4242` when it has it. Error 10013 is a port Windows has reserved, which no program holds: if `netsh int ipv4 show excludedportrange protocol=udp` lists a range containing the port, set `UdpPort` in `CameraUnlock.ini` and your tracker to a port outside the listed ranges.
 - Look for `First UDP packet received` next. Without it no packets are arriving, so check the tracker's destination address and port, and that it is started. The mod listens on IPv4, so a tracker set to send to `::1` or another IPv6 address reaches nothing: send to `127.0.0.1`.
 - The mod follows one tracker at a time. If two programs send to the port, it stays with the first it heard until that one has been silent for two seconds, and the log has a `a SECOND tracker source is sending to this port` line naming both. Stop the one you do not mean.
-- Press `End` in case tracking was toggled off. The log records `head tracking on` or `head tracking off` each time.
+- Check `EnableOnStartup` in `CameraUnlock.ini` is not `false`. The log's start line says `head tracking on` or `head tracking off`.
 
 **Jittery or unstable tracking**
 
@@ -595,9 +586,9 @@ Read the log first. The mod writes `ProjectZomboidHeadTracking.log` next to `Pro
 **Aiming**
 
 - **The weapon is off to one side when I aim down sights.** Your head is turned: the weapon stays on your aim and you are looking past it. Turn back to it, or move your aim to where you are looking.
-- **I can't see down the sights, they are misaligned.** You are in free look and your head is leaned off them. Move your head back behind them, or press `Insert` / `Ctrl+Shift+U` until the screen says sights locked.
-- **The scope is black, or has a shadow down one side.** You are in free look and your eye is off the scope's axis, or too far behind it. Move your head until the picture is whole, or press `Insert` / `Ctrl+Shift+U` until the screen says sights locked. A kick or a quick turn takes the scope off your eye for a moment in any mode.
-- **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` / `Ctrl+Shift+U` for another mode if you want head tracking to carry on through the aim.
+- **I can't see down the sights, they are misaligned.** You are in free look and your head is leaned off them. Move your head back behind them, or press `Insert` until the screen says sights locked.
+- **The scope is black, or has a shadow down one side.** You are in free look and your eye is off the scope's axis, or too far behind it. Move your head until the picture is whole, or press `Insert` until the screen says sights locked. A kick or a quick turn takes the scope off your eye for a moment in any mode.
+- **The view swings when I raise or lower the sights.** You are in stock sights with your head turned: the view goes to your aim while the sights are up and back to where you are looking when they come down. Press `Insert` for another mode if you want head tracking to carry on through the aim.
 - **I lean round a corner and nobody is there.** The game shows you a zombie only when your character can see it from where it stands, and leaning moves your eye and your weapon, not your character. Step out until your character is past the corner.
 
 **Wrong rotation axis or direction**
