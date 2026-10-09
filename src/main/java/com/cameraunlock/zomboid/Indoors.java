@@ -40,6 +40,10 @@ final class Indoors {
         boolean single = sprite.getSpriteGrid() == null;
         int surface = properties.getSurface();
         boolean onTable = properties.has("IsTableTop");
+        Furniture clinic = Clinic.anyWay(sprite, name, called);
+        if (clinic != null) {
+            return clinic;
+        }
         if (called.equals("Cartbox") && holds.equals("cardboardbox") && single) {
             // The game gives a box no front. Its four sprites are the same box turned, and so is the model.
             // A box on another is the same box, as high up as the one under it is high.
@@ -180,7 +184,11 @@ final class Indoors {
         if (restaurant != null) {
             return restaurant;
         }
-        return upholstered(sprite, called, group, pair && rests && surface == 0, turns);
+        Furniture seat = upholstered(sprite, called, group, pair && rests && surface == 0, turns);
+        if (seat != null) {
+            return seat;
+        }
+        return Clinic.facing(sprite, name, called, group, holds, properties, turns, along, across);
     }
 
     /** Where on its sprite, in levels, a diner chair's seat gives its colour, and how far over its laminate a diner table's wooden band does. */

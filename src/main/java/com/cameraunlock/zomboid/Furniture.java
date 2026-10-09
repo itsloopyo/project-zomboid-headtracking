@@ -94,6 +94,11 @@ final class Furniture {
         this(sprite, model, turns, false);
     }
 
+    /** A square that stands as a piece by itself, whatever squares the game lays its piece on. */
+    static Furniture single(IsoSprite sprite, String model, int turns) {
+        return new Furniture(sprite, model, turns, true);
+    }
+
     /** alone for a sprite that is a piece by itself whatever squares the game lays its piece on. */
     private Furniture(IsoSprite sprite, String model, int turns, boolean alone) {
         this.model = model == null ? null : Models.get(model);
@@ -266,6 +271,9 @@ final class Furniture {
         Furniture home = HomeFittings.of(sprite, name, called, properties);
         if (home != null) {
             return home;
+        }
+        if (name != null && called == null && grid == null && name.startsWith(Clinic.OFFICE)) {
+            return Clinic.unnamedDesk(sprite, name);
         }
         if (name == null || called == null || grid != null && grid.getLevels() != 1) {
             return null;

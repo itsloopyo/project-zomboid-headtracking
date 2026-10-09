@@ -6155,6 +6155,567 @@ def overhead():
             timber_corner(), timber_block(), scaffold("scaffold_frame", (-1, 1), False), scaffold("scaffold_braced", (1,), True)]
 
 
+def castor(wheels, forks, x, y, radius=0.04, wide=0.025):
+    """A castor: a wheel turned about x under a fork from a stem at (x, y). The fork's top is at twice the radius and a little."""
+    lathe(wheels, [(0.0, -wide / 2), (radius * 0.7, -wide / 2), (radius, -wide / 4), (radius, wide / 4), (radius * 0.7, wide / 2), (0.0, wide / 2)],
+          segments=12, to=along_x(x, y, radius))
+    cuboid(forks, x - wide / 2 - 0.008, x + wide / 2 + 0.008, y - 0.012, y + 0.012, radius * 1.6, radius * 2 + 0.02)
+
+
+def hospital_bed():
+    """A ward's bed two squares long, its head at +Y: a deck on a low frame on castors, a mattress under a sheet, a
+    pillow, a board at the head and at the foot, and two rails along each side. Its mattress is 0.62 high."""
+    model = Model("hospital_bed")
+    hx, head, foot = 0.44, 1.0, -1.0
+    wheels, frame = bmesh.new(), bmesh.new()
+    for x in (-0.36, 0.36):
+        for y in (-0.86, 0.86):
+            castor(wheels, frame, x, y, radius=0.05)
+        cuboid(frame, x - 0.03, x + 0.03, -0.9, 0.9, 0.12, 0.17)
+    for y in (-0.86, 0.86):
+        cuboid(frame, -0.39, 0.39, y - 0.03, y + 0.03, 0.12, 0.17)
+    model.turned(wheels, "rubber")
+    model.hard(frame, "plastic", bevel=0.006, segments=1)
+    lift = bmesh.new()
+    for y in (-0.55, 0.55):
+        cuboid(lift, -0.08, 0.08, y - 0.06, y + 0.06, 0.17, 0.4)
+    cuboid(lift, -0.41, 0.41, foot + 0.04, head - 0.04, 0.4, 0.44)
+    model.hard(lift, "steel", bevel=0.006, segments=1)
+    mattress = bmesh.new()
+    cuboid(mattress, -hx + 0.02, hx - 0.02, foot + 0.05, head - 0.05, 0.44, 0.62)
+    model.hard(mattress, "cloth", bevel=0.035, segments=2)
+    pillow = bmesh.new()
+    cage = grid_box(pillow, spread(-0.3, 0.3, 2), spread(-0.18, 0.18, 2), [-0.06, 0.0, 0.06])
+    for (i, j, k), vert in cage.items():
+        if k != 1:
+            vert.co.x *= 0.75
+            vert.co.y *= 0.7
+        vert.co.y += head - 0.32
+        vert.co.z += 0.67
+    model.soft(pillow, "pillow", levels=2)
+    boards = bmesh.new()
+    for y0, y1, top in ((head - 0.05, head, 0.98), (foot, foot + 0.05, 0.84)):
+        for x in (-hx, hx - 0.06):
+            cuboid(boards, x, x + 0.06, y0, y1, 0.36, top)
+        cuboid(boards, -hx + 0.06, hx - 0.06, y0, y1, top - 0.08, top)
+        cuboid(boards, -hx + 0.06, hx - 0.06, y0 + 0.01, y1 - 0.01, 0.36, top - 0.2)
+    model.hard(boards, "paint", bevel=0.012, segments=2)
+    rails = bmesh.new()
+    for side in (-1, 1):
+        x = side * (hx + 0.02)
+        for y0, y1 in ((0.2, 0.85), (-0.85, -0.3)):
+            cuboid(rails, x - 0.012, x + 0.012, y0, y1, 0.84, 0.865)
+            cuboid(rails, x - 0.012, x + 0.012, y0 + 0.04, y1 - 0.04, 0.66, 0.68)
+            for n in range(4):
+                y = y0 + 0.03 + n * (y1 - y0 - 0.06) / 3
+                cuboid(rails, x - 0.01, x + 0.01, y - 0.01, y + 0.01, 0.6 if n in (0, 3) else 0.66, 0.84)
+    model.hard(rails, "steel", bevel=0.004, segments=1)
+    return model
+
+
+def mayo_stand():
+    """A tray table on castors: a steel tray, longer along x, on a column at its -X end, over a base of two runners along y
+    and a bar between them. Its tray is 0.92 high."""
+    model = Model("mayo_stand")
+    wheels, steel = bmesh.new(), bmesh.new()
+    for x in (-0.26, 0.24):
+        cuboid(steel, x - 0.025, x + 0.025, -0.24, 0.24, 0.07, 0.1)
+        for y in (-0.21, 0.21):
+            castor(wheels, steel, x, y, radius=0.03, wide=0.018)
+    cuboid(steel, -0.24, 0.22, -0.02, 0.02, 0.075, 0.095)
+    cuboid(steel, -0.28, -0.24, -0.02, 0.02, 0.1, 0.89)
+    cuboid(steel, -0.28, 0.0, -0.02, 0.02, 0.86, 0.89)
+    model.turned(wheels, "rubber")
+    model.hard(steel, "steel", bevel=0.005, segments=1)
+    tray = bmesh.new()
+    hx, hy, top = 0.32, 0.22, 0.92
+    cuboid(tray, -hx, hx, -hy, hy, top - 0.03, top - 0.025)
+    cuboid(tray, -hx, hx, -hy, -hy + 0.012, top - 0.03, top)
+    cuboid(tray, -hx, hx, hy - 0.012, hy, top - 0.03, top)
+    cuboid(tray, -hx, -hx + 0.012, -hy + 0.012, hy - 0.012, top - 0.03, top)
+    cuboid(tray, hx - 0.012, hx, -hy + 0.012, hy - 0.012, top - 0.03, top)
+    model.hard(tray, "steel", bevel=0.003, segments=1)
+    return model
+
+
+def medical_stool():
+    """A round padded stool on a gas column over five legs on castors, with a ring for the feet. Its seat is 0.56 high."""
+    model = Model("medical_stool")
+    seat = bmesh.new()
+    lathe(seat, [(0.0, 0.48), (0.17, 0.48), (0.19, 0.5), (0.195, 0.53), (0.185, 0.553), (0.16, 0.562), (0.0, 0.565)], segments=24)
+    model.turned(seat, "vinyl", sharp=60.0)
+    steel = bmesh.new()
+    lathe(steel, [(0.0, 0.11), (0.04, 0.11), (0.04, 0.3), (0.024, 0.31), (0.024, 0.48), (0.0, 0.48)], segments=14)
+    lathe(steel, [(0.19 + 0.011 * math.cos(2 * math.pi * i / 8), 0.3 + 0.011 * math.sin(2 * math.pi * i / 8)) for i in range(8)], segments=24, closed=True)
+    for n in range(3):
+        angle = math.radians(90 + n * 120)
+        beam(steel, (0.0, 0.0, 0.3), (0.19 * math.cos(angle), 0.19 * math.sin(angle), 0.3), 0.012, 0.012)
+    model.turned(steel, "steel", sharp=40.0)
+    legs, wheels = bmesh.new(), bmesh.new()
+    for n in range(5):
+        angle = math.radians(90 + n * 72)
+        x, y = math.cos(angle), math.sin(angle)
+        beam(legs, (0.0, 0.0, 0.11), (x * 0.25, y * 0.25, 0.085), 0.03, 0.025)
+        castor(wheels, legs, x * 0.25, y * 0.25, radius=0.025, wide=0.016)
+    model.hard(legs, "steel", bevel=0.004, segments=1)
+    model.turned(wheels, "rubber")
+    return model
+
+
+def rotary_phone():
+    """A desk telephone with a dial: a body sloping down to the front, the handset across its top in two cradle horns,
+    the dial on the slope. Its body is the colour of the sprite's."""
+    model = Model("rotary_phone")
+    body = bmesh.new()
+    prism(body, (0.0, 0.0, 0.2, 0.23, 0.0), (0.0, 0.03, 0.16, 0.14, 0.085))
+    cuboid(body, -0.075, 0.075, 0.035, 0.09, 0.085, 0.105)
+    model.hard(body, "plastic", bevel=0.012, segments=2)
+    handset = bmesh.new()
+    cuboid(handset, -0.06, 0.06, 0.045, 0.08, 0.115, 0.135)
+    for side in (-1, 1):
+        cuboid(handset, side * 0.11 - 0.025, side * 0.11 + 0.025, 0.035, 0.09, 0.1, 0.14)
+    model.hard(handset, "plastic", bevel=0.01, segments=2)
+    dial = bmesh.new()
+    tilt = Matrix.Translation((0.0, -0.066, 0.058)) @ Matrix.Rotation(math.radians(48), 4, "X")
+    lathe(dial, [(0.0, 0.0), (0.05, 0.0), (0.05, 0.006), (0.018, 0.008), (0.0, 0.008)], segments=16, to=tilt)
+    model.turned(dial, "metal", sharp=50.0)
+    return model
+
+
+def desk_phone():
+    """An office telephone of the eighties: a low wedge with the handset across its back and the keys in the slope before it."""
+    model = Model("desk_phone")
+    body = bmesh.new()
+    prism(body, (0.0, 0.0, 0.24, 0.2, 0.0), (0.0, 0.02, 0.23, 0.16, 0.035))
+    cuboid(body, -0.115, 0.115, 0.04, 0.1, 0.035, 0.055)
+    model.hard(body, "plastic", bevel=0.006, segments=2)
+    handset = bmesh.new()
+    cuboid(handset, -0.11, 0.11, 0.045, 0.095, 0.055, 0.075)
+    for side in (-1, 1):
+        cuboid(handset, side * 0.1 - 0.025, side * 0.1 + 0.025, 0.04, 0.1, 0.05, 0.085)
+    model.hard(handset, "plastic", bevel=0.009, segments=2)
+    keys = bmesh.new()
+    for row in range(4):
+        for column in range(3):
+            x, y = -0.035 + column * 0.03, -0.065 + row * 0.022
+            cuboid(keys, x - 0.01, x + 0.01, y - 0.008, y + 0.008, 0.0, 0.045 - 0.004 * (3 - row))
+    model.plain(keys, "linen")
+    return model
+
+
+def exam_table():
+    """A doctor's couch two squares long, its head at +Y: a wooden cabinet of drawers under a padded top whose head
+    end is raised, with a strip of paper down it. The top is 0.8 high."""
+    model = Model("exam_table")
+    cabinet = bmesh.new()
+    cuboid(cabinet, -0.3, 0.3, -0.72, 0.66, 0.0, 0.72)
+    model.hard(cabinet, "wood", bevel=0.006, segments=2)
+    fronts, pulls = bmesh.new(), bmesh.new()
+    drawer_fronts(fronts, pulls, -0.28, 0.28, 0.04, 0.7, 3, -0.738)
+    for side in (-1, 1):
+        x = side * 0.3
+        for n in range(3):
+            z = 0.06 + n * 0.22
+            cuboid(fronts, min(x, x + side * 0.008), max(x, x + side * 0.008), -0.6, 0.55, z, z + 0.18)
+    model.hard(fronts, "wood", bevel=0.004)
+    model.turned(pulls, "metal")
+    pad = bmesh.new()
+    cuboid(pad, -0.36, 0.36, -0.92, 0.28, 0.72, 0.8)
+    back = Matrix.Translation((0.0, 0.28, 0.72)) @ Matrix.Rotation(math.radians(24), 4, "X") @ Matrix.Translation((0.0, -0.28, -0.72))
+    made = set(pad.verts)
+    cuboid(pad, -0.36, 0.36, 0.28, 0.92, 0.72, 0.8)
+    bmesh.ops.transform(pad, matrix=back, verts=[vert for vert in pad.verts if vert not in made])
+    model.hard(pad, "vinyl", bevel=0.025, segments=2)
+    paper = bmesh.new()
+    cuboid(paper, -0.25, 0.25, -0.9, 0.28, 0.8, 0.803)
+    made = set(paper.verts)
+    cuboid(paper, -0.25, 0.25, 0.28, 0.9, 0.8, 0.803)
+    bmesh.ops.transform(paper, matrix=back, verts=[vert for vert in paper.verts if vert not in made])
+    model.plain(paper, "linen")
+    return model
+
+
+def treatment_couch():
+    """A couch on one steel column, two squares long, its head at +Y: a black pad in two lengths, the head's raised a little,
+    on a frame over a broad foot plate. The pad is 0.78 high."""
+    model = Model("treatment_couch")
+    steel = bmesh.new()
+    cuboid(steel, -0.3, 0.3, -0.4, 0.4, 0.0, 0.04)
+    cuboid(steel, -0.12, 0.12, -0.2, 0.2, 0.04, 0.62)
+    cuboid(steel, -0.3, 0.3, -0.85, 0.85, 0.62, 0.68)
+    model.hard(steel, "steel", bevel=0.008, segments=2)
+    pad = bmesh.new()
+    cuboid(pad, -0.33, 0.33, -0.92, 0.3, 0.68, 0.78)
+    made = set(pad.verts)
+    cuboid(pad, -0.33, 0.33, 0.31, 0.92, 0.68, 0.78)
+    back = Matrix.Translation((0.0, 0.31, 0.68)) @ Matrix.Rotation(math.radians(10), 4, "X") @ Matrix.Translation((0.0, -0.31, -0.68))
+    bmesh.ops.transform(pad, matrix=back, verts=[vert for vert in pad.verts if vert not in made])
+    model.hard(pad, "plastic", bevel=0.03, segments=2)
+    trim = bmesh.new()
+    for side in (-1, 1):
+        cuboid(trim, side * 0.335 - 0.006, side * 0.335 + 0.006, -0.9, 0.9, 0.655, 0.675)
+    model.hard(trim, "metal", bevel=0.003, segments=1)
+    return model
+
+
+def iv_stand():
+    """A drip stand: a pole on five legs on castors, a bar with two hooks at its top, and a pump on the pole."""
+    model = Model("iv_stand")
+    steel, wheels = bmesh.new(), bmesh.new()
+    for n in range(5):
+        angle = math.radians(90 + n * 72)
+        x, y = math.cos(angle), math.sin(angle)
+        beam(steel, (0.0, 0.0, 0.1), (x * 0.27, y * 0.27, 0.07), 0.025, 0.02)
+        castor(wheels, steel, x * 0.27, y * 0.27, radius=0.025, wide=0.016)
+    lathe(steel, [(0.0, 0.07), (0.035, 0.07), (0.035, 0.13), (0.013, 0.14), (0.013, 2.0), (0.0, 2.0)], segments=12)
+    cuboid(steel, -0.2, 0.2, -0.01, 0.01, 1.98, 2.0)
+    for side in (-1, 1):
+        cuboid(steel, side * 0.2 - 0.006, side * 0.2 + 0.006, -0.006, 0.006, 1.9, 1.99)
+        cuboid(steel, side * 0.2 - 0.006, side * 0.2 + 0.006, -0.04, 0.006, 1.9, 1.912)
+    model.hard(steel, "steel", bevel=0.003, segments=1)
+    model.turned(wheels, "rubber")
+    pump = bmesh.new()
+    cuboid(pump, -0.08, 0.08, -0.12, -0.03, 1.05, 1.3)
+    cuboid(pump, -0.03, 0.03, -0.03, -0.012, 1.15, 1.22)
+    model.hard(pump, "plastic", bevel=0.008, segments=2)
+    face = bmesh.new()
+    cuboid(face, -0.06, 0.06, -0.123, -0.12, 1.2, 1.27)
+    model.plain(face, "screen")
+    return model
+
+
+def foot_bench():
+    """A low padded step on a black frame of two runners, for getting up onto a couch. Its top is 0.38 high."""
+    model = Model("foot_bench")
+    hx, hy, top = 0.3, 0.2, 0.38
+    frame = bmesh.new()
+    for x in (-hx + 0.03, hx - 0.03):
+        cuboid(frame, x - 0.015, x + 0.015, -hy + 0.02, hy - 0.02, 0.0, 0.025)
+        for y in (-hy + 0.035, hy - 0.035):
+            cuboid(frame, x - 0.015, x + 0.015, y - 0.015, y + 0.015, 0.025, top - 0.05)
+    model.hard(frame, "plastic", bevel=0.004, segments=1)
+    pad = bmesh.new()
+    cuboid(pad, -hx, hx, -hy, hy, top - 0.05, top)
+    model.hard(pad, "cloth", bevel=0.012, segments=2)
+    return model
+
+
+def gurney():
+    """A stretcher on wheels two squares long: a padded mattress held by two straps on a frame of crossed legs on castors,
+    with a rail at each end. The mattress is 0.74 high."""
+    model = Model("gurney")
+    steel, wheels = bmesh.new(), bmesh.new()
+    for x in (-0.25, 0.25):
+        for y0, y1 in ((-0.75, 0.6), (0.75, -0.6)):
+            beam(steel, (x, y0, 0.1), (x, y1, 0.6), 0.025, 0.025)
+        for y in (-0.75, 0.75):
+            castor(wheels, steel, x, y, radius=0.045)
+        cuboid(steel, x - 0.015, x + 0.015, -0.92, 0.92, 0.6, 0.63)
+    for y in (-0.75, 0.75, -0.6, 0.6):
+        cuboid(steel, -0.25, 0.25, y - 0.012, y + 0.012, 0.09 if abs(y) > 0.7 else 0.6, 0.11 if abs(y) > 0.7 else 0.62)
+    for y in (-0.95, 0.95):
+        cuboid(steel, -0.3, 0.3, y - 0.012, y + 0.012, 0.85, 0.87)
+        for x in (-0.28, 0.0, 0.28):
+            cuboid(steel, x - 0.01, x + 0.01, y - 0.01, y + 0.01, 0.62, 0.86)
+    model.hard(steel, "steel", bevel=0.004, segments=1)
+    model.turned(wheels, "rubber")
+    pad = bmesh.new()
+    cuboid(pad, -0.3, 0.3, -0.9, 0.9, 0.63, 0.74)
+    model.hard(pad, "vinyl", bevel=0.03, segments=2)
+    straps = bmesh.new()
+    for y in (-0.25, 0.3):
+        cuboid(straps, -0.31, 0.31, y - 0.035, y + 0.035, 0.62, 0.746)
+    model.hard(straps, "rubber", bevel=0.003, segments=1)
+    return model
+
+
+def microscope():
+    """A bench microscope: a heavy foot, an arm at the back, the stage before it and a head with two eyepieces leaning
+    towards whoever sits at it, at -Y."""
+    model = Model("microscope")
+    body = bmesh.new()
+    prism(body, (0.0, 0.0, 0.18, 0.24, 0.0), (0.0, 0.01, 0.16, 0.2, 0.06))
+    cuboid(body, -0.04, 0.04, 0.03, 0.11, 0.06, 0.3)
+    cuboid(body, -0.07, 0.07, -0.07, 0.07, 0.13, 0.145)
+    prism_y(body, (0.0, 0.33, 0.07, 0.08, -0.06), (0.0, 0.33, 0.07, 0.08, 0.11))
+    model.hard(body, "enamel", bevel=0.01, segments=2)
+    dark = bmesh.new()
+    lathe(dark, [(0.0, 0.16), (0.018, 0.16), (0.018, 0.29), (0.0, 0.29)], cy=-0.02, segments=10)
+    for side in (-1, 1):
+        lathe(dark, [(0.0, 0.0), (0.016, 0.0), (0.016, 0.1), (0.02, 0.105), (0.0, 0.11)], segments=10,
+              to=Matrix.Translation((side * 0.03, -0.04, 0.36)) @ Matrix.Rotation(math.radians(40), 4, "X"))
+    for side in (-1, 1):
+        lathe(dark, [(0.0, -0.012), (0.03, -0.012), (0.03, 0.012), (0.0, 0.012)], segments=12, to=along_x(side * 0.045, 0.07, 0.2))
+    model.turned(dark, "plastic", sharp=40.0)
+    return model
+
+
+def fume_hood(name, end):
+    """Half of a cabinet two squares wide, at +Y its wall: a cupboard of two doors, a worktop, an open chamber under a
+    canopy, and a panel at its end on the side end says, -1 or +1. Each half fills its square along x, so two meet."""
+    model = Model(name)
+    front, back = -0.37, 0.37
+    body = bmesh.new()
+    cuboid(body, -0.5, 0.5, front + 0.03, back, 0.0, 0.08)
+    cuboid(body, -0.5, 0.5, front + 0.05, back, 0.08, 0.86)
+    cuboid(body, -0.5, 0.5, back - 0.04, back, 0.9, 1.62)
+    cuboid(body, -0.5, 0.5, front + 0.06, front + 0.1, 1.6, 1.66)
+    prism_y(body, (0.0, 1.98, 1.0, 0.72, front + 0.12), (0.0, 1.95, 1.0, 0.7, back))
+    side = end * 0.5
+    cuboid(body, min(side, side - end * 0.04), max(side, side - end * 0.04), front, back, 0.0, 2.32)
+    model.hard(body, "steel", bevel=0.006, segments=1)
+    top = bmesh.new()
+    cuboid(top, -0.5, 0.5, front - 0.02, back, 0.86, 0.9)
+    model.hard(top, "worktop", bevel=0.006, segments=1)
+    doors, pulls = bmesh.new(), bmesh.new()
+    for x0, x1 in ((-0.48, -0.01), (0.01, 0.48)):
+        framed_door(doors, doors, x0, x1, 0.1, 0.82, front + 0.032, rail=0.05, thick=0.018)
+        x = x1 - 0.06 if x0 < 0 else x0 + 0.06
+        bar_handle(pulls, x - 0.008, x + 0.008, front + 0.032, 0.55, 0.7, proud=0.025, thick=0.008)
+    model.hard(doors, "steel", bevel=0.004)
+    model.hard(pulls, "metal", bevel=0.002, segments=1)
+    canopy = bmesh.new()
+    prism_y(canopy, (0.0, 2.32, 1.0, 0.04, front + 0.02), (0.0, 2.32, 1.0, 0.04, back))
+    model.hard(canopy, "plastic", bevel=0.005, segments=1)
+    return model
+
+
+def first_aid_case():
+    """A first aid case on a wall, at +Y: a box with a handle on its top whose front is the sprite's own painting of it."""
+    model = Model("first_aid_case")
+    box = bmesh.new()
+    cuboid(box, -0.21, 0.21, -0.06, 0.07, 0.0, 0.3)
+    model.hard(box, "vinyl", bevel=0.012, segments=2)
+    handle = bmesh.new()
+    cuboid(handle, -0.08, 0.08, -0.02, 0.02, 0.32, 0.335)
+    for x in (-0.08, 0.065):
+        cuboid(handle, x, x + 0.015, -0.02, 0.02, 0.3, 0.32)
+    for x in (-0.19, 0.15):
+        cuboid(handle, x, x + 0.04, -0.064, -0.054, 0.22, 0.26)
+    model.hard(handle, "linen", bevel=0.004, segments=1)
+    face = bmesh.new()
+    cuboid(face, -0.195, 0.195, -0.062, -0.058, 0.015, 0.285)
+    model.plain(face, "pane")
+    return model
+
+
+def weighing_scale():
+    """A doctor's scale: a platform, and at its back a column up to a head of sliding weights on a beam."""
+    model = Model("weighing_scale")
+    deck = bmesh.new()
+    cuboid(deck, -0.17, 0.17, -0.2, 0.18, 0.0, 0.06)
+    model.hard(deck, "paint", bevel=0.01, segments=2)
+    mat = bmesh.new()
+    cuboid(mat, -0.15, 0.15, -0.18, 0.12, 0.06, 0.068)
+    model.plain(mat, "rubber")
+    column = bmesh.new()
+    cuboid(column, -0.018, 0.018, 0.14, 0.17, 0.06, 1.35)
+    prism(column, (0.0, 0.155, 0.08, 0.04, 1.35), (0.0, 0.155, 0.3, 0.05, 1.42))
+    cuboid(column, -0.15, 0.15, 0.13, 0.18, 1.42, 1.52)
+    model.hard(column, "paint", bevel=0.006, segments=1)
+    beams = bmesh.new()
+    for z in (1.445, 1.49):
+        cuboid(beams, -0.14, 0.14, 0.125, 0.13, z, z + 0.018)
+    for x, z in ((-0.05, 1.445), (0.06, 1.49)):
+        cuboid(beams, x - 0.012, x + 0.012, 0.115, 0.135, z - 0.004, z + 0.024)
+    model.hard(beams, "steel", bevel=0.002, segments=1)
+    return model
+
+
+def morgue_table():
+    """A post-mortem table two squares long: a steel tray with a raised rim on a pedestal under its foot half, a drain and
+    a tap at its head, at +Y. The tray is 0.88 high."""
+    model = Model("morgue_table")
+    steel = bmesh.new()
+    hx, hy, top = 0.42, 0.95, 0.88
+    cuboid(steel, -hx, hx, -hy, hy, top - 0.04, top - 0.03)
+    cuboid(steel, -hx, hx, -hy, -hy + 0.025, top - 0.06, top)
+    cuboid(steel, -hx, hx, hy - 0.025, hy, top - 0.06, top)
+    cuboid(steel, -hx, -hx + 0.025, -hy + 0.025, hy - 0.025, top - 0.06, top)
+    cuboid(steel, hx - 0.025, hx, -hy + 0.025, hy - 0.025, top - 0.06, top)
+    cuboid(steel, -0.18, 0.18, -0.65, -0.2, 0.06, top - 0.06)
+    cuboid(steel, -0.24, 0.24, -0.72, -0.13, 0.0, 0.06)
+    model.hard(steel, "steel", bevel=0.005, segments=1)
+    pipes = bmesh.new()
+    lathe(pipes, [(0.0, top - 0.04), (0.035, top - 0.04), (0.035, top - 0.15), (0.02, top - 0.17), (0.02, 0.0), (0.0, 0.0)], cy=0.6, segments=10)
+    lathe(pipes, [(0.0, top), (0.014, top), (0.014, top + 0.22), (0.0, top + 0.23)], cy=hy - 0.06, segments=10)
+    beam(pipes, (0.0, hy - 0.06, top + 0.2), (0.0, hy - 0.2, top + 0.2), 0.022, 0.022)
+    model.turned(pipes, "metal", sharp=40.0)
+    return model
+
+
+def blood_bank():
+    """A refrigerator for blood, at +Y its wall: a steel cabinet of two compartments one over the other, each behind a door
+    of steel bars round a card holder."""
+    model = Model("blood_bank")
+    hx, front, back, top = 0.4, -0.33, 0.33, 1.92
+    body = bmesh.new()
+    cuboid(body, -hx, hx, front + 0.03, back, 0.0, 0.1)
+    for x in (-hx, hx - 0.04):
+        cuboid(body, x, x + 0.04, front, back, 0.1, top)
+    cuboid(body, -hx + 0.04, hx - 0.04, front, back, top - 0.06, top)
+    cuboid(body, -hx + 0.04, hx - 0.04, front, back, 0.98, 1.04)
+    cuboid(body, -hx + 0.04, hx - 0.04, front, back, 0.1, 0.16)
+    cuboid(body, -hx + 0.04, hx - 0.04, back - 0.03, back, 0.16, top - 0.06)
+    model.hard(body, "steel", bevel=0.006, segments=1)
+    inside = bmesh.new()
+    for z0, z1 in ((0.16, 0.98), (1.04, top - 0.06)):
+        for n in range(1, 3):
+            z = z0 + (z1 - z0) * n / 3
+            cuboid(inside, -hx + 0.04, hx - 0.04, front + 0.08, back - 0.03, z - 0.01, z)
+    model.hard(inside, "plastic", bevel=0.002, segments=1)
+    bars = bmesh.new()
+    for z0, z1 in ((0.17, 0.97), (1.05, top - 0.07)):
+        cuboid(bars, -hx + 0.05, hx - 0.05, front - 0.012, front + 0.008, z0, z0 + 0.03)
+        cuboid(bars, -hx + 0.05, hx - 0.05, front - 0.012, front + 0.008, z1 - 0.03, z1)
+        for n in range(13):
+            x = -hx + 0.08 + n * (2 * hx - 0.16) / 12
+            cuboid(bars, x - 0.005, x + 0.005, front - 0.008, front + 0.004, z0 + 0.03, z1 - 0.03)
+    model.hard(bars, "metal", bevel=0.002, segments=1)
+    cards = bmesh.new()
+    for z in (0.83, top - 0.2):
+        cuboid(cards, -hx + 0.06, -hx + 0.24, front - 0.016, front - 0.012, z, z + 0.08)
+    model.plain(cards, "linen")
+    return model
+
+
+def bassinet():
+    """A ward's crib for a baby: an open tub on a steel frame of four legs on castors, a mattress in it. The tub's rim is 0.9 high."""
+    model = Model("bassinet")
+    hx, hy, top = 0.42, 0.27, 0.9
+    steel, wheels = bmesh.new(), bmesh.new()
+    for x in (-hx + 0.03, hx - 0.03):
+        for y in (-hy + 0.03, hy - 0.03):
+            cuboid(steel, x - 0.012, x + 0.012, y - 0.012, y + 0.012, 0.08, top - 0.04)
+            castor(wheels, steel, x, y, radius=0.03, wide=0.018)
+        cuboid(steel, x - 0.01, x + 0.01, -hy + 0.03, hy - 0.03, 0.2, 0.22)
+    cuboid(steel, -hx + 0.03, hx - 0.03, -0.01, 0.01, 0.2, 0.22)
+    cuboid(steel, -hx, hx, -hy, hy, top - 0.27, top - 0.25)
+    model.hard(steel, "metal", bevel=0.004, segments=1)
+    model.turned(wheels, "rubber")
+    tub = bmesh.new()
+    cuboid(tub, -hx - 0.02, hx + 0.02, -hy - 0.02, -hy, top - 0.25, top)
+    cuboid(tub, -hx - 0.02, hx + 0.02, hy, hy + 0.02, top - 0.25, top)
+    for x0, x1 in ((-hx - 0.02, -hx), (hx, hx + 0.02)):
+        cuboid(tub, x0, x1, -hy, hy, top - 0.25, top)
+    cuboid(tub, -hx, hx, -hy, hy, top - 0.25, top - 0.23)
+    model.hard(tub, "enamel", bevel=0.004, segments=1)
+    mattress = bmesh.new()
+    cuboid(mattress, -hx + 0.03, hx - 0.03, -hy + 0.03, hy - 0.03, top - 0.23, top - 0.17)
+    model.hard(mattress, "cloth", bevel=0.015, segments=2)
+    return model
+
+
+def dentist_chair():
+    """A dentist's chair two squares long, its head at +Y: a grey base and lift arm, a padded seat, a back laid well back,
+    a headrest, and a rest for the legs sloping down to the foot. The seat is 0.5 high."""
+    model = Model("dentist_chair")
+    base = bmesh.new()
+    cuboid(base, -0.3, 0.3, -0.55, 0.35, 0.0, 0.06)
+    prism_y(base, (0.0, 0.2, 0.3, 0.28, -0.1), (0.0, 0.2, 0.3, 0.28, 0.3))
+    beam(base, (0.0, 0.2, 0.2), (0.0, -0.15, 0.42), 0.26, 0.14)
+    lathe(base, [(0.0, -0.17), (0.11, -0.17), (0.11, 0.17), (0.0, 0.17)], segments=16, to=along_x(0.0, 0.2, 0.18))
+    model.hard(base, "metal", bevel=0.01, segments=2)
+    pads = bmesh.new()
+    cuboid(pads, -0.29, 0.29, -0.35, 0.25, 0.42, 0.52)
+    made = set(pads.verts)
+    cuboid(pads, -0.27, 0.27, 0.25, 0.9, 0.42, 0.5)
+    tilt = Matrix.Translation((0.0, 0.25, 0.47)) @ Matrix.Rotation(math.radians(28), 4, "X") @ Matrix.Translation((0.0, -0.25, -0.47))
+    bmesh.ops.transform(pads, matrix=tilt, verts=[vert for vert in pads.verts if vert not in made])
+    made = set(pads.verts)
+    cuboid(pads, -0.25, 0.25, -0.95, -0.35, 0.42, 0.5)
+    legs = Matrix.Translation((0.0, -0.35, 0.47)) @ Matrix.Rotation(math.radians(22), 4, "X") @ Matrix.Translation((0.0, 0.35, -0.47))
+    bmesh.ops.transform(pads, matrix=legs, verts=[vert for vert in pads.verts if vert not in made])
+    model.hard(pads, "vinyl", bevel=0.03, segments=2)
+    head = bmesh.new()
+    cuboid(head, -0.13, 0.13, 0.0, 0.09, 0.0, 0.2)
+    bmesh.ops.transform(head, matrix=Matrix.Translation((0.0, 0.93, 0.85)) @ Matrix.Rotation(math.radians(28), 4, "X"), verts=head.verts[:])
+    model.hard(head, "vinyl", bevel=0.03, segments=2)
+    arms = bmesh.new()
+    for side in (-1, 1):
+        cuboid(arms, side * 0.33 - 0.04, side * 0.33 + 0.04, -0.05, 0.35, 0.6, 0.65)
+        cuboid(arms, side * 0.33 - 0.02, side * 0.33 + 0.02, 0.25, 0.32, 0.47, 0.6)
+    model.hard(arms, "metal", bevel=0.01, segments=2)
+    return model
+
+
+def dentist_unit():
+    """A dentist's cart and lamp two squares long: a cabinet on castors at the back with a tray of instruments on an arm at
+    its side, and from it a column whose arm carries the lamp over the chair at -Y."""
+    model = Model("dentist_unit")
+    cart, wheels = bmesh.new(), bmesh.new()
+    cuboid(cart, -0.2, 0.2, 0.3, 0.7, 0.08, 0.82)
+    cuboid(cart, -0.16, 0.16, 0.24, 0.3, 0.55, 0.8)
+    for x in (-0.16, 0.16):
+        for y in (0.34, 0.66):
+            castor(wheels, cart, x, y, radius=0.03, wide=0.018)
+    model.hard(cart, "enamel", bevel=0.01, segments=2)
+    model.turned(wheels, "rubber")
+    steel = bmesh.new()
+    lathe(steel, [(0.0, 0.82), (0.035, 0.82), (0.035, 1.92), (0.0, 1.92)], cy=0.55, segments=12)
+    beam(steel, (0.0, 0.58, 1.9), (0.0, -0.55, 1.9), 0.05, 0.05)
+    lathe(steel, [(0.0, 1.62), (0.022, 1.62), (0.022, 1.9), (0.0, 1.9)], cy=-0.55, segments=10)
+    beam(steel, (0.18, 0.5, 0.86), (0.38, 0.2, 0.86), 0.04, 0.04)
+    model.hard(steel, "metal", bevel=0.005, segments=1)
+    lamp = bmesh.new()
+    cuboid(lamp, -0.15, 0.15, -0.65, -0.45, 1.52, 1.64)
+    cuboid(lamp, 0.24, 0.52, 0.02, 0.28, 0.86, 0.9)
+    model.hard(lamp, "enamel", bevel=0.012, segments=2)
+    light = bmesh.new()
+    cuboid(light, -0.12, 0.12, -0.63, -0.47, 1.515, 1.52)
+    for n in range(3):
+        x = 0.3 + n * 0.08
+        cuboid(light, x - 0.01, x + 0.01, 0.06, 0.08, 0.68, 0.86)
+    model.plain(light, "plastic")
+    return model
+
+
+DESK_TOP = 0.75
+DESK_INSET = 0.04
+
+
+def desk_square(name, x0, x1, y1, support, side=0):
+    """One square of a desk the game lays over several in an L or a run: its share of the top, from x0 to x1 and from the
+    front of the square to y1, and what holds it up. support is 'panel' (a modesty board along the back), 'end' (that,
+    and a panel leg at the side side says), 'column' (a post on a foot under the middle) or 'pedestal' (a stack of
+    drawers, opening to the front, and the board at the back). The top is 0.75 high, its front at -0.5: each square of a
+    run meets the next."""
+    model = Model(name, centred=False)
+    top = bmesh.new()
+    cuboid(top, x0, x1, -0.5, y1, DESK_TOP - 0.035, DESK_TOP)
+    model.hard(top, "wood", bevel=0.006, segments=2)
+    body = bmesh.new()
+    if support in ("panel", "end", "pedestal"):
+        cuboid(body, x0, x1, y1 - 0.06, y1 - 0.04, 0.24, DESK_TOP - 0.035)
+    if support == "end":
+        edge = x0 if side < 0 else x1
+        cuboid(body, min(edge, edge - side * 0.035), max(edge, edge - side * 0.035), -0.46, y1 - 0.02, 0.0, DESK_TOP - 0.035)
+    if support == "column":
+        lathe(body, [(0.0, 0.0), (0.2, 0.0), (0.2, 0.025), (0.05, 0.04), (0.04, 0.06), (0.04, DESK_TOP - 0.035), (0.0, DESK_TOP - 0.035)], segments=16)
+    fronts, pulls = bmesh.new(), bmesh.new()
+    if support == "pedestal":
+        cuboid(body, -0.25, 0.25, -0.42, y1 - 0.06, 0.0, DESK_TOP - 0.035)
+        drawer_fronts(fronts, pulls, -0.25, 0.25, 0.03, DESK_TOP - 0.045, 3, -0.438, size=1.1)
+    model.hard(body, "metal", bevel=0.005)
+    if support == "pedestal":
+        model.hard(fronts, "metal", bevel=0.004)
+        model.turned(pulls, "steel")
+    return model
+
+
+def office_medical():
+    """What offices, wards, surgeries and laboratories have that Clinic.java stands: the medical furniture, telephones, and
+    the squares of desks laid in an L."""
+    inset = 0.5 - DESK_INSET
+    return [hospital_bed(), mayo_stand(), medical_stool(), rotary_phone(), desk_phone(), exam_table(), treatment_couch(), iv_stand(),
+            foot_bench(), gurney(), microscope(), fume_hood("fume_hood_left", -1), fume_hood("fume_hood_right", 1), first_aid_case(),
+            weighing_scale(), morgue_table(), blood_bank(), bassinet(), dentist_chair(), dentist_unit(),
+            desk_square("desk_run", -0.5, 0.5, inset, "panel"), desk_square("desk_end_left", -inset, 0.5, inset, "end", -1),
+            desk_square("desk_end_right", -0.5, inset, inset, "end", 1), desk_square("desk_corner", -0.5, inset, inset, "column"),
+            desk_square("desk_pedestal", -0.5, 0.5, inset, "pedestal"), desk_square("desk_pedestal_left", -inset, 0.5, inset, "pedestal"),
+            desk_square("desk_pedestal_right", -0.5, inset, inset, "pedestal")]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -6175,7 +6736,7 @@ def every():
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
-            + street_clutter() + home_fittings() + overhead())
+            + street_clutter() + home_fittings() + overhead() + office_medical())
 
 
 def main():
