@@ -9726,6 +9726,184 @@ def aerials():
     """Dishes and aerials: what the game paints on roofs and walls to take in a broadcast."""
     return [satellite_dish_large(), satellite_dish(), satellite_dish("satellite_dish_post", True), tv_aerial()]
 
+def tapered_along_x(bm, outline, half, grow):
+    """A body with the same outline, given as (y, z) going round, whose ends lean out as it rises: each end is
+    half + grow * z from x = 0, which keeps both ends flat."""
+    left = [bm.verts.new((-half - grow * z, y, z)) for y, z in outline]
+    right = [bm.verts.new((half + grow * z, y, z)) for y, z in outline]
+    count = len(outline)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((left[i], left[j], right[j], right[i]))
+    bm.faces.new(left[::-1])
+    bm.faces.new(right)
+
+
+def eight(bm, corners):
+    """A block from its eight corners: the four of its bottom going round, then the four over them in the same order."""
+    v = [bm.verts.new(c) for c in corners]
+    bm.faces.new((v[3], v[2], v[1], v[0]))
+    bm.faces.new((v[4], v[5], v[6], v[7]))
+    for i in range(4):
+        j = (i + 1) % 4
+        bm.faces.new((v[i], v[j], v[j + 4], v[i + 4]))
+
+
+def leaning(bm, x0, x1, y0, y1, z0, z1, grow):
+    """A block on an end of a body made by tapered_along_x, x0 and x1 measured out from that end: it leans out with it."""
+    side = 1 if x1 > 0 else -1
+    at = lambda x, z: side * (abs(x) + grow * z)
+    eight(bm, [(at(x0, z0), y0, z0), (at(x1, z0), y0, z0), (at(x1, z0), y1, z0), (at(x0, z0), y1, z0),
+               (at(x0, z1), y0, z1), (at(x1, z1), y0, z1), (at(x1, z1), y1, z1), (at(x0, z1), y1, z1)])
+
+
+# The game's blue dumpster: a steel bin 1.2 high at its front and 1.3 at its back, its front slanting in below the knee,
+# under two lids that slope down to the front. 1.8 long over its fork pockets, 0.95 deep with its lids.
+SLOPED_FOOT, SLOPED_HALF, SLOPED_GROW = 0.10, 0.80, 0.03
+SLOPED_FRONT, SLOPED_BACK, SLOPED_KNEE, SLOPED_TOE = -0.44, 0.42, 0.55, -0.29
+SLOPED_TOP_FRONT, SLOPED_TOP_BACK = 1.20, 1.30
+
+
+def sloped_top(y):
+    """How high the top of the blue dumpster's bin is at y."""
+    return SLOPED_TOP_FRONT + (SLOPED_TOP_BACK - SLOPED_TOP_FRONT) * (y - SLOPED_FRONT) / (SLOPED_BACK - SLOPED_FRONT)
+
+
+def dumpster_sloped():
+    """The game's blue dumpster, one model over its two squares: a painted steel bin whose ends lean out a little as they
+    rise and whose front slants in below the knee, ribbed across its front and back and up its ends, a pocket for a
+    lorry's forks on each end, a lip round its top, two steel runners under it, and two plastic lids sloping to the front,
+    each with three ridges, a handle at its front edge and two hinges at its back."""
+    model = Model("dumpster_sloped")
+    half = lambda z: SLOPED_HALF + SLOPED_GROW * z
+    body = bmesh.new()
+    tapered_along_x(body, [(SLOPED_TOE, SLOPED_FOOT), (SLOPED_BACK, SLOPED_FOOT), (SLOPED_BACK, SLOPED_TOP_BACK),
+                           (SLOPED_FRONT, SLOPED_TOP_FRONT), (SLOPED_FRONT, SLOPED_KNEE)], SLOPED_HALF, SLOPED_GROW)
+    lip_front, lip_back = SLOPED_FRONT - 0.025, SLOPED_BACK + 0.025
+    tapered_along_x(body, [(lip_front, sloped_top(lip_front) - 0.08), (lip_back, sloped_top(lip_back) - 0.08),
+                           (lip_back, sloped_top(lip_back) + 0.01), (lip_front, sloped_top(lip_front) + 0.01)], SLOPED_HALF + 0.02, SLOPED_GROW)
+    # Ribs across the front above the knee and along the knee, and across the back.
+    for z in (0.78, 0.99):
+        tapered_along_x(body, [(SLOPED_FRONT - 0.022, z - 0.03), (SLOPED_FRONT + 0.01, z - 0.03), (SLOPED_FRONT + 0.01, z + 0.03),
+                               (SLOPED_FRONT - 0.022, z + 0.03)], SLOPED_HALF - 0.025, SLOPED_GROW)
+    tapered_along_x(body, [(SLOPED_FRONT - 0.022, SLOPED_KNEE - 0.04), (SLOPED_FRONT + 0.03, SLOPED_KNEE - 0.06),
+                           (SLOPED_FRONT + 0.03, SLOPED_KNEE + 0.03), (SLOPED_FRONT - 0.022, SLOPED_KNEE + 0.03)], SLOPED_HALF - 0.025, SLOPED_GROW)
+    for z in (0.42, 0.88):
+        tapered_along_x(body, [(SLOPED_BACK - 0.01, z - 0.03), (SLOPED_BACK + 0.022, z - 0.03), (SLOPED_BACK + 0.022, z + 0.03),
+                               (SLOPED_BACK - 0.01, z + 0.03)], SLOPED_HALF - 0.025, SLOPED_GROW)
+    for side in (-1, 1):
+        for y in (-0.3, 0.3):
+            leaning(body, side * (SLOPED_HALF - 0.01), side * (SLOPED_HALF + 0.022), y - 0.03, y + 0.03, SLOPED_FOOT + 0.03, 1.15, SLOPED_GROW)
+        # The fork pocket: a sleeve on the end, open at front and back. Its hollow is drawn dark inside it.
+        leaning(body, side * (SLOPED_HALF - 0.01), side * (SLOPED_HALF + 0.075), -0.25, 0.25, 0.6, 0.62, SLOPED_GROW)
+        leaning(body, side * (SLOPED_HALF - 0.01), side * (SLOPED_HALF + 0.075), -0.25, 0.25, 0.8, 0.82, SLOPED_GROW)
+        leaning(body, side * (SLOPED_HALF + 0.063), side * (SLOPED_HALF + 0.075), -0.25, 0.25, 0.6, 0.82, SLOPED_GROW)
+    model.hard(body, "paint", bevel=0.006, segments=1)
+    hollow = bmesh.new()
+    for side in (-1, 1):
+        leaning(hollow, side * (SLOPED_HALF + 0.005), side * (SLOPED_HALF + 0.063), -0.245, 0.245, 0.62, 0.8, SLOPED_GROW)
+    model.plain(hollow, "rubber")
+    runners = bmesh.new()
+    for y in (-0.2, 0.32):
+        cuboid(runners, -SLOPED_HALF + 0.06, SLOPED_HALF - 0.06, y - 0.04, y + 0.04, 0.0, SLOPED_FOOT + 0.005)
+    model.hard(runners, "metal", bevel=0.004, segments=1)
+    lids = bmesh.new()
+    front, back = lip_front - 0.02, lip_back
+    under = lambda y: sloped_top(y) + 0.012
+    for side in (-1, 1):
+        a, b = sorted((side * 0.008, side * (half(1.25) + 0.02)))
+        eight(lids, [(a, front, under(front)), (b, front, under(front)), (b, back, under(back)), (a, back, under(back)),
+                     (a, front, under(front) + 0.04), (b, front, under(front) + 0.04), (b, back, under(back) + 0.04), (a, back, under(back) + 0.04)])
+        # The lid's front edge turns down over the lip.
+        eight(lids, [(a, front, under(front) - 0.07), (b, front, under(front) - 0.07), (b, front + 0.025, under(front) - 0.07), (a, front + 0.025, under(front) - 0.07),
+                     (a, front, under(front) + 0.02), (b, front, under(front) + 0.02), (b, front + 0.025, under(front) + 0.02), (a, front + 0.025, under(front) + 0.02)])
+        for k in (-1, 0, 1):
+            x = (a + b) / 2 + k * (b - a) * 0.3
+            f, r = front + 0.06, back - 0.06
+            eight(lids, [(x - 0.035, f, under(f) + 0.035), (x + 0.035, f, under(f) + 0.035), (x + 0.035, r, under(r) + 0.035), (x - 0.035, r, under(r) + 0.035),
+                         (x - 0.025, f, under(f) + 0.062), (x + 0.025, f, under(f) + 0.062), (x + 0.025, r, under(r) + 0.062), (x - 0.025, r, under(r) + 0.062)])
+    model.hard(lids, "plastic", bevel=0.008, segments=2)
+    fittings = bmesh.new()
+    for side in (-1, 1):
+        middle = side * (half(1.25) + 0.028) / 2
+        z = under(front) - 0.025
+        cuboid(fittings, middle - 0.1, middle + 0.1, front - 0.045, front - 0.03, z - 0.012, z + 0.012)
+        for x in (middle - 0.09, middle + 0.09):
+            cuboid(fittings, x - 0.012, x + 0.012, front - 0.045, front, z - 0.012, z + 0.012)
+        for x in (middle - 0.3, middle + 0.3):
+            lathe(fittings, [(0.0, -0.06), (0.022, -0.06), (0.022, 0.06), (0.0, 0.06)], segments=10, to=along_x(x, back + 0.012, under(back) + 0.012))
+    model.turned(fittings, "metal", sharp=35.0)
+    return model
+
+
+# The game's orange dumpster: a straight steel box framed in ribs, 1.02 high, under two lids that each arch across the
+# half of the top it closes, up to the 1.17 the game says things stand on it at.
+DOMED_FOOT, DOMED_TOP, DOMED_CROWN = 0.08, 1.02, 1.17
+DOMED_HALF, DOMED_GROW, DOMED_DEEP = 0.835, 0.03, 0.44
+
+
+def arch(y0, y1, z0, rise, thick, steps=6):
+    """The outline, as (y, z) going round, of a shell arched from (y0, z0) to (y1, z0), rising by rise at its middle and
+    thick through."""
+    middle, reach = (y0 + y1) / 2, (y1 - y0) / 2
+    outside, inside = [], []
+    for i in range(steps + 1):
+        t = -1 + 2 * i / steps
+        up = (1 - t * t) ** 0.5
+        outside.append((middle + t * reach, z0 + thick + rise * up))
+        inside.append((middle + t * reach, z0 + (rise - thick) * up))
+    return outside + inside[::-1]
+
+
+def dumpster_domed():
+    """The game's orange dumpster, one model over its two squares: a painted steel box, its ends leaning out a touch as
+    they rise, framed with posts and rails standing proud of its sides, on a steel base, under two black lids that meet
+    along its middle and each arch across the half of the top it closes, a rib arched over each a third of a metre apart."""
+    model = Model("dumpster_domed")
+    half = lambda z: DOMED_HALF + DOMED_GROW * z
+    proud = 0.022
+    body = bmesh.new()
+    tapered_along_x(body, [(-DOMED_DEEP + 0.01, DOMED_FOOT), (DOMED_DEEP - 0.01, DOMED_FOOT), (DOMED_DEEP + 0.01, DOMED_TOP),
+                           (-DOMED_DEEP - 0.01, DOMED_TOP)], DOMED_HALF, DOMED_GROW)
+    # The rails round it: at its foot, twice up its sides, and the lip at its top.
+    for z0, z1 in ((DOMED_FOOT, DOMED_FOOT + 0.07), (0.36, 0.42), (0.68, 0.74), (DOMED_TOP - 0.06, DOMED_TOP + 0.005)):
+        reach = DOMED_DEEP + 0.01 + proud
+        tapered_along_x(body, [(-reach, z0), (reach, z0), (reach, z1), (-reach, z1)], DOMED_HALF + proud, DOMED_GROW)
+    # The posts up its front and back: at the corners and a third of the way in.
+    for side in (-1, 1):
+        y0, y1 = sorted((side * DOMED_DEEP, side * (DOMED_DEEP + 0.012 + proud)))
+        for x in (-0.3, 0.3):
+            cuboid(body, x - 0.035, x + 0.035, y0, y1, DOMED_FOOT, DOMED_TOP)
+        for end in (-1, 1):
+            leaning(body, end * (DOMED_HALF - 0.07), end * (DOMED_HALF + proud), y0, y1, DOMED_FOOT, DOMED_TOP, DOMED_GROW)
+        # And one up the middle of each end.
+        leaning(body, side * (DOMED_HALF - 0.01), side * (DOMED_HALF + proud), -0.035, 0.035, DOMED_FOOT, DOMED_TOP, DOMED_GROW)
+    model.hard(body, "paint", bevel=0.005, segments=1)
+    base = bmesh.new()
+    for y in (-DOMED_DEEP + 0.06, DOMED_DEEP - 0.06):
+        cuboid(base, -DOMED_HALF + 0.02, DOMED_HALF - 0.02, y - 0.045, y + 0.045, 0.0, DOMED_FOOT + 0.005)
+    for x in (-DOMED_HALF + 0.06, 0.0, DOMED_HALF - 0.06):
+        cuboid(base, x - 0.04, x + 0.04, -DOMED_DEEP + 0.03, DOMED_DEEP - 0.03, 0.0, DOMED_FOOT)
+    model.hard(base, "metal", bevel=0.004, segments=1)
+    ends = half(DOMED_TOP) + proud + 0.01
+    rise = DOMED_CROWN - DOMED_TOP - 0.045
+    lids, ribs = bmesh.new(), bmesh.new()
+    count = 6
+    for side in (-1, 1):
+        y0, y1 = sorted((side * 0.006, side * (DOMED_DEEP + 0.04)))
+        outline_along_x(lids, arch(y0, y1, DOMED_TOP + 0.005, rise, 0.02), -ends, ends)
+        for k in range(count):
+            x = -ends + 0.13 + k * (2 * ends - 0.26) / (count - 1)
+            outline_along_x(ribs, arch(y0 + 0.025, y1 - 0.025, DOMED_TOP + 0.005, rise + 0.02, 0.025), x - 0.03, x + 0.03)
+    model.hard(lids, "plastic", bevel=0.006, segments=1)
+    model.hard(ribs, "plastic", bevel=0.006, segments=1)
+    return model
+
+
+def dumpsters():
+    """The game's two dumpsters, each one model over its two squares."""
+    return [dumpster_sloped(), dumpster_domed()]
+
 
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
@@ -9748,7 +9926,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings())
+            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters())
 
 
 def main():

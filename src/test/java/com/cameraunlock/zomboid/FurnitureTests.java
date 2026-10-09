@@ -29,6 +29,7 @@ final class FurnitureTests {
         Checks.run("aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn", FurnitureTests::aDeckChairFacesTheWayItsSpriteDoesOnTheSquaresTheGameLaysItOn);
         Checks.run("eachSquareOfAStreetBenchIsABenchOfItsOwn", FurnitureTests::eachSquareOfAStreetBenchIsABenchOfItsOwn);
         Checks.run("whatStandsOnARoofCaseIsRaisedToItsTop", FurnitureTests::whatStandsOnARoofCaseIsRaisedToItsTop);
+        Checks.run("eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay", FurnitureTests::eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay);
         Checks.run("aDinersTablesStandOnColumnsAlongTheWayTheyFace", FurnitureTests::aDinersTablesStandOnColumnsAlongTheWayTheyFace);
         Checks.run("aRestaurantsChairsFaceTheWayTheirSpritesDo", FurnitureTests::aRestaurantsChairsFaceTheWayTheirSpritesDo);
         Checks.run("restaurantBoothsAndWaitingChairsAreTheirOwnSeats", FurnitureTests::restaurantBoothsAndWaitingChairsAreTheirOwnSeats);
@@ -142,6 +143,56 @@ final class FurnitureTests {
         IsoSprite stone = sprite("furniture_seating_indoor_02_17" + row.replace("Sturdy", "Park") + "0,0"), other = sprite("furniture_seating_indoor_02_16" + row + "0,1");
         piece(1, 2, stone, other);
         check(!model(Furniture.known(stone)).equals("plank_bench"), "the same bench grouped as a park's is not planks on two legs");
+    }
+
+    private static void eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay() {
+        // Sheet place, facing, colour, SpriteGridPos, and the place of the other square of the pair.
+        String[][] sprites = {{"8", "E", "Blue", "0,1", "9"}, {"9", "E", "Blue", "0,0", "8"}, {"10", "S", "Blue", "0,0", "11"}, {"11", "S", "Blue", "1,0", "10"},
+            {"12", "E", "Orange", "0,1", "13"}, {"13", "E", "Orange", "0,0", "12"}, {"14", "S", "Orange", "0,0", "15"}, {"15", "S", "Orange", "1,0", "14"},
+            {"28", "W", "Blue", "0,1", "29"}, {"29", "W", "Blue", "0,0", "28"}, {"30", "N", "Blue", "0,0", "31"}, {"31", "N", "Blue", "1,0", "30"}};
+        java.util.Map<String, IsoSprite> made = new java.util.HashMap<>();
+        for (String[] place : sprites) {
+            made.put(place[0], sprite("trashcontainers_01_" + place[0] + "|BlocksPlacement||CanScrap||ContainerCapacity|30|CustomName|Dumpster|Facing|" + place[1]
+                    + "|GroupName|" + place[2] + "|IsMoveAble||IsTrashCan||Material|MetalPlates|Material2|MetalPlates|Material3|MetalScrap|MaterialType|Metal_Large|"
+                    + "PickUpLevel|2|PickUpTool|Crowbar|PickUpWeight|300|SpriteGridPos|" + place[3] + "|" + (place[2].equals("Orange") ? "Surface|46|" : "")
+                    + "container|dumpster|solid|"));
+        }
+        for (String[] place : sprites) {
+            if (place[3].equals("0,0")) {
+                boolean alongX = place[1].equals("S") || place[1].equals("N");
+                piece(alongX ? 2 : 1, alongX ? 1 : 2, made.get(place[0]), made.get(place[4]));
+            }
+        }
+        for (String[] place : sprites) {
+            Furniture dumpster = Furniture.known(made.get(place[0]));
+            String wanted = place[2].equals("Orange") ? "dumpster_domed" : "dumpster_sloped";
+            String name = "trashcontainers_01_" + place[0];
+            check(model(dumpster).equals(wanted), name + " is " + wanted + ": " + model(dumpster));
+            if (dumpster == null || dumpster.model == null) {
+                continue;
+            }
+            int turns = Furniture.turnsOf(zombie.iso.IsoDirections.valueOf(place[1]));
+            check(dumpster.turns == turns, name + " faces " + place[1] + " as its sprite does: " + dumpster.turns + " quarter turns");
+            Furniture other = Furniture.known(made.get(place[4]));
+            check(other != null && other.model == dumpster.model && other.gridX + other.gridY != dumpster.gridX + dumpster.gridY && other.turns == turns,
+                    name + " and its other square are the one model, stood once");
+            check(dumpster.width * dumpster.height == 2 && (dumpster.width == 2) == ((turns & 1) == 0), name + "'s length lies along its two squares");
+            float length = dumpster.model.width() * dumpster.scale, deep = dumpster.model.depth() * dumpster.scale;
+            check(length > 1.6f && length <= 2f && deep > 0.8f && deep <= 1f, name + " is a dumpster's length and depth inside its squares: " + length + " by " + deep);
+            check(dumpster.dyed == 1 << Models.PAINT, name + "'s paint is the colour its sprite paints it");
+            // Measured on the game's sprites: low in the middle of the first square, trashcontainers_01_14 paints nothing, so
+            // ready() found no colour and the orange dumpster facing south was left two wrapped boxes and a card of a lid.
+            // Low on the south side every dumpster sprite paints its body.
+            check(dumpster.dyeY == dumpster.height - 1 && dumpster.dyeX == 0 && dumpster.dyeA == 0.5f && dumpster.dyeB > 0.9f && dumpster.dyeB < 1f,
+                    name + " takes its colour low on the south side the game's view sees: square " + dumpster.dyeX + "," + dumpster.dyeY
+                    + " at " + dumpster.dyeA + "," + dumpster.dyeB);
+            float high = dumpster.model.height() * dumpster.scaleUp;
+            if (place[2].equals("Orange")) {
+                check(Math.abs(high - 46 * SURFACE_TILES) < 0.03f, name + "'s lids crown as high as the game stands things on it: " + high + " against " + 46 * SURFACE_TILES);
+            } else {
+                check(high > 1.25f && high < 1.45f, name + " is as high as its sprite paints it: " + high);
+            }
+        }
     }
 
     private static void aPoolTableIsOneModelOverItsTwoSquares() {

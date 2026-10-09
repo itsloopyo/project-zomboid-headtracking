@@ -27,6 +27,8 @@ final class Furniture {
     private static final float WALL_CUPBOARD_FOOT = 0.6f, WALL_CUPBOARD_DYE = 0.76f;
     /** The height, in levels, at which the sprite of a thing with no height of its own gives its colour: a bin, a barrel, a locker. */
     private static final float LOW_DYE = 0.2f, LOCKER_DYE = 0.35f;
+    /** How far across its square a dumpster's south side is, where its colour is taken. */
+    static final float DUMPSTER_SIDE = 0.95f;
     /** How high a picnic table's top is, in levels, and where on its first square the top's colour is taken. */
     private static final float PICNIC_TOP = 0.31f, PICNIC_DYE = 0.75f;
 
@@ -610,8 +612,14 @@ final class Furniture {
             }
             return null;
         }
+        // The orange dumpster is a framed box under two arched lids, the blue one a bin under lids sloping to its front.
+        // Its colour is taken low on its south side, which the game's view sees whichever way it faces: the middle of
+        // the first square is clear in the orange one's sprite facing south, which left it the game's sprite.
         if (called.equals("Dumpster") && holds.equals("dumpster") && pair) {
-            return new Furniture(sprite, "dumpster", turns).dye(1 << Models.PAINT, LOW_DYE).stand(0f, 0f, false);
+            Furniture dumpster = new Furniture(sprite, group.equals("Orange") ? "dumpster_domed" : "dumpster_sloped", turns)
+                    .dye(1 << Models.PAINT, 0.5f, DUMPSTER_SIDE, LOW_DYE).stand(0f, 0f, false);
+            dumpster.dyeY = dumpster.height - 1;
+            return dumpster;
         }
         if (called.equals("Barbecue") && holds.equals("barbecuepropane") && single) {
             return new Furniture(sprite, "gas_barbecue", turns).stand(0f, 0f, false);
