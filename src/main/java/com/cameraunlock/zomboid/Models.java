@@ -410,10 +410,15 @@ final class Models {
 
         float[] floats = new float[FLOATS * 8];
         int[] ints = new int[INTS * 8];
+        /** For each piece, the room it is the contents of, drawn only while the eye sees into it, or RoomSight.OUTSIDE. */
+        long[] rooms = new long[8];
         int count;
+        /** The room the pieces added next are the contents of: see SpriteGeometry.MeshSet.room. */
+        long room = RoomSight.OUTSIDE;
 
         void clear() {
             count = 0;
+            room = RoomSight.OUTSIDE;
         }
 
         int triangles() {
@@ -439,8 +444,10 @@ final class Models {
             if ((count + 1) * FLOATS > floats.length) {
                 floats = Arrays.copyOf(floats, floats.length * 2);
                 ints = Arrays.copyOf(ints, ints.length * 2);
+                rooms = Arrays.copyOf(rooms, rooms.length * 2);
             }
             int at = count * FLOATS, whole = count * INTS;
+            rooms[count] = room;
             float[] to = floats;
             to[at + PLACE] = tileX;
             to[at + PLACE + 1] = tileY;

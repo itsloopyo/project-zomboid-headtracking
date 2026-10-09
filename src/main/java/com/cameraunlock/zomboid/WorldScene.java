@@ -47,6 +47,8 @@ import zombie.iso.areas.IsoRoom;
 import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.fboRenderChunk.FBORenderCutaways;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
+import zombie.iso.objects.IsoBarricade;
+import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDeadBody;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoLightSwitch;
@@ -167,6 +169,8 @@ final class WorldScene {
          * tint and how many floats long it is.
          */
         int[] runTexture = new int[32], runTint = new int[32], runFloats = new int[32];
+        /** For each run, the room it is the contents of, drawn only while the eye sees into it, or RoomSight.OUTSIDE: see SpriteGeometry.MeshSet.room. */
+        long[] runRoom = new long[32];
         int runs, solidRuns;
         /** How many floats the runs come to. */
         int floats;
@@ -363,9 +367,11 @@ final class WorldScene {
                     runTexture = Arrays.copyOf(runTexture, runs * 2);
                     runTint = Arrays.copyOf(runTint, runs * 2);
                     runFloats = Arrays.copyOf(runFloats, runs * 2);
+                    runRoom = Arrays.copyOf(runRoom, runs * 2);
                 }
                 runTexture[runs] = mesh.texture;
                 runTint[runs] = mesh.tint;
+                runRoom[runs] = mesh.room;
                 runFloats[runs] = mesh.floats;
                 runs++;
                 floats = Math.addExact(floats, mesh.floats);
@@ -786,6 +792,39 @@ final class WorldScene {
     private long tollAhead, tollAheadNanos;
     /** Dev only: see SightTrace. */
     private SightTrace sightTrace;
+    /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
+    final RoomMap roomMap = new RoomMap();
+    private final RoomSight roomWalk = new RoomSight();
+    /**
+     * The rooms whose contents builds hold, and whether builds go by them: they do while the
+     * eye's own picture is drawn, and then a room no walk round the eye has found for a few
+     * seconds stands empty. Otherwise, from elsewhere and as the game's own view, they go by
+     * Sightline as before. Logic thread.
+     */
+    private final RoomSight.Kept roomsBuilt = new RoomSight.Kept();
+    private final RoomSight.Seen roomsFound = new RoomSight.Seen(), roomsEntered = new RoomSight.Seen(), roomsLeft = new RoomSight.Seen();
+    private boolean buildingBySight;
+    /** Where the eye was at the last walk round it and when, and how fast it has been moving, tiles a second. */
+    private float roundEyeX, roundEyeY, eyeSpeed;
+    private long roundNanos;
+    /**
+     * How long the rooms a walk round the eye found stand for it, unless the eye has gone half
+     * the way an opening is taken to reach past its edges: a door opened far off by someone
+     * else has its room built in that time.
+     */
+    private static final long ROUND_EVERY_NANOS = 250_000_000L;
+    /** Dev only, for the rig: the time the walks took and how many there were, and what the last one had. */
+    private long tollRoomsNanos, tollRoomsWalks;
+    private int lastOpenings, lastBlocks, lastSeen, lastHidden;
+    /** How far past its edges an opening is taken to reach when what is built is worked out, in tiles: a step's worth at a walk, and what the eye covers in GROW_SECONDS. */
+    private static final float GROW_TILES = 1.5f, GROW_SECONDS = 0.4f;
+    /** A shut door or a drawn curtain this near the eye, in tiles, counts as open when what is built is worked out: it may be opened before its room could be built. */
+    private static final float SHUT_WITHIN = 10f;
+
+    /** Whether builds hold what stands in a room: always, but while they go by sight, only in a room a walk round the eye has found lately. */
+    boolean builtBySight(long room) {
+        return !buildingBySight || roomsBuilt.contains(room);
+    }
 
     /** Dev only: the build a chunk has, shown or not, or null. */
     ChunkMeshes latestOf(int wx, int wy) {
@@ -804,8 +843,10 @@ final class WorldScene {
      * played, and no chunk is built before the view turns to it.
      */
     private volatile boolean withoutSightline;
+    /** Dev only, for the same: the eye's picture draws every room its chunks were built with, whether it sees into it or not. */
+    private volatile boolean withoutCulling;
 
-    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", "sightline", or several with commas), and everything else is on. */
+    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", "sightline", "culling", or several with commas), and everything else is on. */
     void without(String what) {
         List<String> off = Arrays.asList(what.split(","));
         withoutMarks = off.contains("marks");
@@ -813,6 +854,7 @@ final class WorldScene {
         withoutCrownThread = off.contains("thread");
         withoutAlikeBands = off.contains("bands");
         withoutSightline = off.contains("sightline");
+        withoutCulling = off.contains("culling");
     }
 
     /** Why the chunks are read through over and over to find what has changed, said once, or null while the game tells. */
@@ -870,6 +912,10 @@ final class WorldScene {
                 tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms", tollAhead, tollAheadNanos / 1e6);
+        told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
+                tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
+        tollRoomsWalks = tollRoomsNanos = 0;
+        roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
         told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
                 tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollSumsChecked, tollSumsLate, tollSumsDiffered);
@@ -1521,6 +1567,25 @@ final class WorldScene {
     /** How far above the floor a body's picture is laid, in tiles: clear of the blood and the litter laid on the floor under it. */
     private static final float BODY_UP = 0.08f;
     private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
+
+    /**
+     * Whether everything built of an object that is no part of its building stays inside the
+     * room it stands in, so that it can be left out of a picture that does not see into the
+     * room. What hangs on a wall may hang on its outer face, and a curtain or a barricade on a
+     * window is seen through the glass from outside however the room is shut off.
+     */
+    static boolean withinItsRoom(IsoObject object, IsoSprite sprite) {
+        if (partOfTheBuilding(object, sprite) || object instanceof IsoCurtain || object instanceof IsoBarricade) {
+            return false;
+        }
+        IsoObjectType type = sprite.getType();
+        if (type == IsoObjectType.curtainN || type == IsoObjectType.curtainS || type == IsoObjectType.curtainE || type == IsoObjectType.curtainW) {
+            return false;
+        }
+        PropertyContainer flags = sprite.getProperties();
+        return !flags.has(IsoFlagType.attachedN) && !flags.has(IsoFlagType.attachedW) && !flags.has(IsoFlagType.attachedE) && !flags.has(IsoFlagType.attachedS)
+                && !flags.has(IsoFlagType.WallOverlay) && !flags.has("attachedNW") && !flags.has("attachedSE");
+    }
 
     /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
     static boolean partOfTheBuilding(IsoObject object, IsoSprite sprite) {
@@ -2327,6 +2392,8 @@ final class WorldScene {
             mapWx = Math.floorDiv(map.getWorldXMinTiles(), CHUNK_TILES);
             mapWy = Math.floorDiv(map.getWorldYMinTiles(), CHUNK_TILES);
             mapSide = IsoChunkMap.chunkGridWidth;
+            // Before the chunks are built, so that a room the eye has just come to see is built in this frame.
+            seeRooms(map, level, fromOutside, start);
             if (frames % FORGET_EVERY_FRAMES == 0) {
                 keptRoundX = pose.eyeX;
                 keptRoundY = pose.eyeY;
@@ -2834,13 +2901,144 @@ final class WorldScene {
                 if (sightTrace == null) {
                     sightTrace = new SightTrace(WorldScene.this);
                 }
-                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, frames, chunksWaiting, nearestWaiting, asTheGameShows);
+                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, frames, chunksWaiting, nearestWaiting, asTheGameShows, roomsSeen);
             }
             buildMillis = (System.nanoTime() - start) / 1e6f;
             tollFrames++;
             tollQuiet += chunksQuiet;
             for (int i = 0; i < tollBuilt.length; i++) {
                 tollBuilt[i] += builtBecause[i];
+            }
+        }
+
+        /**
+         * The rooms the eye's picture sees into, or null for a frame whose pictures draw every
+         * room its chunks were built with: one drawn from elsewhere, the game's own view, and
+         * the first frame, whose picture's shape is not known yet. And the shape it was worked
+         * out for: a picture of another shape draws every room.
+         */
+        RoomSight.Seen roomsSeen;
+        float roomsAspect;
+        private final RoomSight.Seen roomsSeenKept = new RoomSight.Seen();
+        private final RoomSight.Openings openingsInReach = new RoomSight.Openings();
+        private final RoomSight.Blocks blocksInReach = new RoomSight.Blocks();
+        /** What the openings in reach were last gathered from: see seeRooms. */
+        private long openingsReach;
+
+        /**
+         * Works out which rooms the eye sees into, from the openings of every chunk the picture
+         * can reach, and which rooms it could see into soon, whose contents are built: see
+         * RoomSight. A build of a chunk with a room that came into those or went out of them is
+         * made again.
+         */
+        private void seeRooms(IsoChunkMap map, int level, boolean fromOutside, long now) {
+            roomsSeen = null;
+            float aspect = drawnAspect;
+            if (fromOutside || gamesView || aspect <= 0f || withoutCulling) {
+                if (buildingBySight) {
+                    buildingBySight = false;
+                    roomsBuilt.clear();
+                    tellEveryChunk(map);
+                }
+                return;
+            }
+            long began = System.nanoTime();
+            roomMap.begin(cell, terrain);
+            int side = IsoChunkMap.chunkGridWidth;
+            float reach = ChunkBuffers.drawnWithin(fogEnd) + CHUNK_REACH;
+            // The chunks in reach, each read again if it may have changed, as one number: the same as the last frame's, the openings are.
+            long inReach = 17L;
+            for (int gridX = 0; gridX < side; gridX++) {
+                for (int gridY = 0; gridY < side; gridY++) {
+                    IsoChunk chunk = reachable(map, gridX, gridY, reach);
+                    if (chunk == null) {
+                        continue;
+                    }
+                    IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
+                    int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now);
+                    inReach = (inReach * 31 + chunk.wx) * 31 + chunk.wy;
+                    inReach = inReach * 31 + readings;
+                }
+            }
+            if (inReach != openingsReach) {
+                openingsReach = inReach;
+                openingsInReach.clear();
+                blocksInReach.clear();
+                for (int gridX = 0; gridX < side; gridX++) {
+                    for (int gridY = 0; gridY < side; gridY++) {
+                        IsoChunk chunk = reachable(map, gridX, gridY, reach);
+                        if (chunk != null) {
+                            roomMap.addTo(chunk, openingsInReach, blocksInReach);
+                        }
+                    }
+                }
+            }
+            int eyeX = (int) Math.floor(camera.eyeX), eyeY = (int) Math.floor(camera.eyeY);
+            roomsSeenKept.clear();
+            roomWalk.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, roomMap.region(eyeX, eyeY, level),
+                    roomMap.building(eyeX, eyeY, level), roomsSeenKept);
+            roomsSeen = roomsSeenKept;
+            roomsAspect = aspect;
+            lastHidden = roomWalk.hiddenByBlocks;
+            float seconds = (now - roundNanos) / 1e9f;
+            float moved = (float) Math.hypot(camera.eyeX - roundEyeX, camera.eyeY - roundEyeY);
+            float grow = GROW_TILES + eyeSpeed * GROW_SECONDS;
+            roomsEntered.clear();
+            roomsLeft.clear();
+            if (roundNanos == 0L || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f) {
+                if (roundNanos != 0L && seconds > 0f) {
+                    // A jump across the map is no speed: the walk round the new place starts it again.
+                    float speed = moved / seconds;
+                    eyeSpeed = speed > 100f ? 0f : eyeSpeed + (speed - eyeSpeed) * Math.min(1f, seconds * 4f);
+                }
+                roundEyeX = camera.eyeX;
+                roundEyeY = camera.eyeY;
+                roundNanos = now;
+                roomsFound.clear();
+                roomWalk.walkAllRound(roomMap, openingsInReach, blocksInReach, camera.eyeX, camera.eyeY, camera.eyeUp, roomMap.region(eyeX, eyeY, level),
+                        roomMap.building(eyeX, eyeY, level), GROW_TILES + eyeSpeed * GROW_SECONDS, SHUT_WITHIN, roomsFound);
+                roomsBuilt.found(roomsFound, now, roomsEntered);
+                roomsBuilt.expire(now, roomsLeft);
+            }
+            // What the picture draws is always built, whatever the walk round found.
+            roomsBuilt.found(roomsSeenKept, now, roomsEntered);
+            tollRoomsNanos += System.nanoTime() - began;
+            tollRoomsWalks++;
+            lastOpenings = openingsInReach.count;
+            lastBlocks = blocksInReach.count;
+            lastSeen = roomsSeenKept.size();
+            if (!buildingBySight) {
+                buildingBySight = true;
+                tellEveryChunk(map);
+            } else if (roomsEntered.size() > 0 || roomsLeft.size() > 0) {
+                for (int gridX = 0; gridX < side; gridX++) {
+                    for (int gridY = 0; gridY < side; gridY++) {
+                        IsoChunk chunk = map.getChunk(gridX, gridY);
+                        if (chunk != null && (roomMap.holdsAny(chunk, roomsEntered) || roomMap.holdsAny(chunk, roomsLeft))) {
+                            ChunkMarks.tell(chunk.wx, chunk.wy);
+                        }
+                    }
+                }
+            }
+        }
+
+        /** A loaded chunk of the map whose middle is within reach of the eye, or null. */
+        private IsoChunk reachable(IsoChunkMap map, int gridX, int gridY, float reach) {
+            IsoChunk chunk = map.getChunk(gridX, gridY);
+            return chunk == null || !chunk.loaded
+                    || Math.hypot(chunk.wx * CHUNK_TILES + CHUNK_TILES / 2f - camera.eyeX, chunk.wy * CHUNK_TILES + CHUNK_TILES / 2f - camera.eyeY) > reach ? null : chunk;
+        }
+
+        /** Has every chunk of the loaded map built again, as the rule its rooms are built by has changed. */
+        private void tellEveryChunk(IsoChunkMap map) {
+            int side = IsoChunkMap.chunkGridWidth;
+            for (int gridX = 0; gridX < side; gridX++) {
+                for (int gridY = 0; gridY < side; gridY++) {
+                    IsoChunk chunk = map.getChunk(gridX, gridY);
+                    if (chunk != null) {
+                        ChunkMarks.tell(chunk.wx, chunk.wy);
+                    }
+                }
             }
         }
 
@@ -4388,19 +4586,24 @@ final class WorldScene {
                     wallWest |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
                 }
             }
-            // A room the game has not shown the player yet is black in the game's own view. From
-            // the eye it is built whole, and its walls hide it. Only where the viewer is shown no
-            // more than the game shows does the house stand with the room left empty: see Sightline.
-            int emptied = Sightline.emptied(asTheGameShows, gamesView, square.getRoomID() != -1L, square.isSeen(playerIndex));
+            // A room the game has not shown the player yet is black in the game's own view. Where
+            // the viewer is shown no more than the game shows, the house stands with the room
+            // left empty: see Sightline. From the eye, a room is built while a walk round the eye
+            // finds it can be seen soon, and stands empty otherwise, near or far: see RoomSight.
+            // What hangs on its walls may be seen from outside it, and is built whatever the walk found.
+            long room = square.getRoomID();
+            int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, square.isSeen(playerIndex));
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
-            boolean empty = unexplored || emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
+            boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
+            boolean unsought = buildingBySight && room != RoomSight.OUTSIDE && !builtBySight(room);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
-                if (sprite == null || empty && object != floor && !partOfTheBuilding(object, sprite)) {
+                if (sprite == null || empty && object != floor && !partOfTheBuilding(object, sprite) || unsought && object != floor && withinItsRoom(object, sprite)) {
                     continue;
                 }
+                contentsOf(object != floor && withinItsRoom(object, sprite) ? room : RoomSight.OUTSIDE);
                 Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
                 if (!usable(texture)) {
                     continue;
@@ -4453,6 +4656,7 @@ final class WorldScene {
                 addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
                 geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
             }
+            contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
             frame.material = 0f;
             if (!openAbove && square.getRoomID() != -1L) {
@@ -4467,23 +4671,34 @@ final class WorldScene {
                 }
                 addEdges(x, y, localX, localY);
                 floorBuilder.spreadGround(x, y, localX, localY);
+                contentsOf(room);
                 int laidItems = layItems(z, floorLayer + spreadLayers);
+                contentsOf(RoomSight.OUTSIDE);
                 // What grows here is a build of its own: see grow. It lies over these layers.
                 building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + laidItems);
                 int own = (localX + 1) * LIGHT_SPAN + localY + 1;
                 building.grows |= groundKind[own] == Terrain.NATURAL && lightOpen[own] == 1;
             }
 
+            contentsOf(room);
             if (z != 0) {
                 layItems(z, floorLayer);
             }
 
             ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
-            for (int i = 0; i < bodies.size() && !empty; i++) {
+            for (int i = 0; i < bodies.size() && !empty && !unsought; i++) {
                 if (bodies.get(i) instanceof IsoDeadBody body) {
                     addBody(body);
                 }
             }
+            contentsOf(RoomSight.OUTSIDE);
+        }
+
+        /** Has what is built next be the contents of a room, or with RoomSight.OUTSIDE drawn whenever its chunk is. */
+        private void contentsOf(long room) {
+            solid.room = room;
+            laid.room = room;
+            placed.room = room;
         }
 
         /** The loose items of the square being added, as addSquare finds them. */
@@ -5485,6 +5700,7 @@ final class WorldScene {
                 // the picture's. The fade comes in from infinity as the camera comes down.
                 float fogAt = landing == 0f ? Float.MAX_VALUE / 2f : fogEnd / landing;
                 view.pipeline.loadedWithin = landing == 0f ? Float.MAX_VALUE / 2f : loadedWithin / landing;
+                view.pipeline.roomsSeen = null;
                 float nearest = Math.max(outsideAway - OVERHEAD_DEPTH, ViewCamera.nearPlane(NEAR_CORNER_DISTANCE, outsideTan, aspect));
                 view.pipeline.draw(shown, outsideCamera, sky, outsideTan, nearest, outsideAway + FAR, fogAt * FOG_START, fogAt, exposure, viewport);
                 lastDrawMillis = view.pipeline.lastMillis();
@@ -5492,6 +5708,7 @@ final class WorldScene {
             }
             view.pipeline.rangeFrom = 0f;
             view.pipeline.loadedWithin = loadedWithin;
+            view.pipeline.roomsSeen = aspect == roomsAspect ? roomsSeen : null;
             view.pipeline.draw(shown, camera, sky, tanHalfFieldOfView, near, FAR, fogEnd * FOG_START, fogEnd, exposure, viewport);
             lastDrawMillis = view.pipeline.lastMillis();
         }

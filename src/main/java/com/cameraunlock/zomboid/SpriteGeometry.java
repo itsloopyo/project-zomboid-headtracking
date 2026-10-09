@@ -121,6 +121,8 @@ final class SpriteGeometry {
         int texture;
         /** The colour its triangles are painted over in, as WallSides packs one, or 0 for the sprite's own. */
         int tint;
+        /** The room whose contents its triangles are, drawn only while the eye sees into it, or RoomSight.OUTSIDE for what is drawn whenever its chunk is: see MeshSet.room. */
+        long room = RoomSight.OUTSIDE;
         /**
          * Starts small and doubles. A set keeps a mesh for every texture a chunk has lately
          * worn, and most of them only ever hold a few sprites.
@@ -218,6 +220,12 @@ final class SpriteGeometry {
         private int round = 1;
         /** What every mesh of the set lies by: see Layers. */
         private final Layers layers;
+        /**
+         * The room what is asked for next is the contents of, or RoomSight.OUTSIDE. Each room's
+         * contents have meshes of their own, so that a picture can leave out a room it cannot
+         * see into and draw the rest of the chunk.
+         */
+        long room = RoomSight.OUTSIDE;
 
         MeshSet() {
             this(new Layers());
@@ -233,19 +241,20 @@ final class SpriteGeometry {
         }
 
         Mesh get(int texture, int tint) {
-            int slot = slotFor(byTexture, texture, tint);
+            int slot = slotFor(byTexture, texture, tint, room);
             Mesh mesh = byTexture[slot];
             if (mesh == null) {
                 mesh = new Mesh();
                 mesh.layers = layers;
                 mesh.texture = texture;
                 mesh.tint = tint;
+                mesh.room = room;
                 all.add(mesh);
                 if (all.size() * 2 > byTexture.length) {
                     byTexture = new Mesh[byTexture.length * 2];
                     for (int i = 0; i < all.size(); i++) {
                         Mesh moved = all.get(i);
-                        byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
+                        byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room)] = moved;
                     }
                 } else {
                     byTexture[slot] = mesh;
@@ -315,15 +324,15 @@ final class SpriteGeometry {
             byTexture = new Mesh[length];
             for (int i = 0; i < kept; i++) {
                 Mesh moved = all.get(i);
-                byTexture[slotFor(byTexture, moved.texture, moved.tint)] = moved;
+                byTexture[slotFor(byTexture, moved.texture, moved.tint, moved.room)] = moved;
             }
         }
 
-        /** The slot holding the mesh of the texture in that tint, or the empty one it belongs in. */
-        private static int slotFor(Mesh[] table, int texture, int tint) {
+        /** The slot holding the mesh of the texture in that tint for that room's contents, or the empty one it belongs in. */
+        private static int slotFor(Mesh[] table, int texture, int tint, long room) {
             int mask = table.length - 1;
-            int slot = (texture ^ tint * 0x9E3779B1 >>> 16) & mask;
-            while (table[slot] != null && (table[slot].texture != texture || table[slot].tint != tint)) {
+            int slot = (texture ^ tint * 0x9E3779B1 >>> 16 ^ (int) (room ^ room >>> 32) * 0x85EBCA6B) & mask;
+            while (table[slot] != null && (table[slot].texture != texture || table[slot].tint != tint || table[slot].room != room)) {
                 slot = (slot + 1) & mask;
             }
             return slot;

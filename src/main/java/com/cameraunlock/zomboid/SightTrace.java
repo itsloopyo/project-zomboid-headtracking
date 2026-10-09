@@ -110,9 +110,10 @@ final class SightTrace {
      * @param forwardX the way the view faces along the map, a unit vector, or nought for a view straight up or down
      * @param cosCone  the cosine of the half angle the picture takes in along the map
      * @param waiting  the chunks in view the frame left without a build, and how far off the nearest was
+     * @param rooms    the rooms the eye's picture draws the contents of, or null for every room: see RoomSight
      */
     void frame(IsoCell cell, IsoPlayer player, ViewCamera.Pose eye, float forwardX, float forwardY, float cosCone, int frame, int waiting, float nearest,
-            boolean asTheGameShows) {
+            boolean asTheGameShows, RoomSight.Seen rooms) {
         if (Online.contested()) {
             // Where players can fight, nothing is written of what the game is not showing.
             return;
@@ -155,11 +156,13 @@ final class SightTrace {
                         }
                         open = centreOpen;
                     }
-                    boolean drawn = shown && build.traced != null && build.traced.contains(object);
+                    boolean built = shown && build.traced != null && build.traced.contains(object);
+                    boolean culled = built && !ChunkBuffers.listed(WorldScene.withinItsRoom(object, sprite) ? square.getRoomID() : RoomSight.OUTSIDE, rooms);
+                    boolean drawn = built && !culled;
                     String held = null;
                     if (!drawn) {
                         Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
-                        held = build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
+                        held = culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
                                 : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
                                         : !WorldScene.usable(texture) ? "its sprite has no texture yet" : "its chunk's build is older than it";
                     }
@@ -172,8 +175,10 @@ final class SightTrace {
                             centreAsked = true;
                             centreOpen = openTo(eye, forwardX, forwardY, cosCone, x + 0.5f, y + 0.5f);
                         }
-                        boolean drawn = shown && build.traced != null && build.traced.contains(body);
-                        String held = drawn ? null : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
+                        boolean built = shown && build.traced != null && build.traced.contains(body);
+                        boolean culled = built && !ChunkBuffers.listed(square.getRoomID(), rooms);
+                        boolean drawn = built && !culled;
+                        String held = drawn ? null : culled ? "the eye's picture does not see into its room" : build == null ? "its chunk has no build yet" : !shown ? "its chunk's build is not in the frame"
                                 : Sightline.leftOut(asTheGameShows, false, square.getRoomID() != -1L, square.isSeen(playerIndex)) ? "the game has not shown its room"
                                         : body.getAtlasTexture() == null ? "the game has made no picture of the body" : "its chunk's build is older than it";
                         met(body, "body", "body", x, y, level, centreOpen, drawn, held, square.getRoomID() == -1L || square.isSeen(playerIndex), frame, now, eye);

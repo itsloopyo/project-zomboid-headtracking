@@ -468,6 +468,13 @@ final class Pipeline {
     private ChunkBuffers.Listing shownBehind = all;
     /** The chunks the eye's own picture, or a scope's, can show as draws, when those are not all of them: see seenBy. */
     private final ChunkBuffers.Listing seenListed = new ChunkBuffers.Listing();
+    /**
+     * The rooms the eye's own picture sees into, whose contents it draws, leaving out every
+     * other room's; null to draw every room's. Set by the frame before each draw: see RoomSight.
+     * Only the eye's own picture goes by it: what a scope, a mirror or water shows, and the
+     * shadows, are drawn with every room.
+     */
+    RoomSight.Seen roomsSeen;
     /** What the world's program is told in uLaid past 1, for all that is laid: only its grass is drawn, or all of it but its grass. */
     private static final float LAID_GRASS = 2f, LAID_REST = 3f;
     /**
@@ -820,7 +827,7 @@ final class Pipeline {
             ChunkBuffers.load(chunks, ahead);
             // Seen from outside the viewer, the picture is of the built world alone, as it was.
             beyond = !outside && view.worldScene.farLand.load(camera.eyeX, camera.eyeY) ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
-            all.of(chunks, null, true);
+            all.of(chunks, null, true, null);
             arrays();
             stage(STAGE_LOAD);
             boolean figures = view.characters.ready();
@@ -978,7 +985,7 @@ final class Pipeline {
         if (left == 0) {
             return all;
         }
-        behindListed.of(drawn, leftOut, true);
+        behindListed.of(drawn, leftOut, true, null);
         return behindListed;
     }
 
@@ -1291,6 +1298,10 @@ final class Pipeline {
         // holds is a call into the driver for nothing.
         int told = -1;
         float[] toldOf = null;
+        // The eye's own picture draws a room's furniture only while it sees into the room, and
+        // it and a scope's only what can be in their pictures: seenBy has just set the bounds of each.
+        RoomSight.Seen rooms = within != null && eyesOwn() ? roomsSeen : null;
+        boolean bounded = within != null && !inMirror;
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
             if ((inMirror && shownBehind == behindListed || inWater) && leftOut[chunk]) {
                 continue;
@@ -1311,10 +1322,15 @@ final class Pipeline {
                     if (ahead < -f[ball + 3] || ahead > far + f[ball + 3]) {
                         continue;
                     }
-                    // The picture of what water shows is drawn only where the water is, and holds
-                    // nothing nearer than the water: see seenBy.
-                    if (inWater && (mapBounds.outside(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp, f[ball + 3], f[ball + 3], f[ball + 3])
-                            || length(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp) + f[ball + 3] < waterNearest)) {
+                    if (!ChunkBuffers.listed(placed.rooms[piece], rooms)) {
+                        continue;
+                    }
+                    float reach = f[ball + 3] + SEEN_MARGIN;
+                    if (bounded && mapBounds.outside(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp, reach, reach, reach)) {
+                        continue;
+                    }
+                    // The picture of what water shows holds nothing nearer than the water: see seenBy.
+                    if (inWater && length(f[ball] - within.eyeX, f[ball + 1] - within.eyeY, f[ball + 2] - within.eyeUp) + f[ball + 3] < waterNearest) {
                         continue;
                     }
                     plain = placed.plain(piece, ahead, pixel);
@@ -1626,7 +1642,7 @@ final class Pipeline {
         if (left == 0) {
             return all;
         }
-        own.of(drawn, leftOut, false);
+        own.of(drawn, leftOut, false, null);
         return own;
     }
 
@@ -1677,11 +1693,17 @@ final class Pipeline {
                 left++;
             }
         }
-        if (left == 0) {
+        RoomSight.Seen rooms = eyesOwn() ? roomsSeen : null;
+        if (left == 0 && rooms == null) {
             return all;
         }
-        seenListed.of(drawn, leftOut, true);
+        seenListed.of(drawn, leftOut, true, rooms);
         return seenListed;
+    }
+
+    /** Whether the picture being drawn is the eye's own, and not a scope's, a mirror's or the one of what water shows. */
+    private boolean eyesOwn() {
+        return !inMirror && !inScope && !inWater;
     }
 
     private static float length(float x, float y, float up) {

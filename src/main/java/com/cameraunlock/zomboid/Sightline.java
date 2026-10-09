@@ -9,10 +9,12 @@ package com.cameraunlock.zomboid;
  * opens and fills it with the viewer inside.
  *
  * From the eye what hides a thing is what stands between the two in the picture: a wall, a
- * shut door, a drawn curtain. So everything in a room is built whether or not the game has
- * shown the room, ahead of any line to it, and the picture's own walls and doors hide it
- * until the line opens: a door swings, a corner is turned, the head leans round a frame.
- * That holds within 40 tiles of the eye (WorldScene.UNSHOWN_FILLED_WITHIN): see emptied.
+ * shut door, a drawn curtain. So what is in a room is built whether or not the game has shown
+ * the room, ahead of any line to it: a room the eye could see into from about where it is,
+ * whichever way it turned, or through a door near it once opened, and the picture draws it
+ * while a line of sight reaches into it (RoomSight). A frame drawn from elsewhere, which does
+ * not go by sight, builds every room within 40 tiles of the eye (WorldScene.UNSHOWN_FILLED_WITHIN):
+ * see emptied.
  *
  * Where players can fight, a room is filled only as the game shows it to everyone.
  */

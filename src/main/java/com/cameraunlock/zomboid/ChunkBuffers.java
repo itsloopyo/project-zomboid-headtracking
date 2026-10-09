@@ -426,8 +426,9 @@ final class ChunkBuffers {
          * marked in left when it is not null.
          *
          * @param laidToo whether what is laid over the floors is listed, or only what is solid
+         * @param rooms   the rooms whose contents are listed, the rest being left out, or null to list every room's: see RoomSight
          */
-        void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo) {
+        void of(ArrayList<WorldScene.ChunkMeshes> chunks, boolean[] left, boolean laidToo, RoomSight.Seen rooms) {
             solidRuns.clear();
             grownRuns.clear();
             laidRuns.clear();
@@ -436,9 +437,9 @@ final class ChunkBuffers {
                     continue;
                 }
                 WorldScene.ChunkMeshes build = chunks.get(i);
-                solidRuns.count(build, 0, build.solidRuns);
+                solidRuns.count(build, 0, build.solidRuns, rooms);
                 if (laidToo) {
-                    (build.grown ? grownRuns : laidRuns).count(build, build.solidRuns, build.runs);
+                    (build.grown ? grownRuns : laidRuns).count(build, build.solidRuns, build.runs, rooms);
                 }
             }
             int most = solidRuns.used + grownRuns.used + laidRuns.used;
@@ -469,7 +470,7 @@ final class ChunkBuffers {
                 int at = build.heldAt;
                 for (int run = 0; run < build.runs; run++) {
                     Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
-                    if (of == solidRuns || laidToo) {
+                    if ((of == solidRuns || laidToo) && listed(build.runRoom[run], rooms)) {
                         int slot = of.slot(build.runTexture[run], build.runTint[run]);
                         firsts.put(of.cursor[slot], at / SpriteGeometry.VERTEX_FLOATS);
                         counts.put(of.cursor[slot], build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS);
@@ -524,6 +525,11 @@ final class ChunkBuffers {
         }
     }
 
+    /** Whether a run of the contents of a room, or of what is in no room's contents, is listed for a picture that sees into the rooms given, or into every room. */
+    static boolean listed(long room, RoomSight.Seen rooms) {
+        return rooms == null || room == RoomSight.OUTSIDE || rooms.contains(room);
+    }
+
     /** The runs of the buffer each texture and tint draws: how many, where its list of them starts, and where in the list the next goes. */
     private static final class Runs {
         private int[] texture = new int[512], tint = new int[512], runs = new int[512], cursor = new int[512];
@@ -544,8 +550,11 @@ final class ChunkBuffers {
             return slot;
         }
 
-        void count(WorldScene.ChunkMeshes build, int from, int to) {
+        void count(WorldScene.ChunkMeshes build, int from, int to, RoomSight.Seen rooms) {
             for (int run = from; run < to; run++) {
+                if (!listed(build.runRoom[run], rooms)) {
+                    continue;
+                }
                 if (used * 2 >= texture.length) {
                     grow();
                 }
