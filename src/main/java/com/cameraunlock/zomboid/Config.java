@@ -224,8 +224,9 @@ final class Config {
             core.configLocalBool("Graphics", "Reflections",
                     "true: the mirrors of a vehicle you sit in show the road behind, as in every mode, and\n"
                             + "with ShadingAndLight true wet roads, polished floors, glass and water mirror the\n"
-                            + "world, as in High. false: nothing mirrors. A vehicle's mirrors are plain glass, and\n"
-                            + "the road behind is not drawn for them, which costs nothing.",
+                            + "world, as in High. false: none of that. A vehicle's mirrors are plain glass, and the\n"
+                            + "road behind is not drawn for them, which costs nothing, and water shows the sky alone,\n"
+                            + "as in Low and Medium.",
                     writable | live, high.reflections()),
             core.configLocalBool("Graphics", "FullSizeTextures",
                     "true: the mod's pictures of surfaces, on walls and of skin are made at their full size,\n"

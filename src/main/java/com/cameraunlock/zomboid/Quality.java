@@ -261,8 +261,8 @@ final class Quality {
     }
 
     /**
-     * Whether anything mirrors at all. Without, a vehicle's mirrors are plain glass and their
-     * picture of the road behind is not drawn, and nothing else mirrors either.
+     * Whether the world is mirrored at all. Without, a vehicle's mirrors are plain glass and
+     * their picture of the road behind is not drawn, and surfacesMirror is false.
      */
     static boolean reflections() {
         return drawn.reflections;
