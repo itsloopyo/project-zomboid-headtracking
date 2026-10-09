@@ -32,6 +32,33 @@ final class Sky {
                 return pow(max(color, vec3(0.0)), vec3(2.2));
             }
 
+            // How thick the air is between the eye and what it looks at, for fog, rain and snow:
+            // x is how much light a tile of it takes out of a line of sight, y how deep it lies
+            // over the eye, z how far round the eye it thins away. See Eyesight.
+            uniform vec3 uVeil;
+            // The light open ground has where the picture is: thick air is never darker than what
+            // that light makes of it, whatever the sky behind it does.
+            uniform vec3 uVeilLight;
+
+            // The colour thick air is lit to: the sky's at the horizon that way, the sun's glow
+            // in it included, with most of its colour taken out.
+            vec3 veilColor(vec3 d) {
+                vec3 air = atmosphere(normalize(vec3(d.xy, 0.0) + vec3(1e-5, 0.0, 0.0)));
+                return max(mix(vec3(dot(air, vec3(0.3, 0.59, 0.11))), air, 0.35), uVeilLight);
+            }
+
+            // How much of what stands that far from the eye the air hides: see Eyesight.veiled.
+            float veiling(float range) {
+                float past = range - uVeil.z;
+                float counted = past > 20.0 ? past : log(1.0 + exp(past));
+                return 1.0 - exp(-uVeil.x * counted);
+            }
+
+            // How much of the sky that way the air hides: it is deepest along the ground.
+            float skyVeiling(vec3 d) {
+                return 1.0 - exp(-uVeil.x * uVeil.y / max(d.z, 0.05));
+            }
+
             float ridgeHash(vec2 p) {
                 return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
             }
@@ -245,6 +272,9 @@ final class Sky {
                 color = ridges(d, color);
                 vec3 air = atmosphere(vec3(d.xy, 0.0));
                 color = mix(color, air, 1.0 - smoothstep(-0.04, 0.0, d.z));
+                if (uVeil.x > 0.0) {
+                    color = mix(color, veilColor(d), skyVeiling(d));
+                }
                 gl_FragColor = vec4(color, 1.0);
             }
             """;

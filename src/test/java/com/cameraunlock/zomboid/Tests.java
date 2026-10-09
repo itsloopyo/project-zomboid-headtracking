@@ -160,6 +160,7 @@ public final class Tests {
         Checks.run("MarkTests", MarkTests::run);
         Checks.run("FarLandTests", FarLandTests::run);
         Checks.run("OnlineTests", OnlineTests::run);
+        Checks.run("EyesightTests", EyesightTests::run);
         Checks.run("HearingTests", HearingTests::run);
         Checks.run("SplitScreenTests", SplitScreenTests::run);
         Checks.run("CrowdTests", CrowdTests::run);

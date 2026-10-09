@@ -2278,7 +2278,13 @@ final class Pipeline {
         program.set("uForward", pose.forwardX, pose.forwardY, pose.forwardUp);
     }
 
-    private static void atmosphere(Program program, SkyState state) {
+    private void atmosphere(Program program, SkyState state) {
+        // From far overhead the fog is the develop pass's sheet, as the game has it over its own view. On the
+        // flight between the two the air thins away as the sheet comes in, so neither leaves the picture clear.
+        float sheet = overhead ? Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f) : 0f;
+        program.set("uVeil", state.thick * (1f - sheet), Eyesight.SKY_THROUGH, Eyesight.FOG_CLEAR_NEAR);
+        program.set("uVeilLight", (float) Math.pow(state.openRed * state.daylightKept, 2.2), (float) Math.pow(state.openGreen * state.daylightKept, 2.2),
+                (float) Math.pow(state.openBlue * state.daylightKept, 2.2));
         program.set("uSun", state.sunX, state.sunY, state.sunUp);
         program.set("uSunColor", state.sunRed, state.sunGreen, state.sunBlue);
         program.set("uZenith", state.zenithRed, state.zenithGreen, state.zenithBlue);
@@ -2470,6 +2476,7 @@ final class Pipeline {
         setBeams(volume, TORCH_UNIT);
         volume.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
         volume.set("uMist", state.mist);
+        volume.set("uThick", state.thick);
         quad();
         softenInto(softVolumeTarget, volumeColor, near, far);
     }
@@ -2584,6 +2591,12 @@ final class Pipeline {
                     * Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f);
         }
         develop.set("uFog", fog, state.gustX, state.gustY);
+        // The character's eyes are the eye's picture's alone: the view from far overhead is left as it was.
+        if (overhead) {
+            develop.set("uNarrowed", 0f);
+        } else {
+            develop.set("uNarrowed", state.narrowed);
+        }
         if (fog > 0f) {
             holdShelter(DEVELOP_SHELTER_UNIT);
             GL13.glActiveTexture(GL_TEXTURE0);

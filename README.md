@@ -174,6 +174,15 @@ Two players can ride in one vehicle, each seeing it from their own seat.
 
 A third and a fourth player are drawn in the game's own view, and have no first person view.
 
+### What your character can see
+
+In first person your character sees no more than the game lets them see in its own view.
+
+- **Fog, rain and snow** hide what stands far off in them. In the game's full fog a zombie four tiles off is plain, one at six half hidden and one at ten gone, as in the game's own view, and thinner fog, rain and snow hide less. The air takes the colour of the sky it lies under, and at night of the light on the ground round you. In `High`, where the air is lit, fog glows where a torch or headlights shine through it.
+- **Zombies** past the distance the game lets your character see in that weather and at that hour fade out, as the game fades them.
+- **Drink** blurs and sways the view as the game's own does: the game draws that over the whole window, first person included.
+- **Tiredness, panic, drink and some headwear** darken the edge of the view as far as they narrow the game's cone of sight. The dark does not: the night is as dark as the game's light makes it. What is behind your character is not dimmed either, since in first person you turn your head to see it.
+
 ### On a server
 
 The first person view and head tracking work when you join a multiplayer server. Only you need the mod. The server does not, and neither do the other players, who see your character as they see anyone's.
@@ -188,7 +197,7 @@ Where you and another player can hurt each other, four things are held to what t
 - Leaning does not move a shot. With the sights up in sights locked, the lean across the aim eases out and the round leaves from your character, where the other players see your weapon. Alone, your arms and weapon move with your head and the round leaves from where your eye is.
 - Walking sideways or backwards puts your character in the game's own aiming stance, at the pace the game gives that stance, with the sights down. The game shows a player what is in front of their character, and other players read which way a character faces to tell what its player can see. In first person you see where the view faces, so there your character faces it too. Walking forward, and forward with a sideways key, is as it is alone.
 - A room is filled as the game shows it. What stands in a room, and a body lying in it, is drawn once the game has shown your character the room, as it is for every player. Alone, a room within 40 tiles is whole before you can see into it, and its walls and doors hide it.
-- A zombie is shown as the game shows it to every player. Alone, a zombie before your eye is hidden only by what stands between the two.
+- A zombie is shown as the game shows it to every player. Alone, and on a server where nobody can be fought, a zombie before your eye is drawn whole up to the distance the game lets your character see in that weather and at that hour, hidden by what stands between and by fog, rain and snow.
 
 ### Hotkeys
 

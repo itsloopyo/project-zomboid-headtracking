@@ -3049,6 +3049,11 @@ final class PipelineShaders {
                 if (ends > 0.0) {
                     color = mix(color, ridges(-view, air), ends);
                 }
+                // Fog, rain and snow hide what stands far off in them: see Eyesight. Where the world
+                // has ended in the hills, they hide what they hide of the sky that way.
+                if (uVeil.x > 0.0) {
+                    color = mix(color, veilColor(-view), max(veiling(range), ends * skyVeiling(-view)));
+                }
                 // What is laid over the ground is mixed in by its alpha. For everything else the
                 // alpha says how much of a mirror the surface is, 1 for none, which the last
                 // pass reads to trace what the mirror shows.
@@ -3628,6 +3633,9 @@ final class PipelineShaders {
             uniform vec3 uLight;
             uniform vec3 uLightColor;
             uniform float uMist;
+            // How much light a tile of fog, rain or snow takes out of a line of sight: what is
+            // lit far off in it is seen through the air between.
+            uniform float uThick;
             """ + BEAMS + """
 
             const int STEPS = 24;
@@ -3647,8 +3655,11 @@ final class PipelineShaders {
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 float lit = 0.0;
                 float beamed = 0.0;
+                float along = length(ray);
                 for (int i = 0; i < STEPS; i++) {
-                    vec4 p = vec4(uEye + ray * ((float(i) + start) * stride), 1.0);
+                    float at = (float(i) + start) * stride;
+                    float through = exp(-uThick * at * along);
+                    vec4 p = vec4(uEye + ray * at, 1.0);
                     vec3 c = (uNearMatrix * p).xyz * 0.5 + 0.5;
                     float sun = 1.0;
                     if (inside(c)) {
@@ -3660,18 +3671,17 @@ final class PipelineShaders {
                         }
                     }
                     // The air thins with height, and there is none to speak of under the ground.
-                    lit += sun * exp(-max(p.z, 0.0) * 0.12);
+                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through;
                     for (int b = 0; b < 2; b++) {
                         if (uBeamAt[b].w > 0.0) {
-                            beamed += beamInAir(b, p.xyz);
+                            beamed += beamInAir(b, p.xyz) * through;
                         }
                     }
                     if (uTorchAt.w > 0.0) {
                         vec3 dir;
-                        beamed += TORCH_GIVES * torchAt(p.xyz, dir);
+                        beamed += TORCH_GIVES * torchAt(p.xyz, dir) * through;
                     }
                 }
-                float along = length(ray);
                 float mu = max(dot(ray / along, uLight), 0.0);
                 // Mist sends most of what it catches on the way the light was going.
                 // A low sun shines through far more air than a high one, and the air towards
@@ -5201,6 +5211,9 @@ final class PipelineShaders {
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
                 float haze = max(ends, 1.0 - exp(-range * 0.0022));
                 color = mix(color, atmosphere(normalize(ray)), haze);
+                if (uVeil.x > 0.0) {
+                    color = mix(color, veilColor(normalize(ray)), max(veiling(range), ends * skyVeiling(normalize(ray))));
+                }
                 // Alpha says how much of a mirror the surface is, 1 for none: the last pass
                 // traces what the bonnet's lacquer shows of the world over it.
                 gl_FragData[0] = vec4(color, 1.0 - 0.5 * bonnet * uShines);
@@ -5257,6 +5270,8 @@ final class PipelineShaders {
             uniform vec3 uFogViewer;
             uniform vec2 uFogSpan;
             uniform vec3 uFogColor;
+            // How narrow the character's view has become, 0 to 1: see Eyesight.narrowed.
+            uniform float uNarrowed;
             """ + SHELTERED + """
 
             const int RAY_SAMPLES = 48;
@@ -5526,6 +5541,11 @@ final class PipelineShaders {
                     c += flare(uv) * uLens.y;
                 }
                 c += texture2D(uBloom, uv).rgb * (uLens.x * (1.0 - uWithout.z));
+                if (uNarrowed > 0.0) {
+                    // A narrowed view: what is off to the side goes dark, from the corners in.
+                    float aside = length((uv - 0.5) * vec2(uAspect, 1.0) * 2.0);
+                    c *= 1.0 - 0.8 * uNarrowed * smoothstep(mix(1.3, 0.35, uNarrowed), mix(1.9, 1.0, uNarrowed), aside);
+                }
                 c = film(c * uExposure);
                 c = pow(c, vec3(1.0 / 2.2));
                 c = mix(c, c * c * (3.0 - 2.0 * c), uGrade.x);
@@ -5941,6 +5961,9 @@ final class PipelineShaders {
                 if (ends > 0.0) {
                     vec3 behind = mix(ridges(-view, air), atmosphere(vec3(-view.xy, 0.0)), 1.0 - smoothstep(-0.04, 0.0, -view.z));
                     color = mix(color, behind, ends);
+                }
+                if (uVeil.x > 0.0) {
+                    color = mix(color, veilColor(-view), max(veiling(away), ends * skyVeiling(-view)));
                 }
                 gl_FragColor = vec4(color, 1.0);
             }

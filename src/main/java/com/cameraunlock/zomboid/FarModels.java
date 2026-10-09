@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import org.joml.Vector3f;
+import zombie.GameTime;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.iso.IsoGridSquare;
@@ -121,6 +122,11 @@ public final class FarModels {
      * From a vehicle that is the side the vehicle faces: what is behind shows only in a mirror,
      * which takes in less than the game's own screen does. On foot it is all but what is
      * behind the view: see ROUND.
+     *
+     * Not past the game's own sight for the weather and the hour (GameTime.getViewDist), past
+     * which the game's IsoGameCharacter.TestIfSeen counts nobody seen and the game fades a zombie
+     * out: there it is left to the game, and off the game's screen it is not drawn at all. See
+     * Eyesight.shownWhole, which also leaves every zombie to the game where players can fight.
      */
     private boolean beforeTheEye(IsoMovingObject moving) {
         if (!withinSight(moving)) {
@@ -128,6 +134,9 @@ public final class FarModels {
         }
         IsoPlayer viewer = view.player();
         float toX = moving.getX() - viewer.getX(), toY = moving.getY() - viewer.getY();
+        if (!Eyesight.shownWhole(Online.contested(), Eyesight.on(), toX * toX + toY * toY, GameTime.getInstance().getViewDist())) {
+            return false;
+        }
         BaseVehicle ride = viewer.getVehicle();
         if (ride != null) {
             ride.getForwardVector(ahead);

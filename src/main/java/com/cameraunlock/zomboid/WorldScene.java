@@ -2277,6 +2277,7 @@ final class WorldScene {
             viewer = player;
             float daylight = GameTime.getInstance().getAmbient();
             sky.capture();
+            sky.sight(player);
             if (unseenRed < 0f) {
                 unseenRed = unseenGreen = unseenBlue = daylight;
                 floorRed = floorGreen = floorBlue = daylight;

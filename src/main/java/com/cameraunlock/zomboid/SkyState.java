@@ -2,7 +2,11 @@ package com.cameraunlock.zomboid;
 
 import java.util.Locale;
 import zombie.GameTime;
+import zombie.characters.CharacterStat;
+import zombie.characters.IsoPlayer;
+import zombie.characters.Stats;
 import zombie.iso.weather.ClimateManager;
+import zombie.scripting.objects.MoodleType;
 
 /**
  * What the sky looks like at one moment of the game's day and weather: where
@@ -81,6 +85,10 @@ final class SkyState {
     float wet;
     /** How far out of doors the eye is, 0 in a room to 1 in the open. Set by the scene, and by the rigs that draw a scene of their own. */
     float outdoors;
+    /** How much light a tile of air takes out of a line of sight: see Eyesight. 0 while the development switch takes it out. */
+    float thick;
+    /** How narrow the character's view has become, 0 to 1: see Eyesight.narrowed. */
+    float narrowed;
 
     private static float driftedX, driftedY;
     private static final Wind wind = new Wind();
@@ -90,7 +98,8 @@ final class SkyState {
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f", sunUp, night, cover, mist, windX, windY, rain, wet);
+        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f",
+                sunUp, night, cover, mist, windX, windY, rain, wet, fog, snow, thick, narrowed);
     }
 
     void capture() {
@@ -221,6 +230,28 @@ final class SkyState {
             windY = 0f;
             seconds = 0f;
         }
+    }
+
+    /** What the character's eyes make of the air and of what they look at, from the climate this captured and the viewer. */
+    void sight(IsoPlayer viewer) {
+        if (!Eyesight.on()) {
+            thick = narrowed = 0f;
+            return;
+        }
+        thick = Eyesight.thickness(fog, rain, snow);
+        Stats stats = viewer.getStats();
+        float intoxication = stats.get(CharacterStat.INTOXICATION);
+        narrowed = seen(Eyesight.narrowed(viewer.getVehicle() != null, stats.get(CharacterStat.FATIGUE), stats.isAtMaximum(CharacterStat.FATIGUE),
+                viewer.getMoodles().getMoodleLevel(MoodleType.DRUNK), intoxication, viewer.getMoodles().getMoodleLevel(MoodleType.PANIC),
+                viewer.getWornItemsVisionMultiplier()));
+    }
+
+    /** Under this a narrowing is too slight to see, and is not drawn. */
+    private static final float SLIGHTEST = 0.02f;
+
+    private static float seen(float amount) {
+        float clamped = Math.clamp(amount, 0f, 1f);
+        return clamped < SLIGHTEST ? 0f : clamped;
     }
 
     private static float mix(float from, float to, float amount) {
