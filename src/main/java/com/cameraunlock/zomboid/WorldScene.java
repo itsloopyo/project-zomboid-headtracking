@@ -1490,7 +1490,8 @@ final class WorldScene {
             return CARPET;
         }
         // Another mod's sheet may take the name with something other than a number after it: that is no sprite of this sheet.
-        if (isFloor && name.startsWith(TILES_AND_WOOD) && name.length() > TILES_AND_WOOD.length() && name.chars().skip(TILES_AND_WOOD.length()).allMatch(Character::isDigit)) {
+        if (isFloor && name.startsWith(TILES_AND_WOOD) && name.length() > TILES_AND_WOOD.length() && name.length() - TILES_AND_WOOD.length() <= 9
+                && name.chars().skip(TILES_AND_WOOD.length()).allMatch(Character::isDigit)) {
             return Integer.parseInt(name, TILES_AND_WOOD.length(), name.length(), 10) < FIRST_WOOD ? TILE : WOOD;
         }
         if (isFloor && name.contains("tile") && !name.contains("wood")) {

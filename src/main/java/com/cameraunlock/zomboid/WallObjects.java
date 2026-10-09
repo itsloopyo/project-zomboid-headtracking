@@ -62,8 +62,9 @@ final class WallObjects {
             return new Furniture(sprite, "deer_trophy", turns).stand(0f, 0f, true).raise(TROPHY_FOOT);
         }
         // The game gives the height of a cell's seat as where things put on it rest, and of a bunk as its surface.
-        if (called.equals("Seat") && group.equals("Hanging") && single && properties.get("ItemHeight") != null) {
-            float top = Integer.parseInt(properties.get("ItemHeight")) / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
+        // ItemHeight is a mod's to write, and the game's own reading of it leaves anything but 0 to 127 at 0.
+        if (called.equals("Seat") && group.equals("Hanging") && single && properties.getItemHeight() > 0) {
+            float top = properties.getItemHeight() / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
             Furniture seat = new Furniture(sprite, "cell_seat", turns).stand(0f, 0f, true);
             return seat.raise(top - seat.model.height() * seat.scaleUp);
         }

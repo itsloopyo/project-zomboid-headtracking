@@ -88,7 +88,9 @@ final class Towers {
         return (x, y, z, sprite) -> {
             IsoGridSquare square = cell.getGridSquare(x, y, z);
             if (square == null) {
-                return null;
+                // Above the ground the map has no square where there is only air, so a missing
+                // square is one not loaded only where the ground under it is missing too.
+                return z != 0 && cell.getGridSquare(x, y, 0) != null ? Boolean.FALSE : null;
             }
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {

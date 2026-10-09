@@ -21,6 +21,7 @@ final class WallObjectTests {
         Checks.run("whatStandsOnTheFloorInFrontOfAWallIsNotLaidOnIt", WallObjectTests::whatStandsOnTheFloorInFrontOfAWallIsNotLaidOnIt);
         Checks.run("whatStandsOutFromItsWallIsAModelWithItsBackToIt", WallObjectTests::whatStandsOutFromItsWallIsAModelWithItsBackToIt);
         Checks.run("aCellsSeatAndBunkAreAsHighAsTheGameSays", WallObjectTests::aCellsSeatAndBunkAreAsHighAsTheGameSays);
+        Checks.run("aSeatWhoseHeightTheGameCannotReadIsLeftToTheGame", WallObjectTests::aSeatWhoseHeightTheGameCannotReadIsLeftToTheGame);
         Checks.run("aChalkboardSeenFromBehindIsABoardAndOneSeenFromInFrontLiesFlat", WallObjectTests::aChalkboardSeenFromBehindIsABoardAndOneSeenFromInFrontLiesFlat);
         Checks.run("aShowerOnTheWallsSeenFromBehindIsTheShowersModel", WallObjectTests::aShowerOnTheWallsSeenFromBehindIsTheShowersModel);
     }
@@ -124,6 +125,13 @@ final class WallObjectTests {
         if (trophy != null && trophy.model != null) {
             float top = trophy.raised + trophy.model.height() * trophy.scaleUp;
             check(trophy.raised > 1.2f && top < ViewCamera.LEVEL_HEIGHT, "the head hangs over a standing head and under the ceiling: " + trophy.raised + " to " + top);
+        }
+    }
+
+    private static void aSeatWhoseHeightTheGameCannotReadIsLeftToTheGame() {
+        for (String height : new String[] {"29.5", " 29", "", "200", "-3", "99999999999"}) {
+            Furniture seat = Furniture.known(sprite("mod_cells_01_" + height.length() + SEAT.substring(SEAT.indexOf('|')).replace("ItemHeight|29|", "ItemHeight|" + height + "|")));
+            check(model(seat).equals("nothing"), "a seat a mod gives the height '" + height + "' has no model: " + model(seat));
         }
     }
 

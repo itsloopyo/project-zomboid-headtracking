@@ -383,6 +383,9 @@ final class BuildingTests {
         check(WallSides.sheetmate("walls_exterior_house_01_9", 1).equals("walls_exterior_house_01_10"), "a place is a number, not a digit");
         check(WallSides.sheetmate("carpentry_wall", -1).equals("carpentry_wall"), "a sprite not named for a place has no sheetmate");
         check(WallSides.sheetmate("odd_", 1).equals("odd_"), "nor has a name that ends at its last underscore");
+        check(WallSides.sheetmate("mod_walls_99999999999", 1).equals("mod_walls_99999999999"), "nor one whose number runs past what an int holds");
+        check(WorldScene.materialOf("floors_interior_tilesandwood_01_99999999999", true) == WorldScene.materialOf("floors_interior_tilesandwood_01_x", true),
+                "a floor of a mod's whose number runs past what an int holds is no sprite of the tiles and wood sheet");
     }
 
     private static RoofFit.Tile tile(List<RoofFit.Tile> roof, int x, int y, int z, int axis, boolean sure, float low, float high) {

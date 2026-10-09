@@ -30,6 +30,16 @@ public final class PropertyContainer {
         return surface == null ? 0 : Integer.parseInt(surface);
     }
 
+    /** As the game reads ItemHeight: a whole number from 0 to 127, and 0 for anything else. */
+    public int getItemHeight() {
+        try {
+            int height = Integer.parseInt(all.getOrDefault("ItemHeight", ""));
+            return height >= 0 && height <= 127 ? height : 0;
+        } catch (NumberFormatException notAWholeNumber) {
+            return 0;
+        }
+    }
+
     public boolean isTable() {
         return all.containsKey("IsTable");
     }

@@ -115,7 +115,8 @@ final class WallSides {
      */
     static String sheetmate(String name, int on) {
         int cut = name.lastIndexOf('_') + 1;
-        if (cut == name.length()) {
+        // Nine digits at most: a mod's name may run on past what an int holds, and no sheet has so many places.
+        if (cut == name.length() || name.length() - cut > 9) {
             return name;
         }
         for (int i = cut; i < name.length(); i++) {
