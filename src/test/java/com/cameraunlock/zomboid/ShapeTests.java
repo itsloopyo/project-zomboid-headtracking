@@ -11,6 +11,7 @@ final class ShapeTests {
         Checks.run("copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow", ShapeTests::copingWithItsShadowUnderItIsTheSlabAndNotABoxAsDeepAsTheShadow);
         Checks.run("solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite", ShapeTests::solidPaintIsReadOffASheetOfAnotherSizeThanTheSprite);
         Checks.run("aCopingKeepsTheSlantOfItsSpriteAlongEveryEdgeSoItsLengthsMeet", ShapeTests::aCopingKeepsTheSlantOfItsSpriteAlongEveryEdgeSoItsLengthsMeet);
+        Checks.run("aWallOverlayPaintedLowInItsFrameKeepsItsCoursesLevelAlongTheWall", ShapeTests::aWallOverlayPaintedLowInItsFrameKeepsItsCoursesLevelAlongTheWall);
         Checks.run("slabOverAShopFrontIsABeamAlongItsWall", ShapeTests::slabOverAShopFrontIsABeamAlongItsWall);
         Checks.run("sillAlongANorthWallIsABeamAtItsFloor", ShapeTests::sillAlongANorthWallIsABeamAtItsFloor);
         Checks.run("billboardSheetIsAPanelOnItsLine", ShapeTests::billboardSheetIsAPanelOnItsLine);
@@ -380,6 +381,7 @@ final class ShapeTests {
         check(body.kind == SpriteShape.BEAM && !body.alongX, "the coping's solid paint is a beam along its wall");
         check(body.h1 - body.h0 < 0.04f && Math.abs(body.h1 - 0.34f) < 0.02f, "it is the slab at the top of the wall, from " + body.h0 + " to " + body.h1);
         check(Math.abs(body.a0 - 0.06f) < 0.03f && Math.abs(body.a1 - 0.25f) < 0.03f && body.b0 < 0.05f && body.b1 > 0.95f, "and lies where the slab is painted");
+        check(body.b0 == 0f && body.b1 == 1f, "from one edge of its square to the other exactly, so its lengths meet with no slit between them: " + body.b0 + " to " + body.b1);
         check(Math.round(frame.left) == left && Math.round(frame.height) == down, "the frame is left as it was given");
         check(SpriteShape.withoutShadow(outline, Solids.outline(new boolean[across * down], left, top, across, down), frame) == outline,
                 "a sprite with no solid paint keeps the reading of its outline");
@@ -430,6 +432,43 @@ final class ShapeTests {
             }
         }
         check(edges >= 8, "the test found the coping's level edges: " + edges);
+    }
+
+    private static void aWallOverlayPaintedLowInItsFrameKeepsItsCoursesLevelAlongTheWall() {
+        // The brick laid over a parapet, as walls_commercial_02_16 is trimmed (from column 2), and one trimmed short of the wall's end as well (column 6).
+        overlayKeepsItsCourses(2f);
+        overlayKeepsItsCourses(6f);
+    }
+
+    /** A wall overlay with paint only in the lowest third of a level, on a west wall, its frame from the given column. */
+    private static void overlayKeepsItsCourses(float left) {
+        SpriteGeometry.Frame frame = frame();
+        frame.left = left;
+        frame.top = 134f;
+        frame.width = 66f - left;
+        frame.height = 92f;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        check(new SpriteGeometry().addFace(mesh, frame, 0, 0, 0, 0.04f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f) > 0, "the overlay covers part of the wall");
+        // Along the wall a course runs up the sprite half a row for each pixel across: with that taken out, one height is one row.
+        float[] f = mesh.vertices;
+        float lowUp = Float.MAX_VALUE, highUp = -Float.MAX_VALUE, lowRow = 0f, highRow = 0f;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float row = frame.top + f[at + 4] * frame.height + 0.5f * (frame.left + f[at + 3] * frame.width);
+            if (f[at + 2] < lowUp) {
+                lowUp = f[at + 2];
+                lowRow = row;
+            }
+            if (f[at + 2] > highUp) {
+                highUp = f[at + 2];
+                highRow = row;
+            }
+        }
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float row = frame.top + f[at + 4] * frame.height + 0.5f * (frame.left + f[at + 3] * frame.width);
+            float line = lowRow + (highRow - lowRow) * (f[at + 2] - lowUp) / (highUp - lowUp);
+            check(Math.abs(row - line) < 0.3f, "every corner of the overlay shows the course its height has, the same at either end of the wall, frame from column " + left + ": row "
+                    + row + " where " + line + ", at " + f[at + 1] + " along and " + f[at + 2] + " up");
+        }
     }
 
     private static void slabOverAShopFrontIsABeamAlongItsWall() {

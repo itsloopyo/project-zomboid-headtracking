@@ -514,6 +514,18 @@ final class SpriteGeometry {
         boolean straightUp = alongSlant != 0f && da2 == 0f && db2 == 0f;
         halfAcross = straightUp ? Math.abs(acrossU) / 2f : 0f;
         halfDown = straightUp ? Math.abs(corners[CORNER_FLOATS * 3 + CORNER_V] - corners[CORNER_V]) / 2f : 0f;
+        // A face that stands is drawn smaller onto itself before it is cut to its sprite, so the
+        // cut falls where its texels meet the sprite's edge. Cut first and drawn smaller after,
+        // a corner on the sprite's top row moved off it, and kept on the row it bent the face's
+        // texels: brick laid over the foot of a parapet stepped at every square.
+        float inset = EDGE_INSET_PIXELS * frame.scale;
+        // Only a face that shows its sprite, and one wide and tall enough for its insets: drawn
+        // in further, a strip over a window would turn inside out before its cut.
+        drawnInFirst = frame.flat == 0 && halfAcross > 0f && halfDown > 0f && 2f * inset + sealLow + sealHigh < 2f * halfAcross
+                && 2f * Math.min(inset, halfDown / 2f) + sealTop < 2f * halfDown;
+        for (int corner = 0; drawnInFirst && corner < 4; corner++) {
+            standIn(frame, corners, corner * CORNER_FLOATS);
+        }
 
         // A face the sprite does not cover adds nothing. One it does cover may find the sprite a
         // pixel or two short of its edge; cutting the face there would leave a slit between two
@@ -699,6 +711,7 @@ final class SpriteGeometry {
         halfAcross = 0f;
         halfDown = 0f;
         edgeU1 = edgeV1 = edgeU2 = edgeV2 = 0f;
+        drawnInFirst = false;
         int covered = clipToFrame(frame, 0f);
         if (covered < 3 || framePixels(result, covered) < MIN_FRAME_PIXELS) {
             return 0;
@@ -809,11 +822,14 @@ final class SpriteGeometry {
                 float value = corners[corner * CORNER_FLOATS + axis];
                 furthest = keepAbove ? Math.min(furthest, value) : Math.max(furthest, value);
             }
+            // A face drawn in before its cut is cut where its texels are kept inside the sprite's
+            // rows, so none of its corners is moved onto them afterwards: see addFace.
+            float kept = drawnInFirst ? HALF_PIXEL : 0f;
             float side = switch (edge) {
                 case 0 -> frame.left;
                 case 1 -> frame.left + frame.width;
-                case 2 -> frame.top;
-                default -> frame.top + frame.height;
+                case 2 -> frame.top + kept;
+                default -> frame.top + frame.height - kept;
             };
             float limit = axis == CORNER_U ? side + (keepAbove ? -slack : slack) : Math.abs(furthest - side) <= slack ? furthest : side;
             count = clip(from, count, to, axis, limit, keepAbove);
@@ -1465,6 +1481,34 @@ final class SpriteGeometry {
         return out;
     }
 
+    /** Whether the face being added stands and was drawn smaller onto itself before it was cut: see addFace. */
+    private boolean drawnInFirst;
+
+    /**
+     * Moves the texel of a point of a face that stands in towards the face's middle. The face
+     * is drawn smaller onto itself about its middle, so every point of it moves in by its
+     * share and not by the whole inset: a pipe that runs along a wall from one square's sprite
+     * to the next does not step where one sprite or the other ends.
+     */
+    private void standIn(Frame frame, float[] polygon, int at) {
+        float inset = EDGE_INSET_PIXELS * frame.scale;
+        float pixelU = polygon[at + CORNER_U], pixelV = polygon[at + CORNER_V];
+        float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
+        float fromCentre = pixelU - centreU;
+        // How far below the face's middle the point is, with the slant of its courses taken out.
+        float below = pixelV - centreV - fromCentre * alongSlant;
+        float movedAcross = -Math.clamp(fromCentre / halfAcross, -1f, 1f) * insetAcross;
+        // A face less than four insets tall, the side of a coping, is drawn no further onto
+        // itself than half its height: moved past its middle course, its two ends would take
+        // their texels from courses either side of it, and it would lean across its square.
+        float insetDown = Math.min(inset, halfDown / 2f) + (below < 0f ? sealTop : 0f);
+        // A wall's courses run across its sprite at a slant. Moved across alone, a corner of
+        // the face would take its texels from a course up or down, and the boards of one wall
+        // would step where it meets the next: the move follows the slant.
+        polygon[at + CORNER_U] = pixelU + movedAcross;
+        polygon[at + CORNER_V] = pixelV + movedAcross * alongSlant - Math.clamp(below / halfDown, -1f, 1f) * insetDown;
+    }
+
     private void emit(Mesh mesh, Frame frame, int tileX, int tileY, int tileZ, float[] polygon, int index) {
         int at = index * CORNER_FLOATS;
         float pixelU = polygon[at + CORNER_U];
@@ -1486,27 +1530,8 @@ final class SpriteGeometry {
         float inset = EDGE_INSET_PIXELS * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
         float sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
-        if (halfAcross > inset && halfDown > 0f) {
-            // A face that stands straight up is drawn smaller onto itself about its middle,
-            // so every point of it moves in by its share and not by the whole inset. A sprite
-            // that covers part of the face cuts it there, and the corners the cut makes are
-            // inside the face: moved the whole inset like the face's own corners, each sprite
-            // would be stretched by where it happens to be cut, and a pipe that runs along a
-            // wall from one square's sprite to the next would step at every square.
-            float fromCentre = pixelU - centreU;
-            // How far below the face's middle the point is, with the slant of its courses taken out.
-            float below = pixelV - centreV - fromCentre * alongSlant;
-            float movedAcross = -Math.clamp(fromCentre / halfAcross, -1f, 1f) * insetAcross;
-            // A face less than four insets tall, the side of a coping, is drawn no further onto
-            // itself than half its height: moved past its middle course, its two ends would take
-            // their texels from courses either side of it, and it would lean across its square.
-            float insetDown = Math.min(inset, halfDown / 2f) + (below < 0f ? sealTop : 0f);
-            pixelU += movedAcross;
-            // A wall's courses run across its sprite at a slant. Moved across alone, a corner
-            // of the face would take its texels from a course up or down, and the boards of
-            // one wall would step where it meets the next: the move follows the slant.
-            pixelV += movedAcross * alongSlant - Math.clamp(below / halfDown, -1f, 1f) * insetDown;
-        } else if (Math.abs(sheet) > 1e-3f) {
+        // A face that stands was drawn in before it was cut: see addFace.
+        if (!drawnInFirst && Math.abs(sheet) > 1e-3f) {
             // A face that lies or leans is drawn smaller onto itself along its own two edges, so
             // its edges keep the slant the sprite paints them at. Moved towards its middle by
             // the frame's rows and columns, a long narrow face, a coping's top, would take its
@@ -1521,7 +1546,7 @@ final class SpriteGeometry {
             float in1 = Math.min(deep, length1 / 4f) / length1, in2 = Math.min(deep, length2 / 4f) / length2;
             pixelU -= s * in1 * edgeU1 + t * in2 * edgeU2;
             pixelV -= s * in1 * edgeV1 + t * in2 * edgeV2;
-        } else {
+        } else if (!drawnInFirst) {
             float movedAcross = Math.clamp(centreU - pixelU, -insetAcross, insetAcross);
             pixelU += movedAcross;
             pixelV += movedAcross * alongSlant;
@@ -1534,7 +1559,12 @@ final class SpriteGeometry {
             pixelV += (keptU - pixelU) * alongSlant;
         }
         pixelU = keptU;
-        pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        // A face drawn in before its cut is on the sprite's rows already: kept inside its side
+        // above, a corner moves along its course, and pulled back onto the top row as well it
+        // would bend the face's texels again.
+        if (!drawnInFirst) {
+            pixelV = Math.clamp(pixelV, frame.top + HALF_PIXEL, frame.top + frame.height - HALF_PIXEL);
+        }
         float u = frame.uStart + (pixelU - frame.left) / frame.width * (frame.uEnd - frame.uStart);
         float v = frame.vStart + (pixelV - frame.top) / frame.height * (frame.vEnd - frame.vStart);
         emitAt(mesh, frame, tileX, tileY, tileZ, polygon, at, u, v);

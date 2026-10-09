@@ -50,6 +50,7 @@ final class SpriteShape {
 
     /** A beam's length, in tiles: about a square, so that it starts at the square's edge. */
     private static final float BEAM_SHORTEST = 0.85f, BEAM_LONGEST = 1.3f;
+    private static final float WHOLE_SQUARE = 0.05f;
     /** The most a beam is across, in tiles, and deep, in levels, and the least. */
     private static final float BEAM_WIDEST = 0.5f, BEAM_DEEPEST = 0.3f, BEAM_NARROWEST = 0.08f, BEAM_SHALLOWEST = 0.015f;
     /** A beam is at least this many times as long as it is across. */
@@ -303,7 +304,15 @@ final class SpriteShape {
         if (corners == 0 || inCorners > corners * BEAM_CORNER_PAINTED) {
             return null;
         }
-        // About a square long, it lies from one edge of its square to the other.
+        // About a square long, it lies from one edge of its square to the other. Read within a
+        // twentieth of a square of one, it is one: a coping read 0.996 long left a slit of sky
+        // between its lengths at every square.
+        if (Math.abs(da - 1f) < WHOLE_SQUARE && alongX) {
+            da = 1f;
+        }
+        if (Math.abs(db - 1f) < WHOLE_SQUARE && !alongX) {
+            db = 1f;
+        }
         float a0, b0;
         float right = (left + width - frame.originU) / across;
         if (alongX) {
