@@ -388,6 +388,15 @@ final class BufferTests {
         layers.lie(SpriteGeometry.LAYERS_UP, 1f);
         layers.none();
         check(!layers.lying(), "and the layers are put by when what lay on them is added");
+        layers.sheet(0f);
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        check(layers.lying() && wall.vertices[4 * floats + 12] == 0f && wall.vertices[4 * floats + 14] == SpriteGeometry.SHEET,
+                "a floor in its own plane is still marked a sheet, and is counted as laid until it is put by");
+        layers.sheet(-1f);
+        wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
+        check(wall.vertices[5 * floats + 12] == -1f && wall.vertices[5 * floats + 14] == SpriteGeometry.SHEET, "and a ceiling a layer under it too");
+        layers.none();
+        check(!layers.lying(), "and a sheet is put by as layers are");
     }
 
     private static void aSetListsWhatWasAskedForInTheOrderItWasAsked() {

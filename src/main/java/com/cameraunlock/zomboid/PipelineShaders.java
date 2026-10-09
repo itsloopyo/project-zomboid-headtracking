@@ -605,6 +605,14 @@ final class PipelineShaders {
             uniform float uCover;
             uniform vec2 uDrift;
             uniform float uSoftPerDepth;
+            // For sunAsked: how much height a texel of the near sun map and of the far one spans under a
+            // level sheet, which is a texel times the cosine of the sun's elevation; how many texels of its
+            // slope every map holds a surface behind itself; twice the depth of the map from above, in tiles;
+            // and how far the game's pitched roofs rise over a tile.
+            uniform vec2 uSunTexelUp;
+            uniform float uSlopeOffset;
+            uniform float uRoofDeep;
+            uniform float uRoofPitch;
             uniform vec3 uEye;
             uniform float uRangeFrom;
             uniform float uCutAbove;
@@ -725,6 +733,35 @@ final class PipelineShaders {
 
             bool inside(vec3 c) {
                 return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
+            }
+
+            // Where a point under something asks a sun map about itself. A map holds every surface behind
+            // where it is, by uSlopeOffset texels of the surface's slope in the map, and the lookup is
+            // answered by the texels round it, a texel more, and those its soft edge spreads over. A sheet
+            // lying almost along the light is far behind itself, so a point closer under it than those
+            // texels span reads as in front of it, and where nothing nearer the sun shades the point, as
+            // in the sun: the top of every wall of a room under one flat sheet. So a point with something
+            // over it in the map from above asks from no nearer under the highest thing there than the sun
+            // map can tell the two apart. In a room under a pitched roof the ceiling is the sheet, and the
+            // roof the map holds over a point 0.16 in from its wall has risen by as much over that: a point
+            // in a room asks from that much lower again, by under. Out of doors that would take in what
+            // stands in front of a wall, a bin or a table, as far down. A point with nothing over it, the
+            // foot of a wall on the ground or a roof, which that map holds at or a little under itself, is
+            // asked where it is, and so is one past that map's reach.
+            vec3 sunAsked(vec3 from, float texels, float texelUp, float under) {
+                vec3 c = (uRoofMatrix * vec4(from, 1.0)).xyz * 0.5 + 0.5;
+                if (c.x <= 0.0 || c.x >= 1.0 || c.y <= 0.0 || c.y >= 1.0) {
+                    return from;
+                }
+                float over = texture2D(uHeights, c.xy).r;
+                if (over >= 1.0) {
+                    return from;
+                }
+                float top = from.z + (c.z - over) * uRoofDeep;
+                if (top <= vWorld.z + 0.001) {
+                    return from;
+                }
+                return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));
             }
 
             const float RELIEF = 0.05;
@@ -2773,8 +2810,17 @@ final class PipelineShaders {
                     // A sprig on the side of its crown the sun is on asks further off still, clear of
                     // the crown it is the outside of: its shade is other trees', not its own.
                     vec4 from = vec4(vWorld + n * 0.16 + (card ? uLight * (0.9 + (crown ? CROWN_CLEAR * max(dot(n, uLight), 0.0) : 0.0)) : vec3(0.0)), 1.0);
+                    // Everything in a room, both skins of a wall, and a wall under an eave or an awning. Out
+                    // of doors a face turned up, the ground under a bush, would lose the offset that keeps it
+                    // from shading itself, and a card stands in a crown whose top is over it: each is asked as
+                    // it stands. Which way a face is turned is the face's own, not as relief has bent it pixel
+                    // by pixel. Seen from overhead a building the game has opened has no roof in the maps, and
+                    // its walls are asked as they stand too.
+                    bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;
+                    float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
-                    if (inside(c)) {
+                    bool inNear = inside(c);
+                    if (inNear) {
                         // A shadow is sharp where the thing that casts it touches the ground and
                         // soft far from it: the foot of a post against the top of its shadow. How
                         // far off the caster is, is found by looking round in the map for what is
@@ -2790,8 +2836,19 @@ final class PipelineShaders {
                             }
                         }
                         float soft = casters > 0.0 ? clamp((c.z - nearer / casters) * uSoftPerDepth, 1.2, 14.0) : 1.2;
-                        reached = shadowAt(uShadowNear, c, soft);
-                    } else {
+                        if (roofed) {
+                            c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5;
+                            // Lowered out past the near map's edge, it is asked of the far map.
+                            inNear = inside(c);
+                        }
+                        if (inNear) {
+                            reached = shadowAt(uShadowNear, c, soft);
+                        }
+                    }
+                    if (!inNear) {
+                        if (roofed) {
+                            from.xyz = sunAsked(from.xyz, 1.6, uSunTexelUp.y, beneath);
+                        }
                         c = (uFarMatrix * from).xyz * 0.5 + 0.5;
                         reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0;
                     }
@@ -3136,6 +3193,7 @@ final class PipelineShaders {
             varying vec2 vUv;
             uniform vec3 uWind;
             varying float vLeaves;
+            varying float vSolid;
             varying vec3 vAt;
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
@@ -3147,6 +3205,7 @@ final class PipelineShaders {
                     vec3 on = over(gl_Vertex.xyz);
                     vUv = vec2(0.0);
                     vLeaves = 0.0;
+                    vSolid = 1.0;
                     vAt = vec3(uPlace.xy + on.xy, on.z);
                     gl_Position = uMatrix * vec4(vAt, 1.0);
                     return;
@@ -3154,6 +3213,8 @@ final class PipelineShaders {
                 vUv = gl_MultiTexCoord0.xy;
                 float material = floor((gl_Color.a + 0.5) / 32.0);
                 vLeaves = material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 || material > 79.5 && material < 80.5 ? 1.0 : 0.0;
+                // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
+                vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
                 if (material > 71.5 && material < 79.5 || material > 80.5 && material < 81.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -3197,10 +3258,11 @@ final class PipelineShaders {
             uniform sampler2D uTexture;
             varying vec2 vUv;
             varying float vLeaves;
+            varying float vSolid;
             varying vec3 vAt;
             uniform vec3 uSunWay;
             void main() {
-                if (texture2D(uTexture, vUv).a < 0.5) {
+                if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) {
                     discard;
                 }
                 // A crown is not a lid. The sun comes through the gaps between its boughs in

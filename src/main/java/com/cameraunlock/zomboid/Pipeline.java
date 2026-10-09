@@ -57,6 +57,11 @@ final class Pipeline {
     private int shadowSize;
     /** Half the width of the ground each shadow map covers, in tiles, and how far along the light it reaches. */
     private static final float NEAR_EXTENT = 24f, FAR_EXTENT = 96f;
+    /**
+     * How far behind itself every shadow map holds a surface, in texels of the surface's slope in the map: see
+     * drawShadows, and sunAsked in the world's program.
+     */
+    private static final float SLOPE_OFFSET = 2.5f;
     private static final float NEAR_RANGE = 120f, FAR_RANGE = 220f;
     private static final int BLOOM_LEVELS = 5;
     private static final int NOISE_SIZE = 64;
@@ -1422,7 +1427,7 @@ final class Pipeline {
         // A surface would otherwise shade itself where the map's depth is a hair nearer the
         // light than the surface it was drawn from.
         GL11.glEnable(GL_POLYGON_OFFSET_FILL);
-        GL11.glPolygonOffset(2.5f, 6f);
+        GL11.glPolygonOffset(SLOPE_OFFSET, 6f);
         GL11.glViewport(0, 0, shadowSize, shadowSize);
         shadow.use();
         shadow.set("uTexture", 0);
@@ -2202,6 +2207,13 @@ final class Pipeline {
         to.set("uDrift", state.driftX, state.driftY);
         // Texels of soft edge for each unit of the map's depth between caster and ground.
         to.set("uSoftPerDepth", 2f * NEAR_RANGE * SUN_WIDTH * shadowSize / (2f * NEAR_EXTENT));
+        // A texel of a sun map is 2 * extent / size tiles across, and under a level sheet spans that times the
+        // cosine of the sun's elevation in height.
+        float across = (float) Math.hypot(state.lightX, state.lightY);
+        to.set("uSunTexelUp", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across);
+        to.set("uSlopeOffset", SLOPE_OFFSET);
+        to.set("uRoofDeep", 2f * ROOF_RANGE);
+        to.set("uRoofPitch", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);
         to.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         // How much of its distance from the eye a pixel of this picture takes in, up and down.
         to.set("uPixel", 2f * tanHalfFieldOfView / drawnHigh());

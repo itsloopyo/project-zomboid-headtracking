@@ -25,7 +25,9 @@ final class SpriteGeometry {
      * moves with the wind, then three the picture places the vertex by as it draws. The last
      * says what the two before it are: 0 nothing, FACES for a card that turns to the camera,
      * CLEARS for one that stands clear of its plane, LAYERS_X, LAYERS_Y or LAYERS_UP for a
-     * face that lies some layers off its plane along that axis. The first of the three is how
+     * face that lies some layers off its plane along that axis, and SHEET for a floor or a
+     * ceiling, which lies up as LAYERS_UP does and is whole in the shadow maps where its sprite
+     * has clear pixels: a roof of one sheet lets no sun through them. The first of the three is how
      * far along its card a vertex of FACES is, in tiles, how many layers of cards one of
      * CLEARS stands clear by, and how many layers one of LAYERS lies off. The second is how
      * many layers of cards the vertex stands towards the camera. How far a layer is, the
@@ -33,7 +35,7 @@ final class SpriteGeometry {
      * addStrip carries other things in the vector's place.
      */
     static final int VERTEX_FLOATS = 15;
-    static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f;
+    static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f;
 
     /**
      * How many layers off its plane everything added next lies, in every mesh that shares
@@ -50,12 +52,17 @@ final class SpriteGeometry {
             this.count = count;
         }
 
+        void sheet(float count) {
+            this.way = SHEET;
+            this.count = count;
+        }
+
         void none() {
             way = count = 0f;
         }
 
         boolean lying() {
-            return count != 0f;
+            return way != 0f || count != 0f;
         }
     }
     /** Added to a vertex's openness to mark it as part of an upright card, which is lit from every side. */

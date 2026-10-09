@@ -74,6 +74,7 @@ final class ShaderTests {
             throw new AssertionError("the world depth program is not the world's program told to draw depth alone");
         }
         wiresAreOutOfTheMapFromAbove(programs);
+        wallsAskTheSunFromUnderTheirRoof(programs);
         whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs);
         try {
             if (Files.exists(OUT)) {
@@ -230,6 +231,74 @@ final class ShaderTests {
         int back = pipeline.indexOf("} finally { shadow.set(\"uFromAbove\", 0f); } }", set), next = pipeline.indexOf(" private ", roof + 1);
         if (roof < 0 || set < roof || back < set || back > next || count(pipeline, "\"uFromAbove\", 1f") != 1) {
             throw new AssertionError("uFromAbove is not set for the map from above alone, and set back whatever the draw does");
+        }
+    }
+
+    /**
+     * A sun map holds a level sheet behind itself by Pipeline.SLOPE_OFFSET texels of its slope, so the top of a wall
+     * under a roof of one sheet reads as in front of the sheet. Reads the sources: both lookups of the world's fragment
+     * stage into a sun map are made, for what is roofed, from where sunAsked puts the point; sunAsked lowers a point
+     * only where something is over it, by the offset, a texel and the lookup's own spread; a point lowered out of the
+     * near map is asked of the far one; the program is told the offset the maps are drawn with; and the shadow maps
+     * keep a sheet's clear pixels and no other face's.
+     */
+    private static void wallsAskTheSunFromUnderTheirRoof(List<Linked> programs) {
+        String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        if (!world.contains("bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;")) {
+            throw new AssertionError("the world's fragment stage does not say what is roofed before it asks the sun maps");
+        }
+        if (!world.contains("float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;")) {
+            throw new AssertionError("a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
+        }
+        if (!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
+                + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); } }")
+                || !world.contains("if (!inNear) { if (roofed) { from.xyz = sunAsked(from.xyz, 1.6, uSunTexelUp.y, beneath); }"
+                        + " c = (uFarMatrix * from).xyz * 0.5 + 0.5; reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0; }")
+                || count(world, "shadowAt(uShadow") != 2) {
+            throw new AssertionError("the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof");
+        }
+        if (!world.contains("float top = from.z + (c.z - over) * uRoofDeep; if (top <= vWorld.z + 0.001) { return from; } "
+                + "return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));")) {
+            throw new AssertionError("sunAsked does not lower a point under what is over it by the map's offset and the lookup's spread,"
+                    + " or lowers one with nothing over it");
+        }
+        String caster = fragment(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        if (!caster.contains("if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) { discard; }")) {
+            throw new AssertionError("the shadow maps let the sun through the clear pixels of a floor or a ceiling's sprite");
+        }
+        String casterVertex = vertex(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        if (!casterVertex.contains("vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;") || SpriteGeometry.SHEET != 6f
+                || SpriteGeometry.LAYERS_UP >= 5.5f) {
+            throw new AssertionError("the shadow maps keep the clear pixels of something that is not a sheet, or of no sheet");
+        }
+        if (!casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))")) {
+            throw new AssertionError("a sheet does not lie up as what lies in layers up does");
+        }
+        String scene;
+        try {
+            scene = Files.readString(SOURCE.resolve("WorldScene.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        if (count(scene, "layers.sheet(") != 3 || count(scene, "layers.sheet(-1f); ") != 2
+                || !scene.contains("private void layFloor(boolean floor) { if (floor && floorLayer == 0) { layers.sheet(floorLayer++); }"
+                        + " else { layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++); } }")
+                || !scene.contains("layFloor(isFloor && frame.kind == 0f);")) {
+            throw new AssertionError("the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
+        }
+        if (count(pipeline, "glPolygonOffset(") != 1 || !pipeline.contains("GL11.glPolygonOffset(SLOPE_OFFSET, 6f);")
+                || !pipeline.contains("float across = (float) Math.hypot(state.lightX, state.lightY); "
+                        + "to.set(\"uSunTexelUp\", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across); "
+                        + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);"
+                        + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")) {
+            throw new AssertionError("the world's program is not told the offset the sun maps are drawn with,"
+                    + " a texel of each map as the light lies, or the depth of the map from above");
         }
     }
 

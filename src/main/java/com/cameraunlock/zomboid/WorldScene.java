@@ -5744,7 +5744,7 @@ final class WorldScene {
                 }
                 frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
             }
-            layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+            layFloor(isFloor && frame.kind == 0f);
             if (paint != null) {
                 RoadPaint.lay(geometry, on, frame, paint, x, y, z);
             } else {
@@ -5757,6 +5757,18 @@ final class WorldScene {
             geometry.cover = null;
         }
         private final float[] tileTint = new float[4];
+
+        /**
+         * The next layer of a square's floor. The first of a floor, where floor is true, is a sheet that keeps the
+         * sun off whatever is under it; what is painted over it lies on it as layers.
+         */
+        private void layFloor(boolean floor) {
+            if (floor && floorLayer == 0) {
+                layers.sheet(floorLayer++);
+            } else {
+                layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+            }
+        }
 
         /**
          * A square of tiled floor, laid: a bed the colour of the joints, and on it each tile as a
@@ -5790,10 +5802,10 @@ final class WorldScene {
             if (count > 1) {
                 shade(red, green, blue, JOINT_DARK * tiles.jointRed / Math.max(tileTint[0], 0.02f), JOINT_DARK * tiles.jointGreen / Math.max(tileTint[1], 0.02f),
                         JOINT_DARK * tiles.jointBlue / Math.max(tileTint[2], 0.02f));
-                layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+                layFloor(true);
                 geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             }
-            layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+            layFloor(true);
             for (int i = 0; i < count; i++) {
                 for (int j = 0; j < count; j++) {
                     int at = (i * count + j) * 3;
@@ -5826,7 +5838,7 @@ final class WorldScene {
             System.arraycopy(frame.cornerBlue, 0, paperBlue, 0, 4);
             frame.material = boardsOf(boards.count(), boards.alongY());
             shade(red, green, blue, boards.red() / Math.max(tileTint[0], 0.02f), boards.green() / Math.max(tileTint[1], 0.02f), boards.blue() / Math.max(tileTint[2], 0.02f));
-            layers.lie(SpriteGeometry.LAYERS_UP, floorLayer++);
+            layFloor(true);
             geometry.addFace(on, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             layers.none();
             frame.material = made;
@@ -6571,7 +6583,7 @@ final class WorldScene {
             plain.sway = 0f;
             plain.face(0f, 0f, -1f);
             float up = (z + 1) * ViewCamera.LEVEL_HEIGHT;
-            layers.lie(SpriteGeometry.LAYERS_UP, -1f);
+            layers.sheet(-1f);
             for (int corner : CEILING_CORNERS) {
                 plain.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), up + geometry.lift[corner], 0f, 0f,
                         frame.cornerRed[corner], frame.cornerGreen[corner], frame.cornerBlue[corner]);
@@ -7126,7 +7138,7 @@ final class WorldScene {
             frame.open = 0f;
             // The ceiling under a floor of water is a ceiling, not more water.
             frame.kind = 0f;
-            layers.lie(SpriteGeometry.LAYERS_UP, -1f);
+            layers.sheet(-1f);
             geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             layers.none();
             frame.kind = kind;
