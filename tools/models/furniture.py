@@ -4649,6 +4649,430 @@ def outdoors():
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 
+# What a works, a warehouse, a garage and a distillery have: belt conveyors and the machines a line of them runs
+# through, a fuel tank lying on saddles, a pipe down from the ceiling, crates, a rack of casks and the casks, a
+# workbench, a mechanic's tool chest, a security desk and gas bottles. Industry.java stands them.
+
+# How high the game says a conveyor's belt is: 34 pixels of its sprite.
+BELT_TOP = 34 / 96 * 2.44949
+
+
+def belt(model, half, y0, y1, top):
+    """A belt between two steel side rails, from y0 to y1 along the model, its top a hair under the rails' at top."""
+    band = bmesh.new()
+    cuboid(band, -half + 0.03, half - 0.03, y0, y1, top - 0.06, top - 0.012)
+    model.plain(band, "rubber")
+    rails = bmesh.new()
+    for side in (-1, 1):
+        x0, x1 = sorted((side * (half - 0.03), side * half))
+        cuboid(rails, x0, x1, y0, y1, top - 0.11, top)
+    model.hard(rails, "steel", bevel=0.004, segments=1)
+
+
+def conveyor():
+    """A square's length of belt conveyor, to meet the next: the belt on its rails and a pair of legs at its back end with a
+    bar between them."""
+    model = Model("conveyor")
+    half = 0.4
+    belt(model, half, -0.5, 0.5, BELT_TOP)
+    legs, feet = bmesh.new(), bmesh.new()
+    y = 0.42
+    for side in (-1, 1):
+        x = side * (half - 0.035)
+        cuboid(legs, x - 0.022, x + 0.022, y - 0.022, y + 0.022, 0.03, BELT_TOP - 0.11)
+        cuboid(feet, x - 0.03, x + 0.03, y - 0.03, y + 0.03, 0.0, 0.03)
+    cuboid(legs, -half + 0.035, half - 0.035, y - 0.015, y + 0.015, 0.16, 0.2)
+    model.hard(legs, "steel", bevel=0.004, segments=1)
+    model.plain(feet, "rubber")
+    return model
+
+
+def conveyor_boxed():
+    """A square's length of belt conveyor on a closed steel cabinet, with a louvred panel in each side."""
+    model = Model("conveyor_boxed")
+    half = 0.42
+    belt(model, half, -0.5, 0.5, BELT_TOP)
+    case = bmesh.new()
+    cuboid(case, -half + 0.02, half - 0.02, -0.47, 0.47, 0.04, BELT_TOP - 0.11)
+    model.hard(case, "steel", bevel=0.008, segments=2)
+    dark = bmesh.new()
+    cuboid(dark, -half + 0.05, half - 0.05, -0.44, 0.44, 0.0, 0.04)
+    for side in (-1, 1):
+        for slat in range(6):
+            z = 0.22 + slat * 0.06
+            x0, x1 = sorted((side * (half - 0.02), side * (half - 0.017)))
+            cuboid(dark, x0, x1, -0.25, 0.25, z, z + 0.022)
+    model.plain(dark, "rubber")
+    return model
+
+
+# A machine's case on a production line: half its width, its height, and the opening a belt runs through.
+MACHINE_CASE_HALF, CASE_HIGH, HOLE_HALF, HOLE_LOW, HOLE_HIGH = 0.45, 1.55, 0.27, 0.7, 1.1
+
+
+def case_top(model, x0, x1, y0, y1, high):
+    """The steel lid on a machine's case, its ribs round the upper part and the dark plinth it stands on."""
+    lid = bmesh.new()
+    cuboid(lid, x0 + 0.01, x1 - 0.01, y0 + 0.01, y1 - 0.01, high - 0.04, high)
+    model.hard(lid, "metal", bevel=0.008, segments=2)
+    ribs = bmesh.new()
+    for z in (high - 0.38, high - 0.28, high - 0.18):
+        cuboid(ribs, x0 - 0.012, x1 + 0.012, y0 - 0.012, y1 + 0.012, z, z + 0.05)
+    model.hard(ribs, "paint", bevel=0.01, segments=2)
+    plinth = bmesh.new()
+    cuboid(plinth, x0 + 0.03, x1 - 0.03, y0 + 0.03, y1 - 0.03, 0.0, 0.04)
+    model.plain(plinth, "plastic")
+
+
+def machine_case():
+    """A machine's tall painted case with a square opening through it front to back, and the belt that runs through it."""
+    model = Model("machine_case")
+    w = MACHINE_CASE_HALF
+    body = bmesh.new()
+    cuboid(body, -w, w, -w, w, 0.04, HOLE_LOW)
+    cuboid(body, -w, w, -w, w, HOLE_HIGH, CASE_HIGH - 0.04)
+    cuboid(body, -w, -HOLE_HALF, -w, w, HOLE_LOW, HOLE_HIGH)
+    cuboid(body, HOLE_HALF, w, -w, w, HOLE_LOW, HOLE_HIGH)
+    model.hard(body, "paint", bevel=0.01, segments=2)
+    case_top(model, -w, w, -w, w, CASE_HIGH)
+    belt(model, HOLE_HALF - 0.02, -0.5, 0.5, BELT_TOP)
+    return model
+
+
+def machine_shell():
+    """The closed back half of a machine two squares long, a tall painted case that reaches the front of its square, where
+    the other half of the machine stands. Its origin is the middle of its square."""
+    model = Model("machine_shell", centred=False)
+    w = MACHINE_CASE_HALF
+    body = bmesh.new()
+    cuboid(body, -w, w, -0.5, w, 0.04, CASE_HIGH - 0.04)
+    model.hard(body, "paint", bevel=0.01, segments=2)
+    case_top(model, -w, w, -0.5, w, CASE_HIGH)
+    return model
+
+
+def machine_outlet():
+    """The front half of that machine: the rest of its case at the back of the square, and the belt coming out of it to the
+    front under a glass hood, on a pair of legs. Its origin is the middle of its square."""
+    model = Model("machine_outlet", centred=False)
+    w = MACHINE_CASE_HALF
+    body = bmesh.new()
+    cuboid(body, -w, w, 0.0, 0.5, 0.04, CASE_HIGH - 0.04)
+    model.hard(body, "paint", bevel=0.01, segments=2)
+    case_top(model, -w, w, 0.0, 0.5, CASE_HIGH)
+    belt(model, 0.33, -0.5, 0.0, BELT_TOP)
+    hood = bmesh.new()
+    cuboid(hood, -0.32, 0.32, -0.36, 0.0, BELT_TOP, BELT_TOP + 0.34)
+    model.hard(hood, "pane", bevel=0.004, segments=1)
+    legs = bmesh.new()
+    for side in (-1, 1):
+        x = side * 0.3
+        cuboid(legs, x - 0.02, x + 0.02, -0.44, -0.4, 0.0, BELT_TOP - 0.11)
+    cuboid(legs, -0.3, 0.3, -0.435, -0.405, 0.16, 0.2)
+    model.hard(legs, "steel", bevel=0.004, segments=1)
+    return model
+
+
+def machine_column():
+    """A narrow painted cabinet, ribbed round its upper part, with a steel pipe standing up its front to a gauge."""
+    model = Model("machine_column")
+    x, y = 0.27, 0.33
+    body = bmesh.new()
+    cuboid(body, -x, x, -y, y, 0.04, 1.56)
+    model.hard(body, "paint", bevel=0.01, segments=2)
+    case_top(model, -x, x, -y, y, 1.6)
+    pipe = bmesh.new()
+    lathe(pipe, [(0.0, 0.0), (0.06, 0.0), (0.06, 1.2), (0.045, 1.24), (0.0, 1.24)], cx=0.1, cy=-y - 0.065, segments=14)
+    cuboid(pipe, 0.1 - 0.012, 0.1 + 0.012, -y - 0.065, -y, 0.95, 0.98)
+    model.turned(pipe, "steel", sharp=40.0)
+    gauge = bmesh.new()
+    cuboid(gauge, 0.03, 0.17, -y - 0.14, -y - 0.12, 0.98, 1.12)
+    model.hard(gauge, "plastic", bevel=0.004, segments=1)
+    return model
+
+
+def machine_drum():
+    """A mixer: a steel drum lying along x between two painted cheeks on a low painted base, a rusty pipe up from the base
+    into its front."""
+    model = Model("machine_drum")
+    base = bmesh.new()
+    cuboid(base, -0.47, 0.47, -0.47, 0.47, 0.0, 0.28)
+    for side in (-1, 1):
+        x0, x1 = sorted((side * 0.42, side * 0.47))
+        outline_along_x(base, [(-0.42, 0.28), (0.42, 0.28), (0.24, 0.98), (-0.24, 0.98)], x0, x1)
+    model.hard(base, "paint", bevel=0.008, segments=2)
+    drum = bmesh.new()
+    lathe(drum, [(0.0, -0.42), (0.25, -0.42), (0.29, -0.38), (0.29, 0.38), (0.25, 0.42), (0.0, 0.42)], segments=24, to=along_x(0.0, 0.0, 0.66))
+    model.turned(drum, "steel", sharp=40.0)
+    pipe = bmesh.new()
+    lathe(pipe, [(0.0, 0.28), (0.035, 0.28), (0.035, 0.6), (0.0, 0.6)], cx=0.12, cy=-0.3, segments=12)
+    model.turned(pipe, "vinyl", sharp=40.0)
+    return model
+
+
+# A fuel tank lying on its side on two saddles: its radius and how high its axis is.
+TANK_RADIUS, TANK_AXIS = 0.95, 1.15
+
+
+def half_tank(bm, stations):
+    """The +Y half of a tank lying along x, as rings at (x, radius), closed at both ends: the half the game paints on one
+    row of the squares it lies on. Its cut face is on the axis, where the other row's half meets it."""
+    rings = []
+    for x, radius in stations:
+        rings.append([bm.verts.new((x, radius * math.cos(math.radians(a)), TANK_AXIS + radius * math.sin(math.radians(a))))
+                      for a in range(-90, 91, 12)])
+    for a, b in zip(rings, rings[1:]):
+        count = len(a)
+        for i in range(count):
+            j = (i + 1) % count
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+    bm.faces.new(rings[0][::-1])
+    bm.faces.new(rings[-1])
+
+
+def tank_length():
+    """A square's length of the tank's half, open to the next: its origin is on the axis, at the middle of the square's
+    length."""
+    model = Model("tank_length", centred=False)
+    shell = bmesh.new()
+    half_tank(shell, [(-0.5, TANK_RADIUS), (0.5, TANK_RADIUS)])
+    model.turned(shell, "paint", sharp=20.0)
+    return model
+
+
+def tank_end(name, way):
+    """The end square of the tank's half: its length ends in a dished head, to +X for way 1 and to -X for way -1, and a
+    concrete saddle stands under it."""
+    model = Model(name, centred=False)
+    shell = bmesh.new()
+    stations = [(-0.5, TANK_RADIUS), (0.18, TANK_RADIUS), (0.24, TANK_RADIUS * 0.97), (0.29, TANK_RADIUS * 0.88), (0.32, TANK_RADIUS * 0.7),
+                (0.335, TANK_RADIUS * 0.4), (0.34, 0.02)]
+    half_tank(shell, [(x * way, radius) for x, radius in stations][::way])
+    model.turned(shell, "paint", sharp=20.0)
+    saddle = bmesh.new()
+    x0, x1 = sorted((-0.2 * way, 0.02 * way))
+    cuboid(saddle, x0, x1, 0.0, 0.72, 0.0, 0.62)
+    model.hard(saddle, "metal", bevel=0.01, segments=2)
+    return model
+
+
+def downpipe():
+    """A pipe down from the ceiling through the middle of its square, that turns at the floor and runs out to the front.
+    Its origin is the foot of the upright."""
+    model = Model("downpipe", centred=False)
+    radius, low, bend, top = 0.065, 0.075, 0.12, 2.44949
+    pipe = bmesh.new()
+    lathe(pipe, [(radius, low + bend), (radius, top)], segments=14, caps=False)
+    lathe(pipe, [(radius, bend), (radius, 0.42)], segments=14, caps=False, to=along_y(0.0, 0.0, low))
+    rings = []
+    for i in range(7):
+        angle = math.radians(90 * i / 6)
+        centre = Vector((0.0, -bend + bend * math.cos(angle), low + bend - bend * math.sin(angle)))
+        out = Vector((0.0, math.cos(angle), -math.sin(angle)))
+        rings.append([pipe.verts.new(centre + (Vector((1.0, 0.0, 0.0)) * math.cos(2 * math.pi * k / 14) + out * math.sin(2 * math.pi * k / 14)) * radius)
+                      for k in range(14)])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(14):
+            pipe.faces.new((a[k], a[(k + 1) % 14], b[(k + 1) % 14], b[k]))
+    model.turned(pipe, "plastic", sharp=40.0)
+    collars = bmesh.new()
+    for z in (0.45, top - 0.05):
+        lathe(collars, [(0.0, z), (radius + 0.012, z), (radius + 0.012, z + 0.04), (0.0, z + 0.04)], segments=14)
+    lathe(collars, [(0.0, 0.38), (radius + 0.012, 0.38), (radius + 0.012, 0.42), (0.0, 0.42)], segments=14, to=along_y(0.0, 0.0, low))
+    model.turned(collars, "metal", sharp=40.0)
+    return model
+
+
+def cask_staves(bm, low, high, end, belly, to=None):
+    """A wooden cask's body from low to high along its axis, end its radius at the heads and belly at the middle."""
+    steps = 8
+    profile = [(0.0, low), (end - 0.02, low)]
+    for i in range(steps + 1):
+        t = i / steps
+        profile.append((end + (belly - end) * math.sin(math.pi * t), low + (high - low) * t))
+    profile += [(end - 0.02, high), (0.0, high)]
+    lathe(bm, profile, segments=24, to=to)
+
+
+def cask_hoops(bm, low, high, end, belly, to=None):
+    for t in (0.06, 0.28, 0.72, 0.94):
+        z = low + (high - low) * t
+        radius = end + (belly - end) * math.sin(math.pi * t) + 0.006
+        lathe(bm, [(radius - 0.01, z - 0.02), (radius, z - 0.02), (radius, z + 0.02), (radius - 0.01, z + 0.02)], segments=24, closed=True, to=to)
+
+
+# A cask: how long it is, and its radius at its heads and its belly.
+CASK_LONG, CASK_END, CASK_BELLY = 0.88, 0.28, 0.33
+
+
+def cask(name, lying):
+    """A wooden cask bound with four iron hoops, standing on a head, or lying along x."""
+    model = Model(name)
+    to = along_x(-CASK_LONG / 2, 0.0, CASK_BELLY) if lying else None
+    staves, hoops = bmesh.new(), bmesh.new()
+    cask_staves(staves, 0.0, CASK_LONG, CASK_END, CASK_BELLY, to)
+    cask_hoops(hoops, 0.0, CASK_LONG, CASK_END, CASK_BELLY, to)
+    model.turned(staves, "dark_wood", sharp=50.0)
+    model.turned(hoops, "plastic", sharp=40.0)
+    return model
+
+
+def barrel_rack(name, bays):
+    """A rack of three plank shelves on four square posts, a cask lying along x in each of the bays, from the lowest up,
+    that bays says."""
+    model = Model(name)
+    half, top = 0.47, 1.67
+    shelves = (0.06, 0.84, top - 0.04)
+    frame = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            cuboid(frame, x * half - 0.03, x * half + 0.03, y * half - 0.03, y * half + 0.03, 0.0, top)
+    for z in shelves:
+        for side in (-1, 1):
+            cuboid(frame, -half, half, side * half - 0.025, side * half + 0.025, z - 0.06, z)
+    model.hard(frame, "dark_wood", bevel=0.005, segments=1)
+    boards = bmesh.new()
+    for z in shelves:
+        for n in range(5):
+            x0 = -half + 0.03 + n * (2 * half - 0.06) / 5
+            cuboid(boards, x0 + 0.004, x0 + (2 * half - 0.06) / 5 - 0.004, -half + 0.03, half - 0.03, z, z + 0.04)
+    model.hard(boards, "wood", bevel=0.004, segments=1)
+    staves, hoops = bmesh.new(), bmesh.new()
+    long = 2 * half - 0.12
+    for bay in range(bays):
+        to = along_x(-long / 2, 0.0, shelves[bay] + 0.04 + 0.33)
+        cask_staves(staves, 0.0, long, 0.27, 0.33, to)
+        cask_hoops(hoops, 0.0, long, 0.27, 0.33, to)
+    if bays:
+        model.turned(staves, "dark_wood", sharp=50.0)
+        model.turned(hoops, "plastic", sharp=40.0)
+    return model
+
+
+def workbench():
+    """A workbench two squares long: a thick wooden top on a frame of steel angle, legs at its ends joined low down."""
+    model = Model("workbench")
+    half, deep, top = 0.95, 0.42, 24 / 96 * 2.44949
+    board = bmesh.new()
+    cuboid(board, -half, half, -deep, deep, top - 0.05, top)
+    model.hard(board, "wood", bevel=0.006, segments=2)
+    frame = bmesh.new()
+    for x in (-1, 1):
+        for y in (-1, 1):
+            cx, cy = x * (half - 0.07), y * (deep - 0.06)
+            cuboid(frame, cx - 0.025, cx + 0.025, cy - 0.025, cy + 0.025, 0.0, top - 0.05)
+        cuboid(frame, x * (half - 0.07) - 0.02, x * (half - 0.07) + 0.02, -deep + 0.06, deep - 0.06, 0.12, 0.16)
+    for y in (-1, 1):
+        cuboid(frame, -half + 0.07, half - 0.07, y * (deep - 0.06) - 0.02, y * (deep - 0.06) + 0.02, top - 0.12, top - 0.05)
+    cuboid(frame, -half + 0.07, half - 0.07, (deep - 0.06) - 0.02, (deep - 0.06) + 0.02, 0.12, 0.16)
+    model.hard(frame, "plastic", bevel=0.004, segments=1)
+    return model
+
+
+def tool_chest():
+    """A mechanic's tool chest on castors: a painted steel cabinet with a row of drawers in its front, each with a bright
+    handle, and a rubber mat on its top."""
+    model = Model("tool_chest")
+    half, front, back, low, top = 0.4, -0.3, 0.3, 0.11, BELT_TOP
+    body = bmesh.new()
+    cuboid(body, -half, half, front, back, low, top - 0.012)
+    for n in range(4):
+        z0 = low + 0.04 + n * (top - low - 0.08) / 4
+        z1 = z0 + (top - low - 0.08) / 4 - 0.012
+        cuboid(body, -half + 0.03, half - 0.03, front - 0.012, front, z0, z1)
+    model.hard(body, "paint", bevel=0.006, segments=2)
+    handles = bmesh.new()
+    for n in range(4):
+        z = low + 0.04 + (n + 1) * (top - low - 0.08) / 4 - 0.05
+        cuboid(handles, -half + 0.1, half - 0.1, front - 0.03, front - 0.012, z, z + 0.018)
+    model.hard(handles, "metal", bevel=0.003, segments=1)
+    dark = bmesh.new()
+    cuboid(dark, -half + 0.005, half - 0.005, front + 0.005, back - 0.005, top - 0.012, top)
+    for x in (-1, 1):
+        for y in (front + 0.05, back - 0.05):
+            cuboid(dark, x * (half - 0.05) - 0.012, x * (half - 0.05) + 0.012, y - 0.012, y + 0.012, 0.07, low)
+            lathe(dark, [(0.0, -0.016), (0.035, -0.016), (0.035, 0.016), (0.0, 0.016)], segments=10, to=along_x(x * (half - 0.05) - 0.016, y, 0.035))
+    model.hard(dark, "rubber", bevel=0.003, segments=1)
+    return model
+
+
+def security_desk():
+    """A security desk: a steel cabinet whose front slopes back under a panel of two screens and a row of buttons."""
+    model = Model("security_desk")
+    half, front, back, low_top, high_top = 0.44, -0.33, 0.33, 0.82, 1.22
+    slope_back = 0.06
+    body = bmesh.new()
+    outline_along_x(body, [(front, 0.03), (back, 0.03), (back, high_top), (slope_back, high_top), (front, low_top)], -half, half)
+    model.hard(body, "steel", bevel=0.008, segments=2)
+    rise, run = high_top - low_top, slope_back - front
+    length = math.hypot(rise, run)
+    up = Vector((0.0, run / length, rise / length))
+    out = Vector((0.0, -rise / length, run / length))
+    face = Vector((0.0, front, low_top))
+    screens, buttons = bmesh.new(), bmesh.new()
+    for x0, x1 in ((-0.36, -0.03), (0.03, 0.36)):
+        corners = [face + up * 0.12 + out * 0.002, face + up * (length - 0.04) + out * 0.002]
+        a, b = corners
+        verts = [screens.verts.new((x, p.y, p.z)) for x, p in ((x0, a), (x1, a), (x1, b), (x0, b))]
+        screens.faces.new(verts)
+        back_verts = [screens.verts.new((x, p.y, p.z)) for x, p in ((x0, a - out * 0.004), (x1, a - out * 0.004), (x1, b - out * 0.004), (x0, b - out * 0.004))]
+        screens.faces.new(back_verts[::-1])
+        for i in range(4):
+            j = (i + 1) % 4
+            screens.faces.new((verts[i], back_verts[i], back_verts[j], verts[j]))
+    model.plain(screens, "screen")
+    for n in range(8):
+        x = -0.35 + n * 0.1
+        centre = face + up * 0.06
+        cuboid(buttons, x - 0.018, x + 0.018, centre.y - 0.018, centre.y + 0.018, centre.z - 0.01, centre.z + 0.012)
+    model.plain(buttons, "rubber")
+    vents = bmesh.new()
+    for slot in range(4):
+        z = 0.12 + slot * 0.04
+        cuboid(vents, half, half + 0.003, 0.05, 0.25, z, z + 0.015)
+    model.plain(vents, "rubber")
+    return model
+
+
+def gas_bottle(name, radius, high):
+    """A gas bottle standing on its foot ring: a round shoulder, a neck and its valve."""
+    model = Model(name)
+    body = bmesh.new()
+    lathe(body, [(0.0, 0.0), (radius - 0.01, 0.0), (radius, 0.03), (radius, high - radius * 0.6), (radius * 0.75, high - radius * 0.15),
+                 (radius * 0.35, high), (0.0, high)], segments=20)
+    model.turned(body, "paint", sharp=40.0)
+    valve = bmesh.new()
+    lathe(valve, [(0.0, high), (0.022, high), (0.022, high + 0.05), (0.035, high + 0.05), (0.035, high + 0.08), (0.0, high + 0.08)], segments=10)
+    cuboid(valve, -0.012, 0.05, -0.008, 0.008, high + 0.055, high + 0.07)
+    model.turned(valve, "metal", sharp=40.0)
+    return model
+
+
+def propane_tank():
+    """A propane tank: a squat drum with rounded ends on a foot ring, a collar round its valve to carry it by."""
+    model = Model("propane_tank")
+    radius, high = 0.16, 0.5
+    body = bmesh.new()
+    lathe(body, [(0.0, 0.07), (radius * 0.6, 0.075), (radius * 0.92, 0.1), (radius, 0.15), (radius, high - 0.1), (radius * 0.92, high - 0.05),
+                 (radius * 0.6, high - 0.02), (0.0, high - 0.015)], segments=22)
+    model.turned(body, "paint", sharp=40.0)
+    rings = bmesh.new()
+    lathe(rings, [(radius * 0.88, 0.0), (radius * 0.92, 0.0), (radius * 0.92, 0.1), (radius * 0.88, 0.1)], segments=22, closed=True)
+    lathe(rings, [(0.085, high - 0.03), (0.095, high - 0.03), (0.095, high + 0.08), (0.085, high + 0.08)], segments=16, closed=True)
+    lathe(rings, [(0.0, high - 0.02), (0.02, high - 0.02), (0.02, high + 0.06), (0.0, high + 0.06)], segments=10)
+    model.turned(rings, "metal", sharp=40.0)
+    return model
+
+
+def industrial():
+    """What a works, a warehouse, a garage and a distillery have: the pieces Industry.java places."""
+    return [conveyor(), conveyor_boxed(), machine_case(), machine_shell(), machine_outlet(), machine_column(), machine_drum(),
+            tank_length(), tank_end("tank_end", 1), tank_end("tank_end_mirrored", -1), downpipe(),
+            cask("cask", False), cask("cask_lying", True), barrel_rack("barrel_rack", 0), barrel_rack("barrel_rack_low", 1),
+            barrel_rack("barrel_rack_full", 2), workbench(), tool_chest(), security_desk(),
+            gas_bottle("extinguisher_bottle", 0.09, 0.62), propane_tank()]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -4668,7 +5092,7 @@ def every():
               cobra_head(), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), serving_counter(), air_conditioner(),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
-            + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods())
+            + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial())
 
 
 def main():

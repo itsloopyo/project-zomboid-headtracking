@@ -245,6 +245,11 @@ final class Furniture {
             if (outside != null) {
                 return outdoors(sprite, outside);
             }
+            Outdoors.Piece works = Industry.of(name, called, properties.get("GroupName"), faces, grid == null ? 1 : grid.getWidth(),
+                    grid == null ? 1 : grid.getHeight(), properties.getSurface());
+            if (works != null) {
+                return outdoors(sprite, works);
+            }
         }
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
