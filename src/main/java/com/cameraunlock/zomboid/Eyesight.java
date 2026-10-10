@@ -21,16 +21,17 @@ final class Eyesight {
      * How much light a tile of air takes out of a line of sight, in full fog, in the heaviest
      * rain and in the heaviest snow. In the game's own view (captures at 1920 by 1080) full
      * fog leaves a zombie 3.7 tiles off plain, one at 5.6 half hidden and one at 10 gone; here
-     * they are 14, 46 and 95 parts in a hundred hidden. At fog 0.3 the game's view is a light
+     * they are 7, 27 and 78 parts in a hundred hidden: the game's figure is for its view from
+     * above, and from the eye, driving most of all, thinner air reads better. At fog 0.3 the game's view is a light
      * haze over the street, and its fog thickens far faster than the game's figure for it
-     * rises: here the air is that figure to the power 2.5, and fog 0.3 hides 28 parts in a
-     * hundred at 16 tiles. The game's rain and snow hide nothing of the map. Rain here takes
+     * rises: here the air is that figure to the power 3, and fog 0.3 hides 9 parts in a
+     * hundred at 16 tiles, fog 0.5 61 at 30 tiles. The game's rain and snow hide nothing of the map. Rain here takes
      * three fifths of what stands 80 tiles off, where the built world of High ends, and snow
      * nine tenths.
      */
-    static final float FOG_THICK = 0.60f, RAIN_THICK = 0.012f, SNOW_THICK = 0.03f;
+    static final float FOG_THICK = 0.30f, RAIN_THICK = 0.012f, SNOW_THICK = 0.03f;
     /** The power of the game's fog figure the air goes by. */
-    static final double FOG_POWER = 2.5;
+    static final double FOG_POWER = 3.0;
     /** How far round the eye the air thins away, as the game keeps its fog off the ground nearest the character. */
     static final float FOG_CLEAR_NEAR = 5f;
     /** How deep the air is over the eye for looking up through: the sky shows through thin fog and not through thick. */

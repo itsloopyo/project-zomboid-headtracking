@@ -29,16 +29,16 @@ final class EyesightTests {
         float fog = Eyesight.thickness(1f, 0f, 0f);
         check(Eyesight.veiled(fog, 3.7f) < 0.2f, "a zombie 3.7 tiles off is plain in full fog, as in the game's own view");
         float half = Eyesight.veiled(fog, 5.6f);
-        check(half > 0.35f && half < 0.6f, "one at 5.6 is half hidden: " + half);
-        check(Eyesight.veiled(fog, 10f) > 0.94f, "one at ten is gone");
-        check(Eyesight.veiled(fog, 16f) > 0.99f, "and nothing is left by sixteen");
+        check(half > 0.2f && half < 0.35f, "one at 5.6 is a quarter hidden, thinner than the game's view from above: " + half);
+        check(Eyesight.veiled(fog, 10f) > 0.7f, "one at ten is mostly gone");
+        check(Eyesight.veiled(fog, 16f) > 0.95f, "and next to nothing is left by sixteen");
     }
 
     private static void lightFogIsAHaze() {
         float fog = Eyesight.thickness(0.3f, 0f, 0f);
         check(Eyesight.veiled(fog, 10f) < 0.2f, "fog 0.3 leaves the street at ten tiles");
         float far = Eyesight.veiled(fog, 16f);
-        check(far > 0.2f && far < 0.35f, "and hides a quarter or so at sixteen: " + far);
+        check(far > 0.05f && far < 0.15f, "and hides a tenth or so at sixteen: " + far);
     }
 
     private static void airHidesMoreTheFurtherAndTheThicker() {
