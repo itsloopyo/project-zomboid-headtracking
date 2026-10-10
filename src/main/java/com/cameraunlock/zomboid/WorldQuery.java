@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.function.Predicate;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.LosUtil;
@@ -60,25 +61,74 @@ final class WorldQuery {
         return from.isBlockedTo(to) || to.isSolid() || from.isWindowTo(to);
     }
 
+    /** What the game's line of fire has met so far along the shot being traced: see LineOfFire. */
+    private final LineOfFire lineOfFire = new LineOfFire();
+
     /**
-     * Whether a shot stops at the edge between two squares, by the game's own rule. A firearm keeps a
-     * target only when the game's line of sight test, made of this test square by square
-     * (LosUtil.lineClear in CombatManager.calculateHitListWeapon), finds no wall and no shut door on the
-     * way; whether a character could walk across does not come into it. A doorway, an open door and a
-     * window's glass stop a walker and not a shot, and the game breaks the glass as the shot goes on.
+     * Whether a shot stops at the edge between two squares, as near as the game's own rule can be
+     * followed edge by edge. A firearm keeps a target only when the game's line of sight test, made of
+     * this test square by square (LosUtil.lineClear in CombatManager.calculateHitListWeapon), finds no
+     * wall and no shut door on the way; whether a character could walk across does not come into it. A
+     * doorway, an open door and a window's glass stop a walker and not a shot, and the game breaks the
+     * glass as the shot goes on. The game also drops a target behind a barricade the weapon cannot get
+     * past, and behind a wall only a spear's attack goes through (SpearOnlyAttackThrough), neither of
+     * which this test sees: there the reticle can sit on a target the shot does not reach.
      */
     private boolean solidToAShot(int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {
-            return wallBesideAir(from, to, fromX, fromY, toX, toY);
+            return stopsAShotBesideAir(from == null ? null : from::has, to == null ? null : to::has, fromX, fromY, toX, toY);
         }
-        return stopsAShot(to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false));
+        return lineOfFire.stopsAt(to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false));
     }
 
-    /** Whether the game's line of sight test across an edge, as a firearm's line of fire goes by it, stops a shot there. */
-    static boolean stopsAShot(LosUtil.TestResults seen) {
-        return seen == LosUtil.TestResults.Blocked || seen == LosUtil.TestResults.ClearThroughClosedDoor;
+    /**
+     * Whether a shot stops at an edge where the square on one side is missing, as from an upper floor out
+     * over the street. The game tests no edge there; it builds what its eye cannot see past from each
+     * square's own walls (IsoGridSquare.CalculateVisionBlocked), and a wall it sees through (a window's
+     * glass, transparentN/W) or one with a door in it is not one. A wall on the far side of the missing
+     * square cannot exist, because the wall would have made the square.
+     *
+     * @param from what the square left has, or null where there is none
+     * @param to   what the square entered has, or null where there is none
+     */
+    static boolean stopsAShotBesideAir(Predicate<IsoFlagType> from, Predicate<IsoFlagType> to, int fromX, int fromY, int toX, int toY) {
+        if (from == null) {
+            return to != null && (toY > fromY && wallTheEyeCannotSeePast(to, true) || toX > fromX && wallTheEyeCannotSeePast(to, false));
+        }
+        return toY < fromY && wallTheEyeCannotSeePast(from, true) || toX < fromX && wallTheEyeCannotSeePast(from, false);
+    }
+
+    private static boolean wallTheEyeCannotSeePast(Predicate<IsoFlagType> square, boolean north) {
+        return north ? square.test(IsoFlagType.collideN) && !square.test(IsoFlagType.transparentN) && !square.test(IsoFlagType.doorN)
+                : square.test(IsoFlagType.collideW) && !square.test(IsoFlagType.transparentW) && !square.test(IsoFlagType.doorW);
+    }
+
+    /**
+     * The game's line of fire as it goes, edge by edge: LosUtil.lineClear keeps one result along the whole
+     * line, and a firearm drops its target when that ends Blocked or ClearThroughClosedDoor. The result
+     * is not the last edge's: once a window has been met, a shut door with glass in it further on leaves
+     * it a window, and so the shot goes on through both.
+     */
+    static final class LineOfFire {
+        private LosUtil.TestResults soFar = LosUtil.TestResults.Clear;
+
+        void start() {
+            soFar = LosUtil.TestResults.Clear;
+        }
+
+        /** Takes in the game's test of the next edge, and answers whether the shot stops there. */
+        boolean stopsAt(LosUtil.TestResults seen) {
+            boolean kept = seen != LosUtil.TestResults.Blocked && soFar != LosUtil.TestResults.Clear
+                    && (seen != LosUtil.TestResults.ClearThroughWindow || soFar != LosUtil.TestResults.ClearThroughOpenDoor);
+            if (!kept) {
+                soFar = seen;
+            } else if (seen == LosUtil.TestResults.ClearThroughClosedDoor && soFar == LosUtil.TestResults.ClearThroughOpenDoor) {
+                soFar = seen;
+            }
+            return soFar == LosUtil.TestResults.Blocked || soFar == LosUtil.TestResults.ClearThroughClosedDoor;
+        }
     }
 
     /**
@@ -115,6 +165,7 @@ final class WorldQuery {
      */
     float shotDistance(ViewCamera.Pose aim, Terrain terrain, float floorUp, float reach,
             float[] characterX, float[] characterY, float[] characterBase, int characters) {
+        lineOfFire.start();
         float nearest;
         if (aim.forwardUp < 0f) {
             nearest = downward(aim, floorUp, reach);
