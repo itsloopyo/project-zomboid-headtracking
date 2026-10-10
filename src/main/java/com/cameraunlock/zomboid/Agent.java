@@ -426,7 +426,10 @@ public final class Agent {
                 new Patch("zombie/GameWindow", "logic calling isAPressed", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method("zombie/GameWindow", "logic", "()V"),
                         new CallSite.Method(joypad, "isAPressed", "()Z"),
-                        new CallSite.Method(gamepads, "pressedA", "(L" + joypad + ";)Z"), 1)));
+                        new CallSite.Method(gamepads, "pressedA", "(L" + joypad + ";)Z"), 1)),
+                new Patch("zombie/gameStates/MainScreenState", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/gameStates/MainScreenState", "update", "()Lzombie/gameStates/GameStateMachine$StateAction;"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(gamepads, "menu", "()V")))));
     }
 
     /** Apart from everything else: without it the mod's settings are in CameraUnlock.ini and on its keys, as they are in any game. */

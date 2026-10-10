@@ -1,11 +1,18 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import org.lwjglx.input.Controller;
 import org.lwjglx.input.Controllers;
+import org.lwjglx.input.Keyboard;
+import se.krka.kahlua.vm.KahluaTable;
 import zombie.GameWindow;
+import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.input.GameKeyboard;
 import zombie.input.JoypadManager;
+import zombie.input.Mouse;
+import zombie.ui.UIManager;
 
 /**
  * Which controllers the game plays with, and which of them has its menu.
@@ -20,8 +27,10 @@ import zombie.input.JoypadManager;
  * The game gives its menu to a controller whose A is down, the first it comes to in its list,
  * and waits at the end of loading for the A of the first controller that ever had the menu.
  * Here it is the controller whose A was pressed this frame, and the last one to have the menu
- * on the main menu is the one loading waits for and the game starts as player 1. Controllers
- * pressed once a game is under way join as the game has them join, players 2, 3 and 4.
+ * on the main menu is the one loading waits for and the game starts as player 1. A click or a
+ * key on the main menu gives the menu back to the keyboard and mouse, and player 1 then plays
+ * on them. Controllers pressed once a game is under way join as the game has them join, as the
+ * next of players 2, 3 and 4.
  */
 public final class Gamepads {
     private Gamepads() {}
@@ -107,5 +116,37 @@ public final class Gamepads {
             Log.info("controller " + joypad.getID() + " has the menu");
         }
         return true;
+    }
+
+    /**
+     * Called at the start of each update of the main menu. The game keeps a controller that once
+     * pressed A on it as player 1's however the menu is worked after, and gives the menu back
+     * only when that controller is taken out, through MainScreen.setKeyboardMouseActivated.
+     * Here a click or a key does the same.
+     */
+    public static void menu() {
+        if (GameWindow.activatedJoyPad == null || !keyboardOrMouseUsed()) {
+            return;
+        }
+        int id = GameWindow.activatedJoyPad.getID();
+        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(),
+                ((KahluaTable) LuaManager.env.rawget("MainScreen")).rawget("setKeyboardMouseActivated"), new Object[0]);
+        if (ran.length == 0 || !Boolean.TRUE.equals(ran[0])) {
+            Log.info("the game's MainScreen.setKeyboardMouseActivated failed, and controller " + id + " keeps the menu: " + Arrays.toString(ran));
+            return;
+        }
+        Log.info("the keyboard and mouse have the menu from controller " + id + ", and player 1 plays on them");
+    }
+
+    private static boolean keyboardOrMouseUsed() {
+        if (Mouse.isLeftPressed() || Mouse.isRightPressed() || Mouse.isMiddlePressed()) {
+            return true;
+        }
+        for (int key = 1; key < Keyboard.KEYBOARD_SIZE; key++) {
+            if (GameKeyboard.isKeyPressed(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
