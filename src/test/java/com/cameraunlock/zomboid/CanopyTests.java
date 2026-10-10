@@ -7,6 +7,7 @@ final class CanopyTests {
     static void run() {
         Checks.run("theWindowThroughTreesIsTheGamesSizeOnTheScreenAtEveryZoom", CanopyTests::theWindowThroughTreesIsTheGamesSizeOnTheScreenAtEveryZoom);
         Checks.run("theWorldShaderHasTheWindowsEdges", CanopyTests::theWorldShaderHasTheWindowsEdges);
+        Checks.run("theWindowAndThePointersLandOnTheFloorUnderThem", CanopyTests::theWindowAndThePointersLandOnTheFloorUnderThem);
         Checks.run("aTreeInTheWindowShowsAsMuchOfItselfAsTheGameDrawsByItsOwnSquare", CanopyTests::aTreeInTheWindowShowsAsMuchOfItselfAsTheGameDrawsByItsOwnSquare);
     }
 
@@ -71,6 +72,33 @@ final class CanopyTests {
             }
             check(Math.abs((float) kept / all - share) < 0.02f, "a tree the game draws at " + share + " keeps that share of its pixels: " + (float) kept / all);
         }
+    }
+
+    /** Where the game draws a place on the floor at tile scale 2 and that zoom, with its camera moved off by (offX, offY) pixels of its zoomed picture. */
+    private static float[] drawn(float x, float y, float zoom, float offX, float offY) {
+        return new float[] {((x - y) * 64f - offX) / zoom, ((x + y) * 32f - offY) / zoom};
+    }
+
+    /**
+     * FirstPerson.aimOverhead puts the middle of the screen less the camera's lead, and the
+     * pointer, on the player's floor from where the player is drawn and how a step east and a
+     * step south move on the screen, as the game draws its view at zoom 2.
+     */
+    private static void theWindowAndThePointersLandOnTheFloorUnderThem() {
+        float zoom = 2f, offX = 1395000f, offY = 621000f, x = 10900.3f, y = 8500.7f;
+        float[] at = drawn(x, y, zoom, offX, offY), east = drawn(x + 1f, y, zoom, offX, offY), south = drawn(x, y + 1f, zoom, offX, offY);
+        float[] onFloor = new float[2];
+        // The pointer over the middle of a square three east and two north of the player's.
+        float[] pointer = drawn(10903.5f, 8498.5f, zoom, offX, offY);
+        ViewCamera.underScreen(x, y, at[0], at[1], east[0] - at[0], east[1] - at[1], south[0] - at[0], south[1] - at[1], pointer[0], pointer[1], onFloor);
+        check(Math.abs(onFloor[0] - 10903.5f) < 0.01f && Math.abs(onFloor[1] - 8498.5f) < 0.01f,
+                "the pointer lands on the floor under it: " + onFloor[0] + ", " + onFloor[1]);
+        // The game's window: the middle of a 1280 by 720 screen less a lead of (120, -80) pixels of the zoomed picture.
+        float middleX = 640f - 120f / zoom, middleY = 360f + 80f / zoom;
+        ViewCamera.underScreen(x, y, at[0], at[1], east[0] - at[0], east[1] - at[1], south[0] - at[0], south[1] - at[1], middleX, middleY, onFloor);
+        float[] back = drawn(onFloor[0], onFloor[1], zoom, offX, offY);
+        check(Math.abs(back[0] - middleX) < 0.05f && Math.abs(back[1] - middleY) < 0.05f,
+                "the place it puts the window on is drawn where the game draws its mask: " + back[0] + ", " + back[1]);
     }
 
     private static void theWorldShaderHasTheWindowsEdges() {

@@ -242,4 +242,18 @@ final class ViewCamera {
         out[11] = -1f;
         out[14] = 2f * far * near / (near - far);
     }
+
+    /**
+     * The place on the floor of the game's own view that is drawn at a point of the screen,
+     * into out: (x, y) on that floor is drawn at (atX, atY), and a step east or south on the
+     * map moves a point by (eastX, eastY) or (southX, southY) on the screen. The view has no
+     * perspective, so the two steps take the screen to the floor and back.
+     */
+    static void underScreen(float x, float y, float atX, float atY, float eastX, float eastY, float southX, float southY, float screenX, float screenY,
+            float[] out) {
+        float toX = screenX - atX, toY = screenY - atY;
+        float det = eastX * southY - southX * eastY;
+        out[0] = x + (toX * southY - southX * toY) / det;
+        out[1] = y + (eastX * toY - toX * eastY) / det;
+    }
 }

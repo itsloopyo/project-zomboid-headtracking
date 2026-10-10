@@ -75,6 +75,7 @@ public final class FirstPerson {
     /** The trees the game draws see-through: each one's square and how much of it the game draws, three floats a tree. */
     private final float[] canopyFaded = new float[3 * CanopyWindow.TREES];
     private int canopyFadedCount;
+    private final float[] onFloor = new float[2];
     private final ViewCamera.Pose flightView = new ViewCamera.Pose();
     /**
      * How near the eye the camera is when the viewer stops being one of the people in the
@@ -956,9 +957,8 @@ public final class FirstPerson {
         float southX = IsoUtils.XToScreenExact(x, y + 1f, level, 0) / zoom - atX, southY = IsoUtils.YToScreenExact(x, y + 1f, level, 0) / zoom - atY;
         float wide = IsoCamera.getScreenWidth(index), high = IsoCamera.getScreenHeight(index);
         // The place on the player's floor that is at the middle of the screen.
-        float toX = wide / 2f - atX, toY = high / 2f - atY;
-        float det = eastX * southY - southX * eastY;
-        float middleX = x + (toX * southY - southX * toY) / det, middleY = y + (eastX * toY - toX * eastY) / det;
+        ViewCamera.underScreen(x, y, atX, atY, eastX, eastY, southX, southY, wide / 2f, high / 2f, onFloor);
+        float middleX = onFloor[0], middleY = onFloor[1];
         // A tile's diagonal lies along the screen: its length there over its length on the map.
         float pixelsToTile = (float) (Math.hypot(eastX - southX, eastY - southY) / Math.sqrt(2.0));
         overheadHalfHigh = high / 2f / pixelsToTile;
@@ -966,14 +966,14 @@ public final class FirstPerson {
         // camera's lead towards the pointer, so about the player, and while a firearm is aimed
         // about the pointer as well. Either is a place on the screen, put on the player's floor.
         PlayerCamera lead = IsoCamera.cameras[index];
-        float leadX = wide / 2f - lead.rightClickX / zoom - atX, leadY = high / 2f - lead.rightClickY / zoom - atY;
-        canopyX = x + (leadX * southY - southX * leadY) / det;
-        canopyY = y + (eastX * leadY - leadX * eastY) / det;
+        ViewCamera.underScreen(x, y, atX, atY, eastX, eastY, southX, southY, wide / 2f - lead.rightClickX / zoom, high / 2f - lead.rightClickY / zoom, onFloor);
+        canopyX = onFloor[0];
+        canopyY = onFloor[1];
         canopyAimed = player.isAnyAimKeyDown();
         if (canopyAimed) {
-            float pointerX = AimingReticle.getX(index) / zoom - atX, pointerY = AimingReticle.getY(index) / zoom - atY;
-            canopyAimX = x + (pointerX * southY - southX * pointerY) / det;
-            canopyAimY = y + (eastX * pointerY - pointerX * eastY) / det;
+            ViewCamera.underScreen(x, y, atX, atY, eastX, eastY, southX, southY, AimingReticle.getX(index) / zoom, AimingReticle.getY(index) / zoom, onFloor);
+            canopyAimX = onFloor[0];
+            canopyAimY = onFloor[1];
         }
         // The trees the game is fading or has faded, nearest the player first, ring by ring.
         canopyFadedCount = 0;
