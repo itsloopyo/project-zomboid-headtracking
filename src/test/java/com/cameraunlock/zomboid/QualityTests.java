@@ -1,5 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +25,7 @@ final class QualityTests {
         Checks.run("aModeThePlayerChoseIsNeverStepped", QualityTests::aModeThePlayerChoseIsNeverStepped);
         Checks.run("twoViewsAreCountedAsOnePicture", QualityTests::twoViewsAreCountedAsOnePicture);
         Checks.run("theKeyGoesAutomaticLowMediumHighCustomAndRound", QualityTests::theKeyGoesAutomaticLowMediumHighCustomAndRound);
+        Checks.run("theInstallerNamesTheModesInTheKeysOrder", QualityTests::theInstallerNamesTheModesInTheKeysOrder);
         Checks.run("customDrawsWhatEachPresetDrewFromItsRows", QualityTests::customDrawsWhatEachPresetDrewFromItsRows);
         Checks.run("eachRowOfCustomReachesItsOwnAnswer", QualityTests::eachRowOfCustomReachesItsOwnAnswer);
         Checks.run("thePresetsLeaveCustomAsItWas", QualityTests::thePresetsLeaveCustomAsItWas);
@@ -342,6 +347,14 @@ final class QualityTests {
         Quality.set(Quality.CUSTOM);
         check(Quality.next() == Quality.AUTOMATIC && Quality.name().equals("Custom"), "and from Custom round to Automatic");
         check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words are in that order: " + Quality.words());
+    }
+
+    /** What the installer says F9 does is the order the key goes in, and the file keeps the line ends cmd.exe reads. */
+    private static void theInstallerNamesTheModesInTheKeysOrder() throws IOException {
+        String text = new String(Files.readAllBytes(Path.of("scripts", "install.cmd")), StandardCharsets.US_ASCII);
+        String modes = String.join(", ", Quality.words().split(","));
+        check(text.contains("F9        Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name F9's modes as " + modes);
+        check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");
     }
 
     /** Every answer a graphics mode gives, as one line: the draw distance on foot and ahead of a vehicle among them. */
