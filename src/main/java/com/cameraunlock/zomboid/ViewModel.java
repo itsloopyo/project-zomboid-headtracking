@@ -577,7 +577,7 @@ public final class ViewModel {
         ModelAttachment barrel = how.firearm && script != null ? script.getAttachmentById(MUZZLE) : null;
         hasMuzzle = barrel != null;
         if (how.firearm && !hasMuzzle && noMuzzleSaid.add(how.item)) {
-            Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": it is held by its grip and its shots have no flash");
+            Log.info("the model of " + how.item + " has no attachment called " + MUZZLE + ": the game's own arms hold it and its shots have no flash");
         }
         handgun = hasMuzzle && Math.hypot(barrel.getOffset().x, Math.hypot(barrel.getOffset().y, barrel.getOffset().z)) < HANDGUN_WITHIN;
         if (hasMuzzle) {

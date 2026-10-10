@@ -304,6 +304,24 @@ final class WeaponShape {
     }
 
     /**
+     * A firearm mesh's axes, from its muzzle attachment: the attachment is turned about x, then
+     * y, then z, and its own z is the barrel. A handgun's mesh has its top on its -z, a long
+     * gun's on its +z: the muzzle is over the grip.
+     *
+     * @param along the answer: the way along the barrel, of length one
+     * @param up    the answer: the way to the top, of length one and square to `along`
+     * @return false if the barrel runs along the top, which leaves no way up square to it
+     */
+    static boolean axes(float rotateX, float rotateY, float muzzleZ, float[] along, float[] up) {
+        double aboutX = Math.toRadians(rotateX), aboutY = Math.toRadians(rotateY);
+        along[0] = (float) Math.sin(aboutY);
+        along[1] = (float) (-Math.sin(aboutX) * Math.cos(aboutY));
+        along[2] = (float) (Math.cos(aboutX) * Math.cos(aboutY));
+        float top = muzzleZ < 0f ? -1f : 1f, tipped = along[2] * top;
+        return ArmPose.unit(-along[0] * tipped, -along[1] * tipped, top - along[2] * tipped, up);
+    }
+
+    /**
      * Reads a firearm's mesh.
      *
      * @param places   the mesh's vertices, three floats each

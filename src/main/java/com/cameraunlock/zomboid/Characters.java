@@ -19,6 +19,7 @@ import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.ColorInfo;
 import zombie.scripting.objects.ModelAttachment;
+import zombie.scripting.objects.ModelScript;
 import zombie.iso.IsoGridSquare;
 import zombie.vehicles.BaseVehicle;
 
@@ -917,7 +918,7 @@ public final class Characters {
             return heldMesh.set(own.shape, meshView, meshStill, shotgun ? own.travel * pumped : 0f,
                     shotgun ? own.foreEnd * own.muzzle[1] : Float.NaN, shotgun ? ArmHolds.BOLT_TRAVEL : own.travel);
         }
-        WeaponShape shape = shapeOf(held, view.viewModel.handgun);
+        WeaponShape shape = shapeOf(held, hands.item(), view.viewModel.handgun);
         if (shape == null) {
             return null;
         }
@@ -940,44 +941,48 @@ public final class Characters {
     private final float[] meshView = new float[16], meshStill = new float[16];
     private final ArmHolds.Placed heldMesh = new ArmHolds.Placed();
     /**
-     * What each of the game's firearm meshes says of where hands go on it, as it is held by hands
-     * of the size hands are, or null where it says there is nowhere: read once for the buffer the
-     * mesh has, and again when the game loads it anew.
+     * What each of the game's firearm models says of where hands go on its mesh, as it is held by
+     * hands of the size hands are, or null where it says there is nowhere: read once for the
+     * mesh and the buffer the model script has, and again when the game loads it anew. The
+     * script says where the muzzle is, and so which way the barrel and the top run.
      */
-    private record Read(VertexBufferObject from, WeaponShape shape) {}
-    private static final java.util.IdentityHashMap<Model, Read> SHAPES = new java.util.IdentityHashMap<>();
+    private record Read(Model model, VertexBufferObject from, WeaponShape shape) {}
+    private static final java.util.IdentityHashMap<ModelScript, Read> SHAPES = new java.util.IdentityHashMap<>();
 
-    /** The shape of the game's mesh of a firearm held, or null while the mesh is not loaded or if the hands cannot be put on it, which is said once. Render thread. */
-    private static WeaponShape shapeOf(ModelInstanceRenderData held, boolean handgun) {
+    /**
+     * The shape of the game's mesh of a firearm held, or null while the mesh is not loaded or if
+     * the hands cannot be put on it, which is said once. The muzzle attachment is there: the view
+     * model found it. Render thread.
+     */
+    private WeaponShape shapeOf(ModelInstanceRenderData held, String item, boolean handgun) {
         Model model = held.model;
-        Read known = SHAPES.get(model);
-        if (known != null && model.mesh != null && known.from == model.mesh.vb) {
+        ModelScript script = held.modelInstance.modelScript;
+        Read known = SHAPES.get(script);
+        if (known != null && known.model == model && known.from == (model.mesh == null ? null : model.mesh.vb)) {
             return known.shape;
         }
-        ModelAttachment muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE);
+        ModelAttachment muzzle = script.getAttachmentById(MUZZLE);
         Vector3f offset = muzzle.getOffset(), rotate = muzzle.getRotate();
-        // The attachment is turned about x, then y, then z, and its own z is the barrel: as ViewModel reads it.
-        double aboutX = Math.toRadians(rotate.x), aboutY = Math.toRadians(rotate.y);
-        float[] along = {(float) Math.sin(aboutY), (float) (-Math.sin(aboutX) * Math.cos(aboutY)), (float) (Math.cos(aboutX) * Math.cos(aboutY))};
-        // A handgun's mesh has its top on its -z, a long gun's on its +z: the muzzle is over the grip.
-        float[] up = {0f, 0f, offset.z < 0f ? -1f : 1f};
-        float tipped = ArmPose.dot(up, along);
-        ArmPose.unit(up[0] - along[0] * tipped, up[1] - along[1] * tipped, up[2] - along[2] * tipped, up);
+        float[] along = new float[3], up = new float[3];
         StringBuilder why = new StringBuilder();
-        CharacterDraw.Shape mesh = CharacterDraw.shapeOf(model, why);
-        if (mesh == null && why.isEmpty()) {
-            return null;
+        CharacterDraw.Shape mesh = null;
+        if (!WeaponShape.axes(rotate.x, rotate.y, offset.z, along, up)) {
+            why.append("its muzzle attachment has its barrel run along its top");
+        } else {
+            mesh = CharacterDraw.shapeOf(model, why);
+            if (mesh == null && why.isEmpty()) {
+                return null;
+            }
         }
-        String name = model.name;
         WeaponShape shape = mesh == null ? null
                 : WeaponShape.read(mesh.places(), mesh.corners(), along, up, new float[] {offset.x, offset.y, offset.z}, PER_METRE / (handgun ? ViewModel.HANDGUN_FITS : 1f), why);
-        SHAPES.put(model, new Read(model.mesh.vb, shape));
+        SHAPES.put(script, new Read(model, model.mesh == null ? null : model.mesh.vb, shape));
         if (shape == null) {
-            Log.info("the mod's own hands cannot be put on " + name + " (" + why + "): the game's own arms hold it");
+            Log.info("the mod's own hands cannot be put on " + item + " (" + model.name + ": " + why + "): the game's own arms hold it");
             return null;
         }
-        Log.info(String.format(Locale.ROOT, "the hands on %s: grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
-                name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
+        Log.info(String.format(Locale.ROOT, "the hands on %s (%s): grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
+                item, model.name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
                 shape.gripThick / shape.perMetre, shape.guardBack, shape.guardFront, shape.foreFrom, shape.foreTo, shape.levelFrom, shape.levelTo,
                 shape.magazine ? String.format(Locale.ROOT, "; magazine %.4f to %.4f, its foot at %.4f", shape.magazineBack, shape.magazineFront, shape.magazineFoot) : ""));
         return shape;

@@ -27,6 +27,7 @@ final class GripTests {
         Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
         Checks.run("rightPalmOnALongGunFacesAsItsHoldSays", () -> rightPalmOnALongGunFacesAsItsHoldSays(model));
         Checks.run("heldMeshIsFilledAgainEachFrame", GripTests::heldMeshIsFilledAgainEachFrame);
+        Checks.run("meshAxesComeFromTheMuzzleAttachment", GripTests::meshAxesComeFromTheMuzzleAttachment);
     }
 
     /** Where the pistol's front edge is at a height. */
@@ -288,6 +289,20 @@ final class GripTests {
                 check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), "the right arm on " + how + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
             }
         }
+    }
+
+    /**
+     * A mesh's barrel and top come from its muzzle attachment, as the game turns it; one whose
+     * barrel runs along its top has no way up square to it, and says so rather than reading the
+     * mesh along a top of no length.
+     */
+    private static void meshAxesComeFromTheMuzzleAttachment() {
+        float[] along = new float[3], up = new float[3];
+        check(WeaponShape.axes(-90f, 0f, 0.4f, along, up) && near(along[1], 1f, 1e-5f) && near(up[2], 1f, 1e-5f), "a long gun's barrel along its y has its top on its +z");
+        check(WeaponShape.axes(-90f, 0f, -0.1f, along, up) && near(along[1], 1f, 1e-5f) && near(up[2], -1f, 1e-5f), "a handgun's, whose muzzle is under its origin, on its -z");
+        check(WeaponShape.axes(-70f, 0f, 0.4f, along, up) && near(ArmPose.dot(along, up), 0f, 1e-5f) && near(ArmPose.dot(up, up), 1f, 1e-5f) && up[2] > 0f,
+                "a barrel tipped up has its top square to it, still on the +z side");
+        check(!WeaponShape.axes(0f, 0f, 0.4f, along, up), "an attachment not turned has its barrel along the top, and no top to read the mesh by");
     }
 
     /** One Placed is filled again each frame from matrices its caller keeps and overwrites: it copies them, and places the mesh by the last it was given. */
