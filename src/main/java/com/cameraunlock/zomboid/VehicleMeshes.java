@@ -39,6 +39,9 @@ final class VehicleMeshes {
 
     /** The wheel's middle in each body's own space, or NONE for a body with no such piece. */
     private static final HashMap<Body, float[]> middles = new HashMap<>();
+    /** Which of each body's model axes is its up and which its length: see Cabins.upright. */
+    private static final HashMap<Body, int[]> uprights = new HashMap<>();
+    private static final String[] AXES = {"x", "y", "z"};
     /**
      * The panes of each body, as loose triangles in the model's own space: the vehicle's mask
      * texture says which of its triangles are glass. Empty for a body with none found.
@@ -122,18 +125,18 @@ final class VehicleMeshes {
 
     /**
      * Called on the render thread for the vehicle a viewer sits in, with the matrix that
-     * stands it in the world, how far below that the game's draw then sets the body (it hangs
-     * the model from the vehicle's centre of mass), and where the vehicle stands.
+     * stands it in the world, how far the steering wheel read from its model sits above the
+     * one the game draws, along the body's up, and where the vehicle stands.
      *
      * @param seated what that viewer's picture is told of the vehicle
      * @param ride   that viewer's vehicle as the logic thread has it
+     * @param faces  the way the vehicle faces, its left and its up, as the logic thread had them when it seated the eye: see Ride.stands
      */
-    static void note(Seated seated, Ride ride, String script, ModelInstanceRenderData body, float[] placed, float lowered, float standsX, float standsY,
+    static void note(Seated seated, Ride ride, String script, ModelInstanceRenderData body, float[] placed, float[] faces, float settles, float standsX, float standsY,
             float groundUp, float centreOfMass, float[] eye) {
         seated.clear();
         float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
         float aheadX = ride.aheadX, aheadY = ride.aheadY;
-        float[] faces = ride.stands;
         Cabins.level(aheadX, aheadY, seatedAxes);
         if (!(body.modelInstance instanceof VehicleModelInstance instance) || body.modelInstance.model == null) {
             return;
@@ -150,8 +153,20 @@ final class VehicleMeshes {
         }
         multiply(shifted, xfrm, stands);
         multiply(eye, stands, paneMatrix);
-        if (!Cabins.axes(stands, faces, seatedAxes) && turnedSaid.add(script)) {
-            Log.info("the body of " + script + " does not lie along the way its vehicle faces: its cabin is laid out by the vehicle as the physics has it, not by the body as it is drawn");
+        Body read = new Body(mesh, instance.textureMask, script);
+        int[] upright = uprights.get(read);
+        if (upright == null) {
+            upright = Cabins.upright(stands, faces);
+            if (upright != null) {
+                uprights.put(read, upright);
+                Log.info(String.format(Locale.ROOT, "the body of %s stands with its model's %s axis up and its %s axis along it", script, AXES[upright[0] / 4], AXES[upright[2] / 4]));
+            }
+        }
+        if (upright == null || !Cabins.axes(stands, upright, faces, seatedAxes)) {
+            System.arraycopy(faces, 0, seatedAxes, 0, 9);
+            if (turnedSaid.add(script)) {
+                Log.info("the body of " + script + " does not lie along the way its vehicle faces: its cabin is laid out by the vehicle as the physics has it, not by the body as it is drawn");
+            }
         }
         float[] axes = seatedAxes;
         if (FirstPerson.TRACE && (tipSaid++ & 7) == 0) {
@@ -160,7 +175,6 @@ final class VehicleMeshes {
                     Math.toDegrees(Math.acos(Math.clamp(axes[0] * faces[0] + axes[1] * faces[1] + axes[2] * faces[2], -1f, 1f))),
                     Math.toDegrees(Math.acos(Math.clamp(axes[6] * faces[6] + axes[7] * faces[7] + axes[8] * faces[8], -1f, 1f)))));
         }
-        Body read = new Body(mesh, instance.textureMask, script);
         float[] middle = middles.get(read);
         if (middle == null) {
             // A mask still on its way from the disc reads as empty, and no glass would be the
@@ -188,27 +202,30 @@ final class VehicleMeshes {
         if (middle == NONE) {
             return;
         }
-        float mx = xfrm[0] * middle[0] + xfrm[4] * middle[1] + xfrm[8] * middle[2] + xfrm[12];
-        float my = xfrm[1] * middle[0] + xfrm[5] * middle[1] + xfrm[9] * middle[2] + xfrm[13];
-        float mz = xfrm[2] * middle[0] + xfrm[6] * middle[1] + xfrm[10] * middle[2] + xfrm[14];
-        float x = placed[0] * mx + placed[4] * my + placed[8] * mz + placed[12];
-        float y = placed[1] * mx + placed[5] * my + placed[9] * mz + placed[13];
-        float up = placed[2] * mx + placed[6] * my + placed[10] * mz + placed[14] - lowered;
+        // On the body as it is drawn, tipped and rolled with it.
+        float bodyX = stands[0] * middle[0] + stands[4] * middle[1] + stands[8] * middle[2] + stands[12];
+        float bodyY = stands[1] * middle[0] + stands[5] * middle[1] + stands[9] * middle[2] + stands[13];
+        float bodyUp = stands[2] * middle[0] + stands[6] * middle[1] + stands[10] * middle[2] + stands[14];
+        float x = bodyX - axes[6] * settles, y = bodyY - axes[7] * settles, up = bodyUp - axes[8] * settles;
         seated.wheelNow[0] = x;
         seated.wheelNow[1] = y;
         seated.wheelNow[2] = up;
         seated.wheel = seated.wheelNow;
-        float toX = x - standsX, toY = y - standsY, toUp = up - groundUp;
+        // The game's physics tips and rolls the body about its centre of mass, so the wheel is
+        // measured from there, and the eye is turned about the same point.
+        float toX = x - shifted[12], toY = y - shifted[13], toUp = up - shifted[14];
         float along = toX * axes[0] + toY * axes[1] + toUp * axes[2];
         float across = toX * axes[3] + toY * axes[4] + toUp * axes[5];
         float above = toX * axes[6] + toY * axes[7] + toUp * axes[8];
-        float side = (x - stands[12]) * axes[3] + (y - stands[13]) * axes[4] + (up + lowered - stands[14]) * axes[5];
+        float side = (bodyX - stands[12]) * axes[3] + (bodyY - stands[13]) * axes[4] + (bodyUp - stands[14]) * axes[5];
+        float tall = (float) Math.sqrt(placed[4] * placed[4] + placed[5] * placed[5] + placed[6] * placed[6]);
+        float centre = ((shifted[12] - standsX) * placed[4] + (shifted[13] - standsY) * placed[5] + (shifted[14] - groundUp) * placed[6]) / tall;
         float[] known = ride.wheels.get(script);
         if (known == null) {
-            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up, %.3f from the body's middle", script, body.modelInstance.model.name, along,
-                    across, above, side));
+            Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
+                    script, body.modelInstance.model.name, along, across, above, centre, side));
             // Repeated world-to-local measurements feed motion and rounding into the next frame's seat position.
-            ride.wheels.put(script, new float[] {along, across, above, side});
+            ride.wheels.put(script, new float[] {along, across, above, side, centre});
         }
     }
 

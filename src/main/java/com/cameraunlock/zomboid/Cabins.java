@@ -215,19 +215,61 @@ final class Cabins {
      */
     private static final float LENGTHWISE = 0.5f;
 
+    /** A body modelled with x to its side, y up and z along its length: see upright. */
+    static final int[] STANDING = {4, 1, 8};
+    /** How nearly a body's axis has to lie along one of its vehicle's for upright to take it for that one. */
+    private static final float UPRIGHT = 0.9f;
+
+    /**
+     * Which of a body's own axes is its up, which way along it up is, and which is its length,
+     * from the matrix that stands it while the vehicle's own three, faces, say where its up and
+     * its length are: each the column of the matrix that lies nearly along one of them. A
+     * script can turn a body on its model: a body modelled with z up is stood up by turning
+     * it a quarter turn. Null while the body lies along neither nearly enough to tell, as in a
+     * crash, where the physics and the body are read a frame apart.
+     *
+     * @return the offset in the matrix of the up column, 1 or -1, and the offset of the length column
+     */
+    static int[] upright(float[] stands, float[] faces) {
+        int up = -1, along = -1;
+        float upAgree = 0f;
+        for (int column = 0; column < 12; column += 4) {
+            float length = (float) Math.sqrt(stands[column] * stands[column] + stands[column + 1] * stands[column + 1] + stands[column + 2] * stands[column + 2]);
+            float high = (stands[column] * faces[6] + stands[column + 1] * faces[7] + stands[column + 2] * faces[8]) / length;
+            float ahead = (stands[column] * faces[0] + stands[column + 1] * faces[1] + stands[column + 2] * faces[2]) / length;
+            if (Math.abs(high) >= UPRIGHT) {
+                up = column;
+                upAgree = high;
+            } else if (Math.abs(ahead) >= UPRIGHT) {
+                along = column;
+            }
+        }
+        return up < 0 || along < 0 ? null : new int[] {up, upAgree > 0f ? 1 : -1, along};
+    }
+
     /**
      * The way a vehicle faces, the side to the left of that and its own up, in the world, each
-     * of length one, from the matrix that stands its body there. A body's own axes are x to
-     * its side, y up and z along its length, and the matrix has in it the whole of how the
-     * vehicle is turned, tipped and rolled, on its springs or on its side or its roof. Which
-     * end of the body is the front is told by faces, the same three as the game's physics
-     * has them for the vehicle, nose up or down with it.
-     *
-     * False, with the physics' own three, for a body whose length does not lie along its
-     * vehicle: one its script has turned on it.
+     * of length one, from the matrix that stands its body there, for a body modelled with x to
+     * its side, y up and z along its length: see the same with upright.
      */
     static boolean axes(float[] stands, float[] faces, float[] out) {
-        float alongX = stands[8], alongY = stands[9], alongUp = stands[10];
+        return axes(stands, STANDING, faces, out);
+    }
+
+    /**
+     * The way a vehicle faces, the side to the left of that and its own up, in the world, each
+     * of length one, from the matrix that stands its body there. Which of the body's own axes
+     * are its up and its length is told by upright, and the matrix has in it the whole of how
+     * the vehicle is turned, tipped and rolled, on its springs or on its side or its roof.
+     * Which end of the body is the front is told by faces, the same three as the game's
+     * physics has them for the vehicle, nose up or down with it.
+     *
+     * False, with the physics' own three, for a body whose length does not lie along its
+     * vehicle: one its script has turned on it some other way.
+     */
+    static boolean axes(float[] stands, int[] upright, float[] faces, float[] out) {
+        int a = upright[2], u = upright[0];
+        float alongX = stands[a], alongY = stands[a + 1], alongUp = stands[a + 2];
         float length = (float) Math.sqrt(alongX * alongX + alongY * alongY + alongUp * alongUp);
         float agree = (alongX * faces[0] + alongY * faces[1] + alongUp * faces[2]) / length;
         if (Math.abs(agree) < LENGTHWISE) {
@@ -235,13 +277,13 @@ final class Cabins {
             return false;
         }
         float long1 = Math.copySign(1f / length, agree);
-        float high1 = 1f / (float) Math.sqrt(stands[4] * stands[4] + stands[5] * stands[5] + stands[6] * stands[6]);
+        float high1 = upright[1] / (float) Math.sqrt(stands[u] * stands[u] + stands[u + 1] * stands[u + 1] + stands[u + 2] * stands[u + 2]);
         out[0] = alongX * long1;
         out[1] = alongY * long1;
         out[2] = alongUp * long1;
-        out[6] = stands[4] * high1;
-        out[7] = stands[5] * high1;
-        out[8] = stands[6] * high1;
+        out[6] = stands[u] * high1;
+        out[7] = stands[u + 1] * high1;
+        out[8] = stands[u + 2] * high1;
         out[3] = out[7] * out[2] - out[8] * out[1];
         out[4] = out[8] * out[0] - out[6] * out[2];
         out[5] = out[6] * out[1] - out[7] * out[0];

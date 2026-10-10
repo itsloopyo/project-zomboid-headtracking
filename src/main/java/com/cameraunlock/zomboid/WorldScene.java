@@ -1894,8 +1894,9 @@ final class WorldScene {
         private final ViewCamera.Pose outsideCamera = new ViewCamera.Pose();
         private boolean outside;
         private boolean seated;
-        private float seatedGroundUp;
+        private float seatedX, seatedY, seatedGroundUp;
         private final float[] seatedTurn = new float[9];
+        private final float[] seatedAxes = new float[9];
         private float outsideTan, outsideAway;
         /** The glass the viewer is shown in, seen from their own eye. */
         private final OwnReflection.Glass glass = new OwnReflection.Glass();
@@ -2224,8 +2225,11 @@ final class WorldScene {
             outside = false;
             opacity = 1f;
             seated = view.ride.seated;
+            seatedX = view.ride.atX;
+            seatedY = view.ride.atY;
             seatedGroundUp = view.ride.groundUp;
             System.arraycopy(view.ride.turn, 0, seatedTurn, 0, seatedTurn.length);
+            System.arraycopy(view.ride.stands, 0, seatedAxes, 0, seatedAxes.length);
             this.tanHalfFieldOfView = tanHalfFieldOfView;
             this.tanHalfSet = tanHalfSet;
             float flat = (float) Math.sqrt(pose.forwardX * pose.forwardX + pose.forwardY * pose.forwardY);
@@ -5932,8 +5936,11 @@ final class WorldScene {
             view.pipeline.outside = outside;
             view.pipeline.overhead = outside && outsideAway > OVERHEAD_RANGE;
             view.pipeline.seated = seated;
+            view.pipeline.seatedX = seatedX;
+            view.pipeline.seatedY = seatedY;
             view.pipeline.seatedGroundUp = seatedGroundUp;
             System.arraycopy(seatedTurn, 0, view.pipeline.seatedTurn, 0, seatedTurn.length);
+            System.arraycopy(seatedAxes, 0, view.pipeline.seatedAxes, 0, seatedAxes.length);
             view.pipeline.reflection = glass.found ? glass : null;
             view.pipeline.opacity = opacity;
             view.pipeline.cutAbove = outside ? cutFrom : Float.MAX_VALUE;

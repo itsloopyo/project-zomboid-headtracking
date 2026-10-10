@@ -28,7 +28,8 @@ final class Ride {
 
     /** Whether the viewer is in a vehicle. */
     volatile boolean seated;
-    float groundUp;
+    /** Where the vehicle's middle was on the map and the height of the land under it, when the eye was seated in it. */
+    float atX, atY, groundUp;
     /** How the vehicle lies on the land under it (VehicleSlope.turn), which the picture tips the vehicle and all in it by. */
     final float[] turn = new float[9];
     /** How the vehicle lies on its springs, and how the ground under its wheels would have it this frame. */
@@ -87,11 +88,12 @@ final class Ride {
     volatile float goingX, goingY;
 
     /**
-     * For each vehicle script the viewer has sat in: the wheel's middle from where the vehicle
-     * stands on the ground, along the vehicle, across it and up it, by its own axes as it was
-     * tipped when the picture last drew it for this viewer, in tiles, and then how far across
-     * it is from the body's own middle, which says which side of the vehicle the wheel is on
-     * however it lies. Written by the picture's thread: see VehicleMeshes.note.
+     * For each vehicle script the viewer has sat in: the wheel's middle from the vehicle's
+     * centre of mass, along the vehicle, across it and up it, by its own axes as it was tipped
+     * when the picture first drew it for this viewer, in tiles; how far across it is from the
+     * body's own middle, which says which side of the vehicle the wheel is on however it lies;
+     * and how far the centre of mass is above the ground under the vehicle's middle, along the
+     * land's up. Written by the picture's thread: see VehicleMeshes.note.
      */
     final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
     /** What the viewer wears on the arms and hands, asked from the driver's seat and with a weapon in hand. */
@@ -143,6 +145,8 @@ final class Ride {
         slope.follow(ground, 1f - (float) Math.exp(-(now - followedAt) / 1e9 / SPRUNG_FOR), jumped);
         carried = vehicle;
         followedAt = now;
+        atX = vehicle.getX();
+        atY = vehicle.getY();
         groundUp = slope.groundUp;
         System.arraycopy(slope.turn, 0, turn, 0, turn.length);
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
@@ -245,10 +249,11 @@ final class Ride {
         float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[3]);
         if (fromDriver != null) {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;
-            eye[0] = vehicle.getX() + axes[0] * back + axes[3] * across + axes[6] * raised;
-            eye[1] = vehicle.getY() + axes[1] * back + axes[4] * across + axes[7] * raised;
-            eye[2] = groundUp + axes[2] * back + axes[5] * across
-                    + axes[8] * raised;
+            // Turned about the centre of mass, as the game's physics turns the body.
+            float centre = wheel[4];
+            eye[0] = vehicle.getX() + turn[6] * centre + axes[0] * back + axes[3] * across + axes[6] * raised;
+            eye[1] = vehicle.getY() + turn[7] * centre + axes[1] * back + axes[4] * across + axes[7] * raised;
+            eye[2] = groundUp + turn[8] * centre + axes[2] * back + axes[5] * across + axes[8] * raised;
         }
         if (FirstPerson.TRACE && (seatSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,

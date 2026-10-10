@@ -233,6 +233,7 @@ public final class Characters {
         Object frame = SpriteRenderer.instance.getRenderingState();
         if (frame != notedIn) {
             noted.clear();
+            notedFrames++;
             notedIn = frame;
         }
         int at = noted.size() * 4;
@@ -274,6 +275,7 @@ public final class Characters {
     /** Render thread, as the picture stops being drawn: the models last noted are the game's to let go of. */
     void setDown() {
         noted.clear();
+        notedFrames++;
         notedIn = null;
         holding = null;
         CharacterDraw.setDown();
@@ -307,6 +309,7 @@ public final class Characters {
         drawing |= 1 << view.index;
         if (noted.isEmpty() || notedIn != SpriteRenderer.instance.getRenderingState()) {
             noted.clear();
+            notedFrames++;
             return false;
         }
         return true;
@@ -439,6 +442,7 @@ public final class Characters {
             tally();
         }
         noted.clear();
+        notedFrames++;
         holding = null;
     }
 
@@ -478,13 +482,12 @@ public final class Characters {
                 // light the game would have given it.
                 int at = i * 4;
                 float groundUp = view.pipeline.seatedGroundUp;
-                place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-                tip(view.pipeline.seatedTurn);
+                aboard(sat, at);
                 String script = view.ride.seatedIn;
                 ViewCamera.view(camera, eyeView);
                 if (script != null && !parts(data).isEmpty()) {
                     multiply(projection, eyeView, combined);
-                    VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, WHEEL_SETTLES - VEHICLE_SCALE * data.centerOfMassY, stood[at], stood[at + 1], groundUp,
+                    VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
                             data.centerOfMassY, combined);
                 }
                 ownAmbient[0] = data.ambientR;
@@ -1584,11 +1587,8 @@ public final class Characters {
      */
     private void seated(ModelSlotRenderData data, int at, float[] viewMatrix) {
         BaseVehicle in = data.character.getVehicle();
-        if (in != null && in == view.ride.sat) {
-            place(stood[at], stood[at + 1], view.pipeline.seatedGroundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-            tip(view.pipeline.seatedTurn);
-        } else if (in != null) {
-            lie(in, at);
+        if (in != null) {
+            aboard(in, at);
         } else {
             place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                     stood[at + 3], VEHICLE_SCALE);
@@ -1617,11 +1617,8 @@ public final class Characters {
      * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
     private void vehicle(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        if (fromSeat) {
-            place(stood[at], stood[at + 1], view.pipeline.seatedGroundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-            tip(view.pipeline.seatedTurn);
-        } else if (data.object instanceof BaseVehicle standing) {
-            lie(standing, at);
+        if (data.object instanceof BaseVehicle standing) {
+            aboard(standing, at);
         } else {
             place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                     stood[at + 3], VEHICLE_SCALE);
@@ -1665,21 +1662,75 @@ public final class Characters {
         data.squareDepth = squareDepth;
     }
 
-    /**
-     * The matrix that stands a model in the world. A model's own axes are x to its side, y up
-     * and z along its back; the game turns it by its angle plus half a turn, mirrors it across
-     * x and scales it. In world axes (x, y, up) that comes to this.
-     */
-    private final VehicleSlope slope = new VehicleSlope();
+    /** How each vehicle noted lies on the land this frame, by its slot. */
+    private VehicleSlope[] lies = new VehicleSlope[16];
+    /** The frame each of lies was worked out for: a vehicle lies one way a frame, in every pass. */
+    private int[] liesFor = new int[16];
+    private int notedFrames;
     private final Vector3f ahead = new Vector3f();
 
-    /** Places a vehicle, or someone in it, where it stood for the game, on the land under it as it lies there: see VehicleSlope. */
-    private void lie(BaseVehicle vehicle, int at) {
+    /**
+     * Places what is noted at slot at, a vehicle or someone in one, on the land as the vehicle
+     * lies there: see VehicleSlope. A vehicle is one body. It and all in it are turned together
+     * about the ground under its middle, by one slope a frame. The vehicle the viewer sits in
+     * is where it was, and lies as it lay, when the eye was seated in it: on its springs.
+     */
+    private void aboard(BaseVehicle vehicle, int at) {
+        int of = slotOf(vehicle);
+        // Someone whose vehicle the game did not draw this frame rides on the land under them.
+        float middleX = of < 0 ? stood[at] : stood[of * 4], middleY = of < 0 ? stood[at + 1] : stood[of * 4 + 1];
+        float dx = stood[at] - middleX, dy = stood[at + 1] - middleY;
+        float[] turn;
+        float groundUp;
+        if (view.pipeline.seated && vehicle == view.ride.sat) {
+            turn = view.pipeline.seatedTurn;
+            groundUp = view.pipeline.seatedGroundUp;
+            if (of >= 0) {
+                // The game's draw has the vehicle where its physics had it at another moment
+                // than the one the eye was seated at: up to 2 cm off at speed.
+                middleX = view.pipeline.seatedX;
+                middleY = view.pipeline.seatedY;
+            }
+        } else {
+            VehicleSlope lies = lying(vehicle, of < 0 ? at / 4 : of);
+            turn = lies.turn;
+            groundUp = lies.groundUp;
+        }
+        place(0f, 0f, 0f, stood[at + 3], VEHICLE_SCALE);
+        tip(turn);
+        placed[12] = middleX + turn[0] * dx + turn[3] * dy + turn[6] * VEHICLE_RAISE;
+        placed[13] = middleY + turn[1] * dx + turn[4] * dy + turn[7] * VEHICLE_RAISE;
+        placed[14] = groundUp + turn[2] * dx + turn[5] * dy + turn[8] * VEHICLE_RAISE;
+    }
+
+    /** The slot the vehicle was noted in this frame, or -1. */
+    private int slotOf(BaseVehicle vehicle) {
+        for (int i = 0; i < noted.size(); i++) {
+            if (noted.get(i).object == vehicle && noted.get(i).character == null) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** How the vehicle noted at slot lies on the land under its wheels this frame. */
+    private VehicleSlope lying(BaseVehicle vehicle, int slot) {
+        if (slot >= lies.length) {
+            lies = Arrays.copyOf(lies, Math.max(slot + 1, lies.length * 2));
+            liesFor = Arrays.copyOf(liesFor, lies.length);
+        }
+        VehicleSlope slope = lies[slot];
+        if (slope == null) {
+            slope = lies[slot] = new VehicleSlope();
+        } else if (liesFor[slot] == notedFrames) {
+            return slope;
+        }
+        liesFor[slot] = notedFrames;
+        int at = slot * 4;
         vehicle.getForwardVector(ahead);
         Vector3f extents = vehicle.getScript().getExtents();
         slope.lie(view.worldScene.terrain, stood[at], stood[at + 1], stood[at + 2], ahead.x, ahead.z, extents.z, extents.x);
-        place(stood[at], stood[at + 1], slope.groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
-        tip(slope.turn);
+        return slope;
     }
 
     /** Tips what placed stands up by the turn of a VehicleSlope, about where it stands. */
@@ -1692,6 +1743,11 @@ public final class Characters {
         }
     }
 
+    /**
+     * The matrix that stands a model in the world. A model's own axes are x to its side, y up
+     * and z along its back; the game turns it by its angle plus half a turn, mirrors it across
+     * x and scales it. In world axes (x, y, up) that comes to this.
+     */
     private void place(float x, float y, float up, float angle, float scale) {
         float cos = (float) Math.cos(angle + Math.PI) * scale;
         float sin = (float) Math.sin(angle + Math.PI) * scale;

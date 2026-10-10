@@ -21,6 +21,7 @@ final class CabinTests {
         Checks.run("doorMirrorStandsOnItsDoorAtTheFootOfThePillar", CabinTests::doorMirrorStandsOnItsDoorAtTheFootOfThePillar);
         Checks.run("doorMirrorLooksOutFromTheVehicleWithItsFlankASliver", CabinTests::doorMirrorLooksOutFromTheVehicleWithItsFlankASliver);
         Checks.run("cabinTipsAndRollsWithItsBody", CabinTests::cabinTipsAndRollsWithItsBody);
+        Checks.run("aBodyTurnedOnItsModelIsStoodByItsOwnUp", CabinTests::aBodyTurnedOnItsModelIsStoodByItsOwnUp);
         Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
         Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
         Checks.run("wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack", CabinTests::wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack);
@@ -176,6 +177,27 @@ final class CabinTests {
         check(Cabins.axes(stood(north, down, east, 1.82f), faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, -1f, 0f, 0f, 0f, -1f), "on its roof: the cabin's up is straight down and its left is to the south");
         check(Cabins.axes(stood(south, east, down, 1.82f), faced(0f, 0f, -1f), axes) && are(axes, 0f, 0f, -1f, 0f, 1f, 0f, 1f, 0f, 0f), "on its nose: ahead is straight down and the cabin's up is to the east");
         check(Cabins.axes(stood(south, east, up, 1.82f), faced(0f, 0f, -1f), axes) && are(axes, 0f, 0f, -1f, 0f, 1f, 0f, 1f, 0f, 0f), "the same for a body whose length runs to its back");
+    }
+
+    private static void aBodyTurnedOnItsModelIsStoodByItsOwnUp() {
+        float[] axes = new float[9];
+        float[] east = {1f, 0f, 0f}, up = {0f, 0f, 1f}, south = {0f, -1f, 0f}, down = {0f, 0f, -1f};
+        // Modelled with z up and stood by its script a quarter turn about its side: its y runs along it and its z points down.
+        float[] turned = stood(south, east, down, 1f);
+        int[] upright = Cabins.upright(turned, faced(1f, 0f, 0f));
+        check(upright != null && upright[0] == 8 && upright[1] == -1 && upright[2] == 4, "a body modelled with z up is told to stand on its z, turned over, with its y along it");
+        check(Cabins.axes(turned, upright, faced(1f, 0f, 0f), axes) && are(axes, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), "and it is laid out by its own axes, as a body modelled upright is");
+        float c = (float) Math.cos(Math.toRadians(5)), s = (float) Math.sin(Math.toRadians(5));
+        float[] dipped = stood(south, new float[] {c, 0f, -s}, new float[] {-s, 0f, -c}, 1f);
+        check(Cabins.axes(dipped, upright, faced(1f, 0f, 0f), axes) && are(axes, c, 0f, -s, 0f, 1f, 0f, s, 0f, c),
+                "its nose dipping 5 degrees on the springs is the body's own, not the physics' word");
+        int[] standing = Cabins.upright(stood(south, up, east, 1f), faced(1f, 0f, 0f));
+        check(standing != null && standing[0] == 4 && standing[1] == 1 && standing[2] == 8, "a body modelled upright stands on its y with its z along it");
+        float[] onItsSide = new float[9];
+        Cabins.axes(1f, 0f, 0f, 0f, -1f, 0f, onItsSide);
+        int[] fallen = Cabins.upright(stood(down, south, east, 1f), onItsSide);
+        check(fallen != null && fallen[0] == 4 && fallen[1] == 1 && fallen[2] == 8, "first seen on its side, a body is told its up from the physics' up, which is on its side with it");
+        check(Cabins.upright(stood(south, new float[] {0f, -0.6f, 0.8f}, east, 1f), faced(1f, 0f, 0f)) == null, "a body tipped too far from the physics to tell is not told anything");
     }
 
     /** A vehicle facing this way with its up straight up, as the physics would have it: only the way it faces is read of it here. */

@@ -384,9 +384,11 @@ final class Pipeline {
      * two passes of a frame as readily as between two frames.
      */
     boolean seated;
-    float seatedGroundUp;
+    float seatedX, seatedY, seatedGroundUp;
     /** How the vehicle the viewer sits in lies on the land, as the logic thread had it with seatedGroundUp: see VehicleSlope.turn. */
     final float[] seatedTurn = new float[9];
+    /** The way the vehicle faces, its left and its up, as the logic thread had them when it seated the eye in it: see Ride.stands. */
+    final float[] seatedAxes = new float[9];
     /**
      * The plane the water round the eye lies in, where the frame shows any: the unit vector
      * square to it and how far along it the plane is, see WaterMirror. Null with no water.
