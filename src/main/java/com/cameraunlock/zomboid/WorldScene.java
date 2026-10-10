@@ -1626,6 +1626,8 @@ final class WorldScene {
     /** How far above the floor a body's picture is laid, in tiles: clear of the blood and the litter laid on the floor under it. */
     private static final float BODY_UP = 0.08f;
     private static final int[] BODY_CORNERS = {0, 1, 2, 0, 2, 3};
+    /** How many cells a body's picture is laid in each way. */
+    private static final int BODY_CELLS = 8;
 
     /**
      * Whether everything built of an object that is no part of its building stays inside the
@@ -4952,14 +4954,43 @@ final class WorldScene {
             float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
             // What is above the floor is drawn further up the screen, so the picture lies this much nearer the game's view than it would on the floor.
             float nearer = BODY_UP / ViewCamera.LEVEL_HEIGHT * SpriteGeometry.PIXELS_PER_LEVEL / (2f * SpriteGeometry.PIXELS_DOWN_PER_TILE);
-            for (int corner : BODY_CORNERS) {
-                boolean right = corner == 1 || corner == 2, low = corner >= 2;
-                float u = (left + (right ? wide : 0f)) / across, v = (top + (low ? high : 0f)) / down;
-                float atX = x + (v + u) / 2f + nearer, atY = y + (v - u) / 2f + nearer;
-                heightsAt(atX, atY);
-                mesh.add(atX, atY, z * ViewCamera.LEVEL_HEIGHT + terrain.lift(atX, atY, z) + BODY_UP,
-                        right ? texture.getXEnd() : texture.getXStart(), low ? texture.getYEnd() : texture.getYStart(), frame.red, frame.green, frame.blue);
+            // Laid as a grid on the ground, each point at the highest of the ground round it, so it
+            // lies over a slope and is not cut into by the ground between its corners, nor by a kerb.
+            float base = z * ViewCamera.LEVEL_HEIGHT + BODY_UP;
+            for (int i = 0; i <= BODY_CELLS; i++) {
+                for (int j = 0; j <= BODY_CELLS; j++) {
+                    float u = (left + wide * i / BODY_CELLS) / across, v = (top + high * j / BODY_CELLS) / down;
+                    float atX = x + (v + u) / 2f + nearer, atY = y + (v - u) / 2f + nearer;
+                    int at = (i * (BODY_CELLS + 1) + j) * 3;
+                    bodyGrid[at] = atX;
+                    bodyGrid[at + 1] = atY;
+                    bodyGrid[at + 2] = base + groundUnder(atX, atY, z, Math.max(wide / across, high / down) / (2f * BODY_CELLS));
+                }
             }
+            float u0 = texture.getXStart(), u1 = texture.getXEnd(), v0 = texture.getYStart(), v1 = texture.getYEnd();
+            for (int i = 0; i < BODY_CELLS; i++) {
+                for (int j = 0; j < BODY_CELLS; j++) {
+                    for (int corner : BODY_CORNERS) {
+                        int ci = i + (corner == 1 || corner == 2 ? 1 : 0), cj = j + (corner >= 2 ? 1 : 0);
+                        int at = (ci * (BODY_CELLS + 1) + cj) * 3;
+                        mesh.add(bodyGrid[at], bodyGrid[at + 1], bodyGrid[at + 2], u0 + (u1 - u0) * ci / BODY_CELLS, v0 + (v1 - v0) * cj / BODY_CELLS,
+                                frame.red, frame.green, frame.blue);
+                    }
+                }
+            }
+        }
+
+        private final float[] bodyGrid = new float[(BODY_CELLS + 1) * (BODY_CELLS + 1) * 3];
+
+        /** The highest the ground is at (x, y) and reach along the map either way from it. */
+        private float groundUnder(float x, float y, float z, float reach) {
+            float highest = Float.NEGATIVE_INFINITY;
+            for (int k = 0; k < 5; k++) {
+                float atX = x + (k == 1 ? reach : k == 2 ? -reach : 0f), atY = y + (k == 3 ? reach : k == 4 ? -reach : 0f);
+                heightsAt(atX, atY);
+                highest = Math.max(highest, terrain.lift(atX, atY, z));
+            }
+            return highest;
         }
 
         /**
