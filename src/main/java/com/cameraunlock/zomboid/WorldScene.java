@@ -983,7 +983,7 @@ final class WorldScene {
     /** What a frame of a chunk's interval stands for in time: see where a chunk is found due. */
     private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
     /**
-     * How long a frame builds chunks for before those outside the viewer's chunk
+     * How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES}
      * wait for the next. It is the frame's time, and so is the time for chunks whose only news is
      * their light: two players' views building in one frame have half of each.
      */
@@ -997,6 +997,8 @@ final class WorldScene {
      * were a frame of 40 to 50 ms at every step, on the tenth floor of a building of 27.
      */
     private static final long LIT_NANOS_A_FRAME = 2_000_000L, LIT_WAITS_NANOS = 150_000_000L;
+    /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
+    private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
     /** Where the opening in each wall sprite seen so far is: see openingOf. */
     static final IdentityHashMap<Texture, float[]> openings = new IdentityHashMap<>();
 
@@ -2507,9 +2509,11 @@ final class WorldScene {
                     // together: its old build is still good enough to show. Without this the frames
                     // on which dozens fall due are several times as long as the rest.
                     int every = missing ? 0 : buildEvery(distance, slot);
-                    // Keep the viewer's own chunk immediate; surrounding chunks share the frame budget.
-                    boolean atEye = gridX == eyeGridX && gridY == eyeGridY;
-                    boolean late = !aside && (rehearsing || !atEye) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
+                    // On the frame the view comes on, after a jump across the map or as the head turns
+                    // fast, hundreds of chunks want building at once, and built in one frame they held it
+                    // for most of a second. What is near is built whatever it takes. The rest is built
+                    // until the frame has spent its time on building, and the others come on the next frames.
+                    boolean late = !aside && (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
                     // One chunk a frame is built however late the frame is: on a PC where what is near takes all
                     // of the frame's time, nothing further off would otherwise ever be built.
                     if (missing && late && builtLate++ > 0) {
@@ -2591,9 +2595,9 @@ final class WorldScene {
                     int why = !AUDIT_MARKS || !telling || missing ? 0 : (marks != current.marks ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
                             | (land != current.land ? 8 : 0) | (!ringAsItWas ? 16 : 0) | (current.restless ? 32 : 0)
                             | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
-                    // Reuse the previous geometry after the budget, but allow progress if nothing was built.
+                    // One that has waited twice its time waits no longer: the chunks are walked nearest first,
+                    // and the last of them would wait as long as those before it kept falling due.
                     boolean due = !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
-                            && (!late || chunksBuilt == 0)
                             && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                     || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
                     // On arriving somewhere the map round the eye is still loading, and each chunk is found changed again
