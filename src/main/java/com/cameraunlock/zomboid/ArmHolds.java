@@ -555,8 +555,9 @@ final class ArmHolds {
             float o = out * (float) Math.cos(turned) - knobU * (float) Math.sin(turned);
             float u = out * (float) Math.sin(turned) + knobU * (float) Math.cos(turned);
             float[] knob = placed.at(knobA - placed.travel() * shape.perMetre * worked[1], shape.bore + u, side * o);
-            // The palm is under the knob and outside it, and the fingers run forward past it.
-            Hold onKnob = new Hold(model).set(knob, axes.way(0f, 0.55f, -0.83f), axes.way(0.9f, 0.3f, -0.3f), false, model.pose("knob"));
+            // The palm is against the knob's outside, a little under it, and the fingers run forward and up past it. Under it with the
+            // fingers run forward flat, the hand asked its forearm to turn 80 to 103 degrees.
+            Hold onKnob = new Hold(model).set(knob, axes.way(0f, 0.3f, -1f), axes.way(0.7f, 0.6f, -0.3f), false, model.pose("knob"));
             hold.towards(onKnob, on);
         } else if (cycled >= 0f && doing.action() == ArmActs.LEVER) {
             // The hand in the lever's loop swings it down and forward about its pin and back.
@@ -608,10 +609,11 @@ final class ArmHolds {
         }
         float[] off = new float[3];
         ViewModelMath.place(fromAim, AWAY[0] * axes.scale, AWAY[1] * axes.scale, AWAY[2] * axes.scale, off);
-        // Off the weapon the hand is closed on what it fetches or takes away, or about to be.
+        // Off the weapon the hand is closed on what it fetches or takes away, or about to be, its palm towards the body's middle and
+        // a little up, its fingers forward. Palm up, it asked its forearm to turn 105 to 123 degrees.
         int action = doing.action();
         boolean magazine = action == ArmActs.HANDGUN || action == ArmActs.BOLT;
-        Hold away = new Hold(model).set(off, axes.way(0.2f, 0.9f, 0.4f), axes.way(0.8f, 0f, 0.6f), true,
+        Hold away = new Hold(model).set(off, axes.way(0f, 0.3f, 1f), axes.way(1f, 0.2f, 0f), true,
                 model.pose(doing.doing() == ArmActs.RACKING ? "open" : magazine ? "magazine" : "pinch"));
         // Where the hand is when this is over: back on the weapon, or off it.
         Hold rest = hold != null ? hold : away;

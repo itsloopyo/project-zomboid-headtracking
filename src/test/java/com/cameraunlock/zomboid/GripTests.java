@@ -25,6 +25,7 @@ final class GripTests {
         Checks.run("leftHandIsUnderTheForeEndsUnderside", () -> leftHandIsUnderTheForeEndsUnderside(model));
         Checks.run("armsOnAPistolComeUpFromUnderThePictureUnturned", () -> armsOnAPistolComeUpFromUnderThePictureUnturned(model));
         Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
+        Checks.run("armsWorkingTheActionTurnNoFurtherThanAForearmTurns", () -> armsWorkingTheActionTurnNoFurtherThanAForearmTurns(model));
         Checks.run("rightPalmOnALongGunFacesAsItsHoldSays", () -> rightPalmOnALongGunFacesAsItsHoldSays(model));
         Checks.run("heldMeshIsFilledAgainEachFrame", GripTests::heldMeshIsFilledAgainEachFrame);
         Checks.run("meshAxesComeFromTheMuzzleAttachment", GripTests::meshAxesComeFromTheMuzzleAttachment);
@@ -249,6 +250,42 @@ final class GripTests {
                     // A pistol pointed down brings the wrists down towards the elbows, which stay under them.
                     float drop = (said[side][ArmPose.WRIST + 1] - said[side][ArmPose.ELBOW + 1]) / SCALE;
                     check(drop > (way == 0 ? 0.08f : 0.05f), arm + " has its elbow well under its wrist: " + drop + " m");
+                }
+            }
+        }
+    }
+
+    /**
+     * While a bolt is worked, a slide racked, a magazine taken out, fetched and seated, or a round
+     * pushed in, each arm asks its forearm to turn no further than a forearm turns.
+     */
+    private static void armsWorkingTheActionTurnNoFurtherThanAForearmTurns(ArmModel model) {
+        WeaponShape longShape = TestGuns.shape(TestGuns.longGun(true));
+        float[] pointing = {0f, 0f, -1f}, over = {0f, 1f, 0f};
+        float[] longGrip = {0.22f * SCALE, -0.25f * SCALE, -0.23f * SCALE};
+        ArmHolds.Placed longPlaced = TestGuns.placed(longShape, longGrip, pointing, over, SCALE, 0f, Float.NaN);
+        ArmHolds.Weapon rifle = new ArmHolds.Weapon(true, false, longPlaced.at(longShape.grip), pointing, over, longPlaced);
+        ArmHolds.Weapon pistol = pistolTurned(0f, PISTOL_TURNS[0]);
+        for (float t = 0f; t <= 2.2f; t += 0.05f) {
+            float aim = 0f;
+            Object[][] cases = {
+                {"a bolt worked " + t + " s after the shot", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, t, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
+                {"a slide racked " + t + " s in", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.RACKING, t, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
+                {"a pistol magazine out " + t + " s", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, t, -1f, 2f, 0f)},
+                {"a pistol magazine fetched " + t + " s", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f)},
+                {"a pistol magazine seated " + t + " s ago", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, t, true, -1f, -1f, 2f, 0f)},
+                {"a rifle magazine taken hold of " + t + " s in", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.UNLOADING, t, 0f, 2f, -1f, true, -1f, -1f, 2f, 0f)},
+                {"a rifle magazine fetched " + t + " s", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f)},
+                {"a round pushed into a pump " + (t / 2.2f) + " of the way", rifle, new ArmHolds.Doing(aim, true, ArmActs.PUMP, -1f, ArmActs.LOADING, t, t / 2.2f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
+            };
+            for (Object[] doing : cases) {
+                float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                int arms = ArmHolds.place(model, SCALE, (ArmHolds.Weapon) doing[1], (ArmHolds.Doing) doing[2], SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+                check(arms > 0, "the arms are placed with " + doing[0]);
+                for (int side = 0; side < arms; side++) {
+                    float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
+                    check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), (side == 0 ? "the right" : "the left") + " arm with " + doing[0]
+                            + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
                 }
             }
         }
