@@ -325,6 +325,7 @@ final class Terrain {
     private Terrain(boolean level) {
         this.level = level;
         gain = level ? 0f : 1f;
+        Arrays.fill(roundEyeAt, gain);
     }
 
     float gain() {
@@ -336,20 +337,33 @@ final class Terrain {
         void chunk(int wx, int wy);
     }
 
+    /** By view: the gain the heights round its eye were last worked out again at (heighten). */
+    private final float[] roundEyeAt = new float[View.COUNT];
+
     /**
-     * Logic thread: heighten, with the heights of the chunk an eye at (eyeX, eyeY) is over and
-     * of the eight round it worked out again by now (workingOut). The rest are worked out as
-     * they are asked for, and a build asks for the nearest first: the land the eye stands in and
-     * the water beside it are never at two heights.
+     * Logic thread, as a view is built with its eye at (eyeX, eyeY): heighten when the gain is
+     * another, and whenever the heights round this view's eye were last worked out again at
+     * another gain, those of the chunk the eye is over and of the eight round it worked out
+     * again by now (workingOut). The views share the land, and each eye has its own. The rest
+     * are worked out as they are asked for, and a build asks for the nearest first: the land an
+     * eye stands in and the water beside it are never at two heights. Whether the gain changed.
      */
-    void heighten(float gain, float eyeX, float eyeY, Rework now) {
-        heighten(gain);
+    boolean heighten(float gain, int view, float eyeX, float eyeY, Rework now) {
+        boolean changed = gain != this.gain;
+        if (changed) {
+            heighten(gain);
+        }
+        if (roundEyeAt[view] == gain) {
+            return changed;
+        }
+        roundEyeAt[view] = gain;
         int wx = Math.floorDiv((int) Math.floor(eyeX), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(eyeY), CHUNK_TILES);
         for (int x = wx - 1; x <= wx + 1; x++) {
             for (int y = wy - 1; y <= wy + 1; y++) {
                 now.chunk(x, y);
             }
         }
+        return changed;
     }
 
     /** A chunk's heights worked out again from the map, whatever the frame has spent on heights. Logic thread. */

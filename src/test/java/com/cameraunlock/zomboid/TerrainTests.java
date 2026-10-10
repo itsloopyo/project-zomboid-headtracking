@@ -317,7 +317,8 @@ final class TerrainTests {
         Terrain.HILLS.heighten(1f);
         List<String> worked = new ArrayList<>();
         float eyeX = 1300.5f, eyeY = -12.25f;
-        Terrain.HILLS.heighten(1.5f, eyeX, eyeY, (wx, wy) -> worked.add(wx + "," + wy + " at " + Terrain.HILLS.gain()));
+        Terrain.Rework record = (wx, wy) -> worked.add(wx + "," + wy + " at " + Terrain.HILLS.gain());
+        check(Terrain.HILLS.heighten(1.5f, 0, eyeX, eyeY, record), "the first view built after the change changes the gain");
         List<String> round = new ArrayList<>();
         for (int wx = 161; wx <= 163; wx++) {
             for (int wy = -3; wy <= -1; wy++) {
@@ -325,6 +326,14 @@ final class TerrainTests {
             }
         }
         check(worked.size() == 9 && worked.containsAll(round), "the eye's chunk and the eight round it, and no other, are worked out at once at the new height: " + worked);
+        worked.clear();
+        check(!Terrain.HILLS.heighten(1.5f, 1, eyeX + 800f, eyeY, record), "the second view, built after it, finds the gain changed already");
+        round.replaceAll(chunk -> (Integer.parseInt(chunk.substring(0, chunk.indexOf(','))) + 100) + chunk.substring(chunk.indexOf(',')));
+        check(worked.size() == 9 && worked.containsAll(round), "and has the chunks round its own eye worked out at once: " + worked);
+        worked.clear();
+        Terrain.HILLS.heighten(1.5f, 0, eyeX, eyeY, record);
+        Terrain.HILLS.heighten(1.5f, 1, eyeX + 800f, eyeY, record);
+        check(worked.isEmpty(), "and neither view's are worked out again until the gain changes again: " + worked);
         check(Terrain.HILLS.gainAt(eyeX + 400f, eyeY) == 1.5f, "a chunk never worked out will be at the new height");
         check(Terrain.waterLevel(1.5f, eyeX, eyeY) == 1.5f * (Terrain.waterLevel(1f, eyeX, eyeY) + Terrain.WATER_BELOW) - Terrain.WATER_BELOW,
                 "water lies at the height of the hills times the country's rise and fall");

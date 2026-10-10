@@ -2235,9 +2235,7 @@ final class WorldScene {
                 Terrain.forget();
             }
             float hills = HillHeight.drawn(Online.contested());
-            if (hills != Terrain.HILLS.gain()) {
-                // The views share the land: the first one built raises it for both.
-                Terrain.HILLS.heighten(hills, pose.eyeX, pose.eyeY, Terrain.HILLS.workingOut(cell));
+            if (Terrain.HILLS.heighten(hills, view.index, pose.eyeX, pose.eyeY, Terrain.HILLS.workingOut(cell))) {
                 Log.info("hill height " + hills + ": the heights round the eye are worked out again, and every other chunk's as it is next asked for");
             }
             if (hills != farHills) {
