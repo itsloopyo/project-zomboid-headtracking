@@ -26,6 +26,7 @@ import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.skinnedmodel.DeadBodyAtlas;
+import zombie.core.skinnedmodel.ModelManager;
 import zombie.core.textures.ColorInfo;
 import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
@@ -1427,6 +1428,32 @@ final class WorldScene {
         }
         return (long) System.identityHashCode(texture) << 32
                 | (Float.floatToRawIntBits(picture.getRenderX(0f)) * 31 + Float.floatToRawIntBits(picture.getRenderY(0f))) & 0xffffffffL;
+    }
+
+    private static java.lang.reflect.Field bodyPicture;
+
+    /**
+     * Asks the game for the picture of a body that has none, as IsoDeadBody.render does when the
+     * body first comes into the game's own view, and returns whether it was asked. That view
+     * draws no body under the first person picture, so a body that came to lie while it was
+     * covered was never given one, and was not drawn. Logic thread, while a frame is handed to
+     * the render thread, where the game's own asking is.
+     */
+    private static boolean askPicture(IsoDeadBody body) {
+        if (body.getAtlasTexture() != null || !ModelManager.instance.debugEnableModels || !ModelManager.instance.isCreated()) {
+            return false;
+        }
+        try {
+            if (bodyPicture == null) {
+                bodyPicture = IsoDeadBody.class.getDeclaredField(Links.BODY_PICTURE.name());
+                bodyPicture.setAccessible(true);
+            }
+            bodyPicture.set(body, DeadBodyAtlas.instance.getBodyTexture(body));
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("the picture of a body could not be asked for", failure);
+        }
+        DeadBodyAtlas.instance.render();
+        return true;
     }
 
     /** A sprite and the texture it shows this frame turned that way, as one number. */
@@ -3796,8 +3823,8 @@ final class WorldScene {
                             if (body instanceof IsoDeadBody dead) {
                                 long picture = pictured(dead);
                                 thing = sum(thing, picture);
-                                // The game makes a body's picture when its own view has the body on screen, and marks nothing when it has.
-                                restless |= picture == 0 && square.getChunk().getRenderLevels(playerIndex).isOnScreen(z);
+                                // The game marks nothing when a picture it was asked for is made.
+                                restless |= picture == 0 && (askPicture(dead) || dead.getAtlasTexture() != null);
                             }
                         }
                         level = sum(sum(level, lit), thing);
@@ -4903,9 +4930,9 @@ final class WorldScene {
          * A body lying on the ground. The game has no model standing there to draw: it keeps a
          * picture of the body as its own view sees it, made once, and draws that where the body
          * lies. The same picture is laid on the ground here, every texel of it where the game's
-         * view has it, so it is the body the game shows, lying as the game shows it. The game
-         * makes the picture when the body first comes into its own view, and until then there is
-         * none to lay.
+         * view has it, so it is the body the game shows, lying as the game shows it. The picture
+         * is asked for when the chunk is read (askPicture), and until the game has made it there
+         * is none to lay.
          */
         private void addBody(IsoDeadBody body) {
             DeadBodyAtlas.BodyTexture picture = body.getAtlasTexture();
