@@ -17,11 +17,13 @@ import zombie.input.AimingReticle;
 import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.PlayerCamera;
 import zombie.iso.Vector2;
+import zombie.iso.objects.IsoTree;
 import zombie.scripting.objects.VehicleScript;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
@@ -67,9 +69,12 @@ public final class FirstPerson {
     private final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
     /** What the overhead camera last took in above and below the place it looks at, in tiles. */
     private float overheadHalfHigh;
-    /** Where on the player's floor the game's window through trees is (CanopyWindow), and the pointer's while aiming, with whether a tree anywhere in it is opened. */
+    /** Where on the player's floor the game's window through trees is (CanopyWindow), and the pointer's while aiming. */
     private float canopyX, canopyY, canopyAimX, canopyAimY;
-    private boolean canopyAimed, canopyEveryTree;
+    private boolean canopyAimed;
+    /** The trees the game draws see-through: each one's square and how much of it the game draws, three floats a tree. */
+    private final float[] canopyFaded = new float[3 * CanopyWindow.TREES];
+    private int canopyFadedCount;
     private final ViewCamera.Pose flightView = new ViewCamera.Pose();
     /**
      * How near the eye the camera is when the viewer stops being one of the people in the
@@ -712,7 +717,7 @@ public final class FirstPerson {
             view.ride.seated = false;
             scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
-            scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
+            scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
         } else {
             fromTheEye = true;
             scene.build(player, flightView, aimView, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
@@ -932,7 +937,7 @@ public final class FirstPerson {
                 (float) (ViewCamera.LEVEL_HEIGHT / Math.tan(-OVERHEAD_PITCH)));
         scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
-        scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
+        scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
@@ -970,9 +975,25 @@ public final class FirstPerson {
             canopyAimX = x + (pointerX * southY - southX * pointerY) / det;
             canopyAimY = y + (eastX * pointerY - pointerX * eastY) / det;
         }
-        // Aiming or in a vehicle the game opens every tree in the window; otherwise only one
-        // standing on the camera's side of the player (FBORenderCell.isTranslucentTree).
-        canopyEveryTree = canopyAimed || player.getVehicle() != null;
+        // The trees the game is fading or has faded, nearest the player first, ring by ring.
+        canopyFadedCount = 0;
+        int squareX = (int) Math.floor(x), squareY = (int) Math.floor(y);
+        IsoCell cell = IsoWorld.instance.currentCell;
+        for (int ring = 0; ring <= CanopyWindow.TREE_REACH && canopyFadedCount < CanopyWindow.TREES; ring++) {
+            for (int dy = -ring; dy <= ring && canopyFadedCount < CanopyWindow.TREES; dy++) {
+                int step = dy == -ring || dy == ring ? 1 : Math.max(2 * ring, 1);
+                for (int dx = -ring; dx <= ring && canopyFadedCount < CanopyWindow.TREES; dx += step) {
+                    IsoGridSquare square = cell.getGridSquare(squareX + dx, squareY + dy, 0);
+                    IsoTree tree = square == null ? null : square.getTree();
+                    if (tree != null && tree.fadeAlpha < 1f) {
+                        canopyFaded[3 * canopyFadedCount] = squareX + dx;
+                        canopyFaded[3 * canopyFadedCount + 1] = squareY + dy;
+                        canopyFaded[3 * canopyFadedCount + 2] = tree.fadeAlpha;
+                        canopyFadedCount++;
+                    }
+                }
+            }
+        }
         if (TRACE && (overheadSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "overhead: player on screen at (%.1f, %.1f) of %.0fx%.0f, zoom %.2f, east (%.2f, %.2f) south (%.2f, %.2f), camera offset (%.1f, %.1f), middle of screen at tile (%.2f, %.2f), player (%.2f, %.2f, %.2f)",
                     atX, atY, wide, high, zoom, eastX, eastY, southX, southY, IsoCamera.getOffX(), IsoCamera.getOffY(), middleX, middleY, x, y, level));

@@ -395,7 +395,7 @@ final class ChunkBuffers {
                 (long) capacity * Float.BYTES >> 20, how, holders.size(), kept * Float.BYTES >> 20, coming * Float.BYTES >> 20));
     }
 
-    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, and the second texture coordinate array at what a vertex carries for a card. Leaves no buffer bound. */
+    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, and the third at its tree's square. Leaves no buffer bound. */
     static void point() {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         GL11.glVertexPointer(3, GL_FLOAT, STRIDE, 0L);
@@ -404,6 +404,8 @@ final class ChunkBuffers {
         GL11.glNormalPointer(GL_FLOAT, STRIDE, 9L * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
         GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, 12L * Float.BYTES);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.ROOT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }

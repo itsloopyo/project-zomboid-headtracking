@@ -4,6 +4,7 @@ import zombie.core.textures.ColorInfo;
 import zombie.util.list.PZArrayList;
 
 public final class IsoGridSquare {
+    public zombie.iso.objects.IsoTree getTree() { throw new UnsupportedOperationException("reference stub"); }
     public interface ILighting {
         ColorInfo lightInfo();
         boolean bCanSee();

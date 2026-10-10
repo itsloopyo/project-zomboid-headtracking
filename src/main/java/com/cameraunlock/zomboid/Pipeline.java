@@ -399,15 +399,16 @@ final class Pipeline {
     float rangeFrom;
     float focusX, focusY, focusUp;
 
-    /** Where the game's own view opens its window through trees on the player's floor, and the pointer's while aiming, and whether every tree in them is opened. */
-    void canopy(float x, float y, float up, boolean aimed, float aimX, float aimY, boolean everyTree) {
+    /** Where the game's own view opens its window through trees on the player's floor, and the pointer's while aiming, and the trees it draws see-through: see CanopyWindow. */
+    void canopy(float x, float y, float up, boolean aimed, float aimX, float aimY, float[] faded, int fadedCount) {
         canopyX = x;
         canopyY = y;
         canopyUp = up;
         canopyAimed = aimed;
         canopyAimX = aimX;
         canopyAimY = aimY;
-        canopyEveryTree = everyTree;
+        System.arraycopy(faded, 0, canopyFaded, 0, 3 * fadedCount);
+        canopyFadedCount = fadedCount;
     }
     /** How far from the eye the frame draws people, zombies, vehicles and furniture, which every pass of it goes by. */
     final DrawDistance drawDistance = new DrawDistance();
@@ -444,8 +445,9 @@ final class Pipeline {
     private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
     /** The game's window through trees: see CanopyWindow and canopy. */
     private float canopyX, canopyY, canopyUp, canopyAimX, canopyAimY;
-    private boolean canopyAimed, canopyEveryTree;
-    private final float[] canopyAt = new float[2], canopySize = new float[4];
+    private boolean canopyAimed;
+    private final float[] canopyAt = new float[2], canopySize = new float[4], canopyFaded = new float[3 * CanopyWindow.TREES];
+    private int canopyFadedCount;
     /** How far behind the viewer, away from the camera, the cut begins, in tiles of x and y together along the map's diagonal. */
     private static final float CUT_BEHIND = 1.5f;
     /**
@@ -1126,9 +1128,11 @@ final class Pipeline {
         return asked[0];
     }
 
-    /** Switches off the array of what a vertex carries for a card: only the frame's own vertices have it. */
+    /** Switches off the arrays of what a vertex carries for a card and its tree's square: only the frame's own vertices have them. */
     private static void cardArrayOff() {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0);
     }
@@ -1154,6 +1158,8 @@ final class Pipeline {
         GL11.glEnableClientState(GL_COLOR_ARRAY);
         GL11.glEnableClientState(GL_NORMAL_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
         GL11.glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         ChunkBuffers.point();
@@ -2287,7 +2293,9 @@ final class Pipeline {
         if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, canopyX, canopyY, canopyUp, canopyAt)) {
             CanopyWindow.inPixels(height, tanHalfFieldOfView, away, canopySize);
             to.set("uCanopy", (canopyAt[0] * 0.5f + 0.5f) * width, (canopyAt[1] * 0.5f + 0.5f) * height, canopySize[0], canopySize[1]);
-            to.set("uCanopyFrom", (float) Math.floor(focusX), (float) Math.floor(focusY), canopyEveryTree ? 1f : 0f, canopySize[3]);
+            to.set("uCanopyTexel", canopySize[3]);
+            to.setEach3("uFaded", canopyFaded);
+            to.set("uFadedCount", canopyFadedCount);
             if (canopyAimed && ViewCamera.project(camera, tanHalfFieldOfView, aspect, canopyAimX, canopyAimY, canopyUp, canopyAt)) {
                 to.set("uCanopyAim", (canopyAt[0] * 0.5f + 0.5f) * width, (canopyAt[1] * 0.5f + 0.5f) * height, canopySize[2]);
             } else {

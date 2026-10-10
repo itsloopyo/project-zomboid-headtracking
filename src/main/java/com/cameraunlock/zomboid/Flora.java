@@ -361,6 +361,12 @@ final class Flora {
         if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
             return false;
         }
+        // A tree's crown is all of it its tree's, sprigs, twigs and limbs: a bush is no tree.
+        float meshRootX = mesh.rootX, meshRootY = mesh.rootY, woodRootX = wood.rootX, woodRootY = wood.rootY;
+        if (sprig != SHRUB) {
+            mesh.rooted((int) Math.floor(x), (int) Math.floor(y));
+            wood.rooted((int) Math.floor(x), (int) Math.floor(y));
+        }
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS / frame.scale;
         float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;
         float widest = sizes[WIDEST], lowest = sizes[LOWEST], highest = sizes[HIGHEST], tall = sizes[TALL], under = sizes[UNDER];
@@ -541,6 +547,10 @@ final class Flora {
             }
         }
         wood.sway = 0f;
+        mesh.rootX = meshRootX;
+        mesh.rootY = meshRootY;
+        wood.rootX = woodRootX;
+        wood.rootY = woodRootY;
         return true;
     }
 

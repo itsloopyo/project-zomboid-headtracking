@@ -23,6 +23,44 @@ final class CrownTests {
         Checks.run("spriteMeasuredAsNoCrownMakesNone", CrownTests::spriteMeasuredAsNoCrownMakesNone);
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
         Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
+        Checks.run("everyPartOfATreesCrownIsItsTreesAndABushIsNoTree", CrownTests::everyPartOfATreesCrownIsItsTreesAndABushIsNoTree);
+    }
+
+    /**
+     * The game opens or leaves a tree whole in its own view (CanopyWindow), so every vertex of a
+     * crown, its sprigs, its core and the limbs and twigs in wood, carries its tree's square,
+     * however far a sprig reaches past that square. A bush is no tree. What the meshes carried
+     * before is theirs again after.
+     */
+    private static void everyPartOfATreesCrownIsItsTreesAndABushIsNoTree() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
+        SpriteGeometry.Mesh leaves = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+        leaves.rooted(3, 4);
+        check(Flora.addCrown(leaves, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0.12f, 1.2f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN),
+                "a painted crown makes a crown");
+        check(wood.floats > 0, "with limbs and twigs in wood");
+        float leastX = Float.MAX_VALUE, mostX = -Float.MAX_VALUE;
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {leaves, wood}) {
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == 10f && mesh.vertices[at + SpriteGeometry.ROOT_AT + 1] == 20f,
+                        "a vertex of the crown at " + mesh.vertices[at] + ", " + mesh.vertices[at + 1] + " is its tree's, on square 10, 20");
+                leastX = Math.min(leastX, mesh.vertices[at]);
+                mostX = Math.max(mostX, mesh.vertices[at]);
+            }
+        }
+        check(leastX < 10f && mostX >= 11f, "and the crown reaches over the squares either side of its own: " + leastX + " to " + mostX);
+        check(leaves.rootX == 3f && leaves.rootY == 4f && wood.rootX == SpriteGeometry.NO_ROOT, "the meshes carry on with what they carried before");
+        // Its core and the twigs inside it as well: a bush in the window was hollowed when they went by their stuff.
+        SpriteGeometry.Mesh bush = new SpriteGeometry.Mesh(), twigs = new SpriteGeometry.Mesh();
+        check(Flora.addCrown(bush, twigs, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 7, Flora.OPEN),
+                "a bush makes a crown");
+        check(twigs.floats > 0, "with twigs");
+        for (SpriteGeometry.Mesh mesh : new SpriteGeometry.Mesh[] {bush, twigs}) {
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.NO_ROOT, "a bush's vertex is no tree's, its core and twigs included");
+            }
+        }
     }
 
     /** Where a fern's root or a tuft of long grass stands in its room, as the build places it with Flora.within. */

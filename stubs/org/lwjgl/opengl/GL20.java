@@ -22,6 +22,7 @@ public final class GL20 {
     public static void glUniform1i(int location, int value) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform1f(int location, float x) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform1fv(int location, float[] value) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glUniform3fv(int location, float[] value) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform2f(int location, float x, float y) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform3f(int location, float x, float y, float z) { throw new UnsupportedOperationException("reference stub"); }
     public static void glUniform4f(int location, float x, float y, float z, float w) { throw new UnsupportedOperationException("reference stub"); }

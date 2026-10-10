@@ -93,4 +93,9 @@ final class Program {
     void setEach(String name, float[] values) {
         GL20.glUniform1fv(at(name), values);
     }
+
+    /** A uniform array of vec3, three floats each. */
+    void setEach3(String name, float[] values) {
+        GL20.glUniform3fv(at(name), values);
+    }
 }

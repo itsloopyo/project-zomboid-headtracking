@@ -387,11 +387,11 @@ final class WorldScene {
                 float lowX = minX, lowY = minY, lowUp = minUp, highX = maxX, highY = maxY, highUp = maxUp, along = turned, layers = layered;
                 for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float x = from[at], y = from[at + 1], up = from[at + 2];
-                    float moved = from[at + SpriteGeometry.VERTEX_FLOATS - 1];
+                    float moved = from[at + SpriteGeometry.WAY_AT];
                     if (moved == SpriteGeometry.FACES) {
-                        along = Math.max(along, Math.abs(from[at + SpriteGeometry.VERTEX_FLOATS - 3]));
+                        along = Math.max(along, Math.abs(from[at + SpriteGeometry.ALONG_AT]));
                     } else if (moved != 0f) {
-                        layers = Math.max(layers, Math.abs(from[at + SpriteGeometry.VERTEX_FLOATS - 3]));
+                        layers = Math.max(layers, Math.abs(from[at + SpriteGeometry.ALONG_AT]));
                     }
                     lowX = Math.min(lowX, x);
                     highX = Math.max(highX, x);
@@ -1883,17 +1883,20 @@ final class WorldScene {
         }
 
         private float canopyX, canopyY, canopyUp, canopyAimX, canopyAimY;
-        private boolean canopyAimed, canopyEveryTree;
+        private boolean canopyAimed;
+        private final float[] canopyFaded = new float[3 * CanopyWindow.TREES];
+        private int canopyFadedCount;
 
-        /** Where the game's own view opens its window through trees, on the player's floor: see CanopyWindow and FirstPerson.aimOverhead. */
-        void canopyWindow(float x, float y, float up, boolean aimed, float aimX, float aimY, boolean everyTree) {
+        /** Where the game's own view opens its window through trees, on the player's floor, and the trees it draws see-through: see CanopyWindow and FirstPerson.aimOverhead. */
+        void canopyWindow(float x, float y, float up, boolean aimed, float aimX, float aimY, float[] faded, int fadedCount) {
             canopyX = x;
             canopyY = y;
             canopyUp = up;
             canopyAimed = aimed;
             canopyAimX = aimX;
             canopyAimY = aimY;
-            canopyEveryTree = everyTree;
+            System.arraycopy(faded, 0, canopyFaded, 0, 3 * fadedCount);
+            canopyFadedCount = fadedCount;
         }
 
         /** Has the picture mixed into the game's own, which is under it, and not laid over it whole. */
@@ -5781,7 +5784,7 @@ final class WorldScene {
             view.pipeline.focusX = camera.eyeX;
             view.pipeline.focusY = camera.eyeY;
             view.pipeline.focusUp = camera.eyeUp;
-            view.pipeline.canopy(canopyX, canopyY, canopyUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
+            view.pipeline.canopy(canopyX, canopyY, canopyUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
             if (outside) {
                 view.pipeline.drawDistance.whole();
             } else {

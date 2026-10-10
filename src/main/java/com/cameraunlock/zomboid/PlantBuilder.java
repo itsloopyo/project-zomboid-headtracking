@@ -270,6 +270,25 @@ final class PlantBuilder {
      * way the fan is turned comes from where the plant stands, so no two are alike.
      */
     void addGrown(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
+        if (type != IsoObjectType.tree) {
+            addGrownOn(mesh, sprite, type, texture, x, y, z);
+            return;
+        }
+        // Everything stood for a tree is its tree's: see SpriteGeometry.VERTEX_FLOATS.
+        SpriteGeometry.Mesh trunks = WorldScene.solid.get(WorldScene.PLAIN), ivy = WorldScene.laid.get(WorldScene.PLAIN);
+        mesh.rooted(x, y);
+        trunks.rooted(x, y);
+        ivy.rooted(x, y);
+        try {
+            addGrownOn(mesh, sprite, type, texture, x, y, z);
+        } finally {
+            mesh.unrooted();
+            trunks.unrooted();
+            ivy.unrooted();
+        }
+    }
+
+    private void addGrownOn(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
         int cards = type == IsoObjectType.tree ? 5 : 3;
         // A tree's bole is round. A tree in leaf shows nothing else of its trunk's sprite,
         // so the bole stands in for all its cards; a bare one keeps them for its branches.

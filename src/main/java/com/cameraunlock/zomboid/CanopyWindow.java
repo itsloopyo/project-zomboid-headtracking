@@ -13,6 +13,13 @@ package com.cameraunlock.zomboid;
  * on the map and grows and shrinks on the screen as the view zooms. While a firearm is aimed
  * media/mask_transparency_cursor.png, a dithered circle, is drawn at the pointer as well.
  *
+ * Which trees, and how much of each, is the game's own: every frame it eases a tree's
+ * IsoTree.fadeAlpha down to 0.05, by 0.045 a thirtieth of a second, while it marks the tree
+ * (on the camera's side of the player, or any tree while aiming or in a vehicle), and back up
+ * to 1 when it stops, and it works that out in Medium and High as in Low. The picture reads
+ * those numbers and draws that share of each tree's pixels in the window, the tree whole by
+ * its own square.
+ *
  * Sizes are in tiles along the screen: the length of a tile's diagonal there over the square
  * root of two, which is what FirstPerson.aimOverhead takes a tile on the screen to be.
  */
@@ -28,9 +35,13 @@ final class CanopyWindow {
     /** The pointer's mask while aiming: a circle, and its dither. */
     static final float AIMED = 182f / TEXELS_PER_TILE, AIMED_EDGE_FROM = 0.705f, AIMED_EDGE_TO = 1.29f;
 
-    /** The edges as the world shader has them. */
+    /** The most trees the game draws see-through that the picture is told of, nearest the player first, and how far from them it looks for them, in squares. */
+    static final int TREES = 96, TREE_REACH = 20;
+
+    /** The edges and the number of trees as the world shader has them. */
     static final String GLSL = "#define CANOPY_EDGE_FROM " + EDGE_FROM + "\n#define CANOPY_EDGE_TO " + EDGE_TO
-            + "\n#define CANOPY_AIMED_FROM " + AIMED_EDGE_FROM + "\n#define CANOPY_AIMED_TO " + AIMED_EDGE_TO + "\n";
+            + "\n#define CANOPY_AIMED_FROM " + AIMED_EDGE_FROM + "\n#define CANOPY_AIMED_TO " + AIMED_EDGE_TO
+            + "\n#define CANOPY_TREES " + TREES + "\n";
 
     /**
      * The window's half width, half height, the pointer's radius and the size of a texel of the

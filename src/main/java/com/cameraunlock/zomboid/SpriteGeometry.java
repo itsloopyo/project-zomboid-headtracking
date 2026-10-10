@@ -33,9 +33,14 @@ final class SpriteGeometry {
      * CLEARS stands clear by, and how many layers one of LAYERS lies off. The second is how
      * many layers of cards the vertex stands towards the camera. How far a layer is, the
      * picture works out from how far off the vertex is: see PipelineShaders.FACED. A strip of
-     * addStrip carries other things in the vector's place.
+     * addStrip carries other things in the vector's place. Last, the square of the tree the
+     * vertex is part of, NO_ROOT for anything that is no tree's: the game opens or leaves a
+     * tree whole in its own view (see CanopyWindow).
      */
-    static final int VERTEX_FLOATS = 15;
+    static final int VERTEX_FLOATS = 17;
+    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; and its tree's square. */
+    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15;
+    static final float NO_ROOT = -1f;
     static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f;
 
     /**
@@ -156,6 +161,19 @@ final class SpriteGeometry {
         boolean clears;
         /** How many layers off its plane anything added next that is no card lies: the set's own, for a mesh of a set. */
         Layers layers = new Layers();
+        /** The square of the tree the vertices added next are part of, or NO_ROOT. */
+        float rootX = NO_ROOT, rootY = NO_ROOT;
+
+        /** The vertices added next are part of the tree on that square. */
+        void rooted(int x, int y) {
+            rootX = x;
+            rootY = y;
+        }
+
+        /** The vertices added next are no tree's. */
+        void unrooted() {
+            rootX = rootY = NO_ROOT;
+        }
 
         void face(float x, float y, float up) {
             float length = (float) Math.sqrt(x * x + y * y + up * up);
@@ -192,6 +210,8 @@ final class SpriteGeometry {
             vertices[floats++] = faces || clears ? along : layers.count;
             vertices[floats++] = nearer;
             vertices[floats++] = faces ? FACES : clears ? CLEARS : layers.way;
+            vertices[floats++] = rootX;
+            vertices[floats++] = rootY;
         }
 
         /** Adds the vertex that starts at the given float once more, as it is. */
@@ -1234,6 +1254,8 @@ final class SpriteGeometry {
         to[at + 12] = plantX - x;
         to[at + 13] = plantY - y;
         to[at + 14] = 0f;
+        to[at + ROOT_AT] = NO_ROOT;
+        to[at + ROOT_AT + 1] = NO_ROOT;
         return at + VERTEX_FLOATS;
     }
 

@@ -409,6 +409,8 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
+            // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS.
+            varying vec2 vRoot;
             uniform float uCutAbove;
             varying vec3 vPlace;
             varying vec4 vBlade;
@@ -499,6 +501,7 @@ final class PipelineShaders {
                 }
                 vNormal = looks;
                 vHung = uModel > 0.5 && uFoot.z > uCutAbove - 0.45 ? 1.0 : 0.0;
+                vRoot = uModel > 0.5 ? vec2(-1.0) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
@@ -680,6 +683,7 @@ final class PipelineShaders {
             varying float vBoards;
             varying float vLie;
             varying float vHung;
+            varying vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
             uniform float uLid;
@@ -728,10 +732,13 @@ final class PipelineShaders {
             // width and height. Its dither is laid in cells the size of a texel of the game's mask,
             // counted from the middle as the game's are. See CanopyWindow.
             uniform vec4 uCanopy;
-            // The player's square, 1 where every tree in the window is opened, and a cell's size.
-            uniform vec4 uCanopyFrom;
+            // The size of a texel of the game's masks, in the picture's pixels.
+            uniform float uCanopyTexel;
             // The pointer's window while a firearm is aimed: its middle and radius, 0 for none.
             uniform vec3 uCanopyAim;
+            // The trees the game draws see-through in its window, by square, and how much of each it draws.
+            uniform vec3 uFaded[CANOPY_TREES];
+            uniform int uFadedCount;
             varying vec3 vPlace;
             varying vec4 vBlade;
 
@@ -866,7 +873,7 @@ final class PipelineShaders {
             bool inCanopy(vec2 middle, vec2 size, float edgeFrom, float edgeTo) {
                 vec2 off = gl_FragCoord.xy - middle;
                 float reach = length(off / size);
-                return reach < edgeTo && grain(floor(off / uCanopyFrom.w)) >= smoothstep(edgeFrom, edgeTo, reach);
+                return reach < edgeTo && grain(floor(off / uCanopyTexel)) >= smoothstep(edgeFrom, edgeTo, reach);
             }
 
             // The light and dark of a picture of boards or of courses of shingle at a place on a
@@ -2322,17 +2329,27 @@ final class PipelineShaders {
                 } else if (!model && cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
-                // A tree is opened where the game's own view opens it: in the game's window
-                // (see CanopyWindow), and only a tree on the camera's side of the player, east
-                // and south of their square, unless the game opens every tree there. The mod's
-                // trees are their crowns, boles and ivy, the game's are cards of its plant
-                // sheets, and a bush is none: the game fades its bushes as it does furniture.
-                bool tree = crown && vMaterial < 77.5 || core || vMaterial > 56.5 && vMaterial < 58.5
-                        || vMaterial > 4.5 && vMaterial < 6.5 && vKind > 1.5 && vKind < 3.5;
-                if (tree && uCanopy.z > 0.0 && (uCanopyFrom.z > 0.5 || vWorld.x >= uCanopyFrom.x && vWorld.y >= uCanopyFrom.y)
-                        && (inCanopy(uCanopy.xy, uCanopy.zw, CANOPY_EDGE_FROM, CANOPY_EDGE_TO)
+                // A tree is drawn as the game draws it in its own view: inside the game's window
+                // (see CanopyWindow) a tree the game fades shows as much of itself as the game
+                // draws of it, the rest of its pixels left out, and the whole tree goes by its
+                // own square. The mod's trees are their crowns, boles and ivy, the game's are
+                // cards of its plant sheets, and a bush is none.
+                bool tree = vRoot.x >= 0.0;
+                if (tree && uCanopy.z > 0.0 && (inCanopy(uCanopy.xy, uCanopy.zw, CANOPY_EDGE_FROM, CANOPY_EDGE_TO)
                         || uCanopyAim.z > 0.0 && inCanopy(uCanopyAim.xy, uCanopyAim.zz, CANOPY_AIMED_FROM, CANOPY_AIMED_TO))) {
-                    discard;
+                    float shown = 1.0;
+                    for (int i = 0; i < CANOPY_TREES; i++) {
+                        if (i >= uFadedCount) {
+                            break;
+                        }
+                        if (all(lessThan(abs(uFaded[i].xy - vRoot), vec2(0.25)))) {
+                            shown = uFaded[i].z;
+                            break;
+                        }
+                    }
+                    if (grain(gl_FragCoord.xy + vec2(613.0, 211.0)) >= shown) {
+                        discard;
+                    }
                 }
                 // What else stands between the overhead eye and the viewer and is no part of a
                 // building is opened in a round window about them, where the game lets its own
