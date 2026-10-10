@@ -2197,6 +2197,9 @@ final class WorldScene {
                 nightOpen = gameOpen;
             }
             sky.daylightKept = Evening.kept(sky.sunUp, gameOpen, nightOpen);
+            if (fromOutside) {
+                sky.daylightKept = Evening.seenFrom(sky.daylightKept, view.flight.share());
+            }
             openNow = gameOpen;
             daylightKeptNow = sky.daylightKept;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
