@@ -20,6 +20,8 @@ final class AerialTests {
         Checks.run("aHousesDishIsAModelWithItsBackToTheWallBehindIt", AerialTests::aHousesDishIsAModelWithItsBackToTheWallBehindIt);
         Checks.run("aTelevisionAerialIsStoodByOneOfItsTwoSpritesOnTheRoof", AerialTests::aTelevisionAerialIsStoodByOneOfItsTwoSpritesOnTheRoof);
         Checks.run("whatIsPaintedOverARoofsLevelStandsOnTheRoofWhereTheViewDrawsIt", AerialTests::whatIsPaintedOverARoofsLevelStandsOnTheRoofWhereTheViewDrawsIt);
+        Checks.run("whatIsPaintedOverARoofIsStoodOnItsOwnSquare", AerialTests::whatIsPaintedOverARoofIsStoodOnItsOwnSquare);
+        Checks.run("aHousesDishStandsOnItsPostOnARoofAndHangsOnAWallOverOne", AerialTests::aHousesDishStandsOnItsPostOnARoofAndHangsOnAWallOverOne);
         Checks.run("theModelsStandOnTheirFeet", AerialTests::theModelsStandOnTheirFeet);
     }
 
@@ -142,18 +144,69 @@ final class AerialTests {
         check(near(out[0], 0.3f) && near(out[1], 0.7f) && near(out[2], 0f), "with the roof on the floor nothing moves");
         // Flat, a fifth of a level up; a slope facing the view, high at the north-west; one along y facing it.
         float third = RoofFit.PITCH;
-        float[][] roofs = {{0.2f, 0.2f, 0.2f, 0.2f}, {0.6f, 0.6f - third, 0.6f - third, 0.6f}, {0.5f, 0.5f, 0.5f - third, 0.5f - third}};
+        float[][] roofs = {{0.2f, 0.2f, 0.2f, 0.2f}, {0.3f, 0.3f - third, 0.3f - third, 0.3f}, {0.3f, 0.3f, 0.3f - third, 0.3f - third}};
         for (float[] roof : roofs) {
-            RoofFit.standOn(roof, 0.4f, 0.5f, out);
-            float alongX = (roof[1] + roof[2] - roof[0] - roof[3]) / 2f, alongY = (roof[2] + roof[3] - roof[0] - roof[1]) / 2f;
-            float plane = (roof[0] + roof[1] + roof[2] + roof[3]) / 4f + alongX * (out[0] - 0.5f) + alongY * (out[1] - 0.5f);
-            float[] painted = drawn(0.4f, 0.5f, 0f), stood = drawn(out[0], out[1], out[2]);
-            check(near(out[2], plane), "it stands on the roof: " + out[2] + " against " + plane);
+            RoofFit.standOn(roof, 0.1f, 0.2f, out);
+            float[] painted = drawn(0.1f, 0.2f, 0f), stood = drawn(out[0], out[1], out[2]);
+            check(near(out[2], plane(roof, out)), "it stands on the roof: " + out[2] + " against " + plane(roof, out));
             check(near(painted[0], stood[0]) && near(painted[1], stood[1]), "where the game's view drew it");
+            check(out[0] < 1f && out[1] < 1f, "which is on its square: " + out[0] + ", " + out[1]);
         }
         // A slope that climbs away from the view as fast as the line of sight: it is raised where it is.
         RoofFit.standOn(new float[] {0.1f, 0.1f + third, 0.1f + third, 0.1f}, 0.4f, 0.5f, out);
         check(near(out[0], 0.4f) && near(out[1], 0.5f) && near(out[2], 0.1f + third * 0.4f), "on a slope the view runs along it is raised to the roof over its place");
+    }
+
+    /** The height of the plane through a roof's corners over a place on its square. */
+    private static float plane(float[] roof, float[] at) {
+        float alongX = (roof[1] + roof[2] - roof[0] - roof[3]) / 2f, alongY = (roof[2] + roof[3] - roof[0] - roof[1]) / 2f;
+        return (roof[0] + roof[1] + roof[2] + roof[3]) / 4f + alongX * (at[0] - 0.5f) + alongY * (at[1] - 0.5f);
+    }
+
+    /**
+     * Where the line of sight meets the roof's plane past the edge of the square, it is stopped at that edge and stands
+     * on the roof there: the plane is this square's alone. A roof that climbs a little away from the view takes the
+     * line 3.7 squares on, past the ridge.
+     */
+    private static void whatIsPaintedOverARoofIsStoodOnItsOwnSquare() {
+        float third = RoofFit.PITCH;
+        float[][] roofs = {{0.4f, 0.5f, 0.6f, 0.5f}, {0.6f, 0.6f, 0.6f, 0.6f}, {0.9f, 0.9f - third, 0.9f - third, 0.9f}, {-0.3f, -0.3f, -0.3f, -0.3f}};
+        float[] out = new float[3];
+        for (float[] roof : roofs) {
+            for (float[] at : new float[][] {{0.4f, 0.5f}, {0.5f, 0.1f}, {0.1f, 0.5f}}) {
+                RoofFit.standOn(roof, at[0], at[1], out);
+                check(out[0] >= 0f && out[0] <= 1f && out[1] >= 0f && out[1] <= 1f, "it stays on its square: " + out[0] + ", " + out[1] + " from " + at[0] + ", " + at[1]);
+                check(near(out[2], plane(roof, out)), "and stands on the roof there: " + out[2] + " against " + plane(roof, out));
+                check(near(out[0] - at[0], out[1] - at[1]), "slid along the line of sight");
+                check(near(Math.max(out[0], out[1]), 1f) || near(Math.min(out[0], out[1]), 0f), "as far as the square's edge: " + out[0] + ", " + out[1]);
+            }
+        }
+    }
+
+    /**
+     * A house's dish on a square with a roof tile, as FurnishingBuilder.addFurniture stands it: on its post, its foot on
+     * the roof where the view draws it; and where the wall it backs onto stands on the square, over the roof of a porch
+     * below that wall, on the wall where its sprite paints it. An aerial on a roof stands on the roof either way.
+     */
+    private static void aHousesDishStandsOnItsPostOnARoofAndHangsOnAWallOverOne() {
+        float level = ViewCamera.LEVEL_HEIGHT;
+        float[] roof = {0.1f, 0.1f, 0.1f, 0.1f}, out = new float[3], stood = new float[3];
+        for (String[] row : new String[][] {{"20", "S"}, {"21", "E"}}) {
+            Furniture dish = Furniture.known(TileRows.sprite(SHEET + row[0] + DISH + row[1]));
+            Models.Model model = FurnishingBuilder.onRoof(dish, dish.model, roof, false, out);
+            RoofFit.standOn(roof, dish.centreX, dish.centreY, stood);
+            check(model == dish.posted, "facing " + row[1] + " on a roof with no wall behind it the dish is on its post: " + model.name);
+            check(near(out[0], stood[0]) && near(out[1], stood[1]), "stood on the roof where the view draws it: " + out[0] + ", " + out[1]);
+            check(near(out[2], stood[2] * level - dish.raised), "its foot on the roof and not as high as the sprite hangs it: " + out[2] + " against "
+                    + (stood[2] * level - dish.raised));
+            model = FurnishingBuilder.onRoof(dish, dish.model, roof, true, out);
+            check(model == dish.model, "with the wall it backs onto there it is the dish alone: " + model.name);
+            check(out[0] == dish.centreX && out[1] == dish.centreY && out[2] == 0f, "hung where its sprite paints it on that wall: " + out[0] + ", " + out[1] + ", " + out[2]);
+        }
+        Furniture aerial = Furniture.known(TileRows.sprite(SHEET + 81 + AERIAL + "Facing|S|SpriteGridPos|0,0"));
+        Models.Model model = FurnishingBuilder.onRoof(aerial, aerial.model, roof, true, out);
+        RoofFit.standOn(roof, aerial.centreX, aerial.centreY, stood);
+        check(model == aerial.model && near(out[2], stood[2] * level), "an aerial stands on the roof whatever is behind it: " + out[2]);
     }
 
     private static void theModelsStandOnTheirFeet() {

@@ -238,6 +238,53 @@ final class FurnishingBuilder {
         return false;
     }
 
+    /**
+     * Where a piece that stands on the roof of its square stands on a roof whose heights over the floor at the square's
+     * corners are corners, into out: a and b on its square and what is added to its foot, in tiles. Says which model
+     * it stands as. A piece made with a post stands on its post, its foot on the roof, but where walled, the wall it
+     * backs onto stands on its square: there it hangs on that wall as its sprite paints it, over a roof below the wall.
+     */
+    static Models.Model onRoof(Furniture piece, Models.Model model, float[] corners, boolean walled, float[] out) {
+        if (piece.posted != null && walled) {
+            out[0] = piece.centreX;
+            out[1] = piece.centreY;
+            out[2] = 0f;
+            return model;
+        }
+        RoofFit.standOn(corners, piece.centreX, piece.centreY, out);
+        out[2] *= ViewCamera.LEVEL_HEIGHT;
+        if (piece.posted == null) {
+            return model;
+        }
+        out[2] -= piece.raised;
+        return piece.posted;
+    }
+
+    /** Whether a wall, a window, a door or a railing stands on the edge of the square a piece backs onto. */
+    private boolean backedByWall(Furniture piece, int x, int y, int z) {
+        return switch (piece.turns & 3) {
+            case 0 -> edged(build.cell.getGridSquare(x, y + 1, z), true);
+            case 1 -> edged(build.cell.getGridSquare(x, y, z), false);
+            case 2 -> edged(build.cell.getGridSquare(x, y, z), true);
+            default -> edged(build.cell.getGridSquare(x + 1, y, z), false);
+        };
+    }
+
+    /** Whether something stands on the north or the west edge of a square. */
+    private static boolean edged(IsoGridSquare square, boolean north) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && (north ? WorldScene.onNorthEdge(sprite.getProperties()) : WorldScene.onWestEdge(sprite.getProperties()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The object on the square that is a counter a basin can stand in, or a basin, or null. */
     private IsoObject onSquare(int x, int y, int z, boolean basin) {
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
@@ -312,19 +359,16 @@ final class FurnishingBuilder {
         build.building.plain = false;
         float centreX = piece.centreX, centreY = piece.centreY;
         if (piece.onRoof && build.roofBuilder.cornersAt(x, y, z, roofCorners)) {
-            RoofFit.standOn(roofCorners, centreX, centreY, onRoof);
+            model = onRoof(piece, model, roofCorners, piece.posted != null && backedByWall(piece, x, y, z), onRoof);
             centreX = onRoof[0];
             centreY = onRoof[1];
-            foot += onRoof[2] * ViewCamera.LEVEL_HEIGHT;
-            if (piece.posted != null) {
-                model = piece.posted;
-                foot -= piece.raised;
-            }
+            foot += onRoof[2];
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, piece.alsoDyed, alsoU, alsoV);
         if (piece.pictured) {
             // Each point of the pane looks at where the sprite paints it: the pane's face is paneY in front of the model's origin.
+            // The sprite paints it over its unmoved place, and a model stood on a roof is where the view draws that place.
             Models.turn(piece.turns, 0f, piece.paneY * piece.scale, build.hungWay);
             float a = piece.centreX + build.hungWay[0], b = piece.centreY + build.hungWay[1];
             Models.turn(piece.turns, 1f, 0f, build.hungWay);

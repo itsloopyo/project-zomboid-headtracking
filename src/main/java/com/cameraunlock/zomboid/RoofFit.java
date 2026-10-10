@@ -142,8 +142,10 @@ final class RoofFit {
      * roof: into out as a and b on the square and its height over that floor, in levels. corners are the roof's heights
      * over the floor at the square's corners, north-west, north-east, south-east and south-west, and the roof is taken
      * as the plane through them. The game's view draws a point (d, d) further along the map and d/3 of a level higher
-     * on the same spot, so the thing is slid along that line of sight to where it meets the roof. On a slope the line
-     * runs along, which the game's view sees edge on or not at all, it is raised to the roof over (a, b).
+     * on the same spot, so the thing is slid along that line of sight to where it meets the roof, and no further than
+     * the edge of its square: the corners are the roof over this square alone, and past a ridge the line of sight would
+     * meet the plane squares on. Stopped there, it stands on the roof at that edge. On a slope the line runs along,
+     * which the game's view sees edge on or not at all, it is raised to the roof over (a, b).
      */
     static void standOn(float[] corners, float a, float b, float[] out) {
         float alongX = (corners[1] + corners[2] - corners[0] - corners[3]) / 2f, alongY = (corners[2] + corners[3] - corners[0] - corners[1]) / 2f;
@@ -156,10 +158,10 @@ final class RoofFit {
             out[2] = at;
             return;
         }
-        float slid = at / sight;
+        float slid = Math.clamp(at / sight, -Math.min(a, b), 1f - Math.max(a, b));
         out[0] = a + slid;
         out[1] = b + slid;
-        out[2] = slid * PITCH;
+        out[2] = at + (alongX + alongY) * slid;
     }
 
     /**
