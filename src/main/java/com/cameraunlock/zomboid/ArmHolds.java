@@ -39,6 +39,12 @@ final class ArmHolds {
      */
     static final float[][] FROM = {{0.34f, -0.56f, 0.12f}, {-0.42f, -0.52f, -0.05f}};
     /**
+     * Where the left forearm seems to come from under a long gun's fore-end: below the gun, a
+     * little to the right of the left shoulder, so the elbow hangs under the fore-end and the
+     * forearm rises to it as a shooter's does.
+     */
+    static final float[] LONG_FROM = {0.08f, -0.90f, -0.40f};
+    /**
      * How the right hand goes round a grip. The hand's pose closes round something as deep as
      * a grip about a point level with its knuckles, and it is put on the grip's middle. A grip
      * lies across the palm aslant, from the web of the thumb to the heel of the hand, so the
@@ -88,14 +94,13 @@ final class ArmHolds {
      */
     static final float HANDLE_SLANT = (float) Math.toRadians(18), HANDLE_SLANT_MOST = (float) Math.toRadians(55);
     /**
-     * The hand under a fore-end is turned to meet its arm. Its palm faces the fore-end from
-     * the side that lays the arm's line flat in it, from under it this much besides, in parts
-     * of that, and from the side the arm comes from this much, so that the forearm is not
-     * turned right over to bring the palm up. Its fingers run on from the arm's line, across
-     * the fore-end, and lean forward along the barrel from square to it by no more than this,
-     * in radians.
+     * How far the palm under a fore-end is turned from facing straight up towards the gun's
+     * middle, in radians: it cups the fore-end from under and a little from the left, as far
+     * round as a forearm turned palm up from an elbow under it takes it. Its fingers run on
+     * along the arm's line. Facing straight up with its fingers squared across the barrel it
+     * asked the forearm to turn 130 to 155 degrees from how it rests, further than palm up.
      */
-    static final float PALM_UNDER = 0.6f, PALM_ASIDE = 0.35f, FINGERS_LEAN = (float) Math.toRadians(50);
+    static final float SUPPORT_PALM_TURN = (float) Math.toRadians(30);
     /** How far behind the eye the line is that a body turns about, in metres. */
     static final float SPINE_BEHIND = 0.1f;
     /** How far down a handle from the right fist the left one is, in metres. */
@@ -710,34 +715,17 @@ final class ArmHolds {
         return hold;
     }
 
-    /** Lays the left hand under a fore-end, where the hold is, turned to meet the arm that comes to it from its shoulder. */
+    /** Lays the left hand under a fore-end, where the hold is, its fingers on along the arm that comes to it from its shoulder. */
     private static void underForeEnd(ArmModel model, Weapon weapon, Axes axes, Hold hold, float[] fromAim) {
-        float[] shoulder = new float[3], from = new float[3], arm = new float[3], palm = new float[3], square = new float[3], fingers = new float[3];
+        float[] shoulder = new float[3], from = new float[3], arm = new float[3], palm = new float[3], fingers = new float[3];
         starts(weapon, 1, axes.scale, 0f, fromAim, shoulder, from);
         ArmPose.unit(hold.at[0] - shoulder[0], hold.at[1] - shoulder[1], hold.at[2] - shoulder[2], arm);
-        // Square to the barrel and to the arm, on the side that is under the fore-end. An arm along the barrel is square to it every way round.
-        ArmPose.cross(axes.ahead, arm, palm);
-        float under = ArmPose.dot(palm, axes.up) < 0f ? -1f : 1f;
-        if (!ArmPose.unit(palm[0] * under, palm[1] * under, palm[2] * under, palm)) {
-            palm[0] = 0f;
-            palm[1] = 0f;
-            palm[2] = 0f;
-        }
-        // The left arm comes to the fore-end from the weapon's left, and the palm faces a little away from it.
-        ArmPose.unit(palm[0] + axes.up[0] * PALM_UNDER + axes.right[0] * PALM_ASIDE, palm[1] + axes.up[1] * PALM_UNDER + axes.right[1] * PALM_ASIDE,
-                palm[2] + axes.up[2] * PALM_UNDER + axes.right[2] * PALM_ASIDE, palm);
-        // The arm's line laid in the palm, and the way across the barrel in the palm that it runs.
-        float into = ArmPose.dot(arm, palm);
-        float[] laid = {arm[0] - palm[0] * into, arm[1] - palm[1] * into, arm[2] - palm[2] * into};
-        float forward = ArmPose.dot(laid, axes.ahead);
-        if (!ArmPose.unit(laid[0] - axes.ahead[0] * forward, laid[1] - axes.ahead[1] * forward, laid[2] - axes.ahead[2] * forward, square)) {
-            ArmPose.cross(axes.ahead, palm, square);
-        }
-        float lean = Math.clamp((float) Math.atan2(forward, ArmPose.dot(laid, square)), -FINGERS_LEAN, FINGERS_LEAN);
-        float cos = (float) Math.cos(lean), sin = (float) Math.sin(lean);
+        float cos = (float) Math.cos(SUPPORT_PALM_TURN), sin = (float) Math.sin(SUPPORT_PALM_TURN);
         for (int axis = 0; axis < 3; axis++) {
-            fingers[axis] = square[axis] * cos + axes.ahead[axis] * sin;
+            palm[axis] = axes.up[axis] * cos + axes.right[axis] * sin;
         }
+        float into = ArmPose.dot(arm, palm);
+        ArmPose.unit(arm[0] - palm[0] * into, arm[1] - palm[1] * into, arm[2] - palm[2] * into, fingers);
         hold.set(hold.at.clone(), palm, fingers, true, model.pose("fore"));
     }
 
@@ -785,7 +773,7 @@ final class ArmHolds {
         boolean longGun = weapon.firearm() && !weapon.handgun();
         float[] at = longGun ? LONG_SHOULDERS[side] : new float[] {SHOULDER[0] * sign, SHOULDER[1], SHOULDER[2]};
         turnedPlace(at, turned, scale, fromAim, shoulder);
-        turnedPlace(FROM[side], turned, scale, fromAim, from);
+        turnedPlace(longGun && side == 1 ? LONG_FROM : FROM[side], turned, scale, fromAim, from);
     }
 
     /** A place of the body's, in metres from the eye, with the body turned to the right about its spine, in the view. */

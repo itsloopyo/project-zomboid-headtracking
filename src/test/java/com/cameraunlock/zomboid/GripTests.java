@@ -24,6 +24,7 @@ final class GripTests {
         Checks.run("leftHandWrapsTheRightOnAPistolHeldInBoth", () -> leftHandWrapsTheRightOnAPistolHeldInBoth(model));
         Checks.run("leftHandIsUnderTheForeEndsUnderside", () -> leftHandIsUnderTheForeEndsUnderside(model));
         Checks.run("armsOnAPistolComeUpFromUnderThePictureUnturned", () -> armsOnAPistolComeUpFromUnderThePictureUnturned(model));
+        Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
     }
 
     /** Where the pistol's front edge is at a height. */
@@ -208,6 +209,34 @@ final class GripTests {
                 float drop = (said[side][ArmPose.WRIST + 1] - said[side][ArmPose.ELBOW + 1]) / SCALE;
                 check(drop > 0.08f, arm + " has its elbow well under its wrist: " + drop + " m");
             }
+        }
+    }
+
+    /**
+     * Both arms on a long gun at the hip, half way up and with the sights up, where the game's
+     * long guns are held: the hand under the fore-end asks its forearm to turn no further than a
+     * forearm turns, which with its palm squarely up and its fingers across the barrel it did by
+     * 50 to 75 degrees, and its elbow hangs under its wrist.
+     */
+    private static void armsOnALongGunTurnNoFurtherThanAForearmTurns(ArmModel model) {
+        WeaponShape shape = TestGuns.shape(TestGuns.longGun(true));
+        float[][] grips = {{0.22f, -0.25f, -0.23f}, {0.155f, -0.215f, -0.29f}, {0.09f, -0.18f, -0.35f}};
+        float[] pointing = {0f, 0f, -1f}, over = {0f, 1f, 0f};
+        for (int at = 0; at < grips.length; at++) {
+            float aim = at / 2f;
+            float[] grip = {grips[at][0] * SCALE, grips[at][1] * SCALE, grips[at][2] * SCALE};
+            ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, 0f, Float.NaN);
+            ArmHolds.Weapon gun = new ArmHolds.Weapon(true, false, placed.at(shape.grip), pointing, over, placed);
+            float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+            ArmHolds.Doing holding = new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+            check(ArmHolds.place(model, SCALE, gun, holding, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a long gun has both arms");
+            for (int side = 0; side < 2; side++) {
+                String arm = (side == 0 ? "the right arm" : "the left arm") + " on a long gun raised " + aim;
+                float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
+                check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), arm + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
+            }
+            float drop = (said[1][ArmPose.WRIST + 1] - said[1][ArmPose.ELBOW + 1]) / SCALE;
+            check(drop > 0.03f, "the left elbow on a long gun raised " + aim + " hangs under its wrist: " + drop + " m");
         }
     }
 
