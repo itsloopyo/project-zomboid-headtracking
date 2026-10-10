@@ -25,16 +25,18 @@ final class Config {
 
     /**
      * The bits of pressed keys: core's three, then the mod's own. The first person key is the
-     * first player's tapped, a second player's tapped twice and both players' held, and a view
+     * first player's tapped, a second player's tapped twice and every player's held, and a view
      * is handed FIRST_PERSON for whichever of those is its own.
      */
     static final int CYCLE_TRACKING_MODE = CameraUnlock.HOTKEY_CYCLE_TRACKING_MODE,
             YAW_MODE = CameraUnlock.HOTKEY_YAW_MODE, AIM_MODE = CameraUnlock.HOTKEY_AIM_MODE,
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, FIRST_PERSON_SECOND = CameraUnlock.HOTKEY_LOCAL << 3,
-            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4, FIRST_PERSON_BOTH = CameraUnlock.HOTKEY_LOCAL << 5;
+            SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4, FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5;
 
+    /** Player 2's port; each player after them has the next. */
     private static final int SECOND_PLAYER_PORT = 4243;
+    private static final String[] PLAYER_PORT_ROWS = {"SecondPlayerUdpPort", "ThirdPlayerUdpPort", "FourthPlayerUdpPort"};
 
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
@@ -55,7 +57,9 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, quality, style, hillHeight, farTreeDistance, frameBlending, muzzleFlash, splitScreen, secondPlayerPort;
+    private final int fieldOfView, quality, style, hillHeight, farTreeDistance, frameBlending, muzzleFlash, splitScreen;
+    /** The rows of the ports of players 2, 3 and 4. */
+    private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. */
     private final int[] own;
     /** The rows of [Graphics], in the order of GRAPHICS. */
@@ -71,7 +75,7 @@ final class Config {
      * HillHeight, FarTreeDistance, FrameBlending, MuzzleFlash, SplitScreen and the rows of [Content] are the mod's own, and the ones read
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws. They are writable too, and a writable row that is not a key
-     * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, FirstPersonKey, CycleQualityKey,
+     * list is a setting on the game's options screen (OptionsPage). SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey, CycleQualityKey,
      * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
@@ -79,9 +83,11 @@ final class Config {
         int writable = CameraUnlock.ROW_WRITABLE, live = CameraUnlock.ROW_LIVE;
         core.configDescribe(DISPLAY_NAME);
         core.configConcept("UdpPort", 0, null, null);
-        secondPlayerPort = core.configLocalInt("Network", "SecondPlayerUdpPort",
-                "UDP port for a second player's tracker at the same screen (OpenTrack protocol). It has to differ from UdpPort.",
-                0, SECOND_PLAYER_PORT, 1, 65535);
+        for (int i = 0; i < playerPorts.length; i++) {
+            playerPorts[i] = core.configLocalInt("Network", PLAYER_PORT_ROWS[i],
+                    "UDP port for player " + (i + 2) + "'s tracker (OpenTrack protocol). Each player needs their own.",
+                    0, SECOND_PLAYER_PORT + i, 1, 65535);
+        }
         core.configConcept("EnableOnStartup", 0, "true: head tracking is on when the game starts. false: it is off. No key turns it on or off.", null);
         core.configConcept("WorldSpaceYaw", writable, null, null);
         core.configConcept("RotationEnabled", writable, null, null);
@@ -192,8 +198,8 @@ final class Config {
         };
 
         core.configLocalHotkeyTaps("FirstPersonKey",
-                "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for both.",
-                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_BOTH);
+                "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for every player.",
+                0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_ALL);
         core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Automatic, Low, Medium, High, Custom (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
@@ -345,9 +351,14 @@ final class Config {
         return core.configReload() == CameraUnlock.RELOAD_APPLIED ? live() : null;
     }
 
-    /** The UDP port a second player's tracker is listened for on. */
-    int secondPlayerPort() {
-        return core.configGetInt(secondPlayerPort);
+    /** The UDP port the tracker of the player at a number, 1 to 3, is listened for on. */
+    int playerPort(int playerIndex) {
+        return core.configGetInt(playerPorts[playerIndex - 1]);
+    }
+
+    /** The row that names that port. */
+    static String playerPortRow(int playerIndex) {
+        return PLAYER_PORT_ROWS[playerIndex - 1];
     }
 
     /** The settings the game's options screen shows, in core's order, which is the file's. */

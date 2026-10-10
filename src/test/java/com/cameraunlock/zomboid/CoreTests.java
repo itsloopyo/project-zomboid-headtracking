@@ -235,7 +235,7 @@ public final class CoreTests {
                 "65 degrees, everything of the mod's own on, the Automatic graphics mode beginning at High, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
-                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH) == 9,
+                        | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_ALL) == 9,
                 "the seven actions have a bit each, and the first person key three");
     }
 

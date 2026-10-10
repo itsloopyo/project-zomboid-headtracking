@@ -14,8 +14,8 @@ import zombie.characters.IsoPlayer;
  * (Tracking), and what the picture is drawn with for every eye.
  */
 final class View {
-    /** How many players at one screen have a view: the first, and one who joined beside them. */
-    static final int COUNT = 2;
+    /** How many players at one screen have a view: as many as the game lets share it. */
+    static final int COUNT = 4;
 
     /** Made on the game's logic thread and asked for on the thread that draws as well. */
     private static final View[] views = new View[COUNT];

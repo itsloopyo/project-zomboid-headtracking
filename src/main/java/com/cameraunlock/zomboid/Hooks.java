@@ -65,8 +65,8 @@ public final class Hooks {
             }
         }
         if (index < View.COUNT) {
-            if (index == 1) {
-                Tracking.listenForSecond();
+            if (index > 0) {
+                Tracking.listenFor(index);
             }
             View.join(index).firstPerson.afterWorldRender(pressed);
         }

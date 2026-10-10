@@ -13,7 +13,7 @@ Play Project Zomboid in first person with a rebuilt world, new graphics and head
 - **Vehicle interiors** - dashboards, seats and working mirrors, with a view that tilts as the vehicle moves.
 - **Full 6DOF head tracking** - turn left and right (yaw), look up and down (pitch), tilt your head (roll), and move left and right, up and down, forward and back.
 - **Decoupled look and aim** - look around with your head while your mouse or controller controls where you aim.
-- **Multiplayer and split screen** - join a server; only you need the mod. Two local players can each have their own first person view and head tracker.
+- **Multiplayer and split screen** - join a server; only you need the mod. Up to four local players can each have their own first person view and head tracker.
 - **Adjustable graphics** - automatic or manual quality, three picture styles, field of view, hill height and optional replacement models and textures.
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
 
@@ -115,7 +115,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 **Controller** - double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
 
-**Second player** - double-tap `Delete` to switch view, or hold it to switch both players. Send their tracker to port **4243**.
+**More players** - double-tap `Delete` to switch player 2's view, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 **PvP** - leaning does not move shots; zombies and room contents follow the game's visibility rules.
 

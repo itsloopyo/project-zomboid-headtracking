@@ -34,9 +34,10 @@ final class Tracking {
     private static CameraUnlock core;
     private static Config config;
     private static CameraUnlock.Settings settings;
-    private static boolean secondListening;
-    /** The port the first player's tracker is listened for on. */
-    private static int firstPort;
+    /** The port each player's tracker is listened for on, or 0 while it is not. */
+    private static final int[] ports = new int[View.COUNT];
+    /** Which of the players after the first have been given their port. */
+    private static final boolean[] listening = new boolean[View.COUNT];
     /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
     static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
@@ -118,7 +119,7 @@ final class Tracking {
      */
     static void start(Path gameDirectory) {
         int port = open(gameDirectory, null);
-        firstPort = port;
+        ports[0] = port;
         listen(port);
         try {
             core.hotkeysStart();
@@ -181,20 +182,25 @@ final class Tracking {
     }
 
     /**
-     * A second player's tracker is listened for from the first frame the game draws them, on
-     * the port the file names as SecondPlayerUdpPort. Logic thread.
+     * The tracker of a player after the first is listened for from the first frame the game
+     * draws them, on the port their row of [Network] names. Logic thread.
      */
-    static void listenForSecond() {
-        if (!secondListening) {
-            secondListening = true;
-            int port = config.secondPlayerPort();
-            if (port == firstPort) {
+    static void listenFor(int playerIndex) {
+        if (listening[playerIndex]) {
+            return;
+        }
+        listening[playerIndex] = true;
+        int port = config.playerPort(playerIndex);
+        for (int other = 0; other < View.COUNT; other++) {
+            if (ports[other] == port) {
                 // Core refuses the port by throwing, which here would be into the game's own frame.
-                Log.info("SecondPlayerUdpPort is " + port + ", the same as UdpPort: the second player's head is not tracked until CameraUnlock.ini gives them a port of their own and the game is started again");
+                Log.info(Config.playerPortRow(playerIndex) + " is " + port + ", which player " + (other + 1) + "'s tracker is listened for on: player "
+                        + (playerIndex + 1) + "'s head is not tracked until CameraUnlock.ini gives them a port of their own and the game is started again");
                 return;
             }
-            core.viewStart(1, port);
         }
+        core.viewStart(playerIndex, port);
+        ports[playerIndex] = port;
     }
 
     /** One frame of core's pipeline for a view: once per rendered frame of that view, on the logic thread. */
@@ -450,11 +456,13 @@ final class Tracking {
             }
             SplitScreen.frame();
             int said = pressed & (Config.AIM_MODE | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN) | told;
-            // Tapped, the first person key is the first player's. Tapped twice it is the second player's, and held it is both's.
-            boolean firsts = (pressed & (Config.FIRST_PERSON | Config.FIRST_PERSON_BOTH)) != 0;
-            boolean seconds = (pressed & (Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH)) != 0;
-            owed[0] = said | (firsts ? Config.FIRST_PERSON : 0);
-            owed[1] = said | (seconds ? Config.FIRST_PERSON : 0);
+            // Tapped, the first person key is the first player's. Tapped twice it is the second player's, and held it is every player's.
+            boolean all = (pressed & Config.FIRST_PERSON_ALL) != 0;
+            owed[0] = said | (all || (pressed & Config.FIRST_PERSON) != 0 ? Config.FIRST_PERSON : 0);
+            owed[1] = said | (all || (pressed & Config.FIRST_PERSON_SECOND) != 0 ? Config.FIRST_PERSON : 0);
+            for (int i = 2; i < View.COUNT; i++) {
+                owed[i] = said | (all ? Config.FIRST_PERSON : 0);
+            }
             if ((pressed & Config.FIRST_PERSON_SECOND) != 0 && (IsoPlayer.numPlayers < 2 || IsoPlayer.players[1] == null)) {
                 Log.info("the first person key was tapped twice, which is a second player's, and there is none at the screen");
             }
