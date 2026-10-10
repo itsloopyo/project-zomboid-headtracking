@@ -70,6 +70,7 @@ public final class Tests {
         Checks.run("gridTraceFindsTheFirstBlockedEdge", Tests::gridTraceFindsTheFirstBlockedEdge);
         Checks.run("CabinTests", CabinTests::run);
         Checks.run("GlassPullTests", GlassPullTests::run);
+        Checks.run("GlassPlaceTests", GlassPlaceTests::run);
         Checks.run("MoversTests", MoversTests::run);
         Checks.run("SnowPrintTests", SnowPrintTests::run);
         Checks.run("SnowCoverTests", SnowCoverTests::run);

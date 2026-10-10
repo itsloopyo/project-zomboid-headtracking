@@ -4484,17 +4484,29 @@ final class PipelineShaders {
                 return flared(glass, -view, dirt);
             }
 
-            // The pane a line of sight from the seat leaves the cabin by, told by which way
-            // the line goes: the screens lean back and the side windows stand nearly upright.
+            vec2 paneOut(vec3 o, vec3 d);
+
+            // The pane a line of sight from the seat leaves the cabin by: the screens lean back
+            // and the side windows stand nearly upright. With the driver's place laid out, the
+            // place on it is where the line meets that pane's glass, counted in the vehicle from
+            // the driver's eye with no lean (uSeat), so a lean of the head leaves what is on the
+            // glass where it is. With none, the panes are taken to stand a set way off the eye.
             vec4 paneSeen(vec3 out3) {
                 vec3 line = inCabin(out3);
                 float along = line.x, across = line.y;
-                bool ends = abs(along) > abs(across);
+                bool ends;
+                vec3 at;
+                if (uInside > 0.5 && uWheel.w > 0.0) {
+                    float toward = uDash.x < 0.0 ? -1.0 : 1.0;
+                    vec2 leaves = paneOut(vec3(uSeat.x, (uSeat.y - uWheel.y) * toward, uSeat.z), line * vec3(1.0, toward, 1.0));
+                    ends = leaves.y < 0.5;
+                    at = (uSeat + line * leaves.x) * CABIN;
+                } else {
+                    ends = abs(along) > abs(across);
+                    at = line * (ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2));
+                }
                 vec3 faces = fromCabin(ends ? normalize(vec3(-sign(along), 0.0, 0.75)) : normalize(vec3(0.0, -sign(across), 0.12)));
-                float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
-                vec3 to = line * reach;
-                // Along a side window the place is the vehicle's, uSeat on: a lean along the seat leaves its drops where they are.
-                return pane(vec2(ends ? to.y : to.x + uSeat.x + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+                return pane(vec2(ends ? at.y : at.x + 7.0, at.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
             }
 
             vec4 paneBuilt(vec3 out3);
@@ -5251,10 +5263,12 @@ final class PipelineShaders {
                         // more at a glancing angle, and the dust and dried rain on it, which
                         // stay put on the pane as the car moves.
                         vec3 to = inCabin(at - uEye) / CABIN;
+                        // The place on the pane is the vehicle's, counted from the driver's eye
+                        // with no lean (uSeat): a lean leaves the drops and the wipers' arcs where they are.
+                        vec3 on3 = to + uSeat;
                         vec3 faces = inCabin(n);
                         bool ends = abs(faces.x) > abs(faces.y);
-                        // Along a side window the place is the vehicle's, uSeat on: a lean along the seat leaves its drops where they are.
-                        gl_FragData[0] = pane(vec2(ends ? to.y : to.x + uSeat.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
+                        gl_FragData[0] = pane(vec2(ends ? on3.y : on3.x + 7.0, on3.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
                         gl_FragDepth = 0.0;
                         return;
                     }

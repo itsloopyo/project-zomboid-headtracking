@@ -651,15 +651,24 @@ final class CabinShader {
             // and by day it shows the top of the dashboard lying under it, most where the
             // sun is on the pad and the pad is pale. The other panes are told by which way
             // the line of sight goes.
+            // How far a line of sight from o going d, both with across counted towards the
+            // vehicle's middle, goes to the glass it leaves by if not the windscreen, and 1 where
+            // that is a side pane: a pane at the side stands just outside the roll of its door's
+            // top, and the back of the glasshouse is further off than anything built.
+            vec2 paneOut(vec3 o, vec3 d) {
+                float mid = abs(uDash.x);
+                float out2 = d.y > 0.0 ? mid + widths().x + 0.03 - o.y : o.y - mid + widths().x + 0.03;
+                float side = out2 / max(abs(d.y), 0.001);
+                float end = d.x < 0.0 ? (o.x - uPad.y + 1.9) / max(-d.x, 0.001) : 9.0;
+                return vec2(min(side, end), side <= end ? 1.0 : 0.0);
+            }
+
             vec4 paneBuilt(vec3 out3) {
                 float toward = uDash.x < 0.0 ? -1.0 : 1.0;
                 vec3 d = inCabin(out3) * vec3(1.0, toward, 1.0);
                 vec3 o = vec3(uSeat.x, (uSeat.y - uWheel.y) * toward, uSeat.z);
                 float mid = abs(uDash.x);
-                // A pane at the side stands just outside the roll of its door's top, and
-                // the back of the glasshouse is further off than anything built.
-                float out2 = d.y > 0.0 ? mid + widths().x + 0.03 - o.y : o.y - mid + widths().x + 0.03;
-                gPaneFar = min(out2 / max(abs(d.y), 0.001), d.x < 0.0 ? (o.x - uPad.y + 1.9) / max(-d.x, 0.001) : 9.0);
+                gPaneFar = paneOut(o, d).x;
                 float padTop = max(uDash.y, uScreen.y) + 0.004;
                 vec3 foot = vec3(uScreen.x, 0.0, padTop - 0.02), rail = vec3(uHouse.x, 0.0, uHouse.y);
                 float span = length(rail - foot);
