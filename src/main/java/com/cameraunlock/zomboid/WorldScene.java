@@ -283,7 +283,7 @@ final class WorldScene {
         }
         private long epoch;
         /** The heights the build was made on, and which chunks it took any from, those round its own and those further off: see landOf. */
-        private int land, heightsRound;
+        private int land, terrainVersion, heightsRound;
         private long[] heightsFar = NO_CHUNKS;
         /** Whether the build left the span of a wire unknown at an end because the map was not loaded that far: see landOf. */
         private boolean wantsMap;
@@ -2578,7 +2578,8 @@ final class WorldScene {
                     // last, and later at twice its age: between those it is left alone as any other is.
                     boolean settled = !missing && (start - current.bornNanos >= SETTLES_IN_NANOS
                             || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
-                    boolean quiet = telling && !missing && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
+                    boolean landChanged = !missing && terrain.version(chunk.wx, chunk.wy) != current.terrainVersion;
+                    boolean quiet = telling && !missing && !landChanged && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
                             && current.epoch == epoch && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
                     // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
                     if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
@@ -2597,7 +2598,8 @@ final class WorldScene {
                             | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
                     // One that has waited twice its time waits no longer: the chunks are walked nearest first,
                     // and the last of them would wait as long as those before it kept falling due.
-                    boolean due = !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
+                    boolean due = landChanged && distance < BUILT_WHATEVER_IT_TAKES
+                            || !missing && !quiet && !rehearsing && waited && frames - current.checkedFrame >= every
                             && (distance < CHUNK_TILES * 1.5f || frames - current.checkedFrame >= 2 * every && !hurried
                                     || frames - current.checkedFrame >= 4 * every && !late || !hurried && remakes++ < REMAKES_A_FRAME);
                     // On arriving somewhere the map round the eye is still loading, and each chunk is found changed again
@@ -2606,14 +2608,14 @@ final class WorldScene {
                     // first seconds, which with builds slowed fourfold was seven frames a second for five seconds. While
                     // a chunk is new, a quarter of a second between two builds of it is soon enough, and
                     // the build it has stands for as long as the eye is in its band, whether or not the eye moves.
-                    if (due && stands && (frames < current.summedFrom || start < current.summedFromNanos)
+                    if (due && !landChanged && stands && (frames < current.summedFrom || start < current.summedFromNanos)
                             && start - current.bornNanos < SETTLES_IN_NANOS
                             && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
                         due = false;
                     }
                     // Nothing but light has been marked on it since it was last read, and the frame has
                     // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
-                    if (due && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
+                    if (due && !landChanged && telling && stands && current.signed && current.things == things && since < LIT_WAITS_NANOS
                             && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
                         due = false;
                     }
@@ -2709,6 +2711,7 @@ final class WorldScene {
                             current.things = things;
                             current.keepLevels(this, start, current);
                             current.land = land;
+                            current.terrainVersion = terrain.version(chunk.wx, chunk.wy);
                             current.ring = ring;
                             current.loaded = loadedNow;
                             current.restless = restless;
@@ -3481,6 +3484,9 @@ final class WorldScene {
             // Once for the chunk and not once a level: until the ground round a chunk is all
             // loaded its corners are worked out afresh at every asking.
             float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
+            if (!growing) {
+                building.terrainVersion = terrain.version(chunk.wx, chunk.wy);
+            }
             float[] water = terrain.water(chunk.wx, chunk.wy);
             kerbs = terrain.kerb(chunk.wx, chunk.wy);
             boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;

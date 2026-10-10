@@ -48,6 +48,17 @@ public final class IsoGridSquare {
         return floor;
     }
 
+    public boolean isOutside() {
+        return roomID == -1L;
+    }
+
+    public IsoChunk getChunk() {
+        IsoChunk chunk = new IsoChunk();
+        chunk.wx = Math.floorDiv(x, 8);
+        chunk.wy = Math.floorDiv(y, 8);
+        return chunk;
+    }
+
     public int getX() {
         return x;
     }

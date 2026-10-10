@@ -124,6 +124,26 @@ final class Terrain {
         long from;
         /** The gain they were worked out at. */
         float gain;
+
+        Grid() {}
+
+        Grid(Grid source) {
+            wx = source.wx;
+            wy = source.wy;
+            settled = source.settled;
+            stamp = source.stamp;
+            stampNanos = source.stampNanos;
+            used = source.used;
+            loaded = source.loaded;
+            version = source.version;
+            System.arraycopy(source.heights, 0, heights, 0, heights.length);
+            System.arraycopy(source.water, 0, water, 0, water.length);
+            kerb = source.kerb;
+            kerbFrom = source.kerbFrom;
+            kerbSum = source.kerbSum;
+            from = source.from;
+            gain = source.gain;
+        }
     }
 
     private static final class Kinds {
@@ -545,7 +565,7 @@ final class Terrain {
             grid.used = frame;
         }
         boolean mapAsItWas = known && ChunkMarks.live && grid.loaded == loaded;
-        if (known && (grid.settled || mapAsItWas && !AUDITED || frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS)) {
+        if (known && (grid.settled || mapAsItWas && !AUDITED || !now && (frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS))) {
             return grid.heights;
         }
         if (known && !now && againNanos > AGAIN_NANOS_A_FRAME) {
@@ -573,19 +593,36 @@ final class Terrain {
             System.arraycopy(grid.heights, 0, fresh.heights, 0, fresh.heights.length);
             System.arraycopy(grid.water, 0, fresh.water, 0, fresh.water.length);
         } else {
+            boolean wet = false;
+            for (int i = 0; i < CHUNK_TILES; i++) {
+                for (int j = 0; j < CHUNK_TILES; j++) {
+                    wet |= around[(AROUND + i) * SPAN + AROUND + j] == WATER;
+                }
+            }
             streets(wx * CHUNK_TILES - AROUND, wy * CHUNK_TILES - AROUND, AROUND, AROUND + CHUNK_TILES, true);
             for (int i = 0; i < CORNERS; i++) {
                 for (int j = 0; j < CORNERS; j++) {
                     float x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                    fresh.heights[i * CORNERS + j] = corner(x, y, i + AROUND, j + AROUND);
-                    fresh.water[i * CORNERS + j] = base(x, y) - WATER_BELOW;
+                    // Tiny height changes otherwise invalidate every mesh standing on the chunk.
+                    fresh.heights[i * CORNERS + j] = Math.round(corner(x, y, i + AROUND, j + AROUND) * 256f) / 256f;
+                    fresh.water[i * CORNERS + j] = wet ? base(x, y) - WATER_BELOW : 0f;
                 }
             }
         }
-        if (asBefore && AUDITED && !(Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water))) {
-            Log.info("terrain: the heights at " + wx + ", " + wy + " came out otherwise from all they are worked out from as it was: the copy would have been stale");
+        if (asBefore && AUDITED) {
+            boolean sameInputs = Arrays.equals(fresh.water, grid.water);
+            // Border heights also depend on neighbouring cached grids.
+            for (int x = 1; x < CHUNK_TILES; x++) {
+                for (int y = 1; y < CHUNK_TILES; y++) {
+                    sameInputs &= fresh.heights[x * CORNERS + y] == grid.heights[x * CORNERS + y];
+                }
+            }
+            if (!sameInputs) {
+                Log.info("terrain: cached interior heights changed with identical inputs at " + wx + ", " + wy);
+            }
         }
         kerbs(cell, fresh, known ? grid : null);
+        joinEdges(fresh);
         boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
         fresh.version = same ? grid.version : ++versions;
         if (mapAsItWas && !same) {
@@ -596,6 +633,40 @@ final class Terrain {
             againNanos += System.nanoTime() - began;
         }
         return fresh.heights;
+    }
+
+    private void joinEdges(Grid fresh) {
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                Grid held = grid(fresh.wx + dx, fresh.wy + dy);
+                if (held == null || held.gain != fresh.gain) {
+                    continue;
+                }
+                Grid changed = null;
+                int fromX = dx <= 0 ? 0 : CHUNK_TILES, toX = dx >= 0 ? CHUNK_TILES : 0;
+                int fromY = dy <= 0 ? 0 : CHUNK_TILES, toY = dy >= 0 ? CHUNK_TILES : 0;
+                for (int x = fromX; x <= toX; x++) {
+                    for (int y = fromY; y <= toY; y++) {
+                        int source = x * CORNERS + y;
+                        int target = (x - dx * CHUNK_TILES) * CORNERS + y - dy * CHUNK_TILES;
+                        if (fresh.heights[source] != held.heights[target]) {
+                            if (changed == null) {
+                                // Published arrays may still be read by the render thread.
+                                changed = new Grid(held);
+                            }
+                            changed.heights[target] = fresh.heights[source];
+                        }
+                    }
+                }
+                if (changed != null) {
+                    changed.version = ++versions;
+                    keep(changed);
+                }
+            }
+        }
     }
 
     /**

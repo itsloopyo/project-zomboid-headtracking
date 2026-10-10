@@ -44,6 +44,7 @@ final class TerrainTests {
             noHillRisesFromWater();
             theHillsAreAtTheirDefaultWherePlayersCanFight();
             aChangeOfHeightReworksTheLandRoundTheEyeAtOnce();
+            streamedChunksShareTheirBorders();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -55,6 +56,63 @@ final class TerrainTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    private static void streamedChunksShareTheirBorders() {
+        boolean live = ChunkMarks.live;
+        Terrain.forget();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = new TestMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            var water = map.sprite("blends_natural_02_0", zombie.iso.SpriteDetails.IsoObjectType.normal, "water");
+            for (int x = -8; x < 16; x++) {
+                for (int y = -8; y < 16; y++) {
+                    map.cell.square(x, y, 0).floor(grass);
+                }
+            }
+            Terrain.frame(1000);
+            Terrain.loaded(1);
+            for (int x = -1; x <= 1; x++) {
+                for (int y = -1; y <= 1; y++) {
+                    Terrain.HILLS.corners(map.cell, x, y);
+                }
+            }
+            float[] published = Terrain.HILLS.corners(map.cell, 1, 0);
+            float[] saved = published.clone();
+            for (int x = -48; x < 56; x++) {
+                for (int y = -48; y < 56; y++) {
+                    if (x < -8 || x >= 16 || y < -8 || y >= 16) {
+                        map.cell.square(x, y, 0).floor(x >= 16 ? water : grass);
+                    }
+                }
+            }
+            Terrain.frame(1001);
+            Terrain.loaded(2);
+            Terrain.HILLS.fromMap(map.cell, 0, 0);
+            check(Arrays.equals(published, saved), "streaming does not mutate published terrain arrays");
+            check(!Arrays.equals(saved, Terrain.HILLS.corners(map.cell, 1, 0)), "a neighbouring border follows the refreshed chunk");
+            for (int x = -1; x <= 0; x++) {
+                for (int y = -1; y <= 0; y++) {
+                    float[] here = Terrain.HILLS.corners(map.cell, x, y);
+                    float[] east = Terrain.HILLS.corners(map.cell, x + 1, y);
+                    float[] south = Terrain.HILLS.corners(map.cell, x, y + 1);
+                    for (int i = 0; i < 9; i++) {
+                        check(here[72 + i] == east[i] && here[i * 9 + 8] == south[i * 9],
+                                "shared terrain borders agree while adjacent chunks wait for refresh");
+                    }
+                }
+            }
+            check(Arrays.equals(Terrain.HILLS.water(0, 0), new float[81]), "dry chunks do not track unused water heights");
+            Terrain.HILLS.corners(map.cell, 2, 0);
+            check(Math.abs(Terrain.HILLS.water(2, 0)[0] - Terrain.waterLevel(1f, 16f, 0f)) < 1e-5f,
+                    "wet chunks retain their water height");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+        }
     }
 
     /** Fills the map of the test: made ground up to the street, the street, then open ground, the same in every row. */

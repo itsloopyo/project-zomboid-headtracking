@@ -4,4 +4,8 @@ package zombie.iso;
 public final class IsoChunk {
     public int wx;
     public int wy;
+
+    public int getMaxLevel() {
+        return 0;
+    }
 }
