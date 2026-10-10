@@ -178,7 +178,8 @@ final class Config {
         muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
                 "true: a shot from a firearm in first person flashes at the muzzle: a small bloom\n"
                         + "of fire ahead of the barrel for a frame or two, and a moment's light on what is\n"
-                        + "near. false: no flash and no light from it. Read again while the game runs.",
+                        + "near. The game's own look (Low, StockLook, Automatic at Stock) has neither.\n"
+                        + "false: no flash and no light from it. Read again while the game runs.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it. SplitScreenKey goes from one to the other\n"

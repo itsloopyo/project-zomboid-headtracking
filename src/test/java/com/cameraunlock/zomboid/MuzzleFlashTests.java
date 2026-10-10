@@ -31,12 +31,74 @@ final class MuzzleFlashTests {
     };
 
     static void run() {
-        Checks.run("flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter", MuzzleFlashTests::flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter);
-        Checks.run("flashIsASmallBloomThatLeavesTheTargetInSight", MuzzleFlashTests::flashIsASmallBloomThatLeavesTheTargetInSight);
-        Checks.run("aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird", MuzzleFlashTests::aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird);
-        Checks.run("flashLightsTheWorldNoMoreThanTheSunDoes", MuzzleFlashTests::flashLightsTheWorldNoMoreThanTheSunDoes);
-        Checks.run("switchedOffAShotHasNoFlashAndNoLight", MuzzleFlashTests::switchedOffAShotHasNoFlashAndNoLight);
-        Checks.run("theRowIsTheSameWherePlayersCanFight", MuzzleFlashTests::theRowIsTheSameWherePlayersCanFight);
+        int mode = Quality.row();
+        Quality.Picture custom = Quality.custom();
+        Quality.set(Quality.HIGH);
+        try {
+            Checks.run("flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter", MuzzleFlashTests::flashOpensFromTheMuzzleAlongTheBarrelAwayFromTheShooter);
+            Checks.run("flashIsASmallBloomThatLeavesTheTargetInSight", MuzzleFlashTests::flashIsASmallBloomThatLeavesTheTargetInSight);
+            Checks.run("aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird", MuzzleFlashTests::aShotFlashesOnTheFirstFrameDrawnAfterItAndIsGoneByTheThird);
+            Checks.run("flashLightsTheWorldNoMoreThanTheSunDoes", MuzzleFlashTests::flashLightsTheWorldNoMoreThanTheSunDoes);
+            Checks.run("switchedOffAShotHasNoFlashAndNoLight", MuzzleFlashTests::switchedOffAShotHasNoFlashAndNoLight);
+            Checks.run("aShotTakenWhileSwitchedOffIsNotFlashedWhenSwitchedOn", MuzzleFlashTests::aShotTakenWhileSwitchedOffIsNotFlashedWhenSwitchedOn);
+            Checks.run("theGamesOwnLookHasNoFlashAndNoLight", MuzzleFlashTests::theGamesOwnLookHasNoFlashAndNoLight);
+            Checks.run("theRowIsTheSameWherePlayersCanFight", MuzzleFlashTests::theRowIsTheSameWherePlayersCanFight);
+        } finally {
+            Quality.custom(custom);
+            Quality.set(mode);
+        }
+    }
+
+    private static void aShotTakenWhileSwitchedOffIsNotFlashedWhenSwitchedOn() {
+        boolean was = MuzzleFlash.on();
+        try {
+            MuzzleFlash.set(false);
+            MuzzleFlash flash = new MuzzleFlash();
+            long now = System.nanoTime(), frame = 16_666_667L;
+            flash.fire();
+            check(flash.strength(now) == 0f, "switched off, a shot has no flash");
+            MuzzleFlash.set(true);
+            check(flash.strength(now + frame) == 0f, "switched on in the next frame with no new shot, the shot taken while off is not flashed");
+            flash.fire();
+            check(flash.strength(now + 2 * frame) == 1f, "the next shot flashes whole");
+        } finally {
+            MuzzleFlash.set(was);
+        }
+    }
+
+    /** Low, Custom with StockLook and Automatic at Stock are the game's own look (Quality.plain), and the game draws no flash. */
+    private static void theGamesOwnLookHasNoFlashAndNoLight() {
+        ViewCamera.Pose camera = new ViewCamera.Pose();
+        ViewCamera.clean(camera, 10f, 20f, 1.6f, 0f, 0f);
+        float[] light = new float[7];
+        long frame = 16_666_667L;
+        Quality.Picture stock = Config.picture(stockLook());
+        for (String mode : new String[] {"Low", "Custom with StockLook"}) {
+            if (mode.equals("Low")) {
+                Quality.set(Quality.LOW);
+            } else {
+                Quality.custom(stock);
+                Quality.set(Quality.CUSTOM);
+            }
+            check(Quality.plain(), mode + " is the game's own look");
+            MuzzleFlash flash = new MuzzleFlash();
+            flash.place(camera, HELD[0].muzzle, HELD[0].pointing);
+            long now = System.nanoTime();
+            flash.fire();
+            check(flash.strength(now) == 0f, mode + ": a shot has no flash");
+            flash.light(light, now);
+            check(light[3] == 0f, mode + ": and lights nothing");
+            Quality.set(Quality.HIGH);
+            check(flash.strength(now + frame) == 0f, mode + " left for High with no new shot: the shot taken in " + mode + " is not flashed");
+            flash.fire();
+            check(flash.strength(now + 2 * frame) == 1f, mode + " left for High: the next shot flashes whole");
+        }
+    }
+
+    private static double[] stockLook() {
+        double[] values = Config.values(Quality.HIGH_PICTURE);
+        values[0] = 1;
+        return values;
     }
 
     /**
@@ -47,7 +109,7 @@ final class MuzzleFlashTests {
     private static void theRowIsTheSameWherePlayersCanFight() throws java.io.IOException {
         String source = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid/MuzzleFlash.java"));
         check(!source.contains("Online") && !source.contains("GameClient") && !source.contains("ServerOptions") && !source.contains("import zombie"),
-                "whether a shot flashes is the MuzzleFlash row alone, on a server where players can fight as alone");
+                "whether a shot flashes is the MuzzleFlash row and the graphics mode alone, on a server where players can fight as alone");
     }
 
     private static float[] towards(float[] from, float x, float y, float z) {

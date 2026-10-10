@@ -8,7 +8,8 @@ import org.lwjgl.opengl.GL20;
  * The flash of a shot: a small, brief bloom of burning powder at the muzzle of the weapon the
  * viewer holds, opening out ahead of it along the barrel, and for as long a modest light there
  * for the picture to light the world and the figures with. The MuzzleFlash row of
- * CameraUnlock.ini switches both off.
+ * CameraUnlock.ini switches both off, and the game's own look (Quality.plain) has neither: the
+ * game draws no flash.
  *
  * The game's logic thread says when a shot is taken. The render thread knows where the muzzle
  * is, having just placed the weapon, and draws the bloom.
@@ -166,10 +167,12 @@ final class MuzzleFlash {
      * low frame rate, and it fades from there. Render thread.
      */
     float strength(long now) {
-        if (!on) {
+        int fired = shots;
+        if (!on || Quality.plain()) {
+            // A shot taken while there is no flash is one shown, or turning the flash on would show it late.
+            shown = fired;
             return 0f;
         }
-        int fired = shots;
         if (fired == 0) {
             return 0f;
         }
