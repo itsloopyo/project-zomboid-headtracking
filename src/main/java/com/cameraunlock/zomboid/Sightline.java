@@ -15,19 +15,16 @@ package com.cameraunlock.zomboid;
  * while a line of sight reaches into it (RoomSight). A frame drawn from elsewhere, which does
  * not go by sight, builds every room within 40 tiles of the eye (WorldScene.UNSHOWN_FILLED_WITHIN):
  * see emptied.
- *
- * Where players can fight, a room is filled only as the game shows it to everyone.
  */
 final class Sightline {
     private Sightline() {}
 
     /**
-     * Whether a room is filled only as the game shows it: where players can fight (see
-     * Online.contested), in Low, which shows everything the game's way, and with the
-     * development switch that turns the line of sight off.
+     * Whether a room is filled only as the game shows it: in Low, which shows everything the
+     * game's way, and with the development switch that turns the line of sight off.
      */
     static boolean asTheGameShows(boolean switchedOff) {
-        return Online.contested() || switchedOff || Quality.plain();
+        return switchedOff || Quality.plain();
     }
 
     /** Whether the chunk the view does not face is built ahead of a turn: with the development switch left alone, and out of Low. */
@@ -38,7 +35,7 @@ final class Sightline {
     /**
      * Whether what stands in a room is left out of a build of the room's square.
      *
-     * @param asTheGameShows the viewer is shown no more than the game shows everyone: see Online.contested
+     * @param asTheGameShows the viewer is shown no more than the game shows: see asTheGameShows(boolean)
      * @param gamesView      the build is of the game's own view, where a room not shown has the engine's light, which is none
      * @param inRoom         the square is in a room
      * @param shown          the game has had the square in the character's sight

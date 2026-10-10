@@ -12,7 +12,7 @@ package com.cameraunlock.zomboid;
  * its blur for short sight is drawn the same way (seen).
  *
  * Where players can fight (Online.contested) all of it holds whatever a development switch
- * says, and zombies are drawn only as the game shows them: see on and shownWhole.
+ * says: see on.
  */
 final class Eyesight {
     private Eyesight() {}
@@ -51,18 +51,16 @@ final class Eyesight {
     }
 
     /**
-     * Whether a zombie before the eye is drawn whole, whatever the game's own fade says. Where
-     * players can fight, never: it is drawn as the game shows it to this player. Elsewhere,
-     * alone or on a server where nobody can be fought, it is, within the game's own sight for
-     * the weather and the hour (GameTime.getViewDist); past that it is left to the game.
+     * Whether a zombie before the eye is drawn whole, whatever the game's own fade says: within
+     * the game's own sight for the weather and the hour (GameTime.getViewDist), on a server as
+     * alone. Past that it is left to the game.
      *
-     * @param contested       whether players can fight here: see Online.contested
      * @param sightOn         whether the picture shows the character's sight: see on
      * @param distanceSquared how far off it is, squared, in tiles
      * @param gameSees        the game's sight, in tiles
      */
-    static boolean shownWhole(boolean contested, boolean sightOn, float distanceSquared, float gameSees) {
-        return !contested && !(sightOn && distanceSquared > gameSees * gameSees);
+    static boolean shownWhole(boolean sightOn, float distanceSquared, float gameSees) {
+        return !(sightOn && distanceSquared > gameSees * gameSees);
     }
 
     /** How much light one tile of air takes out of a line of sight, with the game's fog, rain and snow each from 0 to 1. */

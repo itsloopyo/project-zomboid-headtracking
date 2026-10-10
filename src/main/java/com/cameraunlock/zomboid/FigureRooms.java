@@ -17,11 +17,6 @@ final class FigureRooms {
     /** The squares on the far side of an opening from a region whose contents are built: see fill. */
     private final RoomSight.Seen beside = new RoomSight.Seen();
 
-    /** Whether people are left out by room at all: not where players can fight, where everyone is drawn as the game shows them. */
-    static boolean applies(boolean contested) {
-        return !contested;
-    }
-
     /** Takes the rooms whose contents are built and the squares beside the openings into them. */
     void fill(RoomSight.Kept built, RoomSight.Openings openings) {
         rooms.clear();

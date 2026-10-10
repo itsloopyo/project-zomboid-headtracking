@@ -10,7 +10,9 @@ import zombie.network.ServerOptions;
  * The view, the head and the keys are the viewer's own and play there as they do alone.
  * What another player could lose a fight to is held to what the game itself gives everyone,
  * and only where there can be a fight: on a server that allows players to hurt each other.
- * Among friends on a server without it nothing is held back.
+ * That is how other players are seen and how the aim lands; zombies, vehicles with no
+ * other player in them, rooms and the land are shown as they are alone. Among friends on a
+ * server without PvP nothing is held back.
  */
 final class Online {
     private Online() {}
@@ -28,6 +30,11 @@ final class Online {
      */
     static boolean contested() {
         return joined() && ServerOptions.getInstance().pvp.getValue();
+    }
+
+    /** Whether a character is shown by the picture's own rules: anyone but another player where players can fight. */
+    static boolean shownAsAlone(boolean player) {
+        return !player || !contested();
     }
 
     /**

@@ -3148,10 +3148,8 @@ final class WorldScene {
             }
             // What the picture draws is always built, whatever the walk round found.
             roomsBuilt.found(roomsSeenKept, now, roomsEntered);
-            if (FigureRooms.applies(Online.contested())) {
-                figureRoomsKept.fill(roomsBuilt, openingsInReach);
-                figureRooms = figureRoomsKept;
-            }
+            figureRoomsKept.fill(roomsBuilt, openingsInReach);
+            figureRooms = figureRoomsKept;
             tollRoomsNanos += System.nanoTime() - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;

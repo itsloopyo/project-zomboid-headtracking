@@ -195,8 +195,8 @@ final class SightlineTests {
                 check(Sightline.asTheGameShows(true) && !Sightline.buildsAhead(true), "the development switch puts both back as the game has them");
             });
             Servers.in(Servers.Where.FRIENDLY, () -> check(!Sightline.asTheGameShows(false), "on a server where players cannot hurt each other the room is filled too"));
-            Servers.in(Servers.Where.CONTESTED, () -> check(Sightline.asTheGameShows(false) && !built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
-                    "where they can, it is left empty until the game shows it"));
+            Servers.in(Servers.Where.CONTESTED, () -> check(!Sightline.asTheGameShows(false) && built(Sightline.asTheGameShows(false), false).contains(prop("toilet")),
+                    "and where they can, as alone"));
             Quality.set(Quality.LOW);
             Servers.in(Servers.Where.ALONE, () -> {
                 check(Sightline.asTheGameShows(false) && !built(Sightline.asTheGameShows(false), false).contains(prop("sink")),

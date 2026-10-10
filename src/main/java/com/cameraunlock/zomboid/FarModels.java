@@ -20,7 +20,8 @@ import zombie.vehicles.BaseVehicle;
  * Neither is shown further off than the draw distance (DrawDistance), past which the game's own
  * rules stand, and the picture draws none of them anyway.
  *
- * Where players can fight, all of it is shown as the game shows it to everyone.
+ * Where players can fight, a vehicle with another player in it is shown as the game shows it to
+ * everyone, since drawing it would show them: see shownWhole.
  */
 public final class FarModels {
     final View view;
@@ -102,17 +103,27 @@ public final class FarModels {
      * sight reached it, 36 to 56 tiles off at 107 km/h. Under the picture what stands between
      * the eye and a vehicle hides it, and nothing else does.
      */
-    public boolean seen(boolean byTheGame) {
-        return byTheGame || shownWhole();
+    public boolean seen(boolean byTheGame, BaseVehicle vehicle) {
+        return byTheGame || shownWhole(vehicle);
     }
 
-    /** Whether vehicles are drawn by where they are and not by what the game's own view shows of them. */
-    private boolean shownWhole() {
-        return view.firstPerson.coversTheGamesView() && !Online.contested();
+    /** Whether this is drawn by where it is and not by what the game's own view shows of it. */
+    private boolean shownWhole(IsoMovingObject moving) {
+        return view.firstPerson.coversTheGamesView() && !(moving instanceof BaseVehicle vehicle && carriesAnotherPlayer(vehicle) && Online.contested());
+    }
+
+    private boolean carriesAnotherPlayer(BaseVehicle vehicle) {
+        IsoPlayer viewer = view.player();
+        for (int seat = 0; seat < vehicle.getMaxPassengers(); seat++) {
+            if (vehicle.getCharacter(seat) instanceof IsoPlayer rider && rider != viewer) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean withinSight(IsoMovingObject moving) {
-        if (!shownWhole()) {
+        if (!shownWhole(moving)) {
             return false;
         }
         IsoPlayer viewer = view.player();
@@ -138,7 +149,7 @@ public final class FarModels {
      * Not past the game's own sight for the weather and the hour (GameTime.getViewDist), past
      * which the game's IsoGameCharacter.TestIfSeen counts nobody seen and the game fades a zombie
      * out: there it is left to the game, and off the game's screen it is not drawn at all. See
-     * Eyesight.shownWhole, which also leaves every zombie to the game where players can fight.
+     * Eyesight.shownWhole.
      */
     private boolean beforeTheEye(IsoMovingObject moving) {
         if (!withinSight(moving)) {
@@ -146,7 +157,7 @@ public final class FarModels {
         }
         IsoPlayer viewer = view.player();
         float toX = moving.getX() - viewer.getX(), toY = moving.getY() - viewer.getY();
-        if (!Eyesight.shownWhole(Online.contested(), Eyesight.on(), toX * toX + toY * toY, GameTime.getInstance().getViewDist())) {
+        if (!Eyesight.shownWhole(Eyesight.on(), toX * toX + toY * toY, GameTime.getInstance().getViewDist())) {
             return false;
         }
         BaseVehicle ride = viewer.getVehicle();

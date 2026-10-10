@@ -75,16 +75,15 @@ final class EyesightTests {
     }
 
     private static void whereNobodyCanBeFoughtZombiesAreWholeWithinTheGamesSight() {
-        check(Eyesight.shownWhole(false, true, 40f * 40f, 43.3f), "alone or on a server without PvP, a zombie 40 tiles off in full fog by day is drawn whole");
-        check(!Eyesight.shownWhole(false, true, 50f * 50f, 43.3f), "one at 50, past the game's sight, is left to the game");
-        check(Eyesight.shownWhole(false, false, 50f * 50f, 43.3f), "with the development switch taking the sight out, it is drawn whole as before");
+        check(Eyesight.shownWhole(true, 40f * 40f, 43.3f), "a zombie 40 tiles off in full fog by day is drawn whole");
+        check(!Eyesight.shownWhole(true, 50f * 50f, 43.3f), "one at 50, past the game's sight, is left to the game");
+        check(Eyesight.shownWhole(false, 50f * 50f, 43.3f), "with the development switch taking the sight out, it is drawn whole as before");
         check(!Eyesight.on(true, false), "the switch takes the sight out where nobody can be fought");
         check(Eyesight.on(false, false), "and without it the sight is in");
     }
 
     private static void wherePlayersCanFightZombiesAreTheGamesAndTheSightStaysOn() {
-        check(!Eyesight.shownWhole(true, true, 4f, 43.3f), "where players can fight, even a zombie two tiles off is drawn only as the game shows it");
-        check(Eyesight.on(true, true), "and the development switch cannot take the sight out");
+        check(Eyesight.on(true, true), "where players can fight the development switch cannot take the sight out");
     }
 
     /** As the frame asks it, of the server the game is joined to. */

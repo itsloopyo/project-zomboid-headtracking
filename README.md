@@ -117,7 +117,7 @@ The mouse turns the view. Movement keys follow the direction you face.
 
 **More players** - double-tap `Delete` to switch player 2's view, or hold it to switch every player's. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
-**PvP** - leaning does not move shots; zombies and room contents follow the game's visibility rules.
+**PvP** - leaning does not move shots, other players are shown only as the game shows them, and a shot at a player hits the body part the game rolls. Zombies, rooms and vehicles with no other player in them look as they do offline.
 
 ## Settings
 

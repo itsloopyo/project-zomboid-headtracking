@@ -19,6 +19,7 @@ import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.ui.TextDrawObject;
+import zombie.vehicles.BaseVehicle;
 
 /**
  * Where the game's patched code arrives: see Agent for which call of the game's reaches which
@@ -293,9 +294,9 @@ public final class Hooks {
     }
 
     /** Called with what the game goes by as it draws a vehicle for a player. */
-    public static boolean seen(boolean byTheGame) {
+    public static boolean seen(boolean byTheGame, BaseVehicle vehicle) {
         View view = drawing();
-        return view == null ? byTheGame : view.farModels.seen(byTheGame);
+        return view == null ? byTheGame : view.farModels.seen(byTheGame, vehicle);
     }
 
     /** In place of the game's asking where on a player's screen a zombie is, across. */

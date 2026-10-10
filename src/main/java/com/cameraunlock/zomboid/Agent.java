@@ -405,9 +405,13 @@ public final class Agent {
                         new CallSite.Method(HOOKS, "onScreen", "(Lzombie/iso/IsoMovingObject;)Z"), 1)),
                 new Patch(vehicle, "a vehicle's render asks the picture whether it is seen", classBytes -> {
                     CallSite.Method render = new CallSite.Method(vehicle, "render", "(FFFLzombie/core/textures/ColorInfo;ZZLzombie/core/opengl/Shader;)V");
-                    CallSite.Method seen = new CallSite.Method(HOOKS, "seen", "(Z)Z");
-                    classBytes = CallSite.insertAfter(classBytes, render, new CallSite.Method("zombie/iso/IsoGridSquare$ILighting", "bSeen", "()Z"), seen);
-                    return CallSite.insertAfter(classBytes, render, new CallSite.Method(vehicle, "couldSeeIntersectedSquare", "(I)Z"), seen);
+                    CallSite.Method seen = new CallSite.Method(HOOKS, "seen", "(ZL" + vehicle + ";)Z");
+                    Consumer<CodeBuilder> ask = code -> {
+                        code.aload(0);
+                        CallSite.invokeStatic(code, seen);
+                    };
+                    classBytes = CallSite.insertAfterEach(classBytes, render, new CallSite.Method("zombie/iso/IsoGridSquare$ILighting", "bSeen", "()Z"), ask, 1);
+                    return CallSite.insertAfterEach(classBytes, render, new CallSite.Method(vehicle, "couldSeeIntersectedSquare", "(I)Z"), ask, 1);
                 }),
                 new Patch(world, "sceneCullZombies asks the picture where a zombie is on the screen", classBytes -> {
                     CallSite.Method cull = new CallSite.Method(world, "sceneCullZombies", "()V");

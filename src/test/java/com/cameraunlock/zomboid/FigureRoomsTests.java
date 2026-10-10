@@ -69,7 +69,8 @@ final class FigureRoomsTests {
     }
 
     private static void whereEveryoneCanFightNobodyIsLeftOutByRoom() {
-        check(!FigureRooms.applies(true), "where players can fight, no one is left out by room: the frame hands the picture no room test");
-        check(FigureRooms.applies(false), "and elsewhere they are");
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Online.shownAsAlone(true) && Online.shownAsAlone(false),
+                "where players can fight, another player is not left out by room and a zombie still is"));
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Online.shownAsAlone(true), "on a server without PvP a player is left out by room as a zombie is"));
     }
 }

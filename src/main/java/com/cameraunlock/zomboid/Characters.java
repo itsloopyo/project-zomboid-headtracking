@@ -324,6 +324,7 @@ public final class Characters {
     int draw(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, boolean vehicles, boolean scope) {
         kind = scope ? BY_SCOPE : BY_EYE;
         byRoom = view.pipeline.figureRooms;
+        playersByRoom = Online.shownAsAlone(true);
         leftOutByRoom = 0;
         long now = FIGURE_ROOMS && !vehicles && !scope ? System.nanoTime() : 0L;
         figureRoomsLine = now - figureRoomsSaid >= 1_000_000_000L ? new StringBuilder() : null;
@@ -359,6 +360,8 @@ public final class Characters {
 
     /** While the eye's picture or a scope's is drawn, who it leaves out by the room they stand in, or null: see FigureRooms. */
     private FigureRooms byRoom;
+    /** Whether other players are left out by room too: not where players can fight, where the game shows them. See Online.shownAsAlone. */
+    private boolean playersByRoom;
     private int leftOutByRoom;
     /**
      * With -Dcameraunlock.zomboid.figureRooms=true, once a second, how many people the eye's
@@ -1438,7 +1441,8 @@ public final class Characters {
                     continue;
                 }
             }
-            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle) {
+            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle
+                    && (playersByRoom || !(data.character instanceof IsoPlayer))) {
                 IsoGridSquare square = data.character.getCurrentSquare();
                 boolean leftOut = square != null && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ());
                 if (FIGURE_ROOMS && figureRoomsLine != null && square != null) {
