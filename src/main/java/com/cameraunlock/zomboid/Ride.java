@@ -26,6 +26,7 @@ final class Ride {
 
     /** Whether the viewer is in a vehicle. */
     volatile boolean seated;
+    float groundUp;
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
     volatile boolean driving;
     volatile int skin;
@@ -122,6 +123,7 @@ final class Ride {
             tilt = null;
             return;
         }
+        groundUp = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ());
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
         engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
         VehiclePart tank = vehicle.getPartById("GasTank");
@@ -155,7 +157,7 @@ final class Ride {
             Cabins.noteWear(player, dress);
         }
         if (seat >= 0) {
-            seatTheEye(vehicle, seat, floorUp, terrain, eye);
+            seatTheEye(vehicle, seat, floorUp, eye);
         }
     }
 
@@ -165,7 +167,7 @@ final class Ride {
         return (float) Math.atan2(facing.z, facing.x);
     }
 
-    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, Terrain terrain, float[] eye) {
+    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across
         // the vehicle. Which way the vehicle faces the game gives with y as up.
@@ -191,7 +193,7 @@ final class Ride {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;
             eye[0] = vehicle.getX() + axes[0] * back + axes[3] * across + axes[6] * raised;
             eye[1] = vehicle.getY() + axes[1] * back + axes[4] * across + axes[7] * raised;
-            eye[2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + axes[2] * back + axes[5] * across
+            eye[2] = groundUp + axes[2] * back + axes[5] * across
                     + axes[8] * raised;
         }
         if (FirstPerson.TRACE && (seatSaid++ & 127) == 0) {

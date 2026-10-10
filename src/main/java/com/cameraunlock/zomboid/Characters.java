@@ -476,7 +476,7 @@ public final class Characters {
                 // told from their colour, and the picture lights the cabin itself, by the
                 // light the game would have given it.
                 int at = i * 4;
-                float groundUp = stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
+                float groundUp = view.pipeline.seatedGroundUp;
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
                 String script = view.ride.seatedIn;
                 ViewCamera.view(camera, eyeView);
@@ -1593,7 +1593,9 @@ public final class Characters {
      * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
     private void vehicle(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+        float groundUp = fromSeat ? view.pipeline.seatedGroundUp
+                : stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
+        place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE,
                 stood[at + 3], VEHICLE_SCALE);
         multiply(viewMatrix, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];

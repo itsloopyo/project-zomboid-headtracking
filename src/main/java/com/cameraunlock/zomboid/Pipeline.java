@@ -384,6 +384,7 @@ final class Pipeline {
      * two passes of a frame as readily as between two frames.
      */
     boolean seated;
+    float seatedGroundUp;
     /**
      * The plane the water round the eye lies in, where the frame shows any: the unit vector
      * square to it and how far along it the plane is, see WaterMirror. Null with no water.
