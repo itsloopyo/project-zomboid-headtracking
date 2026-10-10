@@ -29,6 +29,8 @@ Play Project Zomboid in first person with a rebuilt world, new graphics and head
 
 Once available in [Lopari](https://lopari.app), choose **Project Zomboid** and click **Play with head tracking**.
 
+Lopari writes `ProjectZomboid64.site.json` from the game's own `ProjectZomboid64.json` when it installs the mod, and writes it again before a launch when the game's file has changed.
+
 ### Standalone installer
 
 1. Download `ProjectZomboidHeadTracking-v<version>-installer.zip` from [Releases](https://github.com/itsloopyo/project-zomboid-headtracking/releases).
@@ -127,7 +129,7 @@ Use **Options > Mods > Head Tracking** for tracking and graphics. First person a
 
 - **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.
 - **Sights or scope problems** - press `Insert` to select **sights locked**.
-- **Update** - run the new release's `install.cmd`. Rerun it after a game update too.
+- **Update** - with the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too.
 - **Uninstall** - run `uninstall.cmd`. Your `CameraUnlock.ini` settings stay.
 
 For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
