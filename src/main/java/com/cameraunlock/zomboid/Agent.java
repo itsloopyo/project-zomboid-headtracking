@@ -326,7 +326,7 @@ public final class Agent {
      */
     private static List<Patch> coveredPatches() {
         String world = "zombie/iso/IsoWorld", cell = "zombie/iso/fboRenderChunk/FBORenderCell";
-        String cutaways = "zombie/iso/fboRenderChunk/FBORenderCutaways";
+        String cutaways = "zombie/iso/fboRenderChunk/FBORenderCutaways", outline = "zombie/iso/fboRenderChunk/FBORenderObjectOutline";
         CallSite.Method covered = new CallSite.Method(HOOKS, "coversTheGamesView", "()Z");
         return List.of(
                 new Patch(world, "renderWeatherFX left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
@@ -337,6 +337,14 @@ public final class Agent {
                         new CallSite.Method(cell, "renderRainSplashes", "(II)V"), covered)),
                 new Patch(cell, "renderFog left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(cell, "renderFog", "(I)V"), covered)),
+                // The outline round a highlighted object (the container the loot panel shows, in
+                // the player's object highlight colour) is laid over the frame where the object
+                // stands in the game's own view, and not under the picture: it was left floating
+                // by the middle of the screen. The outline round what the Interact key would act
+                // on is the picture's own. An object taken from the world while outlined is let go
+                // of when the game's view next draws.
+                new Patch(outline, "object outlines left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method(outline, "render", "(I)V"), covered)),
                 // The rest of what the game draws of the world into its own view while the picture
                 // covers it: the squares of each chunk, into the chunk's own texture; the trees,
                 // plants, windows and whatever else it draws afresh over those every frame, sprite by
