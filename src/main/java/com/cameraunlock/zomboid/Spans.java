@@ -97,6 +97,12 @@ final class Spans {
          * numbers, or -1 for a square the map has not loaded.
          */
         int pins(int x, int y, int z, float[] out, int at);
+
+        /**
+         * Whether what pins says of a loaded square stands however much more of the map is
+         * loaded: a pole's top may be drawn on a square away from its own, on map not loaded.
+         */
+        boolean settled(int x, int y, int z);
     }
 
     /** The numbers the lines of one square usually come to, and the pins of one pole. */
@@ -274,7 +280,7 @@ final class Spans {
     /**
      * Fills pins with the insulators of every pole drawn near a square, on the level followed
      * and on those either side, each where it is drawn on the level followed, and says how many
-     * numbers that is. A pole the map has not loaded leaves the length unsure.
+     * numbers that is. A pole the map has not loaded, or one it may yet show more of, leaves the length unsure.
      */
     private int pinsRound(int x, int y) {
         int found = 0;
@@ -287,6 +293,7 @@ final class Spans {
                         unsure = true;
                         continue;
                     }
+                    unsure |= !map.settled(poleX + squares, poleY + squares, level + up);
                     for (int pin = 0; pin < count; pin += 4, found += PIN) {
                         pins[found] = pole[pin] - squares;
                         pins[found + 1] = pole[pin + 1] - squares;

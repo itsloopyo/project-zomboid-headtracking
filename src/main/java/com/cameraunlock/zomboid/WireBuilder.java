@@ -58,7 +58,7 @@ final class WireBuilder {
 
         @Override
         public int pins(int x, int y, int z, float[] out, int at) {
-            if (!loaded(x, y) || !loaded(x + Spans.LEVEL_SQUARES, y + Spans.LEVEL_SQUARES)) {
+            if (!loaded(x, y)) {
                 return -1;
             }
             Poles.Arm arm = Poles.arm(standsOn(x, y, z));
@@ -75,6 +75,11 @@ final class WireBuilder {
                 out[at++] = axisY;
             }
             return Spans.POLE_PINS;
+        }
+
+        @Override
+        public boolean settled(int x, int y, int z) {
+            return !Poles.unsettled(drawn, WireBuilder.this::loaded, x, y, z, build.lowestLevel);
         }
     });
     private final float[] poleFrom = new float[3], poleTo = new float[3], wirePlace = new float[3];
@@ -202,8 +207,7 @@ final class WireBuilder {
      */
     boolean addPole(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
         // Where the length is drawn may be a level off where it stands: what is drawn on the map not yet loaded may tell.
-        int other = Spans.LEVEL_SQUARES;
-        build.wantsMap |= !loaded(x - other, y - other) || !loaded(x + other, y + other);
+        build.wantsMap |= Poles.unsettled(drawn, this::loaded, x, y, z, build.lowestLevel) || Poles.unsettled(drawn, this::loaded, x, y, z + 1, build.lowestLevel);
         if (drawnUp(x, y, z)) {
             return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
         }

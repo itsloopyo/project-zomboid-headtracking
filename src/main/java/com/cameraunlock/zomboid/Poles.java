@@ -87,6 +87,23 @@ final class Poles {
                 && map.on(x - back, y - back, z - 1) == null;
     }
 
+    /** The map as far as it is loaded: whether the chunk a square is in is. */
+    interface Loaded {
+        boolean at(int x, int y);
+    }
+
+    /**
+     * Whether what drawnUp and standsOn say of a square of a level may change once more of the
+     * map is loaded, the square's own chunk being loaded: a length on it with none under it
+     * may be drawn up from a pole Spans.LEVEL_SQUARES back, and an empty square over a length
+     * may have that length's top drawn up Spans.LEVEL_SQUARES on, each on map not loaded.
+     */
+    static boolean unsettled(Drawn map, Loaded loaded, int x, int y, int z, int lowest) {
+        int other = Spans.LEVEL_SQUARES;
+        boolean here = map.on(x, y, z) != null, under = z - 1 >= lowest && map.on(x, y, z - 1) != null;
+        return here && !under && z - 2 >= lowest && !loaded.at(x - other, y - other) || !here && under && !loaded.at(x + other, y + other);
+    }
+
     /** The sprite of the length of pole that stands on a square of a level, wherever it is drawn, or null. */
     static String standsOn(Drawn map, int x, int y, int z, int lowest) {
         int on = Spans.LEVEL_SQUARES;

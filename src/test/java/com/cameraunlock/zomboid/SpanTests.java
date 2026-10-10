@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 /** Tests of what a length of overhead wire hangs between, on made-up maps, and of the curve it hangs in. */
@@ -23,6 +24,8 @@ final class SpanTests {
         Checks.run("runThatEndsByAPoleOnMapNotLoadedIsNotLeftLoose", SpanTests::runThatEndsByAPoleOnMapNotLoadedIsNotLeftLoose);
         Checks.run("poleTopDrawnALevelUpStandsOnItsPole", SpanTests::poleTopDrawnALevelUpStandsOnItsPole);
         Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
+        Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
+        Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
     }
 
     /** The level the poles of the made-up maps stand their tops on, as the map's do. */
@@ -33,6 +36,8 @@ final class SpanTests {
         final HashMap<Long, List<float[]>> lines = new HashMap<>();
         final HashMap<Long, float[]> poles = new HashMap<>();
         int loadedTo = Integer.MAX_VALUE, polesLoadedTo = Integer.MAX_VALUE;
+        /** The squares whose pins the map may yet show more of, see Hung.settled. */
+        final HashSet<Long> unsettled = new HashSet<>();
 
         private static long key(int x, int y) {
             return key(x, y, LEVEL);
@@ -88,6 +93,11 @@ final class SpanTests {
             }
             System.arraycopy(pins, 0, out, at, pins.length);
             return pins.length;
+        }
+
+        @Override
+        public boolean settled(int x, int y, int z) {
+            return !unsettled.contains(key(x, y, z));
         }
     }
 
@@ -503,6 +513,60 @@ final class SpanTests {
         drawn.put(Map.key(50, 5, 2), "appliances_com_01_93");
         drawn.put(Map.key(50 + on, 5 + on, 3), "appliances_com_01_88");
         check(!Poles.drawnUp(map, 50 + on, 5 + on, 3, 0) && Poles.standsOn(map, 50, 5, 3, 0) == null, "the foot of a pole over the top of a whole one is no part of it");
+    }
+
+    /**
+     * A pole whose square is loaded and the square three on along x and y is not: whether its top is drawn a level up
+     * there can change the answer only where its own square has nothing on the level over a length. And a length with
+     * lengths over and under it reads the same whatever is loaded round it.
+     */
+    private static void aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        int on = Spans.LEVEL_SQUARES;
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(10, 5, 1), "appliances_com_01_89");
+        drawn.put(Map.key(10, 5, 2), "appliances_com_01_93");
+        Poles.Loaded toTwelve = (x, y) -> x < 12, all = (x, y) -> true, none = (x, y) -> false;
+        check(!Poles.unsettled(map, toTwelve, 10, 5, 2, 0), "the top with its arm on its own square is known with the squares three on not loaded");
+        check(Poles.unsettled(map, toTwelve, 10, 5, 3, 0), "the level over it may yet have its top drawn up three on");
+        check(!Poles.unsettled(map, all, 10, 5, 3, 0), "and not once that is loaded");
+        check(!Poles.unsettled(map, none, 10, 5, 1, 0) && !Poles.unsettled(map, none, 10, 5, 2, 0),
+                "a length with lengths over and under it is known with nothing round it loaded");
+        check(!Poles.unsettled(map, none, 10, 5, 0, 0), "and so is the foot on the lowest level");
+        // The poles at (10718, 9763) in Riverside: two lengths on their square, the top a level up and three on.
+        drawn.remove(Map.key(10, 5, 2));
+        drawn.put(Map.key(10 + on, 5 + on, 3), "appliances_com_01_93");
+        Poles.Loaded fromTwelve = (x, y) -> x >= 12;
+        check(Poles.unsettled(map, fromTwelve, 10 + on, 5 + on, 3, 0), "a top with nothing under it may be drawn up from a pole on map not loaded");
+        check(!Poles.unsettled(map, all, 10 + on, 5 + on, 3, 0), "and is known once that is loaded");
+    }
+
+    /**
+     * A run whose middle pole's insulators are known, though the map may yet show more of the pole: the run hangs from
+     * it and does not run on past it to the next. A run that stops by such a square with no pole on it is not known
+     * at that end.
+     */
+    private static void aRunHangsFromAPoleTheMapMayYetShowMoreOf() {
+        Map map = new Map();
+        map.pole(10, 5, 0f, -0.8f);
+        map.pole(23, 5, 0f, -0.8f);
+        map.pole(36, 5, 0f, -0.8f);
+        wire(map, 10, 36, 4, 4.7f);
+        map.unsettled.add(Map.key(23, 5));
+        float[] ends = ends(piecesOf(map, 16, 4, 0), 0);
+        check(ends[9] == Spans.FAST && near(ends[5], 23.5f), "the run hangs to the pole the map may yet show more of: " + ends[5]);
+        ends = ends(piecesOf(map, 30, 4, 0), 0);
+        check(ends[4] == Spans.FAST && near(ends[0], 23.5f), "and from it: " + ends[0]);
+        Map stops = new Map();
+        stops.pole(10, 5, 0f, -0.8f);
+        wire(stops, 10, 20, 4, 4.7f);
+        stops.unsettled.add(Map.key(21, 5));
+        ends = ends(piecesOf(stops, 15, 4, 0), 0);
+        check(ends[9] == Spans.WANTING, "a run that stops by a square the map may yet show a pole's top on is not known at that end: " + ends[9]);
+        stops.unsettled.clear();
+        ends = ends(piecesOf(stops, 15, 4, 0), 0);
+        check(ends[9] == Spans.LOOSE, "and is loose where nothing more can be shown there: " + ends[9]);
     }
 
     private static void check(boolean condition, String what) {
