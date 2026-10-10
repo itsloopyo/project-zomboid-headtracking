@@ -771,7 +771,8 @@ final class RoofBuilder {
         }
         boolean west = wall == Outdoors.WEST;
         RoofFit.Tile over = over(x, y, z, west);
-        if (over != null && RoofFit.fallsToItsFloor(over, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y)) {
+        int axis = west ? RoofFit.ALONG_X : RoofFit.ALONG_Y;
+        if (over != null && (RoofFit.fallsToItsFloor(over, axis) || RoofFit.foldFallsToItsFloor(over, axis))) {
             return true;
         }
         // The row hangs under the east edge of a tile beyond a west wall, under the south edge beyond a north one.
@@ -783,8 +784,8 @@ final class RoofBuilder {
     private static final int[] OUT_X = {-1, 1, 0, 0}, OUT_Y = {0, 0, -1, 1};
     /** For each edge, the edge across the square's start of its run (its north or west end) and across its end. */
     private static final int[] AT_START = {NORTH, NORTH, WEST, WEST}, AT_END = {SOUTH, SOUTH, EAST, EAST};
-    /** The climb over a tile of the slope beside each eave cornerEaves found, in levels. */
-    private final float[] cornerRise = new float[4];
+    /** The climb over a tile of the slope beside each eave cornerEaves found, and the height of its foot over the floor, in levels. */
+    private final float[] cornerRise = new float[4], cornerFoot = new float[4];
 
     /**
      * The edges of a roof tile level at the floor of its level (RoofFit.levelOnItsFloor) that
@@ -812,6 +813,7 @@ final class RoofBuilder {
                 if (beside != null && fallsOver(beside, edge) && !hasRoof(x - step * runX, y - step * runY, z)) {
                     eaves |= 1 << edge;
                     cornerRise[edge] = Math.abs(beside.fitHigh - beside.fitLow);
+                    cornerFoot[edge] = Math.min(beside.fitLow, beside.fitHigh) - beside.z;
                 }
             }
         }
@@ -832,7 +834,7 @@ final class RoofBuilder {
     /**
      * The eaves along the outer edges of the corner of a hipped roof that the map draws as a
      * level tile: see cornerEaves. Each runs on from the eave of the slope beside it at that
-     * slope's pitch, to meet the other at the corner, or closed across its end where the other
+     * slope's pitch and height, to meet the other at the corner, or closed across its end where the other
      * edge is none. With none, the slope's eave stopped a square short of the corner and its
      * end stood open, and the map's own eave pieces under the corner, which the eave row is,
      * are left out.
@@ -843,12 +845,12 @@ final class RoofBuilder {
             return;
         }
         SpriteGeometry.Mesh sheet = roofSheet();
-        float floor = tile.fitLow - tile.z;
         for (int edge = 0; edge < 4; edge++) {
             if ((eaves & 1 << edge) == 0) {
                 continue;
             }
-            float rise = cornerRise[edge];
+            // At the slope's own eave's height, so the two run on into each other.
+            float rise = cornerRise[edge], floor = cornerFoot[edge];
             boolean alongX = edge == WEST || edge == EAST, toFar = edge == EAST || edge == SOUTH;
             float along = toFar ? -rise : rise, atOrigin = toFar ? floor + rise : floor;
             addEave(sheet, tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along, true,

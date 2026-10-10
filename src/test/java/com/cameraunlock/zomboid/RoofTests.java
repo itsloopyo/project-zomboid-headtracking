@@ -53,6 +53,22 @@ final class RoofTests {
         float[] box = boundsOf(TestMap.plain());
         check(TestMap.plain().triangles() > 0 && box[0] < 0f && box[1] >= 1f - 1e-4f && box[3] > 1f,
                 "the eave's board, soffit and gutter run along the corner's south edge to past its west end, closed there: x " + box[0] + " to " + box[1]);
+        // The same corner as the map has it now, a slope cut to a triangle that the fit folds with
+        // the mod's own sheet, its south and west edges both at the eave: the row under it is the fold's.
+        TestMap cut = new TestMap();
+        RoofFit.Tile cutCorner = new RoofFit.Tile(0, 0, 1, RoofFit.ALONG_Y, true, 1.172f, 1f);
+        cutCorner.cutCorner = 0;
+        List<RoofFit.Tile> hip = new ArrayList<>(List.of(cutCorner, new RoofFit.Tile(0, -1, 1, RoofFit.ALONG_Y, true, 1.339f, 1.172f),
+                new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_Y, true, 1.172f, 1f)));
+        RoofFit.fit(hip);
+        for (RoofFit.Tile tile : hip) {
+            cut.roofTile(tile, cut.painted);
+        }
+        cut.roofSprite(0, 1, 0, "roofs_02_6", "attachedN", "isEave");
+        cut.roofSprite(1, 1, 0, "roofs_02_6", "attachedN", "isEave");
+        cut.roofSprite(-1, 1, 0, "roofs_02_30", "attachedN", "isEave");
+        check(cutCorner.shaped && cut.build.roofBuilder.eaveRow(0, 1, 0) && cut.build.roofBuilder.eaveRowEnd(-1, 1, 0),
+                "under a hip's corner the map cuts to a triangle the eave row goes on, and the corner piece past it goes with it");
         map = hippedCorner(1f, false);
         map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
         check(!map.build.roofBuilder.eaveRow(0, 1, 0) && TestMap.plain().triangles() == 0,
@@ -74,7 +90,8 @@ final class RoofTests {
         List<RoofFit.Tile> tiles = new ArrayList<>(List.of(new RoofFit.Tile(0, 0, 1, RoofFit.LEVEL, true, 1.0052f, 1f),
                 new RoofFit.Tile(0, -1, 1, RoofFit.LEVEL, true, across, across)));
         for (int x = 1; x <= 3; x++) {
-            tiles.add(new RoofFit.Tile(x, 0, 1, RoofFit.ALONG_Y, true, 1f + THIRD / 2f, 1f));
+            // As the fit lays that house's slope: its foot 0.017 under the floor.
+            tiles.add(new RoofFit.Tile(x, 0, 1, RoofFit.ALONG_Y, true, 1.105f, 0.983f));
         }
         if (flatBeyond) {
             tiles.add(new RoofFit.Tile(-1, 0, 1, RoofFit.LEVEL, true, 1f, 1f));

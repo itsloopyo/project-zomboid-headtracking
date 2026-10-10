@@ -195,6 +195,22 @@ final class RoofFit {
         return tile.slopes() && tile.fitAxis == axis && tile.fitHigh < tile.fitLow && Math.abs(tile.fitHigh - tile.z) < Roofs.FLAT;
     }
 
+    /**
+     * Whether a folded tile's far edge along the axis, its east edge along x or its south one
+     * along y, lies at the floor of its level with the roof rising from it: an eave of the fold
+     * (RoofBuilder.addFoldEaves). The corner of a hipped roof the map cuts to a triangle is
+     * folded so, its outer two edges both at the eave.
+     */
+    static boolean foldFallsToItsFloor(Tile tile, int axis) {
+        if (!tile.shaped) {
+            return false;
+        }
+        // Corners north-west, north-east, south-east, south-west: the far edge has the south-east and one of the others.
+        boolean alongX = axis == ALONG_X;
+        return Math.abs(tile.corners[alongX ? 1 : 3] - tile.z) < Roofs.FLAT && Math.abs(tile.corners[2] - tile.z) < Roofs.FLAT
+                && Math.max(tile.corners[0], tile.corners[alongX ? 3 : 1]) > tile.z + Roofs.FLAT;
+    }
+
     /** As fallsToItsFloor, for a slope that falls the other way, to the edge nearer the map's origin. */
     static boolean risesFromItsFloor(Tile tile, int axis) {
         return tile.slopes() && tile.fitAxis == axis && tile.fitLow < tile.fitHigh && Math.abs(tile.fitLow - tile.z) < Roofs.FLAT;
