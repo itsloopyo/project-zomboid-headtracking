@@ -585,7 +585,7 @@ public final class CoreTests {
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("OwnWeapons=true", "OwnWeapons=false")
                 .replace("OwnPlants=true", "OwnPlants=false").replace("Quality=Medium", "Quality=High").replace("Style=Natural", "Style=Bleak")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
-                .replace("HillHeight=1.0", "HillHeight=0.25"));
+                .replace("HillHeight=1.5", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
@@ -596,7 +596,7 @@ public final class CoreTests {
         edit(saved.replace("OwnArms=true", "OwnArms=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name().equals("Medium") && Style.current() == Style.NATURAL
-                        && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1f,
+                        && MuzzleFlash.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
                 "set back, they are as they were, and the arms row switched off is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle();
         check(Style.current() == Style.BLEAK, "a save after an edit still saves");
@@ -710,8 +710,8 @@ public final class CoreTests {
                         && hills.label.equals("Hill height") && hills.comment.contains("0 is as flat"),
                 "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
         check(screen.shows("HillHeight") == HillHeight.asked(), "it shows the height the session has");
-        check(HillHeight.DEFAULT == 1f && HillHeight.DEFAULT == (hills.min + hills.max) / 2,
-                "hill height defaults to the slider midpoint, 1");
+        check(HillHeight.DEFAULT == 1.5f && HillHeight.CONTESTED == 1f,
+                "hill height defaults to 1.5, and is held at 1 where players can fight");
         screen.set("HillHeight", 2);
         screen.apply();
         savesMade();

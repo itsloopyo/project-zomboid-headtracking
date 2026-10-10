@@ -412,7 +412,7 @@ final class TerrainTests {
         float asked = HillHeight.asked();
         HillHeight.set(0.3f);
         check(HillHeight.drawn(false) == 0.3f, "where players cannot fight the hills stand as the player set them");
-        check(HillHeight.drawn(true) == HillHeight.DEFAULT, "where they can, at the height everyone has who has not moved it");
+        check(HillHeight.drawn(true) == HillHeight.CONTESTED, "where they can, at one height for everyone");
         HillHeight.set(asked);
     }
 
