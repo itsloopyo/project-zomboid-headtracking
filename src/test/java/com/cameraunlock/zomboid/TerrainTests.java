@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.ArrayList;
 
 /** Tests of the height Terrain gives a street and the ground beside it, the hills of the country, and how high the player has them stand. */
 final class TerrainTests {
@@ -42,6 +43,7 @@ final class TerrainTests {
             everyRiseOfTheLandIsTheHillsHeightTimesItsOwn();
             noHillRisesFromWater();
             theHillsAreAtTheirDefaultWherePlayersCanFight();
+            aChangeOfHeightReworksTheLandRoundTheEyeAtOnce();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -303,5 +305,29 @@ final class TerrainTests {
         check(HillHeight.drawn(false) == 0.3f, "where players cannot fight the hills stand as the player set them");
         check(HillHeight.drawn(true) == HillHeight.DEFAULT, "where they can, at the height everyone has who has not moved it");
         HillHeight.set(asked);
+    }
+
+    /**
+     * A change of the height of the hills has the heights of the eye's chunk and of the eight
+     * round it worked out again at once, at the new height, and no others: the rest wait to be
+     * asked for, nearest first. Until a chunk's are, the water there is drawn from the land as it
+     * was, so the plane the water mirrors in is worked out at the height its chunk was.
+     */
+    private static void aChangeOfHeightReworksTheLandRoundTheEyeAtOnce() {
+        Terrain.HILLS.heighten(1f);
+        List<String> worked = new ArrayList<>();
+        float eyeX = 1300.5f, eyeY = -12.25f;
+        Terrain.HILLS.heighten(1.5f, eyeX, eyeY, (wx, wy) -> worked.add(wx + "," + wy + " at " + Terrain.HILLS.gain()));
+        List<String> round = new ArrayList<>();
+        for (int wx = 161; wx <= 163; wx++) {
+            for (int wy = -3; wy <= -1; wy++) {
+                round.add(wx + "," + wy + " at 1.5");
+            }
+        }
+        check(worked.size() == 9 && worked.containsAll(round), "the eye's chunk and the eight round it, and no other, are worked out at once at the new height: " + worked);
+        check(Terrain.HILLS.gainAt(eyeX + 400f, eyeY) == 1.5f, "a chunk never worked out will be at the new height");
+        check(Terrain.waterLevel(1.5f, eyeX, eyeY) == 1.5f * (Terrain.waterLevel(1f, eyeX, eyeY) + Terrain.WATER_BELOW) - Terrain.WATER_BELOW,
+                "water lies at the height of the hills times the country's rise and fall");
+        Terrain.HILLS.heighten(1f);
     }
 }

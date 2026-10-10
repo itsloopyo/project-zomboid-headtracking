@@ -148,16 +148,18 @@ final class WaterMirror {
 
     /**
      * The plane that touches the water's surface under (x, y): the unit vector square to it,
-     * pointing up, and how far along that vector the plane is from the map's corner.
+     * pointing up, and how far along that vector the plane is from the map's corner. At the gain
+     * the heights under (x, y) were worked out at, which the water drawn there was built from.
      */
     static void plane(Terrain terrain, float x, float y, float[] out) {
-        float slopeX = (terrain.waterLevel(x + 1f, y) - terrain.waterLevel(x - 1f, y)) / 2f;
-        float slopeY = (terrain.waterLevel(x, y + 1f) - terrain.waterLevel(x, y - 1f)) / 2f;
+        float gain = terrain.gainAt(x, y);
+        float slopeX = (Terrain.waterLevel(gain, x + 1f, y) - Terrain.waterLevel(gain, x - 1f, y)) / 2f;
+        float slopeY = (Terrain.waterLevel(gain, x, y + 1f) - Terrain.waterLevel(gain, x, y - 1f)) / 2f;
         float length = (float) Math.sqrt(slopeX * slopeX + slopeY * slopeY + 1f);
         out[0] = -slopeX / length;
         out[1] = -slopeY / length;
         out[2] = 1f / length;
-        out[3] = out[0] * x + out[1] * y + out[2] * terrain.waterLevel(x, y);
+        out[3] = out[0] * x + out[1] * y + out[2] * Terrain.waterLevel(gain, x, y);
     }
 
     /** How far above the plane a point is, in tiles. */

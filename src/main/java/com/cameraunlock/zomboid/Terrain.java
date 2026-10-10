@@ -122,6 +122,8 @@ final class Terrain {
         long kerbFrom, kerbSum;
         /** What the heights were worked out from, as one number: see gathered. */
         long from;
+        /** The gain they were worked out at. */
+        float gain;
     }
 
     private static final class Kinds {
@@ -329,11 +331,38 @@ final class Terrain {
         return gain;
     }
 
+    /** Works out a chunk's heights again at once: see workingOut. */
+    interface Rework {
+        void chunk(int wx, int wy);
+    }
+
+    /**
+     * Logic thread: heighten, with the heights of the chunk an eye at (eyeX, eyeY) is over and
+     * of the eight round it worked out again by now (workingOut). The rest are worked out as
+     * they are asked for, and a build asks for the nearest first: the land the eye stands in and
+     * the water beside it are never at two heights.
+     */
+    void heighten(float gain, float eyeX, float eyeY, Rework now) {
+        heighten(gain);
+        int wx = Math.floorDiv((int) Math.floor(eyeX), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(eyeY), CHUNK_TILES);
+        for (int x = wx - 1; x <= wx + 1; x++) {
+            for (int y = wy - 1; y <= wy + 1; y++) {
+                now.chunk(x, y);
+            }
+        }
+    }
+
+    /** A chunk's heights worked out again from the map, whatever the frame has spent on heights. Logic thread. */
+    Rework workingOut(IsoCell cell) {
+        return (wx, wy) -> corners(cell, wx, wy, true);
+    }
+
     /**
      * Logic thread: has the hills stand gain times their height at 1, and every chunk's
      * heights worked out again the next time they are asked for. Whatever was built on the
      * heights is built again as each chunk's come out otherwise (WorldScene.landOf), and the
-     * heights kept stay for any thread to read until then.
+     * heights kept stay for any thread to read until then, with the water at the gain they
+     * were worked out at (waterLevel).
      */
     void heighten(float gain) {
         if (level) {
@@ -490,6 +519,11 @@ final class Terrain {
      * thread.
      */
     float[] corners(IsoCell cell, int wx, int wy) {
+        return corners(cell, wx, wy, false);
+    }
+
+    /** The same, and with now whatever the frame has spent on heights worked out again. */
+    private float[] corners(IsoCell cell, int wx, int wy, boolean now) {
         Grid grid = grid(wx, wy);
         boolean known = grid != null;
         if (known) {
@@ -499,7 +533,7 @@ final class Terrain {
         if (known && (grid.settled || mapAsItWas && !AUDITED || frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS)) {
             return grid.heights;
         }
-        if (known && againNanos > AGAIN_NANOS_A_FRAME) {
+        if (known && !now && againNanos > AGAIN_NANOS_A_FRAME) {
             if (overdueTaken || frame - grid.stamp < AGAIN_AT_THE_LATEST) {
                 return grid.heights;
             }
@@ -513,6 +547,7 @@ final class Terrain {
         fresh.used = frame;
         fresh.stampNanos = frameNanos;
         fresh.loaded = loaded;
+        fresh.gain = gain;
         // In this order: gather looks for the water round each building, and the corners want the water round the chunk.
         fresh.settled = gather(cell, wx, wy) & findWater(cell, wx, wy);
         // The gain with them: the same squares give other heights at another.
@@ -1186,10 +1221,27 @@ final class Terrain {
 
     /**
      * The height water's surface has at (x, y), wherever water lies there: what water() gives
-     * a corner of a chunk with water in it, where no hill stands on the country. Any thread.
+     * a corner of a chunk with water in it, where no hill stands on the country, at the gain the
+     * chunk's heights were worked out at (gainAt). Any thread.
      */
     float waterLevel(float x, float y) {
+        return waterLevel(gainAt(x, y), x, y);
+    }
+
+    /** The same at a gain. */
+    static float waterLevel(float gain, float x, float y) {
         return (gain == 0f ? 0f : gain * rise(x, y)) - WATER_BELOW;
+    }
+
+    /**
+     * The gain the heights of the chunk at (x, y) were worked out at, which is what its land and
+     * its water are drawn at: after a change of the height of the hills until the chunk's heights
+     * are worked out again, the gain before. Where they never were, the gain they will be. Any
+     * thread.
+     */
+    float gainAt(float x, float y) {
+        Grid grid = grid(Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
+        return grid == null ? gain : grid.gain;
     }
 
     /** Whether a chunk whose squares have all been seen loaded has water on it. Logic thread. */
