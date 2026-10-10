@@ -4470,7 +4470,8 @@ final class PipelineShaders {
                 vec3 faces = fromCabin(ends ? normalize(vec3(-sign(along), 0.0, 0.75)) : normalize(vec3(0.0, -sign(across), 0.12)));
                 float reach = ends ? 0.9 / max(abs(along), 0.2) : 0.5 / max(abs(across), 0.2);
                 vec3 to = line * reach;
-                return pane(vec2(ends ? to.y : to.x + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
+                // Along a side window the place is the vehicle's, uSeat on: a lean along the seat leaves its drops where they are.
+                return pane(vec2(ends ? to.y : to.x + uSeat.x + 7.0, to.z), faces, -out3, ends && along > 0.0 ? 1.0 : 0.0);
             }
 
             vec4 paneBuilt(vec3 out3);
@@ -5229,7 +5230,8 @@ final class PipelineShaders {
                         vec3 to = inCabin(at - uEye) / CABIN;
                         vec3 faces = inCabin(n);
                         bool ends = abs(faces.x) > abs(faces.y);
-                        gl_FragData[0] = pane(vec2(ends ? to.y : to.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
+                        // Along a side window the place is the vehicle's, uSeat on: a lean along the seat leaves its drops where they are.
+                        gl_FragData[0] = pane(vec2(ends ? to.y : to.x + uSeat.x + 7.0, to.z), n, view, ends && to.x > 0.0 ? 1.0 : 0.0);
                         gl_FragDepth = 0.0;
                         return;
                     }
