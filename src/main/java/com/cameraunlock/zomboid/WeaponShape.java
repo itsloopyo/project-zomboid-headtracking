@@ -16,6 +16,8 @@ package com.cameraunlock.zomboid;
 final class WeaponShape {
     /** How finely the outline is read: this many cells along the way from the origin to the muzzle. */
     static final int CELLS_TO_MUZZLE = 400;
+    /** A firearm's outline is read in no more cells than this: a mesh that would need more is drawn far beyond its muzzle and is no firearm the outline can be read from. */
+    static final int MOST_CELLS = 4_000_000;
     /** A hole in the outline smaller across than this, in metres, is a gap between parts, not a trigger guard a finger goes through. */
     static final float SMALLEST_GUARD = 0.008f;
     /** A guard further ahead of the origin than this, in metres, is not where the hand at the origin has its finger. */
@@ -89,7 +91,7 @@ final class WeaponShape {
         guardTop = outline.u(guard.topRow + 1);
 
         // The grip's front edge: behind the guard, the first thing thick enough to hold met going back from it, row by row down.
-        // Under the guard first; a lever's loop hangs below the grip, so for a lever it is read from the loop's own rows.
+        // Under the guard first. Where that finds no edge, as under a lever's loop that hangs below the grip, it is read from the hole's own rows.
         float[] edgeA = new float[outline.rows], edgeU = new float[outline.rows];
         int found = edge(outline, guard, false, perMetre, edgeA, edgeU);
         if (found < 3) {
@@ -174,7 +176,7 @@ final class WeaponShape {
         if (foreFirst >= last) {
             foreFrom = outline.a(last);
             foreTo = foreFrom;
-            underside = new float[] {low[last]};
+            underside = new float[] {Float.isNaN(low[last]) ? bore : low[last]};
         } else {
             foreFrom = outline.a(foreFirst) + cell / 2f;
             foreTo = outline.a(last) + cell / 2f;
@@ -315,7 +317,26 @@ final class WeaponShape {
         }
         float[] side = new float[3];
         ArmPose.cross(along, up, side);
-        Outline outline = new Outline(places, corners, along, up, side, muzzleA / CELLS_TO_MUZZLE);
+        float minA = Float.POSITIVE_INFINITY, maxA = Float.NEGATIVE_INFINITY, minU = Float.POSITIVE_INFINITY, maxU = Float.NEGATIVE_INFINITY;
+        for (int v = 0; v < places.length / 3; v++) {
+            float a = places[v * 3] * along[0] + places[v * 3 + 1] * along[1] + places[v * 3 + 2] * along[2];
+            float u = places[v * 3] * up[0] + places[v * 3 + 1] * up[1] + places[v * 3 + 2] * up[2];
+            if (!Float.isFinite(a) || !Float.isFinite(u)) {
+                why.append("vertex ").append(v).append(" has a place that is not a number");
+                return null;
+            }
+            minA = Math.min(minA, a);
+            maxA = Math.max(maxA, a);
+            minU = Math.min(minU, u);
+            maxU = Math.max(maxU, u);
+        }
+        float cell = muzzleA / CELLS_TO_MUZZLE;
+        if ((maxA - minA) / cell * ((maxU - minU) / cell) > MOST_CELLS) {
+            why.append("it is ").append(Math.round((maxA - minA) / muzzleA)).append(" times as long as its muzzle is from its grip and ")
+                    .append(Math.round((maxU - minU) / muzzleA)).append(" times as tall: no firearm's shape");
+            return null;
+        }
+        Outline outline = new Outline(places, corners, along, up, side, cell);
         Hole guard = outline.guard(boreU, SMALLEST_GUARD * perMetre, GUARD_WITHIN * perMetre);
         if (guard == null) {
             why.append("its outline has no trigger guard: no hole under its bore, ahead of its grip, a finger goes through");
@@ -344,8 +365,8 @@ final class WeaponShape {
         }
     }
 
-    /** A hole in the outline: the columns and rows it spans and how many cells it has. */
-    private record Hole(int backColumn, int frontColumn, int footRow, int topRow, int cells, float middleA, float middleU) {}
+    /** A hole in the outline: the columns and rows it spans, and how far along the barrel its middle is. */
+    private record Hole(int backColumn, int frontColumn, int footRow, int topRow, float middleA) {}
 
     /** The mesh seen from its side: which cells of a grid along the barrel and up are inside it. */
     private static final class Outline {
@@ -483,23 +504,23 @@ final class WeaponShape {
                 }
                 stack[0] = start;
                 label[start] = 1;
-                int[] span = {columns, -1, rows, -1, 0, 0, 0};
+                long[] span = {columns, -1, rows, -1, 0, 0, 0};
                 flood(label, stack, 1, 1, span);
-                int cells = span[4];
+                long cells = span[4];
                 float middleA = a(0) + (span[5] / (float) cells + 0.5f) * cell, middleU = u(0) + (span[6] / (float) cells + 0.5f) * cell;
                 float wide = (span[1] - span[0] + 1) * cell, tall = (span[3] - span[2] + 1) * cell;
                 if (middleU >= bore || middleA <= 0f || middleA > within || wide < smallest || tall < smallest) {
                     continue;
                 }
                 if (best == null || middleA < best.middleA) {
-                    best = new Hole(span[0], span[1], span[2], span[3], cells, middleA, middleU);
+                    best = new Hole((int) span[0], (int) span[1], (int) span[2], (int) span[3], middleA);
                 }
             }
             return best;
         }
 
         /** Labels every empty cell reached from those on the stack. */
-        private int flood(int[] label, int[] stack, int top, int mark, int[] span) {
+        private int flood(int[] label, int[] stack, int top, int mark, long[] span) {
             while (top > 0) {
                 int at = stack[--top];
                 int r = at / columns, c = at % columns;

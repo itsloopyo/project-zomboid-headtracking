@@ -16,6 +16,7 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderDataList;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
+import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.ColorInfo;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.iso.IsoGridSquare;
@@ -882,7 +883,7 @@ public final class Characters {
         if (held == null || !view.viewModel.hasMuzzle) {
             return null;
         }
-        float pumped = view.viewModel.pumped;
+        float pumped = view.viewModel.pumpedPlaced;
         String item = hands.item();
         OwnModel own = OwnWeapon.standsFor(item) ? OwnWeapon.MODEL : OwnRifle.standsFor(item) ? OwnRifle.MODEL : null;
         if (own != null) {
@@ -915,16 +916,20 @@ public final class Characters {
     }
 
     private final float[] meshView = new float[16], meshStill = new float[16];
-    /** What each of the game's firearm meshes says of where hands go on it, read once a mesh, as it is held by hands of the size hands are. */
-    private static final java.util.IdentityHashMap<Model, WeaponShape> SHAPES = new java.util.IdentityHashMap<>();
-    private static final java.util.Set<Model> SHAPELESS = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /**
+     * What each of the game's firearm meshes says of where hands go on it, as it is held by hands
+     * of the size hands are, or null where it says there is nowhere: read once for the buffer the
+     * mesh has, and again when the game loads it anew.
+     */
+    private record Read(VertexBufferObject from, WeaponShape shape) {}
+    private static final java.util.IdentityHashMap<Model, Read> SHAPES = new java.util.IdentityHashMap<>();
 
-    /** The shape of the game's mesh of a firearm held, or null if the hands cannot be put on it, which is said once. Render thread. */
+    /** The shape of the game's mesh of a firearm held, or null while the mesh is not loaded or if the hands cannot be put on it, which is said once. Render thread. */
     private static WeaponShape shapeOf(ModelInstanceRenderData held, boolean handgun) {
         Model model = held.model;
-        WeaponShape known = SHAPES.get(model);
-        if (known != null || SHAPELESS.contains(model)) {
-            return known;
+        Read known = SHAPES.get(model);
+        if (known != null && model.mesh != null && known.from == model.mesh.vb) {
+            return known.shape;
         }
         ModelAttachment muzzle = held.modelInstance.modelScript.getAttachmentById(MUZZLE);
         Vector3f offset = muzzle.getOffset(), rotate = muzzle.getRotate();
@@ -937,15 +942,17 @@ public final class Characters {
         ArmPose.unit(up[0] - along[0] * tipped, up[1] - along[1] * tipped, up[2] - along[2] * tipped, up);
         StringBuilder why = new StringBuilder();
         CharacterDraw.Shape mesh = CharacterDraw.shapeOf(model, why);
+        if (mesh == null && why.isEmpty()) {
+            return null;
+        }
         String name = model.name;
         WeaponShape shape = mesh == null ? null
                 : WeaponShape.read(mesh.places(), mesh.corners(), along, up, new float[] {offset.x, offset.y, offset.z}, PER_METRE / (handgun ? ViewModel.HANDGUN_FITS : 1f), why);
+        SHAPES.put(model, new Read(model.mesh.vb, shape));
         if (shape == null) {
-            SHAPELESS.add(model);
             Log.info("the mod's own hands cannot be put on " + name + " (" + why + "): the game's own arms hold it");
             return null;
         }
-        SHAPES.put(model, shape);
         Log.info(String.format(Locale.ROOT, "the hands on %s: grip %.4f along and %.4f up of its mesh, its line %.0f degrees from upright, %.3f thick; guard %.4f to %.4f; fore-end %.4f to %.4f, level %.4f to %.4f%s",
                 name, ArmPose.dot(shape.grip, shape.along), ArmPose.dot(shape.grip, shape.up), Math.toDegrees(Math.atan2(ArmPose.dot(shape.gripLine, shape.along), ArmPose.dot(shape.gripLine, shape.up))),
                 shape.gripThick / shape.perMetre, shape.guardBack, shape.guardFront, shape.foreFrom, shape.foreTo, shape.levelFrom, shape.levelTo,
@@ -1090,7 +1097,8 @@ public final class Characters {
                         side == 0 ? "right" : "; left", Math.toDegrees(of[ArmPose.BENT]), Math.toDegrees(of[ArmPose.TWISTED]), of[ArmPose.DRAWN], of[ArmPose.GAVE],
                         of[ArmPose.WRIST], of[ArmPose.WRIST + 1], of[ArmPose.WRIST + 2], of[ArmPose.ELBOW], of[ArmPose.ELBOW + 1], of[ArmPose.ELBOW + 2]));
             }
-            return said.append(String.format(Locale.ROOT, "; the game's hand was %.3f beside the weapon's middle", handAside)).toString();
+            return armHands != null && !armHands.firearm() ? said.append(String.format(Locale.ROOT, "; the game's hand was %.3f beside the handle's line", handAside)).toString()
+                    : said.toString();
         }
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             said.append(side == 0 ? "right" : "; left");

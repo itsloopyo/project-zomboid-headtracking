@@ -249,10 +249,6 @@ final class OwnRifle {
     /** How long working the bolt takes from the handle's first turn to its last. */
     static final float WORKED_FOR = UP + BACK + HELD_BACK + FORWARD + DOWN;
 
-    /** How far the bolt is drawn back, in the model's metres. */
-    static float boltTravel() {
-        return MODEL.travel;
-    }
     private static final float NOT_WORKING = -1f;
     private boolean caseThrown;
     private long workedAsOf;

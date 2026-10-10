@@ -39,9 +39,8 @@ final class ArmHolds {
      */
     static final float[][] FROM = {{0.34f, -0.56f, 0.12f}, {-0.42f, -0.52f, -0.05f}};
     /**
-     * How the right hand goes round a grip, as the game's firearms were looked at from both
-     * sides with it (.lab/grips/soft). The hand's pose closes round something as deep as a grip
-     * about a point level with its knuckles. On a handgun the palm is square to the grip's
+     * How the right hand goes round a grip. The hand's pose closes round something as deep as
+     * a grip about a point level with its knuckles. On a handgun the palm is square to the grip's
      * right side and the middle of what it holds is put this far behind the grip's middle,
      * square to the grip's line, in metres: put on the middle its fingers reached past the
      * grip's front, and this far back they go round it with the web of the hand on its back
@@ -69,13 +68,14 @@ final class ArmHolds {
     /** How much of the way from the grip to the muzzle the hand under a fore-end rests, on a firearm that does not say. */
     static final float FORE_SHARE = 0.42f;
     /**
-     * Where rounds go in, from the trigger guard, in metres: a pump's port under the receiver
-     * this far ahead of the guard; a bolt's opening over the receiver this far ahead of the
-     * knob; the breech of a gun that breaks open this far ahead of the guard, at the bore; a
+     * Where a magazine that does not hang under the receiver goes in, and where rounds go in,
+     * from the trigger guard, in metres: a flush magazine's well this far ahead of the guard; a
+     * pump's port under the receiver this far ahead of the guard; a bolt's opening over the
+     * receiver this far ahead of the knob; the breech of a gun that breaks open this far ahead of the guard, at the bore; a
      * revolver's cylinder this much of the guard's length back from its front and this far
      * under the bore.
      */
-    static final float PUMP_PORT = 0.035f, BOLT_PORT = 0.03f, BREECH = 0.015f, CYLINDER_BACK = 0.35f, CYLINDER_UNDER = 0.012f;
+    static final float FLUSH_WELL = 0.04f, PUMP_PORT = 0.035f, BOLT_PORT = 0.03f, BREECH = 0.015f, CYLINDER_BACK = 0.35f, CYLINDER_UNDER = 0.012f;
     /**
      * How far the far end of a handle leans from square to the fingers that hold it, in radians, at the least
      * and at the most. It lies the more aslant in the fist the nearer it points along the arm that holds it:
@@ -565,7 +565,8 @@ final class ArmHolds {
                 down[axis] = -line[axis];
             }
         } else {
-            float middle = (shape.magazineBack + shape.magazineFront) / 2f;
+            // A magazine that hangs under the receiver is held half way down it; one that does not, under the receiver just ahead of the guard.
+            float middle = shape.magazine ? (shape.magazineBack + shape.magazineFront) / 2f : shape.guardFront + FLUSH_WELL * shape.perMetre;
             System.arraycopy(placed.at(middle, shape.magazine ? (shape.guardFoot + shape.magazineFoot) / 2f : shape.guardFoot, 0f), 0, well, 0, 3);
             for (int axis = 0; axis < 3; axis++) {
                 down[axis] = -axes.up[axis];

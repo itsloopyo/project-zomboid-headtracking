@@ -161,6 +161,8 @@ public final class ViewModel {
     }
     /** How far back the fore-end hand is, 0 to 1. Written by the logic thread, read where the weapon is placed. */
     volatile float pumped;
+    /** How far back the fore-end hand was when the weapon was last placed, which the hands on it are placed for. Render thread. */
+    float pumpedPlaced;
 
     /** How far back the hand is at a time after the shot: still, then back, then forward. */
     static float pumpAt(float seconds) {
@@ -523,13 +525,12 @@ public final class ViewModel {
     /** How much of the way from grip to muzzle the fore-end travels. */
     static final float PUMP_TRAVEL = 0.12f;
     /**
-     * Where the left palm is held on the weapon last placed, in the view, and where it would be with the weapon held still and its
-     * fore-end forward, without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke: only with a muzzle.
+     * Where the game's left hand is held on the weapon last placed, in the view: only with a muzzle. The mod's own hands are
+     * placed by the weapon's own shape (ArmHolds).
      */
-    final float[] foreEnd = new float[3], foreSteady = new float[3];
+    final float[] foreEnd = new float[3];
     /** The matrix `place` last made with the weapon held still: without the kick of a shot, the sway and the step, the dip of a landing and a pump's stroke. */
     final float[] still = new float[16];
-    private final float[] stillTop = new float[3];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
     final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
@@ -568,6 +569,7 @@ public final class ViewModel {
     boolean place(float[] weapon, float finalScale, ModelInstance instance, Held how, float scale, boolean trueHands, float[] hand, float[] fromAim, float[] out) {
         // Read once: the logic thread may write it again while the weapon is placed.
         float pumped = this.pumped;
+        pumpedPlaced = pumped;
         origin[0] = weapon[3] * finalScale;
         origin[1] = weapon[7] * finalScale;
         origin[2] = weapon[11] * finalScale;
@@ -719,15 +721,10 @@ public final class ViewModel {
             float rests = own ? OwnWeapon.MODEL.foreEnd : FORE_END, along = rests - (own ? OwnWeapon.MODEL.foreEndTravel : PUMP_TRAVEL) * pumped;
             ViewModelMath.place(out, origin[0] + (end[0] - origin[0]) * along, origin[1] + (end[1] - origin[1]) * along,
                     origin[2] + (end[2] - origin[2]) * along, foreEnd);
-            ViewModelMath.place(still, origin[0] + (end[0] - origin[0]) * rests, origin[1] + (end[1] - origin[1]) * rests,
-                    origin[2] + (end[2] - origin[2]) * rests, foreSteady);
-            ViewModelMath.turned(still, top, stillTop);
-            float stillTall = (float) Math.sqrt(stillTop[0] * stillTop[0] + stillTop[1] * stillTop[1] + stillTop[2] * stillTop[2]);
             for (int axis = 0; axis < 3; axis++) {
                 // The hand on the mod's own model is laid round the fore-end, by its middle.
                 if (!own) {
                     foreEnd[axis] -= over[axis] * FORE_END_BELOW;
-                    foreSteady[axis] -= stillTop[axis] / stillTall * FORE_END_BELOW;
                 }
             }
         }

@@ -19,6 +19,7 @@ final class GripTests {
         Checks.run("longGunsWristFeedAndForeEndAreReadFromItsMesh", GripTests::longGunsWristFeedAndForeEndAreReadFromItsMesh);
         Checks.run("meshWithNoTriggerGuardHasNoShape", GripTests::meshWithNoTriggerGuardHasNoShape);
         Checks.run("modsOwnModelsHaveAGripAndAForeEnd", GripTests::modsOwnModelsHaveAGripAndAForeEnd);
+        Checks.run("oddMeshesHaveNoShapeAndSayWhy", GripTests::oddMeshesHaveNoShapeAndSayWhy);
         Checks.run("rightHandClosesRoundAPistolsGripAlongItsRake", () -> rightHandClosesRoundAPistolsGripAlongItsRake(model));
         Checks.run("leftHandWrapsTheRightOnAPistolHeldInBoth", () -> leftHandWrapsTheRightOnAPistolHeldInBoth(model));
         Checks.run("leftHandIsUnderTheForeEndsUnderside", () -> leftHandIsUnderTheForeEndsUnderside(model));
@@ -71,6 +72,21 @@ final class GripTests {
         StringBuilder why = new StringBuilder();
         check(WeaponShape.read(mesh.places(), mesh.corners(), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, mesh.muzzle(), 1f, why) == null && why.indexOf("trigger guard") >= 0,
                 "a mesh with no hole a finger goes through has no grip to be held by, and says so: " + why);
+    }
+
+    /** A mesh another mod supplies may be anything: one with a place that is no number, or one drawn far beyond its muzzle, has no shape and says why, and nothing throws. */
+    private static void oddMeshesHaveNoShapeAndSayWhy() {
+        TestGuns.Mesh pistol = TestGuns.pistol();
+        float[] broken = pistol.places().clone();
+        broken[4] = Float.NaN;
+        StringBuilder why = new StringBuilder();
+        check(WeaponShape.read(broken, pistol.corners(), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, pistol.muzzle(), 1f, why) == null && why.indexOf("not a number") >= 0,
+                "a mesh with a place that is not a number has no shape: " + why);
+        float[] far = pistol.places().clone();
+        far[4] = 1000f;
+        why.setLength(0);
+        check(WeaponShape.read(far, pistol.corners(), new float[] {0f, 1f, 0f}, new float[] {0f, 0f, 1f}, pistol.muzzle(), 1f, why) == null && why.indexOf("no firearm") >= 0,
+                "nor one with a vertex a thousand times its length off: " + why);
     }
 
     /** The mod's own shotgun and rifle are held as the game's firearms are: their meshes say where their grips are. */
