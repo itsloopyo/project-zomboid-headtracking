@@ -2199,6 +2199,11 @@ final class Pipeline {
     /** Where the viewer has trodden the snow and driven over it, counted from this picture's own eye, for tellWorld. */
     private void placeSnowPrints(ViewCamera.Pose camera) {
         SnowPrints.placed(view.worldScene.terrain, camera.eyeX, camera.eyeY, snowPrints, snowRuts, snowRutsUp, snowTrod);
+        // The marks are the mod's own: the game's snow, which Low draws, keeps none.
+        if (!Own.textures()) {
+            snowTrod[0] = 0f;
+            snowTrod[1] = 0f;
+        }
     }
 
     /**

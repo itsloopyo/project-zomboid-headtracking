@@ -148,7 +148,9 @@ final class KerbBuilder {
                 length = (float) Math.sqrt(towardsX * towardsX + towardsY * towardsY);
             }
             mesh.face(towardsX / length, towardsY / length, 0.9f);
-            mesh.add(x + a, y + b, (corner & 1) == 0 ? top - Terrain.KERB - 0.02f : top, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
+            // The texel's second number says which end of the face the vertex is: 1 at the top, which snow banked against the foot leaves where it is.
+            boolean atTop = (corner & 1) != 0;
+            mesh.add(x + a, y + b, atTop ? top : top - Terrain.KERB - 0.02f, 0f, atTop ? 1f : 0f, build.frame.red, build.frame.green, build.frame.blue);
         }
     }
 

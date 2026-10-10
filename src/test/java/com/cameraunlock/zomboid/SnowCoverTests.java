@@ -80,7 +80,9 @@ final class SnowCoverTests {
         String world = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
         check(world.contains("deep=uLaid>2.5||uPlantSnow<=0.0?0.0:snowStood(vec3(gl_Vertex.xy+gl_MultiTexCoord1.xy,gl_Vertex.z-(gl_Normal.z-level)),"),
                 "a strip's depth in the snow is asked at its root, and not in the draw its vertices are left out of");
-        check(count(world, "snowStood(") == 2, "and nowhere else in the vertex program");
+        check(world.contains("if(uModel<0.5&&vMaterial>63.5&&vMaterial<64.5&&gl_MultiTexCoord0.y<0.5){floatbanked=snowStood(at.xyz,vKind>0.5);"),
+                "a kerb asks how deep the snow banked against it is at the foot of its face only");
+        check(count(world, "snowStood(") == 3, "and nowhere else in the vertex program");
         check(!PipelineShaders.SHADOW_VERTEX.contains("snowStood"), "grass is in no shadow map, and the shadow program asks nothing of where snow lies");
     }
 }

@@ -546,6 +546,17 @@ final class PipelineShaders {
                     at.xy += from / max(off, 0.02) * (trodden * high * 1.1);
                     at.z -= trodden * high * 0.65;
                 }
+                // Snow lies deeper than a kerb is high and buries its face in a bank that runs
+                // out into the street, broad in one place and narrow in the next as the wind
+                // left it: the foot of the face goes out across the street as far as the bank
+                // runs, and the face becomes the bank's slope. The top stays on the edge of
+                // the pavement. Its shadow is the one its top edge throws either way.
+                if (uModel < 0.5 && vMaterial > 63.5 && vMaterial < 64.5 && gl_MultiTexCoord0.y < 0.5) {
+                    float banked = snowStood(at.xyz, vKind > 0.5);
+                    if (banked > 0.0) {
+                        at.xy += normalize(gl_Normal.xy) * (banked * (0.8 + 1.2 * snowLayer(mod(at.xy, 60.0), 1.5, 21.0).x));
+                    }
+                }
                 vCover = strip ? 1.0 - vBlade.y : 2.0 - length(looks);
                 // An overhead wire is finer than a pixel from a street away, and what is finer
                 // than a pixel is drawn only where it crosses the middle of one: a row of
@@ -2728,6 +2739,21 @@ final class PipelineShaders {
                         if (dot(level, view) < 0.0) {
                             level = -level;
                         }
+                        // A kerb's face the snow has banked into a slope (see the world's vertex
+                        // shader) is lit as a bank is shaped: level where it leaves the pavement's
+                        // edge and where it meets the street, steepest between, so neither its top
+                        // nor its foot shows as a crease. Its texel's second number runs from 0 at
+                        // the foot to 1 at the top. The slope is measured on vPlace, which holds a
+                        // place on the map finer than vWorld does.
+                        if (vMaterial > 63.5 && vMaterial < 64.5) {
+                            vec3 facet = normalize(cross(dFdx(vPlace), dFdy(vPlace)));
+                            facet = facet.z < 0.0 ? -facet : facet;
+                            if (facet.z > 0.15 && length(facet.xy) > 1e-4) {
+                                float rise = 2.0 * vUv.y - 1.0;
+                                float lean = length(facet.xy) / facet.z * 1.5 * (1.0 - rise * rise);
+                                level = normalize(vec3(normalize(facet.xy) * lean, 1.0));
+                            }
+                        }
                         // Over grass and rough ground snow lies in lumps, over a road or a roof nearly smooth.
                         float most = max(texel.r, max(texel.g, texel.b));
                         float lumpy = 1.0 + 1.4 * smoothstep(0.1, 0.3, (texel.g - max(texel.r, texel.b)) / max(most, 0.001));
@@ -2739,11 +2765,18 @@ final class PipelineShaders {
                         // streak up the weather side or a line along a limb, reads at a distance as white
                         // paint and as an outline round the wood.
                         float up = vMaterial > 56.5 && vMaterial < 58.5 ? 0.0 : smoothstep(0.35, 0.8, level.z);
-                        snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
-                        // The ground just clear of the lip is wet from it, and dark.
-                        texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
-                        // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
-                        n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
+                        if (uOwnTextures > 0.5) {
+                            snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
+                            // The ground just clear of the lip is wet from it, and dark.
+                            texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
+                            // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
+                            n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
+                        } else {
+                            // The game's own snow, as Low draws it: patches of plain white with no shape, no marks and no glitter.
+                            snowed = snowCover(vPlace.xy, snowFoot) * up;
+                            texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
+                            n = normalize(mix(n, level, snowed));
+                        }
                         grit *= 1.0 - snowed;
                     }
                 }
@@ -3033,7 +3066,7 @@ final class PipelineShaders {
                     rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
                     color += pow(uLightColor, vec3(2.2)) * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
-                    if (snowed > 0.0 && uLight.z > 0.0) {
+                    if (snowed > 0.0 && uLight.z > 0.0 && uOwnTextures > 0.5) {
                         // And it glitters: see snowGlints.
                         color += pow(uLightColor, vec3(2.2)) * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
                     }
