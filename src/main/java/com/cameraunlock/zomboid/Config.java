@@ -80,9 +80,7 @@ final class Config {
         core.configDescribe(DISPLAY_NAME);
         core.configConcept("UdpPort", 0, null, null);
         secondPlayerPort = core.configLocalInt("Network", "SecondPlayerUdpPort",
-                "UDP port the mod receives a second player's tracker data on, for two players at\n"
-                        + "one screen (OpenTrack protocol). The first player's tracker is on UdpPort, and the\n"
-                        + "two have to differ.",
+                "UDP port for a second player's tracker at the same screen (OpenTrack protocol). It has to differ from UdpPort.",
                 0, SECOND_PLAYER_PORT, 1, 65535);
         core.configConcept("EnableOnStartup", 0, "true: head tracking is on when the game starts. false: it is off. No key turns it on or off.", null);
         core.configConcept("WorldSpaceYaw", writable, null, null);
@@ -92,13 +90,10 @@ final class Config {
         core.configConcept("RemoteSmoothing", 0, null, null);
         core.configConcept("PositionEnabled", writable, null, null);
         core.configConcept("TrueFreeLook", writable,
-                "false: while you aim down the sights, leaning keeps your eye on the sights.\n"
-                        + "true: the weapon stays put and your head moves freely around it (free look), and\n"
-                        + "the game's reticle shows where your shot will land.", null);
+                "false: aiming down the sights keeps your eye on the sights when you lean. true: free look, the weapon stays put and your\n"
+                        + "head moves around it.", null);
         core.configConcept("FreeLookMarker", writable,
-                "The aim marker of free look. In Project Zomboid the game's own reticle is that\n"
-                        + "marker and is drawn whenever you aim, so this row changes nothing: the mod\n"
-                        + "writes it with TrueFreeLook.", null);
+                "Changes nothing in Project Zomboid: the game's own reticle is the free look marker. Written with TrueFreeLook.", null);
         core.configConcept("StockSights", writable, null, null);
         core.configConcept("PositionLimitX", 0, null, null);
         core.configConcept("PositionLimitY", 0, null, null);
@@ -113,235 +108,135 @@ final class Config {
         core.configConcept("CycleTrackingModeKey", perGame, null, "PageUp");
         core.configConcept("YawModeKey", perGame, null, "PageDown");
         core.configConcept("TrueFreeLookKey", perGame,
-                "Cycles the aim mode: sights locked, free look with a marker, stock sights\n"
-                        + "(TrueFreeLook, FreeLookMarker, StockSights).", "Insert");
+                "Cycles the aim mode: sights locked, free look with a marker, stock sights.", "Insert");
         core.configConcept("LightMultiplier", 0, null, null);
 
         fieldOfView = core.configLocalFloat("General", "FieldOfView",
-                "Field of view of the first person view in degrees, from the bottom of the picture to\n"
-                        + "the top: 40 to 110. A wider screen shows more to the sides. Project Zomboid has no\n"
-                        + "field of view setting of its own. Aiming a firearm still narrows the view by the\n"
-                        + "same ratio. Read again while the game runs, so a change shows as soon as the file\n"
-                        + "is saved.",
+                "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality = core.configLocalEnum("General", "Quality",
-                "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey goes\n"
-                        + "from one to the next, Automatic, Low, Medium, High, Custom, and saves it here.\n"
-                        + "Automatic, which a first start is in: begins at High and draws less, as Medium and\n"
-                        + "then Low do but still with everything the mod made, and last as Low itself, each\n"
-                        + "time the picture is drawn fewer than 45 times a second for three seconds. It draws\n"
-                        + "more again, a level at a time, once the picture has been drawn 57 times a second or\n"
-                        + "more for fifteen seconds, though not a level it left in the last two minutes: a\n"
-                        + "wait that doubles, up to 32 minutes, each time a level it went back up to was too\n"
-                        + "slow within a minute. Under a frame limit set in the game's options, the two rates\n"
-                        + "are at most four fifths and nineteen twentieths of the limit. Low is as near\n"
-                        + "the game's own look as there is: the game's own view is the game's own picture, and\n"
-                        + "first person is drawn with the game's own sprites, models and textures in place of\n"
-                        + "everything the mod made but the arms on a held weapon, which OwnArms switches, at a\n"
-                        + "little over three fifths of the pixels each way, sight to 48 tiles, smaller shadow\n"
-                        + "maps, and no shading of corners, lit air, reflections or depth in surfaces. Medium\n"
-                        + "and High draw both views with what the mod made. High: the\n"
-                        + "whole picture. Medium: the game's own grass, trees, bushes and rocks whatever\n"
-                        + "OwnPlants says, no shading of corners, lit air, reflections or depth in surfaces\n"
-                        + "either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow\n"
-                        + "maps. Custom: the picture the rows of [Graphics] describe. A change to any of those\n"
-                        + "rows on the game's options screen, or in this file while the game runs, goes to\n"
-                        + "Custom. Read again while the game runs.",
+                "Graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops and more again\n"
+                        + "when it recovers. Custom uses the rows of [Graphics].",
                 writable | live, Quality.words(), Quality.AUTOMATIC);
         style = core.configLocalEnum("General", "Style",
-                "How the mod's picture is developed, in every graphics mode. CycleStyleKey goes\n"
-                        + "from one to the next and saves it here. Vivid: strong contrast and full colours,\n"
-                        + "cool in the shade and warm in the sun, with dark corners, glare off the sun and a\n"
-                        + "glow round bright lights. Natural: the colours as they are lit, with no tint,\n"
-                        + "less contrast, and less of the dark corners, the glare and the glow. Bleak:\n"
-                        + "washed out colours and low contrast under a faint drab cast, with no glare off\n"
-                        + "the sun, nearer the colours of the game's own view. The light, the weather and\n"
-                        + "the hour are the same in all three. Read again while the game runs.",
+                "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
+                        + "the game's own look).",
                 writable | live, Style.words(), Style.VIVID.ordinal());
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
         hillHeight = core.configLocalFloat("General", "HillHeight",
-                "How high the hills stand in first person. The game's map is flat, and in first\n"
-                        + "person the mod gives the land a lie of its own: the country rising and falling,\n"
-                        + "hills, higher and more of them in farmland and woods than in town, swells that\n"
-                        + "streets go over, and ground uneven underfoot. 1: as the mod makes it. 0: as level\n"
-                        + "as the game's map. Up to " + HillHeight.MOST + ": that many times as high, where the\n"
-                        + "steepest main road climbs about one in five and a half. A kerb, a bank down to water\n"
-                        + "and how far water lies below its banks are the same at every height. The game's\n"
-                        + "own view from overhead is always level, and on a\n"
-                        + "server where players can fight one another the hills stay at 1. Read again\n"
-                        + "while the game runs.",
+                "How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to " + HillHeight.MOST + ".\n"
+                        + "Held at 1 where players can fight.",
                 writable | live, HillHeight.DEFAULT, 0f, HillHeight.MOST);
         // Not a row of [Graphics] either: moving it leaves the graphics mode as it is.
         farTreeDistance = core.configLocalInt("General", "FarTreeDistance",
-                "How far off trees are drawn in first person past where the game has the map\n"
-                        + "loaded, in tiles: 0 to " + FarTreeDistance.MOST + ". The game keeps about 76 tiles of map round you,\n"
-                        + "and its trees end there. Past that the mod stands trees where the game's map has\n"
-                        + "them, of the kinds and sizes the game grows in each place, so that woods go on to\n"
-                        + "the hills instead of appearing as you walk up to them. They are the right trees for\n"
-                        + "the place, not the game's own one for one: the game's take over as its map loads.\n"
-                        + "0: none. Further costs more to draw. Read again while the game runs.",
+                "How far past the map the game has loaded trees are drawn in first person, in tiles: 0 (none) to " + FarTreeDistance.MOST + ".\n"
+                        + "Further costs more to draw.",
                 writable | live, FarTreeDistance.DEFAULT, 0, FarTreeDistance.MOST);
         frameBlending = core.configLocalBool("General", "FrameBlending",
-                "Whether each frame of the first person picture is mixed with the one before it.\n"
-                        + "false: every frame is drawn on its own. true: fine edges, leaves and the grain of\n"
-                        + "soft shadows are smoother and steadier, and the whole picture is a little softer,\n"
-                        + "as much standing still as while you turn or walk. Read again while the game runs.",
+                "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
                 writable | live, false);
         muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
-                "true: a shot from a firearm in first person flashes at the muzzle: a small bloom\n"
-                        + "of fire ahead of the barrel for a frame or two, and a moment's light on what is\n"
-                        + "near. The game's own look (Low, Automatic at Stock) has neither.\n"
-                        + "false: no flash and no light from it. Read again while the game runs.",
+                "true: a shot from a firearm flashes at the muzzle and briefly lights what is near. Never in Low.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
-                "How two players at one screen share it. SplitScreenKey goes from one to the other\n"
-                        + "and saves it here. Vertical: side by side, each half the width and the whole\n"
-                        + "height, as the game has it. Horizontal: player 1 above player 2, each the whole\n"
-                        + "width and half the height. One player has the whole screen and three or four have\n"
-                        + "a quarter each, as the game has it, whichever this says. Read again while the game\n"
-                        + "runs.",
+                "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
             core.configLocalBool("Graphics", "SpritePlants",
-                    "true: grass, trees, bushes and rocks are the game's own sprites whatever OwnPlants\n"
-                            + "says, as in Medium. The mod's are the dearest thing in the picture to draw. false:\n"
-                            + "as OwnPlants says.",
+                    "true: grass, trees, bushes and rocks are the game's own sprites, which cost far less to draw. false: as OwnPlants says.",
                     writable | live, high.spritePlants()),
             core.configLocalFloat("Graphics", "RenderScale",
-                    "How many of the first person picture's pixels there are to each of the window's, each\n"
-                            + "way: 0.5 to 1. Low draws 0.62, Medium 0.8 and High 1.",
+                    "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
             core.configLocalBool("Graphics", "SharpShadows",
-                    "true: shadow maps 4096 texels across, as in High. false: 2048, as in Low and Medium,\n"
-                            + "which take a quarter of the memory on the graphics card.",
+                    "true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.",
                     writable | live, high.sharpShadows()),
             core.configLocalInt("Graphics", "ViewDistance",
-                    "How far the first person view is built and drawn, in tiles, where the loaded map\n"
-                            + "reaches that far: 32 to 80. It is the land, the buildings and the plants, and as far\n"
-                            + "as anything is drawn. Low draws 48, Medium 64 and High 80.",
+                    "How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.",
                     writable | live, high.viewDistance(), MIN_VIEW_DISTANCE, high.viewDistance()),
             core.configLocalInt("Graphics", "ZombiesAndPropsDrawDistance",
-                    "How far off zombies, people, vehicles and the furniture, appliances and decor the mod\n"
-                            + "has models of are drawn in first person, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". It never reaches\n"
-                            + "past ViewDistance, which is how far the land and the buildings go: at ViewDistance or\n"
-                            + "over it they are drawn as far as the view goes. Lower, what stands further off is\n"
-                            + "left out, which costs less to draw. Low draws 48, Medium 64 and High 80, each its own\n"
-                            + "view distance. On a server where players can hurt each other it leaves nothing out.",
+                    "How far zombies, people, vehicles and the mod's furniture are drawn, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance()
+                            + ", never past\nViewDistance. Where players can fight, everything is drawn.",
                     writable | live, high.drawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
             core.configLocalInt("Graphics", "ForwardDrivingDrawDistance",
-                    "ZombiesAndPropsDrawDistance ahead of a vehicle you ride in: how far off on the side\n"
-                            + "it faces zombies, people, vehicles and props are drawn, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". Never\n"
-                            + "past ViewDistance. Behind and beside the vehicle, and on foot,\n"
-                            + "ZombiesAndPropsDrawDistance is what counts. Low draws 48, Medium 64 and High 80. On a\n"
-                            + "server where players can hurt each other it leaves nothing out.",
+                    "The same, ahead of a vehicle you ride in, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance() + ". Where players can fight,\n"
+                            + "everything is drawn.",
                     writable | live, high.drivingDrawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
             core.configLocalEnum("Graphics", "RainOnGlass",
-                    "How much of the rain on the windows of your vehicle is drawn. Low: drops of one size.\n"
-                            + "Medium: specks among them, and trickles down the panes no wiper reaches. High: three\n"
-                            + "sizes of drop, and drops that run down and leave a line of wet behind them.",
+                    "Rain on your vehicle's windows: Low (one size of drop), Medium (adds specks and trickles) or High (three sizes and\n"
+                            + "running drops).",
                     writable | live, "Low,Medium,High", high.rainOnGlass()),
             core.configLocalBool("Graphics", "ShadingAndLight",
-                    "true: corners are shaded and lent the light of what stands near and the air is lit, as\n"
-                            + "in High, and with Reflections true wet roads, polished floors, glass and water mirror\n"
-                            + "the world. false: none of these, as in Low and Medium.",
+                    "true: shaded corners, light from what stands near and lit air, and with Reflections, mirroring wet roads, floors,\n"
+                            + "glass and water.",
                     writable | live, high.shadingAndLight()),
             core.configLocalBool("Graphics", "Reflections",
-                    "true: the mirrors of a vehicle you sit in show the road behind, as in every mode, and\n"
-                            + "with ShadingAndLight true wet roads, polished floors, glass and water mirror the\n"
-                            + "world, as in High. false: none of that. A vehicle's mirrors are plain glass, and the\n"
-                            + "road behind is not drawn for them, which costs nothing, and water shows the sky alone,\n"
-                            + "as in Low and Medium.",
+                    "true: your vehicle's mirrors show the road behind, and with ShadingAndLight, wet roads, floors, glass and water\n"
+                            + "mirror the world.",
                     writable | live, high.reflections()),
             core.configLocalBool("Graphics", "FullSizeTextures",
-                    "true: the mod's pictures of surfaces, on walls and of skin are made at their full size,\n"
-                            + "as in High. false: at half their width and height, a quarter of what they take on\n"
-                            + "the graphics card and in the PC's memory.",
+                    "true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.",
                     writable | live, high.fullSizeTextures()),
             core.configLocalBool("Graphics", "FarTrees",
-                    "true: every tree and bush is the mod's own as far as the view is built, as in High.\n"
-                            + "false: one further off than " + (int) Crowns.REACH + " tiles is the game's sprite on a fan of cards,\n"
-                            + "which costs less and changes to the mod's as you near it.",
+                    "true: every tree and bush is the mod's own as far as the view goes. false: past " + (int) Crowns.REACH + " tiles they are the game's\n"
+                            + "sprites.",
                     writable | live, high.farTrees()),
             core.configLocalBool("Graphics", "SurfaceDepth",
-                    "true: near surfaces are given the depth of what they show, as in High. false: they are\n"
-                            + "drawn flat.",
+                    "true: near surfaces are given the depth of what they show. false: they are drawn flat.",
                     writable | live, high.surfaceDepth()),
             core.configLocalBool("Graphics", "WholeFigureShadows",
-                    "true: everything people and zombies wear and carry throws its shadow, however far off\n"
-                            + "they are. false: further off than " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN + " tiles only their bodies do, which costs\n"
-                            + "less in a crowd, as in Low, Medium and High.",
+                    "true: what people and zombies wear and carry casts a shadow at any distance. false: past " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN
+                            + " tiles\nonly their bodies do, which costs less in a crowd.",
                     writable | live, high.wholeFigureShadows()),
         };
 
         core.configLocalHotkeyTaps("FirstPersonKey",
-                "Goes into the first person view and back to the game's own. Tapped, for the first\n"
-                        + "player. Tapped twice, for a second player at the same screen. Held for " + CameraUnlock.HOLD_MS + " ms,\n"
-                        + "for both.",
+                "Switches between first person and the game's own view. Tap for player 1, tap twice for player 2, hold for both.",
                 0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_BOTH);
         core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Automatic, Low, Medium, High, Custom (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);
         core.configLocalHotkey("SplitScreenKey",
-                "With two players at the screen, goes between side by side and one above the other\n"
-                        + "(SplitScreen). Does nothing with any other number of players.", 0, "F7",
+                "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
                 SPLIT_SCREEN);
         own = new int[] {
             core.configLocalBool("Content", "OwnWeapons",
-                    "What the mod made itself and shows in place of the game's own. Set a row to false\n"
-                            + "and the game's own is drawn there instead, as the game or another mod has it.\n"
-                            + "These rows are read again while the game runs, so a change shows as soon as the\n"
-                            + "file is saved. In Medium and High they apply to the game's own view too, which\n"
-                            + "the mod draws there.\n"
-                            + "true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes.\n"
-                            + "false: the game's own weapon and scope models, and no picture through the scope.",
+                    "true: the mod's models of the pump shotgun, the hunting rifle and rifle scopes. false: the game's own, with no picture\n"
+                            + "through the scope.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnFurniture",
-                    "true: the mod's models of furniture, appliances, street lamps, clocks and picture\n"
-                            + "frames, banners hung as cloth, and bunting and flags laid on their wall. false:\n"
-                            + "the game's sprites of them.",
+                    "true: the mod's models of furniture, appliances, street lamps, clocks, picture frames, banners and flags. false: the\n"
+                            + "game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPictures",
-                    "true: the mod's photographs, paintings, posters and signs on walls, and programmes on a\n"
-                            + "television that is on. false: the game's pictures, and only colour bars on a\n"
-                            + "television.",
+                    "true: the mod's photographs, paintings, posters, signs and television programmes. false: the game's pictures, and\n"
+                            + "only colour bars on a television.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPlants",
-                    "true: the mod's leaves, tree trunks, boulders, grass, ferns, flowers and fallen\n"
-                            + "leaves. false: the game's sprites of trees, bushes and grass.",
+                    "true: the mod's trees, boulders, grass, ferns, flowers and fallen leaves. false: the game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnTextures",
-                    "true: the mod's textures of tarmac, gravel, earth, lawn, wood, boards, roofing,\n"
-                            + "paint, carpet, cloth and wallpaper, and the lines painted on roads drawn as paint\n"
-                            + "with clean edges. false: the colours of the game's sprites alone, and the lines\n"
-                            + "as the game's sprites have them.",
+                    "true: the mod's textures of ground, wood, roofing, paint, carpet, cloth and wallpaper, and clean road lines. false:\n"
+                            + "the colours of the game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnBuildings",
-                    "true: windows, doors, curtains and handrails built by the mod, the strings and posts\n"
-                            + "of an open flight of stairs, and the outside of a wall finished as its building is.\n"
-                            + "false: the game's sprites of them, on both sides of the wall.",
+                    "true: windows, doors, curtains, handrails, open stairs and wall finishes built by the mod. false: the game's sprites.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnZombies",
-                    "true: the mod's own skins for zombies near the eye, each with a lifelike face.\n"
-                            + "false: the game's own painted skins.",
+                    "true: the mod's skins, with lifelike faces, for zombies near you. false: the game's own skins.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnPeople",
-                    "true: the mod's own skins for your character and the other living, in the game's\n"
-                            + "five skin tones, each with a lifelike face. false: the game's own painted skins.",
+                    "true: the mod's skins, with lifelike faces, for your character and other living people. false: the game's own skins.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnArms",
-                    "true: arms and hands of the mod's own on a held weapon, with fingers that close on\n"
-                            + "it and go to its bolt, slide, magazine and loading port as it is worked and loaded,\n"
-                            + "in the skin, sleeves and gloves your character has, in every graphics mode, Low\n"
-                            + "included. false: the game's own arms and hands as the game poses them, moved with\n"
-                            + "the weapon to before the eye: for another mod that changes the arms or the weapons.",
+                    "true: the mod's arms and hands on a held weapon, working its bolt, slide and magazine. false: the game's own, for a\n"
+                            + "mod that changes the arms or the weapons.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnClothes",
-                    "true: what people and zombies wear is made finer near the eye: the game's picture\n"
-                            + "of each garment and head of hair enlarged with its outline smoothed, and the weave,\n"
-                            + "knit, grain or strands of what it is made of laid on from the mod's own photographs.\n"
-                            + "false: the game's own pictures as they are.",
+                    "true: clothes and hair near you are sharpened, with the weave, knit, grain or strands of what they are made of.\n"
+                            + "false: the game's own pictures.",
                     writable | live, true),
         };
 

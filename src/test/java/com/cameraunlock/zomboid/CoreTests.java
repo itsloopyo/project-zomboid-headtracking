@@ -640,9 +640,9 @@ public final class CoreTests {
                         && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(blending) != 0) == FrameBlending.on()
                         && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on() && options[flash].label.equals("Muzzle flash"),
                 "each reads as the session has it");
-        check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Own arms") && options[arms].comment.contains("in every graphics mode, Low\nincluded")
-                        && options[arms].comment.contains("for another mod that changes the arms or the weapons"),
-                "the arms are a tick box whose tooltip says it holds in Low too, and what it is off for: " + options[arms].label);
+        check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Own arms") && options[arms].comment.contains("held weapon")
+                        && options[arms].comment.contains("mod that changes the arms or the weapons"),
+                "the arms are a tick box whose tooltip says what they are and what they are off for: " + options[arms].label);
 
         boolean world = !Tracking.worldYaw(), blended = !FrameBlending.on(), flashed = !MuzzleFlash.on(), ownArms = (Own.rows() & Own.ARMS) == 0;
         int[] applied = {fov, yaw, tracking, aim, arms, blending, flash};
@@ -704,7 +704,7 @@ public final class CoreTests {
         Screen screen = Screen.opened();
         CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
         check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == 2 && hills.step == 0.1
-                        && hills.label.equals("Hill height") && hills.comment.contains("0: as level"),
+                        && hills.label.equals("Hill height") && hills.comment.contains("0 is as flat"),
                 "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
         check(screen.shows("HillHeight") == HillHeight.asked(), "it shows the height the session has");
         check(HillHeight.DEFAULT == 1f && HillHeight.DEFAULT == (hills.min + hills.max) / 2,
