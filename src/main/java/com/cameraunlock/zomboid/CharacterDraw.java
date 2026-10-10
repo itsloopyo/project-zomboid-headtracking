@@ -967,6 +967,8 @@ final class CharacterDraw {
         final int id;
         final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, texSize;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
+        /** The person whose settings the program holds (CharacterDraw.peopleBegun): a part of the same person sets only its own. */
+        int heldFor = -1;
 
         Skin(int id) {
             this.id = id;
@@ -1100,6 +1102,7 @@ final class CharacterDraw {
     static void begin(ModelSlotRenderData data, float[] standing, float[] seen, boolean casting, float fromTheViewer) {
         person = data;
         fromEye = fromTheViewer;
+        peopleBegun++;
         modelView = standing;
         projection = seen;
         shadow = casting;
@@ -1553,23 +1556,39 @@ final class CharacterDraw {
         // small on the screen for a finer skin to show, and a shadow has no skin at all.
         Texture worn = shadow || away > WHOLE_BEYOND ? texture : FineSkins.of(texture);
 
-        ModelScript script = instance.modelScript;
-        if (script != null && script.cullFace == 0) {
-            GL11.glDisable(GL_CULL_FACE);
-        } else {
-            GL11.glEnable(GL_CULL_FACE);
-            // The matrix that stands a model in the world mirrors it, which turns every
-            // triangle's front to its back.
-            int face = script != null && script.cullFace != -1 ? script.cullFace : GL_FRONT;
-            GL11.glCullFace(mirrored ? face == GL_FRONT ? GL_BACK : GL_FRONT : face);
+        if (!drawing) {
+            GL11.glEnable(GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL_LESS);
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL_BLEND);
+            for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
+                GL20.glEnableVertexAttribArray(attribute);
+            }
+            drawing = true;
+            culled = UNKNOWN;
+            programInUse = 0;
         }
-        GL11.glEnable(GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL_LESS);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL_BLEND);
+        ModelScript script = instance.modelScript;
+        // The matrix that stands a model in the world mirrors it, which turns every triangle's front to its back.
+        int face = script != null && script.cullFace != -1 ? script.cullFace : GL_FRONT;
+        int cull = script != null && script.cullFace == 0 ? 0 : mirrored ? face == GL_FRONT ? GL_BACK : GL_FRONT : face;
+        if (cull != culled) {
+            if (cull == 0) {
+                GL11.glDisable(GL_CULL_FACE);
+            } else {
+                if (culled == 0 || culled == UNKNOWN) {
+                    GL11.glEnable(GL_CULL_FACE);
+                }
+                GL11.glCullFace(cull);
+            }
+            culled = cull;
+        }
 
         Skin skin = cutBones != null ? cut : divided != null && !shadow && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
-        GL20.glUseProgram(skin.id);
+        if (skin.id != programInUse) {
+            GL20.glUseProgram(skin.id);
+            programInUse = skin.id;
+        }
         boolean unlit = bare && !shadow;
         int wear = WEAVE;
         if (unlit) {
@@ -1583,28 +1602,34 @@ final class CharacterDraw {
         // The game keeps each bone's matrix with its rows where OpenGL wants columns.
         boolean eyed = fromTheEye && !shadow && model.tag instanceof SkinningData;
         GL20.glUniformMatrix4fv(skin.palette, true, eyed ? headAtTheEye((SkinningData) model.tag, part.matrixPalette, modelView, person.finalScale) : part.matrixPalette);
-        GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
-        GL20.glUniformMatrix4fv(skin.projection, false, projection);
-        GL20.glUniform1f(skin.scale, person.finalScale);
-        GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
-        GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
-        if (unlit) {
-            GL20.glDrawBuffers(BOTH);
+        if (skin.heldFor != peopleBegun) {
+            GL20.glUniformMatrix4fv(skin.modelView, false, modelView);
+            GL20.glUniformMatrix4fv(skin.projection, false, projection);
+            GL20.glUniform1f(skin.scale, person.finalScale);
+            GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
+            GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
+            GL20.glUniform1f(skin.alpha, person.alpha);
+            // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
+            if (!bare && !shadow) {
+                for (int light = 0; light < LIGHTS; light++) {
+                    int at = light * 3;
+                    GL20.glUniform3f(skin.lightWay[light], lightWay[at], lightWay[at + 1], lightWay[at + 2]);
+                    GL20.glUniform3f(skin.lightColor[light], lightColor[at], lightColor[at + 1], lightColor[at + 2]);
+                }
+            }
+            skin.heldFor = peopleBegun;
         }
-        GL20.glUniform1f(skin.alpha, person.alpha);
+        if (unlit != bothBuffers) {
+            GL20.glDrawBuffers(unlit ? BOTH : FIRST);
+            bothBuffers = unlit;
+        }
         GL20.glUniform1f(skin.hue, part.hue);
         GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
-        // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
         if (!bare && !shadow) {
             if (part.ignoreLighting) {
                 GL20.glUniform3f(skin.ambient, 1f, 1f, 1f);
             } else {
                 GL20.glUniform3f(skin.ambient, person.ambientR * AMBIENT_SHARE, person.ambientG * AMBIENT_SHARE, person.ambientB * AMBIENT_SHARE);
-            }
-            for (int light = 0; light < LIGHTS; light++) {
-                int at = light * 3;
-                GL20.glUniform3f(skin.lightWay[light], lightWay[at], lightWay[at + 1], lightWay[at + 2]);
-                GL20.glUniform3f(skin.lightColor[light], lightColor[at], lightColor[at + 1], lightColor[at + 2]);
             }
         }
         // The game remembers which texture it bound last and binds none twice running. The
@@ -1622,7 +1647,6 @@ final class CharacterDraw {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, copy.vertices);
         for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
             GL20.glVertexAttribPointer(attribute, SIZE[attribute], GL_FLOAT, false, STRIDE, OFFSET[attribute]);
-            GL20.glEnableVertexAttribArray(attribute);
         }
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, copy.indices);
         if (skin == divided) {
@@ -1636,17 +1660,41 @@ final class CharacterDraw {
             shell(skin.id, layer, layers, person.finalScale);
             GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
         }
-        if (unlit) {
-            GL20.glDrawBuffers(FIRST);
+        return true;
+    }
+
+    /**
+     * Whether parts are being drawn one after another (part): what every part sets alike,
+     * the depth test, no blending, the vertex arrays, is then set already, and the culling, the
+     * program and the draw buffers are as the last part left them. peopleBegun counts the people
+     * begun, for what a program is told once a person (Skin.heldFor).
+     */
+    private static boolean drawing, bothBuffers;
+    private static int culled, programInUse, peopleBegun;
+    private static final int UNKNOWN = -1;
+
+    /**
+     * Before anything else draws, and at the end of a pass over the people: the game's draw of
+     * a part turns on only the arrays its own mesh has, and one left on from here would be read
+     * past the end of the last part's buffer, so they are turned off; the buffers are let go
+     * and the second draw buffer closed. What the programs were told is told again, since
+     * whatever drew in between may have used them.
+     */
+    static void release() {
+        peopleBegun++;
+        if (!drawing) {
+            return;
         }
-        // The game's draw of the next part turns on only the arrays its own mesh has. One left
-        // on from here would be read past the end of this mesh's buffer.
+        drawing = false;
         for (int attribute = 0; attribute < ATTRIBUTES; attribute++) {
             GL20.glDisableVertexAttribArray(attribute);
         }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        return true;
+        if (bothBuffers) {
+            GL20.glDrawBuffers(FIRST);
+            bothBuffers = false;
+        }
     }
 
     /** What a part of this model in this texture is made of, as wearOf tells it, kept with the model's copy. */

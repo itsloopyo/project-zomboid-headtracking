@@ -62,6 +62,7 @@ public final class Characters {
 
     /** Has the game draw one part of a model for the picture. */
     private void drawPart(ModelInstanceRenderData model, ModelSlotRenderData data) {
+        CharacterDraw.release();
         long began = TALLY ? System.nanoTime() : 0L;
         ours = true;
         try {
@@ -492,6 +493,7 @@ public final class Characters {
                 data.ambientG = 1f;
                 data.ambientB = 1f;
                 fromSeat = true;
+                CharacterDraw.release();
                 vehicle(data, i * 4, eyeView);
                 fromSeat = false;
                 data.ambientR = ownAmbient[0];
@@ -567,6 +569,7 @@ public final class Characters {
             character(data, eyeView, true, false, holding != null, heldBoth, 0f);
         } finally {
             CharacterDraw.fromTheEye = false;
+            CharacterDraw.release();
         }
         data.ambientR = red;
         data.ambientG = green;
@@ -602,6 +605,7 @@ public final class Characters {
                 character(data, eyeView, false, false, false, false, 0f);
             } finally {
                 CharacterDraw.mirrored = false;
+                CharacterDraw.release();
             }
             data.ambientR = red;
             data.ambientG = green;
@@ -1220,6 +1224,7 @@ public final class Characters {
             data.ambientB = blue;
             return;
         }
+        CharacterDraw.release();
         CharacterDraw.begin(data, handViews[0], projection, false, 0f);
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
@@ -1236,11 +1241,13 @@ public final class Characters {
                 }
             }
         }
+        CharacterDraw.release();
         for (int side = 0; side < (heldBoth ? 2 : 1); side++) {
             for (int part = 0; CharacterDraw.OWN_ARMS && arms[side] && part < parts(data).size(); part++) {
                 CharacterDraw.sleeve(parts(data).get(part), side == 1, joints[side], bends[side], cuffs[side], wides[side]);
             }
         }
+        CharacterDraw.release();
         EYE.End();
         data.ambientR = red;
         data.ambientG = green;
@@ -1462,8 +1469,10 @@ public final class Characters {
                         toX * toX + toY * toY);
             }
             if (data.character == null) {
+                CharacterDraw.release();
                 vehicle(data, i * 4, viewMatrix);
             } else if (data.inVehicle) {
+                CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
                 character(data, viewMatrix, data.character == viewer, casting, false, false, (float) Math.hypot(toX, toY));
@@ -1473,6 +1482,7 @@ public final class Characters {
             data.ambientB = blue;
             drawn++;
         }
+        CharacterDraw.release();
         if (drawn > 0) {
             ambient = ambientSum / drawn;
         }
@@ -1513,7 +1523,11 @@ public final class Characters {
             }
             if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye.
-                if (inHand(model.modelInstance) || CharacterDraw.piece(model, bothHands, false)) {
+                if (inHand(model.modelInstance)) {
+                    continue;
+                }
+                CharacterDraw.release();
+                if (CharacterDraw.piece(model, bothHands, false)) {
                     continue;
                 }
             } else if (CharacterDraw.part(model)) {
