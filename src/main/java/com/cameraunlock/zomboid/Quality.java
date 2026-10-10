@@ -80,8 +80,11 @@ final class Quality {
     /** What the mode draws now. */
     private static volatile Picture drawn = LOW_PICTURE;
     private static final long HITCH_NANOS = 250_000_000L;
-    private static long countedSince, lastFrame;
-    private static int counted;
+    /** When the count began (0 for none begun), when the frame before was drawn, and when the level last stepped to has settled. */
+    private static long countedSince, lastFrame, settlesAt;
+    /** The frames of the count, how many of them were long (over HITCH_NANOS), whether two long ones came together, and whether the frame before was long. */
+    private static int counted, longFrames;
+    private static boolean longTogether, lastLong;
     /** How long the frame rate has been judged at RISES_AT or over without a break. */
     private static long fastFor;
     /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
@@ -101,6 +104,7 @@ final class Quality {
         row = asked;
         level = HIGH;
         countedSince = 0L;
+        settlesAt = 0L;
         fastFor = 0L;
         Arrays.fill(barredUntil, 0L);
         Arrays.fill(cameUpAt, 0L);
@@ -229,31 +233,42 @@ final class Quality {
         if (row != AUTOMATIC) {
             return;
         }
-        if (countedSince == 0L || now < countedSince) {
-            if (countedSince == 0L) {
-                countedSince = now;
-            }
-            counted = 0;
-            return;
-        }
-        // One frame that took a quarter of a second is a hitch, a save being written or a jump
-        // across the map, and not a picture too heavy for the card: the count begins again.
-        boolean hitch = now - lastFrame > HITCH_NANOS;
+        long since = lastFrame;
         lastFrame = now;
-        if (hitch) {
-            countedSince = now;
-            counted = 0;
-            fastFor = 0L;
+        if (now < settlesAt) {
+            countedSince = 0L;
             return;
         }
+        if (countedSince == 0L) {
+            countedSince = now;
+            counted = longFrames = 0;
+            longTogether = lastLong = false;
+            return;
+        }
+        boolean isLong = now - since > HITCH_NANOS;
         counted++;
+        if (isLong) {
+            longFrames++;
+            longTogether |= lastLong;
+        }
+        lastLong = isLong;
         long span = now - countedSince;
         if (span < JUDGED_OVER_NANOS) {
             return;
         }
         float rate = counted * 1e9f / span;
-        counted = 0;
+        // A long frame among fast ones is a hitch, a save being written or a jump across the map,
+        // and not a picture too heavy for the card: the count is not judged, and breaks a run of
+        // fast ones. Long frames that come two together, or are half of the count or more, are
+        // the picture itself, at three or four frames a second or stalling on every other frame.
+        boolean hitch = longFrames == 1 || longFrames > 1 && !longTogether && longFrames * 2 < counted;
         countedSince = now;
+        counted = longFrames = 0;
+        longTogether = false;
+        if (hitch) {
+            fastFor = 0L;
+            return;
+        }
         float slowest = limit > 0f ? Math.min(SLOWEST, limit * SLOWEST_OF_LIMIT) : SLOWEST;
         float risesAt = limit > 0f ? Math.min(RISES_AT, limit * RISES_AT_OF_LIMIT) : RISES_AT;
         if (rate < slowest) {
@@ -280,7 +295,8 @@ final class Quality {
         int left = level;
         level--;
         drawn = AUTOMATIC_AT[level];
-        countedSince = now + SETTLES_IN_NANOS;
+        countedSince = 0L;
+        settlesAt = now + SETTLES_IN_NANOS;
         fastFor = 0L;
         stepUnsaid = true;
         Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes down to %s, the picture was drawn %.0f times a second; "
@@ -291,14 +307,19 @@ final class Quality {
         level++;
         cameUpAt[level] = now;
         drawn = AUTOMATIC_AT[level];
-        countedSince = now + SETTLES_UP_NANOS;
+        countedSince = 0L;
+        settlesAt = now + SETTLES_UP_NANOS;
         fastFor = 0L;
         stepUnsaid = true;
         Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes up to %s, the picture was drawn %.0f times a second, and %.0f or more for %d seconds",
                 LEVELS[level], rate, risesAt, RISES_AFTER_NANOS / 1_000_000_000L));
     }
 
-    /** A view's frames are no longer counted: it was off, or the game paused. With none counted the count begins again. */
+    /**
+     * A view's frames are no longer counted: it was off, the game paused, or the content is being
+     * made. With none counted the count begins again, and not before the level last stepped to
+     * has settled.
+     */
     static synchronized void rest(int view) {
         counting[view] = false;
         for (boolean other : counting) {

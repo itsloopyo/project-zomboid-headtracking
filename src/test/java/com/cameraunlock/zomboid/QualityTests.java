@@ -12,6 +12,8 @@ final class QualityTests {
         Checks.run("aLevelAskedForIsKept", QualityTests::aLevelAskedForIsKept);
         Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
         Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
+        Checks.run("automaticStepsDownWhereEveryFrameIsLong", QualityTests::automaticStepsDownWhereEveryFrameIsLong);
+        Checks.run("aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade", QualityTests::aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade);
         Checks.run("automaticStepsBackUpWithRoomToSpare", QualityTests::automaticStepsBackUpWithRoomToSpare);
         Checks.run("aSceneSlowAtOneLevelAndFastAtTheNextSettles", QualityTests::aSceneSlowAtOneLevelAndFastAtTheNextSettles);
         Checks.run("automaticsFloorIsTheStockLookAndItComesBackUp", QualityTests::automaticsFloorIsTheStockLookAndItComesBackUp);
@@ -119,6 +121,66 @@ final class QualityTests {
         now = frames(now + 60 * SECOND, 100f, 2f);
         now = frames(now + 6 * SECOND, 100f, 2f);
         check(Quality.sight() == 80, "one frame of six seconds among fast ones is a hitch and takes nothing down");
+    }
+
+    /**
+     * At three frames a second every frame is over a quarter of a second, and on a PC that stalls
+     * on every other frame half of them are: either is the picture, and not a hitch.
+     */
+    private static void automaticStepsDownWhereEveryFrameIsLong() {
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        long now = frames(SECOND, 3f, 4f);
+        check(Quality.name().equals("Automatic (Medium)"), "three frames a second take it down a level: " + Quality.name());
+        frames(now, 3f, 30f);
+        check(Quality.name().equals("Automatic (Stock)"), "and on down to Stock: " + Quality.name());
+
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = SECOND;
+        for (int frame = 0; frame < 30; frame++) {
+            now += frame % 2 == 0 ? SECOND * 3 / 10 : SECOND / 60;
+            Quality.frame(0, now, 0f);
+        }
+        check(Quality.name().equals("Automatic (Medium)"), "a stall of 0.3 seconds on every other frame takes it down a level: " + Quality.name());
+
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = frames(SECOND, 100f, 0.5f);
+        now += 6 * SECOND;
+        Quality.frame(0, now, 0f);
+        frames(now, 100f, 30f);
+        check(Quality.name().equals("Automatic (High)"), "one frame of six seconds, which is all a count's three seconds, among fast ones takes nothing down: " + Quality.name());
+
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        now = SECOND;
+        for (int stall = 0; stall < 20; stall++) {
+            now = frames(now, 100f, 1f) + SECOND * 4 / 10;
+            Quality.frame(0, now, 0f);
+        }
+        check(Quality.name().equals("Automatic (High)"), "a stall of 0.4 seconds every second among fast frames takes nothing down: " + Quality.name());
+    }
+
+    /**
+     * The count rests while the content is made after a step (FirstPerson.notePace), which is
+     * on every step up from Medium to High: the five seconds a step up settles in still run.
+     */
+    private static void aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade() {
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        long now = frames(SECOND, 30f, 3.5f);
+        check(Quality.name().equals("Automatic (Medium)"), "slow, to Medium");
+        while (!Quality.name().equals("Automatic (High)") && now < 400 * SECOND) {
+            now += SECOND / 100;
+            Quality.frame(0, now, 0f);
+        }
+        check(Quality.name().equals("Automatic (High)"), "fast, back up to High once it may be: " + Quality.name());
+        Quality.rest(0);
+        now = frames(now + SECOND / 2, 40f, 4f);
+        check(Quality.name().equals("Automatic (High)"), "forty frames a second in the five seconds after the step are not judged, the count rested or not: " + Quality.name());
+        frames(now, 40f, 4.5f);
+        check(Quality.name().equals("Automatic (Medium)"), "after them forty is slow: " + Quality.name());
     }
 
     /** Each step Automatic took, as "<seconds> <level>", from the frames of a scene drawn at a rate that depends on the level alone. */
