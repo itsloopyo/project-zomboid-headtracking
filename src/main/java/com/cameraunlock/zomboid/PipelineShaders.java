@@ -2948,7 +2948,7 @@ final class PipelineShaders {
                 // less in one they cannot see now. So what is under a roof has the sun there by
                 // as much as the game's light for its square, and a room the game has dark is dark.
                 if (uCutMarked.z > 0.0 && open < 0.5) {
-                    sun *= pow(min(max(vColor.r, max(vColor.g, vColor.b)), 1.0), 2.2);
+                    sun *= pow(clamp(max(vColor.r, max(vColor.g, vColor.b)), 0.0, 1.0), 2.2);
                 }
 
                 // The game's light for the square is the light that is there without the sun
@@ -2968,7 +2968,8 @@ final class PipelineShaders {
                     // than the other, so a model takes most of it on what faces up.
                     fromSky *= mix(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8)), 1.0, open);
                 }
-                vec3 given = pow(vColor.rgb, vec3(2.2));
+                // Interpolated corner-light differences can round below zero at a dark corner.
+                vec3 given = pow(max(vColor.rgb, vec3(0.0)), vec3(2.2));
                 vec3 held = vec3(0.0);
                 if (uLantern.w > 0.0 && (open > 0.5 || uDaylightKept < 1.0)) {
                     // A light the character carries that throws no beam: a lantern, a candle.
