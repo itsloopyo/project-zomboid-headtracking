@@ -354,6 +354,7 @@ public final class FirstPerson {
         }
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
+        Quality.rest(view.index);
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */

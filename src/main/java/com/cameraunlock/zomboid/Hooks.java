@@ -61,9 +61,15 @@ public final class Hooks {
         }
         if (first) {
             for (int i = 0; i < View.COUNT; i++) {
-                View gone = View.of(i);
-                if (gone != null && gone.player() == null) {
-                    gone.firstPerson.playerGone();
+                View other = View.of(i);
+                if (other == null) {
+                    continue;
+                }
+                if (other.player() == null) {
+                    other.firstPerson.playerGone();
+                } else if (other.player().isAsleep()) {
+                    // Not drawn while asleep, so its frames are not the picture's: the players awake count them.
+                    Quality.rest(i);
                 }
             }
         }
