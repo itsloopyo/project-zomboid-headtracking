@@ -13,12 +13,14 @@ import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.SpriteRenderer;
 import zombie.core.opengl.RenderThread;
+import zombie.input.AimingReticle;
 import zombie.input.GameKeyboard;
 import zombie.input.Mouse;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
+import zombie.iso.PlayerCamera;
 import zombie.iso.Vector2;
 import zombie.scripting.objects.VehicleScript;
 import zombie.ui.TextManager;
@@ -65,6 +67,9 @@ public final class FirstPerson {
     private final ViewCamera.Pose overheadView = new ViewCamera.Pose(), standingView = new ViewCamera.Pose();
     /** What the overhead camera last took in above and below the place it looks at, in tiles. */
     private float overheadHalfHigh;
+    /** Where on the player's floor the game's window through trees is (CanopyWindow), and the pointer's while aiming, with whether a tree anywhere in it is opened. */
+    private float canopyX, canopyY, canopyAimX, canopyAimY;
+    private boolean canopyAimed, canopyEveryTree;
     private final ViewCamera.Pose flightView = new ViewCamera.Pose();
     /**
      * How near the eye the camera is when the viewer stops being one of the people in the
@@ -707,6 +712,7 @@ public final class FirstPerson {
             view.ride.seated = false;
             scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
+            scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
         } else {
             fromTheEye = true;
             scene.build(player, flightView, aimView, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
@@ -926,6 +932,7 @@ public final class FirstPerson {
                 (float) (ViewCamera.LEVEL_HEIGHT / Math.tan(-OVERHEAD_PITCH)));
         scene.build(player, standingView, standingView, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), overheadView, true);
         scene.seenFrom(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, 0f);
+        scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
         paceScene = scene;
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
@@ -950,6 +957,22 @@ public final class FirstPerson {
         // A tile's diagonal lies along the screen: its length there over its length on the map.
         float pixelsToTile = (float) (Math.hypot(eastX - southX, eastY - southY) / Math.sqrt(2.0));
         overheadHalfHigh = high / 2f / pixelsToTile;
+        // The game opens its window through trees about the middle of its screen less the
+        // camera's lead towards the pointer, so about the player, and while a firearm is aimed
+        // about the pointer as well. Either is a place on the screen, put on the player's floor.
+        PlayerCamera lead = IsoCamera.cameras[index];
+        float leadX = wide / 2f - lead.rightClickX / zoom - atX, leadY = high / 2f - lead.rightClickY / zoom - atY;
+        canopyX = x + (leadX * southY - southX * leadY) / det;
+        canopyY = y + (eastX * leadY - leadX * eastY) / det;
+        canopyAimed = player.isAnyAimKeyDown();
+        if (canopyAimed) {
+            float pointerX = AimingReticle.getX(index) / zoom - atX, pointerY = AimingReticle.getY(index) / zoom - atY;
+            canopyAimX = x + (pointerX * southY - southX * pointerY) / det;
+            canopyAimY = y + (eastX * pointerY - pointerX * eastY) / det;
+        }
+        // Aiming or in a vehicle the game opens every tree in the window; otherwise only one
+        // standing on the camera's side of the player (FBORenderCell.isTranslucentTree).
+        canopyEveryTree = canopyAimed || player.getVehicle() != null;
         if (TRACE && (overheadSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "overhead: player on screen at (%.1f, %.1f) of %.0fx%.0f, zoom %.2f, east (%.2f, %.2f) south (%.2f, %.2f), camera offset (%.1f, %.1f), middle of screen at tile (%.2f, %.2f), player (%.2f, %.2f, %.2f)",
                     atX, atY, wide, high, zoom, eastX, eastY, southX, southY, IsoCamera.getOffX(), IsoCamera.getOffY(), middleX, middleY, x, y, level));

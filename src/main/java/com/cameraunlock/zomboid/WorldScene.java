@@ -1882,6 +1882,20 @@ final class WorldScene {
             outside = true;
         }
 
+        private float canopyX, canopyY, canopyUp, canopyAimX, canopyAimY;
+        private boolean canopyAimed, canopyEveryTree;
+
+        /** Where the game's own view opens its window through trees, on the player's floor: see CanopyWindow and FirstPerson.aimOverhead. */
+        void canopyWindow(float x, float y, float up, boolean aimed, float aimX, float aimY, boolean everyTree) {
+            canopyX = x;
+            canopyY = y;
+            canopyUp = up;
+            canopyAimed = aimed;
+            canopyAimX = aimX;
+            canopyAimY = aimY;
+            canopyEveryTree = everyTree;
+        }
+
         /** Has the picture mixed into the game's own, which is under it, and not laid over it whole. */
         void mixed(float opacity) {
             this.opacity = opacity;
@@ -5752,6 +5766,7 @@ final class WorldScene {
             view.pipeline.focusX = camera.eyeX;
             view.pipeline.focusY = camera.eyeY;
             view.pipeline.focusUp = camera.eyeUp;
+            view.pipeline.canopy(canopyX, canopyY, canopyUp, canopyAimed, canopyAimX, canopyAimY, canopyEveryTree);
             if (outside) {
                 view.pipeline.drawDistance.whole();
             } else {

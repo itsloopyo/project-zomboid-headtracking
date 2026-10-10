@@ -398,6 +398,17 @@ final class Pipeline {
     ArrayList<WorldScene.ChunkMeshes> ahead;
     float rangeFrom;
     float focusX, focusY, focusUp;
+
+    /** Where the game's own view opens its window through trees on the player's floor, and the pointer's while aiming, and whether every tree in them is opened. */
+    void canopy(float x, float y, float up, boolean aimed, float aimX, float aimY, boolean everyTree) {
+        canopyX = x;
+        canopyY = y;
+        canopyUp = up;
+        canopyAimed = aimed;
+        canopyAimX = aimX;
+        canopyAimY = aimY;
+        canopyEveryTree = everyTree;
+    }
     /** How far from the eye the frame draws people, zombies, vehicles and furniture, which every pass of it goes by. */
     final DrawDistance drawDistance = new DrawDistance();
     /**
@@ -431,8 +442,10 @@ final class Pipeline {
     private final float[] holeAt = new float[2];
     /** The window opened about the viewer: its radius as a share of the picture's height, how far before them it starts, and how far under their eye its middle is, in tiles. */
     private static final float HOLE_OF_HEIGHT = 0.11f, HOLE_BEFORE = 1.6f, HOLE_BELOW_EYE = 0.5f, HOLE_FLOOR_BELOW_EYE = 1.2f;
-    /** The same window's radius through trees. */
-    private static final float HOLE_OF_HEIGHT_TREES = 0.26f;
+    /** The game's window through trees: see CanopyWindow and canopy. */
+    private float canopyX, canopyY, canopyUp, canopyAimX, canopyAimY;
+    private boolean canopyAimed, canopyEveryTree;
+    private final float[] canopyAt = new float[2], canopySize = new float[4];
     /** How far behind the viewer, away from the camera, the cut begins, in tiles of x and y together along the map's diagonal. */
     private static final float CUT_BEHIND = 1.5f;
     /**
@@ -2267,10 +2280,22 @@ final class Pipeline {
             float along = camera.forwardX * focusX + camera.forwardY * focusY + camera.forwardUp * focusUp;
             // The ground they stand on is not in the way.
             to.set("uHoleUp", focusUp - HOLE_FLOOR_BELOW_EYE);
-            to.set("uHoleTrees", HOLE_OF_HEIGHT_TREES * height);
             to.set("uHoleFrom", camera.forwardX, camera.forwardY, camera.forwardUp, along - HOLE_BEFORE);
         } else {
             to.set("uHole", 0f, 0f, 0f);
+        }
+        if (overhead && ViewCamera.project(camera, tanHalfFieldOfView, aspect, canopyX, canopyY, canopyUp, canopyAt)) {
+            CanopyWindow.inPixels(height, tanHalfFieldOfView, away, canopySize);
+            to.set("uCanopy", (canopyAt[0] * 0.5f + 0.5f) * width, (canopyAt[1] * 0.5f + 0.5f) * height, canopySize[0], canopySize[1]);
+            to.set("uCanopyFrom", (float) Math.floor(focusX), (float) Math.floor(focusY), canopyEveryTree ? 1f : 0f, canopySize[3]);
+            if (canopyAimed && ViewCamera.project(camera, tanHalfFieldOfView, aspect, canopyAimX, canopyAimY, canopyUp, canopyAt)) {
+                to.set("uCanopyAim", (canopyAt[0] * 0.5f + 0.5f) * width, (canopyAt[1] * 0.5f + 0.5f) * height, canopySize[2]);
+            } else {
+                to.set("uCanopyAim", 0f, 0f, 0f);
+            }
+        } else {
+            to.set("uCanopy", 0f, 0f, 0f, 0f);
+            to.set("uCanopyAim", 0f, 0f, 0f);
         }
         // Nearer the camera, along the ground. The overhead eye is to the south-east, where
         // that is a greater x and y together, and the lengths here are in those units.

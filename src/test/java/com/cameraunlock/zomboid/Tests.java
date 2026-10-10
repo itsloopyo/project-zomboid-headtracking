@@ -158,6 +158,7 @@ public final class Tests {
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);
         Checks.run("CutawayTests", CutawayTests::run);
+        Checks.run("CanopyTests", CanopyTests::run);
         Checks.run("ShelterTests", ShelterTests::run);
         Checks.run("SightlineTests", SightlineTests::run);
         Checks.run("RoomSightTests", RoomSightTests::run);

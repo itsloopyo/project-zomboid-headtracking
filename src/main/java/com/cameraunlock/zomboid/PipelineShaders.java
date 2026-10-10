@@ -603,6 +603,7 @@ final class PipelineShaders {
      */
     static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + "#define CUT_FLOATS " + Cutaways.FLOATS + "\n#define CUT_FLOATS_A_ROW " + Cutaways.FLOATS_A_ROW + "\n#define CUT_SIDE " + Cutaways.SIDE + ".0\n"
+            + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + """
             uniform sampler2D uTexture;
             uniform sampler2DShadow uShadowNear;
@@ -722,8 +723,15 @@ final class PipelineShaders {
             }
             uniform vec3 uHole;
             uniform float uHoleUp;
-            uniform float uHoleTrees;
             uniform vec4 uHoleFrom;
+            // The game's window through trees, in the picture's pixels: its middle, and half its
+            // width and height. Its dither is laid in cells the size of a texel of the game's mask,
+            // counted from the middle as the game's are. See CanopyWindow.
+            uniform vec4 uCanopy;
+            // The player's square, 1 where every tree in the window is opened, and a cell's size.
+            uniform vec4 uCanopyFrom;
+            // The pointer's window while a firearm is aimed: its middle and radius, 0 for none.
+            uniform vec3 uCanopyAim;
             varying vec3 vPlace;
             varying vec4 vBlade;
 
@@ -852,6 +860,14 @@ final class PipelineShaders {
             }
 
             """ + GROUND_NOISE + """
+
+            // Whether a pixel is in a window of that middle and those half widths, whose dither
+            // runs from edgeFrom to edgeTo of them.
+            bool inCanopy(vec2 middle, vec2 size, float edgeFrom, float edgeTo) {
+                vec2 off = gl_FragCoord.xy - middle;
+                float reach = length(off / size);
+                return reach < edgeTo && grain(floor(off / uCanopyFrom.w)) >= smoothstep(edgeFrom, edgeTo, reach);
+            }
 
             // The light and dark of a picture of boards or of courses of shingle at a place on a
             // wall, a floor or a roof. Laid on as it is, the picture comes round again every pace
@@ -2306,20 +2322,27 @@ final class PipelineShaders {
                 } else if (!model && cover < (upright ? min(uCut, 0.1) : uCut)) {
                     discard;
                 }
-                // What stands between the overhead eye and the viewer and is no part of a
-                // building is opened in a round window about them, where the game lets its
-                // own picture of such a thing be seen through: a cupboard, a fridge, a hedge.
-                // A tree is opened in a wider one: a wood is tree after tree, and through a
-                // window the size of a doorway there is only the next crown. The mod's trees
-                // are their crowns, boles and ivy, and the game's are cards of its plant sheets.
-                // A building in the way is the game's to open: it leaves out the floors over
-                // the viewer's and cuts walls away, and the picture does as it does below.
-                bool tree = crown || core || vMaterial > 56.5 && vMaterial < 58.5
+                // A tree is opened where the game's own view opens it: in the game's window
+                // (see CanopyWindow), and only a tree on the camera's side of the player, east
+                // and south of their square, unless the game opens every tree there. The mod's
+                // trees are their crowns, boles and ivy, the game's are cards of its plant
+                // sheets, and a bush is none: the game fades its bushes as it does furniture.
+                bool tree = crown && vMaterial < 77.5 || core || vMaterial > 56.5 && vMaterial < 58.5
                         || vMaterial > 4.5 && vMaterial < 6.5 && vKind > 1.5 && vKind < 3.5;
+                if (tree && uCanopy.z > 0.0 && (uCanopyFrom.z > 0.5 || vWorld.x >= uCanopyFrom.x && vWorld.y >= uCanopyFrom.y)
+                        && (inCanopy(uCanopy.xy, uCanopy.zw, CANOPY_EDGE_FROM, CANOPY_EDGE_TO)
+                        || uCanopyAim.z > 0.0 && inCanopy(uCanopyAim.xy, uCanopyAim.zz, CANOPY_AIMED_FROM, CANOPY_AIMED_TO))) {
+                    discard;
+                }
+                // What else stands between the overhead eye and the viewer and is no part of a
+                // building is opened in a round window about them, where the game lets its own
+                // picture of such a thing be seen through: a cupboard, a fridge, a hedge. A
+                // building in the way is the game's to open: it leaves out the floors over the
+                // viewer's and cuts walls away, and the picture does as it does below.
                 bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
                 bool standing = vKind > 1.5 && vKind < 3.5;
-                if ((tree || ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
-                        && distance(gl_FragCoord.xy, uHole.xy) < (tree ? uHoleTrees : uHole.z) * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
+                if (!tree && (ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
+                        && distance(gl_FragCoord.xy, uHole.xy) < uHole.z * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
                     discard;
                 }
                 // Only in the building the viewer is in, and only what is of the walls or hangs on
