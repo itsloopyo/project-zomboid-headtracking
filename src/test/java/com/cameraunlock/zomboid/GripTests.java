@@ -23,6 +23,7 @@ final class GripTests {
         Checks.run("rightHandClosesRoundAPistolsGripAlongItsRake", () -> rightHandClosesRoundAPistolsGripAlongItsRake(model));
         Checks.run("leftHandWrapsTheRightOnAPistolHeldInBoth", () -> leftHandWrapsTheRightOnAPistolHeldInBoth(model));
         Checks.run("leftHandIsUnderTheForeEndsUnderside", () -> leftHandIsUnderTheForeEndsUnderside(model));
+        Checks.run("armsOnAPistolComeUpFromUnderThePictureUnturned", () -> armsOnAPistolComeUpFromUnderThePictureUnturned(model));
     }
 
     /** Where the pistol's front edge is at a height. */
@@ -151,9 +152,15 @@ final class GripTests {
             check(ArmPose.apart(held, TestGuns.handOn(pistol, SCALE)) < 1e-4f, "the right hand closes round the grip's middle, which is under the guard and not the frame or the slide");
             float[] thumb = placed(skins[0], model.wrist, new float[] {hold[0] + model.across[0], hold[1] + model.across[1], hold[2] + model.across[2]});
             float[] across = {(thumb[0] - held[0]) / SCALE, (thumb[1] - held[1]) / SCALE, (thumb[2] - held[2]) / SCALE};
-            float[] line = pistol.placed().way(shape.gripLine);
-            check(ArmPose.dot(across, line) > Math.cos(Math.toRadians(3)), "its knuckles run up the grip's raked line from the little finger to the first: "
-                    + Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(across, line)))) + " degrees off");
+            // The grip lies aslant across the palm: the knuckles lean back from its raked line by HANDGUN_ASLANT.
+            float[] line = pistol.placed().way(shape.gripLine), front = new float[3], aslant = new float[3];
+            float along = ArmPose.dot(pistol.pointing(), line);
+            ArmPose.unit(pistol.pointing()[0] - line[0] * along, pistol.pointing()[1] - line[1] * along, pistol.pointing()[2] - line[2] * along, front);
+            for (int axis = 0; axis < 3; axis++) {
+                aslant[axis] = line[axis] * (float) Math.cos(ArmHolds.HANDGUN_ASLANT) - front[axis] * (float) Math.sin(ArmHolds.HANDGUN_ASLANT);
+            }
+            check(ArmPose.dot(across, aslant) > Math.cos(Math.toRadians(3)), "its knuckles run from the little finger to the first aslant across the grip's raked line: "
+                    + Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(across, aslant)))) + " degrees off");
             float[] palm = placed(skins[0], model.wrist, new float[] {hold[0] + model.out[0], hold[1] + model.out[1], hold[2] + model.out[2]});
             check(palm[0] - held[0] < -0.5f * SCALE, "and its palm is on the grip's right side, facing it");
         }
@@ -175,6 +182,28 @@ final class GripTests {
         // The left hand is round the grip only when it is free.
         ArmHolds.Doing one = new ArmHolds.Doing(1f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, pistol, one, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 1, "with the left hand not free the pistol is held in the right alone");
+    }
+
+    /**
+     * Both arms on a pistol, at the hip and with the sights up, as the game's pistols are held: each
+     * forearm turned along its length no further than a forearm turns, so the upper arm is not
+     * rolled to make up the rest, and each elbow under its wrist, so the forearm comes up into the
+     * picture from below and does not lie across it from the side.
+     */
+    private static void armsOnAPistolComeUpFromUnderThePictureUnturned(ArmModel model) {
+        for (boolean aimed : new boolean[] {false, true}) {
+            ArmHolds.Weapon pistol = pistolHeld(aimed);
+            float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+            ArmHolds.Doing both = new ArmHolds.Doing(aimed ? 1f : 0f, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+            check(ArmHolds.place(model, SCALE, pistol, both, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a pistol held in both hands has both arms");
+            for (int side = 0; side < 2; side++) {
+                String arm = (side == 0 ? "the right" : "the left") + (aimed ? " arm with the sights up" : " arm at the hip");
+                float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
+                check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), arm + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
+                float drop = (said[side][ArmPose.WRIST + 1] - said[side][ArmPose.ELBOW + 1]) / SCALE;
+                check(drop > 0.08f, arm + " has its elbow well under its wrist: " + drop + " m");
+            }
+        }
     }
 
     private static void leftHandIsUnderTheForeEndsUnderside(ArmModel model) {

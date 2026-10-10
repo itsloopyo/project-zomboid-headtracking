@@ -43,22 +43,29 @@ final class ArmHolds {
      * a grip about a point level with its knuckles. On a handgun the palm is square to the grip's
      * right side and the middle of what it holds is put this far behind the grip's middle,
      * square to the grip's line, in metres: put on the middle its fingers reached past the
-     * grip's front, and this far back they go round it with the web of the hand on its back
-     * and the forearm in line with the barrel. On a long gun's wrist or pistol grip the hand
+     * grip's front, and this far back they go round it with the web of the hand on its back.
+     * A handgun's grip lies across the palm aslant, from the web of the thumb to the heel of
+     * the hand, so the knuckles lean back from the grip's line by this much, in radians: with
+     * them along it the forearm was turned against the hand by more than a forearm turns, the
+     * rest went into the upper arm, and the arm came at the eye from the side of the picture,
+     * where aslant it comes up from under the picture in line with the barrel. At the hip the
+     * first finger is this much of the way to the trigger from lying along the frame, which
+     * with the knuckles aslant points it at the slide. On a long gun's wrist or pistol grip the hand
      * is turned this far about the grip's line from square, in radians, its knuckles over the
      * wrist and its fingers round under it: held square, its arm came down onto it from over
      * the picture.
      */
-    static final float HANDGUN_GRIP_BEHIND = 0.035f, LONG_PALM_TURN = (float) Math.toRadians(-35);
+    static final float HANDGUN_GRIP_BEHIND = 0.035f, HANDGUN_ASLANT = (float) Math.toRadians(30), HANDGUN_HIP_TRIGGER = 0.5f, LONG_PALM_TURN = (float) Math.toRadians(-35);
     /**
      * The left hand round a pistol with the right, as a pistol is held in both: a fist on the
      * side of the grip the right palm leaves bare and round the right hand's fingers, this much
      * of the grip's thickness ahead of the grip's middle and this far to its left, in metres,
-     * its knuckles leaning this far forward from the grip's line, in radians, and its palm
+     * its knuckles leaning this far back from the grip's line, in radians, so that its forearm
+     * comes up from under the picture as the right one does and does not lie across it, and its palm
      * turned this much towards the eye from facing the grip square, in parts of that, so that
      * its heel is at the back of the grip and its fingers go round the front.
      */
-    static final float SUPPORT_AHEAD = 0.45f, SUPPORT_ASIDE = 0.024f, SUPPORT_LEANS = (float) Math.toRadians(32), SUPPORT_PALM_BACK = 0.35f;
+    static final float SUPPORT_AHEAD = 0.45f, SUPPORT_ASIDE = 0.024f, SUPPORT_LEANS = (float) Math.toRadians(30), SUPPORT_PALM_BACK = 0.35f;
     /** How many times the hand under a fore-end is brought back to where its arm reaches it: each time it may come under a higher or lower underside. */
     static final int REACH_PASSES = 4;
     /** How far a bolt's handle turns up to open it, in radians, and how far the bolt of a firearm of no particular make is drawn back, in metres. */
@@ -471,12 +478,15 @@ final class ArmHolds {
         ArmPose.unit(axes.ahead[0] - line[0] * along, axes.ahead[1] - line[1] * along, axes.ahead[2] - line[2] * along, front);
         float palmTurn = weapon.handgun() ? 0f : LONG_PALM_TURN, behind = weapon.handgun() ? HANDGUN_GRIP_BEHIND * axes.scale : 0f;
         float cos = (float) Math.cos(palmTurn), sin = (float) Math.sin(palmTurn);
+        float aslant = weapon.handgun() ? HANDGUN_ASLANT : 0f, aslantCos = (float) Math.cos(aslant), aslantSin = (float) Math.sin(aslant);
         for (int axis = 0; axis < 3; axis++) {
-            hold.across[axis] = line[axis];
+            hold.across[axis] = line[axis] * aslantCos - front[axis] * aslantSin;
             hold.out[axis] = -axes.right[axis] * cos + front[axis] * sin;
             hold.at[axis] -= front[axis] * behind;
         }
         float raised = ViewModelMath.smooth(doing.aim());
+        float hipTrigger = weapon.handgun() ? HANDGUN_HIP_TRIGGER : 0f;
+        raised = hipTrigger + (1f - hipTrigger) * raised;
         hold.weights[model.pose("grip")] = 1f - raised;
         hold.weights[model.pose("trigger")] = raised;
         float cycled = doing.cycled();
@@ -694,7 +704,7 @@ final class ArmHolds {
         Hold hold = new Hold(model);
         for (int axis = 0; axis < 3; axis++) {
             hold.at[axis] = weapon.grip()[axis] + ahead[axis] * thick * SUPPORT_AHEAD - axes.right[axis] * SUPPORT_ASIDE * axes.scale;
-            across[axis] = line[axis] * cos + ahead[axis] * sin;
+            across[axis] = line[axis] * cos - ahead[axis] * sin;
         }
         System.arraycopy(across, 0, hold.across, 0, 3);
         ArmPose.unit(axes.right[0] - ahead[0] * SUPPORT_PALM_BACK, axes.right[1] - ahead[1] * SUPPORT_PALM_BACK, axes.right[2] - ahead[2] * SUPPORT_PALM_BACK, hold.out);
