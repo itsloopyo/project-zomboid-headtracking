@@ -287,6 +287,16 @@ final class WorldScene {
         private long[] heightsFar = NO_CHUNKS;
         /** Whether the build left the span of a wire unknown at an end because the map was not loaded that far: see landOf. */
         private boolean wantsMap;
+        /** The land's part of what the build read, which signature leaves out of its sum, and its own chunk's kerbs: see heightsHeld. */
+        private long landSum, kerbs;
+        /**
+         * The heights the build was made on: its own chunk's first, then those of every chunk it
+         * took a height from, as Terrain handed them out (an array Terrain has handed out is never
+         * written again), each chunk's x and y in heightsSeenOf, and its own chunk's water.
+         */
+        private float[][] heightsSeen = new float[0][];
+        private int[] heightsSeenOf = new int[0];
+        private float[] waterSeen;
         /** Which of the chunk and the eight round it were loaded when it was last read, a bit each, and which chunks the map had loaded then: see loadedNow. */
         private int ring, loaded;
         /**
@@ -905,10 +915,15 @@ final class WorldScene {
     }
     /** Dev only: every build is made a second time with nothing taken from what is kept, and the two are compared float for float. */
     private static final boolean CHECK_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.checkBuilds");
+    /**
+     * A far chunk is not built again for heights that moved by less than half a dot of a picture
+     * this many dots high, at the field of view it is drawn with: see heightsHeld.
+     */
+    private static final float HELD_ROWS = 2160f;
     /** Dev only, for the rig: what building has come to since tolls was last asked. */
     private final int[] tollBuilt = new int[7];
     private final long[] tollBuiltNanos = new long[7];
-    private long tollMovedBand, tollMovedUnsigned, tollRebanded;
+    private long tollMovedBand, tollMovedUnsigned, tollRebanded, tollHeightsHeld;
     private long tollCrownsWaitNanos, tollCrownsLongestNanos;
     private long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
@@ -944,12 +959,12 @@ final class WorldScene {
             tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedSamePlain = tollAgedDiffered = tollMarkedByReading = tollPulledAfterGame = 0;
         }
         told += " | ms by cause " + Arrays.toString(Arrays.stream(tollBuiltNanos).map(each -> each / 1_000_000L).toArray()) + " moved for the band " + tollMovedBand + " unsigned " + tollMovedUnsigned
-                + " kept across a band " + tollRebanded;
+                + " kept across a band " + tollRebanded + " kept with heights moved too little to show " + tollHeightsHeld;
         told += String.format(Locale.ROOT, " | crowns kept %d, made here %d in %.1f ms, on their thread %d, unwanted %d, back after %.1f ms each and at most %.1f", tollCrownsKept, tollCrownsHere,
                 tollCrownsHereNanos / 1e6, tollCrownsThere, tollCrownsUnwanted, tollCrownsWaitNanos / 1e6 / Math.max(1, tollCrownsThere), tollCrownsLongestNanos / 1e6);
         tollCrownsKept = tollCrownsHere = tollCrownsHereNanos = tollCrownsThere = tollCrownsUnwanted = tollCrownsWaitNanos = tollCrownsLongestNanos = 0;
         Arrays.fill(tollBuiltNanos, 0);
-        tollMovedBand = tollMovedUnsigned = tollRebanded = 0;
+        tollMovedBand = tollMovedUnsigned = tollRebanded = tollHeightsHeld = 0;
         Arrays.fill(tollBuilt, 0);
         tollFrames = tollSums = tollSumNanos = tollBuildNanos = tollGrown = tollGrownNanos = tollChecked = tollDiffered = 0;
         return told;
@@ -2688,7 +2703,17 @@ final class WorldScene {
                         }
                         // The same triangles: the same sum, and nothing a build is told that its sum does not hold is otherwise.
                         // The sum holds the chunk's own heights. Those of the chunks round it that its build went by are in land alone.
-                        boolean same = !missing && current.signature == read && current.told == toldSoFar && current.epoch == epoch && current.land == land;
+                        boolean same = !missing && current.signature == read && current.landSum == readLand && current.told == toldSoFar && current.epoch == epoch && current.land == land;
+                        // Driving, the map loads a row of chunks every few frames, and the heights of every chunk
+                        // within a valley's width of it are worked out again: most move by a few hundredths of a
+                        // tile, and each passes its edges on to the chunks beside it. Far off, a build whose heights
+                        // have moved by less than the picture can show is that build still.
+                        if (!same && !missing && current.signed && distance >= BUILT_WHATEVER_IT_TAKES && current.signature == read && current.told == toldSoFar
+                                && current.epoch == epoch && (!current.wantsMap || current.loaded == loadedNow)
+                                && heightsHeld(current, distance * tanHalfFieldOfView / HELD_ROWS)) {
+                            same = true;
+                            tollHeightsHeld++;
+                        }
                         unchanged = same;
                         // A chunk that has only just come onto the map far off is made again for what loads late
                         // after a quarter of a second, then a half, then one: at a car's speed a dozen builds each
@@ -2715,6 +2740,7 @@ final class WorldScene {
                             current.things = things;
                             current.keepLevels(this, start, current);
                             current.land = land;
+                            current.landSum = readLand;
                             current.terrainVersion = terrain.version(chunk.wx, chunk.wy);
                             current.ring = ring;
                             current.loaded = loadedNow;
@@ -2763,6 +2789,7 @@ final class WorldScene {
                         fresh.bornNanos = missing ? start : current.bornNanos;
                         fresh.signed = summed;
                         fresh.signature = read;
+                        fresh.landSum = readLand;
                         fresh.summedFrom = summedFrom;
                         fresh.summedFromNanos = summedFromNanos;
                         fresh.plain = true;
@@ -2807,6 +2834,7 @@ final class WorldScene {
                         fresh.heightsFar = heightsFarCount == 0 ? NO_CHUNKS : Arrays.copyOf(heightsFar, heightsFarCount);
                         fresh.wantsMap = wantsMap;
                         fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
+                        heightsSeen(fresh, chunk.wx, chunk.wy);
                         if (fresh.seen == null) {
                             fresh.seen = new OpenLight();
                             fresh.seenRooms = new OpenLight();
@@ -3656,7 +3684,7 @@ final class WorldScene {
                 land = sum(sum(land, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
             }
             land = sum(land, terrain.kerbSum(chunk.wx, chunk.wy));
-            sum = sum(sum, land);
+            readLand = land;
             int span = lightRed.length;
             if (AUDIT_MARKS) {
                 auditTerrain = land;
@@ -3787,6 +3815,8 @@ final class WorldScene {
         }
         /** What the last reading of a chunk came to level by level, from readFrom to readTo, with ChunkMarks' counts for the light of each as they were before it, and whether it took any level's sum from a build. */
         private long[] readSums = new long[8];
+        /** The land's part of the last reading, which signature leaves out of its sum: see ChunkMeshes.landSum. */
+        private long readLand;
         private int[] readLit = new int[8];
         private int readFrom, readTo, readLoose;
         private long readUnseen;
@@ -4493,6 +4523,64 @@ final class WorldScene {
         float landAt(float x, float y) {
             heightsAt(x, y);
             return terrain.land(x, y);
+        }
+
+        /** Notes the heights a build was made on, after landOf: its own chunk's and those of the chunks it took heights from. */
+        private void heightsSeen(ChunkMeshes fresh, int wx, int wy) {
+            int count = 1 + Integer.bitCount(heightsRound) + heightsFarCount;
+            if (fresh.heightsSeen.length != count) {
+                fresh.heightsSeen = new float[count][];
+                fresh.heightsSeenOf = new int[count * 2];
+            }
+            int at = 0;
+            fresh.heightsSeenOf[0] = wx;
+            fresh.heightsSeenOf[1] = wy;
+            fresh.heightsSeen[at++] = terrain.corners(cell, wx, wy);
+            for (int bit = 0; bit < 9; bit++) {
+                if ((heightsRound >> bit & 1) != 0) {
+                    fresh.heightsSeenOf[at * 2] = wx + bit / 3 - 1;
+                    fresh.heightsSeenOf[at * 2 + 1] = wy + bit % 3 - 1;
+                    fresh.heightsSeen[at++] = terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
+                }
+            }
+            for (int known = 0; known < heightsFarCount; known++) {
+                fresh.heightsSeenOf[at * 2] = (int) (heightsFar[known] >> 32);
+                fresh.heightsSeenOf[at * 2 + 1] = (int) heightsFar[known];
+                fresh.heightsSeen[at] = terrain.corners(cell, fresh.heightsSeenOf[at * 2], fresh.heightsSeenOf[at * 2 + 1]);
+                at++;
+            }
+            fresh.waterSeen = terrain.water(wx, wy);
+            fresh.kerbs = terrain.kerbSum(wx, wy);
+        }
+
+        /**
+         * Whether every height a build was made on is within within of what it is now, and its own
+         * chunk's kerbs run where they did: its triangles would then come out the same but for
+         * that much up or down.
+         */
+        private boolean heightsHeld(ChunkMeshes build, float within) {
+            int wx = build.heightsSeenOf[0], wy = build.heightsSeenOf[1];
+            if (terrain.kerbSum(wx, wy) != build.kerbs || !within(build.waterSeen, terrain.water(wx, wy), within)) {
+                return false;
+            }
+            for (int at = 0; at < build.heightsSeen.length; at++) {
+                if (!within(build.heightsSeen[at], terrain.corners(cell, build.heightsSeenOf[at * 2], build.heightsSeenOf[at * 2 + 1]), within)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static boolean within(float[] then, float[] now, float within) {
+            if (then == now) {
+                return true;
+            }
+            for (int i = 0; i < then.length; i++) {
+                if (Math.abs(then[i] - now[i]) > within) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /**
