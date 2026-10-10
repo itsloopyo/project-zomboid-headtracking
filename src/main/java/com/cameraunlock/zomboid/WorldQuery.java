@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.LosUtil;
 import zombie.iso.SpriteDetails.IsoFlagType;
 
 /**
@@ -24,8 +25,8 @@ final class WorldQuery {
     private final GridTrace trace = new GridTrace();
     private IsoCell cell;
     private int level;
-    private final GridTrace.Edges solidToTheEye = (fromX, fromY, toX, toY) -> blocked(fromX, fromY, toX, toY, true);
-    private final GridTrace.Edges solidToAShot = (fromX, fromY, toX, toY) -> blocked(fromX, fromY, toX, toY, false);
+    private final GridTrace.Edges solidToTheEye = this::solidToTheEye;
+    private final GridTrace.Edges solidToAShot = this::solidToAShot;
 
     void look(IsoCell cell, int level) {
         this.cell = cell;
@@ -37,20 +38,47 @@ final class WorldQuery {
         return cell != null;
     }
 
-    private boolean blocked(int fromX, int fromY, int toX, int toY, boolean glassBlocks) {
-        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
-        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+    /**
+     * A wall at the edge of the map's squares where one of the two is missing. Out of the air into a
+     * square, the wall that made the square is on its north or west edge. Above the ground the map has
+     * no square where there is only air: a wall on the square's own north or west edge is still a wall,
+     * and one on the far side of a missing square cannot exist, because the wall would have made it.
+     */
+    private static boolean wallBesideAir(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY) {
         if (from == null) {
-            // Out of the air into a square: the wall that made the square is on its north or west edge.
             return to != null && (toY > fromY && to.has(IsoFlagType.collideN) || toX > fromX && to.has(IsoFlagType.collideW) || to.isSolid());
         }
-        if (to == null) {
-            // Above the ground the map has no square where there is only air. A wall on this
-            // square's own north or west edge is still a wall; one on the far side of a missing
-            // square cannot exist, because the wall would have made the square.
-            return toY < fromY && from.has(IsoFlagType.collideN) || toX < fromX && from.has(IsoFlagType.collideW);
+        return toY < fromY && from.has(IsoFlagType.collideN) || toX < fromX && from.has(IsoFlagType.collideW);
+    }
+
+    private boolean solidToTheEye(int fromX, int fromY, int toX, int toY) {
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        if (from == null || to == null) {
+            return wallBesideAir(from, to, fromX, fromY, toX, toY);
         }
-        return from.isBlockedTo(to) || to.isSolid() || glassBlocks && from.isWindowTo(to);
+        return from.isBlockedTo(to) || to.isSolid() || from.isWindowTo(to);
+    }
+
+    /**
+     * Whether a shot stops at the edge between two squares, by the game's own rule. A firearm keeps a
+     * target only when the game's line of sight test, made of this test square by square
+     * (LosUtil.lineClear in CombatManager.calculateHitListWeapon), finds no wall and no shut door on the
+     * way; whether a character could walk across does not come into it. A doorway, an open door and a
+     * window's glass stop a walker and not a shot, and the game breaks the glass as the shot goes on.
+     */
+    private boolean solidToAShot(int fromX, int fromY, int toX, int toY) {
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        if (from == null || to == null) {
+            return wallBesideAir(from, to, fromX, fromY, toX, toY);
+        }
+        return stopsAShot(to.testVisionAdjacent(fromX - toX, fromY - toY, 0, true, false));
+    }
+
+    /** Whether the game's line of sight test across an edge, as a firearm's line of fire goes by it, stops a shot there. */
+    static boolean stopsAShot(LosUtil.TestResults seen) {
+        return seen == LosUtil.TestResults.Blocked || seen == LosUtil.TestResults.ClearThroughClosedDoor;
     }
 
     /**

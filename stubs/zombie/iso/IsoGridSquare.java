@@ -31,6 +31,7 @@ public final class IsoGridSquare {
     public IsoObject getFloor() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
+    public LosUtil.TestResults testVisionAdjacent(int x, int y, int z, boolean specialDiag, boolean ignoreDoors) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSolid() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSolidTrans() { throw new UnsupportedOperationException("reference stub"); }
     public java.util.ArrayList<zombie.iso.objects.IsoWorldInventoryObject> getWorldObjects() { throw new UnsupportedOperationException("reference stub"); }
