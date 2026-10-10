@@ -35,13 +35,43 @@ final class CanopyWindow {
     /** The pointer's mask while aiming: a circle, and its dither. */
     static final float AIMED = 182f / TEXELS_PER_TILE, AIMED_EDGE_FROM = 0.705f, AIMED_EDGE_TO = 1.29f;
 
-    /** The most trees the game draws see-through that the picture is told of, nearest the player first, and how far from them it looks for them, in squares. */
-    static final int TREES = 96, TREE_REACH = 20;
+    /** Half the side of the player's mask and of the pointer's, in texels: the masks are 1024 and 512 texels square. */
+    static final int PLAYER_HALF = 512, POINTER_HALF = 256;
+    /** The most trees the game draws see-through that the picture is told of, nearest the middle of each mask first. */
+    static final int TREES = 192;
 
     /** The edges and the number of trees as the world shader has them. */
     static final String GLSL = "#define CANOPY_EDGE_FROM " + EDGE_FROM + "\n#define CANOPY_EDGE_TO " + EDGE_TO
             + "\n#define CANOPY_AIMED_FROM " + AIMED_EDGE_FROM + "\n#define CANOPY_AIMED_TO " + AIMED_EDGE_TO
             + "\n#define CANOPY_TREES " + TREES + "\n";
+
+    /**
+     * Where on the screen the game draws the player's mask, in the screen's pixels, into out: the
+     * middle of its zoomed picture less the camera's lead (PlayerCamera.rightClickX/Y, pixels of
+     * the zoomed picture), as IsoCell.drawStencilMask has it.
+     */
+    static void playerMaskAt(float screenWide, float screenHigh, float leadX, float leadY, float zoom, float[] out) {
+        out[0] = (screenWide * zoom / 2f - leadX) / zoom;
+        out[1] = (screenHigh * zoom / 2f - leadY) / zoom;
+    }
+
+    /**
+     * Whether the game looks at a tree on square (x, y) for a mask that many texels across from
+     * its middle, drawn about (middleX, middleY) on the same floor (FBORenderCell
+     * .isTranslucentTree, IsoCell.isInStencil): the square's corner drawn within the mask's
+     * square, give or take half a tile across, half a tile above and a tile and a half below. The
+     * same at every zoom and tile scale: a texel is a tile-scaled pixel, a tile 64 of them across
+     * and 32 down.
+     */
+    static boolean underMask(int x, int y, float middleX, float middleY, int halfTexels) {
+        float across = (x - middleX) - (y - middleY), down = (x - middleX) + (y - middleY);
+        return Math.abs(across) * 32f < halfTexels + 32f && down * 16f > -halfTexels - 32f && down * 16f < halfTexels + 96f;
+    }
+
+    /** How far from a mask's middle, in squares east or south, a square underMask can be. */
+    static int reach(int halfTexels) {
+        return (int) Math.ceil(((halfTexels + 32f) / 32f + (halfTexels + 96f) / 16f) / 2f) + 1;
+    }
 
     /**
      * The window's half width, half height, the pointer's radius and the size of a texel of the

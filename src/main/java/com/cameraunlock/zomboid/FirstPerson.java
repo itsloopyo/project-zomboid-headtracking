@@ -75,7 +75,10 @@ public final class FirstPerson {
     /** The trees the game draws see-through: each one's square and how much of it the game draws, three floats a tree. */
     private final float[] canopyFaded = new float[3 * CanopyWindow.TREES];
     private int canopyFadedCount;
-    private final float[] onFloor = new float[2];
+    private final float[] onFloor = new float[2], maskAt = new float[2];
+    /** How many faded trees were left out this frame for want of room, and whether that has been logged. */
+    private int canopyOver;
+    private boolean canopyOverSaid;
     private final ViewCamera.Pose flightView = new ViewCamera.Pose();
     /**
      * How near the eye the camera is when the viewer stops being one of the people in the
@@ -971,7 +974,8 @@ public final class FirstPerson {
         // camera's lead towards the pointer, so about the player, and while a firearm is aimed
         // about the pointer as well. Either is a place on the screen, put on the player's floor.
         PlayerCamera lead = IsoCamera.cameras[index];
-        ViewCamera.underScreen(x, y, atX, atY, eastX, eastY, southX, southY, wide / 2f - lead.rightClickX / zoom, high / 2f - lead.rightClickY / zoom, onFloor);
+        CanopyWindow.playerMaskAt(wide, high, lead.rightClickX, lead.rightClickY, zoom, maskAt);
+        ViewCamera.underScreen(x, y, atX, atY, eastX, eastY, southX, southY, maskAt[0], maskAt[1], onFloor);
         canopyX = onFloor[0];
         canopyY = onFloor[1];
         canopyAimed = player.isAnyAimKeyDown();
@@ -980,24 +984,18 @@ public final class FirstPerson {
             canopyAimX = onFloor[0];
             canopyAimY = onFloor[1];
         }
-        // The trees the game is fading or has faded, nearest the player first, ring by ring.
+        // The trees the game is fading or has faded: those it looks at for either mask, at any
+        // distance from the player, nearest each mask's middle first.
         canopyFadedCount = 0;
-        int squareX = (int) Math.floor(x), squareY = (int) Math.floor(y);
-        IsoCell cell = IsoWorld.instance.currentCell;
-        for (int ring = 0; ring <= CanopyWindow.TREE_REACH && canopyFadedCount < CanopyWindow.TREES; ring++) {
-            for (int dy = -ring; dy <= ring && canopyFadedCount < CanopyWindow.TREES; dy++) {
-                int step = dy == -ring || dy == ring ? 1 : Math.max(2 * ring, 1);
-                for (int dx = -ring; dx <= ring && canopyFadedCount < CanopyWindow.TREES; dx += step) {
-                    IsoGridSquare square = cell.getGridSquare(squareX + dx, squareY + dy, 0);
-                    IsoTree tree = square == null ? null : square.getTree();
-                    if (tree != null && tree.fadeAlpha < 1f) {
-                        canopyFaded[3 * canopyFadedCount] = squareX + dx;
-                        canopyFaded[3 * canopyFadedCount + 1] = squareY + dy;
-                        canopyFaded[3 * canopyFadedCount + 2] = tree.fadeAlpha;
-                        canopyFadedCount++;
-                    }
-                }
-            }
+        canopyOver = 0;
+        gatherFaded(canopyX, canopyY, CanopyWindow.PLAYER_HALF);
+        if (canopyAimed) {
+            gatherFaded(canopyAimX, canopyAimY, CanopyWindow.POINTER_HALF);
+        }
+        if ((canopyOver > 0) != canopyOverSaid) {
+            canopyOverSaid = canopyOver > 0;
+            Log.info(canopyOverSaid ? "overhead: " + canopyOver + " more trees the game draws see-through than the " + CanopyWindow.TREES
+                    + " the picture is told of: those further from the window are drawn whole" : "overhead: the picture is told of every tree the game draws see-through again");
         }
         if (TRACE && (overheadSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "overhead: player on screen at (%.1f, %.1f) of %.0fx%.0f, zoom %.2f, east (%.2f, %.2f) south (%.2f, %.2f), camera offset (%.1f, %.1f), middle of screen at tile (%.2f, %.2f), player (%.2f, %.2f, %.2f)",
@@ -1007,6 +1005,45 @@ public final class FirstPerson {
         overheadView.eyeX = middleX - overheadView.forwardX * OVERHEAD_AWAY;
         overheadView.eyeY = middleY - overheadView.forwardY * OVERHEAD_AWAY;
         overheadView.eyeUp = floorUp - overheadView.forwardUp * OVERHEAD_AWAY;
+    }
+
+    /** Adds the trees the game is fading under a mask about that place on the floor, ring by ring out from it, each tree once. */
+    private void gatherFaded(float middleX, float middleY, int halfTexels) {
+        IsoCell cell = IsoWorld.instance.currentCell;
+        int fromX = (int) Math.floor(middleX), fromY = (int) Math.floor(middleY), reach = CanopyWindow.reach(halfTexels);
+        for (int ring = 0; ring <= reach; ring++) {
+            for (int dy = -ring; dy <= ring; dy++) {
+                int step = dy == -ring || dy == ring ? 1 : Math.max(2 * ring, 1);
+                for (int dx = -ring; dx <= ring; dx += step) {
+                    int squareX = fromX + dx, squareY = fromY + dy;
+                    if (!CanopyWindow.underMask(squareX, squareY, middleX, middleY, halfTexels)) {
+                        continue;
+                    }
+                    IsoGridSquare square = cell.getGridSquare(squareX, squareY, 0);
+                    IsoTree tree = square == null ? null : square.getTree();
+                    if (tree == null || tree.fadeAlpha >= 1f || gathered(squareX, squareY)) {
+                        continue;
+                    }
+                    if (canopyFadedCount == CanopyWindow.TREES) {
+                        canopyOver++;
+                        continue;
+                    }
+                    canopyFaded[3 * canopyFadedCount] = squareX;
+                    canopyFaded[3 * canopyFadedCount + 1] = squareY;
+                    canopyFaded[3 * canopyFadedCount + 2] = tree.fadeAlpha;
+                    canopyFadedCount++;
+                }
+            }
+        }
+    }
+
+    private boolean gathered(int x, int y) {
+        for (int i = 0; i < canopyFadedCount; i++) {
+            if (canopyFaded[3 * i] == x && canopyFaded[3 * i + 1] == y) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
