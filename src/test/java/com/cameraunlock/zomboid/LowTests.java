@@ -28,6 +28,7 @@ final class LowTests {
         lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance();
         aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow();
         anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings();
+        theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone();
     }
 
     /**
@@ -88,6 +89,29 @@ final class LowTests {
         check(count(shaders, "bool sized = water && uPlainWater < 0.5;") == 1
                 && count(shaders, "vec3 kept = sized ? ") == 1 && count(shaders, "float near = sized ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);") == 1,
                 "and plain water keeps every size of ripple and lets them go from 14 to 55 tiles off, as a wet road does");
+    }
+
+    /**
+     * Low makes none of the mod's own content (Pipeline.CONTENT), and draws the mod's arms on a
+     * held weapon all the same, as OwnArms says: they are a piece of the core, kept when a mode
+     * that shows none of the content gives it back, and the one place that chooses them asks
+     * Own.arms. The rule itself is run in OwnTests.
+     */
+    private static void theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone() {
+        String pipeline = source("Pipeline.java");
+        String arms = "pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));";
+        int core = pipeline.indexOf("private static List<Piece> corePieces() {"), content = pipeline.indexOf("private static List<Piece> contentPieces() {");
+        int made = pipeline.indexOf(arms);
+        check(count(pipeline, arms) == 1 && core >= 0 && made > core && (content < core || made < content),
+                "the arms are made as a piece of the core, which every graphics mode draws with, Low included");
+        int giveBack = pipeline.indexOf("private static void giveBackContent() {");
+        String given = pipeline.substring(giveBack, pipeline.indexOf("Own.picturesMade(false);", giveBack));
+        check(count(given, "OwnArms.letGo()") == 0 && count(pipeline, "OwnArms.letGo();") == 1,
+                "going to Low gives back the content and keeps the arms, which only letting first person go gives back");
+        String characters = source("Characters.java");
+        check(count(characters, "boolean own = Own.arms() && OwnArms.model() != null;") == 1 && count(characters, "Own.") == count(characters, "Own.arms()"),
+                "the viewer's arms are the mod's where Own.arms() says, and the game's own, as Low drew them before, where it does not");
+        check(count(source("Own.java"), "static boolean arms() { return (on & ARMS) != 0; }") == 1, "and Own.arms() is the row as the file has it");
     }
 
     /** A source file with its comments out and every run of white space one space. */

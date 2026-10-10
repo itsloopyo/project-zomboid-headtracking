@@ -3641,14 +3641,19 @@ final class Pipeline {
             makeRainDrops();
             return null;
         }));
-        // Last, one for each of ALWAYS_READ: LET_GO gives these back, and the making begins again from the first of them.
+        // Last, one for each of ALWAYS_READ and the arms: LET_GO gives these back, and the making begins again from the first of them.
         for (int material = 0; material < MATERIALS.length; material++) {
             if (ALWAYS_READ.contains(MATERIALS[material])) {
                 pieces.add(materialPiece(material));
             }
         }
+        // Every mode draws the arms on a held weapon as OwnArms says, Low included: see Own.arms.
+        pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
+
+    /** How many pieces at the end of CORE LET_GO gives back: the surfaces of ALWAYS_READ and the arms. */
+    private static final int CORE_GIVEN_BACK = ALWAYS_READ.size() + 1;
 
     private static Piece materialPiece(int material) {
         String picture = "/materials/" + MATERIALS[material] + ".bc";
@@ -3686,10 +3691,9 @@ final class Pipeline {
                 return "the sprigs could not be read: " + e.getMessage();
             }
         }, SPRIGS, SPRIG_FORM));
-        // The weapon and arm models are given back with the pictures and made again with them: see giveBackContent.
+        // The weapon models are given back with the pictures and made again with them: see giveBackContent.
         pieces.add(new Piece(OwnWeapon.MODEL::readAhead, OwnWeapon.MODEL::isRead, OwnWeapon::prepare));
         pieces.add(new Piece(OwnRifle.MODEL::readAhead, OwnRifle.MODEL::isRead, OwnRifle::prepare));
-        pieces.add(new Piece(OwnArms::readAhead, OwnArms::isRead, OwnArms::prepare));
         return pieces;
     }
 
@@ -4193,7 +4197,7 @@ final class Pipeline {
     /**
      * Queued once a view's first person has been off for a while and the logic thread has let
      * its every build go. Once no view holds any of it, gives back the graphics card's copy of the world, the pictures and models of
-     * the mod's own, the surfaces every mode reads, the furniture's models and the copies of
+     * the mod's own, the surfaces every mode reads, the arms, the furniture's models and the copies of
      * the game's meshes, and whatever was read ahead for a making that will not now happen.
      * What is left is the programs, the cloud noise and the rain, which are small.
      * Asked for again, the rest is made again, as it was the first time.
@@ -4233,11 +4237,12 @@ final class Pipeline {
                     materialGain[material] = 1f;
                 }
             }
-            // The surfaces are made again by the pieces of the core that made them, and their reading begun again with them.
-            preparing = Math.min(preparing, CORE.size() - ALWAYS_READ.size());
+            OwnArms.letGo();
+            // The surfaces and the arms are made again by the pieces of the core that made them, and their reading begun again with them.
+            preparing = Math.min(preparing, CORE.size() - CORE_GIVEN_BACK);
             prepared = false;
             coreBegun = false;
-            Log.info("first person has given back the surfaces every graphics mode reads, the furniture's models and its copies of " + copies + " of the game's meshes");
+            Log.info("first person has given back the surfaces every graphics mode reads, the arms, the furniture's models and its copies of " + copies + " of the game's meshes");
         }
     };
 
@@ -4276,7 +4281,6 @@ final class Pipeline {
         sprigForm = 0;
         OwnWeapon.MODEL.letGo();
         OwnRifle.MODEL.letGo();
-        OwnArms.letGo();
         contentPreparing = 0;
         contentBegun = false;
         contentReady = false;

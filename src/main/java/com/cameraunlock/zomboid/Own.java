@@ -36,7 +36,7 @@ final class Own {
      */
     private static volatile boolean picturesMade;
 
-    /** The rows that are on. In the Low graphics mode none is, and in Medium the plants are the game's, whatever the file says. */
+    /** The rows that are on. In the Low graphics mode none is, and in Medium the plants are the game's, whatever the file says. The arms go by their row alone: see arms. */
     static int on() {
         return Quality.plain() || !picturesMade ? 0 : Quality.gamesPlants() ? on & ~PLANTS : on;
     }
@@ -82,8 +82,14 @@ final class Own {
         return (on() & ZOMBIES) != 0;
     }
 
+    /**
+     * Whether the arms on a held weapon are the mod's own: the row as the file has it, in every
+     * graphics mode, Low included. The game's own arms are posed for the game's view from above,
+     * and moved with the weapon to before the eye they hang in the middle of the picture. The arms
+     * are made with the core of the picture, not with the rest of the mod's own: see Pipeline.
+     */
     static boolean arms() {
-        return (on() & ARMS) != 0;
+        return (on & ARMS) != 0;
     }
 
     static boolean people() {

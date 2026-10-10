@@ -498,8 +498,7 @@ final class OwnArms {
 
     /** Begins reading the arms' pictures on other threads, for {@link #prepare} to find them read. */
     static void readAhead() {
-        // The row as the file has it: Own.arms() is false until the content this is a piece of is made.
-        ahead = (Own.rows() & Own.ARMS) != 0;
+        ahead = Own.arms();
         for (String path : ahead ? new String[] {COLOUR, SURFACE} : new String[0]) {
             Ahead.begin(path, () -> Pictures.packed(path, false));
         }

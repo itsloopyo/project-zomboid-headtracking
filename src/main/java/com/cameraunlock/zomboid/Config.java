@@ -127,9 +127,10 @@ final class Config {
                         + "from one to the next, Low, Medium, High, Custom, and saves it here. Low is as near\n"
                         + "the game's own look as there is: the game's own view is the game's own picture, and\n"
                         + "first person is drawn with the game's own sprites, models and textures in place of\n"
-                        + "everything the mod made, at a little over three fifths of the pixels each way, sight\n"
-                        + "to 48 tiles, smaller shadow maps, and no shading of corners, lit air, reflections or\n"
-                        + "depth in surfaces. Medium and High draw both views with what the mod made. High: the\n"
+                        + "everything the mod made but the arms on a held weapon, which OwnArms switches, at a\n"
+                        + "little over three fifths of the pixels each way, sight to 48 tiles, smaller shadow\n"
+                        + "maps, and no shading of corners, lit air, reflections or depth in surfaces. Medium\n"
+                        + "and High draw both views with what the mod made. High: the\n"
                         + "whole picture. Medium: the game's own grass, trees, bushes and rocks whatever\n"
                         + "OwnPlants says, no shading of corners, lit air, reflections or depth in surfaces\n"
                         + "either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow\n"
@@ -193,8 +194,9 @@ final class Config {
                             + "Read again while the game runs.\n"
                             + "true: as near the game's own look as there is, as in Low: the game's own view is the\n"
                             + "game's own picture, and first person is drawn with the game's own sprites, models and\n"
-                            + "textures in place of everything the mod made. false: both views are drawn with what\n"
-                            + "the mod made, as the rows of [Content] say.",
+                            + "textures in place of everything the mod made but the arms on a held weapon, which\n"
+                            + "OwnArms switches. false: both views are drawn with what the mod made, as the rows of\n"
+                            + "[Content] say.",
                     writable | live, high.stockLook()),
             core.configLocalBool("Graphics", "SpritePlants",
                     "true: grass, trees, bushes and rocks are the game's own sprites whatever OwnPlants\n"
@@ -321,7 +323,9 @@ final class Config {
             core.configLocalBool("Content", "OwnArms",
                     "true: arms and hands of the mod's own on a held weapon, with fingers that close on\n"
                             + "it and go to its bolt, slide, magazine and loading port as it is worked and loaded,\n"
-                            + "in the skin, sleeves and gloves your character has. false: the game's own arms.",
+                            + "in the skin, sleeves and gloves your character has, in every graphics mode, Low\n"
+                            + "included. false: the game's own arms and hands as the game poses them, moved with\n"
+                            + "the weapon to before the eye: for another mod that changes the arms or the weapons.",
                     writable | live, true),
             core.configLocalBool("Content", "OwnClothes",
                     "true: what people and zombies wear is made finer near the eye: the game's picture\n"

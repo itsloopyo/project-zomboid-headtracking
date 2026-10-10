@@ -12,6 +12,7 @@ final class OwnTests {
             aSwitchedRowHasTheWorldBuiltAgainOnce();
             aSwitchedRowHasEachViewsWorldBuiltAgain();
             theLowGraphicsModeShowsNothingOfTheModsOwn();
+            theArmsOnAHeldWeaponGoByTheirRowInEveryMode();
             customsStockLookAndSpritePlantsAreLowsAndMediums();
             paintedLinesGoByTheFilesRowOutsideLow();
             nothingOfTheModsOwnIsShownBeforeItsPicturesAreMade();
@@ -48,6 +49,42 @@ final class OwnTests {
         check(Own.taken(0) && !Own.taken(0), "and the world is built without them, once");
         Own.picturesMade(true);
         check(Own.weapons() && Own.plants() && Own.textures() && Own.taken(0) && !Own.taken(0), "made, they are shown and the world is built again, once");
+    }
+
+    /**
+     * The game's own arms, moved with the weapon to before the eye, hang in the middle of the
+     * picture, so Low draws the mod's own on a held weapon too. OwnArms off is the game's arms in
+     * every mode, as Low drew them before, for a player whose other mods change the arms.
+     */
+    private static void theArmsOnAHeldWeaponGoByTheirRowInEveryMode() {
+        Own.set(Own.ALL);
+        Own.taken(0);
+        Quality.set(Quality.LOW);
+        check(Own.arms() && !Own.weapons() && !Own.people(), "in Low with OwnArms on the arms on a held weapon are the mod's, and nothing else of its own is shown");
+        check(!Own.taken(0), "and they are drawn without the world being built again");
+        Own.set(Own.ALL & ~Own.ARMS);
+        check(!Own.arms(), "in Low with OwnArms off they are the game's own, as Low drew them before");
+        Own.taken(0);
+        for (int mode : new int[] {Quality.MEDIUM, Quality.HIGH, Quality.AUTOMATIC}) {
+            Quality.set(mode);
+            check(!Own.arms() && Own.weapons(), "OwnArms off is the game's arms in " + Quality.name() + " too, with the rest of the mod's own shown");
+        }
+        Own.set(Own.ALL);
+        Own.picturesMade(false);
+        check(Own.arms() && !Own.weapons(), "the arms are made with the core of the picture, so they are the mod's before the rest of its own is made");
+        Own.picturesMade(true);
+        Quality.Picture was = Quality.custom();
+        Quality.Picture stock = new Quality.Picture(true, Quality.HIGH_PICTURE.spritePlants(), Quality.HIGH_PICTURE.renderScale(),
+                Quality.HIGH_PICTURE.sharpShadows(), Quality.HIGH_PICTURE.viewDistance(), Quality.HIGH_PICTURE.drawDistance(),
+                Quality.HIGH_PICTURE.drivingDrawDistance(), Quality.HIGH_PICTURE.rainOnGlass(), Quality.HIGH_PICTURE.shadingAndLight(),
+                Quality.HIGH_PICTURE.reflections(), Quality.HIGH_PICTURE.fullSizeTextures(), Quality.HIGH_PICTURE.farTrees(),
+                Quality.HIGH_PICTURE.surfaceDepth());
+        Quality.custom(stock);
+        Quality.set(Quality.CUSTOM);
+        check(Quality.plain() && Own.arms() && !Own.weapons(), "Custom with StockLook draws the arms as Low does");
+        Quality.custom(was);
+        Quality.set(Quality.HIGH);
+        Own.taken(0);
     }
 
     private static void theLowGraphicsModeShowsNothingOfTheModsOwn() {
