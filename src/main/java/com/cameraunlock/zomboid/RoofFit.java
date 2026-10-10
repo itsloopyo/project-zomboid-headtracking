@@ -167,11 +167,24 @@ final class RoofFit {
     /**
      * The tile a roof sprite on a square is laid on, given the tile the fit left there and
      * whether the sprite is that tile's own: its own sprite on it, and a second sprite on a
-     * tile the fit folded, which is a piece of the same picture of where two slopes meet (the
-     * top of a valley). Any other second sprite on none, null: it lies as it reads.
+     * valley's fold where the tile's own sprite lies on some of it, which is a piece of the same
+     * picture of where the two slopes meet (the top of a valley), laid on the triangles the
+     * tile's own sprite is on. Any other second sprite on none, null: it lies as it reads. On a
+     * hip's fold a second sprite is no piece of the hip (a flat roof's sheet the hip stands
+     * on), and laid on the fold it lay in the hip's own sprite's plane, or over the triangle
+     * the mod's own sheet closes.
      */
     static Tile laidOn(Tile fitted, boolean itsOwn) {
-        return fitted != null && (itsOwn || fitted.shaped) ? fitted : null;
+        return fitted != null && (itsOwn || valley(fitted) && fitted.own != 0) ? fitted : null;
+    }
+
+    /** Whether a tile is folded into a valley: its fold lower than its two corners off the fold. */
+    static boolean valley(Tile tile) {
+        if (!tile.shaped || tile.crease == UNCREASED) {
+            return false;
+        }
+        int[] order = TRIANGLES[tile.crease];
+        return tile.corners[order[0]] + tile.corners[order[1]] < tile.corners[order[2]] + tile.corners[order[5]] - SAME;
     }
 
     /**
@@ -180,6 +193,11 @@ final class RoofFit {
      */
     static boolean fallsToItsFloor(Tile tile, int axis) {
         return tile.slopes() && tile.fitAxis == axis && tile.fitHigh < tile.fitLow && Math.abs(tile.fitHigh - tile.z) < Roofs.FLAT;
+    }
+
+    /** As fallsToItsFloor, for a slope that falls the other way, to the edge nearer the map's origin. */
+    static boolean risesFromItsFloor(Tile tile, int axis) {
+        return tile.slopes() && tile.fitAxis == axis && tile.fitLow < tile.fitHigh && Math.abs(tile.fitLow - tile.z) < Roofs.FLAT;
     }
 
     /** Whether a tile of a roof, no trim, lies level at the floor of its level: the corner of a hipped roof at its eave, as the map draws it. */
@@ -524,7 +542,11 @@ final class RoofFit {
             float eave = Math.min(lowest.fitLow, lowest.fitHigh);
             // A row whose foot runs under a wing is cut short there, by the valley's tiles: the
             // slope goes on down under the wing to the eave the rest of its plane comes down to.
-            Float planeEave = top.fitted ? eaves.get(planeOf(top)) : null;
+            // A row that ends at its own eave keeps it, though more of its plane comes down
+            // further: a terrace's deeper neighbour under one ridge, a roof that runs on down
+            // over a lean-to beside it. Taken down a storey there, the far slope looked for
+            // its place on the storey under the roof, found rooms and was not made.
+            Float planeEave = top.fitted && cutByAWing(at, lowest, dx, dy) ? eaves.get(planeOf(top)) : null;
             if (planeEave != null && planeEave < eave - SAME) {
                 eave = planeEave;
                 climbed = Math.round((ridge - eave) / rise);
@@ -795,6 +817,21 @@ final class RoofFit {
                         && Math.abs(Math.min(next.fitLow, next.fitHigh) - ridge) <= JOIN) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the walk down a row from its top stopped at a wing: past the low edge of its
+     * lowest tile lies a tile the map folded where two slopes meet, the valley's, or a tile of
+     * a slope across this one.
+     */
+    private static boolean cutByAWing(HashMap<Long, Tile> at, Tile lowest, int dx, int dy) {
+        for (int dz = 0; dz >= -1; dz--) {
+            Tile next = at.get(key(lowest.x - dx, lowest.y - dy, lowest.z + dz));
+            if (next != null && (next.shaped || next.slopes() && next.fitAxis != lowest.fitAxis)) {
+                return true;
             }
         }
         return false;

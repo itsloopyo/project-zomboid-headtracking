@@ -802,7 +802,7 @@ final class WallBuilder {
      * wall and standing a finger proud of it. They are what says, from down the street, where
      * one floor ends and the next begins. The plinth stops either side of a doorway.
      */
-    private void addCourses(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float outX, float outY) {
+    void addCourses(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float outX, float outY) {
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
         plain.open = build.frame.open;
         plain.sway = 0f;

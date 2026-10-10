@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -62,16 +63,20 @@ final class BuildingTests {
     }
 
     private static void coursesStandOnTheirWallNotASquareOut() {
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        // The north wall of square (4, 9), out of doors to the north, then its west wall, out of doors to the west.
-        Courses.onEdge(mesh, 4, 9, 0f, 0f, 1f, 0f, 0f, 0f, 0f, -1f, -1f, -1f, 1f, 1f, 1f);
-        float[] box = bounds(mesh);
-        check(box[0] >= 4f - 1e-5f && box[1] <= 5f + 1e-5f && box[2] >= 9f - Courses.PROUD - 1e-5f && box[3] <= 9f + 1e-5f,
+        // The north wall of square (4, 9), out of doors to the north, then its west wall, out of
+        // doors to the west, as WallBuilder.standEdge hands them to addCourses.
+        TestMap map = new TestMap();
+        TestMap.write(map.build.wallBuilder, "farColour", new float[] {1f, 1f, 1f});
+        float[] noOpening = new float[14];
+        Arrays.fill(noOpening, -1f);
+        map.build.wallBuilder.addCourses(noOpening, 0, 4, 9, 0, 0f, 0f, 1f, 0f, 0f, -1f);
+        float[] box = bounds(TestMap.plain());
+        check(TestMap.plain().triangles() > 0 && box[0] >= 4f - 1e-5f && box[1] <= 5f + 1e-5f && box[2] >= 9f - Courses.PROUD - 1e-5f && box[3] <= 9f + 1e-5f,
                 "a north wall's plinth and course stand on its edge, proud of it to the north: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
-        mesh.clear();
-        Courses.onEdge(mesh, 4, 9, 0f, 0f, 0f, 1f, 0f, 0f, -1f, 0f, -1f, -1f, 1f, 1f, 1f);
-        box = bounds(mesh);
-        check(box[0] >= 4f - Courses.PROUD - 1e-5f && box[1] <= 4f + 1e-5f && box[2] >= 9f - 1e-5f && box[3] <= 10f + 1e-5f,
+        TestMap.plain().clear();
+        map.build.wallBuilder.addCourses(noOpening, 0, 4, 9, 0, 0f, 0f, 0f, 1f, -1f, 0f);
+        box = bounds(TestMap.plain());
+        check(TestMap.plain().triangles() > 0 && box[0] >= 4f - Courses.PROUD - 1e-5f && box[1] <= 4f + 1e-5f && box[2] >= 9f - 1e-5f && box[3] <= 10f + 1e-5f,
                 "a west wall's plinth and course stand on its edge, proud of it to the west: x " + box[0] + " to " + box[1] + ", y " + box[2] + " to " + box[3]);
     }
 
@@ -283,6 +288,36 @@ final class BuildingTests {
         check(Eaves.pipeFoot(3, level -> level == 1 ? Eaves.FLOOR : Eaves.AIR, level -> level >= 1) == ViewCamera.LEVEL_HEIGHT,
                 "down to a balcony only the walls above the balcony carry it");
         check(Eaves.SHOE_OUT >= 0.1f && Eaves.SHOE_OUT <= 0.15f && Eaves.SHOE_HIGH <= 0.2f, "its shoe turns out from the wall as far as a real one, 10 to 15 cm, at the foot");
+        // As RoofBuilder hangs it: the eave of a tile on level 1 at (5, 4), falling south to its
+        // floor, and one falling east, with a wall of the storey under it on the edge asked.
+        check(pipeHung(true, 5, 5, true), "under an eave on the south edge the pipe runs down the wall on that edge, the north wall of the square past it");
+        check(pipeHung(true, 4, 5, true), "or down the wall of the square before it along the eave, at the corner the pipe is on");
+        check(!pipeHung(true, 5, 4, true), "and not down a wall a square in from the eave");
+        check(!pipeHung(true, -1, -1, true), "with no wall under the eave there is no pipe");
+        check(pipeHung(false, 6, 4, false), "under an eave on the east edge the pipe runs down the west wall of the square past it");
+        check(!pipeHung(false, 5, 4, false), "and not down the west wall of the eave's own square");
+    }
+
+    /**
+     * Whether RoofBuilder hangs a pipe from the eave of a tile on level 1 at (5, 4) that falls
+     * south (or east) to its floor, with a wall on level 0 on the north (or west) edge of the
+     * square (wallX, wallY): something of it at the foot of the storey under the eave.
+     */
+    private static boolean pipeHung(boolean south, int wallX, int wallY, boolean north) {
+        TestMap map = new TestMap();
+        if (wallX >= 0) {
+            map.wall(wallX, wallY, 0, north);
+        }
+        SpriteGeometry.Mesh sheet = new SpriteGeometry.Mesh();
+        float rise = 1f / 3f;
+        map.build.roofBuilder.addEave(sheet, 5, 4, 1, rise, south ? 0f : -rise, south ? -rise : 0f, true);
+        check(sheet.triangles() > 0, "the eave is made");
+        SpriteGeometry.Mesh plain = TestMap.plain();
+        boolean foot = false;
+        for (int at = 0; at < plain.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            foot |= plain.vertices[at + 2] < 0.5f * ViewCamera.LEVEL_HEIGHT;
+        }
+        return foot;
     }
 
     private static void pavementIsNotLooseStone() {

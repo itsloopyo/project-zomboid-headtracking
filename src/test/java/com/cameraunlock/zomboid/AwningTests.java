@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -196,21 +197,33 @@ final class AwningTests {
      * corner piece past its west end. Under a roof it is no hood, and its corner is the row's.
      */
     private static void theCornerPastARoofsEaveRowGoesWithTheRow() {
-        Pier house = new Pier();
-        HashSet<String> row = new HashSet<>();
+        // As the map has it at the one-storey house at (6409, 5358): a roof on level 1 whose slope
+        // falls south to its floor over x 1 to 6, the row of eave it hangs on the north wall of
+        // the squares under its foot on level 0, and the corner piece past the row's west end.
+        TestMap map = new TestMap();
+        ArrayList<RoofFit.Tile> slope = new ArrayList<>();
         for (int x = 1; x <= 6; x++) {
-            house.eaves.put(x + ",0", Outdoors.NORTH);
-            house.walls.put(x + ",0", Outdoors.NORTH);
-            house.filledAbove.add(x + ",-1");
-            row.add(x + ",0");
+            slope.add(new RoofFit.Tile(x, -1, 1, RoofFit.ALONG_Y, true, 1f + RoofFit.PITCH, 1f));
+            map.roofSprite(x, 0, 0, "roofs_02_6", "attachedN", "isEave");
+            map.wall(x, 0, 0, true);
         }
-        house.ends.add("0,0");
-        house.ends.add("3,1");
-        Hoods.Run eaves = (x, y) -> row.contains(x + "," + y);
-        check(!Hoods.hood(house, 1, 0) && !Hoods.endOfAHood(house, 0, 0), "an eave row with a roof behind it is no hood, nor its corner a hood's");
-        check(Hoods.endOf(house, 0, 0, eaves), "the corner piece past the west end of the row goes with the row");
-        check(!Hoods.endOf(house, 3, 1, eaves), "an end piece in front of the row, across its wall, is none of its");
-        check(!Hoods.endOf(house, 7, 0, eaves) && !Hoods.endOf(house, 0, 0, (x, y) -> false), "nor is a square with no end piece, or one by no row");
+        RoofFit.fit(slope);
+        for (RoofFit.Tile tile : slope) {
+            map.roofTile(tile, map.painted);
+        }
+        map.roofSprite(0, 0, 0, "roofs_02_30", "attachedN", "isEave");
+        map.roofSprite(3, 1, 0, "roofs_02_30", "attachedN", "isEave");
+        RoofBuilder roofs = map.build.roofBuilder;
+        check(roofs.eaveRow(1, 0, 0) && roofs.eaveRow(6, 0, 0), "the row under the slope's foot is that slope's eave row");
+        check(roofs.eaveRowEnd(0, 0, 0), "the corner piece past the west end of the row goes with the row");
+        check(!roofs.eaveRowEnd(3, 1, 0), "an end piece in front of the row, across its wall, is none of its");
+        check(!roofs.eaveRowEnd(7, 0, 0), "nor is a square with no end piece");
+        TestMap bare = new TestMap();
+        bare.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
+        bare.wall(1, 0, 0, true);
+        bare.roofSprite(0, 0, 0, "roofs_02_30", "attachedN", "isEave");
+        check(!bare.build.roofBuilder.eaveRow(1, 0, 0) && !bare.build.roofBuilder.eaveRowEnd(0, 0, 0),
+                "a row with no slope over it is no roof's eave row, nor the corner past it a row's");
     }
 
     private static void aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo() {

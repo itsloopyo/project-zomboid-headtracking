@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
@@ -51,10 +52,33 @@ final class RoofBuilder {
     private final float[] cutWall = new float[12];
     private final float[] barge = new float[12];
     private final float[] pipeFrom = new float[3], pipeTo = new float[3];
+    /**
+     * What eaveRow found for each square it was asked about in this frame's build, by
+     * RoofFit.key, and each level's squares as Hoods reads them. Each piece of a row and the
+     * corner past it asks for its own square and the four beside it, every eave asks for the
+     * square past it, and a square with no roof on it is read from the map at every asking.
+     */
+    private final HashMap<Long, Boolean> eaveRows = new HashMap<>();
+    private final HashMap<Integer, Hoods.Squares> hoodLevels = new HashMap<>();
 
     RoofBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
         this.build = build;
+    }
+
+    /** For a frame's build of the map as it is now: what was found in the last is let go. */
+    void newBuild() {
+        eaveRows.clear();
+        hoodLevels.clear();
+    }
+
+    private Hoods.Squares hoods(int z) {
+        Hoods.Squares level = hoodLevels.get(z);
+        if (level == null) {
+            level = Hoods.on(build.cell, z);
+            hoodLevels.put(z, level);
+        }
+        return level;
     }
 
     /**
@@ -399,17 +423,17 @@ final class RoofBuilder {
         build.building.plain = false;
         Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
         // A square with two roof sprites has one of them fitted, which holds what its sprite read
-        // as. The other lies as it reads, but on a square the fit folded, where it is a piece of
-        // the same picture of where two slopes meet.
+        // as. The other lies as it reads, but on a valley's fold, where it is a piece of the same
+        // picture of where two slopes meet: see RoofFit.laidOn.
         boolean itsOwn = laid != null && laid.texture == texture;
         RoofFit.Tile on = RoofFit.laidOn(laid == null ? null : laid.tile, itsOwn);
-        if (on != null && !itsOwn) {
-            onFold(mesh, on, 3, x, y, z);
-            return;
-        }
-        RoofFit.Tile tile = on != null ? on : Roofs.measure(build.frame, texture, x, y, z);
+        RoofFit.Tile tile = itsOwn ? on : Roofs.measure(build.frame, texture, x, y, z);
         // Half a tile at a ridge is not where the map has it: the ridge is made, see RoofFit.peaks.
         if (tile.half != 0) {
+            return;
+        }
+        if (on != null && !itsOwn) {
+            onFold(mesh, on, on.own, x, y, z);
             return;
         }
         roof = laid == null ? null : laid.roof;
@@ -448,6 +472,9 @@ final class RoofBuilder {
             WorldScene.layers.none();
             if (made > 0 && level > 2f * WorldScene.UNDER_ROOF) {
                 underRoof(x, y, z, level, 0f, 0f);
+            }
+            if (RoofFit.levelOnItsFloor(tile)) {
+                addCornerEaves(tile);
             }
             return;
         }
@@ -698,7 +725,7 @@ final class RoofBuilder {
      * no roof beyond its low edge, the slope runs on past the wall and a little down: the
      * eave, with a board closing its end. piped is whether the gutter may empty into a pipe here.
      */
-    private void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped) {
+    void addEave(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY, boolean piped) {
         addEave(sheet, x, y, z, atOrigin, alongX, alongY, piped, false, false);
     }
 
@@ -728,7 +755,17 @@ final class RoofBuilder {
      * slope.
      */
     boolean eaveRow(int x, int y, int z) {
-        int wall = Hoods.on(build.cell, z).eave(x, y);
+        long key = RoofFit.key(x, y, z);
+        Boolean known = eaveRows.get(key);
+        if (known == null) {
+            known = findEaveRow(x, y, z);
+            eaveRows.put(key, known);
+        }
+        return known;
+    }
+
+    private boolean findEaveRow(int x, int y, int z) {
+        int wall = hoods(z).eave(x, y);
         if (wall == Hoods.NONE) {
             return false;
         }
@@ -737,17 +774,86 @@ final class RoofBuilder {
         if (over != null && RoofFit.fallsToItsFloor(over, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y)) {
             return true;
         }
-        if (over == null || !RoofFit.levelOnItsFloor(over)) {
-            return false;
-        }
-        for (int step = -1; step <= 1; step += 2) {
-            int nx = west ? x : x + step, ny = west ? y + step : y;
-            RoofFit.Tile beside = Hoods.on(build.cell, z).eave(nx, ny) == wall ? over(nx, ny, z, west) : null;
-            if (beside != null && RoofFit.fallsToItsFloor(beside, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y)) {
-                return true;
+        // The row hangs under the east edge of a tile beyond a west wall, under the south edge beyond a north one.
+        return over != null && RoofFit.levelOnItsFloor(over) && (cornerEaves(over) & 1 << (west ? EAST : SOUTH)) != 0;
+    }
+
+    /** Edges of a square as EDGES numbers them, and the way out of the square across each. */
+    private static final int WEST = 0, EAST = 1, NORTH = 2, SOUTH = 3;
+    private static final int[] OUT_X = {-1, 1, 0, 0}, OUT_Y = {0, 0, -1, 1};
+    /** For each edge, the edge across the square's start of its run (its north or west end) and across its end. */
+    private static final int[] AT_START = {NORTH, NORTH, WEST, WEST}, AT_END = {SOUTH, SOUTH, EAST, EAST};
+    /** The climb over a tile of the slope beside each eave cornerEaves found, in levels. */
+    private final float[] cornerRise = new float[4];
+
+    /**
+     * The edges of a roof tile level at the floor of its level (RoofFit.levelOnItsFloor) that
+     * are eaves of a hipped roof's corner, as bits by EDGES' numbers, 0 for a tile that is no
+     * such corner: the map draws the corner of a hipped roof at its eave as a level tile. An
+     * edge is its eave where no roof lies past it, the slope on the square beside it along the
+     * edge comes down to its floor on the edge's line, the roof past the other end of the
+     * eave's run is open too, and the roof rises from the tile into the building across from
+     * the edge. A flat roof's tile beside a slope has more roof past the run's end, or level
+     * roof across from the edge, and is none.
+     */
+    private int cornerEaves(RoofFit.Tile tile) {
+        int x = tile.x, y = tile.y, z = tile.z, eaves = 0;
+        for (int edge = 0; edge < 4; edge++) {
+            if (hasRoof(x + OUT_X[edge], y + OUT_Y[edge], z)) {
+                continue;
+            }
+            RoofFit.Tile across = tileAt(x - OUT_X[edge], y - OUT_Y[edge], z);
+            if (across == null || Math.max(across.fitLow, across.fitHigh) < z + Roofs.FLAT && across.peak <= 0f && !across.shaped) {
+                continue;
+            }
+            int runX = OUT_Y[edge] != 0 ? 1 : 0, runY = 1 - runX;
+            for (int step = -1; step <= 1; step += 2) {
+                RoofFit.Tile beside = tileAt(x + step * runX, y + step * runY, z);
+                if (beside != null && fallsOver(beside, edge) && !hasRoof(x - step * runX, y - step * runY, z)) {
+                    eaves |= 1 << edge;
+                    cornerRise[edge] = Math.abs(beside.fitHigh - beside.fitLow);
+                }
             }
         }
-        return false;
+        return eaves;
+    }
+
+    /** Whether a tile is a slope that falls across the given edge of its square, out of it, to the floor of its level there. */
+    private static boolean fallsOver(RoofFit.Tile tile, int edge) {
+        int axis = edge == WEST || edge == EAST ? RoofFit.ALONG_X : RoofFit.ALONG_Y;
+        return edge == EAST || edge == SOUTH ? RoofFit.fallsToItsFloor(tile, axis) : RoofFit.risesFromItsFloor(tile, axis);
+    }
+
+    private RoofFit.Tile tileAt(int x, int y, int z) {
+        Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        return laid == null ? null : laid.tile;
+    }
+
+    /**
+     * The eaves along the outer edges of the corner of a hipped roof that the map draws as a
+     * level tile: see cornerEaves. Each runs on from the eave of the slope beside it at that
+     * slope's pitch, to meet the other at the corner, or closed across its end where the other
+     * edge is none. With none, the slope's eave stopped a square short of the corner and its
+     * end stood open, and the map's own eave pieces under the corner, which the eave row is,
+     * are left out.
+     */
+    private void addCornerEaves(RoofFit.Tile tile) {
+        int eaves = cornerEaves(tile);
+        if (eaves == 0) {
+            return;
+        }
+        SpriteGeometry.Mesh sheet = roofSheet();
+        float floor = tile.fitLow - tile.z;
+        for (int edge = 0; edge < 4; edge++) {
+            if ((eaves & 1 << edge) == 0) {
+                continue;
+            }
+            float rise = cornerRise[edge];
+            boolean alongX = edge == WEST || edge == EAST, toFar = edge == EAST || edge == SOUTH;
+            float along = toFar ? -rise : rise, atOrigin = toFar ? floor + rise : floor;
+            addEave(sheet, tile.x, tile.y, tile.z, atOrigin, alongX ? along : 0f, alongX ? 0f : along, true,
+                    (eaves & 1 << AT_START[edge]) != 0, (eaves & 1 << AT_END[edge]) != 0);
+        }
     }
 
     /** The roof's tile a level up on the square beyond the wall a row of eave hangs from, or null. */
@@ -758,7 +864,7 @@ final class RoofBuilder {
 
     /** Whether the square holds the piece the map ends a row of eave with, a corner past the row's end, where eaveRow holds that row. */
     boolean eaveRowEnd(int x, int y, int z) {
-        return Hoods.endOf(Hoods.on(build.cell, z), x, y, (nx, ny) -> eaveRow(nx, ny, z));
+        return Hoods.endOf(hoods(z), x, y, (nx, ny) -> eaveRow(nx, ny, z));
     }
 
     /**

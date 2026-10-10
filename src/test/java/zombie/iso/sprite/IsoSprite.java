@@ -1,17 +1,36 @@
 package zombie.iso.sprite;
 
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoDirections;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /** The tests' stand-in for the game's sprite: a name, its properties and the grid of a piece it is a square of. See PropertyContainer. */
 public final class IsoSprite {
     private final String name;
     private final PropertyContainer properties;
+    private final IsoObjectType type;
+    private final Texture texture;
     IsoSpriteGrid grid;
 
     public IsoSprite(String name, PropertyContainer properties) {
+        this(name, properties, IsoObjectType.normal, null);
+    }
+
+    /** A sprite of that type, drawn with that texture whichever way it faces. */
+    public IsoSprite(String name, PropertyContainer properties, IsoObjectType type, Texture texture) {
         this.name = name;
         this.properties = properties;
+        this.type = type;
+        this.texture = texture;
+    }
+
+    public IsoObjectType getType() {
+        return type;
+    }
+
+    public Texture getTextureForCurrentFrame(IsoDirections direction) {
+        return texture;
     }
 
     public PropertyContainer getProperties() {

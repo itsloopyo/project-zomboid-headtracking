@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import zombie.core.textures.Texture;
 
 /** Tests of a roof's shape where its slopes meet: hips, valleys, ridges and their caps. */
 final class RoofTests {
@@ -30,6 +31,7 @@ final class RoofTests {
         Checks.run("meanColourOfATileCountsTheDarkBetweenItsShingles", RoofTests::meanColourOfATileCountsTheDarkBetweenItsShingles);
         Checks.run("farSlopesOverTheLoftCeilingAreMadeWhole", RoofTests::farSlopesOverTheLoftCeilingAreMadeWhole);
         Checks.run("rowCutShortByAWingStillComesDownToItsEave", RoofTests::rowCutShortByAWingStillComesDownToItsEave);
+        Checks.run("rowThatEndsAtItsOwnEaveKeepsItWhereItsPlaneRunsOnDown", RoofTests::rowThatEndsAtItsOwnEaveKeepsItWhereItsPlaneRunsOnDown);
         Checks.run("bothRidgesOfACrossGableArePeakedAndCappedWhole", RoofTests::bothRidgesOfACrossGableArePeakedAndCappedWhole);
         Checks.run("deepWingIsCarriedIntoTheMainRoofUpToItsRidge", RoofTests::deepWingIsCarriedIntoTheMainRoofUpToItsRidge);
         Checks.run("eaveRowHangsUnderTheFootOfASlopeOnly", RoofTests::eaveRowHangsUnderTheFootOfASlopeOnly);
@@ -40,16 +42,68 @@ final class RoofTests {
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
-        // The one-storey house at (6404..6416, 5344..5358): the hip's corner over the west end of its south eave reads level at the eave.
-        RoofFit.Tile corner = new RoofFit.Tile(0, 0, 1, RoofFit.LEVEL, true, 1.0052f, 1f);
-        RoofFit.Tile row = new RoofFit.Tile(0, 1, 1, RoofFit.LEVEL, true, 1f + THIRD / 2f, 1f + THIRD / 2f);
-        RoofFit.Tile slope = new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_Y, true, 1f + THIRD / 2f, 1f);
-        RoofFit.Tile trim = new RoofFit.Tile(2, 0, 1, RoofFit.LEVEL, true, 1f, 1f);
-        trim.fitting = true;
-        RoofFit.fit(new ArrayList<>(List.of(corner, row, slope, trim)));
-        check(RoofFit.levelOnItsFloor(corner), "a roof tile level at the floor of its level is the hip's corner at the eave, and the row under it goes on to the corner");
-        check(!RoofFit.levelOnItsFloor(slope) && !RoofFit.levelOnItsFloor(trim), "a slope is not, nor is a trim");
-        check(!RoofFit.levelOnItsFloor(row), "nor a level row higher up the roof");
+        // The one-storey house at (6404..6416, 5344..5358): the hip's corner over the west end of
+        // its south eave, level 1 at (0, 0), reads level at the eave; the slope east of it falls
+        // south to the eave, and the roof rises from the corner to the north.
+        TestMap map = hippedCorner(1f + THIRD / 2f, false);
+        RoofFit.Tile corner = Roofs.at(map.cell, 0, 0, 1, 0, 2f).tile;
+        check(RoofFit.levelOnItsFloor(corner), "the corner's tile lies level at the floor of its level");
+        check(map.build.roofBuilder.eaveRow(0, 1, 0), "the eave row the map hangs under the corner goes on with the slope's");
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        float[] box = boundsOf(TestMap.plain());
+        check(TestMap.plain().triangles() > 0 && box[0] < 0f && box[1] >= 1f - 1e-4f && box[3] > 1f,
+                "the eave's board, soffit and gutter run along the corner's south edge to past its west end, closed there: x " + box[0] + " to " + box[1]);
+        map = hippedCorner(1f, false);
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        check(!map.build.roofBuilder.eaveRow(0, 1, 0) && TestMap.plain().triangles() == 0,
+                "a flat roof beside a slope, level where a hip's corner rises into the roof, is no corner: no eave row under it, no eave made");
+        map = hippedCorner(1f + THIRD / 2f, true);
+        map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
+        check(!map.build.roofBuilder.eaveRow(0, 1, 0) && TestMap.plain().triangles() == 0,
+                "nor is a level tile with more roof past the far end of the eave's run");
+    }
+
+    /**
+     * A roof on level 1 over x 0 to 3: the tile at (0, 0) level at the floor, the slope east of
+     * it falling south to its eave on y 1, the row of eave the map hangs under that on level 0,
+     * and across from the eave at (0, -1) a level tile at height across. Westward more level
+     * roof at (-1, 0) where flatBeyond.
+     */
+    private static TestMap hippedCorner(float across, boolean flatBeyond) {
+        TestMap map = new TestMap();
+        List<RoofFit.Tile> tiles = new ArrayList<>(List.of(new RoofFit.Tile(0, 0, 1, RoofFit.LEVEL, true, 1.0052f, 1f),
+                new RoofFit.Tile(0, -1, 1, RoofFit.LEVEL, true, across, across)));
+        for (int x = 1; x <= 3; x++) {
+            tiles.add(new RoofFit.Tile(x, 0, 1, RoofFit.ALONG_Y, true, 1f + THIRD / 2f, 1f));
+        }
+        if (flatBeyond) {
+            tiles.add(new RoofFit.Tile(-1, 0, 1, RoofFit.LEVEL, true, 1f, 1f));
+        }
+        RoofFit.fit(tiles);
+        for (RoofFit.Tile tile : tiles) {
+            map.roofTile(tile, map.painted);
+        }
+        for (int x = 0; x <= 3; x++) {
+            map.roofSprite(x, 1, 0, "roofs_02_6", "attachedN", "isEave");
+            map.wall(x, 1, 0, true);
+        }
+        // Set as RoofBuilder.addRoof is given the tile's own sprite: 64 pixels high, twice the size, so level.
+        map.build.frame.originU = 2f;
+        map.build.frame.originV = 192f;
+        map.build.frame.takeTexels(map.painted);
+        return map;
+    }
+
+    /** The least and most x, then the least and most y, of a mesh's vertices. */
+    private static float[] boundsOf(SpriteGeometry.Mesh mesh) {
+        float[] box = {Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            box[0] = Math.min(box[0], mesh.vertices[at]);
+            box[1] = Math.max(box[1], mesh.vertices[at]);
+            box[2] = Math.min(box[2], mesh.vertices[at + 1]);
+            box[3] = Math.max(box[3], mesh.vertices[at + 1]);
+        }
+        return box;
     }
 
     private static void unclearTileOnAValleysLineIsFoldedAsTheValleyIs() {
@@ -99,18 +153,68 @@ final class RoofTests {
     }
 
     private static void secondSpriteOnAValleyTileLiesOnItsFold() {
-        RoofFit.Tile valley = null, slope = null;
+        RoofFit.Tile valley = null;
         for (RoofFit.Tile tile : crossGable()) {
             if (tile.x == 5 && tile.y == 5) {
                 valley = tile;
-            } else if (tile.x == 2 && tile.y == 6) {
-                slope = tile;
             }
         }
-        check(valley.shaped && RoofFit.laidOn(valley, false) == valley,
+        RoofFit.Tile hip = new RoofFit.Tile(1, 1, 1, RoofFit.NORTH_WEST_ODD, true, 1f + THIRD, 1f);
+        RoofFit.fit(new ArrayList<>(List.of(hip)));
+        check(valley.shaped && RoofFit.valley(valley) && hip.shaped && !RoofFit.valley(hip), "the valley's tile is folded into a valley, the hip's end over a hip");
+        // A second sprite on the square, as RoofBuilder.addRoof lays it: a piece narrower than a
+        // tile, and a ridge's half, three quarters of a tile wide.
+        SpriteGeometry.Mesh piece = laidSecond(valley, 60);
+        check(piece.triangles() > 0 && onTheFold(piece, valley),
                 "the piece the map paints over the top of the valley, on the valley tile's square, lies on the valley's fold and not as it reads");
-        check(RoofFit.laidOn(valley, true) == valley && RoofFit.laidOn(slope, true) == slope, "a tile's own sprite lies on the tile");
-        check(RoofFit.laidOn(slope, false) == null && RoofFit.laidOn(null, false) == null, "a second sprite on a plain slope, or on a square the fit has nothing on, lies as it reads");
+        check(laidSecond(valley, 100).triangles() == 0, "a ridge's half on the valley's square is not laid there, on the fold or as it reads: the ridge is made");
+        piece = laidSecond(hip, 60);
+        check(piece.triangles() == 0 || !onTheFold(piece, hip),
+                "a second sprite on a hip's fold lies as it reads, not in the plane of the hip's own sprite or over the mod's sheet");
+    }
+
+    /**
+     * What RoofBuilder.addRoof lays of a second sprite, frame pixels wide, on the square of a
+     * tile the fit left as given, whose own sprite is another.
+     */
+    private static SpriteGeometry.Mesh laidSecond(RoofFit.Tile fitted, int wide) {
+        TestMap map = new TestMap();
+        map.roofTile(fitted, new Texture(1, 128, 128));
+        // 64 pixels high at twice the size is level: it reads half a level over its floor.
+        Texture second = new Texture(2, wide, 64);
+        second.paint(0, 0, wide, 64);
+        map.build.frame.originU = wide / 2f;
+        map.build.frame.originV = 96f;
+        map.build.frame.takeTexels(second);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        map.build.roofBuilder.addRoof(mesh, second, fitted.x, fitted.y, fitted.z);
+        return mesh;
+    }
+
+    /** Whether every corner of a mesh lies on a folded tile's two triangles. */
+    private static boolean onTheFold(SpriteGeometry.Mesh mesh, RoofFit.Tile tile) {
+        int[] order = RoofFit.TRIANGLES[tile.crease];
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float a = mesh.vertices[at] - tile.x, b = mesh.vertices[at + 1] - tile.y, up = mesh.vertices[at + 2] / ViewCamera.LEVEL_HEIGHT;
+            boolean held = false;
+            for (int triangle = 0; triangle < 2 && !held; triangle++) {
+                // The height of the triangle's plane at (a, b), from its three corners.
+                float[] p = new float[9];
+                for (int i = 0; i < 3; i++) {
+                    int corner = order[triangle * 3 + i];
+                    p[i * 3] = RoofFit.cornerX(corner);
+                    p[i * 3 + 1] = RoofFit.cornerY(corner);
+                    p[i * 3 + 2] = tile.corners[corner];
+                }
+                float ux = p[3] - p[0], uy = p[4] - p[1], uz = p[5] - p[2], vx = p[6] - p[0], vy = p[7] - p[1], vz = p[8] - p[2];
+                float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+                held = Math.abs(p[2] - (nx * (a - p[0]) + ny * (b - p[1])) / nz - up) < 0.01f;
+            }
+            if (!held) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void eaveRowHangsUnderTheFootOfASlopeOnly() {
@@ -249,6 +353,52 @@ final class RoofTests {
                 RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
                 check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD),
                         "the north slope over column " + x + " stands on the eave the rest of it does, and is no row short of the ridge, at " + y + ": " + said(tile));
+            }
+        }
+    }
+
+    /**
+     * A house over x 0 to 7 and y 1 to 6, rooms on levels 0 to 2 and the loft over them, its
+     * ridge along x on the line y 4 at 4, its south slope down to its eave at 3 on y 7; over
+     * columns 0 to 3 the same slope runs on down over a lean-to, y 7 to 9, to an eave at 2 on
+     * y 10. The map has the south slope only.
+     */
+    private static void rowThatEndsAtItsOwnEaveKeepsItWhereItsPlaneRunsOnDown() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 7; x++) {
+            for (int y = 4; y <= (x <= 3 ? 9 : 6); y++) {
+                float north = 4f - (y - 4) * THIRD;
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(north - THIRD + 0.05f), RoofFit.ALONG_Y, true, north, north - THIRD));
+            }
+        }
+        roof.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(roof);
+        RoofFit.Site house = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 0 && x <= 7 && y >= 1 && y <= 6 || x >= 0 && x <= 3 && y >= 7 && y <= 9;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float over) {
+                return stands(x, y, z) && z <= (y >= 7 ? 1 : 2);
+            }
+        };
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.backs(roof, house)) {
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        for (int x = 4; x <= 7; x++) {
+            for (int y = 1; y <= 3; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 3f + (y - 1) * THIRD) && near(tile.fitHigh, 3f + y * THIRD),
+                        "where the slope stops at the house's own eave the far slope is made from the far eave at 3 up to the ridge, though the slope runs on down to 2 beside it, at "
+                                + x + ", " + y + ": " + said(tile));
             }
         }
     }

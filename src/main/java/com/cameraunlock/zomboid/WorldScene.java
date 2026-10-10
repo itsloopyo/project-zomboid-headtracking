@@ -2212,6 +2212,7 @@ final class WorldScene {
             exposure = adaptEye(player, fromOutside);
             playerIndex = player.getIndex();
             cell = IsoWorld.instance.currentCell;
+            roofBuilder.newBuild();
             if (Own.taken(view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were, and so does every roof read and every square's ground, which leave a parasol out by its row.
                 forgetAll();
