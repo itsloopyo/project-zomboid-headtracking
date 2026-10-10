@@ -1905,6 +1905,7 @@ final class Pipeline {
             rain.set("uLong", overhead ? RAIN_SEEN_FOR_OVERHEAD : RAIN_SEEN_FOR);
             rain.set("uShown", RAIN_SHOWN);
             setShelter(rain, SHELTER_UNIT, lidded);
+            rain.set("uSheltering", outside ? 0f : 1f);
             rain.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(rain, TORCH_UNIT);
             // A drop shows the sky it falls through.
@@ -1927,6 +1928,7 @@ final class Pipeline {
             snow.set("uThin", SNOW_DOTS_LEAST * dot);
             snow.set("uShown", SNOW_SHOWN);
             setShelter(snow, SHELTER_UNIT, lidded);
+            snow.set("uSheltering", outside ? 0f : 1f);
             snow.set("uSeenOn", seenOnFloor ? camera.forwardX : 0f, seenOnFloor ? camera.forwardY : 0f, seenOnFloor ? camera.forwardUp : 0f, floorUp);
             setBeams(snow, TORCH_UNIT);
             // A flake is lit by the whole sky, and by the sun or the moon when there is one.

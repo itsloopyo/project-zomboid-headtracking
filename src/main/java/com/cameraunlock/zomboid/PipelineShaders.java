@@ -3506,6 +3506,9 @@ final class PipelineShaders {
             uniform float uSeated;
             uniform float uShown;
             uniform vec4 uSeenOn;
+            // 1 where a drop or a flake is kept out of rooms and from under roofs; 0 seen from the camera outside the viewer,
+            // where it falls on everything as the game's own view has it.
+            uniform float uSheltering;
             varying vec3 vWorld;
             varying vec2 vIn;
             """ + BEAMS + SHELTERED + """
@@ -3515,12 +3518,12 @@ final class PipelineShaders {
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
                     discard;
                 }
-                if (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w))) {
+                if (uSheltering > 0.5 && (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w)))) {
                     discard;
                 }
                 // A flake under a roof never fell there.
                 vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
-                float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
+                float open = uSheltering > 0.5 && c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
                 float body = 1.0 - smoothstep(0.35, 1.0, length(vIn));
                 // Snow in a beam is what a driver sees of a night's snowfall: each flake a spark coming at the glass.
                 vec3 dir;
@@ -3546,6 +3549,9 @@ final class PipelineShaders {
             uniform float uSeated;
             uniform float uShown;
             uniform vec4 uSeenOn;
+            // 1 where a drop or a flake is kept out of rooms and from under roofs; 0 seen from the camera outside the viewer,
+            // where it falls on everything as the game's own view has it.
+            uniform float uSheltering;
             varying vec3 vWorld;
             varying vec2 vIn;
             """ + BEAMS + SHELTERED + """
@@ -3555,13 +3561,13 @@ final class PipelineShaders {
                 if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
                     discard;
                 }
-                if (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w))) {
+                if (uSheltering > 0.5 && (sheltered(vWorld) || (uSeenOn.z < 0.0 && shelteredWhereSeen(vWorld, uSeenOn.xyz, uSeenOn.w)))) {
                     discard;
                 }
                 // The map of what is overhead, seen from straight above: a drop under a roof
                 // never fell there.
                 vec3 c = (uRoofMatrix * vec4(vWorld, 1.0)).xyz * 0.5 + 0.5;
-                float open = c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
+                float open = uSheltering > 0.5 && c.x > 0.0 && c.x < 1.0 && c.y > 0.0 && c.y < 1.0 ? shadow2D(uRoof, c).r : 1.0;
                 float body = (1.0 - vIn.x * vIn.x) * smoothstep(0.0, 0.25, vIn.y) * (1.0 - smoothstep(0.5, 1.0, vIn.y));
                 // A drop falling through a beam is a bright streak: it is most of what rain
                 // looks like from behind the wheel at night.
