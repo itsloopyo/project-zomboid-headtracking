@@ -79,11 +79,13 @@ final class WireBuilder {
 
         @Override
         public boolean settled(int x, int y, int z) {
-            return !Poles.unsettled(drawn, WireBuilder.this::loaded, x, y, z, build.lowestLevel);
+            return !Poles.unsettled(drawn, loadedHere, x, y, z, build.lowestLevel);
         }
     });
     private final float[] poleFrom = new float[3], poleTo = new float[3], wirePlace = new float[3];
     private final Poles.Drawn drawn = this::poleOn;
+    // Made once: a method reference made where it is passed is a new object at every call, and settled is asked for every square a span is checked on.
+    private final Poles.Loaded loadedHere = this::loaded;
 
     WireBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -207,7 +209,7 @@ final class WireBuilder {
      */
     boolean addPole(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
         // Where the length is drawn may be a level off where it stands: what is drawn on the map not yet loaded may tell.
-        build.wantsMap |= Poles.unsettledPole(drawn, this::loaded, x, y, z, build.lowestLevel);
+        build.wantsMap |= Poles.unsettledPole(drawn, loadedHere, x, y, z, build.lowestLevel);
         if (drawnUp(x, y, z)) {
             return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
         }
