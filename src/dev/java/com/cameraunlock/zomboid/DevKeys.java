@@ -85,13 +85,16 @@ public final class DevKeys {
 
     /**
      * The first is the street south of the map's tallest building, 28 floors over tiles
-     * 12751 to 12793 by 1512 to 1544, and the second is on its roof. The next four and the West Point and Louisville ones
+     * 12751 to 12793 by 1512 to 1544, and the second is on its roof. The third is at the gate between two of the
+     * cattle pastures of the farm by the corn maze, which has five of the game's cow ranch zones and chicken and sheep
+     * ones beside them, so most worlds have animals in sight of it. The next four and the West Point and Louisville ones
      * are spots the picture has been judged from. The rest are the game's own spawn points
      * for each town, so there is a floor to stand on at every one.
      */
     private static final Place[] PLACES = {
             new Place("Louisville, the skyscraper", 12772.5f, 1565.5f),
             new Place("Louisville, the skyscraper's roof", 12785.415f, 1523.9503f, 26),
+            new Place("the cattle farm by the corn maze", 13546.5f, 3836.5f),
             new Place("Riverside, the lake shore", 6442.5f, 5187.5f),
             new Place("a wood by the railway", 10900.5f, 8500.5f),
             new Place("open farmland", 9050.5f, 8700.5f),
