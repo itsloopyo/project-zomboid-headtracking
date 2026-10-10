@@ -1,18 +1,33 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "mod_info": {
     "name": "ProjectZomboidHeadTracking",
     "version": "0.0.0",
     "game_id": "project-zomboid"
   },
   "strategy": "JavaAgent",
-  "delivery_mode": "install_cmd",
-  "install_cmd_reason": "The game's launcher starts the mod only through ProjectZomboid64.site.json, which install.cmd generates from the player's own ProjectZomboid64.json on every install: that file with the boot class in the mod's jar as mainClass, the jar added to classpath and three arguments put first in vmArgs. It stops before copying anything when a site config that does not name the mod's jar is already there, and uninstall.cmd removes the site config only while it still names the jar. The deploy engine has no step that writes a file derived from one in the game folder: files[] and loader.seed write bytes fixed in the package, runtime_requirements has only system-file-copy, and patches[] rewrites a PE file in place.",
+  "delivery_mode": "manifest_versioned",
+
+  "config": {
+    "path": "CameraUnlock.ini",
+    "anchor": "game_root",
+    "per_game": {
+      "CycleTrackingModeKey": "PageUp",
+      "YawModeKey": "PageDown",
+      "TrueFreeLookKey": "Insert"
+    }
+  },
 
   "files": [
-    { "source": "plugins/ProjectZomboidHeadTracking.jar", "target": "ProjectZomboidHeadTracking.jar" },
-    { "source": "plugins/CameraUnlockCore.dll", "target": "CameraUnlockCore.dll" }
+    { "source": "plugins/CameraUnlockCore.dll", "target": "CameraUnlockCore.dll" },
+    { "source": "plugins/ProjectZomboidHeadTracking.jar", "target": "ProjectZomboidHeadTracking.jar" }
   ],
+
+  "jvm_site_config": {
+    "config": "ProjectZomboid64.json",
+    "site": "ProjectZomboid64.site.json",
+    "agent_jars": ["ProjectZomboidHeadTracking.jar"]
+  },
 
   "runtime_requirements": [],
   "dependencies": []
