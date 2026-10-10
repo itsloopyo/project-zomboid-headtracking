@@ -36,6 +36,20 @@ final class RoofTests {
         Checks.run("wingsRidgeRunsOnToTheMiddleOfTheMainRidge", RoofTests::wingsRidgeRunsOnToTheMiddleOfTheMainRidge);
         Checks.run("secondSpriteOnAValleyTileLiesOnItsFold", RoofTests::secondSpriteOnAValleyTileLiesOnItsFold);
         Checks.run("unclearTileOnAValleysLineIsFoldedAsTheValleyIs", RoofTests::unclearTileOnAValleysLineIsFoldedAsTheValleyIs);
+        Checks.run("hippedCornerAtTheEaveCarriesTheEaveRowOn", RoofTests::hippedCornerAtTheEaveCarriesTheEaveRowOn);
+    }
+
+    private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
+        // The one-storey house at (6404..6416, 5344..5358): the hip's corner over the west end of its south eave reads level at the eave.
+        RoofFit.Tile corner = new RoofFit.Tile(0, 0, 1, RoofFit.LEVEL, true, 1.0052f, 1f);
+        RoofFit.Tile row = new RoofFit.Tile(0, 1, 1, RoofFit.LEVEL, true, 1f + THIRD / 2f, 1f + THIRD / 2f);
+        RoofFit.Tile slope = new RoofFit.Tile(1, 0, 1, RoofFit.ALONG_Y, true, 1f + THIRD / 2f, 1f);
+        RoofFit.Tile trim = new RoofFit.Tile(2, 0, 1, RoofFit.LEVEL, true, 1f, 1f);
+        trim.fitting = true;
+        RoofFit.fit(new ArrayList<>(List.of(corner, row, slope, trim)));
+        check(RoofFit.levelOnItsFloor(corner), "a roof tile level at the floor of its level is the hip's corner at the eave, and the row under it goes on to the corner");
+        check(!RoofFit.levelOnItsFloor(slope) && !RoofFit.levelOnItsFloor(trim), "a slope is not, nor is a trim");
+        check(!RoofFit.levelOnItsFloor(row), "nor a level row higher up the roof");
     }
 
     private static void unclearTileOnAValleysLineIsFoldedAsTheValleyIs() {

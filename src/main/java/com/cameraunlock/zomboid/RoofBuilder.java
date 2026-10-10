@@ -723,7 +723,9 @@ final class RoofBuilder {
      * square's west or north wall, under the lowest tile of a slope that falls to that wall
      * from the square beyond it, a level up: the eave addEave makes of that tile. Hung on the
      * wall, the row's pieces were a row of dark slabs under the eave with the wall showing in a
-     * triangle between each two.
+     * triangle between each two. The row goes on under the corner of a hipped roof, whose tile
+     * reads level at the eave's height, as far as the next square along holds the row under a
+     * slope.
      */
     boolean eaveRow(int x, int y, int z) {
         int wall = Hoods.on(build.cell, z).eave(x, y);
@@ -731,8 +733,27 @@ final class RoofBuilder {
             return false;
         }
         boolean west = wall == Outdoors.WEST;
-        Roofs.Laid slope = Roofs.at(build.cell, west ? x - 1 : x, west ? y : y - 1, z + 1, world.roundNow, build.frame.scale);
-        return slope != null && RoofFit.fallsToItsFloor(slope.tile, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y);
+        RoofFit.Tile over = over(x, y, z, west);
+        if (over != null && RoofFit.fallsToItsFloor(over, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y)) {
+            return true;
+        }
+        if (over == null || !RoofFit.levelOnItsFloor(over)) {
+            return false;
+        }
+        for (int step = -1; step <= 1; step += 2) {
+            int nx = west ? x : x + step, ny = west ? y + step : y;
+            RoofFit.Tile beside = Hoods.on(build.cell, z).eave(nx, ny) == wall ? over(nx, ny, z, west) : null;
+            if (beside != null && RoofFit.fallsToItsFloor(beside, west ? RoofFit.ALONG_X : RoofFit.ALONG_Y)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The roof's tile a level up on the square beyond the wall a row of eave hangs from, or null. */
+    private RoofFit.Tile over(int x, int y, int z, boolean west) {
+        Roofs.Laid laid = Roofs.at(build.cell, west ? x - 1 : x, west ? y : y - 1, z + 1, world.roundNow, build.frame.scale);
+        return laid == null ? null : laid.tile;
     }
 
     /** Whether the square holds the piece the map ends a row of eave with, a corner past the row's end, where eaveRow holds that row. */

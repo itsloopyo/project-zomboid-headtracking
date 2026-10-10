@@ -180,6 +180,12 @@ final class RoofFit {
         return tile.slopes() && tile.fitAxis == axis && tile.fitHigh < tile.fitLow && Math.abs(tile.fitHigh - tile.z) < Roofs.FLAT;
     }
 
+    /** Whether a tile of a roof, no trim, lies level at the floor of its level: the corner of a hipped roof at its eave, as the map draws it. */
+    static boolean levelOnItsFloor(Tile tile) {
+        return !tile.fitting && !tile.shaped && tile.half == 0 && tile.fitAxis == LEVEL && Math.abs(tile.fitLow - tile.z) < Roofs.FLAT
+                && Math.abs(tile.fitHigh - tile.z) < Roofs.FLAT;
+    }
+
     /** The heights at a square's four corners of a plane with the given heights at its near and far edge along the axis. */
     static void cornersOf(int axis, float near, float far, float[] corners) {
         corners[0] = near;
