@@ -28,6 +28,12 @@ final class WallSides {
     private static final int OVER = 8;
     /** In place of a colour: the triangles are the panes of windows, which the picture draws after everything else. No colour packs to this, a painted one being FLAT or SIDING with a colour above it. */
     static final int PANES = 3;
+    /**
+     * In place of a colour: the triangles are the game's blood, which the picture draws after
+     * everything else that is laid, each splat mixed over the ones under it: see BloodBuilder.
+     * No colour packs to this, nothing being painted in a ninth way.
+     */
+    static final int BLOOD = 9;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;

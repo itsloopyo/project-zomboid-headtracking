@@ -30,21 +30,16 @@ import zombie.iso.sprite.IsoSpriteManager;
  * draws a stain.
  */
 final class BloodBuilder {
-    /** Splats on one square are laid each a layer over the last, by so many layers at most: over that they share. */
-    static final int LAYERS = 4;
-
     private final WorldScene.Frame build;
 
     /** The splats of the level read, each its picture laid on the floor (Blood.laid, on the map), and what it is drawn with. */
     private float[] corners = new float[64 * 4 * Blood.CORNER];
     private float[] reds = new float[64], greenBlues = new float[64], covers = new float[64];
     private Texture[] pictures = new Texture[64];
-    /** The order the game draws the splats of the level in, as a number each: their chunk, then their kind, then their place in the chunk's list. */
-    private int[] drawn = new int[64];
     /** The squares of the chunk each splat's picture reaches the bounds of: from x, to x, from y and to y, from the chunk's corner. */
     private int[] reach = new int[64 * 4];
     private int splats;
-    /** The splats on each square of the chunk, as places in the arrays above: square s has those from bySquare[firstOf[s]] to bySquare[firstOf[s + 1]], in the game's order. */
+    /** The splats on each square of the chunk, as places in the arrays above: square s has those from bySquare[firstOf[s]] to bySquare[firstOf[s + 1]]. */
     private final int[] firstOf = new int[WorldScene.CHUNK_TILES * WorldScene.CHUNK_TILES + 1];
     private int[] bySquare = new int[64];
     private final int[] filled = new int[WorldScene.CHUNK_TILES * WorldScene.CHUNK_TILES];
@@ -121,7 +116,6 @@ final class BloodBuilder {
                 greenBlues[at] = tint[1];
                 covers[at] = Blood.floorCover(fresh);
                 pictures[at] = picture;
-                drawn[at] = (c * kinds.length + splat.type) * 1024 + i;
                 for (int x = fromX; x <= toX; x++) {
                     for (int y = fromY; y <= toY; y++) {
                         firstOf[x * WorldScene.CHUNK_TILES + y + 1]++;
@@ -144,13 +138,12 @@ final class BloodBuilder {
             greenBlues = Arrays.copyOf(greenBlues, more);
             covers = Arrays.copyOf(covers, more);
             pictures = Arrays.copyOf(pictures, more);
-            drawn = Arrays.copyOf(drawn, more);
             reach = Arrays.copyOf(reach, more * 4);
         }
         return splats++;
     }
 
-    /** Files each splat read under every square of the chunk its picture's bounds reach, those of a square in the game's order. */
+    /** Files each splat read under every square of the chunk its picture's bounds reach. */
     private void file() {
         int squares = firstOf.length - 1;
         for (int s = 0; s < squares; s++) {
@@ -164,13 +157,7 @@ final class BloodBuilder {
             for (int x = reach[at * 4]; x <= reach[at * 4 + 1]; x++) {
                 for (int y = reach[at * 4 + 2]; y <= reach[at * 4 + 3]; y++) {
                     int s = x * WorldScene.CHUNK_TILES + y;
-                    int place = firstOf[s] + filled[s]++;
-                    // Insertion into the game's order, which is short work: few splats share a square.
-                    while (place > firstOf[s] && drawn[bySquare[place - 1]] > drawn[at]) {
-                        bySquare[place] = bySquare[place - 1];
-                        place--;
-                    }
-                    bySquare[place] = at;
+                    bySquare[firstOf[s] + filled[s]++] = at;
                 }
             }
         }
@@ -189,8 +176,10 @@ final class BloodBuilder {
 
     /**
      * Lays the part of every splat read that is on the square (x, y, z) over the square's
-     * floor, the first a layer over the given number lying under it, and says how many layers
-     * that takes. The frame is the square's, lit, and is given blood's material for the while.
+     * floor, a layer over the given number lying under it, and says how many layers that takes:
+     * one where any blood is on the square. The splats share it: the picture draws blood
+     * leaving its depth alone, each splat mixed over the last (Pipeline.drawBlood). The frame
+     * is the square's, lit, and is given blood's material for the while.
      */
     int layFloor(int x, int y, int z, int localX, int localY, int under) {
         int square = localX * WorldScene.CHUNK_TILES + localY;
@@ -204,12 +193,12 @@ final class BloodBuilder {
             if (count < 3) {
                 continue;
             }
-            SpriteGeometry.Mesh mesh = WorldScene.laid.get(pictures[at].getID());
+            SpriteGeometry.Mesh mesh = WorldScene.laid.get(pictures[at].getID(), WallSides.BLOOD);
             Arrays.fill(cover, covers[at]);
             build.geometry.cover = cover;
             mesh.rootX = reds[at];
             mesh.rootY = greenBlues[at];
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, under + 1 + laidCount % LAYERS);
+            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, under + 1);
             for (int corner = 1; corner < count - 1; corner++) {
                 System.arraycopy(piece, 0, triangle, 0, Blood.CORNER);
                 System.arraycopy(piece, corner * Blood.CORNER, triangle, Blood.CORNER, 2 * Blood.CORNER);
@@ -221,7 +210,7 @@ final class BloodBuilder {
             laidCount++;
         }
         build.frame.material = material;
-        return Math.min(laidCount, LAYERS);
+        return Math.min(laidCount, 1);
     }
 
     /**
@@ -255,7 +244,7 @@ final class BloodBuilder {
             build.frameOf(object, texture);
             float fresh = Blood.freshness(now - splat.worldAge);
             float dark = Blood.darkness(fresh);
-            SpriteGeometry.Mesh mesh = WorldScene.laid.get(texture.getID());
+            SpriteGeometry.Mesh mesh = WorldScene.laid.get(texture.getID(), WallSides.BLOOD);
             Arrays.fill(cover, Blood.wallCover(fresh));
             build.geometry.cover = cover;
             mesh.rootX = Blood.WALL_RED * dark;

@@ -3264,11 +3264,17 @@ final class PipelineShaders {
             }
             """;
 
-    /** For the world's fragment main, after the texel is read: blood is the game's colour for it and covers what it is laid on as much as the game's does (see BloodBuilder). */
+    /**
+     * For the world's fragment main, after the texel is read: blood is the game's colour for it
+     * and covers what it is laid on as much as the game's does (see BloodBuilder). The game mixes
+     * it in over the colours as they are shown, and the picture mixes in light, before it is
+     * made into what is shown: mixed in by the game's share, a splat showed half as much of
+     * itself. A share of 1 - (1 - a)^2.2 of the light shows as a share a of what is shown.
+     */
     static final String BLOOD_MAIN = """
                 if (vMaterial > 84.5 && vMaterial < 85.5) {
                     texel.rgb *= vec3(vRoot.x, vRoot.y, vRoot.y);
-                    texel.a *= vCover;
+                    texel.a = 1.0 - pow(1.0 - clamp(texel.a * vCover, 0.0, 1.0), 2.2);
                 }
             """;
     static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);

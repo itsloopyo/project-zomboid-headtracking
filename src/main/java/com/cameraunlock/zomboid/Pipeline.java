@@ -1248,10 +1248,10 @@ final class Pipeline {
         GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
     }
 
-    /** Draws the ranges but the panes of windows, which are drawn last of all: see drawPanes. */
+    /** Draws the ranges but the panes of windows, which are drawn last of all (see drawPanes), and the blood, drawn after the rest of what is laid (see drawBlood). */
     private void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
-            if (listed.tint(i) == WallSides.PANES) {
+            if (listed.tint(i) == WallSides.PANES || listed.tint(i) == WallSides.BLOOD) {
                 continue;
             }
             GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
@@ -2148,6 +2148,7 @@ final class Pipeline {
             world.set("uLaid", LAID_REST);
         }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
+        drawBlood(listed);
         if (own) {
             stage(STAGE_LAID);
         }
@@ -2158,6 +2159,23 @@ final class Pipeline {
         if (beyond > 0f && !inMirror) {
             drawFar(camera, state, fogStart, fogEnd);
         }
+    }
+
+    /**
+     * The game's blood, over everything else that is laid: hidden by what lies or grows over
+     * it, and leaving the picture's depth alone, so each splat is mixed over the floor and over
+     * every splat under it, as the game's own view mixes them. Written to the depth, one splat
+     * hid another wherever two met and the blood came out a pale pink where the game's is dark.
+     */
+    private void drawBlood(ChunkBuffers.Listing listed) {
+        GL11.glDepthMask(false);
+        for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
+            if (listed.tint(i) == WallSides.BLOOD) {
+                GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
+                listed.draw(i);
+            }
+        }
+        GL11.glDepthMask(true);
     }
 
     /**
@@ -2836,7 +2854,8 @@ final class Pipeline {
                     int texture = pane || build.runTexture[run] == 0 ? whiteTexture : build.runTexture[run];
                     GL11.glBindTexture(GL_TEXTURE_2D, texture);
                     tellTexel(texel, texture);
-                    if (pane) {
+                    // Blood is painted in no colour of a wall's.
+                    if (pane || key == WallSides.BLOOD) {
                         GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
                     } else {
                         WallSides.joint(key, tint);
