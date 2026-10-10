@@ -32,6 +32,12 @@ final class Sky {
                 return pow(max(color, vec3(0.0)), vec3(2.2));
             }
 
+            float distanceHaze(vec3 direction, vec3 light, float range) {
+                float sunward = pow(max(dot(direction, light), 0.0), 3.0)
+                        * (1.0 - smoothstep(0.1, 0.75, light.z)) * step(0.0, light.z);
+                return 1.0 - exp(-range * (0.0022 + 0.016 * sunward));
+            }
+
             // How thick the air is between the eye and what it looks at, for fog, rain and snow:
             // x is how much light a tile of it takes out of a line of sight, y how deep it lies
             // over the eye, z how far round the eye it thins away. See Eyesight.

@@ -72,14 +72,20 @@ final class ShaderTests {
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
+        Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
     }
 
-    /**
-     * The depth program is the world's text with one line put in place of another. Were the line reworded in the
-     * shader and not where it is looked for, it would be the world's whole program: the same picture, slower.
-     */
+    private static void figuresAndTerrainShareSunsetHaze() {
+        Checks.check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("distanceHaze(-view, uLight, range)"),
+                "near terrain must use the shared directional haze");
+        Checks.check(PipelineShaders.FAR_FRAGMENT.contains("distanceHaze(-view, uLight, away)"),
+                "distant terrain must use the shared directional haze");
+        Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), uLight, range)"),
+                "characters must receive the same sunset haze as terrain");
+    }
+
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
         String whole = fragment(programs, "world"), depth = fragment(programs, "world depth");
         Checks.check(!whole.equals(depth) && depth.contains("const bool depthOnly = true;"), "the world depth program is not the world's program told to draw depth alone");

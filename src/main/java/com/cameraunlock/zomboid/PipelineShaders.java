@@ -3229,9 +3229,8 @@ final class PipelineShaders {
                 }
                 // Towards a low sun the air itself is lit: what stands far off in that quarter
                 // is veiled in gold, and the nearer for the lower the sun is.
-                float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
                 vec3 air = atmosphere(-view);
-                color = mix(color, air, 1.0 - exp(-range * (0.0022 + 0.016 * sunward)));
+                color = mix(color, air, distanceHaze(-view, uLight, range));
                 // The world ends by fading into what stands behind it, which is the hills and
                 // not bare air: faded to air, its last tiles show as dashes against them.
                 // And it ends where the loaded map does, which at the wheel of a car at speed is
@@ -5424,7 +5423,7 @@ final class PipelineShaders {
                     discard;
                 }
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
-                float haze = max(ends, 1.0 - exp(-range * 0.0022));
+                float haze = max(ends, distanceHaze(normalize(ray), uLight, range));
                 color = mix(color, atmosphere(normalize(ray)), haze);
                 if (uVeil.x > 0.0) {
                     color = mix(color, veilColor(normalize(ray)), max(veiling(range), ends * skyVeiling(normalize(ray))));
@@ -6175,9 +6174,8 @@ final class PipelineShaders {
                     color = mix(color, ridges(mirrored, atmosphere(mirrored)), glance * water);
                 }
 
-                float sunward = pow(max(dot(-view, uLight), 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.75, uLight.z)) * step(0.0, uLight.z);
                 vec3 air = atmosphere(-view);
-                color = mix(color, air, 1.0 - exp(-away * (0.0022 + 0.016 * sunward)));
+                color = mix(color, air, distanceHaze(-view, uLight, away));
                 // The far land ends too, in what the sky's own shader draws where nothing is: the hills, and under the skyline the air.
                 float ends = smoothstep(uReach * 0.85, uReach, length(toEye.xy));
                 if (ends > 0.0) {
