@@ -166,7 +166,7 @@ final class GripTests {
         }
     }
 
-    private static void leftHandWrapsTheRightOnAPistolHeldInBoth(ArmModel model) {
+    private static void leftHandWrapsTheRightOnAPistolHeldInBoth(ArmModel model) throws java.io.IOException {
         ArmHolds.Weapon pistol = pistolHeld(true);
         float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
         ArmHolds.Doing both = new ArmHolds.Doing(1f, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
@@ -179,6 +179,11 @@ final class GripTests {
         float[] palm = placed(skins[1], model.wrist, new float[] {hold[0] + model.out[0], hold[1] + model.out[1], hold[2] + model.out[2]});
         check(palm[0] - left[0] > 0.5f * SCALE, "its palm faces the grip from the left");
         check(said[1][ArmPose.WRIST] < said[0][ArmPose.WRIST], "and its wrist is to the left of the right one");
+        // Its thumb lies forward along the frame's left side: from the wrist it runs ahead more than across, and does not cross the back of the grip.
+        int thumb = model.bone("finger1-3");
+        float[] tip = placed(skins[1], thumb, new float[] {model.rests[thumb * 16 + 12], model.rests[thumb * 16 + 13], model.rests[thumb * 16 + 14]});
+        float ahead = said[1][ArmPose.WRIST + 2] - tip[2], across = tip[0] - said[1][ArmPose.WRIST];
+        check(ahead > 2f * across, "the left thumb runs ahead from the wrist, not across the grip: " + ahead / SCALE + " m ahead, " + across / SCALE + " m across");
         // The left hand is round the grip only when it is free.
         ArmHolds.Doing one = new ArmHolds.Doing(1f, false, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
         check(ArmHolds.place(model, SCALE, pistol, one, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 1, "with the left hand not free the pistol is held in the right alone");

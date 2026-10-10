@@ -59,10 +59,11 @@ final class ArmHolds {
      * of the grip's thickness ahead of the grip's middle and this far to its left, in metres,
      * its knuckles leaning this far back from the grip's line, in radians, so that its forearm
      * comes up from under the picture as the right one does and does not lie across it, and its palm
-     * turned this much towards the eye from facing the grip square, in parts of that, so that
-     * its heel is at the back of the grip and its fingers go round the front.
+     * turned this much towards the muzzle from facing the grip square, in parts of that, so that
+     * its fingers go round the front of the right hand's and its thumb lies forward along the
+     * frame's left side: turned the other way the thumb crossed the back of the grip.
      */
-    static final float SUPPORT_AHEAD = 0.45f, SUPPORT_ASIDE = 0.024f, SUPPORT_LEANS = (float) Math.toRadians(30), SUPPORT_PALM_BACK = 0.35f;
+    static final float SUPPORT_AHEAD = 0.45f, SUPPORT_ASIDE = 0.024f, SUPPORT_LEANS = (float) Math.toRadians(30), SUPPORT_PALM_AHEAD = 0.35f;
     /** How many times the hand under a fore-end is brought back to where its arm reaches it: each time it may come under a higher or lower underside. */
     static final int REACH_PASSES = 4;
     /** How far a bolt's handle turns up to open it, in radians, and how far the bolt of a firearm of no particular make is drawn back, in metres. */
@@ -703,7 +704,7 @@ final class ArmHolds {
             across[axis] = line[axis] * cos - ahead[axis] * sin;
         }
         System.arraycopy(across, 0, hold.across, 0, 3);
-        ArmPose.unit(axes.right[0] - ahead[0] * SUPPORT_PALM_BACK, axes.right[1] - ahead[1] * SUPPORT_PALM_BACK, axes.right[2] - ahead[2] * SUPPORT_PALM_BACK, hold.out);
+        ArmPose.unit(axes.right[0] + ahead[0] * SUPPORT_PALM_AHEAD, axes.right[1] + ahead[1] * SUPPORT_PALM_AHEAD, axes.right[2] + ahead[2] * SUPPORT_PALM_AHEAD, hold.out);
         // A fist: every finger round the right hand's, none along the frame.
         hold.weights[model.pose("handle")] = 1f;
         return hold;
