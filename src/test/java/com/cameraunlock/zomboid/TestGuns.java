@@ -37,12 +37,17 @@ final class TestGuns {
             KNOB_OUT = 0.045f, MAGAZINE_BACK = 0.1f, MAGAZINE_FRONT = 0.14f, MAGAZINE_FOOT = -0.15f, LONG_BORE = 0.03f;
 
     static Mesh longGun(boolean magazine) {
+        return longGun(magazine, 0.04f);
+    }
+
+    /** The same with its stock's wrist raked back by `rake` from its top to its foot, 0.05 under it: 0.06 is a lever gun's straight wrist, 50 degrees from upright. */
+    static Mesh longGun(boolean magazine, float rake) {
         Builder b = new Builder();
         // Receiver and barrel.
         b.box(-0.04f, 0.22f, -0.01f, 0.05f, 0.016f);
         b.box(0.22f, LONG_MUZZLE, 0.02f, 0.04f, 0.009f);
         // The stock, its wrist under the receiver's back raked down behind the guard, and its butt.
-        b.slanted(-0.03f, LONG_GUARD_BACK - 0.004f, -0.01f, -0.06f, -0.04f, 0.015f);
+        b.slanted(-0.03f, LONG_GUARD_BACK - 0.004f, -0.01f, -0.06f, -rake, 0.015f);
         b.box(-0.4f, -0.04f, -0.09f, 0.03f, 0.018f);
         // A bolt's knob out to the side over the guard.
         b.beside(0f, 0.012f, 0.032f, 0.02f, 0f, KNOB_OUT, 0.008f);

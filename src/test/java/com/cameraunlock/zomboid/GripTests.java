@@ -25,6 +25,7 @@ final class GripTests {
         Checks.run("leftHandIsUnderTheForeEndsUnderside", () -> leftHandIsUnderTheForeEndsUnderside(model));
         Checks.run("armsOnAPistolComeUpFromUnderThePictureUnturned", () -> armsOnAPistolComeUpFromUnderThePictureUnturned(model));
         Checks.run("armsOnALongGunTurnNoFurtherThanAForearmTurns", () -> armsOnALongGunTurnNoFurtherThanAForearmTurns(model));
+        Checks.run("rightPalmOnALongGunFacesAsItsHoldSays", () -> rightPalmOnALongGunFacesAsItsHoldSays(model));
     }
 
     /** Where the pistol's front edge is at a height. */
@@ -237,6 +238,46 @@ final class GripTests {
             }
             float drop = (said[1][ArmPose.WRIST + 1] - said[1][ArmPose.ELBOW + 1]) / SCALE;
             check(drop > 0.03f, "the left elbow on a long gun raised " + aim + " hangs under its wrist: " + drop + " m");
+        }
+    }
+
+    /**
+     * The right palm on a long gun faces the grip as LONG_PALM_BACK and LONG_PALM_DOWN say, and
+     * not as a hand laid along knuckles leant across the palm turns it: that turned it back 28
+     * degrees where it said 35 and tipped it 14 down the grip. On a lever gun's wrist, raked 50
+     * degrees, the arm is asked to turn no further than a forearm turns.
+     */
+    private static void rightPalmOnALongGunFacesAsItsHoldSays(ArmModel model) {
+        float[] pointing = {0f, 0f, -1f}, over = {0f, 1f, 0f}, right = {1f, 0f, 0f};
+        for (float rake : new float[] {0.04f, 0.06f}) {
+            WeaponShape shape = TestGuns.shape(TestGuns.longGun(true, rake));
+            for (float aim : new float[] {0f, 1f}) {
+                float[] grip = aim == 0f ? new float[] {0.22f * SCALE, -0.25f * SCALE, -0.23f * SCALE} : new float[] {0.09f * SCALE, -0.18f * SCALE, -0.35f * SCALE};
+                ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, 0f, Float.NaN);
+                ArmHolds.Weapon gun = new ArmHolds.Weapon(true, false, placed.at(shape.grip), pointing, over, placed);
+                float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                ArmHolds.Doing holding = new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+                check(ArmHolds.place(model, SCALE, gun, holding, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a long gun has both arms");
+                String how = "a long gun whose wrist is raked " + rake + (aim == 0f ? " at the hip" : " with the sights up");
+                // The grip's line in the view, and the way ahead square to it: the mesh's y along and z up are the view's -z and y.
+                float[] line = {0f, shape.gripLine[2], -shape.gripLine[1]}, front = new float[3];
+                ArmPose.unit(line[0], line[1], line[2], line);
+                float along = ArmPose.dot(pointing, line);
+                ArmPose.unit(pointing[0] - line[0] * along, pointing[1] - line[1] * along, pointing[2] - line[2] * along, front);
+                float back = ArmHolds.LONG_PALM_BACK, down = ArmHolds.LONG_PALM_DOWN;
+                float[] want = new float[3];
+                for (int axis = 0; axis < 3; axis++) {
+                    want[axis] = -(right[axis] * (float) Math.cos(back) + front[axis] * (float) Math.sin(back)) * (float) Math.cos(down) - line[axis] * (float) Math.sin(down);
+                }
+                float[] hold = model.holds[model.pose("grip")];
+                float[] held = placed(skins[0], model.wrist, hold), out = placed(skins[0], model.wrist, new float[] {hold[0] + model.out[0], hold[1] + model.out[1], hold[2] + model.out[2]});
+                float[] palm = new float[3];
+                ArmPose.unit(out[0] - held[0], out[1] - held[1], out[2] - held[2], palm);
+                float off = (float) Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(palm, want))));
+                check(off < 1f, "the right palm on " + how + " faces as its hold says: " + off + " degrees off");
+                float asked = (float) Math.toDegrees(said[0][ArmPose.ASKED]);
+                check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), "the right arm on " + how + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
+            }
         }
     }
 

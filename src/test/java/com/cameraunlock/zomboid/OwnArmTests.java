@@ -163,7 +163,7 @@ final class OwnArmTests {
                         }
                         check(which == 2 || outOfThePicture(tippedDown(shoulder, 40f), 0f), "and tipped down 40 the middle of it still is: " + arm);
                         float bent = (float) Math.toDegrees(said[side][ArmPose.BENT]);
-                        check(bent < (side == 1 ? 33f : tipped == 0 ? 42f : 66f), "its wrist is bent no further than a wrist goes: " + arm + ", " + bent);
+                        check(bent < (side == 1 ? 33f : tipped == 0 ? 42f : 62f), "its wrist is bent no further than a wrist goes: " + arm + ", " + bent);
                     }
                     ArmHolds.Weapon held = longGun(LONG_GUNS[which], raised, tip, 0f);
                     float[] palm = placed(skins[1], model.wrist, model.holds[model.pose("fore")]);

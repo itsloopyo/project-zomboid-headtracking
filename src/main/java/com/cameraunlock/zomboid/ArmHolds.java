@@ -47,18 +47,22 @@ final class ArmHolds {
     /**
      * How the right hand goes round a grip. The hand's pose closes round something as deep as
      * a grip about a point level with its knuckles, and it is put on the grip's middle. A grip
-     * lies across the palm aslant, from the web of the thumb to the heel of the hand, so the
-     * knuckles lean back from the grip's line by this much, in radians. With them along it the
-     * hand asked its forearm to turn along its length further than a forearm turns, 100 to 170
-     * degrees on the game's firearms, the rest was rolled into the upper arm, and the arm came
-     * at the eye across the side of the picture; aslant, each forearm comes up from under the
-     * picture and is turned at most 45 degrees but on a straight wrist. At the hip a handgun's
-     * first finger is this much of the way to the trigger from lying along the frame, which
-     * with the knuckles aslant points it at the slide. On a long gun the hand is turned this far
-     * about the grip's line from square to its right side, in radians, its knuckles over the
-     * wrist and its fingers round under it.
+     * lies across the palm aslant, from the web of the thumb to the heel of the hand, so within
+     * the palm the knuckles lean back from the grip's line by at least this much, in radians,
+     * and on a grip raked further forward by as much more as keeps them no further forward of
+     * upright than this, in radians: a lever gun's straight wrist is raked 50 degrees. With the
+     * knuckles along the grip the hand asked its forearm to turn along its length further than
+     * a forearm turns, 100 to 170 degrees on the game's firearms, the rest was rolled into the
+     * upper arm, and the arm came at the eye across the side of the picture; aslant, each
+     * forearm comes up from under the picture and is turned no further than a forearm turns.
+     * At the hip a handgun's first finger is this much of the way to the trigger from lying
+     * along the frame, which with the knuckles aslant points it at the slide. On a long gun the
+     * palm, which faces a handgun's grip square from its right, is turned this far back towards
+     * the butt and then this far down the grip towards its foot, in radians, its knuckles over
+     * the wrist and its fingers round under it.
      */
-    static final float GRIP_ASLANT = (float) Math.toRadians(30), HANDGUN_HIP_TRIGGER = 0.5f, LONG_PALM_TURN = (float) Math.toRadians(-35);
+    static final float GRIP_ASLANT = (float) Math.toRadians(30), KNUCKLES_RAKE = (float) Math.toRadians(8), HANDGUN_HIP_TRIGGER = 0.5f,
+            LONG_PALM_BACK = (float) Math.toRadians(28), LONG_PALM_DOWN = (float) Math.toRadians(15);
     /**
      * The left hand round a pistol with the right, as a pistol is held in both: a fist on the
      * side of the grip the right palm leaves bare and round the right hand's fingers, this much
@@ -479,13 +483,13 @@ final class ArmHolds {
         float[] line = placed.way(shape.gripLine), front = new float[3];
         float along = ArmPose.dot(axes.ahead, line);
         ArmPose.unit(axes.ahead[0] - line[0] * along, axes.ahead[1] - line[1] * along, axes.ahead[2] - line[2] * along, front);
-        float palmTurn = weapon.handgun() ? 0f : LONG_PALM_TURN;
-        float cos = (float) Math.cos(palmTurn), sin = (float) Math.sin(palmTurn);
-        float aslantCos = (float) Math.cos(GRIP_ASLANT), aslantSin = (float) Math.sin(GRIP_ASLANT);
+        float back = weapon.handgun() ? 0f : LONG_PALM_BACK, down = weapon.handgun() ? 0f : LONG_PALM_DOWN;
+        float cos = (float) Math.cos(back), sin = (float) Math.sin(back), downCos = (float) Math.cos(down), downSin = (float) Math.sin(down);
         for (int axis = 0; axis < 3; axis++) {
-            hold.across[axis] = line[axis] * aslantCos - front[axis] * aslantSin;
-            hold.out[axis] = -axes.right[axis] * cos + front[axis] * sin;
+            hold.out[axis] = -(axes.right[axis] * cos + front[axis] * sin) * downCos - line[axis] * downSin;
         }
+        float rake = (float) Math.atan2(Math.abs(ArmPose.dot(line, axes.ahead)), Math.abs(ArmPose.dot(line, axes.up)));
+        aslant(line, hold.out, front, Math.max(GRIP_ASLANT, rake - KNUCKLES_RAKE), hold.across);
         float raised = ViewModelMath.smooth(doing.aim());
         float hipTrigger = weapon.handgun() ? HANDGUN_HIP_TRIGGER : 0f;
         raised = hipTrigger + (1f - hipTrigger) * raised;
@@ -698,21 +702,36 @@ final class ArmHolds {
     private static Hold round(ArmModel model, Weapon weapon, Axes axes) {
         Placed placed = weapon.placed();
         WeaponShape shape = placed.shape();
-        float[] line = placed.way(shape.gripLine), ahead = new float[3], across = new float[3];
+        float[] line = placed.way(shape.gripLine), ahead = new float[3];
         float along = ArmPose.dot(axes.ahead, line);
         ArmPose.unit(axes.ahead[0] - line[0] * along, axes.ahead[1] - line[1] * along, axes.ahead[2] - line[2] * along, ahead);
         float thick = shape.gripThick * placed.unit();
-        float cos = (float) Math.cos(SUPPORT_LEANS), sin = (float) Math.sin(SUPPORT_LEANS);
         Hold hold = new Hold(model);
         for (int axis = 0; axis < 3; axis++) {
             hold.at[axis] = weapon.grip()[axis] + ahead[axis] * thick * SUPPORT_AHEAD - axes.right[axis] * SUPPORT_ASIDE * axes.scale;
-            across[axis] = line[axis] * cos - ahead[axis] * sin;
         }
-        System.arraycopy(across, 0, hold.across, 0, 3);
         ArmPose.unit(axes.right[0] + ahead[0] * SUPPORT_PALM_AHEAD, axes.right[1] + ahead[1] * SUPPORT_PALM_AHEAD, axes.right[2] + ahead[2] * SUPPORT_PALM_AHEAD, hold.out);
+        aslant(line, hold.out, ahead, SUPPORT_LEANS, hold.across);
         // A fist: every finger round the right hand's, none along the frame.
         hold.weights[model.pose("handle")] = 1f;
         return hold;
+    }
+
+    /**
+     * The line across a hand round a grip: the grip's line laid in the palm, leaning back by
+     * `lean` from there within the palm, its top away from `front`. Leant across the palm it
+     * would have the palm turned and tipped when the hand is laid along it.
+     */
+    private static void aslant(float[] line, float[] palm, float[] front, float lean, float[] across) {
+        float[] laid = new float[3], back = new float[3];
+        float into = ArmPose.dot(line, palm);
+        ArmPose.unit(line[0] - palm[0] * into, line[1] - palm[1] * into, line[2] - palm[2] * into, laid);
+        ArmPose.cross(palm, laid, back);
+        float way = ArmPose.dot(back, front) > 0f ? -1f : 1f;
+        float cos = (float) Math.cos(lean), sin = (float) Math.sin(lean) * way;
+        for (int axis = 0; axis < 3; axis++) {
+            across[axis] = laid[axis] * cos + back[axis] * sin;
+        }
     }
 
     /** Lays the left hand under a fore-end, where the hold is, its fingers on along the arm that comes to it from its shoulder. */
