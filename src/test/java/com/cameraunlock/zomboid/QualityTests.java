@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 final class QualityTests {
     private QualityTests() {}
@@ -16,7 +17,7 @@ final class QualityTests {
         Checks.run("aLevelAskedForIsKept", QualityTests::aLevelAskedForIsKept);
         Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
         Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
-        Checks.run("automaticStepsDownWhereEveryFrameIsLong", QualityTests::automaticStepsDownWhereEveryFrameIsLong);
+        Checks.run("everyPatternTheReviewsNamedDoesWhatItShould", QualityTests::everyPatternTheReviewsNamedDoesWhatItShould);
         Checks.run("aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade", QualityTests::aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade);
         Checks.run("automaticStepsBackUpWithRoomToSpare", QualityTests::automaticStepsBackUpWithRoomToSpare);
         Checks.run("aSceneSlowAtOneLevelAndFastAtTheNextSettles", QualityTests::aSceneSlowAtOneLevelAndFastAtTheNextSettles);
@@ -128,105 +129,143 @@ final class QualityTests {
         check(Quality.sight() == 80, "one frame of six seconds among fast ones is a hitch and takes nothing down");
     }
 
+    /** How long the next frame takes, by the mode's name ("Automatic (High)") and the nanoseconds since the pattern began. */
+    interface FrameTimes {
+        long next(String level, long at);
+    }
+
     /**
-     * At three frames a second every frame is over a quarter of a second, and on a PC that stalls
-     * on every other frame half of them are: either is the picture, and not a hitch.
+     * A pattern of frame times the reviews of Automatic named, the game's frame limit (0 for
+     * none), how long it is played for, and what Automatic must do with it: holds takes the
+     * steps it took, each "<seconds> <level>".
      */
-    private static void automaticStepsDownWhereEveryFrameIsLong() {
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        long now = frames(SECOND, 3f, 4f);
-        check(Quality.name().equals("Automatic (Medium)"), "three frames a second take it down a level: " + Quality.name());
-        frames(now, 3f, 30f);
-        check(Quality.name().equals("Automatic (Stock)"), "and on down to Stock: " + Quality.name());
+    record Pattern(String name, float limit, float seconds, FrameTimes times, String expected, Predicate<List<String>> holds) {}
 
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        now = SECOND;
-        for (int frame = 0; frame < 30; frame++) {
-            now += frame % 2 == 0 ? SECOND * 3 / 10 : SECOND / 60;
-            Quality.frame(0, now, 0f);
+    private static FrameTimes steady(double rate) {
+        return (level, at) -> (long) (SECOND / rate);
+    }
+
+    /** At rate, with every nth frame taking slow nanoseconds. */
+    private static FrameTimes everyNth(double rate, int n, long slow) {
+        int[] frame = {0};
+        return (level, at) -> ++frame[0] % n == 0 ? slow : (long) (SECOND / rate);
+    }
+
+    /** 4 seconds at 20 frames a second, which takes it down to Medium, then times. */
+    private static FrameTimes fromMedium(FrameTimes then) {
+        return (level, at) -> at < 4 * SECOND ? SECOND / 20 : then.next(level, at);
+    }
+
+    /** At rate, with a run, a period after the last ended, of so many stalled frames each so long, then a hitch of hitch nanoseconds (0 for none). */
+    private static FrameTimes runs(double rate, long period, int stalled, long each, long hitch) {
+        long[] next = {period};
+        int[] left = {-1};
+        return (level, at) -> {
+            if (left[0] < 0 && at >= next[0]) {
+                left[0] = stalled + (hitch > 0 ? 1 : 0);
+            }
+            if (left[0] > 0) {
+                left[0]--;
+                return left[0] == 0 && hitch > 0 ? hitch : each;
+            }
+            if (left[0] == 0) {
+                left[0] = -1;
+                next[0] = at + period;
+            }
+            return (long) (SECOND / rate);
+        };
+    }
+
+    private static boolean staysAtHigh(List<String> steps) {
+        return steps.isEmpty();
+    }
+
+    private static boolean downToStock(List<String> steps) {
+        return steps.size() == 3 && steps.get(0).endsWith("Medium") && seconds(steps.get(0)) <= 4 && steps.get(2).endsWith("Stock");
+    }
+
+    private static long seconds(String step) {
+        return Long.parseLong(step.substring(0, step.indexOf(' ')));
+    }
+
+    /** Every pattern, each played from Automatic at High. */
+    static List<Pattern> patterns() {
+        List<Pattern> all = new ArrayList<>();
+        all.add(new Pattern("steady 100, no limit", 0f, 120f, steady(100), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 29.5, limit 30", 30f, 120f, steady(29.5), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 59.5, limit 60", 60f, 120f, steady(59.5), "stays at High", QualityTests::staysAtHigh));
+        for (double rate : new double[] {40, 20, 8, 5, 3}) {
+            all.add(new Pattern("steady " + (int) rate, 0f, 60f, steady(rate), "down a level within 4 s, on to Stock", QualityTests::downToStock));
         }
-        check(Quality.name().equals("Automatic (Medium)"), "a stall of 0.3 seconds on every other frame takes it down a level: " + Quality.name());
-
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        now = frames(SECOND, 100f, 0.5f);
-        now += 6 * SECOND;
-        Quality.frame(0, now, 0f);
-        frames(now, 100f, 30f);
-        check(Quality.name().equals("Automatic (High)"), "one frame of six seconds, which is all a count's three seconds, among fast ones takes nothing down: " + Quality.name());
-
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        now = SECOND;
-        for (int stall = 0; stall < 20; stall++) {
-            now = frames(now, 100f, 1f) + SECOND * 4 / 10;
-            Quality.frame(0, now, 0f);
+        all.add(new Pattern("100 with a 6 s frame after every 5 s", 0f, 120f, runs(100, 5 * SECOND, 0, 0, 6 * SECOND), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames in a row", 0f, 300f, runs(60, 12 * SECOND, 10, SECOND * 15 / 100, 0),
+                "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.5 s hitch", 0f, 300f,
+                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND / 2), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("60 with one 150 ms frame in every five (23 real)", 0f, 60f, everyNth(60, 5, SECOND * 15 / 100),
+                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+        all.add(new Pattern("60 with one 250 ms frame in every five (15.8 real)", 0f, 60f, everyNth(60, 5, SECOND / 4),
+                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+        all.add(new Pattern("200 and 300 ms frames by turns", 0f, 60f, everyNth(1e9 / 200e6, 2, SECOND * 3 / 10),
+                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+        all.add(new Pattern("4 s at 20, then 59.5, limit 60, a 110 ms frame every 10 s", 60f, 400f,
+                fromMedium(runs(59.5, 10 * SECOND, 1, SECOND * 11 / 100, 0)), "down to Medium, back up to High by 200 s, and stays",
+                steps -> steps.size() == 2 && steps.get(0).endsWith("Medium") && steps.get(1).endsWith("High") && seconds(steps.get(1)) <= 200));
+        for (double rate : new double[] {46, 50, 56}) {
+            all.add(new Pattern("steady " + (int) rate, 0f, 300f, steady(rate), "stays at High", QualityTests::staysAtHigh));
+            all.add(new Pattern("4 s at 20, then steady " + (int) rate, 0f, 600f, fromMedium(steady(rate)), "down to Medium and stays",
+                    steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
         }
-        check(Quality.name().equals("Automatic (High)"), "a stall of 0.4 seconds every second among fast frames takes nothing down: " + Quality.name());
+        all.add(new Pattern("4 s at 20, then 100 with a 0.3 s stall every second", 0f, 600f, fromMedium(runs(100, SECOND, 1, SECOND * 3 / 10, 0)),
+                "down to Medium and stays: a hitch in every count is no room to spare", steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
+        for (float held : new float[] {0f, 60f}) {
+            all.add(new Pattern("44 at High, 60 at Medium" + (held > 0f ? ", limit 60 (59.9 at Medium)" : "") + ", 2 hours", held, 7200f,
+                    (level, at) -> (long) (SECOND / (level.endsWith("(High)") ? 44.0 : level.endsWith("(Medium)") ? (held > 0f ? 59.9 : 60.0) : 90.0)),
+                    "Medium within 10 s, never below it, High tried 7 times at most, ends at Medium", steps -> {
+                        long tries = steps.stream().filter(step -> step.endsWith("High")).count();
+                        boolean below = steps.stream().anyMatch(step -> step.endsWith("Low") || step.endsWith("Stock"));
+                        return !steps.isEmpty() && steps.get(0).endsWith("Medium") && seconds(steps.get(0)) < 10 && !below && tries <= 7
+                                && steps.get(steps.size() - 1).endsWith("Medium");
+                    }));
+        }
+        return all;
+    }
 
+    /** Plays a pattern from Automatic at High: the steps it took. */
+    static List<String> played(Pattern pattern) {
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);
-        now = SECOND;
-        for (int load = 0; load < 10; load++) {
-            now = frames(now, 60f, 5f);
-            for (int stall = 0; stall < 2; stall++) {
-                now += SECOND * 6 / 10;
-                Quality.frame(0, now, 0f);
+        List<String> steps = new ArrayList<>();
+        String level = Quality.name();
+        long from = SECOND, now = from;
+        while (now - from < (long) (pattern.seconds() * SECOND)) {
+            now += pattern.times().next(level, now - from);
+            Quality.frame(0, now, pattern.limit());
+            String after = Quality.name();
+            if (!after.equals(level)) {
+                level = after;
+                steps.add((now - from) / SECOND + " " + after.substring("Automatic (".length(), after.length() - 1));
             }
         }
-        frames(now, 60f, 5f);
-        check(Quality.name().equals("Automatic (High)"), "a save or a load of two frames of 0.6 seconds together among sixty a second takes nothing down: " + Quality.name());
+        return steps;
+    }
 
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        now = SECOND;
-        for (int stall = 0; stall < 6; stall++) {
-            now = frames(now, 30f, 0.7f) + SECOND * 3 / 10;
-            Quality.frame(0, now, 0f);
+    /** What each pattern did, a line each: ok or FAIL, the pattern, what it should do, the steps it took. */
+    static List<String> table() {
+        List<String> lines = new ArrayList<>();
+        for (Pattern pattern : patterns()) {
+            List<String> steps = played(pattern);
+            String got = steps.size() <= 8 ? steps.toString() : steps.subList(0, 8) + " ... " + steps.size() + " steps, the last " + steps.get(steps.size() - 1);
+            lines.add((pattern.holds().test(steps) ? "ok   " : "FAIL ") + pattern.name() + " | " + pattern.expected() + " | " + got);
         }
-        check(Quality.name().equals("Automatic (Medium)"), "thirty frames a second with a stall of 0.3 seconds every second are judged by the thirty, and slow: " + Quality.name());
+        Quality.set(Quality.HIGH);
+        return lines;
+    }
 
-        for (boolean hitch : new boolean[] {true, false}) {
-            Quality.set(Quality.HIGH);
-            Quality.set(Quality.AUTOMATIC);
-            long at = SECOND;
-            for (int save = 0; save < 20; save++) {
-                at = frames(at, 60f, 1f);
-                for (int stalled = 0; stalled < 10; stalled++) {
-                    at += SECOND * 15 / 100;
-                    Quality.frame(0, at, 0f);
-                }
-                if (hitch) {
-                    at += SECOND / 2;
-                    Quality.frame(0, at, 0f);
-                }
-            }
-            check(Quality.name().equals("Automatic (High)"), "sixty frames a second with a save's ten frames of 0.15 seconds in each count"
-                    + (hitch ? " and a hitch of 0.5" : "") + " take nothing down: " + Quality.name());
+    private static void everyPatternTheReviewsNamedDoesWhatItShould() {
+        for (String line : table()) {
+            check(line.startsWith("ok"), line);
         }
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        long at = SECOND;
-        for (int frame = 0; frame < 50; frame++) {
-            at += frame % 5 < 2 ? SECOND * 15 / 100 : SECOND / 60;
-            Quality.frame(0, at, 0f);
-        }
-        check(Quality.name().equals("Automatic (Medium)"), "two frames of 0.15 seconds in every five are the picture, and slow: " + Quality.name());
-        now = frames(now + 10 * SECOND, 30f, 1f);
-        Quality.set(Quality.HIGH);
-        Quality.set(Quality.AUTOMATIC);
-        long from = now;
-        while (!Quality.name().equals("Automatic (Medium)") && now - from < 400 * SECOND) {
-            now += SECOND / 30;
-            Quality.frame(0, now, 0f);
-        }
-        while (now - from < 400 * SECOND) {
-            now = frames(now, 100f, 0.7f) + SECOND * 3 / 10;
-            Quality.frame(0, now, 0f);
-        }
-        check(Quality.name().equals("Automatic (Medium)"), "and a hundred a second with the same stall never count as room to spare: " + Quality.name());
     }
 
     /**
