@@ -67,19 +67,35 @@ final class Sightline {
 
     /**
      * The step the light given to rooms the game has not shown moves in. That light is part of
-     * what every build goes by, so each move of it has every chunk in view built again: a
-     * sixteenth is seldom crossed, and is less than the eye tells one room's light from the next by.
+     * what every build goes by, so each move of it has every chunk in view built again. A
+     * sixteenth is less than the eye tells one room's light from the next by.
      */
     static final float LIGHT_STEP = 1f / 16f;
 
     /**
-     * A light as it is kept: the one kept before while the light found is within a step of
-     * it, and otherwise the light found, on the nearest step.
+     * How much of each new reading of the rooms' light is taken (followed). The rooms in sight
+     * change as the eye goes past houses, and from a car what they come to swung from a half
+     * to an eighth and back within two seconds while the light did not change: each swing had
+     * every chunk in view built again. Taken a share at a time it follows a change in the light
+     * in a few seconds and the houses going by hardly at all.
+     */
+    static final float LIGHT_FOLLOWED = 0.15f;
+    /** How far what is followed has to be from the light kept, in steps, for the kept light to move: the light kept is never further off than this. */
+    static final float LIGHT_HELD_STEPS = 2f;
+
+    /** A reading followed a share of the way from what was followed before, or the reading itself where nothing was. */
+    static float followed(float found, float before) {
+        return before < 0f ? found : before + (found - before) * LIGHT_FOLLOWED;
+    }
+
+    /**
+     * The light kept from what is followed: as it was while that is within LIGHT_HELD_STEPS of
+     * it, and otherwise that, on the nearest step.
      *
      * @param kept the light kept before, or less than 0 for none
      */
-    static float stepped(float found, float kept) {
-        return kept >= 0f && Math.abs(found - kept) < LIGHT_STEP ? kept : Math.round(found / LIGHT_STEP) * LIGHT_STEP;
+    static float held(float followed, float kept) {
+        return kept >= 0f && Math.abs(followed - kept) < LIGHT_HELD_STEPS * LIGHT_STEP ? kept : Math.round(followed / LIGHT_STEP) * LIGHT_STEP;
     }
 
     /**

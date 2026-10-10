@@ -643,6 +643,8 @@ final class WorldScene {
      */
     private final OpenLight seenRooms = new OpenLight(), seenLamplit = new OpenLight();
     private float roomShare = -1f, lampLevel = -1f;
+    /** What the readings of roomShare and lampLevel come to, followed a share at a time: see Sightline.followed. */
+    private float roomShareFollowed = -1f, lampLevelFollowed = -1f;
     private long roomLightTakenAt;
     /** How near the eye a chunk is, in tiles, for what stands in its rooms the game has not shown to be built: within the last band but one. See Sightline.emptied. */
     private static final float UNSHOWN_FILLED_WITHIN = 40f;
@@ -2232,7 +2234,7 @@ final class WorldScene {
             if (cell != builtIn.get()) {
                 // Another save, loaded without leaving the game: every build is of the world before.
                 builtIn = new WeakReference<>(cell);
-                roomShare = lampLevel = -1f;
+                roomShare = lampLevel = roomShareFollowed = lampLevelFollowed = -1f;
                 strung.clear();
                 bannerRuns.clear();
                 forgetAll();
@@ -3182,11 +3184,13 @@ final class WorldScene {
                 float open = (unseenRed + unseenGreen + unseenBlue) / 3f;
                 if (seenRooms.counted() >= ROOM_LIGHT_FROM && open >= ROOM_SHARE_TAKEN_FROM) {
                     seenRooms.commonest(openLight);
-                    roomShare = Sightline.stepped(Math.min((openLight[0] + openLight[1] + openLight[2]) / 3f / open, 1f), roomShare);
+                    roomShareFollowed = Sightline.followed(Math.min((openLight[0] + openLight[1] + openLight[2]) / 3f / open, 1f), roomShareFollowed);
+                    roomShare = Sightline.held(roomShareFollowed, roomShare);
                 }
                 if (seenLamplit.counted() >= ROOM_LIGHT_FROM) {
                     seenLamplit.commonest(openLight);
-                    lampLevel = Sightline.stepped(Math.max(openLight[0], Math.max(openLight[1], openLight[2])), lampLevel);
+                    lampLevelFollowed = Sightline.followed(Math.max(openLight[0], Math.max(openLight[1], openLight[2])), lampLevelFollowed);
+                    lampLevel = Sightline.held(lampLevelFollowed, lampLevel);
                 }
                 seenRooms.clear();
                 seenLamplit.clear();
