@@ -1,7 +1,10 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.lwjglx.input.Controller;
 import org.lwjglx.input.Controllers;
 import org.lwjglx.input.Keyboard;
@@ -21,8 +24,9 @@ import zombie.ui.UIManager;
  * of those it lets play only the ones ticked in its Controller options. When none is ticked
  * it ticks the joystick at index 0, which is a SpaceMouse when one is plugged in before the
  * controllers are switched on: that has no mapping, so nothing is ticked and no controller
- * answers on the main menu. Here every mapped gamepad plays as soon as it is found, and a
- * 3Dconnexion 6-axis mouse never does, mapped or not.
+ * answers on the main menu. Here the ticks the player made stand, and while none of the
+ * gamepads plugged in is ticked every one of them is ticked as it is found, in place of the
+ * game's one at index 0. A 3Dconnexion 6-axis mouse never plays, mapped or not.
  *
  * The game gives its menu to a controller whose A is down, the first it comes to in its list,
  * and waits at the end of loading for the A of the first controller that ever had the menu.
@@ -34,6 +38,9 @@ import zombie.ui.UIManager;
  */
 public final class Gamepads {
     private Gamepads() {}
+
+    /** The GUIDs ticked here, not by the player: they do not count as the player's choice while the game runs. */
+    private static final Set<String> tickedHere = new HashSet<>();
 
     /** Why GLFW's joystick with this GUID plays no part, or null when it is a gamepad the game plays with. */
     static String ignored(String guid, boolean mapped) {
@@ -93,16 +100,42 @@ public final class Gamepads {
 
     /**
      * Called from JoypadManager.addJoypad in place of its asking whether the controller is
-     * ticked in the options. It is a gamepad, as the game keeps no other, and it is ticked
-     * here, so the options show what plays; untick it there and it sits out until the game is
-     * started again.
+     * ticked in the options. It is a gamepad, as the game keeps no other.
      */
     public static boolean plays(HashSet<String> ticked, Object guid) {
-        String id = (String) guid;
-        if (threeDConnexion(id)) {
+        List<String> connected = new ArrayList<>();
+        for (int i = 0; i < Controllers.getControllerCount(); i++) {
+            Controller controller = Controllers.getController(i);
+            if (controller != null && ignored(controller.getGUID(), controller.isGamepad()) == null) {
+                connected.add(controller.getGUID());
+            }
+        }
+        return plays(ticked, (String) guid, connected, tickedHere);
+    }
+
+    /**
+     * Whether a gamepad plays: one the player ticked does, and while the player has ticked none
+     * of the gamepads plugged in, every one does and is ticked, so the options show what plays
+     * and the game saves it as it saves its own tick at index 0.
+     *
+     * @param connected the GUIDs of the gamepads plugged in that could play
+     * @param here      the GUIDs ticked by this, which it adds to
+     */
+    static boolean plays(Set<String> ticked, String guid, List<String> connected, Set<String> here) {
+        if (threeDConnexion(guid)) {
             return false;
         }
-        ticked.add(id);
+        if (ticked.contains(guid)) {
+            return true;
+        }
+        for (String other : connected) {
+            if (ticked.contains(other) && !here.contains(other)) {
+                return false;
+            }
+        }
+        ticked.add(guid);
+        here.add(guid);
+        Log.info("controller " + guid + " ticked: none of the gamepads plugged in was ticked in the game's Controller options");
         return true;
     }
 

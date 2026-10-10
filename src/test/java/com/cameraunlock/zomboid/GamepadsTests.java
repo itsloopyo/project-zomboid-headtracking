@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /** Tests of which of GLFW's joysticks the game plays with, by the GUIDs GLFW gives the devices on the owner's machine. */
 final class GamepadsTests {
@@ -21,10 +23,20 @@ final class GamepadsTests {
         check("a 3Dconnexion 6-axis mouse".equals(Gamepads.ignored(SPACEMOUSE_RECEIVER, true)), "and so it is with a gamepad mapping");
         check("a 3Dconnexion 6-axis mouse".equals(Gamepads.ignored(SPACE_NAVIGATOR, true)), "a 3Dconnexion device under Logitech's vendor is ignored");
 
-        HashSet<String> ticked = new HashSet<>();
-        check(Gamepads.plays(ticked, DUALSENSE) && ticked.contains(DUALSENSE), "a gamepad never ticked in the options plays, and is ticked");
-        check(Gamepads.plays(ticked, XINPUT) && ticked.size() == 2, "and so does a second");
-        check(!Gamepads.plays(ticked, SPACEMOUSE_RECEIVER) && !ticked.contains(SPACEMOUSE_RECEIVER), "a SpaceMouse never plays and is never ticked");
+        List<String> pads = List.of(DUALSENSE, XINPUT);
+        HashSet<String> ticked = new HashSet<>(), here = new HashSet<>();
+        check(!Gamepads.plays(ticked, SPACEMOUSE_RECEIVER, pads, here) && !ticked.contains(SPACEMOUSE_RECEIVER), "a SpaceMouse never plays and is never ticked");
+        check(Gamepads.plays(ticked, DUALSENSE, pads, here) && ticked.contains(DUALSENSE), "with none of the gamepads ticked, the first found plays and is ticked");
+        check(Gamepads.plays(ticked, XINPUT, pads, here) && ticked.size() == 2, "and so does a second: the first was not the player's tick");
+
+        ticked = new HashSet<>(Set.of(DUALSENSE));
+        here = new HashSet<>();
+        check(Gamepads.plays(ticked, DUALSENSE, pads, here), "a gamepad the player ticked plays");
+        check(!Gamepads.plays(ticked, XINPUT, pads, here) && !ticked.contains(XINPUT), "and one they left unticked beside it sits out, and stays unticked");
+
+        ticked = new HashSet<>(Set.of(SPACEMOUSE_RECEIVER));
+        here = new HashSet<>();
+        check(Gamepads.plays(ticked, XINPUT, pads, here), "a SpaceMouse the game ticked at index 0 is no gamepad ticked: the gamepads play");
     }
 
     private static void check(boolean condition, String what) {
