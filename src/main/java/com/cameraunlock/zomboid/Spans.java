@@ -150,9 +150,26 @@ final class Spans {
      */
     private final HashMap<Long, Known> known = new HashMap<>();
 
+    /** A length of wire follow came to, on a level, followed the way given: the bits of its numbers. */
+    private record Reached(int level, int wayX, int wayY, int fromX, int fromY, int toX, int toY) {}
+
+    /**
+     * Where following a wire on from a length of it came to: the end, and whether what was read
+     * on the way from that length, or the map's not being loaded where it stopped, leaves an end
+     * that is not made fast wanting. Every square a span crosses follows it to the same two
+     * ends, and each would otherwise walk the whole span again.
+     */
+    private record Followed(float[] end, boolean wanting) {}
+
+    private final HashMap<Reached, Followed> followed = new HashMap<>();
+    /** The lengths the follow under way has come to, and what each step read was unsure of: before the length was found, and after. */
+    private Reached[] walking = new Reached[16];
+    private boolean[] unsureBefore = new boolean[16], unsureAfter = new boolean[16];
+
     /** Before a frame is built: what was found of the map in the last may have changed since. */
     void forget() {
         known.clear();
+        followed.clear();
     }
 
     /** The sag of a span of a length, in tiles. */
@@ -465,16 +482,20 @@ final class Spans {
     private void follow(float fromX, float fromY, float wayX, float wayY) {
         float atX = fromX, atY = fromY;
         boolean walked = false;
-        unsure = ownUnsure;
+        // What each step reads is kept apart, so that what follows on from each length can be kept for the next square's span.
+        int steps = 0;
+        boolean wanting;
         while (true) {
             unloaded = false;
+            unsure = false;
             boolean next = nextLength(atX, atY, wayX, wayY, 0.5f, -Float.MAX_VALUE, GAP);
             if (!next) {
                 int aimed = aimedAt(pins, pinsRound((int) Math.floor(atX), (int) Math.floor(atY)), atX, atY, wayX, wayY);
                 if (aimed >= 0) {
                     fastTo(aimed);
                     reached = !walked;
-                    return;
+                    wanting = false;
+                    break;
                 }
                 next = nextLength(atX, atY, wayX, wayY, 1.5f, GAP, BRIDGE);
                 if (!next) {
@@ -482,9 +503,10 @@ final class Spans {
                     end[1] = atY;
                     end[END_LAND] = atX;
                     end[END_LAND + 1] = atY;
-                    end[END_KIND] = unloaded || unsure ? WANTING : LOOSE;
+                    end[END_KIND] = LOOSE;
                     end[END_LEVEL] = level;
-                    return;
+                    wanting = unloaded || unsure;
+                    break;
                 }
                 if (!walked) {
                     bridged = true;
@@ -492,16 +514,43 @@ final class Spans {
                     bridgedY = nextFromY;
                 }
             }
+            Reached at = new Reached(level, Float.floatToIntBits(wayX), Float.floatToIntBits(wayY), Float.floatToIntBits(nextFromX), Float.floatToIntBits(nextFromY),
+                    Float.floatToIntBits(nextToX), Float.floatToIntBits(nextToY));
+            Followed known = followed.get(at);
+            if (known != null) {
+                System.arraycopy(known.end, 0, end, 0, end.length);
+                wanting = unsure || known.wanting;
+                break;
+            }
+            if (steps == walking.length) {
+                walking = Arrays.copyOf(walking, steps * 2);
+                unsureBefore = Arrays.copyOf(unsureBefore, steps * 2);
+                unsureAfter = Arrays.copyOf(unsureAfter, steps * 2);
+            }
+            walking[steps] = at;
+            unsureBefore[steps] = unsure;
+            unsure = false;
             // The first insulator that holds the next length, as that length finds it for itself.
             touch(pins, pinsRound(nextX, nextY), nextFromX, nextFromY, nextToX, nextToY);
+            unsureAfter[steps++] = unsure;
             int held = first >= 0 ? first : passed > 0 ? cuts[0] : last;
             if (held >= 0) {
                 fastTo(held);
-                return;
+                wanting = false;
+                break;
             }
             atX = nextToX;
             atY = nextToY;
             walked = true;
+        }
+        // From the last length back: what follows on from each is what was read from its own step on.
+        for (int step = steps - 1; step >= 0; step--) {
+            wanting |= unsureAfter[step];
+            followed.put(walking[step], new Followed(end.clone(), wanting));
+            wanting |= unsureBefore[step];
+        }
+        if (end[END_KIND] != FAST && (wanting || ownUnsure)) {
+            end[END_KIND] = WANTING;
         }
     }
 

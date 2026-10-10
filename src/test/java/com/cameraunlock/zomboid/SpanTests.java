@@ -27,6 +27,71 @@ final class SpanTests {
         Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
         Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
+        Checks.run("spansFoundTogetherInAFrameAreThoseFoundOneByOne", SpanTests::spansFoundTogetherInAFrameAreThoseFoundOneByOne);
+    }
+
+    /**
+     * Every length of every square of a map hung by one Spans in turn, as a frame's build hangs
+     * them, in one order and in the other, comes to just what each hung by a Spans of its own
+     * does: what one span found and kept for the frame is what the next would have found.
+     */
+    private static void spansFoundTogetherInAFrameAreThoseFoundOneByOne() {
+        List<Map> maps = new ArrayList<>();
+        Map straight = new Map();
+        straight.pole(10, 5, 0f, -0.8f);
+        straight.pole(23, 5, 0f, -0.8f);
+        straight.pole(36, 5, 0f, -0.8f);
+        wire(straight, 10, 36, 4, 4.7f);
+        maps.add(straight);
+        Map unloaded = new Map();
+        unloaded.pole(10, 5, 0f, -0.8f);
+        unloaded.pole(42, 5, 0f, -0.8f);
+        wire(unloaded, 10, 42, 4, 4.7f);
+        unloaded.loadedTo = 20;
+        maps.add(unloaded);
+        Map poleUnsettled = new Map();
+        poleUnsettled.pole(10, 5, 0f, -0.8f);
+        poleUnsettled.pole(23, 5, 0f, -0.8f);
+        wire(poleUnsettled, 6, 30, 4, 4.7f);
+        poleUnsettled.unsettled.add(Map.key(23, 5));
+        maps.add(poleUnsettled);
+        Map gap = new Map();
+        gap.pole(10, 5, 0f, -0.8f);
+        gap.pole(36, 5, 0f, -0.8f);
+        wire(gap, 10, 19, 4, 4.7f);
+        wire(gap, 21, 36, 4, 4.7f);
+        maps.add(gap);
+        Map loose = new Map();
+        loose.pole(10, 5, 0f, -0.8f);
+        wire(loose, 10, 24, 4, 4.7f);
+        wire(loose, 3, 9, 4, 4.7f);
+        loose.polesLoadedTo = 30;
+        maps.add(loose);
+        int compared = 0;
+        boolean same = true;
+        for (Map map : maps) {
+            List<long[]> squares = new ArrayList<>();
+            for (java.util.Map.Entry<Long, List<float[]>> square : map.lines.entrySet()) {
+                for (int which = 0; which < square.getValue().size(); which++) {
+                    squares.add(new long[] {square.getKey(), which});
+                }
+            }
+            squares.sort((a, b) -> Long.compare(a[0], b[0]));
+            for (int order = 0; order < 2; order++) {
+                Spans shared = new Spans(map);
+                for (int i = 0; i < squares.size(); i++) {
+                    long[] at = squares.get(order == 0 ? i : squares.size() - 1 - i);
+                    long key = at[0];
+                    int z = (int) (key >>> 48), x = (int) (key >>> 24 & 0xFFFFFF), y = (int) (key & 0xFFFFFF);
+                    float[] line = map.lines.get(key).get((int) at[1]);
+                    float[] alone = new Spans(map).find(x, y, z, line[0], line[1], line[2], line[3]);
+                    float[] together = shared.find(x, y, z, line[0], line[1], line[2], line[3]);
+                    same &= java.util.Arrays.equals(alone, together);
+                    compared++;
+                }
+            }
+        }
+        check(same && compared > 200, "every length hung with the others in a frame hangs as it does alone: " + compared + " compared");
     }
 
     /** The level the poles of the made-up maps stand their tops on, as the map's do. */
