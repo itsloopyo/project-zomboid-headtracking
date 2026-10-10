@@ -86,6 +86,8 @@ final class WireBuilder {
     private final Poles.Drawn drawn = this::poleOn;
     // Made once: a method reference made where it is passed is a new object at every call, and settled is asked for every square a span is checked on.
     private final Poles.Loaded loadedHere = this::loaded;
+    /** The frame the spans last found anything in. */
+    private int spansFrame = -1;
 
     WireBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -102,6 +104,10 @@ final class WireBuilder {
      * length of the pole.
      */
     boolean addWires(Texture texture, String name, int x, int y, int z) {
+        if (world.frames != spansFrame) {
+            spans.forget();
+            spansFrame = world.frames;
+        }
         float[] lines = wiresOn(texture, name, build.frame);
         long square = (long) x << 38 | (long) y << 16 | (long) z << 12 | (long) Poles.index(name) << 4;
         for (int i = 0; i < lines.length; i += 4) {

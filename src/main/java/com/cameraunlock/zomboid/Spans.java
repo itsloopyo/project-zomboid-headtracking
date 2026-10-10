@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  * The spans of overhead wire: what a length of wire hangs between.
@@ -137,6 +138,21 @@ final class Spans {
 
     Spans(Hung map) {
         this.map = map;
+    }
+
+    /** What pinsRound found round a square of a level: the pins, and whether a pole there left it unsure. */
+    private record Known(float[] pins, boolean unsure) {}
+
+    /**
+     * What pinsRound has found this frame, by square and level. The map holds still while a
+     * frame is built, and the steps along a wire, and the wires of the squares round it, ask
+     * after the same poles over and over: each asking reads every object of 75 squares.
+     */
+    private final HashMap<Long, Known> known = new HashMap<>();
+
+    /** Before a frame is built: what was found of the map in the last may have changed since. */
+    void forget() {
+        known.clear();
     }
 
     /** The sag of a span of a length, in tiles. */
@@ -283,6 +299,15 @@ final class Spans {
      * numbers that is. A pole the map has not loaded, or one it may yet show more of, leaves the length unsure.
      */
     private int pinsRound(int x, int y) {
+        long key = ((long) x & 0xFFFFFF) << 32 | ((long) y & 0xFFFFFF) << 8 | (level + 128 & 0xFF);
+        Known kept = known.get(key);
+        if (kept != null) {
+            System.arraycopy(kept.pins, 0, pins, 0, kept.pins.length);
+            unsure |= kept.unsure;
+            return kept.pins.length;
+        }
+        boolean before = unsure;
+        unsure = false;
         int found = 0;
         for (int up = -1; up <= 1; up++) {
             int squares = LEVEL_SQUARES * up;
@@ -304,6 +329,8 @@ final class Spans {
                 }
             }
         }
+        known.put(key, new Known(Arrays.copyOf(pins, found), unsure));
+        unsure |= before;
         return found;
     }
 
