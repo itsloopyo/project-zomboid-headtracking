@@ -418,6 +418,9 @@ final class ChunkBuffers {
     static final class Listing {
         /** For each range, one after the other, the first vertex and the number of vertices of each run of the buffer it draws. */
         private IntBuffer firsts = ints(1 << 12), counts = ints(1 << 12);
+        // The lists are made here and copied to the buffers whole: a direct buffer checks its
+        // memory is still there on every put, and each listing puts two for every run listed.
+        private int[] firstList = new int[1 << 12], countList = new int[1 << 12];
         private int[] rangeTexture = new int[256], rangeTint = new int[256], rangeFrom = new int[256], rangeRuns = new int[256];
         private int ranges, solidRanges;
         /** What is laid is drawn in the order listed, each over the last: what grows on the ground first, and what lies on it, a path spread over a lawn's edge, over that. */
@@ -459,10 +462,9 @@ final class ChunkBuffers {
             if (runs > firsts.capacity()) {
                 firsts = ints(Integer.highestOneBit(runs) * 2);
                 counts = ints(Integer.highestOneBit(runs) * 2);
+                firstList = new int[firsts.capacity()];
+                countList = new int[counts.capacity()];
             }
-            // A draw leaves the two lists' limits at the end of its range.
-            firsts.clear();
-            counts.clear();
             for (int i = 0; i < chunks.size(); i++) {
                 if (left != null && left[i]) {
                     continue;
@@ -474,13 +476,18 @@ final class ChunkBuffers {
                     Runs of = run < build.solidRuns ? solidRuns : build.grown ? grownRuns : laidRuns;
                     if ((of == solidRuns || laidToo) && listed(build.runRoom[run], rooms)) {
                         int slot = of.slot(build.runTexture[run], build.runTint[run]);
-                        firsts.put(of.cursor[slot], at / SpriteGeometry.VERTEX_FLOATS);
-                        counts.put(of.cursor[slot], build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS);
+                        firstList[of.cursor[slot]] = at / SpriteGeometry.VERTEX_FLOATS;
+                        countList[of.cursor[slot]] = build.runFloats[run] / SpriteGeometry.VERTEX_FLOATS;
                         of.cursor[slot]++;
                     }
                     at += build.runFloats[run];
                 }
             }
+            // A draw leaves the two lists' limits at the end of its range.
+            firsts.clear();
+            firsts.put(firstList, 0, runs);
+            counts.clear();
+            counts.put(countList, 0, runs);
         }
 
         /** Gives each texture its part of the lists from the run at start, notes it as a range to draw, and returns the run after the last. */
