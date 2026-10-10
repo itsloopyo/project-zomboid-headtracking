@@ -11,6 +11,8 @@ final class TentTests {
         Checks.run("aRopeRunsFromUnderTheEavesToTheGroundOutside", TentTests::aRopeRunsFromUnderTheEavesToTheGroundOutside);
         Checks.run("anotherSpriteIsNoTent", TentTests::anotherSpriteIsNoTent);
         Checks.run("theCanvasIsTheCeilingUnderEverySquareOfACanopy", TentTests::theCanvasIsTheCeilingUnderEverySquareOfACanopy);
+        Checks.run("aGableReachesTheCanvasOverItAndNoFurther", TentTests::aGableReachesTheCanvasOverItAndNoFurther);
+        Checks.run("aGablesLiningClosesItInsideUpToTheCanvas", TentTests::aGablesLiningClosesItInsideUpToTheCanvas);
     }
 
     private static final String SHEET = "location_military_tent_01_";
@@ -58,7 +60,6 @@ final class TentTests {
     }
 
     private static void aGableReachesTheRidgeAndAStripCarriesTheSlopeOn() {
-        check(Tents.GABLE_HIGH >= 3 * Tents.STEP - 1e-6f, "a gable reaches the ridge of the widest tent");
         check(Tents.of(SHEET + 48).kind() == Tents.GABLE && Tents.of(SHEET + 48).alongX(), "48 is a gable on a north edge");
         check(Tents.of(SHEET + 40).kind() == Tents.GABLE && !Tents.of(SHEET + 40).alongX(), "40 is a gable on a west edge");
         check(Tents.of(SHEET + 32).kind() == Tents.FLAP && !Tents.of(SHEET + 32).alongX(), "32 is a strip on a west edge");
@@ -96,6 +97,51 @@ final class TentTests {
         }
         for (String name : new String[] {SHEET + 48, SHEET + 40, SHEET + 32, SHEET + 35, SHEET + 0, "ceilings_01_0", "roofs_shallow_01_24"}) {
             check(!Tents.isCanvas(sprite(name)), name + " is no canvas");
+        }
+    }
+
+    /**
+     * Each gable is as high as the canopy over its edge, square by square, so the wall under
+     * the end of a tent meets the canvas with no sky between: the gables of each row of canopy
+     * as the map places them, a north edge's under 16..21 and a west edge's under 29..24.
+     */
+    private static void aGableReachesTheCanvasOverItAndNoFurther() {
+        int[][] under = {
+            {16, 48}, {22, 49}, {23, 52}, {21, 53}, {17, 49}, {18, 50}, {19, 51}, {20, 52},
+            {29, 45}, {28, 44}, {31, 44}, {25, 41}, {30, 41}, {24, 40}, {27, 43}, {26, 42},
+            {80, 112}, {86, 113}, {87, 116}, {85, 117}, {93, 109}, {88, 104},
+        };
+        for (int[] pair : under) {
+            Tents.Piece canvas = Tents.of(SHEET + pair[0]), gable = Tents.of(SHEET + pair[1]);
+            check(gable.kind() == Tents.GABLE && gable.alongX() == canvas.alongX(), pair[1] + " is a gable along " + pair[0] + "'s slope");
+            check(Math.abs(gable.from() - canvas.from()) < 1e-6f && Math.abs(gable.to() - canvas.to()) < 1e-6f,
+                    pair[1] + " meets the canvas of " + pair[0] + " at both ends: " + gable.from() + ".." + gable.to());
+        }
+        check(Tents.DRAWN_IN > 0f, "the canvas's texels are taken from inside the edges its sprites paint short of");
+    }
+
+    /**
+     * Inside a tent the end wall meets the canvas with no sky between: each gable's lining runs
+     * the whole edge, stands just inside the tent (on the gable's square where the canvas is
+     * on it, across the edge where it is not) and reaches just over the canopy's line, so it
+     * meets the canvas's underside inside the canvas's face. Not further: a lining that stood
+     * out over the canvas would show from outside.
+     */
+    private static void aGablesLiningClosesItInsideUpToTheCanvas() {
+        float[] corners = new float[12];
+        for (int place : new int[] {48, 49, 50, 51, 52, 53, 40, 41, 42, 43, 44, 45, 112, 117, 104, 109}) {
+            Tents.Piece gable = Tents.of(SHEET + place);
+            for (boolean canvasHere : new boolean[] {true, false}) {
+                Tents.lining(gable, canvasHere, corners);
+                String said = place + (canvasHere ? " with its canvas on its square" : " at the far end of its canvas");
+                boolean north = gable.alongX();
+                float across = north ? corners[1] : corners[0], length = north ? corners[3] - corners[0] : corners[4] - corners[1];
+                check(Math.abs(length - 1f) < 1e-6f, said + ": lined the whole edge");
+                check(canvasHere ? across > 0f && across < 0.05f : across < 0f && across > -0.05f, said + ": lined just inside the tent, " + across);
+                check(corners[2] == 0f && corners[5] == 0f, said + ": lined from its foot");
+                float overFrom = corners[11] - gable.from(), overTo = corners[8] - gable.to();
+                check(overFrom > 0f && overFrom < 0.01f && overTo > 0f && overTo < 0.01f, said + ": lined up to just over the canvas, " + overFrom + " " + overTo);
+            }
         }
     }
 

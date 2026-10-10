@@ -4907,7 +4907,7 @@ final class WorldScene {
                 return;
             }
 
-            if (addTent(mesh, sprite, x, y, z)) {
+            if (addTent(mesh, sprite, texture, x, y, z)) {
                 return;
             }
 
@@ -5316,7 +5316,30 @@ final class WorldScene {
          * mod's own line, and with the mod's furniture off its sprite is left to be drawn as it
          * was. False for any other sprite.
          */
-        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, int x, int y, int z) {
+        private final float[] gablePoints = new float[9], liningAt = new float[12];
+
+        /**
+         * Lines a tent's gable inside with a sheet of its colour up to the canvas: see
+         * Tents.LINING_IN. A gable with nothing painted where its colour is read is left unlined.
+         */
+        private void addGableLining(SpriteGeometry.Mesh mesh, Texture texture, Tents.Piece gable, int x, int y, int z) {
+            boolean north = gable.alongX();
+            float along = Tents.LINING_DYE_ALONG, a = north ? along : 0f, b = north ? 0f : along;
+            float h = Tents.LINING_DYE_UP * (gable.from() + (gable.to() - gable.from()) * along);
+            if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(frame, a, b)), Math.round(SpriteGeometry.frameV(frame, a, b, h)))) {
+                return;
+            }
+            Tents.lining(gable, canvas, liningAt);
+            for (int corner = 0; corner < 4; corner++) {
+                float cornerA = liningAt[corner * 3], cornerB = liningAt[corner * 3 + 1];
+                set(liningAt, corner, x + cornerA, y + cornerB, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT
+                        + geometry.liftAt(cornerA, cornerB));
+            }
+            mesh.open = frame.open + frame.kind + 32f * frame.material;
+            SpriteGeometry.addQuad(mesh, liningAt, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, h), frame.red, frame.green, frame.blue);
+        }
+
+        private boolean addTent(SpriteGeometry.Mesh mesh, IsoSprite sprite, Texture texture, int x, int y, int z) {
             Tents.Piece piece = Tents.of(sprite), rope = Own.furniture() ? Tents.ropeOf(sprite) : null;
             if (piece == null && rope == null) {
                 return false;
@@ -5324,16 +5347,29 @@ final class WorldScene {
             building.plain = false;
             if (piece != null) {
                 boolean alongX = piece.alongX();
+                geometry.drawnIn = piece.kind() == Tents.CANOPY || piece.kind() == Tents.GABLE ? Tents.DRAWN_IN : 0f;
                 switch (piece.kind()) {
                     case Tents.CANOPY -> {
                         float rise = piece.to() - piece.from();
                         geometry.addFace(mesh, frame, x, y, z, 0f, 0f, piece.from(), 1f, 0f, alongX ? rise : 0f, 0f, 1f, alongX ? 0f : rise);
                     }
-                    case Tents.GABLE -> geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 0f, alongX ? 1f : 0f, alongX ? 0f : 1f, 0f, 0f, 0f, Tents.GABLE_HIGH);
+                    case Tents.GABLE -> {
+                        // Up to the canopy's line, as two triangles of the wall under it, and lined inside.
+                        float endA = alongX ? 1f : 0f, endB = alongX ? 0f : 1f;
+                        set(gablePoints, 0, 0f, 0f, 0f);
+                        set(gablePoints, 1, endA, endB, 0f);
+                        set(gablePoints, 2, endA, endB, piece.to());
+                        geometry.addTriangle(mesh, frame, x, y, z, gablePoints);
+                        set(gablePoints, 1, endA, endB, piece.to());
+                        set(gablePoints, 2, 0f, 0f, piece.from());
+                        geometry.addTriangle(mesh, frame, x, y, z, gablePoints);
+                        addGableLining(mesh, texture, piece, x, y, z);
+                    }
                     case Tents.FLAP -> geometry.addFace(mesh, frame, x, y, z, 0f, 0f, 1f, alongX ? 1f : 0f, alongX ? 0f : 1f, 0f,
                             alongX ? 0f : Tents.FLAP_OUT, alongX ? Tents.FLAP_OUT : 0f, -Tents.STEP * Tents.FLAP_OUT);
                     default -> throw new IllegalStateException("a tent's piece of kind " + piece.kind());
                 }
+                geometry.drawnIn = 0f;
             }
             if (rope != null && overLayer == 0) {
                 float topX = x + rope.topA(), topY = y + rope.topB(), footX = x + rope.footA(), footY = y + rope.footB();

@@ -30,8 +30,24 @@ final class Tents {
     private static final String SHEET = "location_military_tent_01_";
     /** How far a canopy climbs or falls across a square, in levels. */
     static final float STEP = 1f / 6f;
-    /** How high a gable reaches over the eaves, in levels: a tent six squares wide. */
-    static final float GABLE_HIGH = 0.5f;
+    /**
+     * How many frame pixels further in than a face's usual inset the texels of the canvas are
+     * taken. The sprites paint up to a pixel or two short of their squares' edges and of the
+     * canopy's line, and the texels there are clear: from inside a tent each joint of the
+     * canvas, each gable's top and each eave against its wall was a row of slits of sky.
+     */
+    static final float DRAWN_IN = 3f;
+    /**
+     * How far inside the tent a gable is lined, in squares, and how far over the canopy's line
+     * the lining reaches, in levels. A gable's picture is cut to its sprite, which stops a pixel
+     * or two short of the canopy's line, and along that line the canvas's edge and the gable's
+     * top are two faces that share no corner: from inside, specks of sky. The lining is a
+     * sheet of the gable's colour just inside it, up to the canvas, whose underside it meets
+     * inside the canvas's face and not at its edge. Hidden from outside behind the gable.
+     */
+    static final float LINING_IN = 0.01f, LINING_OVER = 0.002f;
+    /** Where on a gable its colour is read: halfway along the edge, at this share of the canopy's height there. */
+    static final float LINING_DYE_ALONG = 0.5f, LINING_DYE_UP = 0.5f;
     /** How far past its square's edge the strip beyond the eaves goes, in squares: the painted strip is narrower, and the rest of the face is clear. */
     static final float FLAP_OUT = 0.25f;
 
@@ -45,6 +61,11 @@ final class Tents {
     record Piece(int kind, boolean alongX, float from, float to, float topA, float topB, float topH, float footA, float footB) {
         static Piece canopy(boolean alongX, int fromSixths, int toSixths) {
             return new Piece(CANOPY, alongX, fromSixths * STEP, toSixths * STEP, 0f, 0f, 0f, 0f, 0f);
+        }
+
+        /** A gable, as high as the canopy over its edge: from and to in sixths, at the edge's west or north end and at its other. */
+        static Piece gable(boolean north, int fromSixths, int toSixths) {
+            return new Piece(GABLE, north, fromSixths * STEP, toSixths * STEP, 0f, 0f, 0f, 0f, 0f);
         }
 
         static Piece edge(int kind, boolean north) {
@@ -77,12 +98,19 @@ final class Tents {
         PIECES[29] = Piece.canopy(false, 0, 1);
         PIECES[30] = Piece.canopy(false, 2, 1);
         PIECES[31] = Piece.canopy(false, 1, 2);
-        for (int place = 40; place <= 45; place++) {
-            PIECES[place] = Piece.edge(GABLE, false);
-        }
-        for (int place = 48; place <= 53; place++) {
-            PIECES[place] = Piece.edge(GABLE, true);
-        }
+        // The gables under them: 48..53 under 16..21 on a north edge, 45..40 under 29..24 on a west one.
+        PIECES[48] = Piece.gable(true, 0, 1);
+        PIECES[49] = Piece.gable(true, 1, 2);
+        PIECES[50] = Piece.gable(true, 2, 3);
+        PIECES[51] = Piece.gable(true, 3, 2);
+        PIECES[52] = Piece.gable(true, 2, 1);
+        PIECES[53] = Piece.gable(true, 1, 0);
+        PIECES[45] = Piece.gable(false, 0, 1);
+        PIECES[44] = Piece.gable(false, 1, 2);
+        PIECES[43] = Piece.gable(false, 2, 3);
+        PIECES[42] = Piece.gable(false, 3, 2);
+        PIECES[41] = Piece.gable(false, 2, 1);
+        PIECES[40] = Piece.gable(false, 1, 0);
         PIECES[32] = Piece.edge(FLAP, false);
         PIECES[33] = Piece.edge(FLAP, false);
         PIECES[34] = Piece.edge(FLAP, false);
@@ -130,6 +158,21 @@ final class Tents {
             roped.put(sprite, rope);
         }
         return rope;
+    }
+
+    /**
+     * The four corners of a gable's lining on its square, each (a, b, h): along the gable's
+     * edge from its west or north end, at its foot and then up to the canvas over it. The tent
+     * is on the square when canvasHere, and on the square across the edge when not.
+     */
+    static void lining(Piece gable, boolean canvasHere, float[] corners) {
+        float off = canvasHere ? LINING_IN : -LINING_IN;
+        boolean north = gable.alongX();
+        float endA = north ? 1f : 0f, endB = north ? 0f : 1f, inA = north ? 0f : off, inB = north ? off : 0f;
+        WorldScene.set(corners, 0, inA, inB, 0f);
+        WorldScene.set(corners, 1, endA + inA, endB + inB, 0f);
+        WorldScene.set(corners, 2, endA + inA, endB + inB, gable.to() + LINING_OVER);
+        WorldScene.set(corners, 3, inA, inB, gable.from() + LINING_OVER);
     }
 
     /** Whether a sprite is a square of a tent's canopy: under it the canvas is the ceiling, and no flat one is laid. */

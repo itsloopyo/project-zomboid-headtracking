@@ -447,6 +447,8 @@ final class SpriteGeometry {
     float sealLow, sealHigh;
     /** The same down from the top edge of a face that stands straight up. */
     float sealTop;
+    /** How many frame pixels further in than the usual inset a face's texels are taken from its edges: see Tents.DRAWN_IN. */
+    float drawnIn;
     /**
      * How far the ground stands above the flat map at the four corners of the square being
      * added, (0, 0), (1, 0), (1, 1) and (0, 1), in tiles: see Terrain. Everything on the square
@@ -1631,7 +1633,7 @@ final class SpriteGeometry {
         }
         // Across and down separately: a wall's side edges are upright, and an inset towards the
         // face's centre would run along them without leaving the sprite's empty edge columns.
-        float inset = EDGE_INSET_PIXELS * frame.scale;
+        float inset = (EDGE_INSET_PIXELS + drawnIn) * frame.scale;
         float insetAcross = inset + (pixelU < centreU ? sealLow : sealHigh);
         float sheet = edgeU1 * edgeV2 - edgeV1 * edgeU2;
         // A face that stands was drawn in before it was cut: see addFace.
