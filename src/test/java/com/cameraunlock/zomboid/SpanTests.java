@@ -26,6 +26,7 @@ final class SpanTests {
         Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
         Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
+        Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
     }
 
     /** The level the poles of the made-up maps stand their tops on, as the map's do. */
@@ -567,6 +568,25 @@ final class SpanTests {
         stops.unsettled.clear();
         ends = ends(piecesOf(stops, 15, 4, 0), 0);
         check(ends[9] == Spans.LOOSE, "and is loose where nothing more can be shown there: " + ends[9]);
+    }
+
+    /**
+     * A pole two lengths tall with nothing on the level over them, the square three on not loaded: its top may be drawn
+     * up there, so the build of its foot, which climbs to its top, wants the map, as the length under that level does.
+     */
+    private static void aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(10, 5, 1), "appliances_com_01_89");
+        Poles.Loaded toTwelve = (x, y) -> x < 12, all = (x, y) -> true;
+        check(Poles.unsettledPole(map, toTwelve, 10, 5, 0, 0), "the foot of a pole whose top may be drawn up onto map not loaded wants the map");
+        check(!Poles.unsettledPole(map, all, 10, 5, 0, 0), "and not once that map is loaded");
+        drawn.put(Map.key(10, 5, 2), "appliances_com_01_93");
+        for (Poles.Loaded loaded : new Poles.Loaded[] {toTwelve, all}) {
+            check(Poles.unsettledPole(map, loaded, 10, 5, 0, 0) == Poles.unsettledPole(map, loaded, 10, 5, 2, 0),
+                    "with its arm on its own square the foot asks what the arm's own length asks");
+        }
     }
 
     private static void check(boolean condition, String what) {

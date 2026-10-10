@@ -207,7 +207,7 @@ final class WireBuilder {
      */
     boolean addPole(SpriteGeometry.Mesh mesh, IsoObject object, IsoSprite sprite, Texture texture, int x, int y, int z) {
         // Where the length is drawn may be a level off where it stands: what is drawn on the map not yet loaded may tell.
-        build.wantsMap |= Poles.unsettled(drawn, this::loaded, x, y, z, build.lowestLevel) || Poles.unsettled(drawn, this::loaded, x, y, z + 1, build.lowestLevel);
+        build.wantsMap |= Poles.unsettledPole(drawn, this::loaded, x, y, z, build.lowestLevel);
         if (drawnUp(x, y, z)) {
             return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
         }

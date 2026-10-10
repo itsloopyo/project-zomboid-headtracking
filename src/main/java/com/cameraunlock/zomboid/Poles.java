@@ -104,6 +104,19 @@ final class Poles {
         return here && !under && z - 2 >= lowest && !loaded.at(x - other, y - other) || !here && under && !loaded.at(x + other, y + other);
     }
 
+    /**
+     * Whether what a pole's build reads from a length of it on a square of a level may change once more of the map is
+     * loaded: the length itself, the square over it, and over the top the build climbs to from it, where a top drawn
+     * up onto map not loaded would make the pole a length taller.
+     */
+    static boolean unsettledPole(Drawn map, Loaded loaded, int x, int y, int z, int lowest) {
+        int top = z;
+        while (standsOn(map, x, y, top + 1, lowest) != null) {
+            top++;
+        }
+        return unsettled(map, loaded, x, y, z, lowest) || unsettled(map, loaded, x, y, z + 1, lowest) || unsettled(map, loaded, x, y, top + 1, lowest);
+    }
+
     /** The sprite of the length of pole that stands on a square of a level, wherever it is drawn, or null. */
     static String standsOn(Drawn map, int x, int y, int z, int lowest) {
         int on = Spans.LEVEL_SQUARES;
