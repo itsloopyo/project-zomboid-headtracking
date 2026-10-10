@@ -1866,6 +1866,7 @@ final class WorldScene {
         private boolean outside;
         private boolean seated;
         private float seatedGroundUp;
+        private final float[] seatedTurn = new float[9];
         private float outsideTan, outsideAway;
         /** The glass the viewer is shown in, seen from their own eye. */
         private final OwnReflection.Glass glass = new OwnReflection.Glass();
@@ -2195,6 +2196,7 @@ final class WorldScene {
             opacity = 1f;
             seated = view.ride.seated;
             seatedGroundUp = view.ride.groundUp;
+            System.arraycopy(view.ride.turn, 0, seatedTurn, 0, seatedTurn.length);
             this.tanHalfFieldOfView = tanHalfFieldOfView;
             this.tanHalfSet = tanHalfSet;
             float flat = (float) Math.sqrt(pose.forwardX * pose.forwardX + pose.forwardY * pose.forwardY);
@@ -5873,6 +5875,7 @@ final class WorldScene {
             view.pipeline.overhead = outside && outsideAway > OVERHEAD_RANGE;
             view.pipeline.seated = seated;
             view.pipeline.seatedGroundUp = seatedGroundUp;
+            System.arraycopy(seatedTurn, 0, view.pipeline.seatedTurn, 0, seatedTurn.length);
             view.pipeline.reflection = glass.found ? glass : null;
             view.pipeline.opacity = opacity;
             view.pipeline.cutAbove = outside ? cutFrom : Float.MAX_VALUE;

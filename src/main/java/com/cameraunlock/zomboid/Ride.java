@@ -5,6 +5,8 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 import zombie.characters.IsoPlayer;
+import zombie.core.physics.Bullet;
+import zombie.network.GameClient;
 import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
@@ -27,6 +29,9 @@ final class Ride {
     /** Whether the viewer is in a vehicle. */
     volatile boolean seated;
     float groundUp;
+    /** How the vehicle lies on the land under it (VehicleSlope.turn), which the picture tips the vehicle and all in it by. */
+    final float[] turn = new float[9];
+    private final VehicleSlope slope = new VehicleSlope();
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
     volatile boolean driving;
     volatile int skin;
@@ -123,7 +128,11 @@ final class Ride {
             tilt = null;
             return;
         }
-        groundUp = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ());
+        vehicle.getForwardVector(facing);
+        Vector3f extents = vehicle.getScript().getExtents();
+        slope.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), facing.x, facing.z, extents.z, extents.x);
+        groundUp = slope.groundUp;
+        System.arraycopy(slope.turn, 0, turn, 0, turn.length);
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
         engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
         VehiclePart tank = vehicle.getPartById("GasTank");
@@ -140,6 +149,9 @@ final class Ride {
         float high = (float) Math.sqrt(above.x * above.x + above.y * above.y + above.z * above.z);
         float[] axes = new float[9];
         Cabins.axes(facing.x / nose, facing.z / nose, facing.y / nose, above.x / high, above.z / high, above.y / high, axes);
+        for (int axis = 0; axis < 9; axis += 3) {
+            slope.apply(axes, axis);
+        }
         stands = axes;
         float flat = Math.max((float) Math.hypot(facing.x, facing.z), 1e-3f);
         Cabins.tilt(axes, facing.x / flat, facing.z / flat, tilted);
@@ -150,6 +162,9 @@ final class Ride {
 
         int seat = vehicle.getSeat(player);
         driving = seat == 0;
+        if (driving) {
+            roll(vehicle);
+        }
         doorOpen = seat >= 0 && Cabins.doorOpen(vehicle, seat);
         skin = player.getHumanVisual().getSkinTextureIndex();
         // What is worn changes seldom, and asking makes a list for every garment.
@@ -159,6 +174,33 @@ final class Ride {
         if (seat >= 0) {
             seatTheEye(vehicle, seat, floorUp, eye);
         }
+    }
+
+    /** Metres a second each second that falling pulls with: the game's physics has no hills of its own to fall down. */
+    private static final float GRAVITY = 9.81f;
+    private boolean saidOnline;
+
+    /**
+     * Pulls the vehicle the player drives down the slope it lies on, as a hill pulls a car: the
+     * game's physics stands every vehicle on level ground, so a climb would not slow it nor a
+     * descent run it on. The pull is the part of its weight along the slope, put on its middle
+     * in the game's own physics, where it is the player's own machine that moves the vehicle.
+     * Not on a server: there the vehicle moves as the others in the game see it move.
+     */
+    private void roll(BaseVehicle vehicle) {
+        if (GameClient.client) {
+            if (!saidOnline) {
+                saidOnline = true;
+                Log.info("on a server a vehicle is not pulled down the first person hills: it goes as the game's level ground has it");
+            }
+            return;
+        }
+        if (slope.steep <= 0f || !vehicle.isLocalPhysicSim()) {
+            return;
+        }
+        float pull = vehicle.getMass() * GRAVITY * slope.steep;
+        // The game's physics has up as its y: the map's y is its z.
+        Bullet.applyCentralForceToVehicle(vehicle.getId(), slope.downX * pull, 0f, slope.downY * pull);
     }
 
     /** The way the vehicle faces on the map, as a yaw. The game gives its forward vector with y as up. */

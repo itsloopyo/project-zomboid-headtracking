@@ -23,6 +23,7 @@ final class Headlights {
 
     volatile float[] beams = new float[BEAMS * STRIDE];
     private final Vector3f facing = new Vector3f();
+    private final VehicleSlope slope = new VehicleSlope();
 
     /** @param terrain the lie of the land the view the beams are gathered for is drawn on */
     void gather(Terrain terrain, float eyeX, float eyeY) {
@@ -52,14 +53,22 @@ final class Headlights {
                 second = distance;
             }
             float wayX = facing.x / along, wayY = facing.z / along;
+            Vector3f extents = vehicle.getScript().getExtents();
+            slope.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), wayX, wayY, extents.z, extents.x);
             int at = slot * STRIDE;
-            found[at] = vehicle.getX() + wayX * NOSE;
-            found[at + 1] = vehicle.getY() + wayY * NOSE;
-            found[at + 2] = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ()) + LAMP_HEIGHT;
+            // The lamps are on the vehicle's nose, and shine the way it is tipped on the land.
+            found[at] = wayX * NOSE;
+            found[at + 1] = wayY * NOSE;
+            found[at + 2] = LAMP_HEIGHT;
+            slope.apply(found, at);
+            found[at] += vehicle.getX();
+            found[at + 1] += vehicle.getY();
+            found[at + 2] += slope.groundUp;
             float length = (float) Math.sqrt(1f + DIP * DIP);
             found[at + 3] = wayX / length;
             found[at + 4] = wayY / length;
             found[at + 5] = -DIP / length;
+            slope.apply(found, at + 3);
             found[at + 6] = 1f;
         }
         beams = found;

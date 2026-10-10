@@ -479,6 +479,7 @@ public final class Characters {
                 int at = i * 4;
                 float groundUp = view.pipeline.seatedGroundUp;
                 place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+                tip(view.pipeline.seatedTurn);
                 String script = view.ride.seatedIn;
                 ViewCamera.view(camera, eyeView);
                 if (script != null && !parts(data).isEmpty()) {
@@ -1582,8 +1583,16 @@ public final class Characters {
      * and the game does its seating on top of that.
      */
     private void seated(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
-                stood[at + 3], VEHICLE_SCALE);
+        BaseVehicle in = data.character.getVehicle();
+        if (in != null && in == view.ride.sat) {
+            place(stood[at], stood[at + 1], view.pipeline.seatedGroundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+            tip(view.pipeline.seatedTurn);
+        } else if (in != null) {
+            lie(in, at);
+        } else {
+            place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+                    stood[at + 3], VEHICLE_SCALE);
+        }
         multiply(viewMatrix, placed, combined);
         gameCamera = ModelCamera.instance;
         ModelCamera.instance = EYE;
@@ -1608,10 +1617,15 @@ public final class Characters {
      * differ, and the vehicle is drawn nearer than it is: through the wall of a house.
      */
     private void vehicle(ModelSlotRenderData data, int at, float[] viewMatrix) {
-        float groundUp = fromSeat ? view.pipeline.seatedGroundUp
-                : stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]);
-        place(stood[at], stood[at + 1], groundUp + VEHICLE_RAISE,
-                stood[at + 3], VEHICLE_SCALE);
+        if (fromSeat) {
+            place(stood[at], stood[at + 1], view.pipeline.seatedGroundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+            tip(view.pipeline.seatedTurn);
+        } else if (data.object instanceof BaseVehicle standing) {
+            lie(standing, at);
+        } else {
+            place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
+                    stood[at + 3], VEHICLE_SCALE);
+        }
         multiply(viewMatrix, placed, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];
         float eyeY = combined[5] * data.centerOfMassY + combined[13];
@@ -1656,6 +1670,28 @@ public final class Characters {
      * and z along its back; the game turns it by its angle plus half a turn, mirrors it across
      * x and scales it. In world axes (x, y, up) that comes to this.
      */
+    private final VehicleSlope slope = new VehicleSlope();
+    private final Vector3f ahead = new Vector3f();
+
+    /** Places a vehicle, or someone in it, where it stood for the game, on the land under it as it lies there: see VehicleSlope. */
+    private void lie(BaseVehicle vehicle, int at) {
+        vehicle.getForwardVector(ahead);
+        Vector3f extents = vehicle.getScript().getExtents();
+        slope.lie(view.worldScene.terrain, stood[at], stood[at + 1], stood[at + 2], ahead.x, ahead.z, extents.z, extents.x);
+        place(stood[at], stood[at + 1], slope.groundUp + VEHICLE_RAISE, stood[at + 3], VEHICLE_SCALE);
+        tip(slope.turn);
+    }
+
+    /** Tips what placed stands up by the turn of a VehicleSlope, about where it stands. */
+    private void tip(float[] turn) {
+        for (int column = 0; column < 12; column += 4) {
+            float x = placed[column], y = placed[column + 1], up = placed[column + 2];
+            placed[column] = turn[0] * x + turn[3] * y + turn[6] * up;
+            placed[column + 1] = turn[1] * x + turn[4] * y + turn[7] * up;
+            placed[column + 2] = turn[2] * x + turn[5] * y + turn[8] * up;
+        }
+    }
+
     private void place(float x, float y, float up, float angle, float scale) {
         float cos = (float) Math.cos(angle + Math.PI) * scale;
         float sin = (float) Math.sin(angle + Math.PI) * scale;

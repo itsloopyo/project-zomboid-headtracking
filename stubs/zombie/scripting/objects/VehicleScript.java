@@ -3,6 +3,7 @@ package zombie.scripting.objects;
 import org.joml.Vector3f;
 
 public final class VehicleScript {
+    public org.joml.Vector3f getExtents() { throw new UnsupportedOperationException("reference stub"); }
     public int getPassengerCount() { throw new UnsupportedOperationException("reference stub"); }
     public Passenger getPassenger(int index) { throw new UnsupportedOperationException("reference stub"); }
     public int getWheelCount() { throw new UnsupportedOperationException("reference stub"); }
