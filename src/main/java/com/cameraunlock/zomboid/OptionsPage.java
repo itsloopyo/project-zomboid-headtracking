@@ -215,7 +215,7 @@ final class OptionsPage {
             control.table.rawset("value", value != 0);
         } else if (control.values == null) {
             // On a notch, as the slider will hold it: the game writes this number beside the slider as it is.
-            control.table.rawset("value", Math.rint(value / control.described.step) * control.described.step);
+            control.table.rawset("value", notch(control, value));
         } else {
             control.table.rawset("selected", (double) (lineOf(control, (int) value) + 1));
         }
@@ -302,8 +302,7 @@ final class OptionsPage {
 
     /** A value as the control holds it: a slider's on its nearest notch. */
     private static double notch(Control control, double value) {
-        return control.described.kind == CameraUnlock.OPTION_BOOL || control.values != null ? value
-                : Math.rint(value / control.described.step) * control.described.step;
+        return control.described.kind == CameraUnlock.OPTION_BOOL || control.values != null ? value : Tracking.notch(value, control.described.step);
     }
 
     /** Sets a control on the open screen to a value, through the game's own setValue of the control, which moves what is drawn. */

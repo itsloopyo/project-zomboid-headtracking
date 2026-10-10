@@ -727,6 +727,8 @@ public final class CoreTests {
                         && hills.label.equals("Hill height") && hills.comment.contains("0 is as flat"),
                 "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
         check(screen.shows("HillHeight") == HillHeight.asked(), "it shows the height the session has");
+        check(Tracking.notch(0.3f, hills.step) == 0.3 && Tracking.notch(1.7f, hills.step) == 1.7 && Tracking.notch(0.62f, 0.01) == 0.62,
+                "a value put on a slider is the notch the game's slider holds, worked out as it works it out: " + Tracking.notch(0.3f, hills.step));
         check(HillHeight.DEFAULT == 1.5f && HillHeight.CONTESTED == 1f,
                 "hill height defaults to 1.5, and is held at 1 where players can fight");
         screen.set("HillHeight", 2);

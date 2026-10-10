@@ -279,6 +279,12 @@ final class Tracking {
                 : config.optionValue(option);
     }
 
+    /** A slider's notch nearest a value, worked out as the game's ISSliderPanel.setCurrentValue works it out, so the two are the same number. */
+    static double notch(double value, double step) {
+        double perStep = 1 / step;
+        return Math.floor(value * perStep + 0.5) / perStep;
+    }
+
     private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
     static final String QUALITY_OPTION = "Quality", OVERHEAD_QUALITY_OPTION = "IsometricQuality";
 
