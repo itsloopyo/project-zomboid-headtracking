@@ -17,6 +17,7 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public void repair() { throw new UnsupportedOperationException("reference stub"); }
     public void setHotwired(boolean hotwired) { throw new UnsupportedOperationException("reference stub"); }
     public boolean enter(int seat, IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isSeatOccupied(int seat) { throw new UnsupportedOperationException("reference stub"); }
     public VehicleParts getParts() { throw new UnsupportedOperationException("reference stub"); }
     public float getCurrentSpeedKmHour() { throw new UnsupportedOperationException("reference stub"); }
     public double getEngineSpeed() { throw new UnsupportedOperationException("reference stub"); }

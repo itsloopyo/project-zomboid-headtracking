@@ -27,9 +27,10 @@ import zombie.vehicles.VehiclePart;
  * player installs is compiled with the empty class of this name in src/shipped in this one's place.
  * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
+ * A key that does something to the player does it to every player at the screen.
  *
  * F7 takes the nearest vehicle within a few paces: mends it, fills its tank, hot-wires it and
- * sits the player in the driver's seat, whatever state it was found in. For looking at
+ * sits the player in its first free seat, whatever state it was found in. For looking at
  * vehicles and driving without first finding one that runs.
  *
  * The apostrophe makes the player invincible, and vulnerable again on the next press.
@@ -184,21 +185,31 @@ public final class DevKeys {
             cleared = false;
             return;
         }
-        IsoPlayer safe = IsoPlayer.getInstance();
+        ArrayList<IsoPlayer> players = new ArrayList<>();
+        for (IsoPlayer each : IsoPlayer.players) {
+            if (each != null) {
+                players.add(each);
+            }
+        }
         if (GameKeyboard.isKeyPressed(INVINCIBLE_KEY)) {
             invincible = !invincible;
-            Log.info("': invincible " + invincible);
+            Log.info("': invincible " + invincible + " for " + players.size() + " players");
         }
-        // The game's own god mode is refused outside its debug mode, so the player is made
+        // The game's own god mode is refused outside its debug mode, so the players are made
         // whole again every frame instead: wounds, bites and infection are gone as they land.
-        if (safe != null && (invincible || wasInvincible)) {
-            keepWhole(safe);
+        if (invincible || wasInvincible) {
+            for (IsoPlayer each : players) {
+                keepWhole(each);
+            }
+            wasInvincible = invincible;
         }
         if (GameKeyboard.isKeyPressed(CLEAR_KEY)) {
             cleared = !cleared;
             Log.info("0: zombies cleared " + cleared);
-            if (!cleared && safe != null) {
-                bringZombiesBack(safe);
+            if (!cleared) {
+                for (IsoPlayer each : players) {
+                    bringZombiesBack(each);
+                }
             }
         }
         if (cleared && IsoWorld.instance.currentCell != null) {
@@ -210,11 +221,17 @@ public final class DevKeys {
             }
         }
         boolean back = GameKeyboard.isKeyPressed(LAST_PLACE_KEY);
-        if (safe != null && safe.getVehicle() == null && (back || GameKeyboard.isKeyPressed(NEXT_PLACE_KEY))) {
+        if (back || GameKeyboard.isKeyPressed(NEXT_PLACE_KEY)) {
             place = back ? Math.floorMod(Math.max(place, 0) - 1, PLACES.length) : (place + 1) % PLACES.length;
             Place to = PLACES[place];
-            safe.teleportTo(to.x(), to.y(), to.level());
-            Log.info((back ? "," : ".") + ": moved to " + to.name() + " (" + to.x() + ", " + to.y() + ", level " + to.level() + "), place " + (place + 1) + " of " + PLACES.length);
+            int moved = 0;
+            for (IsoPlayer each : players) {
+                if (each.getVehicle() == null) {
+                    each.teleportTo(to.x(), to.y(), to.level());
+                    moved++;
+                }
+            }
+            Log.info((back ? "," : ".") + ": moved " + moved + " of " + players.size() + " players to " + to.name() + " (" + to.x() + ", " + to.y() + ", level " + to.level() + "), place " + (place + 1) + " of " + PLACES.length);
         }
         if (GameKeyboard.isKeyPressed(LATER_KEY)) {
             // Past midnight is left as an hour over 24: the game's clock takes that as the next day.
@@ -230,37 +247,47 @@ public final class DevKeys {
         if (weather >= 0 && Math.abs(ClimateManager.getInstance().getSnowFracNow() - WEATHERS[weather].lying()) > LYING_DRIFT) {
             lie(WEATHERS[weather].lying());
         }
-        if (safe != null && GameKeyboard.isKeyPressed(ARM_KEY)) {
-            InventoryItem shotgun = safe.getInventory().AddItem(SHOTGUN);
-            safe.setPrimaryHandItem(shotgun);
-            safe.setSecondaryHandItem(shotgun);
-            Log.info(";: a shotgun in hand, kept loaded");
+        if (GameKeyboard.isKeyPressed(ARM_KEY)) {
+            for (IsoPlayer each : players) {
+                InventoryItem shotgun = each.getInventory().AddItem(SHOTGUN);
+                each.setPrimaryHandItem(shotgun);
+                each.setSecondaryHandItem(shotgun);
+            }
+            Log.info(";: a shotgun in hand for " + players.size() + " players, kept loaded");
         }
-        if (safe != null && GameKeyboard.isKeyPressed(SCOPED_KEY)) {
+        if (GameKeyboard.isKeyPressed(SCOPED_KEY)) {
             scope = (scope + 1) % ScopeOptics.KNOWN.length;
             String part = ScopeOptics.KNOWN[scope].part();
-            HandWeapon rifle = (HandWeapon) safe.getInventory().AddItem(RIFLE);
-            rifle.attachWeaponPart(InventoryItemFactory.<WeaponPart>CreateItem(part));
-            safe.setPrimaryHandItem(rifle);
-            safe.setSecondaryHandItem(rifle);
-            Log.info("[: a hunting rifle in hand with " + part + " on it, kept loaded");
+            for (IsoPlayer each : players) {
+                HandWeapon rifle = (HandWeapon) each.getInventory().AddItem(RIFLE);
+                rifle.attachWeaponPart(InventoryItemFactory.<WeaponPart>CreateItem(part));
+                each.setPrimaryHandItem(rifle);
+                each.setSecondaryHandItem(rifle);
+            }
+            Log.info("[: a hunting rifle in hand for " + players.size() + " players with " + part + " on it, kept loaded");
         }
-        if (safe != null && GameKeyboard.isKeyPressed(TORCH_KEY)) {
-            InventoryItem torch = safe.getInventory().AddItem(TORCH);
-            torch.setCurrentUsesFloat(1f);
-            safe.setSecondaryHandItem(torch);
-            torch.setActivated(true);
-            Log.info("/: a flashlight in the left hand, charged and lit");
+        if (GameKeyboard.isKeyPressed(TORCH_KEY)) {
+            for (IsoPlayer each : players) {
+                InventoryItem torch = each.getInventory().AddItem(TORCH);
+                torch.setCurrentUsesFloat(1f);
+                each.setSecondaryHandItem(torch);
+                torch.setActivated(true);
+            }
+            Log.info("/: a flashlight in the left hand for " + players.size() + " players, charged and lit");
         }
-        if (safe != null && safe.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
-            held.setCurrentAmmoCount(held.getMaxAmmo());
-            held.setRoundChambered(true);
-            held.setJammed(false);
-            held.setCondition(held.getConditionMax());
+        for (IsoPlayer each : players) {
+            if (each.getPrimaryHandItem() instanceof HandWeapon held && held.isAimedFirearm()) {
+                held.setCurrentAmmoCount(held.getMaxAmmo());
+                held.setRoundChambered(true);
+                held.setJammed(false);
+                held.setCondition(held.getConditionMax());
+            }
         }
         // With two at the screen the key is the split screen's.
         if (IsoPlayer.numPlayers != 2 && GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
-            takeNearestVehicle();
+            for (IsoPlayer each : players) {
+                takeNearestVehicle(each);
+            }
         }
     }
 
@@ -345,7 +372,6 @@ public final class DevKeys {
         if (invincible && !safe.isDead()) {
             safe.getBodyDamage().RestoreToFullHealth();
         }
-        wasInvincible = invincible;
     }
 
     /**
@@ -367,9 +393,8 @@ public final class DevKeys {
         Log.info("0: " + made + " zombies put back round the player");
     }
 
-    private static void takeNearestVehicle() {
-        IsoPlayer player = IsoPlayer.getInstance();
-        if (player == null || player.getVehicle() != null) {
+    private static void takeNearestVehicle(IsoPlayer player) {
+        if (player.getVehicle() != null) {
             return;
         }
         BaseVehicle nearest = null;
@@ -391,7 +416,15 @@ public final class DevKeys {
             tank.setContainerContentAmount(tank.getContainerCapacity());
         }
         nearest.setHotwired(true);
-        boolean seated = nearest.enter(0, player);
-        Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), seated " + seated);
+        int seat = 0;
+        while (seat < nearest.getMaxPassengers() && nearest.isSeatOccupied(seat)) {
+            seat++;
+        }
+        if (seat == nearest.getMaxPassengers()) {
+            Log.info("the vehicle at (" + nearest.getX() + ", " + nearest.getY() + ") has no free seat for player " + (player.getPlayerNum() + 1));
+            return;
+        }
+        boolean seated = nearest.enter(seat, player);
+        Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), player " + (player.getPlayerNum() + 1) + " seated " + seated + " in seat " + seat);
     }
 }
