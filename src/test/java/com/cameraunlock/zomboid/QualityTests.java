@@ -187,6 +187,33 @@ final class QualityTests {
             Quality.frame(0, now, 0f);
         }
         check(Quality.name().equals("Automatic (Medium)"), "thirty frames a second with a stall of 0.3 seconds every second are judged by the thirty, and slow: " + Quality.name());
+
+        for (boolean hitch : new boolean[] {true, false}) {
+            Quality.set(Quality.HIGH);
+            Quality.set(Quality.AUTOMATIC);
+            long at = SECOND;
+            for (int save = 0; save < 20; save++) {
+                at = frames(at, 60f, 1f);
+                for (int stalled = 0; stalled < 10; stalled++) {
+                    at += SECOND * 15 / 100;
+                    Quality.frame(0, at, 0f);
+                }
+                if (hitch) {
+                    at += SECOND / 2;
+                    Quality.frame(0, at, 0f);
+                }
+            }
+            check(Quality.name().equals("Automatic (High)"), "sixty frames a second with a save's ten frames of 0.15 seconds in each count"
+                    + (hitch ? " and a hitch of 0.5" : "") + " take nothing down: " + Quality.name());
+        }
+        Quality.set(Quality.HIGH);
+        Quality.set(Quality.AUTOMATIC);
+        long at = SECOND;
+        for (int frame = 0; frame < 50; frame++) {
+            at += frame % 5 < 2 ? SECOND * 15 / 100 : SECOND / 60;
+            Quality.frame(0, at, 0f);
+        }
+        check(Quality.name().equals("Automatic (Medium)"), "two frames of 0.15 seconds in every five are the picture, and slow: " + Quality.name());
         now = frames(now + 10 * SECOND, 30f, 1f);
         Quality.set(Quality.HIGH);
         Quality.set(Quality.AUTOMATIC);

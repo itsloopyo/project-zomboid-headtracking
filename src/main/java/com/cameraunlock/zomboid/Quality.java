@@ -79,12 +79,13 @@ final class Quality {
     private static volatile Picture custom = HIGH_PICTURE;
     /** What the mode draws now. */
     private static volatile Picture drawn = LOW_PICTURE;
-    private static final long HITCH_NANOS = 250_000_000L;
+    /** A frame longer than HITCH_NANOS is long; one longer than STALL_NANOS and no longer than that is stalled. */
+    private static final long HITCH_NANOS = 250_000_000L, STALL_NANOS = 100_000_000L;
     /** When the count began (0 for none begun), when the frame before was drawn, and when the level last stepped to has settled. */
     private static long countedSince, lastFrame, settlesAt;
-    /** The frames of the count, how many of them were long (over HITCH_NANOS), and the time those took. */
-    private static int counted, longFrames;
-    private static long longNanos;
+    /** The frames of the count, how many of them were long and how many stalled, and the time each kind took. */
+    private static int counted, longFrames, stalledFrames;
+    private static long longNanos, stalledNanos;
     /** How long the frame rate has been judged at RISES_AT or over without a break. */
     private static long fastFor;
     /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
@@ -251,14 +252,18 @@ final class Quality {
         }
         if (countedSince == 0L) {
             countedSince = now;
-            counted = longFrames = 0;
-            longNanos = 0L;
+            counted = longFrames = stalledFrames = 0;
+            longNanos = stalledNanos = 0L;
             return;
         }
         counted++;
-        if (now - since > HITCH_NANOS) {
+        long took = now - since;
+        if (took > HITCH_NANOS) {
             longFrames++;
-            longNanos += now - since;
+            longNanos += took;
+        } else if (took > STALL_NANOS) {
+            stalledFrames++;
+            stalledNanos += took;
         }
         long span = now - countedSince;
         if (span < JUDGED_OVER_NANOS) {
@@ -268,15 +273,19 @@ final class Quality {
         float risesAt = limit > 0f ? Math.min(RISES_AT, limit * RISES_AT_OF_LIMIT) : RISES_AT;
         // Long frames that are half of the count or more are the picture itself, at three or four
         // frames a second or stalling on every other frame. Fewer are hitches, a save being written
-        // or a jump across the map, however many come together: the frames between them are judged
-        // without them, and only as too slow, since a count with a hitch is not one of room to spare.
-        boolean hitches = longFrames > 0 && !(longFrames > 1 && longFrames * 2 >= counted);
-        int between = counted - longFrames;
-        long betweenNanos = span - longNanos;
+        // or a jump across the map, however many come together, and so are stalled frames under a
+        // quarter of the rest, the burst of a save written as the game goes on: the frames between
+        // them are judged without them, and only as too slow, since such a count is not one of room
+        // to spare. Stalled frames more often than that are the picture.
+        boolean picture = longFrames > 1 && longFrames * 2 >= counted;
+        boolean burst = stalledFrames > 0 && stalledFrames * 4 < counted - longFrames;
+        boolean hitches = !picture && (longFrames > 0 || burst);
+        int between = counted - longFrames - (burst ? stalledFrames : 0);
+        long betweenNanos = span - longNanos - (burst ? stalledNanos : 0L);
         float rate = hitches ? between * 1e9f / betweenNanos : counted * 1e9f / span;
         countedSince = now;
-        counted = longFrames = 0;
-        longNanos = 0L;
+        counted = longFrames = stalledFrames = 0;
+        longNanos = stalledNanos = 0L;
         if (hitches) {
             fastFor = 0L;
             // Too little time between the hitches to tell a rate from.
