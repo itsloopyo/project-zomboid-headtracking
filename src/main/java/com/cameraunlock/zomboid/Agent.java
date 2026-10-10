@@ -365,10 +365,12 @@ public final class Agent {
                         new CallSite.Method(cell, "prepareChunksForUpdating", "(I)V"), covered)),
                 new Patch(cutaways, "the levels' cut away walls not worked out under the first person picture", classBytes -> CallSite.falseAtOnceIf(classBytes,
                         new CallSite.Method(cutaways, "checkExteriorWalls", "(Ljava/util/ArrayList;)Z"), covered)),
-                // The game's own draw of each part of each person into its own view, which the
-                // picture then covers: the picture draws every one of them again itself, by this
-                // same method. Everything round the draw runs as it did: where the model's
-                // camera is stood, which the picture reads, and what says a model was shown.
+                // The game's own draw of each person into its own view, which the picture then
+                // covers: the picture draws every part of them again itself, by RenderCharacter.
+                // performRenderCharacter is the whole of that draw, the GL state and the model
+                // camera it sets up for it included, and leaves the camera's angle as it found it.
+                // What is round it in render still runs: where the model's camera is stood,
+                // which the picture reads, and what says a model was shown.
                 new Patch(CHARACTER_DRAW, "skip covered character render setup", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(CHARACTER_DRAW, "performRenderCharacter", "()V"),
                         new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
