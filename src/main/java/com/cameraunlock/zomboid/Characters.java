@@ -531,7 +531,7 @@ public final class Characters {
                 }
                 if (own) {
                     // The weapon was placed for the mod's hands, which are another size and hold it another way.
-                    if (!armsRefused) {
+                    if (!armsRefused && !gripLoading) {
                         armsRefused = true;
                         Log.info("the mod's own arms could not be placed on " + hands.item() + ": the game's own are drawn on it, as often as that happens");
                     }
@@ -902,6 +902,7 @@ public final class Characters {
      * put on, which is then held by the game's own arms.
      */
     private ArmHolds.Placed placed(ModelSlotRenderData data, ViewModel.Held hands) {
+        gripLoading = false;
         ModelInstanceRenderData held = weaponOf(data);
         if (held == null || !view.viewModel.hasMuzzle) {
             return null;
@@ -948,6 +949,8 @@ public final class Characters {
      */
     private record Read(Model model, VertexBufferObject from, WeaponShape shape) {}
     private static final java.util.IdentityHashMap<ModelScript, Read> SHAPES = new java.util.IdentityHashMap<>();
+    /** Whether the held firearm's mesh was still loading when its shape was asked for, so the game's own arms hold it this frame and nothing is said. */
+    private boolean gripLoading;
 
     /**
      * The shape of the game's mesh of a firearm held, or null while the mesh is not loaded or if
@@ -971,6 +974,7 @@ public final class Characters {
         } else {
             mesh = CharacterDraw.shapeOf(model, why);
             if (mesh == null && why.isEmpty()) {
+                gripLoading = true;
                 return null;
             }
         }
