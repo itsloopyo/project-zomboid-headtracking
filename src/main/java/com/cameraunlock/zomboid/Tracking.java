@@ -423,8 +423,11 @@ final class Tracking {
             }
             if (enteringSave) {
                 graphicsToSay.set(false);
-            } else if (graphicsToSay.get() && !OptionsPage.menuShown() && graphicsToSay()) {
+                Quality.stepSaid();
+            } else if ((graphicsToSay.get() || Quality.stepToSay()) && !OptionsPage.menuShown()) {
                 // Not while the game's menu is up, which the options screen is opened from in a save: drawn under it, it was gone before the menu was shut.
+                graphicsToSay.set(false);
+                Quality.stepSaid();
                 told = Config.CYCLE_QUALITY;
                 Log.info("said on the screen: Graphics: " + Quality.name());
             }

@@ -118,8 +118,9 @@ final class OptionsPage {
             case CameraUnlock.OPTION_ENUM -> {
                 KahluaTable table = (KahluaTable) call(section, "addComboBox", described.id, described.label, described.comment);
                 int[] values = described.source == CameraUnlock.OPTION_AIM_MODE ? Tracking.AIM_MODES : everyChoice(described);
+                boolean graphics = described.id.equals(Tracking.QUALITY_OPTION);
                 for (int choice : values) {
-                    call(table, "addItem", described.choices[choice], choice == (int) value);
+                    call(table, "addItem", graphics ? Quality.choice(choice) : described.choices[choice], choice == (int) value);
                 }
                 return new Control(option, described, table, values);
             }
@@ -143,6 +144,7 @@ final class OptionsPage {
         try {
             for (Control control : controls) {
                 show(control, Tracking.optionValue(control.option));
+                nameLevel(control);
             }
             filled = true;
         } catch (RuntimeException failure) {
@@ -219,6 +221,22 @@ final class OptionsPage {
         }
     }
 
+    /**
+     * The graphics mode's list names the level Automatic is at, which changes as it steps: in the
+     * page's own list, which a screen made after this is made from, and in the list on the screen.
+     */
+    private static void nameLevel(Control control) {
+        if (!control.described.id.equals(Tracking.QUALITY_OPTION)) {
+            return;
+        }
+        Double line = (double) (lineOf(control, Quality.AUTOMATIC) + 1);
+        String name = Quality.choice(Quality.AUTOMATIC);
+        ((KahluaTable) control.table.rawget("values")).rawset(line, name);
+        if (control.table.rawget("element") instanceof KahluaTable element) {
+            ((KahluaTable) element.rawget("options")).rawset(line, name);
+        }
+    }
+
     private static int lineOf(Control control, int value) {
         for (int line = 0; line < control.values.length; line++) {
             if (control.values[line] == value) {
@@ -264,6 +282,7 @@ final class OptionsPage {
                 continue;
             }
             try {
+                nameLevel(control);
                 double now = Tracking.optionValue(control.option);
                 if (notch(control, now) != control.shown) {
                     put(control, now);

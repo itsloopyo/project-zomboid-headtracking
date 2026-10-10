@@ -10,6 +10,7 @@ import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
+import zombie.core.PerformanceSettings;
 import zombie.core.SpriteRenderer;
 import zombie.core.opengl.RenderThread;
 import zombie.input.GameKeyboard;
@@ -809,8 +810,10 @@ public final class FirstPerson {
         }
         paceFrames++;
         paceWorst = Math.max(paceWorst, frameNanos);
-        if (landed && !GameTime.isGamePaused()) {
-            Quality.frame(view.index, now);
+        // Frames that make the mod's pictures, as a level that needs them is first drawn, are slower for that and not for the level.
+        if (landed && !GameTime.isGamePaused() && !view.pipeline.contentHalfMade()) {
+            PerformanceSettings performance = PerformanceSettings.instance;
+            Quality.frame(view.index, now, performance.isFramerateUncapped() ? 0f : performance.getFramerate());
         } else {
             Quality.rest(view.index);
         }

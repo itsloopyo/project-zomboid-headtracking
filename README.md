@@ -357,7 +357,15 @@ DataFreshnessMs=default
 ; is saved.
 FieldOfView=65.0
 ; The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey goes
-; from one to the next, Low, Medium, High, Custom, and saves it here. Low is as near
+; from one to the next, Automatic, Low, Medium, High, Custom, and saves it here.
+; Automatic, which a first start is in: begins at High and draws less, as Medium and
+; then Low do but still with everything the mod made, and last as Low itself, each
+; time the picture is drawn fewer than 45 times a second for three seconds. It draws
+; more again, a level at a time, once the picture has been drawn 57 times a second or
+; more for fifteen seconds, though not a level it left in the last two minutes: a
+; wait that doubles, up to 32 minutes, each time a level it went back up to was too
+; slow within a minute. Under a frame limit set in the game's options, the two rates
+; are at most four fifths and nineteen twentieths of the limit. Low is as near
 ; the game's own look as there is: the game's own view is the game's own picture, and
 ; first person is drawn with the game's own sprites, models and textures in place of
 ; everything the mod made but the arms on a held weapon, which OwnArms switches, at a
@@ -369,11 +377,8 @@ FieldOfView=65.0
 ; either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow
 ; maps. Custom: the picture the rows of [Graphics] describe. A change to any of those
 ; rows on the game's options screen, or in this file while the game runs, goes to
-; Custom. Automatic, which the key never goes to: begins at High and draws less, as
-; Medium and then Low do but still with everything the mod made, each time the picture
-; is drawn fewer than 45 times a second for three seconds, until the game is closed.
-; Read again while the game runs.
-Quality=Low
+; Custom. Read again while the game runs.
+Quality=Automatic
 ; How the mod's picture is developed, in every graphics mode. CycleStyleKey goes
 ; from one to the next and saves it here. Vivid: strong contrast and full colours,
 ; cool in the shade and warm in the sun, with dark corners, glare off the sun and a
@@ -464,7 +469,7 @@ TrueFreeLookKey=Insert
 ; player. Tapped twice, for a second player at the same screen. Held for 400 ms,
 ; for both.
 FirstPersonKey=Delete
-; Goes to the next graphics mode: Low, Medium, High, Custom (Quality).
+; Goes to the next graphics mode: Automatic, Low, Medium, High, Custom (Quality).
 CycleQualityKey=F9
 ; Goes to the next picture style: Vivid, Natural, Bleak (Style).
 CycleStyleKey=F8

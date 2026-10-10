@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -7,14 +8,14 @@ import java.util.Locale;
  * is the whole picture. Medium and Low draw it with fewer pixels, shorter sight, smaller
  * shadow maps and without the passes that shade corners, light the air, mirror and give
  * surfaces depth, for a graphics card that cannot keep up with the whole of it. A vehicle's
- * mirror shows Low's picture in every mode where it shows one. Automatic begins at High and steps
- * down while the picture is being drawn slower than {@link #SLOWEST} frames a second. Custom
- * draws the picture the rows of [Graphics] describe, a row for each thing the other modes
- * decide (Config).
+ * mirror shows Low's picture in every mode where it shows one. Automatic, which a first start
+ * is in, begins at High, steps down while the picture is drawn too slowly and back up while it
+ * is drawn with room to spare: see frame. Custom draws the picture the rows of [Graphics]
+ * describe, a row for each thing the other modes decide (Config).
  *
  * The rows are read again while the game runs. The thread that watches the file sets them, the
  * logic thread sets them on its hotkey and from the game's options screen, reads how far to build
- * and steps Automatic down, and the render thread reads the rest as it draws a frame. set, custom
+ * and steps Automatic, and the render thread reads the rest as it draws a frame. set, custom
  * and frame take turns.
  */
 final class Quality {
@@ -47,16 +48,33 @@ final class Quality {
     static final Picture LOW_PICTURE = new Picture(true, false, 0.62f, false, 48, 48, 48, 0, false, true, false, false, false);
     static final Picture MEDIUM_PICTURE = new Picture(false, true, 0.8f, false, 64, 64, 64, 1, false, true, false, false, false);
     static final Picture HIGH_PICTURE = new Picture(false, false, 1f, true, 80, 80, 80, 2, true, true, true, true, true);
-    /** Automatic at each level: the level's picture, still with everything the mod made. */
-    private static final Picture[] AUTOMATIC_AT = {null, automatic(LOW_PICTURE), automatic(MEDIUM_PICTURE), HIGH_PICTURE};
+    /**
+     * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
+     * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
+     */
+    static final int STOCK = 0;
+    private static final String[] LEVELS = {"Stock", "Low", "Medium", "High"};
+    private static final Picture[] AUTOMATIC_AT = {LOW_PICTURE, automatic(LOW_PICTURE), automatic(MEDIUM_PICTURE), HIGH_PICTURE};
 
-    /** Automatic steps down when the picture has been drawn slower than this many frames a second. */
-    private static final float SLOWEST = 45f;
-    /** How long the frame rate is counted for before it is judged, and how long after a step before counting begins again. */
-    private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L;
+    /**
+     * Automatic steps down when the picture has been drawn slower than SLOWEST frames a second,
+     * and up when it has been drawn at RISES_AT or faster for RISES_AFTER_NANOS. Under a frame limit
+     * the game was set to, the two are at most SLOWEST_OF_LIMIT and RISES_AT_OF_LIMIT of the limit.
+     */
+    private static final float SLOWEST = 45f, RISES_AT = 57f, SLOWEST_OF_LIMIT = 0.8f, RISES_AT_OF_LIMIT = 0.95f;
+    /** How long the frame rate is counted for before it is judged, and how long after a step down or up before counting begins again. */
+    private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L, SETTLES_UP_NANOS = 5_000_000_000L;
+    private static final long RISES_AFTER_NANOS = 15_000_000_000L;
+    /**
+     * A level stepped down from is not stepped up into again for BARRED_NANOS, doubled for each time
+     * a step up into it had to be taken back within TRIAL_NANOS, at most MOST_DOUBLINGS times.
+     */
+    private static final long BARRED_NANOS = 120_000_000_000L, TRIAL_NANOS = 60_000_000_000L;
+    private static final int MOST_DOUBLINGS = 4;
 
     private static volatile int row = LOW;
-    private static volatile int level = LOW;
+    /** The level Automatic is at. */
+    private static volatile int level = HIGH;
     /** What Custom draws: the rows of [Graphics] as the session last took them. */
     private static volatile Picture custom = HIGH_PICTURE;
     /** What the mode draws now. */
@@ -64,6 +82,13 @@ final class Quality {
     private static final long HITCH_NANOS = 250_000_000L;
     private static long countedSince, lastFrame;
     private static int counted;
+    /** How long the frame rate has been judged at RISES_AT or over without a break. */
+    private static long fastFor;
+    /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
+    private static final long[] barredUntil = new long[LEVELS.length], cameUpAt = new long[LEVELS.length];
+    private static final int[] failures = new int[LEVELS.length];
+    /** Whether Automatic has stepped since the screen last said so. */
+    private static boolean stepUnsaid;
     /** The views whose frames are being counted. The count is one for all of them: see frame. */
     private static final boolean[] counting = new boolean[View.COUNT];
 
@@ -74,8 +99,13 @@ final class Quality {
             return;
         }
         row = asked;
-        level = asked == AUTOMATIC || asked == CUSTOM ? HIGH : asked;
+        level = HIGH;
         countedSince = 0L;
+        fastFor = 0L;
+        Arrays.fill(barredUntil, 0L);
+        Arrays.fill(cameUpAt, 0L);
+        Arrays.fill(failures, 0);
+        stepUnsaid = false;
         drawn = asked == CUSTOM ? custom : asked == AUTOMATIC ? AUTOMATIC_AT[level] : preset(asked);
         Log.info("graphics mode: " + NAMES[asked] + (asked == CUSTOM ? ", " + described(custom) : ""));
     }
@@ -124,17 +154,32 @@ final class Quality {
                 picture.surfaceDepth);
     }
 
-    /** The mode the hotkey goes to from the one the session is in: Low, Medium, High, Custom and round again. Automatic is only ever set in the file. */
+    /** The mode the hotkey goes to from the one the session is in: Automatic, Low, Medium, High, Custom and round again. */
     static int next() {
-        return row == LOW ? MEDIUM : row == MEDIUM ? HIGH : row == HIGH ? CUSTOM : LOW;
+        return (row + 1) % NAMES.length;
     }
 
     static int row() {
         return row;
     }
 
+    /** The mode, and in Automatic the level it is at: "Automatic (Medium)". */
     static String name() {
-        return NAMES[row];
+        return choice(row);
+    }
+
+    /** How the options screen's list names a mode: Automatic, while the session is in it, with the level it is at. */
+    static String choice(int mode) {
+        return mode == AUTOMATIC && row == AUTOMATIC ? NAMES[AUTOMATIC] + " (" + LEVELS[level] + ")" : NAMES[mode];
+    }
+
+    /** Whether Automatic has stepped since the screen last said the mode, which it then says. Logic thread. */
+    static synchronized boolean stepToSay() {
+        return stepUnsaid;
+    }
+
+    static synchronized void stepSaid() {
+        stepUnsaid = false;
     }
 
     /** The words CameraUnlock.ini holds for the row, in the order of their numbers, with commas between. */
@@ -143,10 +188,10 @@ final class Quality {
     }
 
     /**
-     * Whether the picture is Low's, the nearest there is to the game's own look, or Custom's
-     * with StockLook: the game's own view is then the game's own picture, and the first person
-     * view, which the game has no picture of, is drawn with nothing the mod made where the game
-     * has its own. Automatic come down to Low's level draws less and is not this.
+     * Whether the picture is Low's, the nearest there is to the game's own look, Custom's with
+     * StockLook, or Automatic's at STOCK: the game's own view is then the game's own picture, and
+     * the first person view, which the game has no picture of, is drawn with nothing the mod made
+     * where the game has its own. Automatic at Low's level draws less and is not this.
      */
     static boolean plain() {
         return drawn.stockLook;
@@ -163,21 +208,25 @@ final class Quality {
 
     /**
      * Counts a frame of a view's first person drawn while the game runs. With the row at
-     * Automatic, a count that comes out under {@link #SLOWEST} frames a second takes the
-     * picture down a level. It is never taken up again in a session: what made the frames slow
-     * may be the level left behind, and trying it again would be the stutter back.
+     * Automatic, the frames are counted for JUDGED_OVER_NANOS at a time. A count that comes out
+     * under SLOWEST frames a second takes the picture down a level, to STOCK at the bottom. Counts
+     * at RISES_AT or over, one after another for RISES_AFTER_NANOS, take it up a level, unless the
+     * level above was stepped down from too lately: see BARRED_NANOS.
      *
      * The game's frame is counted once however many views are drawn in it: the first of the
      * views being counted counts for all.
+     *
+     * @param limit the frame rate the game holds itself to, or 0 for none: the picture is never
+     *              drawn faster, so it is not judged against a rate over it
      */
-    static synchronized void frame(int view, long now) {
+    static synchronized void frame(int view, long now, float limit) {
         counting[view] = true;
         for (int before = 0; before < view; before++) {
             if (counting[before]) {
                 return;
             }
         }
-        if (row != AUTOMATIC || level == LOW) {
+        if (row != AUTOMATIC) {
             return;
         }
         if (countedSince == 0L || now < countedSince) {
@@ -194,22 +243,59 @@ final class Quality {
         if (hitch) {
             countedSince = now;
             counted = 0;
+            fastFor = 0L;
             return;
         }
         counted++;
-        if (now - countedSince < JUDGED_OVER_NANOS) {
+        long span = now - countedSince;
+        if (span < JUDGED_OVER_NANOS) {
             return;
         }
-        float rate = counted * 1e9f / (now - countedSince);
+        float rate = counted * 1e9f / span;
         counted = 0;
         countedSince = now;
-        if (rate < SLOWEST) {
-            level--;
-            drawn = AUTOMATIC_AT[level];
-            countedSince = now + SETTLES_IN_NANOS;
-            Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes down to %s, the picture was drawn %.0f times a second",
-                    NAMES[level], rate));
+        float slowest = limit > 0f ? Math.min(SLOWEST, limit * SLOWEST_OF_LIMIT) : SLOWEST;
+        float risesAt = limit > 0f ? Math.min(RISES_AT, limit * RISES_AT_OF_LIMIT) : RISES_AT;
+        if (rate < slowest) {
+            fastFor = 0L;
+            if (level > STOCK) {
+                stepDown(now, rate);
+            }
+        } else if (rate >= risesAt && level < HIGH) {
+            fastFor += span;
+            if (fastFor >= RISES_AFTER_NANOS && now >= barredUntil[level + 1]) {
+                stepUp(now, rate, risesAt);
+            }
+        } else {
+            fastFor = 0L;
         }
+    }
+
+    private static void stepDown(long now, float rate) {
+        if (cameUpAt[level] != 0L && now - cameUpAt[level] < TRIAL_NANOS) {
+            failures[level]++;
+        }
+        long barred = BARRED_NANOS << Math.min(failures[level], MOST_DOUBLINGS);
+        barredUntil[level] = now + barred;
+        int left = level;
+        level--;
+        drawn = AUTOMATIC_AT[level];
+        countedSince = now + SETTLES_IN_NANOS;
+        fastFor = 0L;
+        stepUnsaid = true;
+        Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes down to %s, the picture was drawn %.0f times a second; "
+                + "it is not stepped up to %s again for %d minutes", LEVELS[level], rate, LEVELS[left], barred / 60_000_000_000L));
+    }
+
+    private static void stepUp(long now, float rate, float risesAt) {
+        level++;
+        cameUpAt[level] = now;
+        drawn = AUTOMATIC_AT[level];
+        countedSince = now + SETTLES_UP_NANOS;
+        fastFor = 0L;
+        stepUnsaid = true;
+        Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes up to %s, the picture was drawn %.0f times a second, and %.0f or more for %d seconds",
+                LEVELS[level], rate, risesAt, RISES_AFTER_NANOS / 1_000_000_000L));
     }
 
     /** A view's frames are no longer counted: it was off, or the game paused. With none counted the count begins again. */
@@ -221,6 +307,7 @@ final class Quality {
             }
         }
         countedSince = 0L;
+        fastFor = 0L;
     }
 
     /** How many of the picture's pixels there are to each of the window's, each way. */

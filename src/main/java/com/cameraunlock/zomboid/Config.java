@@ -124,7 +124,15 @@ final class Config {
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality = core.configLocalEnum("General", "Quality",
                 "The graphics mode: how much of the mod's own picture is drawn. CycleQualityKey goes\n"
-                        + "from one to the next, Low, Medium, High, Custom, and saves it here. Low is as near\n"
+                        + "from one to the next, Automatic, Low, Medium, High, Custom, and saves it here.\n"
+                        + "Automatic, which a first start is in: begins at High and draws less, as Medium and\n"
+                        + "then Low do but still with everything the mod made, and last as Low itself, each\n"
+                        + "time the picture is drawn fewer than 45 times a second for three seconds. It draws\n"
+                        + "more again, a level at a time, once the picture has been drawn 57 times a second or\n"
+                        + "more for fifteen seconds, though not a level it left in the last two minutes: a\n"
+                        + "wait that doubles, up to 32 minutes, each time a level it went back up to was too\n"
+                        + "slow within a minute. Under a frame limit set in the game's options, the two rates\n"
+                        + "are at most four fifths and nineteen twentieths of the limit. Low is as near\n"
                         + "the game's own look as there is: the game's own view is the game's own picture, and\n"
                         + "first person is drawn with the game's own sprites, models and textures in place of\n"
                         + "everything the mod made but the arms on a held weapon, which OwnArms switches, at a\n"
@@ -136,11 +144,8 @@ final class Config {
                         + "either, four fifths of the pixels each way, sight to 64 tiles and smaller shadow\n"
                         + "maps. Custom: the picture the rows of [Graphics] describe. A change to any of those\n"
                         + "rows on the game's options screen, or in this file while the game runs, goes to\n"
-                        + "Custom. Automatic, which the key never goes to: begins at High and draws less, as\n"
-                        + "Medium and then Low do but still with everything the mod made, each time the picture\n"
-                        + "is drawn fewer than 45 times a second for three seconds, until the game is closed.\n"
-                        + "Read again while the game runs.",
-                writable | live, Quality.words(), Quality.LOW);
+                        + "Custom. Read again while the game runs.",
+                writable | live, Quality.words(), Quality.AUTOMATIC);
         style = core.configLocalEnum("General", "Style",
                 "How the mod's picture is developed, in every graphics mode. CycleStyleKey goes\n"
                         + "from one to the next and saves it here. Vivid: strong contrast and full colours,\n"
@@ -269,7 +274,7 @@ final class Config {
                         + "player. Tapped twice, for a second player at the same screen. Held for " + CameraUnlock.HOLD_MS + " ms,\n"
                         + "for both.",
                 0, "Delete", FIRST_PERSON, FIRST_PERSON_SECOND, FIRST_PERSON_BOTH);
-        core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Low, Medium, High, Custom (Quality).", 0, "F9",
+        core.configLocalHotkey("CycleQualityKey", "Goes to the next graphics mode: Automatic, Low, Medium, High, Custom (Quality).", 0, "F9",
                 CYCLE_QUALITY);
         core.configLocalHotkey("CycleStyleKey", "Goes to the next picture style: Vivid, Natural, Bleak (Style).", 0, "F8",
                 CYCLE_STYLE);

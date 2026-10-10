@@ -230,8 +230,8 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Low | style Vivid | frame blending false"),
-                "65 degrees, everything of the mod's own on, the Low graphics mode, the Vivid style, no frame blending: " + start);
+        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Vivid | frame blending false"),
+                "65 degrees, everything of the mod's own on, the Automatic graphics mode beginning at High, the Vivid style, no frame blending: " + start);
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.FIRST_PERSON
                         | Config.CYCLE_QUALITY | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | Config.FIRST_PERSON_SECOND | Config.FIRST_PERSON_BOTH) == 9,
@@ -518,7 +518,9 @@ public final class CoreTests {
         check(saved("TrueFreeLook=false", "FreeLookMarker=false", "StockSights=true"), "saved");
 
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "the graphics mode's action goes to Medium and saves it");
+        check(Quality.name().equals("Low") && saved("Quality=Low"), "the graphics mode's action goes from Automatic to Low and saves it");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Medium") && saved("Quality=Medium"), "and on to Medium");
         Tracking.cycleStyle();
         check(Style.current() == Style.NATURAL && saved("Style=Natural"), "the picture style's action goes to Natural and saves it");
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
@@ -774,8 +776,10 @@ public final class CoreTests {
     private static void customKeepsItsRowsThroughTheOtherModes() throws IOException, InterruptedException {
         Quality.Picture mine = Quality.custom();
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low") && Quality.sight() == 48 && saved("Quality=Low", "RenderScale=0.7"),
-                "the key goes from Custom to Low and saves it, and Custom's rows stay");
+        check(Quality.name().equals("Automatic (High)") && Quality.sight() == 80 && saved("Quality=Automatic", "RenderScale=0.7"),
+                "the key goes from Custom to Automatic and saves it, and Custom's rows stay");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Low") && Quality.sight() == 48 && saved("Quality=Low", "RenderScale=0.7"), "then to Low");
         Tracking.cycleGraphicsMode();
         Tracking.cycleGraphicsMode();
         check(Quality.name().equals("High") && Quality.scale() == 1f && saved("Quality=High", "RenderScale=0.7", "StockLook=true"),
@@ -787,7 +791,9 @@ public final class CoreTests {
 
     private static void aGraphicsRowEditedInTheFileGoesToCustom() throws IOException, InterruptedException {
         Tracking.cycleGraphicsMode();
-        check(Quality.name().equals("Low"), "the key goes round to Low");
+        check(Quality.name().equals("Automatic (High)"), "the key goes round to Automatic");
+        Tracking.cycleGraphicsMode();
+        check(Quality.name().equals("Low"), "and to Low");
         Tracking.graphicsToSay();
         edit(text().replace("ViewDistance=48", "ViewDistance=72"));
         Tracking.watchSettings();
