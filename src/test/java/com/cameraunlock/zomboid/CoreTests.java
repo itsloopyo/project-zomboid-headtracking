@@ -703,10 +703,16 @@ public final class CoreTests {
         said();
         Screen screen = Screen.opened();
         CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
-        check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == HillHeight.MOST && hills.step == 0.01
+        check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == 2 && hills.step == 0.1
                         && hills.label.equals("Hill height") && hills.comment.contains("0: as level"),
                 "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
         check(screen.shows("HillHeight") == HillHeight.asked(), "it shows the height the session has");
+        check(HillHeight.DEFAULT == 1f && HillHeight.DEFAULT == (hills.min + hills.max) / 2,
+                "hill height defaults to the slider midpoint, 1");
+        screen.set("HillHeight", 2);
+        screen.apply();
+        savesMade();
+        check(HillHeight.asked() == 2f && saved("HillHeight=2.0"), "the slider saves its upper endpoint, 2");
         screen.set("HillHeight", 0.4);
         screen.apply();
         savesMade();

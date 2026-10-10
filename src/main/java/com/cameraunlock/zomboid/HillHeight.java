@@ -8,7 +8,7 @@ package com.cameraunlock.zomboid;
  */
 final class HillHeight {
     /** The row's default and range in the config table (Config). */
-    static final float DEFAULT = 1f, MOST = 1.5f;
+    static final float DEFAULT = 1f, MOST = 2f;
 
     private static volatile float asked = DEFAULT;
 
