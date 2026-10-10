@@ -135,11 +135,20 @@ final class QualityTests {
     }
 
     /**
-     * A pattern of frame times the reviews of Automatic named, the game's frame limit (0 for
-     * none), how long it is played for, and what Automatic must do with it: holds takes the
+     * A pattern of frame times the reviews of Automatic named, the game's frame limit by the
+     * nanoseconds since the pattern began (0 for none), how long it is played for, and what Automatic must do with it: holds takes the
      * steps it took, each "<seconds> <level>".
      */
-    record Pattern(String name, float limit, float seconds, FrameTimes times, String expected, Predicate<List<String>> holds) {}
+    record Pattern(String name, FrameLimit limit, float seconds, FrameTimes times, String expected, Predicate<List<String>> holds) {}
+
+    /** The game's frame limit by the nanoseconds since the pattern began, 0 for none. */
+    interface FrameLimit {
+        float at(long at);
+    }
+
+    private static FrameLimit held(float limit) {
+        return at -> limit;
+    }
 
     private static FrameTimes steady(double rate) {
         return (level, at) -> (long) (SECOND / rate);
@@ -158,6 +167,11 @@ final class QualityTests {
 
     /** At rate, with a run, a period after the last ended, of so many stalled frames each so long, then a hitch of hitch nanoseconds (0 for none). */
     private static FrameTimes runs(double rate, long period, int stalled, long each, long hitch) {
+        return runs(rate, period, stalled, each, hitch, false);
+    }
+
+    /** The same, with the hitch first in the run where hitchFirst. */
+    private static FrameTimes runs(double rate, long period, int stalled, long each, long hitch, boolean hitchFirst) {
         long[] next = {period};
         int[] left = {-1};
         return (level, at) -> {
@@ -166,7 +180,8 @@ final class QualityTests {
             }
             if (left[0] > 0) {
                 left[0]--;
-                return left[0] == 0 && hitch > 0 ? hitch : each;
+                int at0 = hitchFirst ? stalled : 0;
+                return left[0] == at0 && hitch > 0 ? hitch : each;
             }
             if (left[0] == 0) {
                 left[0] = -1;
@@ -191,36 +206,45 @@ final class QualityTests {
     /** Every pattern, each played from Automatic at High. */
     static List<Pattern> patterns() {
         List<Pattern> all = new ArrayList<>();
-        all.add(new Pattern("steady 100, no limit", 0f, 120f, steady(100), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("steady 29.5, limit 30", 30f, 120f, steady(29.5), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("steady 59.5, limit 60", 60f, 120f, steady(59.5), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 100, no limit", held(0f), 120f, steady(100), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 29.5, limit 30", held(30f), 120f, steady(29.5), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 59.5, limit 60", held(60f), 120f, steady(59.5), "stays at High", QualityTests::staysAtHigh));
         for (double rate : new double[] {40, 20, 8, 5, 3}) {
-            all.add(new Pattern("steady " + (int) rate, 0f, 60f, steady(rate), "down a level within 4 s, on to Stock", QualityTests::downToStock));
+            all.add(new Pattern("steady " + (int) rate, held(0f), 60f, steady(rate), "down a level within 4 s, on to Stock", QualityTests::downToStock));
         }
-        all.add(new Pattern("100 with a 6 s frame after every 5 s", 0f, 120f, runs(100, 5 * SECOND, 0, 0, 6 * SECOND), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames in a row", 0f, 300f, runs(60, 12 * SECOND, 10, SECOND * 15 / 100, 0),
+        all.add(new Pattern("100 with a 6 s frame after every 5 s", held(0f), 120f, runs(100, 5 * SECOND, 0, 0, 6 * SECOND), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames in a row", held(0f), 300f, runs(60, 12 * SECOND, 10, SECOND * 15 / 100, 0),
                 "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.5 s hitch", 0f, 300f,
+        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.5 s hitch", held(0f), 300f,
                 runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND / 2), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("60 with one 150 ms frame in every five (23 real)", 0f, 60f, everyNth(60, 5, SECOND * 15 / 100),
+        all.add(new Pattern("60 with one 150 ms frame in every five (23 real)", held(0f), 60f, everyNth(60, 5, SECOND * 15 / 100),
                 "down a level within 4 s, on to Stock", QualityTests::downToStock));
-        all.add(new Pattern("60 with one 250 ms frame in every five (15.8 real)", 0f, 60f, everyNth(60, 5, SECOND / 4),
+        all.add(new Pattern("60 with one 250 ms frame in every five (15.8 real)", held(0f), 60f, everyNth(60, 5, SECOND / 4),
                 "down a level within 4 s, on to Stock", QualityTests::downToStock));
-        all.add(new Pattern("200 and 300 ms frames by turns", 0f, 60f, everyNth(1e9 / 200e6, 2, SECOND * 3 / 10),
+        all.add(new Pattern("200 and 300 ms frames by turns", held(0f), 60f, everyNth(1e9 / 200e6, 2, SECOND * 3 / 10),
                 "down a level within 4 s, on to Stock", QualityTests::downToStock));
-        all.add(new Pattern("4 s at 20, then 59.5, limit 60, a 110 ms frame every 10 s", 60f, 400f,
+        all.add(new Pattern("4 s at 20, then 59.5, limit 60, a 110 ms frame every 10 s", held(60f), 400f,
                 fromMedium(runs(59.5, 10 * SECOND, 1, SECOND * 11 / 100, 0)), "down to Medium, back up to High by 200 s, and stays",
                 steps -> steps.size() == 2 && steps.get(0).endsWith("Medium") && steps.get(1).endsWith("High") && seconds(steps.get(1)) <= 200));
         for (double rate : new double[] {46, 50, 56}) {
-            all.add(new Pattern("steady " + (int) rate, 0f, 300f, steady(rate), "stays at High", QualityTests::staysAtHigh));
-            all.add(new Pattern("4 s at 20, then steady " + (int) rate, 0f, 600f, fromMedium(steady(rate)), "down to Medium and stays",
+            all.add(new Pattern("steady " + (int) rate, held(0f), 300f, steady(rate), "stays at High", QualityTests::staysAtHigh));
+            all.add(new Pattern("4 s at 20, then steady " + (int) rate, held(0f), 600f, fromMedium(steady(rate)), "down to Medium and stays",
                     steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
         }
-        all.add(new Pattern("4 s at 20, then 100 with a 0.3 s stall every second", 0f, 600f, fromMedium(runs(100, SECOND, 1, SECOND * 3 / 10, 0)),
+        all.add(new Pattern("4 s at 20, then 100 with a 0.3 s stall every second", held(0f), 600f, fromMedium(runs(100, SECOND, 1, SECOND * 3 / 10, 0)),
                 "down to Medium and stays: a hitch in every count is no room to spare", steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
-        for (float held : new float[] {0f, 60f}) {
-            all.add(new Pattern("44 at High, 60 at Medium" + (held > 0f ? ", limit 60 (59.9 at Medium)" : "") + ", 2 hours", held, 7200f,
-                    (level, at) -> (long) (SECOND / (level.endsWith("(High)") ? 44.0 : level.endsWith("(Medium)") ? (held > 0f ? 59.9 : 60.0) : 90.0)),
+        all.add(new Pattern("29.5, limit 30, raised to 60 at 2 s, then 59.5", at -> at < 2 * SECOND ? 30f : 60f, 120f,
+                (level, at) -> (long) (SECOND / (at < 2 * SECOND ? 29.5 : 59.5)), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("100 with a 6 s freeze and a 120 ms frame after every 5 s", held(0f), 120f,
+                runs(100, 5 * SECOND, 1, SECOND * 12 / 100, 6 * SECOND, true), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.51 s hitch", held(0f), 300f,
+                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND * 51 / 100, false), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("3.5 s at 60, then 1.9 s at 9, by turns (42 real)", held(0f), 60f,
+                (level, at) -> at % (SECOND * 54 / 10) < SECOND * 35 / 10 ? SECOND / 60 : SECOND / 9, "down a level, on to Stock",
+                steps -> steps.size() == 3 && steps.get(2).endsWith("Stock")));
+        for (float limit : new float[] {0f, 60f}) {
+            all.add(new Pattern("44 at High, 60 at Medium" + (limit > 0f ? ", limit 60 (59.9 at Medium)" : "") + ", 2 hours", held(limit), 7200f,
+                    (level, at) -> (long) (SECOND / (level.endsWith("(High)") ? 44.0 : level.endsWith("(Medium)") ? (limit > 0f ? 59.9 : 60.0) : 90.0)),
                     "Medium within 10 s, never below it, High tried 7 times at most, ends at Medium", steps -> {
                         long tries = steps.stream().filter(step -> step.endsWith("High")).count();
                         boolean below = steps.stream().anyMatch(step -> step.endsWith("Low") || step.endsWith("Stock"));
@@ -240,7 +264,7 @@ final class QualityTests {
         long from = SECOND, now = from;
         while (now - from < (long) (pattern.seconds() * SECOND)) {
             now += pattern.times().next(level, now - from);
-            Quality.frame(0, now, pattern.limit());
+            Quality.frame(0, now, pattern.limit().at(now - from));
             String after = Quality.name();
             if (!after.equals(level)) {
                 level = after;

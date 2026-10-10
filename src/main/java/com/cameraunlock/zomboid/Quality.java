@@ -12,9 +12,10 @@ import java.util.Locale;
  * is in, begins at High, steps down while the picture is drawn too slowly and back up while it
  * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
  * in a stretch of time, frames over wall time, with one thing cut out: a single unbroken run
- * of stalled frames in the stretch, which is the game saving or loading and not the picture.
- * Stalls spread through the stretch, or more than one run of them, are what the player sees,
- * and the stretch is judged whole. Custom draws the picture the rows of [Graphics]
+ * of stalled frames in the stretch that is a save or a load and not the picture: a frame or
+ * two of hitch, however long, and stalled frames of 2 s at most, and no other run cut in the
+ * 10 s before it. Stalls spread through the stretch, more than one run of them, or runs that
+ * come back within 10 s are what the player sees, and the stretch is judged whole. Custom draws the picture the rows of [Graphics]
  * describe, a row for each thing the other modes decide (Config).
  *
  * The rows are read again while the game runs. The thread that watches the file sets them, the
@@ -85,16 +86,28 @@ final class Quality {
     private static volatile Picture drawn = LOW_PICTURE;
     /**
      * A frame longer than STALL_NANOS is stalled, and one longer than HITCH_NANOS is a hitch. A run
-     * of stalled frames one after another is cut out of a count when it is the count's only run and
-     * is one frame, however long, or takes CUT_MOST_NANOS at most: see frame.
+     * of stalled frames one after another is cut out of a count when it is the count's only run,
+     * holds CUT_HITCHES hitches at most, however long, and its other frames take CUT_MOST_NANOS at
+     * most, and no run was cut in the CUT_EVERY_NANOS before it began. A save or a load comes
+     * minutes apart; a card that dips again and again is the picture, and a run of hitches is a
+     * picture drawn a few times a second.
      */
-    private static final long STALL_NANOS = 100_000_000L, HITCH_NANOS = 250_000_000L, CUT_MOST_NANOS = 2_000_000_000L;
+    private static final long STALL_NANOS = 100_000_000L, HITCH_NANOS = 250_000_000L, CUT_MOST_NANOS = 2_000_000_000L, CUT_EVERY_NANOS = 10_000_000_000L;
+    private static final int CUT_HITCHES = 2;
     /** When the count began (0 for none begun), when the frame before was drawn, and when the level last stepped to has settled. */
     private static long countedSince, lastFrame, settlesAt;
-    /** The frames of the count; its runs of stalled frames, and the frames and time of the first; whether the frame before was stalled; whether any was a hitch. */
-    private static int counted, runs, runFrames;
-    private static long runNanos;
+    /** The frame limit the count is judged against: a count begins again when the game's limit changes. */
+    private static float countLimit;
+    /**
+     * The frames of the count; its runs of stalled frames; of the first, its frames, the time of
+     * its hitches and of its other frames, how many hitches, and when it began; whether the frame
+     * before was stalled; whether any frame was a hitch.
+     */
+    private static int counted, runs, runFrames, runHitches;
+    private static long runHitchNanos, runStallNanos, runFrom;
     private static boolean inRun, hitched;
+    /** When the last run cut out of a count began, 0 for none since the mode was set. */
+    private static long lastCut;
     /** How long the frame rate has been judged at RISES_AT or over without a break. */
     private static long fastFor;
     /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
@@ -115,6 +128,7 @@ final class Quality {
         level = HIGH;
         countedSince = 0L;
         settlesAt = 0L;
+        lastCut = 0L;
         fastFor = 0L;
         Arrays.fill(barredUntil, 0L);
         Arrays.fill(cameUpAt, 0L);
@@ -234,7 +248,7 @@ final class Quality {
      * Counts a frame of a view's first person drawn while the game runs. With the row at
      * Automatic, frames are counted until JUDGED_OVER_NANOS have passed, less a run of stalled
      * frames cut out (see CUT_MOST_NANOS), and the count is judged by its rate: its frames over
-     * its time, both without the run cut out. A count under SLOWEST frames a second takes the
+     * its time, both without the run cut out, against the frame limit it was counted under. A count under SLOWEST frames a second takes the
      * picture down a level, to STOCK at the bottom. Counts at RISES_AT or over, one after another
      * for RISES_AFTER_NANOS of their time, take it up a level, unless the level above was stepped
      * down from too lately: see BARRED_NANOS. A count under RISES_AT, or with a hitch in it, cut
@@ -262,38 +276,48 @@ final class Quality {
             countedSince = 0L;
             return;
         }
-        if (countedSince == 0L) {
+        if (countedSince == 0L || limit != countLimit) {
+            // Frames drawn under another limit are another picture: 29.5 a second under 30 and 59.5 under 60 are both whole.
             countedSince = now;
-            counted = runs = runFrames = 0;
-            runNanos = 0L;
+            countLimit = limit;
+            counted = runs = runFrames = runHitches = 0;
+            runHitchNanos = runStallNanos = 0L;
             inRun = hitched = false;
             return;
         }
         long took = now - since;
         counted++;
-        boolean stalled = took > STALL_NANOS;
-        if (stalled && !inRun) {
-            runs++;
+        boolean stalled = took > STALL_NANOS, hitchFrame = took > HITCH_NANOS;
+        if (stalled && !inRun && ++runs == 1) {
+            runFrom = since;
         }
         if (stalled && runs == 1) {
             runFrames++;
-            runNanos += took;
+            if (hitchFrame) {
+                runHitches++;
+                runHitchNanos += took;
+            } else {
+                runStallNanos += took;
+            }
         }
         inRun = stalled;
-        hitched |= took > HITCH_NANOS;
-        boolean cut = runs == 1 && (runFrames == 1 || runNanos <= CUT_MOST_NANOS);
-        long time = now - countedSince - (cut ? runNanos : 0L);
+        hitched |= hitchFrame;
+        boolean cut = runs == 1 && runHitches <= CUT_HITCHES && runStallNanos <= CUT_MOST_NANOS && (lastCut == 0L || runFrom - lastCut >= CUT_EVERY_NANOS);
+        long time = now - countedSince - (cut ? runHitchNanos + runStallNanos : 0L);
         if (time < JUDGED_OVER_NANOS) {
             return;
         }
         float rate = (counted - (cut ? runFrames : 0)) * 1e9f / time;
         boolean hitch = hitched;
+        if (cut) {
+            lastCut = runFrom;
+        }
         countedSince = now;
-        counted = runs = runFrames = 0;
-        runNanos = 0L;
+        counted = runs = runFrames = runHitches = 0;
+        runHitchNanos = runStallNanos = 0L;
         inRun = hitched = false;
-        float slowest = limit > 0f ? Math.min(SLOWEST, limit * SLOWEST_OF_LIMIT) : SLOWEST;
-        float risesAt = limit > 0f ? Math.min(RISES_AT, limit * RISES_AT_OF_LIMIT) : RISES_AT;
+        float slowest = countLimit > 0f ? Math.min(SLOWEST, countLimit * SLOWEST_OF_LIMIT) : SLOWEST;
+        float risesAt = countLimit > 0f ? Math.min(RISES_AT, countLimit * RISES_AT_OF_LIMIT) : RISES_AT;
         if (rate < slowest) {
             fastFor = 0L;
             if (level > STOCK) {
