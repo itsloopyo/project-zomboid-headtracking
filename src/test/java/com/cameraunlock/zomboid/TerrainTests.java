@@ -46,6 +46,7 @@ final class TerrainTests {
             aChangeOfHeightReworksTheLandRoundTheEyeAtOnce();
             streamedChunksShareTheirBorders();
             aBuildKeepsTheHeightsItWasMadeOn();
+            theLevelLandHasNoKerbs();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -103,6 +104,40 @@ final class TerrainTests {
             check(moved > 0f, "water loaded beside the chunk moves its heights: " + moved);
             check(!map.build.heightsHeld(built, moved * 0.5f), "heights that moved by more than allowed are not the build's");
             check(map.build.heightsHeld(built, moved), "heights that moved by no more than allowed are still the build's");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+        }
+    }
+
+    /**
+     * The overhead view draws on the level land and the game draws a street at the height of
+     * the ground beside it, so a street cut a kerb down there puts what lies on it below the
+     * game's own picture of it.
+     */
+    private static void theLevelLandHasNoKerbs() {
+        boolean live = ChunkMarks.live;
+        Terrain.forget();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = new TestMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            var road = map.sprite("blends_street_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            for (int x = -24; x < 32; x++) {
+                for (int y = -24; y < 32; y++) {
+                    map.cell.square(x, y, 0).floor(y >= 2 && y < 6 ? road : grass);
+                }
+            }
+            Terrain.frame(3000);
+            Terrain.loaded(1);
+            Terrain.HILLS.corners(map.cell, 0, 0);
+            Terrain.LEVEL.corners(map.cell, 0, 0);
+            float cut = Terrain.HILLS.land(4.5f, 3.5f) - Terrain.HILLS.height(4.5f, 3.5f);
+            check(Math.abs(cut - Terrain.KERB) < 1e-4f, "on the hills a street lies a kerb below the land: " + cut);
+            check(Terrain.LEVEL.kerb(0, 0) == null, "the level land has no kerbs");
+            check(Terrain.LEVEL.height(4.5f, 3.5f) == 0f, "on the level land a street is at the game's height: " + Terrain.LEVEL.height(4.5f, 3.5f));
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();

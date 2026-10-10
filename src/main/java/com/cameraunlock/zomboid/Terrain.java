@@ -182,7 +182,9 @@ final class Terrain {
     /**
      * Whether the country is left as level as the game's map is. Seen from overhead the picture
      * has to lie where the game's own does, or the pointer is not on what it seems to be on:
-     * the game knows nothing of hills. Kerbs and banks, which are a hand high, stay.
+     * the game knows nothing of hills. It has no kerbs either: a street cut a kerb's height
+     * down had everything lying on it drawn 9 pixels below where the game draws it at zoom 1,
+     * and 17 at zoom 0.5, apart from the game's own highlight of it. Banks, which are a hand high, stay.
      */
     final boolean level;
     /** How many times its height at 1 every rise of the land is: 0 for the level land, and the player's for the hills. Set by the logic thread. */
@@ -621,7 +623,9 @@ final class Terrain {
                 Log.info("terrain: cached interior heights changed with identical inputs at " + wx + ", " + wy);
             }
         }
-        kerbs(cell, fresh, known ? grid : null);
+        if (!level) {
+            kerbs(cell, fresh, known ? grid : null);
+        }
         joinEdges(fresh);
         boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
         fresh.version = same ? grid.version : ++versions;
