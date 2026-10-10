@@ -30,6 +30,17 @@ final class ViewCamera {
 
     private ViewCamera() {}
 
+    private static final float EYES_AHEAD = 0.2f, EYES_ABOVE_JOINT = 0.1f;
+
+    static void eyeOffset(float x, float up, float z, float bodyAngle, float yaw, float[] out) {
+        // Model Y is up, and model Z is reflected when placed in the game's world.
+        float cos = (float) Math.cos(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
+        float sin = (float) Math.sin(bodyAngle + Math.PI) * Characters.CHARACTER_SCALE;
+        out[0] = cos * x + sin * z + (float) Math.cos(yaw) * EYES_AHEAD;
+        out[1] = sin * x - cos * z + (float) Math.sin(yaw) * EYES_AHEAD;
+        out[2] = up * Characters.CHARACTER_SCALE + EYES_ABOVE_JOINT;
+    }
+
     /** An eye position and the three unit vectors of the view from it, in world axes. */
     static final class Pose {
         float eyeX, eyeY, eyeUp;

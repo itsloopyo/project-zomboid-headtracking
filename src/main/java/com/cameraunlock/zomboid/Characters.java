@@ -31,12 +31,10 @@ import zombie.vehicles.BaseVehicle;
  * picture through a camera that looks down from the south-east. This class
  * notes each model the game draws, and has it drawn again through a camera
  * that stands where the first-person eye is, or where the sun is for its
- * shadow. Vehicles, animals, the viewer's own body and whatever a person
- * holds are drawn again by the game, with its own shaders, textures, bones
- * and lights. The bodies, clothes and hair of everyone else standing in the
- * world are drawn by CharacterDraw from the same bones and textures, and so
- * is the viewer's body while a weapon is in hand: the arms on the weapon are
- * then drawn apart from the rest, held up before the eye with it.
+ * shadow. Vehicles, animals and held objects use the game's renderer.
+ * CharacterDraw draws bodies, clothes and hair from the game's bones and
+ * textures. The viewer's head is hidden, and arms holding a weapon are drawn
+ * separately with it.
  *
  * Render thread only.
  */
@@ -48,7 +46,7 @@ public final class Characters {
     }
 
     /** The model's own units to tiles: the game draws its characters at one and a half times their size. */
-    private static final float CHARACTER_SCALE = 1.5f;
+    static final float CHARACTER_SCALE = 1.5f;
     /** The depth the game's model shader leaves a model at when it is not being fitted among sprites. */
     private static final float NO_DEPTH_SHIFT = 0.5f;
     /** Whether the part being drawn is being drawn by the picture, and not by the game for its own view. Render thread. */
@@ -93,8 +91,6 @@ public final class Characters {
     private static final float SHADOW_REACH = 45f;
     /** A vehicle whose middle is this near the eye of a seated viewer is the one the viewer is in: tiles. */
     private static final float OWN_VEHICLE = 2.5f;
-    /** How far ahead of the middle of the head the eyes are, in tiles. */
-    private static final float EYES_AHEAD = 0.2f;
     /**
      * How far above where the game's camera stands a vehicle its wheels reach the ground, in
      * tiles: without it the car stands in the road up to its sills.
@@ -446,10 +442,8 @@ public final class Characters {
     }
 
     /**
-     * Draws the viewer's own model, into whatever target is bound, through a camera whose near
-     * plane is nearFrom away. The eye is inside the model's head: everything nearer than that
-     * is cut away, the head, the shoulders and the chest, and what is left is the body a
-     * person sees looking down, arms and legs. False if the viewer is not among the models.
+     * Draws the viewer's body without their head into the bound target.
+     * False if the viewer is not among the models.
      */
     boolean drawViewer(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         IsoPlayer viewer = view.player();
@@ -559,15 +553,6 @@ public final class Characters {
 
     private void drawOwnBody(ModelSlotRenderData data, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
-        // A person's eyes are at the front of the head, ahead of the neck. The view's
-        // eye is on the model's axis, so the model is stood a little behind it: looking
-        // down, the chest is below the eye and not the hole of the collar.
-        float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
-        float x = data.x, y = data.y;
-        if (flat > 1e-3f) {
-            data.x -= camera.forwardX / flat * EYES_AHEAD;
-            data.y -= camera.forwardY / flat * EYES_AHEAD;
-        }
         // In full light, as everyone else is: the picture does the lighting, once,
         // by the light the game gives where the viewer stands.
         float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
@@ -586,14 +571,10 @@ public final class Characters {
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
-        data.x = x;
-        data.y = y;
     }
 
     /** The game's light where the viewer stands, as their reflection was last drawn. */
     float reflectedLight = 1f;
-    /** How far above the joint of the head the eyes are, in tiles. */
-    private static final float EYES_ABOVE_JOINT = 0.1f;
 
     /**
      * Draws the viewer as the glass of a window shows them, whole, into whatever target is
@@ -611,25 +592,6 @@ public final class Characters {
             aside(projection);
             ViewCamera.view(camera, eyeView);
             OwnReflection.mirror(eyeView, glass);
-            // Stood a little behind the eye, as the body the viewer looks down at is.
-            float flat = (float) Math.hypot(camera.forwardX, camera.forwardY);
-            float x = data.x, y = data.y, z = data.z;
-            if (flat > 1e-3f) {
-                data.x -= camera.forwardX / flat * EYES_AHEAD;
-                data.y -= camera.forwardY / flat * EYES_AHEAD;
-            }
-            // A mirror shows the eyes that look into it on their own line of sight. The view's
-            // eye is at a height of its own and the model's head is wherever the animation
-            // has it, so the model is stood as much higher or lower as brings its eyes to the
-            // view's.
-            float jointUp = view.modelHead.jointUp;
-            if (!Float.isNaN(jointUp)) {
-                float eyesUp = z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, z) + jointUp * data.finalScale * CHARACTER_SCALE + EYES_ABOVE_JOINT;
-                data.z += (camera.eyeUp - eyesUp) / ViewCamera.LEVEL_HEIGHT;
-                if (TRACE && (liftSaid++ & 127) == 0) {
-                    Log.info(String.format(Locale.ROOT, "glass: the viewer is stood %.3f higher, head joint %.3f in the model, scale %.3f", camera.eyeUp - eyesUp, jointUp, data.finalScale));
-                }
-            }
             float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
             reflectedLight = (red + green + blue) / 3f;
             data.ambientR = 1f;
@@ -644,15 +606,11 @@ public final class Characters {
             data.ambientR = red;
             data.ambientG = green;
             data.ambientB = blue;
-            data.x = x;
-            data.y = y;
-            data.z = z;
             return true;
         }
         return false;
     }
 
-    private int liftSaid;
 
     /** The bone the game hangs what is in the right hand from. */
     private static final String HAND_BONE = "Bip01_Prop1";
@@ -1539,30 +1497,25 @@ public final class Characters {
         return Math.abs(across) > 1f + acrossReach || Math.abs(along) > 1f + alongReach;
     }
 
-    /**
-     * A person standing in the world. The viewer's own body is the game's to draw, part by
-     * part, unless a weapon is held up: the picture then draws it without the arms on the
-     * weapon. Of anyone else the picture draws the parts it can itself and leaves the game the
-     * rest, what they hold and what hangs from them.
-     */
     private void character(ModelSlotRenderData data, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands) {
         place(data.x, data.y, data.z * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(data.x, data.y, data.z), data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
-        if (!own || held) {
-            CharacterDraw.begin(data, combined, projection, casting);
-        }
+        CharacterDraw.begin(data, combined, projection, casting);
         if (!own && !casting) {
             lightWhere(data);
         }
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
+            if (own && onHead(model.modelInstance)) {
+                continue;
+            }
             if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye.
                 if (inHand(model.modelInstance) || CharacterDraw.piece(model, bothHands, false)) {
                     continue;
                 }
-            } else if (!own && CharacterDraw.part(model)) {
+            } else if (CharacterDraw.part(model)) {
                 if (TALLY) {
                     talliedOurs[kind]++;
                 }
@@ -1579,6 +1532,15 @@ public final class Characters {
             drawPart(model, data);
         }
         EYE.End();
+    }
+
+    private static boolean onHead(ModelInstance model) {
+        for (ModelInstance at = model; at != null; at = at.parent) {
+            if ("Bip01_Head".equals(at.parentBoneName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

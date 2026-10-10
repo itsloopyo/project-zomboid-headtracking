@@ -49,6 +49,7 @@ public final class Tests {
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
+        Checks.run("cameraFollowsTheAnimatedHead", Tests::cameraFollowsTheAnimatedHead);
         Checks.run("cameraPutsPlusYOnTheRightWhenFacingPlusX", Tests::cameraPutsPlusYOnTheRightWhenFacingPlusX);
         Checks.run("cameraPutsHigherPointsHigher", Tests::cameraPutsHigherPointsHigher);
         Checks.run("cameraPitchLooksUp", Tests::cameraPitchLooksUp);
@@ -1903,6 +1904,18 @@ public final class Tests {
 
     private static boolean near(float a, float b) {
         return Math.abs(a - b) < 1e-4f;
+    }
+
+    private static void cameraFollowsTheAnimatedHead() {
+        float[] standing = new float[3], crouching = new float[3], turned = new float[3];
+        ViewCamera.eyeOffset(0f, 0.825f, 0.03f, 0f, 0f, standing);
+        ViewCamera.eyeOffset(0f, 0.41f, -0.186f, 0f, 0f, crouching);
+        check(near(standing[2], 1.3375f), "standing eye is above the animated head joint, not a fixed 1.6 tiles");
+        check(near(crouching[2], 0.715f), "crouching eye follows the lowered head joint");
+        check(near(crouching[1] - standing[1], -0.324f), "crouching follows the head's horizontal displacement too");
+        ViewCamera.eyeOffset(0f, 0.41f, -0.186f, (float) (Math.PI / 2), (float) (Math.PI / 2), turned);
+        check(near(turned[0], -crouching[1]) && near(turned[1], crouching[0]) && near(turned[2], crouching[2]),
+                "turning the body and look together rotates the eye offset without changing its height");
     }
 
     private static void cameraLooksAlongItsYaw() {

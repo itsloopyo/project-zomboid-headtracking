@@ -346,7 +346,7 @@ final class Pipeline {
     /** Beside the viewer's own body, which way each point of it faces, where the picture drew it itself. */
     private int ownNormal;
     private int repaintedTarget, repaintedColor, repaintedDepth;
-    private static final float OWN_NEAR = 0.3f;
+    private static final float OWN_NEAR = 0.05f;
     private int occlusionTarget, occlusionColor, softTarget, softColor;
     private int volumeTarget, volumeColor, softVolumeTarget, softVolumeColor;
     private static int spriteSampler;

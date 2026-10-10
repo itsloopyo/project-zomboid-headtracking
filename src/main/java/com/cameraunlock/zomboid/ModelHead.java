@@ -72,6 +72,24 @@ public final class ModelHead {
      */
     volatile float jointUp = Float.NaN;
 
+    private final Matrix4f cameraHead = new Matrix4f();
+    private final Vector3f cameraJoint = new Vector3f();
+
+    boolean eyeOffset(IsoPlayer player, float yaw, float[] out) {
+        AnimationPlayer animation = player.getAnimationPlayer();
+        if (animation == null || !animation.isReady()) {
+            return false;
+        }
+        SkinningBone head = animation.getSkinningData().getBone(HEAD);
+        if (head == null) {
+            return false;
+        }
+        animation.getBoneModelTransform(head.index, cameraHead);
+        HelperFunctions.getPosition(cameraHead, cameraJoint);
+        ViewCamera.eyeOffset(cameraJoint.x, cameraJoint.y, cameraJoint.z, animation.getRenderedAngle(), yaw, out);
+        return true;
+    }
+
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public void pose(AnimationPlayer animation) {
@@ -111,9 +129,6 @@ public final class ModelHead {
             }
             turn(animation, top, yaw * (1f - neckShare), pitch * (1f - neckShare), roll * (1f - neckShare));
         }
-        // The animation carries the head up and down as the character stands, crouches and
-        // readies a weapon, and the view's eye does not follow it. What shows the two side by
-        // side, the viewer in a window's glass, asks where the head is.
         animation.getBoneModelTransform(top.index, inModel);
         HelperFunctions.getPosition(inModel, joint);
         jointUp = joint.y;

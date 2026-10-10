@@ -1634,7 +1634,7 @@ final class CharacterDraw {
         }
         // Hair is drawn again in a few layers stood off it, each thinner than the last: its
         // outline is then strands and not the edge of a helmet. The viewer's own is not seen.
-        int layers = unlit && cutBones == null ? fringe(wear, away) : 0;
+        int layers = unlit && !fromTheEye && cutBones == null ? fringe(wear, away) : 0;
         for (int layer = 0; layer <= layers; layer++) {
             shell(skin.id, layer, layers, person.finalScale);
             GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);

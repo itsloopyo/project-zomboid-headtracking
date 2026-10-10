@@ -122,6 +122,7 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SECONDS = 0.1f;
     private float eyeHigh;
     private final float[] eye = new float[3];
+    private final float[] headOffset = new float[3];
     static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
@@ -632,10 +633,15 @@ public final class FirstPerson {
         float zoom = Core.getInstance().getZoom(player.getIndex());
         holdTheCursorAhead(player, zoom);
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
-        eye[0] = player.getX();
-        eye[1] = player.getY();
+        float height = eyeHeight(player);
+        world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        float reach = (float) Math.hypot(headOffset[0], headOffset[1]);
+        float share = reach > 0f ? world.roomForTheEye(player.getX(), player.getY(), headOffset[0] / reach,
+                headOffset[1] / reach, reach, Tracking.settings().collisionMargin) / reach : 1f;
+        eye[0] = player.getX() + headOffset[0] * share;
+        eye[1] = player.getY() + headOffset[1] * share;
         // Eased from where the last frame at the eye had it. The first of them has none before it.
-        eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, eyeHeight(player), sinceLastFrame, EYE_HEIGHT_SECONDS) : eyeHeight(player);
+        eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, height, sinceLastFrame, EYE_HEIGHT_SECONDS) : height;
         eye[2] = floorUp + eyeHigh;
         view.headlights.gather(view.worldScene.terrain, eye[0], eye[1]);
         BaseVehicle vehicle = player.getVehicle();
@@ -648,7 +654,6 @@ public final class FirstPerson {
         if (view.ride.tilt != null) {
             ViewCamera.tilt(cleanView, view.ride.tilt);
         }
-        world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         if (lookCaptured && vehicle == null) {
             view.centreUse.mark(cleanView, floorUp, player, IsoWorld.instance.currentCell);
         } else {
@@ -1205,6 +1210,11 @@ public final class FirstPerson {
     }
 
     private float eyeHeight(IsoPlayer player) {
+        if (view.modelHead.eyeOffset(player, yaw, headOffset)) {
+            return headOffset[2];
+        }
+        headOffset[0] = 0f;
+        headOffset[1] = 0f;
         if (player.isSitOnGround() || player.isSittingOnFurniture()) {
             return EYE_HEIGHT_SITTING;
         }

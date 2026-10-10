@@ -1,6 +1,7 @@
 package zombie.core.skinnedmodel.animation;
 
 public final class AnimationPlayer {
+    public float getRenderedAngle() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.skinnedmodel.model.SkinningData getSkinningData() { throw new UnsupportedOperationException("reference stub"); }
     public org.lwjgl.util.vector.Matrix4f getBoneModelTransform(int bone, org.lwjgl.util.vector.Matrix4f into) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isReady() { throw new UnsupportedOperationException("reference stub"); }
