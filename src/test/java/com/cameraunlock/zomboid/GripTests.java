@@ -160,19 +160,17 @@ final class GripTests {
             check(ArmHolds.place(model, SCALE, pistol, holding, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 1, "a pistol in one hand has one arm");
             float[] hold = model.holds[model.pose("grip")];
             float[] held = placed(skins[0], model.wrist, hold);
-            WeaponShape shape = pistol.placed().shape();
             check(ArmPose.apart(held, pistol.grip()) < 1e-4f, "the right hand closes round the grip's middle, which is under the guard and not the frame or the slide");
             float[] thumb = placed(skins[0], model.wrist, new float[] {hold[0] + model.across[0], hold[1] + model.across[1], hold[2] + model.across[2]});
             float[] across = {(thumb[0] - held[0]) / SCALE, (thumb[1] - held[1]) / SCALE, (thumb[2] - held[2]) / SCALE};
-            // The grip lies aslant across the palm: the knuckles lean back from its raked line by GRIP_ASLANT.
-            float[] line = pistol.placed().way(shape.gripLine), front = new float[3], aslant = new float[3];
-            float along = ArmPose.dot(pistol.pointing(), line);
-            ArmPose.unit(pistol.pointing()[0] - line[0] * along, pistol.pointing()[1] - line[1] * along, pistol.pointing()[2] - line[2] * along, front);
-            for (int axis = 0; axis < 3; axis++) {
-                aslant[axis] = line[axis] * (float) Math.cos(ArmHolds.GRIP_ASLANT) - front[axis] * (float) Math.sin(ArmHolds.GRIP_ASLANT);
-            }
-            check(ArmPose.dot(across, aslant) > Math.cos(Math.toRadians(3)), "its knuckles run from the little finger to the first aslant across the grip's raked line: "
-                    + Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(across, aslant)))) + " degrees off");
+            // The grip lies aslant across the palm: the knuckles lean back from its raked line, which is the pistol's front edge, by 25 to 35 degrees.
+            float[] edge = {0f, TestGuns.GRIP_TOP - TestGuns.GRIP_FOOT, -(TestGuns.GRIP_FRONT_TOP - TestGuns.GRIP_FRONT_FOOT)};
+            ArmPose.unit(edge[0], edge[1], edge[2], edge);
+            float[] knuckles = new float[3];
+            ArmPose.unit(across[0], across[1], across[2], knuckles);
+            float lean = (float) Math.toDegrees(Math.acos(Math.min(1f, ArmPose.dot(knuckles, edge))));
+            check(lean > 25f && lean < 35f && ArmPose.dot(knuckles, pistol.pointing()) < ArmPose.dot(edge, pistol.pointing()),
+                    "its knuckles run from the little finger to the first leaning back across the grip's raked line: " + lean + " degrees from it");
             float[] palm = placed(skins[0], model.wrist, new float[] {hold[0] + model.out[0], hold[1] + model.out[1], hold[2] + model.out[2]});
             check(palm[0] - held[0] < -0.5f * SCALE, "and its palm is on the grip's right side, facing it");
         }
@@ -202,23 +200,56 @@ final class GripTests {
     }
 
     /**
-     * Both arms on a pistol, at the hip and with the sights up, as the game's pistols are held: each
-     * forearm turned along its length no further than a forearm turns, so the upper arm is not
-     * rolled to make up the rest, and each elbow under its wrist, so the forearm comes up into the
-     * picture from below and does not lie across it from the side.
+     * A pistol held part way between the hip and the sights, turned as the view holds it: canted
+     * over at the hip, swung to the aim point, lowered.
+     *
+     * @param turns about the view's up, its right and the barrel, in radians
+     */
+    private static ArmHolds.Weapon pistolTurned(float aim, float[] turns) {
+        WeaponShape shape = TestGuns.shape(TestGuns.pistol());
+        float[] grip = {0.12f - 0.12f * aim, -0.16f + 0.06f * aim, -0.32f - 0.04f * aim};
+        float[] pointing = {0f, 0f, -1f}, over = {0f, 1f, 0f}, turn = new float[9];
+        float[][] about = {{0f, 1f, 0f}, {1f, 0f, 0f}, null};
+        for (int k = 0; k < 3; k++) {
+            ArmPose.about(about[k] != null ? about[k] : pointing.clone(), turns[k], turn);
+            pointing = turnedBy(turn, pointing);
+            over = turnedBy(turn, over);
+        }
+        ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, 0f, Float.NaN);
+        return new ArmHolds.Weapon(true, true, placed.at(shape.grip), pointing, over, placed);
+    }
+
+    private static float[] turnedBy(float[] turn, float[] line) {
+        float[] out = new float[3];
+        ArmPose.turned(turn, line, out);
+        return out;
+    }
+
+    /** How the view turns a pistol: as it is, canted over at the hip, swung left or right to the aim point, lowered, and raised. */
+    private static final float[][] PISTOL_TURNS = {{0f, 0f, 0f}, {0f, 0f, (float) Math.toRadians(8)}, {(float) Math.toRadians(12), 0f, 0f}, {(float) Math.toRadians(-12), 0f, 0f},
+        {0f, (float) Math.toRadians(-15), 0f}, {0f, (float) Math.toRadians(10), 0f}, {(float) Math.toRadians(-10), (float) Math.toRadians(-10), (float) Math.toRadians(8)}};
+
+    /**
+     * Both arms on a pistol, at the hip, half way up and with the sights up, held as the view
+     * turns it: each forearm turned along its length no further than a forearm turns, so the
+     * upper arm is not rolled to make up the rest, and each elbow under its wrist, so the forearm
+     * comes up into the picture from below and does not lie across it from the side.
      */
     private static void armsOnAPistolComeUpFromUnderThePictureUnturned(ArmModel model) {
-        for (boolean aimed : new boolean[] {false, true}) {
-            ArmHolds.Weapon pistol = pistolHeld(aimed);
-            float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
-            ArmHolds.Doing both = new ArmHolds.Doing(aimed ? 1f : 0f, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
-            check(ArmHolds.place(model, SCALE, pistol, both, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a pistol held in both hands has both arms");
-            for (int side = 0; side < 2; side++) {
-                String arm = (side == 0 ? "the right" : "the left") + (aimed ? " arm with the sights up" : " arm at the hip");
-                float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
-                check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), arm + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
-                float drop = (said[side][ArmPose.WRIST + 1] - said[side][ArmPose.ELBOW + 1]) / SCALE;
-                check(drop > 0.08f, arm + " has its elbow well under its wrist: " + drop + " m");
+        for (float aim : new float[] {0f, 0.5f, 1f}) {
+            for (int way = 0; way < PISTOL_TURNS.length; way++) {
+                ArmHolds.Weapon pistol = pistolTurned(aim, PISTOL_TURNS[way]);
+                float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                ArmHolds.Doing both = new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+                check(ArmHolds.place(model, SCALE, pistol, both, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled()) == 2, "a pistol held in both hands has both arms");
+                for (int side = 0; side < 2; side++) {
+                    String arm = (side == 0 ? "the right" : "the left") + " arm on a pistol raised " + aim + ", turned the way numbered " + way;
+                    float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
+                    check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), arm + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
+                    // A pistol pointed down brings the wrists down towards the elbows, which stay under them.
+                    float drop = (said[side][ArmPose.WRIST + 1] - said[side][ArmPose.ELBOW + 1]) / SCALE;
+                    check(drop > (way == 0 ? 0.08f : 0.05f), arm + " has its elbow well under its wrist: " + drop + " m");
+                }
             }
         }
     }
