@@ -2,6 +2,11 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import zombie.core.textures.Texture;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSprite;
+
 /** Tests of a sign several squares long laid on its wall as one piece: see EdgeRuns. */
 final class SignRunTests {
     private SignRunTests() {}
@@ -14,6 +19,7 @@ final class SignRunTests {
         Checks.run("aPieceLaidOverAllItPaintsKeepsItsFirstQuarter", SignRunTests::aPieceLaidOverAllItPaintsKeepsItsFirstQuarter);
         Checks.run("aBoardPaintedBelowItsFloorIsLaidDownToItsFoot", SignRunTests::aBoardPaintedBelowItsFloorIsLaidDownToItsFoot);
         Checks.run("aBoardOverAnAwningRestsOnItsCloth", SignRunTests::aBoardOverAnAwningRestsOnItsCloth);
+        Checks.run("aBoardLongerThanItsAwningIsLiftedWhole", () -> TestMap.withEverything(SignRunTests::aBoardLongerThanItsAwningIsLiftedWhole));
     }
 
     /** A frame as the game gives a sprite of a square, trimmed to the rectangle it paints. */
@@ -153,5 +159,43 @@ final class SignRunTests {
             most = Math.max(most, mesh.vertices[at]);
         }
         return most;
+    }
+
+    /**
+     * A board of three pieces along the north wall of level 1 at x 0 to 2, each painted from a
+     * quarter of a square before its own to three quarters into it, so they meet, and a fifth of
+     * a level below its floor,
+     * over an awning hung on that wall a level down under x 0 and 1 only, as WallBuilder lays
+     * each piece: the lowest point of each piece's face.
+     */
+    private static void aBoardLongerThanItsAwningIsLiftedWhole() {
+        TestMap map = new TestMap();
+        Texture board = new Texture(9, 64, 100);
+        board.paint(0, 0, 64, 100);
+        IsoSprite piece = map.spriteWith("signs_miscbrands_01_32", IsoObjectType.normal, board, "attachedN", "");
+        for (int x = 0; x <= 2; x++) {
+            IsoObject laid = map.cell.square(x, 0, 1).add(piece);
+            laid.offsetX = 16f;
+            laid.offsetY = 30f;
+        }
+        IsoSprite awning = map.spriteWith("walls_decoration_01_84", IsoObjectType.normal, map.painted, "CustomName", "Canopy", "Facing", "S");
+        map.cell.square(0, 0, 0).add(awning);
+        map.cell.square(1, 0, 0).add(awning);
+        float[] feet = new float[3];
+        for (int x = 0; x <= 2; x++) {
+            WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(x, 0, 1).getObjects().get(0), board);
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            map.build.wallBuilder.sign = true;
+            map.build.wallBuilder.addEdge(mesh, board, false, false, x, 0, 1, 0f, 1f, 0f);
+            map.build.wallBuilder.sign = false;
+            feet[x] = Float.MAX_VALUE;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                feet[x] = Math.min(feet[x], mesh.vertices[at + 2]);
+            }
+        }
+        check(feet[0] < Float.MAX_VALUE && feet[2] < Float.MAX_VALUE, "every piece is laid");
+        check(Math.abs(feet[0] - feet[1]) < 1e-4f && Math.abs(feet[1] - feet[2]) < 1e-4f,
+                "the board is one straight board: each piece is lifted as far, the one past the awning's end too: " + feet[0] + " " + feet[1] + " " + feet[2]);
+        check(feet[0] > ViewCamera.LEVEL_HEIGHT * (1f - 0.2f) + 0.01f, "lifted onto the awning's cloth, not hung below its floor as painted: " + feet[0]);
     }
 }

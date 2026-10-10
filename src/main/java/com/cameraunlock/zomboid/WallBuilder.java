@@ -62,7 +62,7 @@ final class WallBuilder {
 
     /** Whether the sprite being added to an edge is a sign, which may run on over the next squares: see EdgeRuns. */
     boolean sign;
-    private final float[] run = new float[2], next = new float[2], upright = new float[4];
+    private final float[] run = new float[2], next = new float[2], upright = new float[4], walked = new float[2], walkedUpright = new float[4];
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
 
     WallBuilder(WorldScene world, WorldScene.Frame build) {
@@ -75,7 +75,16 @@ final class WallBuilder {
      * that one piece with the sprite now being added makes, painted where run says this one is.
      */
     private boolean runsOn(int x, int y, int z, float da, float db, int step) {
-        IsoGridSquare square = build.cell.getGridSquare(x + step * (int) da, y + step * (int) db, z);
+        return carriesOn(x + step * (int) da, y + step * (int) db, z, da, db, step, run);
+    }
+
+    /**
+     * Whether the square (x, y) holds a sign on the edge (da, db) that carries on from a piece
+     * painted from[0] to from[1] along the square before it, that way (1 along the edge, -1
+     * back): one piece with it. Leaves next and runFrame with that piece.
+     */
+    private boolean carriesOn(int x, int y, int z, float da, float db, int way, float[] from) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
         if (square == null) {
             return false;
         }
@@ -95,11 +104,39 @@ final class WallBuilder {
             runFrame.scale = build.frame.scale;
             WorldScene.frameOf(runFrame, object, texture);
             EdgeRuns.along(runFrame, da, db, next);
-            if (step > 0 ? EdgeRuns.meets(run[0], run[1], next[0], next[1]) : EdgeRuns.meets(next[0], next[1], run[0], run[1])) {
+            if (way > 0 ? EdgeRuns.meets(from[0], from[1], next[0], next[1]) : EdgeRuns.meets(next[0], next[1], from[0], from[1])) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * How far up a sign is hung to rest on the awning under it (EdgeRuns.onAwning), the same for
+     * every piece of a sign that runs on over the next squares: the most any of its pieces
+     * needs, so the board stays one straight board clear of the cloth wherever the cloth is under
+     * it. Each piece lifted by its own square's awning stepped the board where an awning under
+     * part of it ends, and laid the lettering twice at two heights where two pieces overhang
+     * each other there. Taken only where every piece has an awning under it, the letters over
+     * the awning were behind its cloth again. foot is the piece's own foot, run where it paints.
+     */
+    private float runLift(int x, int y, int z, float da, float db, float foot) {
+        float lift = liftOver(x, y, z, da, foot);
+        for (int way = -1; way <= 1; way += 2) {
+            System.arraycopy(run, 0, walked, 0, 2);
+            for (int step = way; carriesOn(x + step * (int) da, y + step * (int) db, z, da, db, way, walked); step += way) {
+                EdgeRuns.upright(runFrame, da, db, walkedUpright);
+                lift = Math.max(lift, liftOver(x + step * (int) da, y + step * (int) db, z, da, walkedUpright[WallHung.BOTTOM]));
+                System.arraycopy(next, 0, walked, 0, 2);
+            }
+        }
+        return lift;
+    }
+
+    /** How far up a piece of a sign whose foot is that far below its floor rests on the awning hung on its wall a level down, 0 for none. */
+    private float liftOver(int x, int y, int z, float da, float foot) {
+        IsoGridSquare below = build.cell.getGridSquare(x, y, z - 1);
+        return below == null ? 0f : EdgeRuns.onAwning(foot, Awnings.meetsWall(below, da != 0f));
     }
 
     /**
@@ -185,9 +222,8 @@ final class WallBuilder {
                 EdgeRuns.upright(build.frame, da, db, upright);
                 foot = upright[WallHung.BOTTOM];
                 up = upright[WallHung.TOP] - foot;
-                IsoGridSquare below = foot < 0f && z > 0 && Own.furniture() ? build.cell.getGridSquare(x, y, z - 1) : null;
-                if (below != null) {
-                    build.geometry.shownUp = EdgeRuns.onAwning(foot, Awnings.meetsWall(below, da != 0f));
+                if (z > 0 && Own.furniture()) {
+                    build.geometry.shownUp = runLift(x, y, z, da, db, foot);
                 }
             }
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
