@@ -1461,11 +1461,13 @@ public final class Characters {
             }
             if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle) {
                 IsoGridSquare square = data.character.getCurrentSquare();
-                if (square != null && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+                boolean leftOut = square != null && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ());
+                if (FIGURE_ROOMS && figureRoomsLine != null && square != null) {
+                    figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d %s)", square.getX(), square.getY(), square.getZ(), square.getRoomID(),
+                            leftOut ? "LEFT OUT" : square.getRoomID() == RoomSight.OUTSIDE ? "outdoors" : byRoom.built(square.getRoomID()) ? "drawn, room built" : "drawn, beside an opening"));
+                }
+                if (leftOut) {
                     leftOutByRoom++;
-                    if (FIGURE_ROOMS && figureRoomsLine != null) {
-                        figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d)", square.getX(), square.getY(), square.getZ(), square.getRoomID()));
-                    }
                     continue;
                 }
             }

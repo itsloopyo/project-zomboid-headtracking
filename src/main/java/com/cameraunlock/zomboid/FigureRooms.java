@@ -63,6 +63,11 @@ final class FigureRooms {
         return true;
     }
 
+    /** Dev only: whether a room's contents are built. */
+    boolean built(long room) {
+        return rooms.contains(room);
+    }
+
     int rooms() {
         return rooms.size();
     }
