@@ -167,6 +167,21 @@ final class WallBuilder {
         WorldScene.layers.none();
     }
 
+    /**
+     * Adds a stain the game paints over the wall along the square's edge from (0, 0) along
+     * (da, db), a level high, on the wall's skin inside the square, which is the side the
+     * game's view shows it on, the given number of layers clear of the skin.
+     */
+    void addStain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
+        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
+        WorldScene.layers.lie(way, layer);
+        build.geometry.shownA = db * WorldScene.WALL_HALF;
+        build.geometry.shownB = da * WorldScene.WALL_HALF;
+        build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        build.geometry.shownA = build.geometry.shownB = 0f;
+        WorldScene.layers.none();
+    }
+
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float way, float layer, float da, float db) {
         float inX = db * WorldScene.WALL_HALF, inY = da * WorldScene.WALL_HALF;

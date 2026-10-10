@@ -35,7 +35,8 @@ final class SpriteGeometry {
      * picture works out from how far off the vertex is: see PipelineShaders.FACED. A strip of
      * addStrip carries other things in the vector's place. Last, the square of the tree the
      * vertex is part of, NO_ROOT for anything that is no tree's: the game opens or leaves a
-     * tree whole in its own view (see CanopyWindow).
+     * tree whole in its own view (see CanopyWindow). Blood is no tree, and carries there the
+     * colour its texels are drawn in, red and then green and blue (see BloodBuilder).
      */
     static final int VERTEX_FLOATS = 17;
     /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; and its tree's square. */

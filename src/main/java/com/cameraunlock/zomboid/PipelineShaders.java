@@ -528,8 +528,9 @@ final class PipelineShaders {
                 }
                 // Nor what lies under trees or clings to a bole, though a fern, a weed and a
                 // flower growing out of the ground do.
-                // Nor paint on a road, whose faces lie tilted on the land with a facing longer than one.
-                bool still = uLaid > 0.5 && vKind < 7.5 && (vMaterial < 59.5 || vMaterial > 82.5 && vMaterial < 84.5) || vKind > 3.5 && vKind < 7.5;
+                // Nor paint on a road, whose faces lie tilted on the land with a facing longer than one,
+                // nor blood, whose facing is as long as it is see-through.
+                bool still = uLaid > 0.5 && vKind < 7.5 && (vMaterial < 59.5 || vMaterial > 82.5 && vMaterial < 85.5) || vKind > 3.5 && vKind < 7.5;
                 // An overhead wire: the length of its facing says how far it hangs below the line between its insulators, see swung.
                 // What hangs on a cord, a bulb of a string of lights, carries the same and swings with its cord. One that
                 // burns is of the stuff of a lamp and hangs below a line, which no lamp that stands does, and one that is
@@ -2337,7 +2338,7 @@ final class PipelineShaders {
                 // draws of it, the rest of its pixels left out, and the whole tree goes by its
                 // own square. The mod's trees are their crowns, boles and ivy, the game's are
                 // cards of its plant sheets, and a bush is none.
-                bool tree = vRoot.x >= 0.0;
+                bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5);
                 if (tree && uCanopy.z > 0.0 && (inCanopy(uCanopy.xy, uCanopy.zw, CANOPY_EDGE_FROM, CANOPY_EDGE_TO)
                         || uCanopyAim.z > 0.0 && inCanopy(uCanopyAim.xy, uCanopyAim.zz, CANOPY_AIMED_FROM, CANOPY_AIMED_TO))) {
                     float shown = 1.0;
@@ -3263,7 +3264,14 @@ final class PipelineShaders {
             }
             """;
 
-    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);
+    /** For the world's fragment main, after the texel is read: blood is the game's colour for it and covers what it is laid on as much as the game's does (see BloodBuilder). */
+    static final String BLOOD_MAIN = """
+                if (vMaterial > 84.5 && vMaterial < 85.5) {
+                    texel.rgb *= vec3(vRoot.x, vRoot.y, vRoot.y);
+                    texel.a *= vCover;
+                }
+            """;
+    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST);
 
     static final String SHADOW_VERTEX = """
             #version 120

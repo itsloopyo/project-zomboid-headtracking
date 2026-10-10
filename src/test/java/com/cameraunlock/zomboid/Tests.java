@@ -85,6 +85,7 @@ public final class Tests {
         Checks.run("PictureTests", PictureTests::run);
         Checks.run("LinkTests", LinkTests::run);
         Checks.run("RoadPaintTests", RoadPaintTests::run);
+        Checks.run("BloodTests", BloodTests::run);
         Checks.run("GamepadsTests", GamepadsTests::run);
         Checks.run("shotStopsOnACharacter", Tests::shotStopsOnACharacter);
         Checks.run("insertAfterAddsTheHookOnce", Tests::insertAfterAddsTheHookOnce);

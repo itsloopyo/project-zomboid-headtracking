@@ -7,6 +7,8 @@ import zombie.iso.SpriteDetails.IsoObjectType;
 
 public final class IsoSprite {
     public IsoSpriteInstance def;
+    public static IsoSprite CreateSprite(IsoSpriteManager manager) { throw new UnsupportedOperationException("reference stub"); }
+    public Texture LoadSingleTexture(String name) { throw new UnsupportedOperationException("reference stub"); }
     public PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
     public Texture getTextureForCurrentFrame(IsoDirections direction) { throw new UnsupportedOperationException("reference stub"); }
     public IsoObjectType getType() { throw new UnsupportedOperationException("reference stub"); }

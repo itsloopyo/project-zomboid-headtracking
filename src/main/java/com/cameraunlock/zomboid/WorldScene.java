@@ -1439,7 +1439,7 @@ final class WorldScene {
         return moves;
     }
 
-    private static final long SUM_FROM = 0x9E3779B97F4A7C15L;
+    static final long SUM_FROM = 0x9E3779B97F4A7C15L;
 
     /** The picture the game has of a body and where it draws it, as one number: 0 while it has none. */
     private static long pictured(IsoDeadBody body) {
@@ -1487,7 +1487,7 @@ final class WorldScene {
         return (long) System.identityHashCode(sprite) << 32 | (texture == null ? 0 : texture.getID() & 0xffffffffL);
     }
 
-    private static long sum(long sum, long value) {
+    static long sum(long sum, long value) {
         return (sum ^ value) * 0x100000001B3L;
     }
 
@@ -1563,6 +1563,8 @@ final class WorldScene {
     static final float PANE = 67f, LIT_PANE = 68f;
     /** A wall of upright boards. */
     static final float BOARDS = 52f;
+    /** The game's blood on a floor or a wall: its texels take the colour its vertices carry where a tree's carry its square, and it covers as much as they say. See BloodBuilder. */
+    static final float BLOOD = 85f;
 
     /** What a sprite that is no floor is made of: see materialOf. A wall the game says is of wood, on a sheet made for one place, is boarded. */
     static float materialOf(IsoSprite sprite) {
@@ -1888,6 +1890,7 @@ final class WorldScene {
         final PostBuilder postBuilder = new PostBuilder(this);
         private final StairBuilder stairBuilder = new StairBuilder(this);
         private final FurnishingBuilder furnishingBuilder = new FurnishingBuilder(this);
+        private final BloodBuilder bloodBuilder = new BloodBuilder(this);
         final CeilingBuilder ceilingBuilder = new CeilingBuilder(WorldScene.this, this);
         final RoofBuilder roofBuilder = new RoofBuilder(WorldScene.this, this);
         private final WireBuilder wireBuilder = new WireBuilder(WorldScene.this, this);
@@ -2109,7 +2112,7 @@ final class WorldScene {
         /** The squares readLights last read, laid out as the lights are. */
         private final IsoGridSquare[] lightSquare = new IsoGridSquare[LIGHT_SPAN * LIGHT_SPAN];
         /** The chunk being read and the eight round it, by column then row, null where the map has none loaded. */
-        private final IsoChunk[] around = new IsoChunk[9];
+        final IsoChunk[] around = new IsoChunk[9];
         private long auditTerrain, auditTrees;
         private long[] auditLights = new long[0], auditThings = new long[0];
         /** What every build goes by that is not of its chunk, as one number: see build. */
@@ -3612,6 +3615,9 @@ final class WorldScene {
                         readWoods(chunkX, chunkY);
                     }
                 }
+                if (!growing) {
+                    bloodBuilder.read(chunkX, chunkY, z);
+                }
                 for (int localX = 0; localX < CHUNK_TILES; localX++) {
                     for (int localY = 0; localY < CHUNK_TILES; localY++) {
                         IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
@@ -3780,7 +3786,7 @@ final class WorldScene {
                     continue;
                 }
                 tollLevelsRead++;
-                long level = SUM_FROM;
+                long level = bloodBuilder.read(chunkX, chunkY, z);
                 readLights(chunkX, chunkY, z);
                 System.arraycopy(lightRed, 0, keptRed, (z - from) * span, span);
                 System.arraycopy(lightGreen, 0, keptGreen, (z - from) * span, span);
@@ -3838,6 +3844,7 @@ final class WorldScene {
                                 // A string of lights that goes on or off: its bulbs are built burning or out.
                                 thing = sum(thing, burns(string) ? 6 : 5);
                             }
+                            thing = BloodBuilder.onWall(thing, object);
                             if (object instanceof IsoDoor door) {
                                 thing = sum(thing, door.IsOpen() ? 2 : 1);
                             } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
@@ -4869,6 +4876,10 @@ final class WorldScene {
                 }
                 addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
                 geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
+                if (object.wallBloodSplats != null && !object.wallBloodSplats.isEmpty()) {
+                    PropertyContainer flags = sprite.getProperties();
+                    bloodBuilder.layOnWall(object, onNorthEdge(flags), onWestEdge(flags), x, y, z);
+                }
                 owning(Outlines.NONE);
             }
             contentsOf(RoomSight.OUTSIDE);
@@ -4887,17 +4898,21 @@ final class WorldScene {
                 addEdges(x, y, localX, localY);
                 floorBuilder.spreadGround(x, y, localX, localY);
                 contentsOf(room);
-                int laidItems = layItems(z, floorLayer + spreadLayers);
+                // Blood is spilt on a floor, and runs over onto the next square's: not onto water.
+                boolean wet = groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] == Terrain.WATER;
+                int blood = empty || unsought || hangsInAir || wet ? 0 : bloodBuilder.layFloor(x, y, z, localX, localY, floorLayer + spreadLayers);
+                int laidItems = layItems(z, floorLayer + spreadLayers + blood);
                 contentsOf(RoomSight.OUTSIDE);
                 // What grows here is a build of its own: see grow. It lies over these layers.
-                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + laidItems);
+                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + blood + laidItems);
                 int own = (localX + 1) * LIGHT_SPAN + localY + 1;
                 building.grows |= groundKind[own] == Terrain.NATURAL && lightOpen[own] == 1;
             }
 
             contentsOf(room);
             if (z != 0) {
-                layItems(z, floorLayer);
+                int blood = empty || unsought || hangsInAir ? 0 : bloodBuilder.layFloor(x, y, z, localX, localY, floorLayer);
+                layItems(z, floorLayer + blood);
             }
 
             ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
