@@ -45,6 +45,7 @@ final class TerrainTests {
             theHillsAreAtTheirDefaultWherePlayersCanFight();
             aChangeOfHeightReworksTheLandRoundTheEyeAtOnce();
             streamedChunksShareTheirBorders();
+            aBuildKeepsTheHeightsItWasMadeOn();
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -56,6 +57,56 @@ final class TerrainTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    /**
+     * A far chunk's build is kept while the heights it was made on have moved by less than the
+     * picture shows (WorldScene.Frame.heightsHeld). That holds only while Terrain never writes an
+     * array it has handed out: the build keeps those arrays as they were.
+     */
+    private static void aBuildKeepsTheHeightsItWasMadeOn() {
+        boolean live = ChunkMarks.live;
+        Terrain.forget();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = new TestMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            var water = map.sprite("blends_natural_02_0", zombie.iso.SpriteDetails.IsoObjectType.normal, "water");
+            for (int x = -8; x < 16; x++) {
+                for (int y = -8; y < 16; y++) {
+                    map.cell.square(x, y, 0).floor(grass);
+                }
+            }
+            Terrain.frame(2000);
+            Terrain.loaded(1);
+            WorldScene.ChunkMeshes built = new WorldScene.ChunkMeshes(0);
+            map.build.heightsSeen(built, 1, 0);
+            check(map.build.heightsHeld(built, 0f), "with nothing loaded since, a build's heights are the heights");
+            for (int x = -48; x < 56; x++) {
+                for (int y = -48; y < 56; y++) {
+                    if (x < -8 || x >= 16 || y < -8 || y >= 16) {
+                        map.cell.square(x, y, 0).floor(x >= 16 ? water : grass);
+                    }
+                }
+            }
+            Terrain.frame(2001);
+            Terrain.loaded(2);
+            Terrain.HILLS.fromMap(map.cell, 1, 0);
+            float moved = 0f;
+            float[] now = Terrain.HILLS.corners(map.cell, 1, 0);
+            float[] then = built.heightsSeenForTests();
+            for (int i = 0; i < now.length; i++) {
+                moved = Math.max(moved, Math.abs(now[i] - then[i]));
+            }
+            check(moved > 0f, "water loaded beside the chunk moves its heights: " + moved);
+            check(!map.build.heightsHeld(built, moved * 0.5f), "heights that moved by more than allowed are not the build's");
+            check(map.build.heightsHeld(built, moved), "heights that moved by no more than allowed are still the build's");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+        }
     }
 
     private static void streamedChunksShareTheirBorders() {

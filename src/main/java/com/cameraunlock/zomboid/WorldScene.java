@@ -297,6 +297,11 @@ final class WorldScene {
         private float[][] heightsSeen = new float[0][];
         private int[] heightsSeenOf = new int[0];
         private float[] waterSeen;
+
+        /** Tests only: the build's own chunk's heights as it was made on them. */
+        float[] heightsSeenForTests() {
+            return heightsSeen[0];
+        }
         /** Which of the chunk and the eight round it were loaded when it was last read, a bit each, and which chunks the map had loaded then: see loadedNow. */
         private int ring, loaded;
         /**
@@ -4526,7 +4531,7 @@ final class WorldScene {
         }
 
         /** Notes the heights a build was made on, after landOf: its own chunk's and those of the chunks it took heights from. */
-        private void heightsSeen(ChunkMeshes fresh, int wx, int wy) {
+        void heightsSeen(ChunkMeshes fresh, int wx, int wy) {
             int count = 1 + Integer.bitCount(heightsRound) + heightsFarCount;
             if (fresh.heightsSeen.length != count) {
                 fresh.heightsSeen = new float[count][];
@@ -4558,7 +4563,7 @@ final class WorldScene {
          * chunk's kerbs run where they did: its triangles would then come out the same but for
          * that much up or down.
          */
-        private boolean heightsHeld(ChunkMeshes build, float within) {
+        boolean heightsHeld(ChunkMeshes build, float within) {
             int wx = build.heightsSeenOf[0], wy = build.heightsSeenOf[1];
             if (terrain.kerbSum(wx, wy) != build.kerbs || !within(build.waterSeen, terrain.water(wx, wy), within)) {
                 return false;
