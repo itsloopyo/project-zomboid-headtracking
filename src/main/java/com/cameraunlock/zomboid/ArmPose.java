@@ -48,15 +48,16 @@ final class ArmPose {
         return model.upperLength * UPPER_LONGEST + model.foreLength;
     }
     /** How many floats `solve` says of what it found. */
-    static final int SAYS = 11;
+    static final int SAYS = 14;
     /**
      * Where among them: how far the wrist is bent and the forearm turned along its length, in
      * radians, then the elbow and the wrist, how far the shoulder is drawn from where it was
      * asked for, in the lengths the answer is in, and how many times the length the model has
-     * it the upper arm is drawn, and how far the hand asked the forearm to be turned along its
-     * length before what a forearm turns was taken off it, in radians.
+     * it the upper arm is drawn, how far the hand asked the forearm to be turned along its
+     * length before what a forearm turns was taken off it, in radians, and the way the hand
+     * would have its forearm run from the elbow to the wrist, straight behind it, of length one.
      */
-    static final int BENT = 0, TWISTED = 1, ELBOW = 2, WRIST = 5, GAVE = 8, DRAWN = 9, ASKED = 10;
+    static final int BENT = 0, TWISTED = 1, ELBOW = 2, WRIST = 5, GAVE = 8, DRAWN = 9, ASKED = 10, HELD = 11;
 
     /**
      * Places an arm.
@@ -212,6 +213,7 @@ final class ArmPose {
         for (int axis = 0; axis < 3; axis++) {
             said[ELBOW + axis] = elbow[axis] * (axis == 0 ? side : 1f);
             said[WRIST + axis] = wrist[axis] * (axis == 0 ? side : 1f);
+            said[HELD + axis] = asHeld[axis] * (axis == 0 ? side : 1f);
         }
         return true;
     }

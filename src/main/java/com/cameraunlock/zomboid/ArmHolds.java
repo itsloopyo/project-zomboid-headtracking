@@ -560,10 +560,11 @@ final class ArmHolds {
             Hold onKnob = new Hold(model).set(knob, axes.way(0f, 0.3f, -1f), axes.way(0.7f, 0.6f, -0.3f), false, model.pose("knob"));
             hold.towards(onKnob, on);
         } else if (cycled >= 0f && doing.action() == ArmActs.LEVER) {
-            // The hand in the lever's loop swings it down and forward about its pin and back.
+            // The hand in the lever's loop swings it down and forward about its pin and back, turning with it. Turned the other way
+            // about the pin, the hand went up over the receiver and asked its forearm to turn 155 to 180 degrees.
             float swung = (between(cycled, 0.05f, 0.2f) - between(cycled, 0.22f, 0.4f)) * ArmActs.LEVER_SWINGS;
             float[] pin = placed.at(shape.guardFront, shape.guardTop, 0f), turn = new float[9], arm = new float[3], turnedArm = new float[3];
-            ArmPose.about(axes.right, -swung, turn);
+            ArmPose.about(axes.right, swung, turn);
             for (int axis = 0; axis < 3; axis++) {
                 arm[axis] = hold.at[axis] - pin[axis];
             }
@@ -859,9 +860,39 @@ final class ArmHolds {
         return into;
     }
 
+    /**
+     * How many times a hand that asks its forearm to turn further than a forearm turns is turned
+     * back and placed again, each time its elbow may go elsewhere, and how far short of what a
+     * forearm turns it is turned back to, in radians, so that where the elbow then goes does not
+     * take it over again.
+     */
+    static final int YIELD_PASSES = 3;
+    static final float YIELD_SPARE = (float) Math.toRadians(2);
+
+    /**
+     * Places an arm on a hold. A hand that asks its forearm to turn further than a forearm turns
+     * is turned back about the line its own forearm would run along by as much as it asks over,
+     * as a hand shifts its grip on a weapon tipped over in it: the upper arm is not rolled to make
+     * up the rest, and the wrist is bent no further for it. The hand under a fore-end keeps its
+     * palm square under it, as a fore-end lies in the palm.
+     */
     private static boolean solve(ArmModel model, Weapon weapon, float scale, float turned, Hold hold, float[] fromAim, int side, float[][] skins, float[][] said) {
         float[] shoulder = new float[3], from = new float[3];
         starts(weapon, side, scale, turned, fromAim, shoulder, from);
-        return ArmPose.solve(model, scale, hold.weights, hold.at, hold.across, hold.out, shoulder, from, side == 1, hold.round, skins[side], said[side]);
+        float[] turn = new float[9];
+        for (int pass = 0; ; pass++) {
+            if (!ArmPose.solve(model, scale, hold.weights, hold.at, hold.across, hold.out, shoulder, from, side == 1, hold.round, skins[side], said[side])) {
+                return false;
+            }
+            float asked = said[side][ArmPose.ASKED];
+            if (Math.abs(asked) <= ArmPose.TWIST_MOST || pass == YIELD_PASSES || hold.weights[model.pose("fore")] > 0.5f) {
+                return true;
+            }
+            float[] held = {said[side][ArmPose.HELD], said[side][ArmPose.HELD + 1], said[side][ArmPose.HELD + 2]};
+            // The left arm is solved as the right one in a mirror, which turns the other way about the same line.
+            ArmPose.about(held, (Math.signum(asked) * (ArmPose.TWIST_MOST - YIELD_SPARE) - asked) * (side == 1 ? -1f : 1f), turn);
+            ArmPose.turned(turn, hold.across.clone(), hold.across);
+            ArmPose.turned(turn, hold.out.clone(), hold.out);
+        }
     }
 }

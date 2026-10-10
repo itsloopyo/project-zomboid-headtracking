@@ -256,36 +256,97 @@ final class GripTests {
     }
 
     /**
-     * While a bolt is worked, a slide racked, a magazine taken out, fetched and seated, or a round
-     * pushed in, each arm asks its forearm to turn no further than a forearm turns.
+     * A firearm held as the view holds it: its grip `at`, in metres from the eye, turned up by
+     * `pitch`, to the left by `yaw` and its top over to the left by `roll`, as ViewModelMath.turn
+     * turns it, and with its fore-end slid back by `slid` of its mesh.
+     */
+    private static ArmHolds.Weapon heldTurned(WeaponShape shape, boolean handgun, float[] at, float pitch, float yaw, float roll) {
+        float[] turn = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+        ViewModelMath.turn(turn, pitch, yaw, roll, 0f, 0f, 0f, 0f, 0f, 0f);
+        float[] pointing = {-turn[8], -turn[9], -turn[10]}, over = {turn[4], turn[5], turn[6]};
+        float[] grip = {at[0] * SCALE, at[1] * SCALE, at[2] * SCALE};
+        ArmHolds.Placed placed = TestGuns.placed(shape, grip, pointing, over, SCALE, 0f, Float.NaN);
+        return new ArmHolds.Weapon(true, handgun, placed.at(shape.grip), pointing, over, placed);
+    }
+
+    /**
+     * How a firearm is held while it is worked: at the hip or with the sights up, and brought up
+     * before the eye and tipped over by `brought` of the way, as ViewModel moves it for every
+     * load, unload, fetch and rack: the grip moved by as much as ViewModel moves the weapon there,
+     * the muzzle raised and swung and the top tipped by HANDLED_LONG's or HANDLED_PISTOL's turns.
+     */
+    private static ArmHolds.Weapon worked(WeaponShape shape, boolean handgun, float aim, float brought) {
+        float[] hip = handgun ? new float[] {0.12f, -0.16f, -0.32f} : new float[] {0.22f, -0.25f, -0.23f};
+        float[] aimed = handgun ? new float[] {0f, -0.1f, -0.36f} : new float[] {0.09f, -0.18f, -0.35f};
+        float[] hipAt = handgun ? new float[] {0.13f, -0.14f, 0.27f} : new float[] {0.09f, -0.12f, 0.27f};
+        float[] to = handgun ? ViewModel.HANDLED_PISTOL : ViewModel.HANDLED_LONG;
+        float[] at = new float[3];
+        for (int axis = 0; axis < 3; axis++) {
+            at[axis] = hip[axis] + (aimed[axis] - hip[axis]) * aim;
+        }
+        // The view's places are in tiles, ahead positive; the hand's in metres, ahead negative.
+        at[0] += (to[0] - hipAt[0]) / SCALE * brought;
+        at[1] += (to[1] - hipAt[1]) / SCALE * brought;
+        at[2] -= (to[2] - hipAt[2]) / SCALE * brought;
+        float cant = (float) Math.toRadians(8) * (1f - aim);
+        return heldTurned(shape, handgun, at, to[3] * brought, to[4] * brought, cant + (to[5] - cant) * brought);
+    }
+
+    /**
+     * While a bolt is worked or a lever swung, a slide racked, a magazine taken out, fetched and
+     * seated, or a round pushed into a pump, a bolt, a double gun or a revolver, at the hip and
+     * with the sights up, with the weapon brought up and tipped over as it is for each of these,
+     * each arm asks its forearm to turn no further than a forearm turns: frame after frame, so a
+     * hand crossing from one hold to the next is asked too.
      */
     private static void armsWorkingTheActionTurnNoFurtherThanAForearmTurns(ArmModel model) {
-        WeaponShape longShape = TestGuns.shape(TestGuns.longGun(true));
-        float[] pointing = {0f, 0f, -1f}, over = {0f, 1f, 0f};
-        float[] longGrip = {0.22f * SCALE, -0.25f * SCALE, -0.23f * SCALE};
-        ArmHolds.Placed longPlaced = TestGuns.placed(longShape, longGrip, pointing, over, SCALE, 0f, Float.NaN);
-        ArmHolds.Weapon rifle = new ArmHolds.Weapon(true, false, longPlaced.at(longShape.grip), pointing, over, longPlaced);
-        ArmHolds.Weapon pistol = pistolTurned(0f, PISTOL_TURNS[0]);
-        for (float t = 0f; t <= 2.2f; t += 0.05f) {
-            float aim = 0f;
-            Object[][] cases = {
-                {"a bolt worked " + t + " s after the shot", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, t, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
-                {"a slide racked " + t + " s in", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.RACKING, t, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
-                {"a pistol magazine out " + t + " s", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, t, -1f, 2f, 0f)},
-                {"a pistol magazine fetched " + t + " s", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f)},
-                {"a pistol magazine seated " + t + " s ago", pistol, new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, t, true, -1f, -1f, 2f, 0f)},
-                {"a rifle magazine taken hold of " + t + " s in", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.UNLOADING, t, 0f, 2f, -1f, true, -1f, -1f, 2f, 0f)},
-                {"a rifle magazine fetched " + t + " s", rifle, new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f)},
-                {"a round pushed into a pump " + (t / 2.2f) + " of the way", rifle, new ArmHolds.Doing(aim, true, ArmActs.PUMP, -1f, ArmActs.LOADING, t, t / 2.2f, 1f, -1f, true, -1f, -1f, 2f, 0f)},
-            };
-            for (Object[] doing : cases) {
-                float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
-                int arms = ArmHolds.place(model, SCALE, (ArmHolds.Weapon) doing[1], (ArmHolds.Doing) doing[2], SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
-                check(arms > 0, "the arms are placed with " + doing[0]);
-                for (int side = 0; side < arms; side++) {
-                    float asked = (float) Math.toDegrees(said[side][ArmPose.ASKED]);
-                    check(Math.abs(asked) <= Math.toDegrees(ArmPose.TWIST_MOST), (side == 0 ? "the right" : "the left") + " arm with " + doing[0]
-                            + " asks its forearm to turn no further than a forearm turns: " + asked + " degrees");
+        WeaponShape rifleShape = TestGuns.shape(TestGuns.longGun(true)), leverShape = TestGuns.shape(TestGuns.longGun(true, 0.06f));
+        WeaponShape pistolShape = TestGuns.shape(TestGuns.pistol());
+        float frame = 1f / 60f;
+        String[] names = {"a bolt worked", "a lever worked", "a slide racked", "a pistol magazine out", "a pistol magazine fetched", "a pistol magazine seated",
+            "a rifle magazine taken hold of", "a rifle magazine fetched", "a round pushed into a pump", "a round pushed into a bolt", "a round pushed into a double gun",
+            "a round pushed into a revolver"};
+        for (float aim : new float[] {0f, 1f}) {
+            for (float brought : new float[] {0f, 0.5f, 1f}) {
+                for (int which = 0; which < names.length; which++) {
+                    if (which < 2 && brought > 0f) {
+                        // A bolt or a lever is worked after a shot, with the weapon held as it was fired, not brought up to be loaded.
+                        continue;
+                    }
+                    boolean handgun = which == 2 || which == 3 || which == 4 || which == 5 || which == 11;
+                    ArmHolds.Weapon gun = worked(which == 1 ? leverShape : handgun ? pistolShape : rifleShape, handgun, aim, brought);
+                    ArmHolds.Settled settled = new ArmHolds.Settled();
+                    settled.seconds = frame;
+                    float most = 0f;
+                    String where = "";
+                    for (float t = 0f; t <= (which == 1 ? 0.45f : 2.2f); t += frame) {
+                        ArmHolds.Doing doing = switch (which) {
+                            case 0 -> new ArmHolds.Doing(aim, true, ArmActs.BOLT, t, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 1 -> new ArmHolds.Doing(aim, true, ArmActs.LEVER, t, ArmActs.HOLDING, 0f, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 2 -> new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.RACKING, t, 0f, 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 3 -> new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, t, -1f, 2f, 0f);
+                            case 4 -> new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f);
+                            case 5 -> new ArmHolds.Doing(aim, true, ArmActs.HANDGUN, -1f, ArmActs.HOLDING, 0f, 0f, 1f, t, true, -1f, -1f, 2f, 0f);
+                            case 6 -> new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.UNLOADING, t, 0f, 2f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 7 -> new ArmHolds.Doing(aim, true, ArmActs.BOLT, -1f, ArmActs.LOADING, t, 0f, 2f, -1f, false, -1f, t, 2.2f, 0f);
+                            case 8 -> new ArmHolds.Doing(aim, true, ArmActs.PUMP, -1f, ArmActs.LOADING, t, (t % 1f), 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 9 -> new ArmHolds.Doing(aim, true, ArmActs.BOLT_SINGLE, -1f, ArmActs.LOADING, t, (t % 1f), 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            case 10 -> new ArmHolds.Doing(aim, true, ArmActs.DOUBLE, -1f, ArmActs.LOADING, t, (t % 1f), 1f, -1f, true, -1f, -1f, 2f, 0f);
+                            default -> new ArmHolds.Doing(aim, true, ArmActs.REVOLVER, -1f, ArmActs.LOADING, t, (t % 1f), 1f, -1f, true, -1f, -1f, 2f, 0f);
+                        };
+                        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                        int arms = ArmHolds.place(model, SCALE, gun, doing, SAME, skins, said, new ArmHolds.Carried(), settled);
+                        check(arms > 0, "the arms are placed with " + names[which] + " " + t + " s in");
+                        for (int side = 0; side < arms; side++) {
+                            float asked = Math.abs((float) Math.toDegrees(said[side][ArmPose.ASKED]));
+                            if (asked > most) {
+                                most = asked;
+                                where = (side == 0 ? "the right arm " : "the left arm ") + String.format(java.util.Locale.ROOT, "%.2f", t) + " s in";
+                            }
+                        }
+                    }
+                    check(most <= Math.toDegrees(ArmPose.TWIST_MOST), "with " + names[which] + (aim == 0f ? " at the hip" : " with the sights up") + ", brought up " + brought
+                            + ", each arm asks its forearm to turn no further than a forearm turns: " + where + " asks " + most + " degrees");
                 }
             }
         }
